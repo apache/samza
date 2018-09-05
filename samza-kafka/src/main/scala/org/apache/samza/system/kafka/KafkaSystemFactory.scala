@@ -47,7 +47,7 @@ object KafkaSystemFactory extends Logging {
 class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
-    val clientId = KafkaConsumerConfig.getClientId( config)
+    val clientId = KafkaConsumerConfig.getConsumerClientId( config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
     NewKafkaSystemConsumer.getNewKafkaSystemConsumer(
@@ -76,7 +76,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
-    val clientId = KafkaConsumerConfig.getClientId(config)
+    val clientId = KafkaConsumerConfig.getConsumerClientId(config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)

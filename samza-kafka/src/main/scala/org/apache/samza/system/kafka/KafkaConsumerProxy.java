@@ -85,7 +85,6 @@ public class KafkaConsumerProxy<K, V> {
     this.metricName = metricName;
     this.clientId = clientId;
 
-    // TODO - see if we need new metrics (not host:port based)
     this.kafkaConsumerMetrics.registerClientProxy(metricName);
 
     consumerPollThread = new Thread(createProxyThreadRunnable());
@@ -133,18 +132,17 @@ public class KafkaConsumerProxy<K, V> {
    * creates a separate thread for pulling messages
    */
   private Runnable createProxyThreadRunnable() {
-    return () -> {
+    Runnable runnable=  () -> {
       isRunning = true;
 
 
       try {
         consumerPollThreadStartLatch.countDown();
-        System.out.println("THREAD: runing " + consumerPollThread.getName());
+        LOG.info("Starting runnable " + consumerPollThread.getName());
         initializeLags();
         while (isRunning) {
           fetchMessages();
         }
-        System.out.println("THREAD: finished " + consumerPollThread.getName());
       } catch (Throwable throwable) {
         LOG.error(String.format("Error in KafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
         // SamzaKafkaSystemConsumer uses the failureCause to propagate the throwable to the container
@@ -156,6 +154,8 @@ public class KafkaConsumerProxy<K, V> {
         LOG.info("Stopping the KafkaConsumerProxy poll thread for system: {}.", systemName);
       }
     };
+
+    return runnable;
   }
 
   private void initializeLags() {
@@ -433,7 +433,7 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   public void stop(long timeout) {
-    System.out.println("THREAD: Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
+    LOG.info("Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
 
     isRunning = false;
     try {

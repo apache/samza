@@ -64,7 +64,7 @@ object JobModelManager extends Logging {
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param config Coordinator stream manager config
+   * @param config Coordinator stream manager config.
    * @param changelogPartitionMapping The changelog partition-to-task mapping.
    * @return JobModelManager
    */

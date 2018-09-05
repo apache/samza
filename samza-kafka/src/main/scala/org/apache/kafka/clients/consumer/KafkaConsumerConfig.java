@@ -129,17 +129,17 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   }
 
   // client id should be unique per job
-  public static String getClientId(Config config) {
-    return getClientId(CONSUMER_CLIENT_ID_PREFIX, config);
+  public static String getConsumerClientId(Config config) {
+    return getConsumerClientId(CONSUMER_CLIENT_ID_PREFIX, config);
   }
   public static String getProducerClientId(Config config) {
-    return getClientId(PRODUCER_CLIENT_ID_PREFIX, config);
+    return getConsumerClientId(PRODUCER_CLIENT_ID_PREFIX, config);
   }
   public static String getAdminClientId(Config config) {
-    return getClientId(ADMIN_CLIENT_ID_PREFIX, config);
+    return getConsumerClientId(ADMIN_CLIENT_ID_PREFIX, config);
   }
 
-  private static String getClientId(String id, Config config) {
+  private static String getConsumerClientId(String id, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
       throw new ConfigException("Missing job name");
     }
