@@ -72,7 +72,7 @@ public class KafkaConsumerProxy<K, V> {
 
   private volatile boolean isRunning = false;
   private volatile Throwable failureCause = null;
-  private CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
+  private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
   public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       NewKafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
@@ -93,19 +93,26 @@ public class KafkaConsumerProxy<K, V> {
 
   public void start() {
     if (!consumerPollThread.isAlive()) {
-      LOG.info("Starting LiKafkaConsumerProxy polling thread for system " + systemName + " " + this.toString());
+      LOG.info("Starting KafkaConsumerProxy polling thread for system " + systemName + " " + this.toString());
       consumerPollThread.setDaemon(true);
       consumerPollThread.setName(
-          "Samza LiKafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
+          "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
       consumerPollThread.start();
+
+      System.out.println("THREAD: starting" + consumerPollThread.getName());
+
 
       // we need to wait until the thread starts
       while (!isRunning) {
         try {
           consumerPollThreadStartLatch.await(3000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
+          LOG.info("WTH");
         }
       }
+      new Exception().printStackTrace(System.out);
+      System.out.println("THREAD: started" + consumerPollThread.getName());
+
     } else {
       LOG.debug("Tried to start an already started LiKafkaConsumerProxy (%s). Ignoring.", this.toString());
     }
@@ -135,12 +142,15 @@ public class KafkaConsumerProxy<K, V> {
     return () -> {
       isRunning = true;
 
+
       try {
         consumerPollThreadStartLatch.countDown();
+        System.out.println("THREAD: runing " + consumerPollThread.getName());
         initializeLags();
         while (isRunning) {
           fetchMessages();
         }
+        System.out.println("THREAD: finished " + consumerPollThread.getName());
       } catch (Throwable throwable) {
         LOG.error(String.format("Error in LiKafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
         // SamzaLiKafkaSystemConsumer uses the failureCause to propagate the throwable to the container
@@ -164,7 +174,7 @@ public class KafkaConsumerProxy<K, V> {
       // If the message we are about to consume is < end offset, we are starting with a lag.
       long initialLag = endOffsets.get(tp) - startingOffset;
 
-      LOG.info("Initial lag is {} for SSP {}", initialLag, ssp);
+      LOG.info("Initial lag for SSP {} is {} (end={}, startOffset={})", ssp, initialLag, endOffsets.get(tp), startingOffset);
       latestLags.put(ssp, initialLag);
       sink.setIsAtHighWatermark(ssp, initialLag == 0);
     });
@@ -446,13 +456,13 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   public void stop(long timeout) {
-    LOG.info("Shutting down LiKafkaConsumerProxy poll thread:" + toString());
+    System.out.println("THREAD: Shutting down LiKafkaConsumerProxy poll thread:" + consumerPollThread.getName());
 
     isRunning = false;
     try {
       consumerPollThread.join(timeout);
     } catch (InterruptedException e) {
-      LOG.warn("Join in LiKafkaConsumerProxy has failed", e);
+      LOG.warn("Join in KafkaConsumerProxy has failed", e);
       consumerPollThread.interrupt();
     }
   }

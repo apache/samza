@@ -19,6 +19,8 @@
 
 package org.apache.samza.job.local
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
@@ -65,6 +67,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
       checkpointManager.createResources()
+      checkpointManager.stop()
     }
     ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
@@ -110,10 +113,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         taskFactory)
       container.setContainerListener(containerListener)
 
-      val threadJob = new ThreadJob(container, coordinator)
+      val threadJob = new ThreadJob(container)
       threadJob
     } finally {
       coordinator.stop
+      coordinatorStreamManager.stop
       jmxServer.stop
     }
   }

@@ -37,7 +37,7 @@ import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.local.ThreadJobFactory
+import org.apache.samza.job.local.{ThreadJob, ThreadJobFactory}
 import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -223,9 +223,16 @@ class StreamTaskTestUtil {
    * interrupt, which is forwarded on to ThreadJob, and marked as a failure).
    */
   def stopJob(job: StreamJob) {
+    // make sure we don't kill the job before it was started
+    val tasks = TestTask.tasks
+    val task = tasks.values.toList.head
+    task.eventProcessed.await(60, TimeUnit.SECONDS)
+    System.out.println("THREAD: JOB KILL BEFORE")
     // Shutdown task.
     job.kill
+    System.out.println("THREAD: JOB KILL")
     val status = job.waitForFinish(60000)
+    System.out.println("THREAD: JOB KILL WAIT")
     assertEquals(ApplicationStatus.UnsuccessfulFinish, status)
   }
 
@@ -279,7 +286,10 @@ class StreamTaskTestUtil {
     val taskConfig = new TaskConfig(jobModel.getConfig)
     val checkpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap())
     checkpointManager match {
-      case Some(checkpointManager) => checkpointManager.createResources
+      case Some(checkpointManager) => {
+        checkpointManager.createResources
+        checkpointManager.stop
+      }
       case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
     }
 
@@ -323,6 +333,7 @@ object TestTask {
 abstract class TestTask extends StreamTask with InitableTask {
   var received = ArrayBuffer[String]()
   val initFinished = new CountDownLatch(1)
+  val eventProcessed = new CountDownLatch(1)
   @volatile var gotMessage = new CountDownLatch(1)
 
   def init(config: Config, context: TaskContext) {
@@ -333,6 +344,8 @@ abstract class TestTask extends StreamTask with InitableTask {
 
   def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
     val msg = envelope.getMessage.asInstanceOf[String]
+
+    eventProcessed.countDown()
 
     System.err.println("TestTask.process(): %s" format msg)
 

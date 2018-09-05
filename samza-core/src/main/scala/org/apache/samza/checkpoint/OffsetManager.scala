@@ -304,7 +304,7 @@ class OffsetManager(
    */
   private def loadOffsetsFromCheckpointManager {
     if (checkpointManager != null) {
-      debug("Loading offsets from checkpoint manager.")
+      info("Loading offsets from checkpoint manager.")
 
       checkpointManager.start
       val result = systemStreamPartitions
@@ -332,7 +332,7 @@ class OffsetManager(
    * Loads last processed offsets for a single taskName.
    */
   private def restoreOffsetsFromCheckpoint(taskName: TaskName): Map[TaskName, Map[SystemStreamPartition, String]] = {
-    debug("Loading checkpoints for taskName: %s." format taskName)
+    info("Loading checkpoints for taskName: %s." format taskName)
 
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 

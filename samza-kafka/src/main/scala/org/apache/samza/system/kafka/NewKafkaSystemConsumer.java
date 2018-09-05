@@ -103,13 +103,16 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
   public static <K, V> NewKafkaSystemConsumer getNewKafkaSystemConsumer(String systemName, Config config,
       String clientId, KafkaSystemConsumerMetrics metrics, Clock clock) {
 
-    System.out.println("GETTING FOR " + systemName);
 
-    System.out.printf("RETURNING NEW ONE");
+
     // extract consumer configs and create kafka consumer
     KafkaConsumer<K, V> kafkaConsumer = getKafkaConsumerImpl(systemName, clientId, config);
 
-    return new NewKafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, clock);
+
+    NewKafkaSystemConsumer kc = new NewKafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, clock);
+    System.out.println("kc=" + kc + "!!!!!!!!!!!!!!!!!GETTING FOR NKC for " + systemName);
+
+    return kc;
   }
 
   /**
@@ -254,7 +257,8 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
 
   @Override
   public void stop() {
-    System.out.println("##################### stopping " + this + "; kc=" + kafkaConsumer);
+    System.out.println("kc=" + this + "!!!!!!!!!!!!!!!!!!!!!! stopping "+ "; kc=" + kafkaConsumer);
+    System.out.println("kc=" + this + "!!!!!!!!!!!!!!!!!!!!!!TPs = " + topicPartitions2Offset);
 
     if (!stopped.compareAndSet(false, true)) {
       LOG.warn("attempting to stop stopped consumer.");
@@ -300,7 +304,7 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
 
     topicPartitions2SSP.put(tp, systemStreamPartition);
 
-    LOG.info("==============>registering ssp = " + systemStreamPartition + " with offset " + offset);
+    LOG.info("============>registering ssp = " + systemStreamPartition + " with offset " + offset + "; kc=" + this);
 
     String existingOffset = topicPartitions2Offset.get(tp);
     // register the older (of the two) offset in the consumer, to guarantee we do not miss any messages.
@@ -348,8 +352,8 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
     }
 
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> res = super.poll(systemStreamPartitions, timeout);
-    LOG.info("=============================>. Res for " + systemStreamPartitions);
-    LOG.info("=============================>. Res:" + res.toString());
+    //LOG.info("=============================>. Res for " + systemStreamPartitions);
+    //LOG.info("=============================>. Res:" + res.toString());
     return res;
   }
 

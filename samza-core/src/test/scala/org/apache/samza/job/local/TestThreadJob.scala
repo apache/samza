@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.coordinator.JobModelManager
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.job.ApplicationStatus
@@ -29,10 +28,6 @@ class TestThreadJob {
   def testThreadJobShouldFinishOnItsOwn {
     val job = new ThreadJob(new Runnable {
       override def run {
-      }
-    }, new JobModelManager(null) {
-      override def stop: Unit = {
-
       }
     })
     job.submit
@@ -44,10 +39,6 @@ class TestThreadJob {
     val job = new ThreadJob(new Runnable {
       override def run {
         Thread.sleep(999999)
-      }
-    }, new JobModelManager(null) {
-      override def stop: Unit = {
-
       }
     })
     job.submit

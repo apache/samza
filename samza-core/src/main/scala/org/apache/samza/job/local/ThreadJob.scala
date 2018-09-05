@@ -19,12 +19,11 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.job.ApplicationStatus.{New, Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.util.Logging
 
-class ThreadJob(runnable: Runnable, val jobModelManager: JobModelManager) extends StreamJob with Logging {
+class ThreadJob(runnable: Runnable) extends StreamJob with Logging {
   @volatile var jobStatus: Option[ApplicationStatus] = None
   var thread: Thread = null
 
@@ -44,8 +43,6 @@ class ThreadJob(runnable: Runnable, val jobModelManager: JobModelManager) extend
             jobStatus = Some(UnsuccessfulFinish)
             throw e
           }
-        } finally {
-          jobModelManager.stop
         }
       }
     }
