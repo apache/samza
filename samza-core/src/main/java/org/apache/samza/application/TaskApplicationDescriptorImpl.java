@@ -49,17 +49,17 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
 
   @Override
   public void addInputStream(InputDescriptor isd) {
-    super.addInputDescriptor(isd);
+    addInputDescriptor(isd);
   }
 
   @Override
   public void addOutputStream(OutputDescriptor osd) {
-    super.addOutputDescriptor(osd);
+    addOutputDescriptor(osd);
   }
 
   @Override
   public void addTable(TableDescriptor tableDescriptor) {
-    this.addTableDescriptor(tableDescriptor);
+    addTableDescriptor(tableDescriptor);
   }
 
   /**

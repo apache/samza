@@ -104,7 +104,7 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     Preconditions.checkState(noInputOutputStreams(),
         "Default system must be set before creating any input or output streams.");
     addSystemDescriptor(defaultSystemDescriptor);
-    this.defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
+    defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
     return (S) this;
   }
 
@@ -194,7 +194,7 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
    * @return the default {@link SystemDescriptor}
    */
   public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
-    return this.defaultSystemDescriptorOptional;
+    return defaultSystemDescriptorOptional;
   }
 
   /**
@@ -235,16 +235,16 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     addSystemDescriptor(osd.getSystemDescriptor());
   }
 
+  // TODO: this should be completely internal to addInputDescriptor()/addOutputDescriptor after we add broadcast automatically
+  void addBroadcastStream(String streamId) {
+    broadcastStreams.add(streamId);
+  }
+
   // internal method to add a unique {@link SystemDescriptor} to this application
-  void addSystemDescriptor(SystemDescriptor systemDescriptor) {
+  private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
     Preconditions.checkState(!systemDescriptors.containsKey(systemDescriptor.getSystemName())
             || systemDescriptors.get(systemDescriptor.getSystemName()) == systemDescriptor,
         "Must not use different system descriptor instances for the same system name: " + systemDescriptor.getSystemName());
     systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
-  }
-
-  // TODO: this should be completely internal to addInputDescriptor()/addOutputDescriptor after we add broadcast automatically
-  void addBroadcastStream(String streamId) {
-    this.broadcastStreams.add(streamId);
   }
 }

@@ -94,7 +94,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       return expander.get().apply(this, inputDescriptor);
     }
 
-    super.addInputDescriptor(inputDescriptor);
+    addInputDescriptor(inputDescriptor);
     String streamId = inputDescriptor.getStreamId();
     Preconditions.checkState(!inputOperators.containsKey(streamId),
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
@@ -121,7 +121,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
   @Override
   public <M> OutputStream<M> getOutputStream(OutputDescriptor<M, ?> outputDescriptor) {
-    super.addOutputDescriptor(outputDescriptor);
+    addOutputDescriptor(outputDescriptor);
     String streamId = outputDescriptor.getStreamId();
     Preconditions.checkState(!outputStreams.containsKey(streamId),
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
@@ -147,7 +147,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     String tableId = tableDescriptor.getTableId();
     Preconditions.checkState(StringUtils.isNotBlank(tableId) && ID_PATTERN.matcher(tableId).matches(),
         String.format("tableId: %s must confirm to pattern: %s", tableId, ID_PATTERN.toString()));
-    super.addTableDescriptor(tableDescriptor);
+    addTableDescriptor(tableDescriptor);
     TableSpec tableSpec = ((BaseTableDescriptor) tableDescriptor).getTableSpec();
     if (tables.containsKey(tableSpec)) {
       throw new IllegalStateException(
@@ -220,7 +220,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     }
 
     if (isBroadcast)
-      super.addBroadcastStream(streamId);
+      addBroadcastStream(streamId);
 
     boolean isKeyed;
     KV<Serde, Serde> kvSerdes;

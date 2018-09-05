@@ -176,11 +176,11 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
     private final StreamProcessor processor;
-    private final ProcessorLifecycleListener processorLifecycleListener;
+    private final ProcessorLifecycleListener userDefinedProcessorLifecycleListener;
 
     @Override
     public void beforeStart() {
-      processorLifecycleListener.beforeStart();
+      userDefinedProcessorLifecycleListener.beforeStart();
     }
 
     @Override
@@ -188,7 +188,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       if (numProcessorsToStart.decrementAndGet() == 0) {
         appStatus = ApplicationStatus.Running;
       }
-      processorLifecycleListener.afterStart();
+      userDefinedProcessorLifecycleListener.afterStart();
     }
 
     @Override
@@ -215,7 +215,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     }
 
     LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig) {
-      this.processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
+      this.userDefinedProcessorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, jobConfig);
       this.processor = processor;
     }
@@ -227,10 +227,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
       }
       if (error != null) {
         // current processor shutdown with a failure
-        processorLifecycleListener.afterFailure(error);
+        userDefinedProcessorLifecycleListener.afterFailure(error);
       } else {
         // current processor shutdown successfully
-        processorLifecycleListener.afterStop();
+        userDefinedProcessorLifecycleListener.afterStop();
       }
       if (processors.isEmpty()) {
         // no processor is still running. Notify callers waiting on waitForFinish()

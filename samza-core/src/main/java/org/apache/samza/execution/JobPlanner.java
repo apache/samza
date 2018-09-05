@@ -70,14 +70,14 @@ public abstract class JobPlanner {
     return ApplicationDescriptors.forType(
         taskAppDesc -> {
         try {
-          return Collections.singletonList(JobPlanner.this.prepareTaskJob(taskAppDesc));
+          return Collections.singletonList(prepareTaskJob(taskAppDesc));
         } catch (Exception e) {
           throw new SamzaException("Failed to generate JobConfig for TaskApplication " + appId, e);
         }
       },
         streamAppDesc -> {
         try {
-          return JobPlanner.this.prepareStreamJobs(streamAppDesc);
+          return prepareStreamJobs(streamAppDesc);
         } catch (Exception e) {
           throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
         }
