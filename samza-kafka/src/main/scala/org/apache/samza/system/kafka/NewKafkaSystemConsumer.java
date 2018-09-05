@@ -194,7 +194,7 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
       try {
         synchronized (kafkaConsumer) {
           // TODO in the future we may need to add special handling here for BEGIN/END_OFFSET
-          // this will call liKafkaConsumer.seekToBegin/End()
+          // this will call KafkaConsumer.seekToBegin/End()
           kafkaConsumer.seek(tp, startingOffset); // this value should already be the 'upcoming' value
         }
       } catch (Exception e) {
@@ -274,7 +274,7 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
         kafkaConsumer.close();
       }
     } catch (Exception e) {
-      LOG.warn("failed to stop SamzaRawLiKafkaConsumer + " + this, e);
+      LOG.warn("failed to stop SamzaRawKafkaConsumer + " + this, e);
     }
   }
 
@@ -340,7 +340,7 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
         throw new SamzaException(message, proxy.getFailureCause());
       } else {
         LOG.warn("Failure cause is not populated for KafkaConsumerProxy");
-        throw new SamzaException("LiKafkaConsumerProxy has stopped");
+        throw new SamzaException("KafkaConsumerProxy has stopped");
       }
     }
 

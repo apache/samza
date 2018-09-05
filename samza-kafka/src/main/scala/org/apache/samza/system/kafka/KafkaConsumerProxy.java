@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Separate thread that reads messages from kafka and puts them into the BlockingEnvelopeMap.
- * This class is not thread safe. There will be only one instance of this class per LiKafkaSystemConsumer object.
+ * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
 public class KafkaConsumerProxy<K, V> {
@@ -108,7 +108,7 @@ public class KafkaConsumerProxy<K, V> {
         }
       }
     } else {
-      LOG.debug("Tried to start an already started LiKafkaConsumerProxy (%s). Ignoring.", this.toString());
+      LOG.debug("Tried to start an already started KafkaConsumerProxy (%s). Ignoring.", this.toString());
     }
   }
 
@@ -146,14 +146,14 @@ public class KafkaConsumerProxy<K, V> {
         }
         System.out.println("THREAD: finished " + consumerPollThread.getName());
       } catch (Throwable throwable) {
-        LOG.error(String.format("Error in LiKafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
-        // SamzaLiKafkaSystemConsumer uses the failureCause to propagate the throwable to the container
+        LOG.error(String.format("Error in KafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
+        // SamzaKafkaSystemConsumer uses the failureCause to propagate the throwable to the container
         failureCause = throwable;
         isRunning = false;
       }
 
       if (!isRunning) {
-        LOG.info("Stopping the LiKafkaConsumerProxy poll thread for system: {}.", systemName);
+        LOG.info("Stopping the KafkaConsumerProxy poll thread for system: {}.", systemName);
       }
     };
   }
@@ -318,7 +318,7 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   /*
-    The only way to figure out lag for the LiKafkaConsumer is to look at the metrics after each poll() call.
+    The only way to figure out lag for the KafkaConsumer is to look at the metrics after each poll() call.
     One of the metrics (records-lag) shows how far behind the HighWatermark the consumer is.
     This method populates the lag information for each SSP into latestLags member variable.
    */
@@ -335,7 +335,7 @@ public class KafkaConsumerProxy<K, V> {
       MetricName mn = ssp2MetricName.get(ssp);
       Metric currentLagM = consumerMetrics.get(mn);
 
-      // In linkedin-kafka-client 5.*, high watermark is fixed to be the offset of last available message,
+      // High watermark is fixed to be the offset of last available message,
       // so the lag is now at least 0, which is the same as Samza's definition.
       // If the lag is not 0, then isAtHead is not true, and kafkaClient keeps polling.
       long currentLag = (currentLagM != null) ? (long) currentLagM.value() : -1L;
@@ -433,7 +433,7 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   public void stop(long timeout) {
-    System.out.println("THREAD: Shutting down LiKafkaConsumerProxy poll thread:" + consumerPollThread.getName());
+    System.out.println("THREAD: Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
 
     isRunning = false;
     try {
