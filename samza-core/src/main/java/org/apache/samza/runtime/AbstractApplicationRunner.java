@@ -36,6 +36,7 @@ import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.execution.ExecutionPlan;
 import org.apache.samza.execution.ExecutionPlanner;
+import org.apache.samza.execution.JobNode;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.StreamGraphSpec;
@@ -69,8 +70,8 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     app.init(graphSpec, config);
     OperatorSpecGraph specGraph = graphSpec.getOperatorSpecGraph();
 
-    // update application configs
-    Map<String, String> cfg = new HashMap<>(config);
+    // generated application configs are stored in cfg
+    Map<String, String> cfg = new HashMap<>();
     if (StringUtils.isNoneEmpty(runId)) {
       cfg.put(ApplicationConfig.APP_RUN_ID, runId);
     }
@@ -90,14 +91,14 @@ public abstract class AbstractApplicationRunner extends ApplicationRunner {
     graphSpec.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
     graphSpec.getDefaultSystemDescriptor().ifPresent(dsd ->
         systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
-    Map<String, String> appConfigs = new HashMap<>(cfg);
-    appConfigs.putAll(systemStreamConfigs);
+    cfg.putAll(systemStreamConfigs);
 
-    // create the physical execution plan
-    Config generatedConfig = new MapConfig(cfg);
-    StreamManager streamManager = buildAndStartStreamManager(generatedConfig);
+    // create the physical execution plan and merge with overrides. This works for a single-stage job now
+    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
+    Config mergedConfig = JobNode.mergeJobConfig(config, new MapConfig(cfg));
+    StreamManager streamManager = buildAndStartStreamManager(mergedConfig);
     try {
-      ExecutionPlanner planner = new ExecutionPlanner(generatedConfig, streamManager);
+      ExecutionPlanner planner = new ExecutionPlanner(mergedConfig, streamManager);
       return planner.plan(specGraph);
     } finally {
       streamManager.stop();
