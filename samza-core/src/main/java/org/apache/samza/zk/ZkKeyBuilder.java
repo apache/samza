@@ -42,15 +42,17 @@ import com.google.common.base.Strings;
  * This class provides helper methods to easily generate/parse the path in the ZK hierarchy.
  */
 public class ZkKeyBuilder {
+
+  static final String PROCESSORS_PATH = "processors";
+  static final String JOBMODEL_GENERATION_PATH = "jobModelGeneration";
+  static final String JOB_MODEL_UPGRADE_BARRIER_PATH = "jobModelUpgradeBarrier";
+  private static final String TASK_LOCALITY_PATH = "taskLocality";
+
   /**
    * Prefix generated to uniquely identify a particular deployment of a job.
    * TODO: For now, it looks like $jobName-$jobId. We need to add a unique deployment/attempt identifier as well.
    */
   private final String pathPrefix;
-
-  static final String PROCESSORS_PATH = "processors";
-  static final String JOBMODEL_GENERATION_PATH = "JobModelGeneration";
-  static final String JOB_MODEL_UPGRADE_BARRIER = "jobModelUpgradeBarrier";
 
   public ZkKeyBuilder(String pathPrefix) {
     if (pathPrefix != null && !pathPrefix.trim().isEmpty()) {
@@ -96,6 +98,10 @@ public class ZkKeyBuilder {
   }
 
   public String getJobModelVersionBarrierPrefix() {
-    return String.format("%s/%s/%s/versionBarriers", getRootPath(), JOBMODEL_GENERATION_PATH, JOB_MODEL_UPGRADE_BARRIER);
+    return String.format("%s/%s/%s/versionBarriers", getRootPath(), JOBMODEL_GENERATION_PATH, JOB_MODEL_UPGRADE_BARRIER_PATH);
+  }
+
+  String getTaskLocalityPath() {
+    return String.format("%s/%s", getRootPath(), TASK_LOCALITY_PATH);
   }
 }
