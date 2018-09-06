@@ -42,8 +42,8 @@ public class TestSamzaSqlTable {
 
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
-    String sql1 = "Insert into testDb.testTable.`$table` select id, name from testavro.SIMPLE1";
-    List<String> sqlStmts = Arrays.asList(sql1);
+    String sql = "Insert into testDb.testTable.`$table`(id,name) select id, name from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
@@ -58,8 +58,8 @@ public class TestSamzaSqlTable {
     TestIOResolverFactory.TestTable.records.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
-    String sql1 = "Insert into testDb.testTable.`$table` select id __key__, name from testavro.SIMPLE1";
-    List<String> sqlStmts = Arrays.asList(sql1);
+    String sql = "Insert into testDb.testTable.`$table`(id,name) select id __key__, name from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();

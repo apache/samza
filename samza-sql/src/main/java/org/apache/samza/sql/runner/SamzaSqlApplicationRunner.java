@@ -19,9 +19,13 @@
 
 package org.apache.samza.sql.runner;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -31,9 +35,11 @@ import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
+import org.apache.samza.sql.interfaces.DslConverter;
+import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +55,6 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplicationRunner.class);
 
-  private final Config sqlConfig;
   private final ApplicationRunner appRunner;
   private final Boolean localRunner;
 
@@ -63,32 +68,41 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   public SamzaSqlApplicationRunner(Boolean localRunner, Config config) {
     super(config);
     this.localRunner = localRunner;
-    sqlConfig = computeSamzaConfigs(localRunner, config);
-    appRunner = ApplicationRunner.fromConfig(sqlConfig);
+    appRunner = ApplicationRunner.fromConfig(computeSamzaConfigs(localRunner, config));
   }
 
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
+    List<String> dslStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
+
+    // TODO: Get the converter factory based on the file type. Create abstraction around this.
+    DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
+    DslConverter dslConverter = dslConverterFactory.create(config);
+    Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
+
+    Set<String> inputSystemStreams = new HashSet<>();
+    Set<String> outputSystemStreams = new HashSet<>();
+
+    SamzaSqlApplicationConfig.populateSystemStreams(relRoots.iterator().next().project(), inputSystemStreams,
+        outputSystemStreams);
+
     SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
-    // Parse the sql and find the input stream streams
-    List<String> sqlStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
 
     // This is needed because the SQL file may not be available in all the node managers.
-    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(sqlStmts);
+    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlApplicationConfig.fetchQueryInfo(sqlStmts);
-    for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
-      // Populate stream to system mapping config for input and output system streams
-      for (String inputSource : query.getSources()) {
-        SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(inputSource);
-        newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
-            inputSystemStreamConfig.getSystemName());
-        newConfig.putAll(inputSystemStreamConfig.getConfig());
-      }
+    // Populate stream to system mapping config for input and output system streams
+    for (String source : inputSystemStreams) {
+      SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(source);
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
+          inputSystemStreamConfig.getSystemName());
+      newConfig.putAll(inputSystemStreamConfig.getConfig());
+    }
 
-      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(query.getSink());
+    for (String sink : outputSystemStreams) {
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(sink);
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());
@@ -133,4 +147,5 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
   public ApplicationStatus status(StreamApplication streamApp) {
     return appRunner.status(streamApp);
   }
+
 }

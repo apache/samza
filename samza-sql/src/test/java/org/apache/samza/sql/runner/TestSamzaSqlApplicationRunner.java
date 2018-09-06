@@ -38,8 +38,8 @@ public class TestSamzaSqlApplicationRunner {
   @Test
   public void testComputeSamzaConfigs() {
     Map<String, String> configs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
-    String sql1 = "Insert into testavro.outputTopic select id, MyTest(id) as long_value from testavro.SIMPLE1";
-    configs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql1);
+    String sql = "Insert into testavro.outputTopic(id, long_value) select id, MyTest(id) as long_value from testavro.SIMPLE1";
+    configs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     configs.put(SamzaSqlApplicationRunner.RUNNER_CONFIG, SamzaSqlApplicationRunner.class.getName());
     MapConfig samzaConfig = new MapConfig(configs);
     Config newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(true, samzaConfig);

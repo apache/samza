@@ -70,12 +70,33 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEnd() throws Exception {
+  public void testEndToEndBasic() throws Exception {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    String sql1 = "Insert into testavro.outputTopic select id, CURRENT_TIME as long_value from testavro.SIMPLE1";
+    String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(outMessages));
+  }
+
+  @Test
+  public void testEndToEnd() throws Exception {
+    int numMessages = 4;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 = "Insert into testavro.outputTopic(id) "
+        + " select id from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
@@ -96,7 +117,9 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     LOG.info(" Class Path : " + RelOptUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
     String sql1 =
-        "Insert into testavro.outputTopic select Flatten(array_values) as string_value, id from testavro.COMPLEX1";
+        "Insert into testavro.outputTopic(string_value, float_value) "
+            + "select Flatten(array_values) as string_value, float_value "
+            + "from testavro.COMPLEX1";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
@@ -118,7 +141,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql1 =
-        "Insert into testavro.outputTopic select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)";
+        "Insert into testavro.outputTopic(id) select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
@@ -139,7 +162,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    String sql1 = "Insert into testavro.outputTopic select id, MyTest(id) as long_value from testavro.SIMPLE1";
+    String sql1 = "Insert into testavro.outputTopic(id, long_value) "
+        + "select id, MyTest(id) as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
@@ -163,7 +187,11 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    String sql1 = "Insert into testavro.outputTopic select id from testavro.SIMPLE1 where RegexMatch('.*4', Name)";
+    String sql1 =
+        "Insert into testavro.outputTopic(id) "
+            + "select id "
+            + "from testavro.SIMPLE1 "
+            + "where RegexMatch('.*4', name)";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
@@ -183,7 +211,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     staticConfigs.putAll(configs);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId";
@@ -212,7 +241,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     staticConfigs.putAll(configs);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName, p.address as profileAddress "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId";
@@ -246,7 +276,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     staticConfigs.putAll(configs);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId "
@@ -279,7 +310,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PAGEVIEW as pv "
             + "join testavro.PROFILE.`$table` as p "
             + " on pv.profileId = p.id";
@@ -308,7 +340,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PAGEVIEW as pv "
             + "left join testavro.PROFILE.`$table` as p "
             + " on pv.profileId = p.id";
@@ -337,7 +370,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "right join testavro.PAGEVIEW as pv "
             + " on p.id = pv.profileId";
@@ -366,7 +400,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName, c.name as companyName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, c.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PAGEVIEW as pv "
             + "join testavro.PROFILE.`$table` as p "
             + " on p.id = pv.profileId "
@@ -396,7 +431,8 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey, p.name as profileName, c.name as companyName "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, c.name as companyName, p.name as profileName,"
+            + "       p.address as profileAddress "
             + "from testavro.PAGEVIEW as pv "
             + "join testavro.PROFILE.`$table` as p "
             + " on p.id = pv.profileId "

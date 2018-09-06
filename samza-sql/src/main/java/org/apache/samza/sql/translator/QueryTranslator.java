@@ -19,12 +19,18 @@
 
 package org.apache.samza.sql.translator;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -33,22 +39,14 @@ import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.SamzaException;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
-import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,49 +60,109 @@ public class QueryTranslator {
   private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
 
   private final ScanTranslator scanTranslator;
+  private final ModifyTranslator modifyTranslator;
   private final SamzaSqlApplicationConfig sqlConfig;
   private final Map<String, SamzaRelConverter> converters;
 
-  private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
-    private transient SamzaRelConverter samzaMsgConverter;
-    private final String outputTopic;
-
-    OutputMapFunction(String outputTopic) {
-      this.outputTopic = outputTopic;
-    }
-
-    @Override
-    public void init(Config config, TaskContext taskContext) {
-      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
-      this.samzaMsgConverter = context.getMsgConverter(outputTopic);
-    }
-
-    @Override
-    public KV<Object, Object> apply(SamzaSqlRelMessage message) {
-      return this.samzaMsgConverter.convertToSamzaMessage(message);
-    }
-  }
+  private final Set<String> inputSystemStreams = new HashSet<>();
+  private final Set<String> outputSystemStreams = new HashSet<>();
+  private final Set<String> systemStreams = new HashSet<>();
 
   public QueryTranslator(SamzaSqlApplicationConfig sqlConfig) {
     this.sqlConfig = sqlConfig;
     scanTranslator =
         new ScanTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getInputSystemStreamConfigBySource());
+    modifyTranslator =
+        new ModifyTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getOutputSystemStreamConfigsBySource());
     this.converters = sqlConfig.getSamzaRelConverters();
   }
 
-  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamGraph streamGraph) {
+  // package private: for internal tests
+  void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamGraph streamGraph) {
     QueryPlanner planner =
-        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
+        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getSystemStreamConfigsBySource(),
             sqlConfig.getUdfMetadata());
+    final RelRoot relRoot = planner.plan(queryInfo.getSql());
+
+    populateSystemStreams(relRoot);
+    systemStreams.addAll(inputSystemStreams);
+    systemStreams.addAll(outputSystemStreams);
+
+    translate(relRoot, streamGraph);
+  }
+
+  private void populateSystemStreams(RelRoot relRoot) {
+    populateSystemStreams(relRoot.project());
+  }
+
+  private void populateSystemStreams(RelNode relNode) {
+    if (relNode instanceof TableModify) {
+      outputSystemStreams.add(getSystemStreamName(relNode));
+    } else {
+      if (relNode instanceof BiRel) {
+        BiRel biRelNode = (BiRel) relNode;
+        String leftSystemStream = getSystemStreamName(biRelNode.getLeft());
+        if (leftSystemStream != null) {
+          inputSystemStreams.add(leftSystemStream);
+        }
+        String rightSystemStream = getSystemStreamName(biRelNode.getRight());
+        if (leftSystemStream != null) {
+          inputSystemStreams.add(rightSystemStream);
+        }
+      } else {
+        if (relNode.getTable() != null) {
+          inputSystemStreams.add(getSystemStreamName(relNode));
+        }
+      }
+    }
+
+    List<RelNode> relNodes = relNode.getInputs();
+    if (relNodes == null || relNodes.isEmpty()) {
+      return;
+    }
+    relNodes.forEach(this::populateSystemStreams);
+  }
+
+  private String getSystemStreamName(RelNode relNode) {
+    RelOptTable table = relNode.getTable();
+    // Table could be null for joins. For instance, a join on Udfs
+    if (table == null) {
+      List<RelNode> relNodes = relNode.getInputs();
+      if (relNodes == null || relNodes.isEmpty()) {
+        return null;
+      }
+      relNodes.forEach(this::populateSystemStreams);
+      return null;
+    }
+    return table.getQualifiedName().stream().map(Object::toString).collect(Collectors.joining("."));
+  }
+
+  public void translate(RelRoot relRoot, StreamGraph streamGraph) {
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
-    final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     final TranslatorContext context = new TranslatorContext(streamGraph, relRoot, executionContext, this.converters);
-    final RelNode node = relRoot.project();
     final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
+    RelNode node = relRoot.project();
 
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
       int joinId = 0;
+
+      @Override
+      public RelNode visit(RelNode relNode) {
+        if (relNode instanceof TableModify) {
+          return visit((TableModify) relNode);
+        }
+        return super.visit(relNode);
+      }
+
+      private RelNode visit(TableModify modify) {
+        if (!modify.isInsert()) {
+          throw new SamzaException("Not a supported operation: " + modify.toString());
+        }
+        RelNode node = super.visit(modify);
+        modifyTranslator.translate(modify, context);
+        return node;
+      }
 
       @Override
       public RelNode visit(TableScan scan) {
@@ -143,24 +201,6 @@ public class QueryTranslator {
         return node;
       }
     });
-
-    String sink = queryInfo.getSink();
-    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
-    MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sink));
-
-    Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
-    if (!tableDescriptor.isPresent()) {
-      outputStream.sendTo(streamGraph.getOutputStream(sinkConfig.getStreamName()));
-    } else {
-      Table outputTable = streamGraph.getTable(tableDescriptor.get());
-      if (outputTable == null) {
-        String msg = "Failed to obtain table descriptor of " + sinkConfig.getSource();
-        LOG.error(msg);
-        throw new SamzaException(msg);
-      }
-      outputStream.sendTo(outputTable);
-    }
 
     streamGraph.withContextManager(new ContextManager() {
       @Override

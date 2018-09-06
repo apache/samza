@@ -291,6 +291,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
+      record.put("float_value", 123.0 + index * 1.2);
       GenericData.Array<String> arrayValues =
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));
