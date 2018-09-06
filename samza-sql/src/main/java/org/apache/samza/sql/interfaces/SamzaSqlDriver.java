@@ -29,21 +29,7 @@ import org.apache.calcite.jdbc.Driver;
 
 
 /**
- * Implementation of JDBC driver that does not register itself.
- *
- * <p>You can easily create a "vanity driver" that recognizes its own
- * URL prefix as a sub-class of this class. Per the JDBC specification it
- * must register itself when the class is loaded.</p>
- *
- * <p>Derived classes must implement {@link #createDriverVersion()} and
- * {@link #getConnectStringPrefix()}, and may override
- * {@link #createFactory()}.</p>
- *
- * <p>The provider must implement:</p>
- * <ul>
- *   <li>{@link Meta#prepare(Meta.ConnectionHandle, String, long)}
- *   <li>{@link Meta#createIterable(Meta.StatementHandle, org.apache.calcite.avatica.QueryState, Meta.Signature, List, Meta.Frame)}
- * </ul>
+ * Calcite JDBC driver for SamzaSQL which takes in a {@link JavaTypeFactory}
  */
 public class SamzaSqlDriver extends Driver {
 
@@ -68,5 +54,3 @@ public class SamzaSqlDriver extends Driver {
     return connection;
   }
 }
-
-// End UnregisteredDriver.java
