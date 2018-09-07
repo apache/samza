@@ -75,8 +75,8 @@ public abstract class JobPlanner {
         throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
       }
     }
-    throw new IllegalArgumentException(String.format("AppDescriptorImpl has to be either TaskAppDescriptorImpl or "
-        + "StreamAppDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
+    throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
+        + "StreamApplicationDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
   }
 
   abstract List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception;
