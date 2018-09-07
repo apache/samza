@@ -74,9 +74,10 @@ public class TestGenericInputDescriptor {
             .withOffsetDefault(SystemStreamMetadata.OffsetType.OLDEST)
             .withPriority(12)
             .withResetOffset(true)
+            .withBroadcastPartitions("0")
             .withStreamConfigs(ImmutableMap.of("custom-config-key", "custom-config-value"));
 
-    Map<String, String> generatedConfigs = isd.toConfig();
+    Map<String, String> generatedConfigs = isd.toConfig(ImmutableMap.of("task.broadcast.inputs", "system.stream#[1-2]"));
     Map<String, String> expectedConfigs = new HashMap<>();
     expectedConfigs.put("streams.input-stream.samza.system", "input-system");
     expectedConfigs.put("streams.input-stream.samza.physical.name", "physical-name");
@@ -86,6 +87,7 @@ public class TestGenericInputDescriptor {
     expectedConfigs.put("streams.input-stream.samza.reset.offset", "true");
     expectedConfigs.put("streams.input-stream.samza.offset.default", "oldest");
     expectedConfigs.put("streams.input-stream.samza.priority", "12");
+    expectedConfigs.put("task.broadcast.inputs", "system.stream#[1-2],input-system.physical-name#0");
     expectedConfigs.put("streams.input-stream.custom-config-key", "custom-config-value");
 
     assertEquals(expectedConfigs, generatedConfigs);
@@ -101,7 +103,7 @@ public class TestGenericInputDescriptor {
     DoubleSerde streamSerde = new DoubleSerde();
     GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", streamSerde);
 
-    Map<String, String> generatedConfigs = isd.toConfig();
+    Map<String, String> generatedConfigs = isd.toConfig(Collections.emptyMap());
     Map<String, String> expectedConfigs = ImmutableMap.of("streams.input-stream.samza.system", "input-system");
     assertEquals(expectedConfigs, generatedConfigs);
     assertEquals(streamSerde, isd.getSerde());
@@ -119,5 +121,26 @@ public class TestGenericInputDescriptor {
 
     assertEquals(streamSerde, isd.getSerde());
     assertFalse(isd.getTransformer().isPresent());
+  }
+
+  @Test
+  public void testISDBroadcastStreams() {
+    GenericSystemDescriptor mySystem = new GenericSystemDescriptor("input-system", "factory.class.name");
+    IntegerSerde streamSerde = new IntegerSerde();
+    GenericInputDescriptor<Integer> isd1 =
+        mySystem.getInputDescriptor("input-stream-1", streamSerde).withBroadcastPartitions("0");
+    GenericInputDescriptor<Integer> isd2 =
+        mySystem.getInputDescriptor("input-stream-2", streamSerde).withBroadcastPartitions("[0-2]");
+    GenericInputDescriptor<Integer> isd3 =
+        mySystem.getInputDescriptor("input-stream-3", streamSerde);
+
+    Map<String, String> configs = new HashMap<>();
+    configs.put("task.broadcast.inputs", "other-system.other-stream#0");
+    configs.putAll(isd1.toConfig(configs));
+    configs.putAll(isd2.toConfig(configs));
+    configs.putAll(isd3.toConfig(configs));
+
+    assertEquals("other-system.other-stream#0,input-system.input-stream-1#0,input-system.input-stream-2#[0-2]",
+        configs.get("task.broadcast.inputs"));
   }
 }

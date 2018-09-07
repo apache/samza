@@ -91,18 +91,18 @@ public class KafkaInputDescriptor<StreamMessageType>
   }
 
   @Override
-  public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>(super.toConfig());
+  public Map<String, String> toConfig(Map<String, String> currentConfig) {
+    HashMap<String, String> generatedConfig = new HashMap<>(super.toConfig(currentConfig));
     // Note: Kafka configuration needs the topic's physical name, not the stream-id.
-    // We won't have that here if user only specified it in configs, or if it got rewritten
+    // We won't have that here if user only specified it in config, or if it got rewritten
     // by the planner to something different than what's in this descriptor.
     String streamName = getPhysicalName().orElse(getStreamId());
     String systemName = getSystemName();
 
     consumerAutoOffsetResetOptional.ifPresent(autoOffsetReset ->
-        configs.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, systemName, streamName), autoOffsetReset));
+        generatedConfig.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, systemName, streamName), autoOffsetReset));
     consumerFetchMessageMaxBytesOptional.ifPresent(fetchMessageMaxBytes ->
-        configs.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_CONFIG_KEY, systemName, streamName), Long.toString(fetchMessageMaxBytes)));
-    return configs;
+        generatedConfig.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_CONFIG_KEY, systemName, streamName), Long.toString(fetchMessageMaxBytes)));
+    return generatedConfig;
   }
 }

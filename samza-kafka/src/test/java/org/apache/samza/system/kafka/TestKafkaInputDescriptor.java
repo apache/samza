@@ -19,20 +19,16 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Map;
-import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class TestKafkaInputDescriptor {
   @Test
@@ -45,7 +41,7 @@ public class TestKafkaInputDescriptor {
             .withConsumerAutoOffsetReset("largest")
             .withConsumerFetchMessageMaxBytes(1024 * 1024);
 
-    Map<String, String> generatedConfigs = isd.toConfig();;
+    Map<String, String> generatedConfigs = isd.toConfig(Collections.emptyMap());
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));
     assertEquals("physical-name", generatedConfigs.get("streams.input-stream.samza.physical.name"));
     assertEquals("largest", generatedConfigs.get("systems.kafka.streams.physical-name.consumer.auto.offset.reset"));
@@ -61,7 +57,7 @@ public class TestKafkaInputDescriptor {
     KafkaInputDescriptor<KV<String, Integer>> isd =
         sd.getInputDescriptor("input-stream", KVSerde.of(new StringSerde(), new IntegerSerde()));
 
-    Map<String, String> generatedConfigs = isd.toConfig();
+    Map<String, String> generatedConfigs = isd.toConfig(Collections.emptyMap());
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));
     assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
   }

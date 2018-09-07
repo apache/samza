@@ -21,6 +21,7 @@ package org.apache.samza.system.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Map;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -43,7 +44,7 @@ public class TestKafkaSystemDescriptor {
             .withProducerConfigs(ImmutableMap.of("custom-producer-config-key", "custom-producer-config-value"))
             .withDefaultStreamConfigs(ImmutableMap.of("custom-stream-config-key", "custom-stream-config-value"));
 
-    Map<String, String> generatedConfigs = sd.toConfig();
+    Map<String, String> generatedConfigs = sd.toConfig(Collections.emptyMap());
     assertEquals("org.apache.samza.system.kafka.KafkaSystemFactory", generatedConfigs.get("systems.kafka.samza.factory"));
     assertEquals("localhost:1234", generatedConfigs.get("systems.kafka.consumer.zookeeper.connect"));
     assertEquals("localhost:567,localhost:890", generatedConfigs.get("systems.kafka.producer.bootstrap.servers"));
@@ -62,7 +63,7 @@ public class TestKafkaSystemDescriptor {
   public void testSDConfigsWithoutOverrides() {
     KafkaSystemDescriptor sd = new KafkaSystemDescriptor("kafka");
 
-    Map<String, String> generatedConfigs = sd.toConfig();
+    Map<String, String> generatedConfigs = sd.toConfig(Collections.emptyMap());
     assertEquals("org.apache.samza.system.kafka.KafkaSystemFactory", generatedConfigs.get("systems.kafka.samza.factory"));
     assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
   }

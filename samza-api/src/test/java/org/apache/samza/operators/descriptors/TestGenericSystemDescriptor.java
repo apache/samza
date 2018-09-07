@@ -20,6 +20,7 @@ package org.apache.samza.operators.descriptors;
 
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Collections;
 import java.util.Map;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.junit.Test;
@@ -35,7 +36,7 @@ public class TestGenericSystemDescriptor {
             .withDefaultStreamConfigs(ImmutableMap.of("custom-stream-config-key", "custom-stream-config-value"))
             .withDefaultStreamOffsetDefault(SystemStreamMetadata.OffsetType.UPCOMING);
 
-    Map<String, String> generatedConfigs = mySystem.toConfig();
+    Map<String, String> generatedConfigs = mySystem.toConfig(Collections.emptyMap());
     Map<String, String> expectedConfigs = ImmutableMap.of(
         "systems.input-system.samza.factory", "factory.class.name",
         "systems.input-system.custom-config-key", "custom-config-value",

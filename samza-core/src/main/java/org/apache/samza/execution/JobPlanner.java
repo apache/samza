@@ -39,6 +39,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.table.TableConfigGenerator;
@@ -169,10 +170,13 @@ public abstract class JobPlanner {
   }
 
   private Map<String, String> expandSystemStreamConfigs(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+    // merge user-provided configuration with input/output descriptor generated configuration
+    // descriptor generated configuration has higher priority
     Map<String, String> systemStreamConfigs = new HashMap<>();
-    appDesc.getInputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
-    appDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
-    appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
+    systemStreamConfigs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS));
+    appDesc.getInputDescriptors().forEach((key, id) -> systemStreamConfigs.putAll(id.toConfig(systemStreamConfigs)));
+    appDesc.getOutputDescriptors().forEach((key, od) -> systemStreamConfigs.putAll(od.toConfig(systemStreamConfigs)));
+    appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig(systemStreamConfigs)));
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
         systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
     return systemStreamConfigs;
