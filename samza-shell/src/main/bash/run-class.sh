@@ -44,10 +44,12 @@ DEFAULT_LOG4J_FILE=$base_dir/lib/log4j.xml
 BASE_LIB_DIR="$base_dir/lib"
 # JOB_LIB_DIR will be set for yarn container in ContainerUtil.java
 # for others we set it to home_dir/lib
-JOB_LIB_DIR="${JOB_LIB_DIR:-$home_dir/lib}"
+JOB_LIB_DIR="${JOB_LIB_DIR:-$base_dir/lib}"
 
 export JOB_LIB_DIR=$JOB_LIB_DIR
 
+echo JOB_LIB_DIR=$JOB_LIB_DIR
+echo BASE_LIB_DIR=$BASE_LIB_DIR
 if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   # build a common classpath
   # this class path will contain all the jars from the framework and the job's libs.
@@ -68,11 +70,15 @@ if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   echo all_jars=$all_jars
   echo generated combined CLASSPATH=$CLASSPATH
 else
-  #default behavior
-  for file in $BASE_LIB_DIR/*.[jw]ar;
+  # default behaviour
+  # Wildcarding only includes *.jar and *.JAR files in classpath
+  CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
+  # We handle .war separately
+  for file in $BASE_LIB_DIR/*.war;
   do
     CLASSPATH=$CLASSPATH:$file
   done
+  echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
 fi
 
 if [ -z "$JAVA_HOME" ]; then
