@@ -199,7 +199,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
-      override def afterFailed(t: Throwable): Unit = {
+      override def afterFailure(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
@@ -287,7 +287,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
-      override def afterFailed(t: Throwable): Unit = {
+      override def afterFailure(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
@@ -379,7 +379,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
     val containerListener = new SamzaContainerListener {
-      override def afterFailed(t: Throwable): Unit = {
+      override def afterFailure(t: Throwable): Unit = {
         onContainerFailedCalled = true
         onContainerFailedThrowable = t
       }
@@ -471,7 +471,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics)
       val containerListener = new SamzaContainerListener {
-        override def afterFailed(t: Throwable): Unit = {
+        override def afterFailure(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
         }
@@ -559,7 +559,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics = new SamzaContainerMetrics)
 
     val containerListener = new SamzaContainerListener {
-        override def afterFailed(t: Throwable): Unit = {
+        override def afterFailure(t: Throwable): Unit = {
           onContainerFailedCalled = true
           onContainerFailedThrowable = t
         }

@@ -23,25 +23,23 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 
 
 /**
- * The base interface class to describe a user application in Samza.
+ * The interface class to describe the configuration, input and output streams, and processing logic in a {@link SamzaApplication}.
  * <p>
- * Sub-classes {@link StreamApplicationDescriptor} and {@link TaskApplicationDescriptor} are specific interfaces for applications written
- * in high-level DAG and low-level task APIs, respectively.
+ * Sub-classes {@link StreamApplicationDescriptor} and {@link TaskApplicationDescriptor} are specific interfaces for applications
+ * written in high-level {@link StreamApplication} and low-level {@link TaskApplication} APIs, respectively.
  *
- * @param <S> sub-class of user application descriptor. It has to be either {@link StreamApplicationDescriptor} or
- *            {@link TaskApplicationDescriptor}
+ * @param <S> sub-class of user application descriptor.
  */
 @InterfaceStability.Evolving
 public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
-   * Get {@link Config}
-   * @return config object
+   * Get the {@link Config} of the application
+   * @return config of the application
    */
   Config getConfig();
 
@@ -72,26 +70,9 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
   S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
 
   /**
-   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
-   * {@code job.default.system} and its properties in configuration.
-   * <p>
-   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
-   * <p>
-   * If an input/output stream is created with a stream-level Serde, they will be used, else the serde specified
-   * for the {@code job.default.system} in configuration will be used.
-   * <p>
-   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
-   * {@link ClassCastException}s at runtime.
-   *
-   * @param defaultSystemDescriptor the default system descriptor to use
-   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
-   */
-  S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
-
-  /**
    * Sets a set of customized {@link MetricsReporterFactory}s in the application
    *
-   * @param reporterFactories the map of customized {@link MetricsReporterFactory} objects to be used
+   * @param reporterFactories the map of customized {@link MetricsReporterFactory}s to be used
    * @return type {@code S} of {@link ApplicationDescriptor} with {@code reporterFactories}
    */
   S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories);

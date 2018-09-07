@@ -19,7 +19,7 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.application.ApplicationDescriptors
+import org.apache.samza.application.{ApplicationDescriptorUtil, ApplicationUtil}
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
@@ -28,7 +28,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
-import org.apache.samza.runtime.{ApplicationClassUtils, ProcessorContext}
+import org.apache.samza.runtime.ProcessorContext
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.TaskFactory
 import org.apache.samza.task.TaskFactoryUtil
@@ -73,7 +73,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val containerId = "0"
     val jmxServer = new JmxServer
 
-    val appDesc = ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config)
+    val appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config)
     val taskFactory : TaskFactory[_] = TaskFactoryUtil.getTaskFactory(appDesc)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
@@ -83,24 +83,24 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       case _ => None
     }
 
-    val listener = {
-      val userListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() { }, config)
+    val containerListener = {
+      val processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() { }, config)
       new SamzaContainerListener {
-        override def afterFailed(t: Throwable): Unit = {
-          userListener.afterFailure(t)
-          throw t;
+        override def afterFailure(t: Throwable): Unit = {
+          processorLifecycleListener.afterFailure(t)
+          throw t
         }
 
         override def afterStart(): Unit = {
-          userListener.afterStart()
+          processorLifecycleListener.afterStart()
         }
 
         override def afterStop(): Unit = {
-          userListener.afterStop()
+          processorLifecycleListener.afterStop()
         }
 
         override def beforeStart(): Unit = {
-          userListener.beforeStart()
+          processorLifecycleListener.beforeStart()
         }
 
       }
@@ -114,7 +114,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         config,
         Map[String, MetricsReporter](),
         taskFactory)
-      container.setContainerListener(listener)
+      container.setContainerListener(containerListener)
 
       val threadJob = new ThreadJob(container)
       threadJob

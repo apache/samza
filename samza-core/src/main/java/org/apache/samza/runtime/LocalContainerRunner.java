@@ -25,8 +25,9 @@ import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.ApplicationDescriptorUtil;
 import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -80,7 +81,7 @@ public class LocalContainerRunner {
     MDC.put("jobId", jobId);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
-        ApplicationDescriptors.getAppDescriptor(ApplicationClassUtils.fromConfig(config), config);
+        ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
     run(appDesc, containerId, jobModel, config);
 
     System.exit(0);
@@ -120,7 +121,7 @@ public class LocalContainerRunner {
           }
 
           @Override
-          public void afterFailed(Throwable t) {
+          public void afterFailure(Throwable t) {
             log.info("Container Failed");
             containerRunnerException = t;
             listener.afterFailure(t);

@@ -16,25 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.runtime;
+package org.apache.samza.application;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.LegacyTaskApplication;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.TaskConfig;
+import scala.Option;
 
 
 /**
  * Util class to create {@link SamzaApplication} from the configuration.
  */
-public class ApplicationClassUtils {
+public class ApplicationUtil {
 
   /**
-   * Creates the {@link SamzaApplication} object from the {@code config}
+   * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}
    *
    * @param config the configuration of the application
    * @return the {@link SamzaApplication} object
@@ -54,7 +52,12 @@ public class ApplicationClassUtils {
       }
     }
     // no app.class defined. It has to be a legacy application with task.class configuration
-    return new LegacyTaskApplication(config);
+    Option<String> taskClassOption = new TaskConfig(config).getTaskClass();
+    if (!taskClassOption.isDefined() || !StringUtils.isNotBlank(taskClassOption.getOrElse(null))) {
+      // no task.class defined either. This is wrong.
+      throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
+    }
+    return new LegacyTaskApplication(taskClassOption.get());
   }
 
 }

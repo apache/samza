@@ -21,8 +21,7 @@ package org.apache.samza.application;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results in high-level API. Your
- * application is expected to implement this interface.
+ * Describes and initializes the transforms for processing message streams and generating results in high-level API. 
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
@@ -59,17 +58,18 @@ import org.apache.samza.annotation.InterfaceStability;
  *
  * <p>
  * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link org.apache.samza.task.StreamTask}
- * during execution. All user-defined transformation functions are required to be serializable. The execution planner will
- * generate a serialized DAG which will be deserialized in each {@link org.apache.samza.task.StreamTask} instance used
- * for processing incoming messages. Execution is synchronous and thread-safe within each {@link org.apache.samza.task.StreamTask}.
+ * during execution. The execution planner will generate a serialized DAG which will be deserialized in each
+ * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous
+ * and thread-safe within each {@link org.apache.samza.task.StreamTask}.
  *
  * <p>
- * The user-implemented {@link StreamApplication} class must be a class with proper fully-qualified class name and
- * a default constructor with no parameters to ensure successful instantiation in both local and remote environments.
+ * A {@link StreamApplication} implementation must have a proper fully-qualified class name and a default constructor
+ * with no parameters to ensure successful instantiation in both local and remote environments.
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
  * before messages are delivered to them and closed after their execution when the {@link org.apache.samza.task.StreamTask}
  * instance is closed. See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
+ * Function implementations are required to be {@link java.io.Serializable}.
  */
 @InterfaceStability.Evolving
 public interface StreamApplication extends SamzaApplication<StreamApplicationDescriptor> {

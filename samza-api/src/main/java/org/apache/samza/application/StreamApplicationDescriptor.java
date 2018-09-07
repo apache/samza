@@ -25,14 +25,32 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.table.Table;
 
 
 /**
- * The interface class to describe a user application in high-level DAG in Samza.
+ * The interface class to describe a {@link SamzaApplication} in high-level API in Samza.
  */
 @InterfaceStability.Evolving
 public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {
+
+  /**
+   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
+   * {@code job.default.system} and its properties in configuration.
+   * <p>
+   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
+   * <p>
+   * If an input/output stream is created with a stream-level Serde, they will be used, else the serde specified
+   * for the {@code job.default.system} in configuration will be used.
+   * <p>
+   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
+   * {@link ClassCastException}s at runtime.
+   *
+   * @param defaultSystemDescriptor the default system descriptor to use
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
+   */
+  StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.

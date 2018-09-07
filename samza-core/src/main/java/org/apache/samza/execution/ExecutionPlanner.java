@@ -64,7 +64,7 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public ExecutionPlan plan(OperatorSpecGraph specGraph) throws Exception {
+  public ExecutionPlan plan(OperatorSpecGraph specGraph) {
     validateConfig();
 
     // create physical job graph based on stream graph

@@ -25,7 +25,7 @@ public interface SamzaContainerListener {
 
   /**
    * Method invoked when the {@link SamzaContainer} state is {@link org.apache.samza.SamzaContainerStatus#NOT_STARTED}
-   * and is about to transit to {@link org.apache.samza.SamzaContainerStatus#STARTING} to start the initialization sequence.
+   * and is about to transition to {@link org.apache.samza.SamzaContainerStatus#STARTING} to start the initialization sequence.
    */
   void beforeStart();
 
@@ -51,8 +51,8 @@ public interface SamzaContainerListener {
    *  {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
    *  {@link org.apache.samza.SamzaContainerStatus}
    *  <br>
-   *  <b>Note</b>: {@link #afterFailed(Throwable)} is mutually exclusive to {@link #afterStop()}.
+   *  <b>Note</b>: {@link #afterFailure(Throwable)} is mutually exclusive to {@link #afterStop()}.
    *  @param t Throwable that caused the container failure.
    */
-  void afterFailed(Throwable t);
+  void afterFailure(Throwable t);
 }
