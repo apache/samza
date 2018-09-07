@@ -19,13 +19,16 @@
 
 package org.apache.samza.sql.runner;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Test;
@@ -74,6 +77,23 @@ public class TestSamzaSqlApplicationConfig {
     // Configs for the unused system "log" is not mandatory.
     String logSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", "log");
     testWithoutConfigShouldPass(config, logSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER);
+  }
+
+  @Test
+  public void testGetInputAndOutputStreamConfigs() {
+    List<String> sqlStmts = Arrays.asList("Insert into testavro.COMPLEX1 select * from testavro.SIMPLE1",
+        "insert into testavro.Profile select * from testavro.SIMPLE1");
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    Set<String> inputKeys = samzaSqlApplicationConfig.getInputSystemStreamConfigBySource().keySet();
+    Set<String> outputKeys = samzaSqlApplicationConfig.getOutputSystemStreamConfigsBySource().keySet();
+    Assert.assertEquals(1, inputKeys.size());
+    Assert.assertTrue(inputKeys.contains("testavro.SIMPLE1"));
+    Assert.assertEquals(2, outputKeys.size());
+    Assert.assertTrue(outputKeys.contains("testavro.COMPLEX1"));
+    Assert.assertTrue(outputKeys.contains("testavro.Profile"));
   }
 
   private void testWithoutConfigShouldPass(Map<String, String> config, String configKey) {

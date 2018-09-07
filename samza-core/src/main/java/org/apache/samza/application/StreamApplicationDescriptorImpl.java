@@ -112,7 +112,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       return expander.get().apply(this, inputDescriptor);
     }
 
-    // TODO: SAMZA-1841: need to add to the broadcast streams if isd is a broadcast stream
+    // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
         String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
     inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
@@ -144,7 +144,6 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
   @Override
   public <M> OutputStream<M> getOutputStream(OutputDescriptor<M, ?> outputDescriptor) {
-    // TODO: SAMZA-1841: need to add to the broadcast streams if osd is a broadcast stream
     Preconditions.checkState(!outputDescriptors.containsKey(outputDescriptor.getStreamId()),
         String.format("add output descriptors multiple times with the same streamId: %s", outputDescriptor.getStreamId()));
     outputDescriptors.put(outputDescriptor.getStreamId(), outputDescriptor);
