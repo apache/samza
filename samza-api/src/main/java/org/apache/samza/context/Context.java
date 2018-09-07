@@ -26,8 +26,9 @@ public interface Context {
    * @param clazz concrete type of the {@link ApplicationDefinedContainerContext} to return
    * @return application-defined container context
    * @throws IllegalStateException if no factory was provided
+   * @throws ClassCastException if the type of the concrete context does not match clazz
    */
-  <T extends ApplicationDefinedContainerContext> T getApplicationDefinedContainerContext(T clazz);
+  <T extends ApplicationDefinedContainerContext> T getApplicationDefinedContainerContext(Class<T> clazz);
 
   /**
    * Returns the application-defined task context object specified by the {@link ApplicationDefinedTaskContextFactory}.
@@ -35,6 +36,7 @@ public interface Context {
    * @param clazz concrete type of the {@link ApplicationDefinedTaskContext} to return
    * @return application-defined task context
    * @throws IllegalStateException if no factory was provided
+   * @throws ClassCastException if the type of the concrete context does not match clazz
    */
-  <T extends ApplicationDefinedTaskContext> T getApplicationDefinedTaskContext(T clazz);
+  <T extends ApplicationDefinedTaskContext> T getApplicationDefinedTaskContext(Class<T> clazz);
 }

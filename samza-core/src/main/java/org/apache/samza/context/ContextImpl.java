@@ -7,6 +7,13 @@ public class ContextImpl implements Context {
   private final ApplicationDefinedContainerContext _applicationDefinedContainerContext;
   private final ApplicationDefinedTaskContext _applicationDefinedTaskContext;
 
+  /**
+   * @param jobContext non-null job context
+   * @param containerContext non-null framework container context
+   * @param taskContext non-null framework task context
+   * @param applicationDefinedContainerContext nullable application-defined container context
+   * @param applicationDefinedTaskContext nullable application-defined task context
+   */
   public ContextImpl(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       ApplicationDefinedContainerContext applicationDefinedContainerContext,
       ApplicationDefinedTaskContext applicationDefinedTaskContext) {
@@ -33,12 +40,18 @@ public class ContextImpl implements Context {
   }
 
   @Override
-  public ApplicationDefinedContainerContext getApplicationDefinedContainerContext() {
-    return _applicationDefinedContainerContext;
+  public <T extends ApplicationDefinedContainerContext> T getApplicationDefinedContainerContext(Class<T> clazz) {
+    if (_applicationDefinedContainerContext == null) {
+      throw new IllegalStateException("No application-defined container context exists");
+    }
+    return clazz.cast(_applicationDefinedContainerContext);
   }
 
   @Override
-  public ApplicationDefinedTaskContext getApplicationDefinedTaskContext() {
-    return _applicationDefinedTaskContext;
+  public <T extends ApplicationDefinedTaskContext> T getApplicationDefinedTaskContext(Class<T> clazz) {
+    if (_applicationDefinedTaskContext == null) {
+      throw new IllegalStateException("No application-defined container context exists");
+    }
+    return clazz.cast(_applicationDefinedTaskContext);
   }
 }
