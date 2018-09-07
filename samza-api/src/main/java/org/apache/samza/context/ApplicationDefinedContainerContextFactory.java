@@ -14,8 +14,8 @@ public interface ApplicationDefinedContainerContextFactory<T extends Application
     extends Serializable {
   /**
    * Create an instance of the application-defined {@link ApplicationDefinedContainerContext}.
-   * @param samzaContext context that can be used to build the {@link ApplicationDefinedContainerContext}
+   * @param samzaContainerContext context that can be used to build the {@link ApplicationDefinedContainerContext}
    * @return new instance of the application-defined {@link ApplicationDefinedContainerContext}
    */
-  T create(SamzaContext samzaContext);
+  T create(SamzaContainerContext samzaContainerContext);
 }
