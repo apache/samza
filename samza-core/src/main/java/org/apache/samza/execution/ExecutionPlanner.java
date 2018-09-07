@@ -28,12 +28,15 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -64,7 +67,7 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public ExecutionPlan plan(OperatorSpecGraph specGraph) throws Exception {
+  public ExecutionPlan plan(OperatorSpecGraph specGraph) {
     validateConfig();
 
     // create physical job graph based on stream graph
@@ -89,6 +92,44 @@ public class ExecutionPlanner {
         && clusterConfig.getHostAffinityEnabled()) {
       throw new SamzaException("Host affinity is not supported in batch mode. Please configure job.host-affinity.enabled=false.");
     }
+  }
+
+  /**
+   * Create the single node physical graph from {@link org.apache.samza.application.TaskApplicationDescriptorImpl}
+   */
+  // TODO: SAMZA-1811: fix this and consolidate w/ high-level application's createJobGrapg(OperatorSpecGraph) method
+  /* package private */ static JobGraph createJobGraph(Config config, TaskApplicationDescriptorImpl taskAppDesc) {
+    JobGraph jobGraph = new JobGraph(config, taskAppDesc);
+    StreamConfig streamConfig = new StreamConfig(config);
+    Set<StreamSpec> sourceStreams = getStreamSpecs(taskAppDesc.getInputDescriptors().keySet(), streamConfig);
+    Set<StreamSpec> sinkStreams = getStreamSpecs(taskAppDesc.getOutputDescriptors().keySet(), streamConfig);
+    Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
+    Set<TableSpec> tables = new HashSet<>(taskAppDesc.getTableDescriptors().stream()
+        .map(tableDesc -> ((BaseTableDescriptor) tableDesc).getTableSpec()).collect(Collectors.toSet()));
+    intStreams.retainAll(sinkStreams);
+    sourceStreams.removeAll(intStreams);
+    sinkStreams.removeAll(intStreams);
+
+    // For this phase, we have a single job node for the whole dag
+    String jobName = config.get(JobConfig.JOB_NAME());
+    String jobId = config.get(JobConfig.JOB_ID(), "1");
+    JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
+
+    // add sources
+    sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
+
+    // add sinks
+    sinkStreams.forEach(spec -> jobGraph.addSink(spec, node));
+
+    // add intermediate streams
+    intStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
+
+    // add tables
+    tables.forEach(spec -> jobGraph.addTable(spec, node));
+
+    jobGraph.validate();
+
+    return jobGraph;
   }
 
   /**

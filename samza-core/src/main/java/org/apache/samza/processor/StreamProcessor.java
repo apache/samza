@@ -105,7 +105,6 @@ public class StreamProcessor {
   private final Object lock = new Object();
 
   private Throwable containerException = null;
-  private boolean processorOnStartCalled = false;
 
   volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
 
@@ -158,8 +157,8 @@ public class StreamProcessor {
    * @param taskFactory the {@link TaskFactory} to be used for creating task instances.
    * @param processorListener listener to the StreamProcessor life cycle.
    */
-  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters,
-                         TaskFactory taskFactory, ProcessorLifecycleListener processorListener) {
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+      ProcessorLifecycleListener processorListener) {
     this(config, customMetricsReporters, taskFactory, processorListener, null);
   }
 
@@ -173,25 +172,13 @@ public class StreamProcessor {
    * @param jobCoordinator the instance of {@link JobCoordinator}
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
-                  ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
-    Preconditions.checkNotNull(processorListener, "ProcessorListener cannot be null.");
-    this.taskFactory = taskFactory;
-    this.config = config;
-    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
-    this.processorListener = processorListener;
-    this.customMetricsReporter = customMetricsReporters;
-    this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
-    this.jobCoordinatorListener = createJobCoordinatorListener();
-    this.jobCoordinator.setListener(jobCoordinatorListener);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
-    // TODO: remove the dependency on jobCoordinator for processorId after fixing SAMZA-1835
-    this.processorId = this.jobCoordinator.getProcessorId();
+      ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
+    this(config, customMetricsReporters, taskFactory, sp -> processorListener, jobCoordinator);
   }
 
   /**
    * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
-   * there is a {@link StreamProcessorListenerFactory} as input instead of {@link ProcessorLifecycleListener}.
+   * there is a {@link StreamProcessorLifecycleListenerFactory} as input instead of {@link ProcessorLifecycleListener}.
    * This is useful to create a {@link ProcessorLifecycleListener} with a reference to this {@link StreamProcessor}
    *
    * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
@@ -201,7 +188,7 @@ public class StreamProcessor {
    * @param jobCoordinator the instance of {@link JobCoordinator}
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
-      StreamProcessorListenerFactory listenerFactory, JobCoordinator jobCoordinator) {
+      StreamProcessorLifecycleListenerFactory listenerFactory, JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
     this.taskFactory = taskFactory;
     this.config = config;
@@ -226,9 +213,9 @@ public class StreamProcessor {
    * </p>
    */
   public void start() {
-    processorListener.beforeStart();
     synchronized (lock) {
       if (state == State.NEW) {
+        processorListener.beforeStart();
         state = State.STARTED;
         jobCoordinator.start();
       } else {
@@ -256,7 +243,7 @@ public class StreamProcessor {
    * <ol>
    *   <li>container is shutdown cleanly and {@link SamzaContainerListener#afterStop()} will trigger
    *   {@link JobCoordinator#stop()}</li>
-   *   <li>container fails to shutdown cleanly and {@link SamzaContainerListener#afterFailed(Throwable)} will
+   *   <li>container fails to shutdown cleanly and {@link SamzaContainerListener#afterFailure(Throwable)} will
    *   trigger {@link JobCoordinator#stop()}</li>
    * </ol>
    * If container is not running, then this method will simply shutdown the {@link JobCoordinator}.
@@ -289,12 +276,12 @@ public class StreamProcessor {
     return jobCoordinator;
   }
 
-  /* package private for testing */
   @VisibleForTesting
   SamzaContainer getContainer() {
     return container;
   }
 
+  @VisibleForTesting
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
     return SamzaContainer.apply(processorId, jobModel, config, ScalaJavaUtil.toScalaMap(customMetricsReporter), taskFactory);
   }
@@ -400,11 +387,13 @@ public class StreamProcessor {
    * Interface to create a {@link ProcessorLifecycleListener}
    */
   @FunctionalInterface
-  public interface StreamProcessorListenerFactory {
+  public interface StreamProcessorLifecycleListenerFactory {
     ProcessorLifecycleListener createInstance(StreamProcessor processor);
   }
 
   class ContainerListener implements SamzaContainerListener {
+
+    private boolean processorOnStartCalled = false;
 
     @Override
     public void beforeStart() {
@@ -436,7 +425,7 @@ public class StreamProcessor {
     }
 
     @Override
-    public void afterFailed(Throwable t) {
+    public void afterFailure(Throwable t) {
       containerShutdownLatch.countDown();
       synchronized (lock) {
         LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), containerException);

@@ -18,20 +18,18 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.TaskConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ExecutorService;
-
-import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}
@@ -47,10 +45,14 @@ public class TaskFactoryUtil {
    * @return {@link TaskFactory} object defined by {@code appDesc}
    */
   public static TaskFactory getTaskFactory(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    return ApplicationDescriptors.<TaskFactory>forType(TaskApplicationDescriptorImpl::getTaskFactory,
-        streamAppDesc -> (StreamTaskFactory) () ->
-            new StreamOperatorTask(streamAppDesc.getOperatorSpecGraph(), streamAppDesc.getContextManager()),
-        appDesc);
+    if (appDesc instanceof TaskApplicationDescriptorImpl) {
+      return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
+    } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
+      return (StreamTaskFactory) () -> new StreamOperatorTask(((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph(),
+          ((StreamApplicationDescriptorImpl) appDesc).getContextManager());
+    }
+    throw new IllegalArgumentException(String.format("AppDescriptorImpl has to be either TaskAppDescriptorImpl or "
+        + "StreamAppDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
   }
 
   /**
@@ -58,16 +60,11 @@ public class TaskFactoryUtil {
    * <p>
    * This should only be used to create {@link TaskFactory} defined in task.class
    *
-   * @param config  the {@link Config} for this job
+   * @param taskClassName  the task class name for this job
    * @return  a {@link TaskFactory} object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static TaskFactory getTaskFactoryFromConfig(Config config) {
-    // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
-    String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
-      () -> {
-        throw new ConfigException("No task class defined in the configuration.");
-      }));
-
+  public static TaskFactory getTaskFactory(String taskClassName) {
+    Preconditions.checkArgument(StringUtils.isNotBlank(taskClassName), "task.class cannot be empty");
     log.info("Got task class name: {}", taskClassName);
 
     boolean isAsyncTaskClass;

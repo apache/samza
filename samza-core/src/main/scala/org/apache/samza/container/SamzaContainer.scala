@@ -868,7 +868,7 @@ class SamzaContainer(
         }
       case SamzaContainerStatus.FAILED =>
         if (containerListener != null) {
-          containerListener.afterFailed(exceptionSeen)
+          containerListener.afterFailure(exceptionSeen)
         }
     }
   }
@@ -881,7 +881,7 @@ class SamzaContainer(
    * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
    * [[SamzaContainerStatus.STARTED]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
    * Based on the final `status`, [[SamzaContainerListener#afterStop()]] or
-    * [[SamzaContainerListener#afterFailed(Throwable]] will be invoked respectively.
+    * [[SamzaContainerListener#afterFailure(Throwable]] will be invoked respectively.
    *
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */

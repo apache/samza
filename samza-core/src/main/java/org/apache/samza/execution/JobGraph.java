@@ -31,6 +31,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -61,6 +63,8 @@ import org.slf4j.LoggerFactory;
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
   private final OperatorSpecGraph specGraph;
+  private final Set<String> broadcastStreams;
+  private final boolean isTaskApplication;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
@@ -69,6 +73,17 @@ import org.slf4j.LoggerFactory;
   JobGraph(Config config, OperatorSpecGraph specGraph) {
     this.config = config;
     this.specGraph = specGraph;
+    this.broadcastStreams = specGraph.getBroadcastStreams();
+    this.isTaskApplication = false;
+  }
+
+  JobGraph(Config config, TaskApplicationDescriptorImpl taskAppDesc) {
+    this.config = config;
+    // TODO: HACK!!! Need to be fixed after SAMZA-1811
+    // create a dummy specGraph
+    this.specGraph = new StreamApplicationDescriptorImpl(appDesc -> { }, config).getOperatorSpecGraph();
+    this.broadcastStreams = taskAppDesc.getBroadcastStreams();
+    this.isTaskApplication = true;
   }
 
   @Override
@@ -89,6 +104,11 @@ import org.slf4j.LoggerFactory;
     return getIntermediateStreamEdges().stream()
         .map(StreamEdge::getStreamSpec)
         .collect(Collectors.toList());
+  }
+
+  // TODO: SAMZA-1811: consolidate this with high-level application JobGraph
+  JobConfig getSingleNodeJobConfig(TaskApplicationDescriptorImpl taskAppDesc) {
+    return getJobNodes().get(0).generateTaskApplicationConfig(taskAppDesc);
   }
 
   void addTable(TableSpec tableSpec, JobNode node) {
@@ -187,7 +207,7 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      boolean isBroadcast = specGraph.getBroadcastStreams().contains(streamId);
+      boolean isBroadcast = broadcastStreams.contains(streamId);
       edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
     }
@@ -299,6 +319,9 @@ import org.slf4j.LoggerFactory;
    * Validate all nodes are reachable by sources.
    */
   private void validateReachability() {
+    if (isTaskApplication) {
+      return;
+    }
     // validate all nodes are reachable from the sources
     final Set<JobNode> reachable = findReachable();
     if (reachable.size() != nodes.size()) {

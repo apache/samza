@@ -18,10 +18,17 @@
  */
 package org.apache.samza.application;
 
+import com.google.common.base.Preconditions;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.task.TaskFactory;
 
 
@@ -35,7 +42,13 @@ import org.apache.samza.task.TaskFactory;
 public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<TaskApplicationDescriptor>
     implements TaskApplicationDescriptor {
 
-  TaskFactory taskFactory;
+  private final Map<String, InputDescriptor> inputDescriptors = new LinkedHashMap<>();
+  private final Map<String, OutputDescriptor> outputDescriptors = new LinkedHashMap<>();
+  private final Set<String> broadcastStreams = new HashSet<>();
+  private final Map<String, TableDescriptor> tableDescriptors = new LinkedHashMap<>();
+  private final Map<String, SystemDescriptor> systemDescriptors = new LinkedHashMap<>();
+
+  private TaskFactory taskFactory = null;
 
   public TaskApplicationDescriptorImpl(TaskApplication userApp, Config config) {
     super(userApp, config);
@@ -48,18 +61,55 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   }
 
   @Override
-  public void addInputStream(InputDescriptor isd) {
-    addInputDescriptor(isd);
+  public void addInputStream(InputDescriptor inputDescriptor) {
+    // TODO: SAMZA-1841: need to add to the broadcast streams if isd is a broadcast stream
+    Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
+        String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
+    inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
+    addSystemDescriptor(inputDescriptor.getSystemDescriptor());
   }
 
   @Override
-  public void addOutputStream(OutputDescriptor osd) {
-    addOutputDescriptor(osd);
+  public void addOutputStream(OutputDescriptor outputDescriptor) {
+    // TODO: SAMZA-1841: need to add to the broadcast streams if osd is a broadcast stream
+    Preconditions.checkState(!outputDescriptors.containsKey(outputDescriptor.getStreamId()),
+        String.format("add output descriptors multiple times with the same streamId: %s", outputDescriptor.getStreamId()));
+    outputDescriptors.put(outputDescriptor.getStreamId(), outputDescriptor);
+    addSystemDescriptor(outputDescriptor.getSystemDescriptor());
   }
 
   @Override
   public void addTable(TableDescriptor tableDescriptor) {
-    addTableDescriptor(tableDescriptor);
+    Preconditions.checkState(!tableDescriptors.containsKey(tableDescriptor.getTableId()),
+        String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
+    tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
+  }
+
+  @Override
+  public Map<String, InputDescriptor> getInputDescriptors() {
+    return Collections.unmodifiableMap(inputDescriptors);
+  }
+
+  @Override
+  public Map<String, OutputDescriptor> getOutputDescriptors() {
+    return Collections.unmodifiableMap(outputDescriptors);
+  }
+
+  @Override
+  public Set<String> getBroadcastStreams() {
+    return Collections.unmodifiableSet(broadcastStreams);
+  }
+
+  @Override
+  public Set<TableDescriptor> getTableDescriptors() {
+    return Collections.unmodifiableSet(new HashSet<>(tableDescriptors.values()));
+  }
+
+  @Override
+  public Set<SystemDescriptor> getSystemDescriptors() {
+    // We enforce that users must not use different system descriptor instances for the same system name
+    // when getting an input/output stream or setting the default system descriptor
+    return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
   }
 
   /**
@@ -70,8 +120,11 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     return taskFactory;
   }
 
-  @Override
-  protected boolean noInputOutputStreams() {
-    return getInputDescriptors().isEmpty() && getOutputDescriptors().isEmpty();
+  private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
+    Preconditions.checkState(!systemDescriptors.containsKey(systemDescriptor.getSystemName())
+            || systemDescriptors.get(systemDescriptor.getSystemName()) == systemDescriptor,
+        "Must not use different system descriptor instances for the same system name: " + systemDescriptor.getSystemName());
+    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
   }
+
 }

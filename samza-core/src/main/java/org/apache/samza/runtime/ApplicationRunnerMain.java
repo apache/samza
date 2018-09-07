@@ -21,6 +21,7 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
@@ -54,7 +55,7 @@ public class ApplicationRunnerMain {
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
     ApplicationRunner appRunner =
-        ApplicationRunners.getApplicationRunner(ApplicationClassUtils.fromConfig(config), config);
+        ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
 
     switch (op) {
       case RUN:

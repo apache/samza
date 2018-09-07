@@ -18,9 +18,7 @@
  */
 package org.apache.samza.application;
 
-import com.google.common.base.Preconditions;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -50,16 +48,8 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     implements ApplicationDescriptor<S> {
 
   final Config config;
-  final Class<? extends SamzaApplication> appClass;
-
-  private final Map<String, InputDescriptor> inputDescriptors = new LinkedHashMap<>();
-  private final Map<String, OutputDescriptor> outputDescriptors = new LinkedHashMap<>();
-  private final Map<String, SystemDescriptor> systemDescriptors = new LinkedHashMap<>();
-  private final Set<String> broadcastStreams = new HashSet<>();
-  private final Map<String, TableDescriptor> tableDescriptors = new LinkedHashMap<>();
+  private final Class<? extends SamzaApplication> appClass;
   private final Map<String, MetricsReporterFactory> reporterFactories = new LinkedHashMap<>();
-
-  private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
 
   // Default to no-op functions in ContextManager
   // TODO: this should be replaced by shared context factory defined in SAMZA-1714
@@ -76,9 +66,9 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
 
-  ApplicationDescriptorImpl(SamzaApplication userApp, Config config) {
+  ApplicationDescriptorImpl(SamzaApplication app, Config config) {
     this.config = config;
-    this.appClass = userApp.getClass();
+    this.appClass = app.getClass();
   }
 
   @Override
@@ -99,102 +89,37 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
-    Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
-    Preconditions.checkState(noInputOutputStreams(),
-        "Default system must be set before creating any input or output streams.");
-    addSystemDescriptor(defaultSystemDescriptor);
-    defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
-    return (S) this;
-  }
-
-  @Override
   public S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories) {
     this.reporterFactories.clear();
     this.reporterFactories.putAll(reporterFactories);
     return (S) this;
   }
+
   /**
-   * Get the user application class
+   * Get the application class
    *
-   * @return user implemented {@link SamzaApplication} class
+   * @return an implementation of {@link SamzaApplication}
    */
   public Class<? extends SamzaApplication> getAppClass() {
     return appClass;
   }
 
   /**
-   * Get the user-implemented {@link ContextManager} object associated with this application
+   * Get the {@link ContextManager} associated with this application
    *
-   * @return the {@link ContextManager} object
+   * @return the {@link ContextManager} for this application
    */
   public ContextManager getContextManager() {
     return contextManager;
   }
 
   /**
-   * Get the user-implemented {@link ProcessorLifecycleListenerFactory} object associated with this application
+   * Get the {@link ProcessorLifecycleListenerFactory} associated with this application
    *
-   * @return the {@link ProcessorLifecycleListenerFactory} object
+   * @return the {@link ProcessorLifecycleListenerFactory} in this application
    */
   public ProcessorLifecycleListenerFactory getProcessorLifecycleListenerFactory() {
     return listenerFactory;
-  }
-
-  /**
-   * Get all the {@link InputDescriptor}s to this application
-   *
-   * @return an immutable map of streamId to {@link InputDescriptor}
-   */
-  public Map<String, InputDescriptor> getInputDescriptors() {
-    return Collections.unmodifiableMap(inputDescriptors);
-  }
-
-  /**
-   * Get all the {@link OutputDescriptor}s from this application
-   *
-   * @return an immutable map of streamId to {@link OutputDescriptor}
-   */
-  public Map<String, OutputDescriptor> getOutputDescriptors() {
-    return Collections.unmodifiableMap(outputDescriptors);
-  }
-
-  /**
-   * Get all the broadcast streamIds from this application
-   *
-   * @return an immutable set of streamIds
-   */
-  public Set<String> getBroadcastStreams() {
-    return Collections.unmodifiableSet(broadcastStreams);
-  }
-
-  /**
-   * Get all the {@link TableDescriptor}s in this application
-   *
-   * @return an immutable set of {@link TableDescriptor}s
-   */
-  public Set<TableDescriptor> getTableDescriptors() {
-    return Collections.unmodifiableSet(new HashSet<>(tableDescriptors.values()));
-  }
-
-  /**
-   * Get all the unique {@link SystemDescriptor}s in this application
-   *
-   * @return an immutable set of {@link SystemDescriptor}s
-   */
-  public Set<SystemDescriptor> getSystemDescriptors() {
-    // We enforce that users must not use different system descriptor instances for the same system name
-    // when getting an input/output stream or setting the default system descriptor
-    return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
-  }
-
-  /**
-   * Get the default {@link SystemDescriptor} in this application
-   *
-   * @return the default {@link SystemDescriptor}
-   */
-  public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
-    return defaultSystemDescriptorOptional;
   }
 
   /**
@@ -206,45 +131,49 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     return Collections.unmodifiableMap(reporterFactories);
   }
 
-  // TODO: this should go away when partitionBy() and broadcast() will also generate InputDescriptor/OutputDescriptor as well
-  // helper method to determine that there is no input/output streams added in the application yet
-  protected abstract boolean noInputOutputStreams();
-
-  // internal method to add {@link TableDescriptor} to this application
-  void addTableDescriptor(TableDescriptor tableDescriptor) {
-    Preconditions.checkState(!tableDescriptors.containsKey(tableDescriptor.getTableId()),
-        String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
-    tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
+  /**
+   * Get the default {@link SystemDescriptor} in this application
+   *
+   * @return the default {@link SystemDescriptor}
+   */
+  public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
+    // default is not set
+    return Optional.empty();
   }
 
-  // internal method to add {@link InputDescriptor} to this application
-  void addInputDescriptor(InputDescriptor isd) {
-    // TODO: need to add to the broadcast streams if isd is a broadcast stream
-    Preconditions.checkState(!inputDescriptors.containsKey(isd.getStreamId()),
-        String.format("add input descriptors multiple times with the same streamId: %s", isd.getStreamId()));
-    inputDescriptors.put(isd.getStreamId(), isd);
-    addSystemDescriptor(isd.getSystemDescriptor());
-  }
+  /**
+   * Get all the {@link InputDescriptor}s to this application
+   *
+   * @return an immutable map of streamId to {@link InputDescriptor}
+   */
+  public abstract Map<String, InputDescriptor> getInputDescriptors();
 
-  // internal method to add {@link OutputDescriptor} to this application
-  void addOutputDescriptor(OutputDescriptor osd) {
-    // TODO: need to add to the broadcast streams if osd is a broadcast stream
-    Preconditions.checkState(!outputDescriptors.containsKey(osd.getStreamId()),
-        String.format("add output descriptors multiple times with the same streamId: %s", osd.getStreamId()));
-    outputDescriptors.put(osd.getStreamId(), osd);
-    addSystemDescriptor(osd.getSystemDescriptor());
-  }
+  /**
+   * Get all the {@link OutputDescriptor}s from this application
+   *
+   * @return an immutable map of streamId to {@link OutputDescriptor}
+   */
+  public abstract Map<String, OutputDescriptor> getOutputDescriptors();
 
-  // TODO: this should be completely internal to addInputDescriptor()/addOutputDescriptor after we add broadcast automatically
-  void addBroadcastStream(String streamId) {
-    broadcastStreams.add(streamId);
-  }
+  /**
+   * Get all the broadcast streamIds from this application
+   *
+   * @return an immutable set of streamIds
+   */
+  public abstract Set<String> getBroadcastStreams();
 
-  // internal method to add a unique {@link SystemDescriptor} to this application
-  private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
-    Preconditions.checkState(!systemDescriptors.containsKey(systemDescriptor.getSystemName())
-            || systemDescriptors.get(systemDescriptor.getSystemName()) == systemDescriptor,
-        "Must not use different system descriptor instances for the same system name: " + systemDescriptor.getSystemName());
-    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
-  }
+  /**
+   * Get all the {@link TableDescriptor}s in this application
+   *
+   * @return an immutable set of {@link TableDescriptor}s
+   */
+  public abstract Set<TableDescriptor> getTableDescriptors();
+
+  /**
+   * Get all the unique {@link SystemDescriptor}s in this application
+   *
+   * @return an immutable set of {@link SystemDescriptor}s
+   */
+  public abstract Set<SystemDescriptor> getSystemDescriptors();
+
 }

@@ -23,7 +23,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * The base interface class for all task factories (i.e. {@link StreamTaskFactory} and {@link AsyncStreamTaskFactory}
+ * The interface for all task factories (i.e. {@link StreamTaskFactory} and {@link AsyncStreamTaskFactory}
  *
  * @param <T> the type of task instances
  */

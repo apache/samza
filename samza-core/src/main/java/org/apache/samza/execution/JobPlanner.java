@@ -20,7 +20,6 @@ package org.apache.samza.execution;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +30,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.ApplicationDescriptors;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
@@ -40,10 +38,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.table.TableConfigGenerator;
-import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,22 +62,17 @@ public abstract class JobPlanner {
 
   public List<JobConfig> prepareJobs() {
     String appId = new ApplicationConfig(appDesc.getConfig()).getGlobalAppId();
-    return ApplicationDescriptors.forType(
-        taskAppDesc -> {
-        try {
-          return Collections.singletonList(prepareTaskJob(taskAppDesc));
-        } catch (Exception e) {
-          throw new SamzaException("Failed to generate JobConfig for TaskApplication " + appId, e);
-        }
-      },
-        streamAppDesc -> {
-        try {
-          return prepareStreamJobs(streamAppDesc);
-        } catch (Exception e) {
-          throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
-        }
-      },
-      appDesc);
+    if (appDesc instanceof TaskApplicationDescriptorImpl) {
+      return Collections.singletonList(prepareTaskJob((TaskApplicationDescriptorImpl) appDesc));
+    } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
+      try {
+        return prepareStreamJobs((StreamApplicationDescriptorImpl) appDesc);
+      } catch (Exception e) {
+        throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
+      }
+    }
+    throw new IllegalArgumentException(String.format("AppDescriptorImpl has to be either TaskAppDescriptorImpl or "
+        + "StreamAppDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
   }
 
   abstract List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception;
@@ -93,12 +83,12 @@ public abstract class JobPlanner {
     return streamManager;
   }
 
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph) throws Exception {
+  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph) {
     return getExecutionPlan(specGraph, null);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId) throws Exception {
+  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId) {
 
     // update application configs
     Map<String, String> cfg = new HashMap<>();
@@ -117,7 +107,6 @@ public abstract class JobPlanner {
     // descriptor generated configuration has higher priority
     Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(appDesc);
     cfg.putAll(systemStreamConfigs);
-    // TODO: should generate table configuration from table descriptors as well (SAMZA-1815)
 
     // adding app.class in the configuration
     cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
@@ -156,20 +145,19 @@ public abstract class JobPlanner {
     }
   }
 
+  // TODO: SAMZA-1811: The following private helper to generate single node JobGraph for TaskApplication should be consolidated
+  // to ExecutionPlanner
   // helper method to generate a single node job configuration for low level task applications
   private JobConfig prepareTaskJob(TaskApplicationDescriptorImpl taskAppDesc) {
     // copy original configure
-    Map<String, String> cfg = new HashMap<>();
+    Map<String, String> cfg = new HashMap<>(config);
     // expand system and streams configure
     Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(taskAppDesc);
     cfg.putAll(systemStreamConfigs);
-    // expand table configure
-    cfg.putAll(expandTableConfigs(cfg, taskAppDesc));
-    // adding app.class in the configuration
-    cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
-    // create the physical execution plan and merge with overrides. This works for a single-stage job now
-    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
-    return new JobConfig(JobNode.mergeJobConfig(config, new MapConfig(cfg)));
+
+    Config generatedCfgFromStreamDescriptors = new MapConfig(cfg);
+    JobGraph singleNodeJobGraph = ExecutionPlanner.createJobGraph(generatedCfgFromStreamDescriptors, taskAppDesc);
+    return singleNodeJobGraph.getSingleNodeJobConfig(taskAppDesc);
   }
 
   private Map<String, String> expandSystemStreamConfigs(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
@@ -180,13 +168,5 @@ public abstract class JobPlanner {
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
         systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
     return systemStreamConfigs;
-  }
-
-  private Map<String, String> expandTableConfigs(Map<String, String> originConfig,
-      ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    List<TableSpec> tableSpecs = new ArrayList<>();
-    appDesc.getTableDescriptors().stream().map(td -> ((BaseTableDescriptor) td).getTableSpec())
-        .forEach(spec -> tableSpecs.add(spec));
-    return TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(originConfig), tableSpecs);
   }
 }

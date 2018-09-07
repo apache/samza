@@ -26,7 +26,7 @@ import org.apache.samza.task.TaskFactory;
 
 
 /**
- *  The interface class to describe a user application as low-level task in Samza.
+ *  The interface to describe a {@link SamzaApplication} that uses low-level API task for processing.
  */
 @InterfaceStability.Evolving
 public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApplicationDescriptor> {
@@ -35,20 +35,20 @@ public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApp
    * Sets the {@link TaskFactory} for the user application. The {@link TaskFactory#createInstance()} creates task instance
    * that implements the main processing logic of the user application.
    *
-   * @param factory the user implemented {@link TaskFactory} including the low-level task processing logic. The only
-   *                allowed task factor classes are {@link org.apache.samza.task.StreamTaskFactory} and {@link org.apache.samza.task.AsyncStreamTaskFactory}.
+   * @param factory the {@link TaskFactory} including the low-level task processing logic. The only allowed task factory
+   *                classes are {@link org.apache.samza.task.StreamTaskFactory} and {@link org.apache.samza.task.AsyncStreamTaskFactory}.
    */
   void setTaskFactory(TaskFactory factory);
 
   /**
-   * Adds the input stream to the user application.
+   * Adds the input stream to the application.
    *
    * @param isd the {@link InputDescriptor}
    */
   void addInputStream(InputDescriptor isd);
 
   /**
-   * Adds the output stream to the user application.
+   * Adds the output stream to the application.
    *
    * @param osd the {@link OutputDescriptor} of the output stream
    */

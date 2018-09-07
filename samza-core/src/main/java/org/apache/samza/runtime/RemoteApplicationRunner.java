@@ -25,7 +25,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.ApplicationDescriptorUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.RemoteJobPlanner;
@@ -49,13 +49,13 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   private final RemoteJobPlanner planner;
 
   /**
-   * Default public constructor that is required by any implementation of {@link ApplicationRunner}
+   * Constructors a {@link RemoteApplicationRunner} to run the {@code app} with the {@code config}.
    *
-   * @param userApp user application
-   * @param config user configuration
+   * @param app application to run
+   * @param config configuration for the application
    */
-  public RemoteApplicationRunner(SamzaApplication userApp, Config config) {
-    this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
+  public RemoteApplicationRunner(SamzaApplication app, Config config) {
+    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     this.planner = new RemoteJobPlanner(appDesc);
   }
 

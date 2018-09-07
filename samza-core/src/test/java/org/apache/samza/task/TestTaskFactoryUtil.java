@@ -19,15 +19,12 @@
 package org.apache.samza.task;
 
 import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.junit.Test;
 
@@ -46,22 +43,12 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testStreamTaskClass() {
-    Config config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", MockStreamTask.class.getName());
-      }
-    });
-    Object retFactory = TaskFactoryUtil.getTaskFactoryFromConfig(config);
+    TaskFactory retFactory = TaskFactoryUtil.getTaskFactory(MockStreamTask.class.getName());
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof MockStreamTask);
 
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "no.such.class");
-      }
-    });
     try {
-      TaskFactoryUtil.getTaskFactoryFromConfig(config);
+      TaskFactoryUtil.getTaskFactory("no.such.class");
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -70,22 +57,12 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testAsyncStreamTask() {
-    Config config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", TestAsyncStreamTask.class.getName());
-      }
-    });
-    Object retFactory = TaskFactoryUtil.getTaskFactoryFromConfig(config);
+    TaskFactory retFactory = TaskFactoryUtil.getTaskFactory(MockAsyncStreamTask.class.getName());
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
-    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof TestAsyncStreamTask);
+    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof MockAsyncStreamTask);
 
-    config = new MapConfig(new HashMap<String, String>() {
-      {
-        this.put("task.class", "no.such.class");
-      }
-    });
     try {
-      TaskFactoryUtil.getTaskFactoryFromConfig(config);
+      TaskFactoryUtil.getTaskFactory("no.such.class");
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

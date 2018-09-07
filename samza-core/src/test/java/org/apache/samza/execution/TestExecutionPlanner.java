@@ -24,11 +24,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -36,9 +39,13 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
@@ -62,6 +69,11 @@ public class TestExecutionPlanner {
   private static final String DEFAULT_SYSTEM = "test-system";
   private static final int DEFAULT_PARTITIONS = 10;
 
+  private final Set<SystemDescriptor> systemDescriptors = new HashSet<>();
+  private final Map<String, InputDescriptor> inputDescriptors = new HashMap<>();
+  private final Map<String, OutputDescriptor> outputDescriptors = new HashMap<>();
+  private final Set<TableDescriptor> tableDescriptors = new HashSet<>();
+
   private SystemAdmins systemAdmins;
   private StreamManager streamManager;
   private Config config;
@@ -78,6 +90,8 @@ public class TestExecutionPlanner {
   private GenericOutputDescriptor<KV<Object, Object>> output1Descriptor;
   private StreamSpec output2Spec;
   private GenericOutputDescriptor<KV<Object, Object>> output2Descriptor;
+  private GenericSystemDescriptor system1Descriptor;
+  private GenericSystemDescriptor system2Descriptor;
 
   static SystemAdmin createSystemAdmin(Map<String, Integer> streamToPartitions) {
 
@@ -232,14 +246,29 @@ public class TestExecutionPlanner {
 
     KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
     String mockSystemFactoryClass = "factory.class.name";
-    GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
-    GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
-    input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
-    input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
-    input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
-    input4Descriptor = system1.getInputDescriptor("input4", kvSerde);
-    output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
-    output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
+    system1Descriptor = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
+    system2Descriptor = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
+    input1Descriptor = system1Descriptor.getInputDescriptor("input1", kvSerde);
+    input2Descriptor = system2Descriptor.getInputDescriptor("input2", kvSerde);
+    input3Descriptor = system2Descriptor.getInputDescriptor("input3", kvSerde);
+    input4Descriptor = system1Descriptor.getInputDescriptor("input4", kvSerde);
+    output1Descriptor = system1Descriptor.getOutputDescriptor("output1", kvSerde);
+    output2Descriptor = system2Descriptor.getOutputDescriptor("output2", kvSerde);
+
+    // clean and set up sets and maps of descriptors
+    systemDescriptors.clear();
+    inputDescriptors.clear();
+    outputDescriptors.clear();
+    tableDescriptors.clear();
+    systemDescriptors.add(system1Descriptor);
+    systemDescriptors.add(system2Descriptor);
+    inputDescriptors.put(input1Descriptor.getStreamId(), input1Descriptor);
+    inputDescriptors.put(input2Descriptor.getStreamId(), input2Descriptor);
+    inputDescriptors.put(input3Descriptor.getStreamId(), input3Descriptor);
+    inputDescriptors.put(input4Descriptor.getStreamId(), input4Descriptor);
+    outputDescriptors.put(output1Descriptor.getStreamId(), output1Descriptor);
+    outputDescriptors.put(output2Descriptor.getStreamId(), output2Descriptor);
+
 
     // set up external partition count
     Map<String, Integer> system1Map = new HashMap<>();
@@ -446,5 +475,53 @@ public class TestExecutionPlanner {
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
       });
+  }
+
+  @Test
+  public void testCreateJobGraphForTaskApplication() {
+    TaskApplicationDescriptorImpl taskAppDesc = mock(TaskApplicationDescriptorImpl.class);
+    // add interemediate streams
+    String intermediateStream1 = "intermediate-stream1";
+    String intermediateBroadcast = "intermediate-broadcast1";
+    // intermediate stream1, not broadcast
+    GenericInputDescriptor<KV<Object, Object>> intermediateInput1 = system1Descriptor.getInputDescriptor(
+        intermediateStream1, new KVSerde<>(new NoOpSerde(), new NoOpSerde()));
+    GenericOutputDescriptor<KV<Object, Object>> intermediateOutput1 = system1Descriptor.getOutputDescriptor(
+        intermediateStream1, new KVSerde<>(new NoOpSerde(), new NoOpSerde()));
+    // intermediate stream2, broadcast
+    GenericInputDescriptor<KV<Object, Object>> intermediateBroacastInput1 = system1Descriptor.getInputDescriptor(
+        intermediateBroadcast, new KVSerde<>(new NoOpSerde<>(), new NoOpSerde<>()));
+    GenericOutputDescriptor<KV<Object, Object>> intermediateBroacastOutput1 = system1Descriptor.getOutputDescriptor(
+        intermediateBroadcast, new KVSerde<>(new NoOpSerde<>(), new NoOpSerde<>()));
+    inputDescriptors.put(intermediateStream1, intermediateInput1);
+    outputDescriptors.put(intermediateStream1, intermediateOutput1);
+    inputDescriptors.put(intermediateBroadcast, intermediateBroacastInput1);
+    outputDescriptors.put(intermediateBroadcast, intermediateBroacastOutput1);
+    Set<String> broadcastStreams = new HashSet<>();
+    broadcastStreams.add(intermediateBroadcast);
+
+    when(taskAppDesc.getInputDescriptors()).thenReturn(inputDescriptors);
+    when(taskAppDesc.getOutputDescriptors()).thenReturn(outputDescriptors);
+    when(taskAppDesc.getTableDescriptors()).thenReturn(tableDescriptors);
+    when(taskAppDesc.getSystemDescriptors()).thenReturn(systemDescriptors);
+    when(taskAppDesc.getBroadcastStreams()).thenReturn(broadcastStreams);
+
+    Map<String, String> systemStreamConfigs = new HashMap<>();
+    inputDescriptors.forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    outputDescriptors.forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
+    systemDescriptors.forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
+
+    JobGraph jobGraph = ExecutionPlanner.createJobGraph(config, taskAppDesc);
+    assertEquals(1, jobGraph.getJobNodes().size());
+    assertTrue(jobGraph.getSources().stream().map(edge -> edge.getName())
+        .filter(streamId -> inputDescriptors.containsKey(streamId)).collect(Collectors.toList()).isEmpty());
+    Set<String> intermediateStreams = new HashSet<>(inputDescriptors.keySet());
+    jobGraph.getSources().forEach(edge -> {
+        if (intermediateStreams.contains(edge.getName())) {
+          intermediateStreams.remove(edge.getName());
+        }
+      });
+    assertEquals(new HashSet<String>() { { this.add(intermediateStream1); this.add(intermediateBroadcast); } }.toArray(),
+        intermediateStreams.toArray());
   }
 }

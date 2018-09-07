@@ -35,7 +35,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.ApplicationDescriptorUtil;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -65,19 +65,18 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   /**
-   * Default public constructor that is required by any implementation of {@link ApplicationRunner}
+   * Constructors a {@link LocalApplicationRunner} to run the {@code app} with the {@code config}.
    *
-   * @param userApp user application
-   * @param config user configuration
+   * @param app application to run
+   * @param config configuration for the application
    */
-  public LocalApplicationRunner(SamzaApplication userApp, Config config) {
-    this.appDesc = ApplicationDescriptors.getAppDescriptor(userApp, config);
+  public LocalApplicationRunner(SamzaApplication app, Config config) {
+    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     this.planner = new LocalJobPlanner(appDesc);
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
-   *
    */
   @VisibleForTesting
   LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, LocalJobPlanner planner) {
@@ -160,9 +159,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
     return shutdownLatch;
   }
 
-  /* package private */
+  @VisibleForTesting
   StreamProcessor createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
-      StreamProcessor.StreamProcessorListenerFactory listenerFactory) {
+      StreamProcessor.StreamProcessorLifecycleListenerFactory listenerFactory) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
     // TODO: the null processorId has to be fixed after SAMZA-1835
@@ -174,9 +173,15 @@ public class LocalApplicationRunner implements ApplicationRunner {
   /**
    * Defines a specific implementation of {@link ProcessorLifecycleListener} for local {@link StreamProcessor}s.
    */
-  final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
+  private final class LocalStreamProcessorLifecycleListener implements ProcessorLifecycleListener {
     private final StreamProcessor processor;
     private final ProcessorLifecycleListener userDefinedProcessorLifecycleListener;
+
+    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig) {
+      this.userDefinedProcessorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
+          .createInstance(new ProcessorContext() { }, jobConfig);
+      this.processor = processor;
+    }
 
     @Override
     public void beforeStart() {
@@ -212,12 +217,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
       // handle the current processor's shutdown failure.
       handleProcessorShutdown(t);
-    }
-
-    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig) {
-      this.userDefinedProcessorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
-          .createInstance(new ProcessorContext() { }, jobConfig);
-      this.processor = processor;
     }
 
     private void handleProcessorShutdown(Throwable error) {

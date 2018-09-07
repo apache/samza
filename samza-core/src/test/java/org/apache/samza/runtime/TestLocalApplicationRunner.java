@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.ApplicationDescriptors;
+import org.apache.samza.application.ApplicationDescriptorUtil;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -79,8 +79,8 @@ public class TestLocalApplicationRunner {
 
     StreamProcessor sp = mock(StreamProcessor.class);
 
-    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
-        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
     doAnswer(i ->
       {
@@ -114,8 +114,8 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
-        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
     doAnswer(i ->
       {
@@ -149,8 +149,8 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
-    ArgumentCaptor<StreamProcessor.StreamProcessorListenerFactory> captor =
-        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorListenerFactory.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
     doAnswer(i ->
       {
@@ -186,7 +186,7 @@ public class TestLocalApplicationRunner {
   }
 
   private void prepareTest() {
-    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptors.getAppDescriptor(mockApp, config);
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc));
     runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
   }

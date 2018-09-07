@@ -23,7 +23,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 /**
  * Test implementation class for {@link AsyncStreamTask}
  */
-public class TestAsyncStreamTask implements AsyncStreamTask {
+public class MockAsyncStreamTask implements AsyncStreamTask {
   @Override
   public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
 

@@ -21,7 +21,7 @@ package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.runtime.ApplicationClassUtils;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.runtime.ApplicationRunnerMain;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -46,7 +46,7 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    SamzaApplication app = ApplicationClassUtils.fromConfig(config);
+    SamzaApplication app = ApplicationUtil.fromConfig(config);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
 
     try {

@@ -18,34 +18,20 @@
  */
 package org.apache.samza.application;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.task.TaskFactoryUtil;
-
-import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
-
 
 /**
  * Default {@link TaskApplication} for legacy applications w/ only task.class implemented
  */
 public final class LegacyTaskApplication implements TaskApplication {
-  private final Config config;
+  private final String taskClassName;
 
-  public LegacyTaskApplication(Config config) {
-    this.config = validate(config);
-  }
-
-  private Config validate(Config config) {
-    new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
-        () -> {
-        throw new ConfigException("No task class defined in the configuration.");
-      }));
-    return config;
+  public LegacyTaskApplication(String taskClassName) {
+    this.taskClassName = taskClassName;
   }
 
   @Override
   public void describe(TaskApplicationDescriptor appDesc) {
-    appDesc.setTaskFactory(TaskFactoryUtil.getTaskFactoryFromConfig(config));
+    appDesc.setTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
   }
 }
