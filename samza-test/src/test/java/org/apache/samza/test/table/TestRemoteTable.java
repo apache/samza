@@ -20,7 +20,6 @@
 package org.apache.samza.test.table;
 
 import com.google.common.cache.CacheBuilder;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.time.Duration;
@@ -35,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
@@ -42,7 +42,6 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -127,7 +126,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamGraph streamGraph) {
+  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
     CachingTableDescriptor<K, V> cachingDesc = new CachingTableDescriptor<>("caching-table-" + id);
     if (defaultCache) {
       cachingDesc.withReadTtl(Duration.ofMinutes(5));
@@ -135,12 +134,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     } else {
       GuavaCacheTableDescriptor<K, V> guavaDesc = new GuavaCacheTableDescriptor<>("guava-table-" + id);
       guavaDesc.withCache(CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build());
-      Table<KV<K, V>> guavaTable = streamGraph.getTable(guavaDesc);
+      Table<KV<K, V>> guavaTable = appDesc.getTable(guavaDesc);
       cachingDesc.withCache(guavaTable);
     }
 
     cachingDesc.withTable(actualTable);
-    return streamGraph.getTable(cachingDesc);
+    return appDesc.getTable(cachingDesc);
   }
 
   private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
@@ -161,9 +160,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class);
     final RateLimiter writeRateLimiter = mock(RateLimiter.class);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    final StreamApplication app = (streamGraph, cfg) -> {
-      RemoteTableDescriptor<Integer, Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
+    final StreamApplication app = appDesc -> {
+      RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
           .withRateLimiter(readRateLimiter, null, null);
@@ -174,28 +172,29 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, null, null);
 
-      Table<KV<Integer, EnrichedPageView>> outputTable = streamGraph.getTable(outputTableDesc);
+      Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
 
       if (withCache) {
-        outputTable = getCachingTable(outputTable, defaultCache, "output", streamGraph);
+        outputTable = getCachingTable(outputTable, defaultCache, "output", appDesc);
       }
 
-      Table<KV<Integer, Profile>> inputTable = streamGraph.getTable(inputTableDesc);
+      Table<KV<Integer, Profile>> inputTable = appDesc.getTable(inputTableDesc);
 
       if (withCache) {
-        inputTable = getCachingTable(inputTable, defaultCache, "input", streamGraph);
+        inputTable = getCachingTable(inputTable, defaultCache, "input", appDesc);
       }
 
       DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       GenericInputDescriptor<TestTableData.PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      streamGraph.getInputStream(isd)
+      appDesc.getInputStream(isd)
           .map(pv -> new KV<>(pv.getMemberId(), pv))
           .join(inputTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), m))
           .sendTo(outputTable);
     };
 
-    runner.run(app);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
+    runner.run();
     runner.waitForFinish();
 
     int numExpected = count * partitionCount;

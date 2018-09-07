@@ -20,98 +20,43 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.job.ApplicationStatus;
-
-import java.lang.reflect.Constructor;
 
 
 /**
- * The primary means of managing execution of the {@link org.apache.samza.application.StreamApplication} at runtime.
+ * The primary means of managing execution of the {@link org.apache.samza.application.SamzaApplication} at runtime.
+ *
+ * <p>
+ * Implementation Notes: implementation of {@link ApplicationRunner} must have a public default constructor
+ * #ApplicationRunner(SamzaApplication, Config)
  */
-@InterfaceStability.Unstable
-public abstract class ApplicationRunner {
-
-  private static final String RUNNER_CONFIG = "app.runner.class";
-  private static final String DEFAULT_RUNNER_CLASS = "org.apache.samza.runtime.RemoteApplicationRunner";
-
-  protected final Config config;
+@InterfaceStability.Evolving
+public interface ApplicationRunner {
 
   /**
-   * Static method to load the {@link ApplicationRunner}
-   *
-   * @param config  configuration passed in to initialize the Samza processes
-   * @return  the configure-driven {@link ApplicationRunner} to run the user-defined stream applications
-   */
-  public static ApplicationRunner fromConfig(Config config) {
-    try {
-      Class<?> runnerClass = Class.forName(config.get(RUNNER_CONFIG, DEFAULT_RUNNER_CLASS));
-      if (ApplicationRunner.class.isAssignableFrom(runnerClass)) {
-        Constructor<?> constructor = runnerClass.getConstructor(Config.class); // *sigh*
-        return (ApplicationRunner) constructor.newInstance(config);
-      }
-    } catch (Exception e) {
-      throw new ConfigException(String.format("Problem in loading ApplicationRunner class %s", config.get(
-          RUNNER_CONFIG)), e);
-    }
-    throw new ConfigException(String.format(
-        "Class %s does not extend ApplicationRunner properly",
-        config.get(RUNNER_CONFIG)));
-  }
-
-
-  public ApplicationRunner(Config config) {
-    if (config == null) {
-      throw new NullPointerException("Parameter 'config' cannot be null.");
-    }
-
-    this.config = config;
-  }
-
-  /**
-   * Deploy and run the Samza jobs to execute {@link org.apache.samza.task.StreamTask}.
+   * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.SamzaApplication}.
    * It is non-blocking so it doesn't wait for the application running.
-   * This method assumes you task.class is specified in the configs.
-   *
-   * NOTE. this interface will most likely change in the future.
    */
-  @InterfaceStability.Evolving
-  public abstract void runTask();
-
+  void run();
 
   /**
-   * Deploy and run the Samza jobs to execute {@link StreamApplication}.
-   * It is non-blocking so it doesn't wait for the application running.
-   *
-   * @param streamApp  the user-defined {@link StreamApplication} object
-   */
-  public abstract void run(StreamApplication streamApp);
-
-  /**
-   * Kill the Samza jobs represented by {@link StreamApplication}
+   * Kill the Samza jobs represented by {@link org.apache.samza.application.SamzaApplication}
    * It is non-blocking so it doesn't wait for the application stopping.
-   *
-   * @param streamApp  the user-defined {@link StreamApplication} object
    */
-  public abstract void kill(StreamApplication streamApp);
+  void kill();
 
   /**
-   * Get the collective status of the Samza jobs represented by {@link StreamApplication}.
-   * Returns {@link ApplicationRunner} running if all jobs are running.
+   * Get the collective status of the Samza jobs represented by {@link org.apache.samza.application.SamzaApplication}.
+   * Returns {@link ApplicationStatus} object.
    *
-   * @param streamApp  the user-defined {@link StreamApplication} object
-   * @return the status of the application
+   * @return the current status of an instance of {@link org.apache.samza.application.SamzaApplication}
    */
-  public abstract ApplicationStatus status(StreamApplication streamApp);
+  ApplicationStatus status();
 
   /**
    * Waits until the application finishes.
    */
-  public void waitForFinish() {
-    throw new UnsupportedOperationException(getClass().getName() + " does not support waitForFinish.");
-  }
+  void waitForFinish();
 
   /**
    * Waits for {@code timeout} duration for the application to finish.
@@ -120,7 +65,6 @@ public abstract class ApplicationRunner {
    * @return true - application finished before timeout
    *         false - otherwise
    */
-  public boolean waitForFinish(Duration timeout) {
-    throw new UnsupportedOperationException(getClass().getName() + " does not support timed waitForFinish.");
-  }
+  boolean waitForFinish(Duration timeout);
+
 }

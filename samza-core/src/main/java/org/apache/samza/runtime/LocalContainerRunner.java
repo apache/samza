@@ -20,10 +20,14 @@
 package org.apache.samza.runtime;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import org.apache.log4j.MDC;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorUtil;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -31,11 +35,12 @@ import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.operators.StreamGraphSpec;
-import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,37 +80,51 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    StreamApplication streamApp = TaskFactoryUtil.createStreamApplication(config);
-    Object taskFactory = getTaskFactory(streamApp, config);
-    run(taskFactory, containerId, jobModel, config);
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
+        ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
+    run(appDesc, containerId, jobModel, config);
 
     System.exit(0);
   }
 
-  private static void run(Object taskFactory, String containerId, JobModel jobModel, Config config) {
+  private static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, String containerId,
+      JobModel jobModel, Config config) {
+    TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
         config,
-        ScalaJavaUtil.toScalaMap(new HashMap<>()),
+        ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
         taskFactory);
+
+    ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
+        .createInstance(new ProcessorContext() { }, config);
 
     container.setContainerListener(
         new SamzaContainerListener() {
           @Override
-          public void onContainerStart() {
+          public void beforeStart() {
+            log.info("Before starting the container.");
+            listener.beforeStart();
+          }
+
+          @Override
+          public void afterStart() {
             log.info("Container Started");
+            listener.afterStart();
           }
 
           @Override
-          public void onContainerStop() {
+          public void afterStop() {
             log.info("Container Stopped");
+            listener.afterStop();
           }
 
           @Override
-          public void onContainerFailed(Throwable t) {
+          public void afterFailure(Throwable t) {
             log.info("Container Failed");
             containerRunnerException = t;
+            listener.afterFailure(t);
           }
         });
 
@@ -126,13 +145,14 @@ public class LocalContainerRunner {
     }
   }
 
-  private static Object getTaskFactory(StreamApplication streamApp, Config config) {
-    if (streamApp != null) {
-      StreamGraphSpec graphSpec = new StreamGraphSpec(config);
-      streamApp.init(graphSpec, config);
-      return TaskFactoryUtil.createTaskFactory(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager());
-    }
-    return TaskFactoryUtil.createTaskFactory(config);
+  // TODO: this is going away when SAMZA-1168 is done and the initialization of metrics reporters are done via
+  // LocalApplicationRunner#createStreamProcessor()
+  private static Map<String, MetricsReporter> loadMetricsReporters(
+      ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, String containerId, Config config) {
+    Map<String, MetricsReporter> reporters = new HashMap<>();
+    appDesc.getMetricsReporterFactories().forEach((name, factory) ->
+        reporters.put(name, factory.getMetricsReporter(name, containerId, config)));
+    return reporters;
   }
 
   /**

@@ -20,19 +20,18 @@
 package org.apache.samza.test.integration;
 
 import joptsimple.OptionSet;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
-import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunnerMain;
-import org.apache.samza.runtime.ApplicationRunnerOperation;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.runtime.ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG;
-
 /**
- * {@link ApplicationRunnerMain} was designed for deploying {@link StreamApplication} in yarn
+ * {@link ApplicationRunnerMain} was designed for deploying {@link SamzaApplication} in yarn
  * and doesn't work for in standalone.
  *
  * This runner class is built for standalone failure tests and not recommended for general use.
@@ -47,17 +46,15 @@ public class LocalApplicationRunnerMain {
     Config orgConfig = cmdLine.loadConfig(options);
     Config config = Util.rewriteConfig(orgConfig);
 
-    ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-    StreamApplication app = (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
-
-    ApplicationRunnerOperation op = cmdLine.getOperation(options);
+    SamzaApplication app = ApplicationUtil.fromConfig(config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
 
     try {
       LOGGER.info("Launching stream application: {} to run.", app);
-      runner.run(app);
+      runner.run();
       runner.waitForFinish();
     } catch (Exception e) {
-      LOGGER.error("Exception occurred when invoking: {} on application: {}.", op, app, e);
+      LOGGER.error("Exception occurred when running application: {}.", app, e);
     }
   }
 }

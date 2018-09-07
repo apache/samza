@@ -283,7 +283,7 @@ class JoinTranslator {
     // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
     // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
     Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
-        context.getStreamGraph().getTable(sourceConfig.getTableDescriptor().get());
+        context.getStreamAppDescriptor().getTable(sourceConfig.getTableDescriptor().get());
 
     relOutputStream
         .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))
