@@ -64,7 +64,7 @@ public class RepartitionExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(MyStreamOutput.class)));
 
-    appDesc.withDefaultSystem(trackingSystem);
+    appDesc.withDefaultSystem(trackingSystem, null); // serde must be specified explicitly for intermediate streams
     MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
     OutputStream<KV<String, MyStreamOutput>> pageViewEventPerMember = appDesc.getOutputStream(outputStreamDescriptor);
 

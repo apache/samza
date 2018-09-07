@@ -80,6 +80,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   private final Set<String> operatorIds = new HashSet<>();
 
   private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
+  private Optional<Serde> defaultSystemSerdeOptional = Optional.empty();
 
   /**
    * The 0-based position of the next operator in the graph.
@@ -94,13 +95,14 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   }
 
   @Override
-  public StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
+  public StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor, Serde defaultSystemSerde) {
     Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
     Preconditions.checkState(inputOperators.isEmpty() && outputStreams.isEmpty(),
         "Default system must be set before creating any input or output streams.");
     addSystemDescriptor(defaultSystemDescriptor);
 
     defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
+    defaultSystemSerdeOptional = Optional.ofNullable(defaultSystemSerde);
     return this;
   }
 
@@ -320,7 +322,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
     if (serde == null) {
       LOGGER.info("No serde provided for intermediate stream: " + streamId +
-          ". Key and message serdes configured for the job.default.system will be used.");
+          ". Key and message serdes for the default system will be used.");
     }
 
     if (isBroadcast) {
@@ -331,13 +333,15 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     KV<Serde, Serde> kvSerdes;
     if (serde == null) { // if no explicit serde available
       isKeyed = true; // assume keyed stream
-      kvSerdes = new KV<>(null, null); // and that key and msg serdes are provided for job.default.system in configs
+      Serde defaultSystemSerde = defaultSystemSerdeOptional // and that either the default system serde is set,
+          .orElseGet(() -> KVSerde.of(null, null)); // or that job.default.system serdes are provided in configs
+      kvSerdes = getKVSerdes(streamId, defaultSystemSerde);
     } else {
       isKeyed = serde instanceof KVSerde;
       kvSerdes = getKVSerdes(streamId, serde);
     }
 
-    InputTransformer transformer = (InputTransformer) getDefaultSystemDescriptor()
+    InputTransformer transformer = (InputTransformer) defaultSystemDescriptorOptional
         .flatMap(SystemDescriptor::getTransformer).orElse(null);
 
     InputOperatorSpec inputOperatorSpec =
