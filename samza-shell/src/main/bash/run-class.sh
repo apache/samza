@@ -73,7 +73,7 @@ else
   # default behaviour
   # Wildcarding only includes *.jar and *.JAR files in classpath
   CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
-  # We handle .war in a similar way as before
+  # We handle .war separately
   for file in $BASE_LIB_DIR/*.war;
   do
     CLASSPATH=$CLASSPATH:$file
