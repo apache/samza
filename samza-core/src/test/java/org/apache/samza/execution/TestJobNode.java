@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -31,7 +32,6 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
@@ -49,8 +49,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class TestJobNode {
 
@@ -66,23 +65,24 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    KVSerde<String, Object> serde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
-    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClass");
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = sd.getInputDescriptor("input1", serde);
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor2 = sd.getInputDescriptor("input2", serde);
-    GenericOutputDescriptor<KV<String, Object>> outputDescriptor = sd.getOutputDescriptor("output", serde);
-    MessageStream<KV<String, Object>> input1 = graphSpec.getInputStream(inputDescriptor1);
-    MessageStream<KV<String, Object>> input2 = graphSpec.getInputStream(inputDescriptor2);
-    OutputStream<KV<String, Object>> output = graphSpec.getOutputStream(outputDescriptor);
-    JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
-    input1
-        .partitionBy(KV::getKey, KV::getValue, serde, "p1")
-        .map(kv -> kv.value)
-        .join(input2.map(kv -> kv.value), mockJoinFn,
-            new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
-            Duration.ofHours(1), "j1")
-        .sendTo(output);
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
+        KVSerde<String, Object> serde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
+        GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClass");
+        GenericInputDescriptor<KV<String, Object>> inputDescriptor1 = sd.getInputDescriptor("input1", serde);
+        GenericInputDescriptor<KV<String, Object>> inputDescriptor2 = sd.getInputDescriptor("input2", serde);
+        GenericOutputDescriptor<KV<String, Object>> outputDescriptor = sd.getOutputDescriptor("output", serde);
+        MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(inputDescriptor1);
+        MessageStream<KV<String, Object>> input2 = appDesc.getInputStream(inputDescriptor2);
+        OutputStream<KV<String, Object>> output = appDesc.getOutputStream(outputDescriptor);
+        JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
+        input1
+            .partitionBy(KV::getKey, KV::getValue, serde, "p1")
+            .map(kv -> kv.value)
+            .join(input2.map(kv -> kv.value), mockJoinFn,
+                new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
+                Duration.ofHours(1), "j1")
+            .sendTo(output);
+      }, mockConfig);
 
     JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
     Config config = new MapConfig();
@@ -188,12 +188,13 @@ public class TestJobNode {
     when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
     when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
 
-    StreamGraphSpec graphSpec = new StreamGraphSpec(mockConfig);
-    GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClassName");
-    GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
-        sd.getInputDescriptor("input", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
-    MessageStream<KV<String, Object>> input = graphSpec.getInputStream(inputDescriptor1);
-    input.partitionBy(KV::getKey, KV::getValue, "p1");
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
+        GenericSystemDescriptor sd = new GenericSystemDescriptor("system1", "mockSystemFactoryClassName");
+        GenericInputDescriptor<KV<String, Object>> inputDescriptor1 =
+            sd.getInputDescriptor("input", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+        MessageStream<KV<String, Object>> input = appDesc.getInputStream(inputDescriptor1);
+        input.partitionBy(KV::getKey, KV::getValue, "p1");
+      }, mockConfig);
 
     JobNode jobNode = new JobNode("jobName", "jobId", graphSpec.getOperatorSpecGraph(), mockConfig);
     Config config = new MapConfig();

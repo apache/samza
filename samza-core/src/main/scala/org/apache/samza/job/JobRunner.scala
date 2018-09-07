@@ -20,8 +20,6 @@
 package org.apache.samza.job
 
 
-import java.util.concurrent.TimeUnit
-
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job

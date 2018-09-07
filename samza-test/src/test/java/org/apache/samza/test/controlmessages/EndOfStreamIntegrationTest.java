@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -34,7 +35,8 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
@@ -94,20 +96,25 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    final StreamApplication app = (streamGraph, cfg) -> {
-      DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
-      GenericInputDescriptor<KV<String, PageView>> isd =
-          sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-      streamGraph.getInputStream(isd)
-        .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
-        .sink((m, collector, coordinator) -> {
-            received.add(m.getValue());
-          });
-    };
+    class PipelineApplication implements StreamApplication {
 
-    runner.run(app);
+      @Override
+      public void describe(StreamApplicationDescriptor appDesc) {
+        DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
+        GenericInputDescriptor<KV<String, PageView>> isd =
+            sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        appDesc.getInputStream(isd)
+            .map(Values.create())
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .sink((m, collector, coordinator) -> {
+                received.add(m.getValue());
+              });
+      }
+    }
+
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(), new MapConfig(configs));
+
+    runner.run();
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);

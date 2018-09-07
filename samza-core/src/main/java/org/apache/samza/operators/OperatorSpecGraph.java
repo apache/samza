@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -33,10 +34,11 @@ import org.apache.samza.table.TableSpec;
 
 
 /**
- * Defines the serialized format of {@link StreamGraphSpec}. This class encapsulates all getter methods to get the {@link OperatorSpec}
- * initialized in the {@link StreamGraphSpec} and constructsthe corresponding serialized instances of {@link OperatorSpec}.
- * The {@link StreamGraphSpec} and {@link OperatorSpec} instances included in this class are considered as immutable and read-only.
- * The instance of {@link OperatorSpecGraph} should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
+ * Defines the serialized format of the operator graph in {@link StreamApplicationDescriptorImpl}. This class encapsulates all
+ * getter methods to get the {@link OperatorSpec} initialized in the {@link StreamApplicationDescriptorImpl} and constructs the
+ * corresponding serialized instances of {@link OperatorSpec}. The {@link StreamApplicationDescriptorImpl} and {@link OperatorSpec}
+ * instances included in this class are considered as immutable and read-only. The instance of {@link OperatorSpecGraph}
+ * should only be used in runtime to construct {@link org.apache.samza.task.StreamOperatorTask}.
  */
 public class OperatorSpecGraph implements Serializable {
   // We use a LHM for deterministic order in initializing and closing operators.
@@ -51,11 +53,11 @@ public class OperatorSpecGraph implements Serializable {
   private transient final SerializableSerde<OperatorSpecGraph> opSpecGraphSerde = new SerializableSerde<>();
   private transient final byte[] serializedOpSpecGraph;
 
-  OperatorSpecGraph(StreamGraphSpec graphSpec) {
-    this.inputOperators = graphSpec.getInputOperators();
-    this.outputStreams = graphSpec.getOutputStreams();
-    this.broadcastStreams = graphSpec.getBroadcastStreams();
-    this.tables = graphSpec.getTables();
+  public OperatorSpecGraph(StreamApplicationDescriptorImpl streamAppDesc) {
+    this.inputOperators = streamAppDesc.getInputOperators();
+    this.outputStreams = streamAppDesc.getOutputStreams();
+    this.broadcastStreams = streamAppDesc.getBroadcastStreams();
+    this.tables = streamAppDesc.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     this.hasWindowOrJoins = checkWindowOrJoins();
     this.serializedOpSpecGraph = opSpecGraphSerde.toBytes(this);
@@ -78,7 +80,7 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Get all {@link OperatorSpec}s available in this {@link StreamGraphSpec}
+   * Get all {@link OperatorSpec}s available in this {@link StreamApplicationDescriptorImpl}
    *
    * @return all available {@link OperatorSpec}s
    */
@@ -87,9 +89,9 @@ public class OperatorSpecGraph implements Serializable {
   }
 
   /**
-   * Returns <tt>true</tt> iff this {@link StreamGraphSpec} contains a join or a window operator
+   * Returns <tt>true</tt> iff this {@link StreamApplicationDescriptorImpl} contains a join or a window operator
    *
-   * @return  <tt>true</tt> iff this {@link StreamGraphSpec} contains a join or a window operator
+   * @return  <tt>true</tt> iff this {@link StreamApplicationDescriptorImpl} contains a join or a window operator
    */
   public boolean hasWindowOrJoins() {
     return hasWindowOrJoins;
