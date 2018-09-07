@@ -9,19 +9,19 @@ import org.apache.samza.task.TimerCallback;
  * purposes.
  */
 public class SchedulerImpl implements Scheduler {
-  private final SystemTimerScheduler _systemTimerScheduler;
+  private final SystemTimerScheduler systemTimerScheduler;
 
   public SchedulerImpl(SystemTimerScheduler systemTimerScheduler) {
-    _systemTimerScheduler = systemTimerScheduler;
+    this.systemTimerScheduler = systemTimerScheduler;
   }
 
   @Override
   public <K> void scheduleCallback(K key, long timestamp, TimerCallback<K> callback) {
-    _systemTimerScheduler.setTimer(key, timestamp, callback);
+    this.systemTimerScheduler.setTimer(key, timestamp, callback);
   }
 
   @Override
   public <K> void deleteCallback(K key) {
-    _systemTimerScheduler.deleteTimer(key);
+    this.systemTimerScheduler.deleteTimer(key);
   }
 }

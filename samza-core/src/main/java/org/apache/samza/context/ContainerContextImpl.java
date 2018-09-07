@@ -6,28 +6,28 @@ import org.apache.samza.metrics.MetricsRegistry;
 
 
 public class ContainerContextImpl implements ContainerContext {
-  private final String _processorId;
-  private final Collection<TaskName> _taskNames;
-  private final MetricsRegistry _containerMetricsRegistry;
+  private final String processorId;
+  private final Collection<TaskName> taskNames;
+  private final MetricsRegistry containerMetricsRegistry;
 
   public ContainerContextImpl(String processorId, Collection<TaskName> taskNames, MetricsRegistry containerMetricsRegistry) {
-    _processorId = processorId;
-    _taskNames = taskNames;
-    _containerMetricsRegistry = containerMetricsRegistry;
+    this.processorId = processorId;
+    this.taskNames = taskNames;
+    this.containerMetricsRegistry = containerMetricsRegistry;
   }
 
   @Override
   public String getProcessorId() {
-    return _processorId;
+    return this.processorId;
   }
 
   @Override
   public Collection<TaskName> getTaskNames() {
-    return _taskNames;
+    return this.taskNames;
   }
 
   @Override
   public MetricsRegistry getContainerMetricsRegistry() {
-    return _containerMetricsRegistry;
+    return this.containerMetricsRegistry;
   }
 }

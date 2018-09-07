@@ -1,11 +1,11 @@
 package org.apache.samza.context;
 
 public class ContextImpl implements Context {
-  private final JobContext _jobContext;
-  private final ContainerContext _containerContext;
-  private final TaskContext _taskContext;
-  private final ApplicationDefinedContainerContext _applicationDefinedContainerContext;
-  private final ApplicationDefinedTaskContext _applicationDefinedTaskContext;
+  private final JobContext jobContext;
+  private final ContainerContext containerContext;
+  private final TaskContext taskContext;
+  private final ApplicationDefinedContainerContext applicationDefinedContainerContext;
+  private final ApplicationDefinedTaskContext applicationDefinedTaskContext;
 
   /**
    * @param jobContext non-null job context
@@ -17,41 +17,41 @@ public class ContextImpl implements Context {
   public ContextImpl(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       ApplicationDefinedContainerContext applicationDefinedContainerContext,
       ApplicationDefinedTaskContext applicationDefinedTaskContext) {
-    _jobContext = jobContext;
-    _containerContext = containerContext;
-    _taskContext = taskContext;
-    _applicationDefinedContainerContext = applicationDefinedContainerContext;
-    _applicationDefinedTaskContext = applicationDefinedTaskContext;
+    this.jobContext = jobContext;
+    this.containerContext = containerContext;
+    this.taskContext = taskContext;
+    this.applicationDefinedContainerContext = applicationDefinedContainerContext;
+    this.applicationDefinedTaskContext = applicationDefinedTaskContext;
   }
 
   @Override
   public JobContext getJobContext() {
-    return _jobContext;
+    return this.jobContext;
   }
 
   @Override
   public ContainerContext getContainerContext() {
-    return _containerContext;
+    return this.containerContext;
   }
 
   @Override
   public TaskContext getTaskContext() {
-    return _taskContext;
+    return this.taskContext;
   }
 
   @Override
   public <T extends ApplicationDefinedContainerContext> T getApplicationDefinedContainerContext(Class<T> clazz) {
-    if (_applicationDefinedContainerContext == null) {
+    if (this.applicationDefinedContainerContext == null) {
       throw new IllegalStateException("No application-defined container context exists");
     }
-    return clazz.cast(_applicationDefinedContainerContext);
+    return clazz.cast(this.applicationDefinedContainerContext);
   }
 
   @Override
   public <T extends ApplicationDefinedTaskContext> T getApplicationDefinedTaskContext(Class<T> clazz) {
-    if (_applicationDefinedTaskContext == null) {
+    if (this.applicationDefinedTaskContext == null) {
       throw new IllegalStateException("No application-defined container context exists");
     }
-    return clazz.cast(_applicationDefinedTaskContext);
+    return clazz.cast(this.applicationDefinedTaskContext);
   }
 }

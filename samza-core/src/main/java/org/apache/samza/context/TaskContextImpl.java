@@ -13,44 +13,44 @@ import org.apache.samza.table.TableManager;
 
 
 public class TaskContextImpl implements TaskContext {
-  private final TaskName _taskName;
-  private final Set<SystemStreamPartition> _systemStreamPartitions;
-  private final MetricsRegistry _taskMetricsRegistry;
-  private final Function<String, KeyValueStore> _keyValueStoreProvider;
-  private final TableManager _tableManager;
-  private final Scheduler _scheduler;
-  private final OffsetManager _offsetManager;
+  private final TaskName taskName;
+  private final Set<SystemStreamPartition> systemStreamPartitions;
+  private final MetricsRegistry taskMetricsRegistry;
+  private final Function<String, KeyValueStore> keyValueStoreProvider;
+  private final TableManager tableManager;
+  private final Scheduler scheduler;
+  private final OffsetManager offsetManager;
 
   public TaskContextImpl(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions,
       MetricsRegistry taskMetricsRegistry, Function<String, KeyValueStore> keyValueStoreProvider,
       TableManager tableManager, Scheduler scheduler, OffsetManager offsetManager) {
-    _taskName = taskName;
-    _systemStreamPartitions = systemStreamPartitions;
-    _taskMetricsRegistry = taskMetricsRegistry;
-    _keyValueStoreProvider = keyValueStoreProvider;
-    _tableManager = tableManager;
-    _scheduler = scheduler;
-    _offsetManager = offsetManager;
+    this.taskName = taskName;
+    this.systemStreamPartitions = systemStreamPartitions;
+    this.taskMetricsRegistry = taskMetricsRegistry;
+    this.keyValueStoreProvider = keyValueStoreProvider;
+    this.tableManager = tableManager;
+    this.scheduler = scheduler;
+    this.offsetManager = offsetManager;
   }
 
   @Override
   public TaskName getTaskName() {
-    return _taskName;
+    return this.taskName;
   }
 
   @Override
   public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return _systemStreamPartitions;
+    return this.systemStreamPartitions;
   }
 
   @Override
   public MetricsRegistry getTaskMetricsRegistry() {
-    return _taskMetricsRegistry;
+    return this.taskMetricsRegistry;
   }
 
   @Override
   public KeyValueStore getStore(String storeName) {
-    KeyValueStore store = _keyValueStoreProvider.apply(storeName);
+    KeyValueStore store = this.keyValueStoreProvider.apply(storeName);
     if (store == null) {
       throw new IllegalArgumentException(String.format("No store found for storeName: %s", storeName));
     }
@@ -59,16 +59,16 @@ public class TaskContextImpl implements TaskContext {
 
   @Override
   public Table getTable(String tableId) {
-    return _tableManager.getTable(tableId);
+    return this.tableManager.getTable(tableId);
   }
 
   @Override
   public Scheduler getScheduler() {
-    return _scheduler;
+    return this.scheduler;
   }
 
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
-    _offsetManager.setStartingOffset(_taskName, systemStreamPartition, offset);
+    this.offsetManager.setStartingOffset(this.taskName, systemStreamPartition, offset);
   }
 }

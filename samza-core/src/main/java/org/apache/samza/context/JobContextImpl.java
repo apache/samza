@@ -4,14 +4,14 @@ import org.apache.samza.config.Config;
 
 
 public class JobContextImpl implements JobContext {
-  private final Config _config;
+  private final Config config;
 
   public JobContextImpl(Config config) {
-    _config = config;
+    this.config = config;
   }
 
   @Override
   public Config getConfig() {
-    return _config;
+    return this.config;
   }
 }
