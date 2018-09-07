@@ -20,14 +20,15 @@
 package org.apache.samza.test.operator;
 
 import java.time.Duration;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -51,23 +52,22 @@ public class TumblingWindowApp implements StreamApplication {
   public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    TumblingWindowApp app = new TumblingWindowApp();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TumblingWindowApp(), config);
 
-    runner.run(app);
+    runner.run();
     runner.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     JsonSerdeV2<PageView> inputSerde = new JsonSerdeV2<>(PageView.class);
     KVSerde<String, Integer> outputSerde = KVSerde.of(new StringSerde(), new IntegerSerde());
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
     KafkaInputDescriptor<PageView> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
     KafkaOutputDescriptor<KV<String, Integer>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 
-    MessageStream<PageView> pageViews = graph.getInputStream(id);
-    OutputStream<KV<String, Integer>> outputStream = graph.getOutputStream(od);
+    MessageStream<PageView> pageViews = appDesc.getInputStream(id);
+    OutputStream<KV<String, Integer>> outputStream = appDesc.getOutputStream(od);
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))

@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,6 @@ import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -50,10 +49,10 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
-import org.apache.samza.test.processor.TestStreamApplication.StreamApplicationCallback;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
@@ -70,10 +69,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Integration tests for {@link LocalApplicationRunner}.
+ * Integration tests for {@link org.apache.samza.runtime.LocalApplicationRunner} with {@link ZkJobCoordinatorFactory}.
  *
- * Brings up embedded ZooKeeper, Kafka broker and launches multiple {@link StreamApplication} through
- * {@link LocalApplicationRunner} to verify the guarantees made in stand alone execution environment.
+ * Brings up embedded ZooKeeper, Kafka broker and launches multiple {@link org.apache.samza.application.StreamApplication}
+ * through {@link org.apache.samza.runtime.LocalApplicationRunner} to verify the guarantees made in stand alone execution
+ * environment.
  */
 public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarness {
 
@@ -157,6 +157,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   }
 
   public void tearDown() {
+    SharedContextFactories.clearAll();
     for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
       LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
       AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
@@ -174,7 +175,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
-        producer.send(new ProducerRecord(topic, new TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
+        producer.send(new ProducerRecord(topic, new TestStreamApplication.TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
       } catch (Exception  e) {
         LOGGER.error("Publishing to kafka topic: {} resulted in exception: {}.", new Object[]{topic, e});
         throw new SamzaException(e);
@@ -195,6 +196,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         .put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY)
         .put(ApplicationConfig.APP_NAME, appName)
         .put(ApplicationConfig.APP_ID, appId)
+        .put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner")
         .put(String.format("systems.%s.samza.factory", systemName), TEST_SYSTEM_FACTORY)
         .put(JobConfig.JOB_NAME(), appName)
         .put(JobConfig.JOB_ID(), appId)
@@ -210,13 +212,13 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
   /**
    * sspGrouper is set to GroupBySystemStreamPartitionFactory.
-   * Run a stream application(streamApp1) consuming messages from input topic(effectively one container).
+   * Run a stream application(appRunner1) consuming messages from input topic(effectively one container).
    *
-   * In the callback triggered by streamApp1 after processing a message, bring up an another stream application(streamApp2).
+   * In the callback triggered by appRunner1 after processing a message, bring up an another stream application(appRunner2).
    *
    * Assertions:
-   *           A) JobModel generated before and after the addition of streamApp2 should be equal.
-   *           B) Second stream application(streamApp2) should not join the group and process any message.
+   *           A) JobModel generated before and after the addition of appRunner2 should be equal.
+   *           B) Second stream application(appRunner2) should not join the group and process any message.
    */
 
   @Test
@@ -234,28 +236,27 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
+        // When appRunner2 with id: PROCESSOR_IDS[1] is registered, run processing message in appRunner1.
         if (currentChilds.contains(PROCESSOR_IDS[1])) {
           secondProcessorRegistered.countDown();
         }
       });
 
-    // Set up stream app 2.
+    // Set up stream app appRunner2.
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
-    Config testAppConfig2 = new MapConfig(applicationConfig2, testConfig);
-    LocalApplicationRunner localApplicationRunner2 = new LocalApplicationRunner(testAppConfig2);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic,
-        processedMessagesLatch, null, null, testAppConfig2);
+    Config localTestConfig2 = new MapConfig(applicationConfig2, testConfig);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic, processedMessagesLatch,
+        null, null, localTestConfig2), localTestConfig2);
 
-    // Callback handler for streamApp1.
-    StreamApplicationCallback streamApplicationCallback = message -> {
+    // Callback handler for appRunner1.
+    TestStreamApplication.StreamApplicationCallback callback = m -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
         previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
-        localApplicationRunner2.run(streamApp2);
+        appRunner2.run();
         try {
-          // Wait for streamApp2 to register with zookeeper.
+          // Wait for appRunner2 to register with zookeeper.
           secondProcessorRegistered.await();
         } catch (InterruptedException e) {
         }
@@ -264,13 +265,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2);
 
-    // Set up stream app 1.
-    Config testAppConfig1 = new MapConfig(applicationConfig1, testConfig);
-    LocalApplicationRunner localApplicationRunner1 = new LocalApplicationRunner(testAppConfig1);
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic,
-        null, streamApplicationCallback, kafkaEventsConsumedLatch, testAppConfig1);
-    localApplicationRunner1.run(streamApp1);
+    // Set up stream app appRunner1.
+    Config localTestConfig1 = new MapConfig(applicationConfig1, testConfig);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic, null,
+        callback, kafkaEventsConsumedLatch, localTestConfig1), localTestConfig1);
+    appRunner1.run();
 
     kafkaEventsConsumedLatch.await();
 
@@ -281,12 +281,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(previousJobModel[0], updatedJobModel);
     assertEquals(new MapConfig(), updatedJobModel.getConfig());
     assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
-    localApplicationRunner1.kill(streamApp1);
-    localApplicationRunner1.waitForFinish();
-    localApplicationRunner2.kill(streamApp2);
-    localApplicationRunner2.waitForFinish();
-    assertEquals(localApplicationRunner1.status(streamApp1), ApplicationStatus.SuccessfulFinish);
-    assertEquals(localApplicationRunner2.status(streamApp2), ApplicationStatus.UnsuccessfulFinish);
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    assertEquals(appRunner1.status(), ApplicationStatus.SuccessfulFinish);
+    assertEquals(appRunner2.status(), ApplicationStatus.UnsuccessfulFinish);
   }
 
   /**
@@ -309,7 +309,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS * 2, PROCESSOR_IDS[0]);
 
     // Configuration, verification variables
-    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory", JobConfig.JOB_DEBOUNCE_TIME_MS(), "10"));
+    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY(),
+        "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory", JobConfig.JOB_DEBOUNCE_TIME_MS(), "10"));
     // Declared as final array to update it from streamApplication callback(Variable should be declared final to access in lambda block).
     final JobModel[] previousJobModel = new JobModel[1];
     final String[] previousJobModelVersion = new String[1];
@@ -317,44 +318,43 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-        // When streamApp2 with id: PROCESSOR_IDS[1] is registered, start processing message in streamApp1.
+        // When appRunner2 with id: PROCESSOR_IDS[1] is registered, start processing message in appRunner1.
         if (currentChilds.contains(PROCESSOR_IDS[1])) {
           secondProcessorRegistered.countDown();
         }
       });
 
-    // Set up streamApp2.
+    // Set up appRunner2.
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2);
     Config testAppConfig2 = new MapConfig(applicationConfig2, testConfig);
-    LocalApplicationRunner localApplicationRunner2 = new LocalApplicationRunner(testAppConfig2);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch, null, null, testAppConfig2);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch, null,
+        null, testAppConfig2), testAppConfig2);
 
-    // Callback handler for streamApp1.
-    StreamApplicationCallback streamApplicationCallback = message -> {
+    // Callback handler for appRunner1.
+    TestStreamApplication.StreamApplicationCallback streamApplicationCallback = message -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
         previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
-        localApplicationRunner2.run(streamApp2);
+        appRunner2.run();
         try {
-          // Wait for streamApp2 to register with zookeeper.
+          // Wait for appRunner2 to register with zookeeper.
           secondProcessorRegistered.await();
         } catch (InterruptedException e) {
         }
       }
     };
 
-    // This is the latch for the messages received by streamApp1. Since streamApp1 is run first, it gets one event
-    // redelivered due to re-balancing done by Zk after the streamApp2 joins (See the callback above).
+    // This is the latch for the messages received by appRunner1. Since appRunner1 is run first, it gets one event
+    // redelivered due to re-balancing done by Zk after the appRunner2 joins (See the callback above).
     CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2 + 1);
 
-    // Set up stream app 1.
+    // Set up stream app appRunner1.
     Config testAppConfig1 = new MapConfig(applicationConfig1, testConfig);
-    LocalApplicationRunner localApplicationRunner1 = new LocalApplicationRunner(testAppConfig1);
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null,
-        streamApplicationCallback, kafkaEventsConsumedLatch, testAppConfig1);
-    localApplicationRunner1.run(streamApp1);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null, streamApplicationCallback,
+        kafkaEventsConsumedLatch, testAppConfig1), testAppConfig1);
+    appRunner1.run();
 
     kafkaEventsConsumedLatch.await();
 
@@ -386,12 +386,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     processedMessagesLatch.await();
 
-    assertEquals(ApplicationStatus.Running, localApplicationRunner2.status(streamApp2));
-    localApplicationRunner1.kill(streamApp1);
-    localApplicationRunner1.waitForFinish();
-    localApplicationRunner2.kill(streamApp2);
-    localApplicationRunner2.waitForFinish();
-    assertEquals(localApplicationRunner1.status(streamApp1), ApplicationStatus.SuccessfulFinish);
+    assertEquals(ApplicationStatus.Running, appRunner2.status());
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
   }
 
   @Test
@@ -405,23 +405,18 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
 
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch1, null, kafkaEventsConsumedLatch, applicationConfig1);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch2, null, kafkaEventsConsumedLatch, applicationConfig2);
-    StreamApplication streamApp3 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch3, null, kafkaEventsConsumedLatch, applicationConfig3);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        applicationConfig2), applicationConfig2);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
+        applicationConfig3), applicationConfig3);
 
-    // Create LocalApplicationRunners
-    LocalApplicationRunner applicationRunner1 = new LocalApplicationRunner(applicationConfig1);
-    LocalApplicationRunner applicationRunner2 = new LocalApplicationRunner(applicationConfig2);
-
-    // Run stream applications.
-    applicationRunner1.run(streamApp1);
-    applicationRunner2.run(streamApp2);
+    appRunner1.run();
+    appRunner2.run();
 
     // Wait until all processors have processed a message.
     processedMessagesLatch1.await();
@@ -439,21 +434,18 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(2, processorIdsFromZK.size());
     assertEquals(PROCESSOR_IDS[0], processorIdsFromZK.get(0));
 
-    // Kill the leader. Since streamApp1 is the first to join the cluster, it's the leader.
-    applicationRunner1.kill(streamApp1);
-    applicationRunner1.waitForFinish();
-
-    assertEquals(applicationRunner1.status(streamApp1), ApplicationStatus.SuccessfulFinish);
+    // Kill the leader. Since appRunner1 is the first to join the cluster, it's the leader.
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
 
     kafkaEventsConsumedLatch.await();
     publishKafkaEvents(inputKafkaTopic, 0, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    LocalApplicationRunner applicationRunner3 = new LocalApplicationRunner(applicationConfig3);
-    applicationRunner3.run(streamApp3);
+    appRunner3.run();
     processedMessagesLatch3.await();
 
     // Verifications after killing the leader.
-    assertEquals(ApplicationStatus.SuccessfulFinish, applicationRunner1.status(streamApp1));
     processorIdsFromZK = zkUtils.getActiveProcessorsIDs(ImmutableList.of(PROCESSOR_IDS[1], PROCESSOR_IDS[2]));
     assertEquals(2, processorIdsFromZK.size());
     assertEquals(PROCESSOR_IDS[1], processorIdsFromZK.get(0));
@@ -462,12 +454,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals(2, jobModel.getContainers().size());
 
-    applicationRunner2.kill(streamApp2);
-    applicationRunner2.waitForFinish();
-    assertEquals(applicationRunner2.status(streamApp2), ApplicationStatus.SuccessfulFinish);
-    applicationRunner3.kill(streamApp3);
-    applicationRunner3.waitForFinish();
-    assertEquals(applicationRunner3.status(streamApp2), ApplicationStatus.SuccessfulFinish);
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
   }
 
   @Test
@@ -480,42 +472,37 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch1, null, kafkaEventsConsumedLatch, applicationConfig1);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch2, null, kafkaEventsConsumedLatch, applicationConfig2);
-
-    // Create LocalApplicationRunners
-    LocalApplicationRunner applicationRunner1 = new LocalApplicationRunner(applicationConfig1);
-    LocalApplicationRunner applicationRunner2 = new LocalApplicationRunner(applicationConfig2);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        applicationConfig2), applicationConfig2);
 
     // Run stream applications.
-    applicationRunner1.run(streamApp1);
-    applicationRunner2.run(streamApp2);
+    appRunner1.run();
+    appRunner2.run();
 
-    // Wait for message processing to start in both the processors.
+    // Wait for message processing to run in both the processors.
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
 
-    MapConfig appConfig = new ApplicationConfig(new MapConfig(applicationConfig2, ImmutableMap.of(ZkConfig.ZK_SESSION_TIMEOUT_MS, "10")));
-    LocalApplicationRunner applicationRunner3 = new LocalApplicationRunner(appConfig);
-
     // Create a stream app with same processor id as SP2 and run it. It should fail.
-    StreamApplication streamApp3 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        null, null, kafkaEventsConsumedLatch, applicationConfig2);
+    publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[2]);
+    kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null, null, kafkaEventsConsumedLatch,
+        applicationConfig2), applicationConfig2);
     // Fail when the duplicate processor joins.
     expectedException.expect(SamzaException.class);
     try {
-      applicationRunner3.run(streamApp3);
+      appRunner3.run();
     } finally {
-      applicationRunner1.kill(streamApp1);
-      applicationRunner2.kill(streamApp2);
+      appRunner1.kill();
+      appRunner2.kill();
 
-      applicationRunner1.waitForFinish();
-      applicationRunner2.waitForFinish();
+      appRunner1.waitForFinish();
+      appRunner2.waitForFinish();
     }
   }
 
@@ -533,24 +520,24 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
     Config applicationConfig2 = new MapConfig(configMap);
 
-    LocalApplicationRunner applicationRunner1 = new LocalApplicationRunner(applicationConfig1);
-    LocalApplicationRunner applicationRunner2 = new LocalApplicationRunner(applicationConfig2);
+    List<TestStreamApplication.TestKafkaEvent> messagesProcessed = new ArrayList<>();
+    TestStreamApplication.StreamApplicationCallback streamApplicationCallback = messagesProcessed::add;
 
     // Create StreamApplication from configuration.
     CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch1, null, kafkaEventsConsumedLatch, applicationConfig1);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch2, null, kafkaEventsConsumedLatch, applicationConfig2);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        applicationConfig2), applicationConfig2);
 
     // Run stream application.
-    applicationRunner1.run(streamApp1);
-    applicationRunner2.run(streamApp2);
+    appRunner1.run();
+    appRunner2.run();
 
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
@@ -559,18 +546,23 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     String jobModelVersion = zkUtils.getJobModelVersion();
     JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
 
-    applicationRunner1.kill(streamApp1);
-    applicationRunner1.waitForFinish();
+    appRunner1.kill();
+    appRunner1.waitForFinish();
 
-    assertEquals(applicationRunner1.status(streamApp1), ApplicationStatus.SuccessfulFinish);
+    int lastProcessedMessageId = -1;
+    for (TestStreamApplication.TestKafkaEvent message : messagesProcessed) {
+      lastProcessedMessageId = Math.max(lastProcessedMessageId, Integer.parseInt(message.getEventData()));
+    }
+    messagesProcessed.clear();
 
-    LocalApplicationRunner applicationRunner4 = new LocalApplicationRunner(applicationConfig1);
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
+
     processedMessagesLatch1 = new CountDownLatch(1);
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
-    streamApp1 = TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch1, null, kafkaEventsConsumedLatch, applicationConfig1);
-    applicationRunner4.run(streamApp1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        applicationConfig1), applicationConfig1);
+    appRunner3.run();
 
     processedMessagesLatch1.await();
 
@@ -581,12 +573,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
 
-    applicationRunner2.kill(streamApp2);
-    applicationRunner2.waitForFinish();
-    assertEquals(applicationRunner2.status(streamApp2), ApplicationStatus.SuccessfulFinish);
-    applicationRunner4.kill(streamApp1);
-    applicationRunner4.waitForFinish();
-    assertEquals(applicationRunner4.status(streamApp1), ApplicationStatus.SuccessfulFinish);
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
   }
 
   @Test
@@ -602,21 +594,20 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
     Config applicationConfig2 = new MapConfig(configMap);
 
-    LocalApplicationRunner applicationRunner1 = new LocalApplicationRunner(applicationConfig1);
-    LocalApplicationRunner applicationRunner2 = new LocalApplicationRunner(applicationConfig2);
-
     // Create StreamApplication from configuration.
     CountDownLatch kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
-    StreamApplication streamApp1 = TestStreamApplication.getInstance(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch1, null, kafkaEventsConsumedLatch, applicationConfig1);
-    StreamApplication streamApp2 = TestStreamApplication.getInstance(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch2, null, kafkaEventsConsumedLatch, applicationConfig2);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        applicationConfig2), applicationConfig2);
 
-    applicationRunner1.run(streamApp1);
-    applicationRunner2.run(streamApp2);
+    appRunner1.run();
+    appRunner2.run();
 
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
@@ -628,12 +619,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
     Config applicationConfig3 = new MapConfig(configMap);
 
-    LocalApplicationRunner applicationRunner3 = new LocalApplicationRunner(applicationConfig3);
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
 
-    StreamApplication streamApp3 = TestStreamApplication.getInstance(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic,
-        processedMessagesLatch3, null, kafkaEventsConsumedLatch, applicationConfig3);
-    applicationRunner3.run(streamApp3);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
+        applicationConfig3), applicationConfig3);
+    appRunner3.run();
 
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
@@ -643,26 +634,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
      * If the processing has started in the third stream processor, then other two stream processors should be stopped.
      */
     // TODO: This is a bug! Status should be unsuccessful finish.
-    assertEquals(applicationRunner1.status(streamApp1), ApplicationStatus.SuccessfulFinish);
-    assertEquals(applicationRunner2.status(streamApp2), ApplicationStatus.SuccessfulFinish);
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
 
-    applicationRunner3.kill(streamApp3);
-    applicationRunner3.waitForFinish();
-    assertEquals(applicationRunner3.status(streamApp3), ApplicationStatus.SuccessfulFinish);
-  }
-
-  private static class TestKafkaEvent implements Serializable {
-
-    // Actual content of the event.
-    private String eventData;
-
-    // Contains Integer value, which is greater than previous message id.
-    private String eventId;
-
-    TestKafkaEvent(String eventId, String eventData) {
-      this.eventId = eventData;
-      this.eventData = eventData;
-    }
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
   }
 
 }

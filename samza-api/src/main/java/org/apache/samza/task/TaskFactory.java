@@ -16,18 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.task;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.application.StreamApplication;
+import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
+
 
 /**
- * Test implementation class for {@link StreamApplication}
+ * The interface for all task factories (i.e. {@link StreamTaskFactory} and {@link AsyncStreamTaskFactory}
+ *
+ * @param <T> the type of task instances
  */
-public class TestStreamApplication implements StreamApplication {
-  @Override
-  public void init(StreamGraph graph, Config config) {
-
-  }
+@InterfaceStability.Stable
+public interface TaskFactory<T> extends Serializable {
+  /**
+   * Create instance of task
+   *
+   * @return task of type T
+   */
+  T createInstance();
 }
