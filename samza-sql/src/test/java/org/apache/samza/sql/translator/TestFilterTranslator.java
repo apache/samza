@@ -25,12 +25,12 @@ import java.util.HashSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
@@ -73,7 +73,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     when(mockFilter.getInput()).thenReturn(mockInput);
     when(mockInput.getId()).thenReturn(1);
     when(mockFilter.getId()).thenReturn(2);
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
@@ -95,7 +95,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     assertNotNull(filterSpec);
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
-    // Verify that the init() method will establish the context for the filter function
+    // Verify that the describe() method will establish the context for the filter function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);

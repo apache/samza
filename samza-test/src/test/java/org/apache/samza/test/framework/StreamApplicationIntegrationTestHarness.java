@@ -18,6 +18,15 @@
  */
 package org.apache.samza.test.framework;
 
+import java.io.File;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -31,22 +40,12 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
-import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
-
-import java.io.File;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 
 /**
  * Harness for writing integration tests for {@link StreamApplication}s.
@@ -210,10 +209,9 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   /**
-   * Executes the provided {@link StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
-   * {@link StreamApplication} runs in its own separate thread.
+   * Executes the provided {@link org.apache.samza.application.StreamApplication} as a {@link org.apache.samza.job.local.ThreadJob}. The
+   * {@link org.apache.samza.application.StreamApplication} runs in its own separate thread.
    *
-   * @param streamApplication the application to run
    * @param appName the name of the application
    * @param overriddenConfigs configs to override
    * @return RunApplicationContext which contains objects created within runApplication, to be used for verification
@@ -223,7 +221,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       String appName,
       Map<String, String> overriddenConfigs) {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put("job.factory.class", "org.apache.samza.job.local.ThreadJobFactory");
+    configMap.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
     configMap.put("job.name", appName);
     configMap.put("app.class", streamApplication.getClass().getCanonicalName());
     configMap.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
@@ -256,15 +254,11 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     }
 
     Config config = new MapConfig(configMap);
-    AbstractApplicationRunner runner = (AbstractApplicationRunner) ApplicationRunner.fromConfig(config);
-    runner.run(streamApplication);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(streamApplication, config);
+    runner.run();
 
     MessageStreamAssert.waitForComplete();
     return new RunApplicationContext(runner, config);
-  }
-
-  public void setNumEmptyPolls(int numEmptyPolls) {
-    this.numEmptyPolls = numEmptyPolls;
   }
 
   /**
@@ -283,15 +277,15 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * runApplication in order to do verification.
    */
   protected static class RunApplicationContext {
-    private final AbstractApplicationRunner runner;
+    private final ApplicationRunner runner;
     private final Config config;
 
-    private RunApplicationContext(AbstractApplicationRunner runner, Config config) {
+    private RunApplicationContext(ApplicationRunner runner, Config config) {
       this.runner = runner;
       this.config = config;
     }
 
-    public AbstractApplicationRunner getRunner() {
+    public ApplicationRunner getRunner() {
       return this.runner;
     }
 

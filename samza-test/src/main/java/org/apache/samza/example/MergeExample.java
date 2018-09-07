@@ -22,11 +22,12 @@ package org.apache.samza.example;
 import com.google.common.collect.ImmutableList;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
-import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -41,15 +42,14 @@ public class MergeExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    MergeExample app = new MergeExample();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new MergeExample(), config);
 
-    runner.run(app);
+    runner.run();
     runner.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
@@ -64,8 +64,8 @@ public class MergeExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("mergedStream", serde);
 
     MessageStream
-        .mergeAll(ImmutableList.of(graph.getInputStream(isd1), graph.getInputStream(isd2), graph.getInputStream(isd3)))
-        .sendTo(graph.getOutputStream(osd));
+        .mergeAll(ImmutableList.of(appDesc.getInputStream(isd1), appDesc.getInputStream(isd2), appDesc.getInputStream(isd3)))
+        .sendTo(appDesc.getOutputStream(osd));
   }
 
   class PageViewEvent {

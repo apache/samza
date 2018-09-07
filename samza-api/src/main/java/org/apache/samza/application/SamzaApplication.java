@@ -16,20 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.application;
 
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCallback;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.annotation.InterfaceStability;
+
 
 /**
- * Test implementation class for {@link AsyncStreamTask}
+ * The base interface for all user-implemented applications in Samza.
+ * <p>
+ * The main processing logic of the user application should be implemented in {@link SamzaApplication#describe(ApplicationDescriptor)}
+ * method. Sub-classes {@link StreamApplication} and {@link TaskApplication} are specific interfaces for applications
+ * written in high-level DAG and low-level task APIs, respectively.
  */
-public class TestAsyncStreamTask implements AsyncStreamTask {
-  @Override
-  public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
+@InterfaceStability.Evolving
+public interface SamzaApplication<S extends ApplicationDescriptor> {
 
-  }
+  /**
+   * Describes the user processing logic via {@link ApplicationDescriptor}
+   *
+   * @param appDesc the {@link ApplicationDescriptor} object to describe user application logic
+   */
+  void describe(S appDesc);
 }

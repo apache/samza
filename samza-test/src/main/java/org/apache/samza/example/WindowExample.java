@@ -21,16 +21,17 @@ package org.apache.samza.example;
 
 import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.SupplierFunction;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
@@ -49,15 +50,14 @@ public class WindowExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-    WindowExample app = new WindowExample();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new WindowExample(), config);
 
-    runner.run(app);
+    runner.run();
     runner.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
+  public void describe(StreamApplicationDescriptor appDesc) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -65,11 +65,10 @@ public class WindowExample implements StreamApplication {
     KafkaOutputDescriptor<Integer> outputStreamDescriptor =
         trackingSystem.getOutputDescriptor("pageViewEventPerMember", new IntegerSerde());
 
-    MessageStream<PageViewEvent> inputStream = graph.getInputStream(inputStreamDescriptor);
-    OutputStream<Integer> outputStream = graph.getOutputStream(outputStreamDescriptor);
-
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
+    MessageStream<PageViewEvent> inputStream = appDesc.getInputStream(inputStreamDescriptor);
+    OutputStream<Integer> outputStream = appDesc.getOutputStream(outputStreamDescriptor);
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
@@ -80,7 +79,6 @@ public class WindowExample implements StreamApplication {
                 Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))), "window")
         .map(WindowPane::getMessage)
         .sendTo(outputStream);
-
   }
 
   class PageViewEvent {

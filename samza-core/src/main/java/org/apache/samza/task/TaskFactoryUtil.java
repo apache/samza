@@ -18,66 +18,53 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.TaskConfig;
-import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ExecutorService;
 
-import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
-import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
-
 /**
- * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory} in {@link AsyncStreamTaskFactory}
- * when running {@link StreamTask}s in multi-thread mode
+ * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}
+ * in {@link AsyncStreamTaskFactory} when running {@link StreamTask}s in multi-thread mode
  */
 public class TaskFactoryUtil {
   private static final Logger log = LoggerFactory.getLogger(TaskFactoryUtil.class);
 
   /**
-   * This method creates a task factory class based on the {@link StreamApplication}
+   * Creates a {@link TaskFactory} based on {@link ApplicationDescriptorImpl}
    *
-   * @param specGraph the {@link OperatorSpecGraph}
-   * @param contextManager the {@link ContextManager} to set up initial context for {@code specGraph}
-   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   * @param appDesc {@link ApplicationDescriptorImpl} for this application
+   * @return {@link TaskFactory} object defined by {@code appDesc}
    */
-  public static Object createTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    return createStreamOperatorTaskFactory(specGraph, contextManager);
+  public static TaskFactory getTaskFactory(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+    if (appDesc instanceof TaskApplicationDescriptorImpl) {
+      return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
+    } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
+      return (StreamTaskFactory) () -> new StreamOperatorTask(((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph(),
+          ((StreamApplicationDescriptorImpl) appDesc).getContextManager());
+    }
+    throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
+        + "StreamApplicationDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
   }
 
   /**
-   * This method creates a task factory class based on the configuration
+   * Creates a {@link TaskFactory} based on the configuration.
+   * <p>
+   * This should only be used to create {@link TaskFactory} defined in task.class
    *
-   * @param config  the {@link Config} for this job
-   * @return  a task factory object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
+   * @param taskClassName  the task class name for this job
+   * @return  a {@link TaskFactory} object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static Object createTaskFactory(Config config) {
-    return fromTaskClassConfig(config);
-  }
-
-  private static StreamTaskFactory createStreamOperatorTaskFactory(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    return () -> new StreamOperatorTask(specGraph, contextManager);
-  }
-
-  /**
-   * Create {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} based on the configured task.class.
-   * @param config the {@link Config}
-   * @return task factory instance
-   */
-  private static Object fromTaskClassConfig(Config config) {
-    // if there is configuration to set the job w/ a specific type of task, instantiate the corresponding task factory
-    String taskClassName = new TaskConfig(config).getTaskClass().getOrElse(toScalaFunction(
-      () -> {
-        throw new ConfigException("No task class defined in the configuration.");
-      }));
-
+  public static TaskFactory getTaskFactory(String taskClassName) {
+    Preconditions.checkArgument(StringUtils.isNotBlank(taskClassName), "task.class cannot be empty");
     log.info("Got task class name: {}", taskClassName);
 
     boolean isAsyncTaskClass;
@@ -88,28 +75,22 @@ public class TaskFactoryUtil {
     }
 
     if (isAsyncTaskClass) {
-      return new AsyncStreamTaskFactory() {
-        @Override
-        public AsyncStreamTask createInstance() {
-          try {
-            return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
-          } catch (Throwable t) {
-            log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
-            throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
-          }
+      return (AsyncStreamTaskFactory) () -> {
+        try {
+          return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
+        } catch (Throwable t) {
+          log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
+          throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
         }
       };
     }
 
-    return new StreamTaskFactory() {
-      @Override
-      public StreamTask createInstance() {
-        try {
-          return (StreamTask) Class.forName(taskClassName).newInstance();
-        } catch (Throwable t) {
-          log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
-          throw new SamzaException(String.format("Error loading StreamTask class: %s", taskClassName), t);
-        }
+    return (StreamTaskFactory) () -> {
+      try {
+        return (StreamTask) Class.forName(taskClassName).newInstance();
+      } catch (Throwable t) {
+        log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
+        throw new SamzaException(String.format("Error loading StreamTask class: %s", taskClassName), t);
       }
     };
   }
@@ -123,7 +104,7 @@ public class TaskFactoryUtil {
    * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
    * @return  the finalized task factory object
    */
-  public static Object finalizeTaskFactory(Object factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
+  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
 
     validateFactory(factory);
 
@@ -138,18 +119,13 @@ public class TaskFactoryUtil {
 
     if (!singleThreadMode && !isAsyncTaskClass) {
       log.info("Converting StreamTask to AsyncStreamTaskAdapter when running StreamTask with multiple threads");
-      return new AsyncStreamTaskFactory() {
-        @Override
-        public AsyncStreamTask createInstance() {
-          return new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
-        }
-      };
+      return (AsyncStreamTaskFactory) () -> new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
     }
 
     return factory;
   }
 
-  private static void validateFactory(Object factory) {
+  private static void validateFactory(TaskFactory factory) {
     if (factory == null) {
       throw new SamzaException("Either the task class name or the task factory instance is required.");
     }
@@ -160,33 +136,4 @@ public class TaskFactoryUtil {
     }
   }
 
-  /**
-   * Returns {@link StreamApplication} if it's configured, otherwise null.
-   * @param config Config
-   * throws {@link ConfigException} if there is misconfiguration of StreamApp.
-   * @return {@link StreamApplication} instance
-   */
-  public static StreamApplication createStreamApplication(Config config) {
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getAppClass() != null && !appConfig.getAppClass().isEmpty()) {
-      TaskConfig taskConfig = new TaskConfig(config);
-      String taskClassName = taskConfig.getTaskClass().getOrElse(defaultValue(null));
-      if (taskClassName != null && !taskClassName.isEmpty()) {
-        throw new ConfigException("High level StreamApplication API cannot be used together with low-level API using task.class.");
-      }
-
-      String appClassName = appConfig.getAppClass();
-      try {
-        Class<?> builderClass = Class.forName(appClassName);
-        return (StreamApplication) builderClass.newInstance();
-      } catch (Throwable t) {
-        String errorMsg = String.format("Failed to create StreamApplication class from the config. %s = %s",
-            ApplicationConfig.APP_CLASS, appConfig.getAppClass());
-        log.error(errorMsg, t);
-        throw new ConfigException(errorMsg, t);
-      }
-    } else {
-      return null;
-    }
-  }
 }

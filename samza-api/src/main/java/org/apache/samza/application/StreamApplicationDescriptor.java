@@ -16,9 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.operators;
+package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
@@ -26,26 +30,27 @@ import org.apache.samza.table.Table;
 
 
 /**
- * Provides access to {@link MessageStream}s and {@link OutputStream}s used to describe application logic.
+ * The interface class to describe a {@link SamzaApplication} in high-level API in Samza.
  */
-@InterfaceStability.Unstable
-public interface StreamGraph {
+@InterfaceStability.Evolving
+public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {
 
   /**
    * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
    * {@code job.default.system} and its properties in configuration.
    * <p>
-   * If the default system descriptor is set, it must be set <b>before</b> creating any intermediate streams.
+   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
    * <p>
-   * If the intermediate stream is created with a stream-level Serde, they will be used, else the serde specified
+   * If an input/output stream is created with a stream-level Serde, they will be used, else the serde specified
    * for the {@code job.default.system} in configuration will be used.
    * <p>
    * Providing an incompatible message type for the intermediate streams that use the default serde will result in
    * {@link ClassCastException}s at runtime.
    *
    * @param defaultSystemDescriptor the default system descriptor to use
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
    */
-  void setDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
+  StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.
@@ -105,16 +110,4 @@ public interface StreamGraph {
    * @throws IllegalStateException when invoked multiple times with the same {@link TableDescriptor}
    */
   <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor);
-
-  /**
-   * Sets the {@link ContextManager} for this {@link StreamGraph}.
-   * <p>
-   * The provided {@link ContextManager} can be used to setup shared context between the operator functions
-   * within a task instance
-   *
-   * @param contextManager the {@link ContextManager} to use for the {@link StreamGraph}
-   * @return the {@link StreamGraph} with {@code contextManager} set as its {@link ContextManager}
-   */
-  StreamGraph withContextManager(ContextManager contextManager);
-
 }

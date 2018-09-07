@@ -21,21 +21,17 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
-import org.apache.samza.job.JobRunner$;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
 
 /**
  * This class contains the main() method used by run-app.sh.
- * For a StreamApplication, it creates the {@link ApplicationRunner} based on the config, and then run the application.
- * For a Samza job using low level task API, it will create the JobRunner to run it.
+ * It creates the {@link ApplicationRunner} based on the config, and then run the application.
  */
 public class ApplicationRunnerMain {
-  // TODO: have the app configs consolidated in one place
-  public static final String STREAM_APPLICATION_CLASS_CONFIG = "app.class";
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
     public OptionSpec operationOpt =
@@ -58,25 +54,21 @@ public class ApplicationRunnerMain {
     Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
 
-    if (config.containsKey(STREAM_APPLICATION_CLASS_CONFIG)) {
-      ApplicationRunner runner = ApplicationRunner.fromConfig(config);
-      StreamApplication app =
-          (StreamApplication) Class.forName(config.get(STREAM_APPLICATION_CLASS_CONFIG)).newInstance();
-      switch (op) {
-        case RUN:
-          runner.run(app);
-          break;
-        case KILL:
-          runner.kill(app);
-          break;
-        case STATUS:
-          System.out.println(runner.status(app));
-          break;
-        default:
-          throw new IllegalArgumentException("Unrecognized operation: " + op);
-      }
-    } else {
-      JobRunner$.MODULE$.main(args);
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
+
+    switch (op) {
+      case RUN:
+        appRunner.run();
+        break;
+      case KILL:
+        appRunner.kill();
+        break;
+      case STATUS:
+        System.out.println(appRunner.status());
+        break;
+      default:
+        throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
   }
 }
