@@ -112,7 +112,6 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       return expander.get().apply(this, inputDescriptor);
     }
 
-    // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
         String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
     inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);

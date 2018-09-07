@@ -62,7 +62,6 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
 
   @Override
   public void addInputStream(InputDescriptor inputDescriptor) {
-    // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
         String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
     inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
