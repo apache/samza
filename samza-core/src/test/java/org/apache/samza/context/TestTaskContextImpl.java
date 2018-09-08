@@ -23,25 +23,25 @@ public class TestTaskContextImpl {
   private static final TaskName TASK_NAME = new TaskName("myTaskName");
 
   @Mock
-  private Set<SystemStreamPartition> _systemStreamPartitions;
+  private Set<SystemStreamPartition> systemStreamPartitions;
   @Mock
-  private MetricsRegistry _taskMetricsRegistry;
+  private MetricsRegistry taskMetricsRegistry;
   @Mock
-  private Function<String, KeyValueStore> _keyValueStoreProvider;
+  private Function<String, KeyValueStore> keyValueStoreProvider;
   @Mock
-  private TableManager _tableManager;
+  private TableManager tableManager;
   @Mock
-  private Scheduler _scheduler;
+  private Scheduler scheduler;
   @Mock
-  private OffsetManager _offsetManager;
+  private OffsetManager offsetManager;
 
-  private TaskContextImpl _taskContext;
+  private TaskContextImpl taskContext;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    _taskContext = new TaskContextImpl(TASK_NAME, _systemStreamPartitions, _taskMetricsRegistry, _keyValueStoreProvider,
-        _tableManager, _scheduler, _offsetManager);
+    taskContext = new TaskContextImpl(TASK_NAME, systemStreamPartitions, taskMetricsRegistry, keyValueStoreProvider,
+        tableManager, scheduler, offsetManager);
   }
 
   /**
@@ -50,8 +50,8 @@ public class TestTaskContextImpl {
   @Test
   public void testGetStore() {
     KeyValueStore store = mock(KeyValueStore.class);
-    when(_keyValueStoreProvider.apply("myStore")).thenReturn(store);
-    assertEquals(store, _taskContext.getStore("myStore"));
+    when(keyValueStoreProvider.apply("myStore")).thenReturn(store);
+    assertEquals(store, taskContext.getStore("myStore"));
   }
 
   /**
@@ -60,8 +60,8 @@ public class TestTaskContextImpl {
   @Test(expected = IllegalArgumentException.class)
   public void testGetMissingStore() {
     KeyValueStore store = mock(KeyValueStore.class);
-    when(_keyValueStoreProvider.apply("myStore")).thenReturn(null);
-    assertEquals(store, _taskContext.getStore("myStore"));
+    when(keyValueStoreProvider.apply("myStore")).thenReturn(null);
+    assertEquals(store, taskContext.getStore("myStore"));
   }
 
   /**
@@ -70,7 +70,7 @@ public class TestTaskContextImpl {
   @Test
   public void testSetStartingOffset() {
     SystemStreamPartition ssp = new SystemStreamPartition("mySystem", "myStream", new Partition(0));
-    _taskContext.setStartingOffset(ssp, "123");
-    verify(_offsetManager).setStartingOffset(TASK_NAME, ssp, "123");
+    taskContext.setStartingOffset(ssp, "123");
+    verify(offsetManager).setStartingOffset(TASK_NAME, ssp, "123");
   }
 }

@@ -12,14 +12,14 @@ import static org.mockito.Mockito.*;
 
 public class TestSchedulerImpl {
   @Mock
-  private SystemTimerScheduler _systemTimerScheduler;
+  private SystemTimerScheduler systemTimerScheduler;
 
-  private SchedulerImpl _scheduler;
+  private SchedulerImpl scheduler;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    _scheduler = new SchedulerImpl(_systemTimerScheduler);
+    scheduler = new SchedulerImpl(systemTimerScheduler);
   }
 
   /**
@@ -29,14 +29,14 @@ public class TestSchedulerImpl {
   public void testScheduleCallback() {
     @SuppressWarnings("unchecked")
     TimerCallback<String> stringCallback = mock(TimerCallback.class);
-    _scheduler.scheduleCallback("string_key", 123, stringCallback);
-    verify(_systemTimerScheduler).setTimer("string_key", 123, stringCallback);
+    scheduler.scheduleCallback("string_key", 123, stringCallback);
+    verify(systemTimerScheduler).setTimer("string_key", 123, stringCallback);
 
     // check some other type of key
     @SuppressWarnings("unchecked")
     TimerCallback<Integer> intCallback = mock(TimerCallback.class);
-    _scheduler.scheduleCallback(777, 456, intCallback);
-    verify(_systemTimerScheduler).setTimer(777, 456, intCallback);
+    scheduler.scheduleCallback(777, 456, intCallback);
+    verify(systemTimerScheduler).setTimer(777, 456, intCallback);
   }
 
   /**
@@ -44,11 +44,11 @@ public class TestSchedulerImpl {
    */
   @Test
   public void testDeleteCallback() {
-    _scheduler.deleteCallback("string_key");
-    verify(_systemTimerScheduler).deleteTimer("string_key");
+    scheduler.deleteCallback("string_key");
+    verify(systemTimerScheduler).deleteTimer("string_key");
 
     // check some other type of key
-    _scheduler.deleteCallback(777);
-    verify(_systemTimerScheduler).deleteTimer(777);
+    scheduler.deleteCallback(777);
+    verify(systemTimerScheduler).deleteTimer(777);
   }
 }
