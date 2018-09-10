@@ -30,9 +30,9 @@ import org.apache.samza.table.utils.TableMetricsUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import net.jodah.failsafe.AsyncFailsafe;
-import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+
+import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
 
 
 /**
@@ -63,12 +63,12 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
 
     this.writeFn = writeFn;
     this.retryExecutor = retryExecutor;
-    this.retryPolicy = policy.toFailsafePolicy(writeFn::isRetriable);
+    this.retryPolicy = FailsafeAdapter.valueOf((ex) -> writeFn.isRetriable(ex), policy);
   }
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V record) {
-    return failsafe()
+    return failsafe(retryPolicy, retryMetrics, retryExecutor)
         .future(k -> writeFn.putAsync(key, record))
         .exceptionally(e -> {
             throw new SamzaException("Failed to get the record for " + key + " after retries.", e);
@@ -77,7 +77,7 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
 
   @Override
   public CompletableFuture<Void> putAllAsync(Collection<Entry<K, V>> records) {
-    return failsafe()
+    return failsafe(retryPolicy, retryMetrics, retryExecutor)
         .future(k -> writeFn.putAllAsync(records))
         .exceptionally(e -> {
             throw new SamzaException("Failed to put records after retries.", e);
@@ -86,7 +86,7 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key) {
-    return failsafe()
+    return failsafe(retryPolicy, retryMetrics, retryExecutor)
         .future(k -> writeFn.deleteAsync(key))
         .exceptionally(e -> {
             throw new SamzaException("Failed to delete the record for " + key + " after retries.", e);
@@ -95,7 +95,7 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(Collection<K> keys) {
-    return failsafe()
+    return failsafe(retryPolicy, retryMetrics, retryExecutor)
         .future(k -> writeFn.deleteAllAsync(keys))
         .exceptionally(e -> {
             throw new SamzaException("Failed to delete the records for " + keys + " after retries.", e);
@@ -105,20 +105,6 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
   @Override
   public boolean isRetriable(Throwable exception) {
     return writeFn.isRetriable(exception);
-  }
-
-  private AsyncFailsafe<?> failsafe() {
-    long startMs = System.currentTimeMillis();
-    return Failsafe.with(retryPolicy).with(retryExecutor)
-        .onRetry(e -> retryMetrics.retryCount.inc())
-        .onRetriesExceeded(e -> retryMetrics.retryTimer.update(System.currentTimeMillis() - startMs))
-        .onSuccess((e, ctx) -> {
-            if (ctx.getExecutions() > 1) {
-              retryMetrics.retryTimer.update(System.currentTimeMillis() - startMs);
-            } else {
-              retryMetrics.successCount.inc();
-            }
-          });
   }
 
   /**

@@ -19,6 +19,7 @@
 
 package org.apache.samza.table.retry;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -65,7 +66,7 @@ public class TestRetriableTableFunctions {
   public void testFirstTimeSuccessGet() throws Exception {
     String tableId = "testFirstTimeSuccessGet";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(100);
+    policy.withFixedBackoff(Duration.ofMillis(100));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(true).when(readFn).isRetriable(any());
     doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(anyString());
@@ -83,7 +84,7 @@ public class TestRetriableTableFunctions {
   public void testRetryEngagedGet() throws Exception {
     String tableId = "testRetryEngagedGet";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(10);
+    policy.withFixedBackoff(Duration.ofMillis(10));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(true).when(readFn).isRetriable(any());
 
@@ -116,8 +117,8 @@ public class TestRetriableTableFunctions {
   public void testRetryExhaustedTimeGet() throws Exception {
     String tableId = "testRetryExhaustedTime";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(5);
-    policy.withStopAfterDelay(100);
+    policy.withFixedBackoff(Duration.ofMillis(5));
+    policy.withStopAfterDelay(Duration.ofMillis(100));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(true).when(readFn).isRetriable(any());
 
@@ -144,7 +145,7 @@ public class TestRetriableTableFunctions {
   public void testRetryExhaustedAttemptsGet() throws Exception {
     String tableId = "testRetryExhaustedAttempts";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(5);
+    policy.withFixedBackoff(Duration.ofMillis(5));
     policy.withStopAfterAttempts(10);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(true).when(readFn).isRetriable(any());
@@ -172,7 +173,7 @@ public class TestRetriableTableFunctions {
   public void testFirstTimeSuccessPut() throws Exception {
     String tableId = "testFirstTimeSuccessPut";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(100);
+    policy.withFixedBackoff(Duration.ofMillis(100));
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());
     doReturn(CompletableFuture.completedFuture("bar")).when(writeFn).putAsync(anyString(), anyString());
@@ -190,7 +191,7 @@ public class TestRetriableTableFunctions {
   public void testRetryEngagedPut() throws Exception {
     String tableId = "testRetryEngagedPut";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(10);
+    policy.withFixedBackoff(Duration.ofMillis(10));
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any());
     doReturn(true).when(writeFn).isRetriable(any());
@@ -224,8 +225,8 @@ public class TestRetriableTableFunctions {
   public void testRetryExhaustedTimePut() throws Exception {
     String tableId = "testRetryExhaustedTimePut";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(5);
-    policy.withStopAfterDelay(100);
+    policy.withFixedBackoff(Duration.ofMillis(5));
+    policy.withStopAfterDelay(Duration.ofMillis(100));
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());
 
@@ -252,7 +253,7 @@ public class TestRetriableTableFunctions {
   public void testRetryExhaustedAttemptsPut() throws Exception {
     String tableId = "testRetryExhaustedAttemptsPut";
     TableRetryPolicy policy = new TableRetryPolicy();
-    policy.withFixedBackoff(5);
+    policy.withFixedBackoff(Duration.ofMillis(5));
     policy.withStopAfterAttempts(10);
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());

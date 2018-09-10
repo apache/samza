@@ -40,6 +40,11 @@ class RetryMetrics {
   final Counter successCount;
 
   /**
+   * Number of operations that failed permanently and exhausted all retries
+   */
+  final Counter permFailureCount;
+
+  /**
    * Total time spent in each IO; this is updated only
    * when at least one retries have been attempted.
    */
@@ -48,6 +53,7 @@ class RetryMetrics {
   public RetryMetrics(String prefix, TableMetricsUtil metricsUtil) {
     retryCount = metricsUtil.newCounter(prefix + "-retry-count");
     successCount = metricsUtil.newCounter(prefix + "-success-count");
+    permFailureCount = metricsUtil.newCounter(prefix + "-perm-failure-count");
     retryTimer = metricsUtil.newTimer(prefix + "-retry-timer");
   }
 }

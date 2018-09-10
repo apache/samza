@@ -94,7 +94,7 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableRetryPolicy readRetryPolicy = deserializeObject(READ_RETRY_POLICY);
     TableRetryPolicy writeRetryPolicy = null;
 
-    if (readRetryPolicy != null || writeRetryPolicy != null) {
+    if ((readRetryPolicy != null || writeRetryPolicy != null) && retryExecutor == null) {
       retryExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
           Thread thread = new Thread(runnable);
           thread.setName("table-retry-executor");

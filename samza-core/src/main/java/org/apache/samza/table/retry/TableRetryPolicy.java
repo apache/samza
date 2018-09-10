@@ -20,12 +20,7 @@
 package org.apache.samza.table.retry;
 
 import java.io.Serializable;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
-
-import org.apache.samza.SamzaException;
-
-import net.jodah.failsafe.RetryPolicy;
+import java.time.Duration;
 
 
 /**
@@ -36,63 +31,82 @@ import net.jodah.failsafe.RetryPolicy;
  *  - jitter
  *
  * Retry libraries can implement a subset or all features as described by this common policy.
- * Currently, the policy object can be translated into {@link RetryPolicy} of failsafe library.
  */
 public class TableRetryPolicy implements Serializable {
-  enum BackoffType { NONE, FIXED, RANDOM, EXPONENTIAL }
+  enum BackoffType {
+    /**
+     * No backoff in between two retry attempts.
+     */
+    NONE,
+
+    /**
+     * Backoff by a fixed duration {@code sleepTime}.
+     */
+    FIXED,
+
+    /**
+     * Backoff by a randomly selected duration between {@code minSleep} and {@code maxSleep}.
+     */
+    RANDOM,
+
+    /**
+     * Backoff by exponentially increasing durations by {@code exponentialFactor} starting from {@code sleepTime}.
+     */
+    EXPONENTIAL
+  }
 
   // Backoff parameters
-  private long sleepMs;
-  private long randomMinMs;
-  private long randomMaxMs;
+  private Duration sleepTime;
+  private Duration randomMin;
+  private Duration randomMax;
   private double exponentialFactor;
-  private long exponentialMaxSleepMs;
-  private long jitterMs;
+  private Duration exponentialMaxSleep;
+  private Duration jitter;
 
   // By default no early termination
-  private int maxAttempts = -1;
-  private long maxDelayMs = Long.MAX_VALUE;
+  private Integer maxAttempts = null;
+  private Duration maxDuration = null;
 
   // By default no backoff during retries
   private BackoffType backoffType = BackoffType.NONE;
 
   /**
-   * Set the sleep time for the fixed backoff policy.
-   * @param sleepMs sleep time in milliseconds
+   * Set the sleepTime time for the fixed backoff policy.
+   * @param sleepTime sleepTime time
    * @return this policy instance
    */
-  public TableRetryPolicy withFixedBackoff(long sleepMs) {
-    this.sleepMs = sleepMs;
+  public TableRetryPolicy withFixedBackoff(Duration sleepTime) {
+    this.sleepTime = sleepTime;
     this.backoffType = BackoffType.FIXED;
     return this;
   }
 
   /**
-   * Set the sleep time for the random backoff policy. The actual sleep time
-   * before each attempt is randomly selected between {@code [minSleepMs, maxSleepMs]}
-   * @param minSleepMs lower bound sleep time in milliseconds
-   * @param maxSleepMs upper bound sleep time in milliseconds
+   * Set the sleepTime time for the random backoff policy. The actual sleepTime time
+   * before each attempt is randomly selected between {@code [minSleep, maxSleep]}
+   * @param minSleep lower bound sleepTime time
+   * @param maxSleep upper bound sleepTime time
    * @return this policy instance
    */
-  public TableRetryPolicy withRandomBackoff(long minSleepMs, long maxSleepMs) {
-    this.randomMinMs = minSleepMs;
-    this.randomMaxMs = maxSleepMs;
+  public TableRetryPolicy withRandomBackoff(Duration minSleep, Duration maxSleep) {
+    this.randomMin = minSleep;
+    this.randomMax = maxSleep;
     this.backoffType = BackoffType.RANDOM;
     return this;
   }
 
   /**
-   * Set the parameters for the exponential backoff policy. The actual sleep time
-   * is exponentially incremented up to the {@code maxSleepMs} and multiplying
+   * Set the parameters for the exponential backoff policy. The actual sleepTime time
+   * is exponentially incremented up to the {@code maxSleep} and multiplying
    * successive delays by the {@code factor}.
-   * @param sleepMs initial sleep time in milliseconds
-   * @param maxSleepMs upper bound sleep time in milliseconds
+   * @param sleepTime initial sleepTime time
+   * @param maxSleep upper bound sleepTime time
    * @param factor exponential factor for backoff
    * @return this policy instance
    */
-  public TableRetryPolicy withExponentialBackoff(long sleepMs, long maxSleepMs, double factor) {
-    this.sleepMs = sleepMs;
-    this.exponentialMaxSleepMs = maxSleepMs;
+  public TableRetryPolicy withExponentialBackoff(Duration sleepTime, Duration maxSleep, double factor) {
+    this.sleepTime = sleepTime;
+    this.exponentialMaxSleep = maxSleep;
     this.exponentialFactor = factor;
     this.backoffType = BackoffType.EXPONENTIAL;
     return this;
@@ -101,12 +115,15 @@ public class TableRetryPolicy implements Serializable {
   /**
    * Set the jitter for the backoff policy to provide additional randomness.
    * If this is set, a random value between {@code [0, jitter]} will be added
-   * to each sleep time.
-   * @param jitterMs initial sleep time in milliseconds
+   * to each sleepTime time. This applies to {@code FIXED} and {@code EXPONENTIAL}
+   * modes only.
+   * @param jitter initial sleepTime time
    * @return this policy instance
    */
-  public TableRetryPolicy withJitter(long jitterMs) {
-    this.jitterMs = jitterMs;
+  public TableRetryPolicy withJitter(Duration jitter) {
+    if (backoffType != BackoffType.RANDOM) {
+      this.jitter = jitter;
+    }
     return this;
   }
 
@@ -121,49 +138,78 @@ public class TableRetryPolicy implements Serializable {
   }
 
   /**
-   * Set maximum total delay (sleep + execution) before terminating the operation.
-   * @param maxDelayMs delay time in milliseconds
+   * Set maximum total delay (sleepTime + execution) before terminating the operation.
+   * @param maxDelay delay time
    * @return this policy instance
    */
-  public TableRetryPolicy withStopAfterDelay(long maxDelayMs) {
-    this.maxDelayMs = maxDelayMs;
+  public TableRetryPolicy withStopAfterDelay(Duration maxDelay) {
+    this.maxDuration = maxDelay;
     return this;
   }
 
   /**
-   * Convert the TableRetryPolicy to failsafe {@link RetryPolicy}.
-   * @param isRetriable predicate to signal retriable exceptions.
-   * @return this policy instance
+   * @return initial/fixed sleep time.
    */
-  RetryPolicy toFailsafePolicy(Predicate<Throwable> isRetriable) {
-    RetryPolicy policy = new RetryPolicy();
-    policy.withMaxDuration(maxDelayMs, TimeUnit.MILLISECONDS);
-    policy.withMaxRetries(maxAttempts);
-    if (jitterMs != 0) {
-      policy.withJitter(jitterMs, TimeUnit.MILLISECONDS);
-    }
-    policy.retryOn((e) -> isRetriable.test(e));
+  public Duration getSleepTime() {
+    return sleepTime;
+  }
 
-    switch (backoffType) {
-      case NONE:
-        break;
+  /**
+   * @return lower sleepTime time for random backoff or null if {@code policyType} is not {@code RANDOM}.
+   */
+  public Duration getRandomMin() {
+    return randomMin;
+  }
 
-      case FIXED:
-        policy.withDelay(sleepMs, TimeUnit.MILLISECONDS);
-        break;
+  /**
+   * @return upper sleepTime time for random backoff or null if {@code policyType} is not {@code RANDOM}.
+   */
+  public Duration getRandomMax() {
+    return randomMax;
+  }
 
-      case RANDOM:
-        policy.withDelay(randomMinMs, randomMaxMs, TimeUnit.MILLISECONDS);
-        break;
+  /**
+   * @return exponential factor for exponential backoff.
+   */
+  public double getExponentialFactor() {
+    return exponentialFactor;
+  }
 
-      case EXPONENTIAL:
-        policy.withBackoff(sleepMs, exponentialMaxSleepMs, TimeUnit.MILLISECONDS, exponentialFactor);
-        break;
+  /**
+   * @return maximum sleepTime time for exponential backoff or null if {@code policyType} is not {@code EXPONENTIAL}.
+   */
+  public Duration getExponentialMaxSleep() {
+    return exponentialMaxSleep;
+  }
 
-      default:
-        throw new SamzaException("Unknown retry policy type.");
-    }
+  /**
+   * Introduce randomness to the sleepTime time.
+   * @return jitter to add on to each backoff or null if not set.
+   */
+  public Duration getJitter() {
+    return jitter;
+  }
 
-    return policy;
+  /**
+   * Termination after a fix number of attempts.
+   * @return maximum number of attempts without success before giving up the operation.
+   */
+  public Integer getMaxAttempts() {
+    return maxAttempts;
+  }
+
+  /**
+   * Termination after a fixed duration.
+   * @return maximum duration without success before giving up the operation.
+   */
+  public Duration getMaxDuration() {
+    return maxDuration;
+  }
+
+  /**
+   * @return type of the backoff.
+   */
+  public BackoffType getBackoffType() {
+    return backoffType;
   }
 }
