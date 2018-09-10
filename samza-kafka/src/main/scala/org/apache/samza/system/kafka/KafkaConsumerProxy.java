@@ -100,7 +100,7 @@ public class KafkaConsumerProxy<K, V> {
       consumerPollThread.start();
 
       // we need to wait until the thread starts
-      while (!isRunning) {
+      while (!isRunning && failureCause == null) {
         try {
           consumerPollThreadStartLatch.await(3000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
@@ -378,9 +378,8 @@ public class KafkaConsumerProxy<K, V> {
       kafkaConsumerMetrics.incClientReads(metricName);
 
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> response;
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("pollConsumer from following SSPs: {}; total#={}", SSPsToFetch, SSPsToFetch.size());
-      }
+      LOG.debug("pollConsumer from following SSPs: {}; total#={}", SSPsToFetch, SSPsToFetch.size());
+
       response = pollConsumer(SSPsToFetch, 500); // TODO should be default value from ConsumerConfig
 
       // move the responses into the queue
