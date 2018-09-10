@@ -22,7 +22,6 @@
 package org.apache.samza.system.kafka;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -40,6 +39,7 @@ import org.apache.kafka.clients.consumer.InvalidOffsetException;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -58,13 +58,13 @@ public class KafkaConsumerProxy<K, V> {
 
   /* package private */ final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
-  private final NewKafkaSystemConsumer.KafkaConsumerMessageSink sink;
+  private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
   private final String metricName;
   private final String systemName;
   private final String clientId;
   private final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
-  private final Map<SystemStreamPartition, MetricName> ssp2MetricName = new HashMap<>();
+  private final Map<SystemStreamPartition, MetricName> perPartitionMetrics = new HashMap<>();
   // list of all the SSPs we poll from, with their next offsets correspondingly.
   private final Map<SystemStreamPartition, Long> nextOffsets = new ConcurrentHashMap<>();
   // lags behind the high water mark, as reported by the Kafka consumer.
@@ -75,7 +75,7 @@ public class KafkaConsumerProxy<K, V> {
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
   public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
-      NewKafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
+      KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
     this.kafkaConsumer = kafkaConsumer;
@@ -88,14 +88,15 @@ public class KafkaConsumerProxy<K, V> {
     this.kafkaConsumerMetrics.registerClientProxy(metricName);
 
     consumerPollThread = new Thread(createProxyThreadRunnable());
+    consumerPollThread.setDaemon(true);
+    consumerPollThread.setName(
+        "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
   }
 
   public void start() {
     if (!consumerPollThread.isAlive()) {
       LOG.info("Starting KafkaConsumerProxy polling thread for system " + systemName + " " + this.toString());
-      consumerPollThread.setDaemon(true);
-      consumerPollThread.setName(
-          "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
+
       consumerPollThread.start();
 
       // we need to wait until the thread starts
@@ -116,7 +117,7 @@ public class KafkaConsumerProxy<K, V> {
   public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
     LOG.info(String.format("Adding new topic and partition %s, offset = %s to queue for consumer %s", ssp, nextOffset,
         this));
-    topicPartitions2SSP.put(NewKafkaSystemConsumer.toTopicPartition(ssp), ssp); //registered SSPs
+    topicPartitions2SSP.put(KafkaSystemConsumer.toTopicPartition(ssp), ssp); //registered SSPs
 
     // this is already vetted offset so there is no need to validate it
     LOG.info(String.format("Got offset %s for new topic and partition %s.", nextOffset, ssp));
@@ -134,7 +135,6 @@ public class KafkaConsumerProxy<K, V> {
   private Runnable createProxyThreadRunnable() {
     Runnable runnable=  () -> {
       isRunning = true;
-
 
       try {
         consumerPollThreadStartLatch.countDown();
@@ -230,19 +230,19 @@ public class KafkaConsumerProxy<K, V> {
 
   private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> processResults(ConsumerRecords<K, V> records) {
     if (records == null) {
-      return Collections.emptyMap();
+      throw new SamzaException("processResults is called with null object for records");
     }
 
     int capacity = (int) (records.count() / 0.75 + 1); // to avoid rehash, allocate more then 75% of expected capacity.
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = new HashMap<>(capacity);
     // Parse the returned records and convert them into the IncomingMessageEnvelope.
     // Note. They have been already de-serialized by the consumer.
-    for (ConsumerRecord<K, V> r : records) {
-      int partition = r.partition();
-      String topic = r.topic();
+    for (ConsumerRecord<K, V> record : records) {
+      int partition = record.partition();
+      String topic = record.topic();
       TopicPartition tp = new TopicPartition(topic, partition);
 
-      updateMetrics(r, tp);
+      updateMetrics(record, tp);
 
       SystemStreamPartition ssp = topicPartitions2SSP.get(tp);
       List<IncomingMessageEnvelope> listMsgs = results.get(ssp);
@@ -251,10 +251,10 @@ public class KafkaConsumerProxy<K, V> {
         results.put(ssp, listMsgs);
       }
 
-      final K key = r.key();
-      final Object value = r.value();
-      IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(r.offset()), key, value, getRecordSize(r));
+      final K key = record.key();
+      final Object value = record.value();
+      final IncomingMessageEnvelope imEnvelope =
+          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record));
       listMsgs.add(imEnvelope);
     }
     if (LOG.isDebugEnabled()) {
@@ -274,8 +274,8 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
-    TopicAndPartition tap = NewKafkaSystemConsumer.toTopicAndPartition(tp);
-    SystemStreamPartition ssp = NewKafkaSystemConsumer.toSystemStreamPartition(systemName, tap);
+    TopicAndPartition tap = KafkaSystemConsumer.toTopicAndPartition(tp);
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
     long currentSSPLag = getLatestLag(ssp); // lag between the current offset and the highwatermark
     if (currentSSPLag < 0) {
       return;
@@ -312,8 +312,8 @@ public class KafkaConsumerProxy<K, V> {
     tags.put("client-id", clientId);// this is required by the KafkaConsumer to get the metrics
 
     for (SystemStreamPartition ssp : ssps) {
-      TopicPartition tp = NewKafkaSystemConsumer.toTopicPartition(ssp);
-      ssp2MetricName.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
+      TopicPartition tp = KafkaSystemConsumer.toTopicPartition(ssp);
+      perPartitionMetrics.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
     }
   }
 
@@ -327,12 +327,12 @@ public class KafkaConsumerProxy<K, V> {
     Map<MetricName, ? extends Metric> consumerMetrics = kafkaConsumer.metrics();
 
     // populate the MetricNames first time
-    if (ssp2MetricName.isEmpty()) {
+    if (perPartitionMetrics.isEmpty()) {
       populateMetricNames(ssps);
     }
 
     for (SystemStreamPartition ssp : ssps) {
-      MetricName mn = ssp2MetricName.get(ssp);
+      MetricName mn = perPartitionMetrics.get(ssp);
       Metric currentLagM = consumerMetrics.get(mn);
 
       // High watermark is fixed to be the offset of last available message,
@@ -412,7 +412,7 @@ public class KafkaConsumerProxy<K, V> {
     for (Map.Entry<SystemStreamPartition, Long> e : nextOffsets.entrySet()) {
       SystemStreamPartition ssp = e.getKey();
       Long offset = e.getValue();
-      TopicAndPartition tp = NewKafkaSystemConsumer.toTopicAndPartition(ssp);
+      TopicAndPartition tp = new TopicAndPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
       Long lag = latestLags.get(ssp);
       LOG.trace("Latest offset of {} is  {}; lag = {}", ssp, offset, lag);
       if (lag != null && offset != null && lag >= 0) {

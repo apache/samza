@@ -54,21 +54,28 @@ public class KafkaConsumerConfig extends ConsumerConfig {
    * By default, KafkaConsumer will fetch ALL available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
    */
-  private static final String KAFKA_CONSUMER_MAX_POLL_RECORDS_DEFAULT = "100";
+  private static final String DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS = "100";
 
-
-  public KafkaConsumerConfig(Properties props) {
+  private KafkaConsumerConfig(Properties props) {
     super(props);
   }
 
+  /**
+   * Create kafka consumer configs, based on the subset of global configs.
+   * @param config
+   * @param systemName
+   * @param clientId
+   * @param injectProps
+   * @return KafkaConsumerConfig
+   */
   public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId,
       Map<String, String> injectProps) {
 
-    Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
+    final Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
-    String groupId = getConsumerGroupId(config);
+    final String groupId = getConsumerGroupId(config);
 
-    Properties consumerProps = new Properties();
+    final Properties consumerProps = new Properties();
     consumerProps.putAll(subConf);
 
     consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -109,8 +116,8 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     }
 
     // NOT SURE THIS IS NEEDED TODO
-    String maxPollRecords =
-        subConf.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, KAFKA_CONSUMER_MAX_POLL_RECORDS_DEFAULT);
+    final String maxPollRecords =
+        subConf.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
     consumerProps.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords);
 
     // put overrides
@@ -120,7 +127,7 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   }
 
   // group id should be unique per job
-  static String getConsumerGroupId(Config config) {
+  private static String getConsumerGroupId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     Option<String> jobIdOption = jobConfig.getJobId();
     Option<String> jobNameOption = jobConfig.getName();
@@ -151,11 +158,12 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   }
 
   /**
-   * Settings for auto.reset in samza are different from settings in Kafka (auto.offset.reset) - need to convert
+   * If settings for auto.reset in samza are different from settings in Kafka (auto.offset.reset),
+   * then need to convert them (see kafka.apache.org/documentation):
    * "largest" -> "latest"
    * "smallest" -> "earliest"
-   * "none" -> "none"
-   * "none" - will fail the kafka consumer, if offset is out of range
+   *
+   * If no setting specified we return "latest" (same as Kafka).
    * @param properties All consumer related {@link Properties} parsed from samza config
    * @return String representing the config value for "auto.offset.reset" property
    */
@@ -168,13 +176,18 @@ public class KafkaConsumerConfig extends ConsumerConfig {
       return autoOffsetReset;
     }
 
+    String newAutoOffsetReset;
     switch (autoOffsetReset) {
       case SAMZA_OFFSET_LARGEST:
-        return KAFKA_OFFSET_LATEST;
+        newAutoOffsetReset =  KAFKA_OFFSET_LATEST;
+        break;
       case SAMZA_OFFSET_SMALLEST:
-        return KAFKA_OFFSET_EARLIEST;
+        newAutoOffsetReset =  KAFKA_OFFSET_EARLIEST;
+        break;
       default:
-        return KAFKA_OFFSET_LATEST;
+        newAutoOffsetReset =  KAFKA_OFFSET_LATEST;
     }
+    LOG.info("AutoOffsetReset value converted from {} to {}", autoOffsetReset,  newAutoOffsetReset);
+    return newAutoOffsetReset;
   }
 }

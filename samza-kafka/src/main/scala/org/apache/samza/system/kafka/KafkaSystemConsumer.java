@@ -47,9 +47,9 @@ import org.slf4j.LoggerFactory;
 import scala.Option;
 
 
-public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements SystemConsumer {
+public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements SystemConsumer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(NewKafkaSystemConsumer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemConsumer.class);
 
   private static final long FETCH_THRESHOLD = 50000;
   private static final long FETCH_THRESHOLD_BYTES = -1L;
@@ -65,10 +65,10 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
   private final boolean fetchThresholdBytesEnabled;
 
   // This sink is used to transfer the messages from the proxy/consumer to the BlockingEnvelopeMap.
-  /* package private */ KafkaConsumerMessageSink messageSink;
+  /* package private */final KafkaConsumerMessageSink messageSink;
 
   // proxy is doing the actual reading
-  private KafkaConsumerProxy proxy;
+  final private KafkaConsumerProxy proxy;
 
   /* package private */final Map<TopicPartition, String> topicPartitions2Offset = new HashMap<>();
   /* package private */final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
@@ -77,11 +77,13 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
   /* package private */ long perPartitionFetchThresholdBytes;
 
   /**
-   * @param systemName
-   * @param config
-   * @param metrics
+   * Constructor
+   * @param systemName system name for which we create the consumer
+   * @param config config
+   * @param metrics metrics
+   * @param clock - system clock
    */
-  protected NewKafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
+  public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
       KafkaSystemConsumerMetrics metrics, Clock clock) {
 
     super(metrics.registry(), clock, metrics.getClass().getName());
@@ -91,22 +93,30 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
     this.clientId = clientId;
     this.systemName = systemName;
     this.config = config;
-    this.metricName = systemName + " " + clientId;
+    this.metricName = String.format("%s %s", systemName, clientId);
 
     this.fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
+
+    // create a sink for passing the messages between the proxy and the consumer
+    messageSink = new KafkaConsumerMessageSink();
+
+    // Create the proxy to do the actual message reading. It is a separate thread that reads the messages from the stream
+    // and puts them into the sink.
+    proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, samzaConsumerMetrics, metricName);
+    LOG.info("Created consumer proxy: " + proxy);
 
     LOG.info("Created SamzaKafkaSystemConsumer for system={}, clientId={}, metricName={}, KafkaConsumer={}", systemName,
         clientId, metricName, this.kafkaConsumer.toString());
   }
 
-  public static <K, V> NewKafkaSystemConsumer getNewKafkaSystemConsumer(String systemName, Config config,
+  public static <K, V> KafkaSystemConsumer getNewKafkaSystemConsumer(String systemName, Config config,
       String clientId, KafkaSystemConsumerMetrics metrics, Clock clock) {
 
     // extract consumer configs and create kafka consumer
     KafkaConsumer<K, V> kafkaConsumer = getKafkaConsumerImpl(systemName, clientId, config);
     LOG.info("Created kafka consumer for system {}, clientId {}: {}", systemName, clientId, kafkaConsumer);
 
-    NewKafkaSystemConsumer kc = new NewKafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, clock);
+    KafkaSystemConsumer kc = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, clock);
     LOG.info("Created samza system consumer {}", kc.toString());
 
     return kc;
@@ -114,12 +124,12 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
 
   /**
    * create kafka consumer
-   * @param systemName
-   * @param clientId
-   * @param config
+   * @param systemName system name for which we create the consumer
+   * @param clientId client id to use int the kafka client
+   * @param config config
    * @return kafka consumer
    */
-  private static <K, V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static <K, V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
 
     Map<String, String> injectProps = new HashMap<>();
 
@@ -146,9 +156,7 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
     startSubscription();
     // needs to be called after all the registrations are completed
     setFetchThresholds();
-    // Create the proxy to do the actual message reading. It is a separate thread that reads the messages from the stream
-    // and puts them into the sink.
-    createConsumerProxy();
+
     startConsumer();
     LOG.info("consumer {} started", this);
   }
@@ -165,16 +173,6 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
       LOG.warn("startSubscription failed.", e);
       throw new SamzaException(e);
     }
-  }
-
-  void createConsumerProxy() {
-    // create a sink for passing the messages between the proxy and the consumer
-    messageSink = new KafkaConsumerMessageSink();
-
-    // create the thread with the consumer
-    proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, samzaConsumerMetrics, metricName);
-
-    LOG.info("Created consumer proxy: " + proxy);
   }
 
   /*
@@ -315,12 +313,10 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
   /**
    * Compare two String offsets.
    * Note. There is a method in KafkaAdmin that does that, but that would require instantiation of systemadmin for each consumer.
-   * @param off1
-   * @param off2
    * @return see {@link Long#compareTo(Long)}
    */
-  public static int compareOffsets(String off1, String off2) {
-    return Long.valueOf(off1).compareTo(Long.valueOf(off2));
+  public static int compareOffsets(String offset1, String offset2) {
+    return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
   }
 
   @Override
@@ -348,20 +344,18 @@ public class NewKafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements
     return res;
   }
 
+  /**
+   * convert from TopicPartition to TopicAndPartition
+   */
   public static TopicAndPartition toTopicAndPartition(TopicPartition tp) {
     return new TopicAndPartition(tp.topic(), tp.partition());
   }
 
-  public static TopicAndPartition toTopicAndPartition(SystemStreamPartition ssp) {
-    return new TopicAndPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
-  }
-
+  /**
+   * convert to TopicPartition from SystemStreamPartition
+   */
   public static TopicPartition toTopicPartition(SystemStreamPartition ssp) {
     return new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
-  }
-
-  public static SystemStreamPartition toSystemStreamPartition(String systemName, TopicAndPartition tp) {
-    return new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
   }
 
   /**

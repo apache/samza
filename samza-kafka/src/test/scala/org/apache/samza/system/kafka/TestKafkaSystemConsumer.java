@@ -44,7 +44,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 
-public class TestNewKafkaSystemConsumer {
+public class TestKafkaSystemConsumer {
   public final String TEST_SYSTEM = "test-system";
   public final String TEST_STREAM = "test-stream";
   public final String TEST_CLIENT_ID = "testClientId";
@@ -57,7 +57,7 @@ public class TestNewKafkaSystemConsumer {
 
   }
 
-  private NewKafkaSystemConsumer setupConsumer(String fetchMsg, String fetchBytes) {
+  private KafkaSystemConsumer setupConsumer(String fetchMsg, String fetchBytes) {
     final Map<String, String> map = new HashMap<>();
 
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD(), TEST_SYSTEM), fetchMsg);
@@ -70,8 +70,8 @@ public class TestNewKafkaSystemConsumer {
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, TEST_CLIENT_ID, Collections.emptyMap());
     final KafkaConsumer<byte[], byte[]> kafkaConsumer = new MockKafkaConsumer(consumerConfig.originals());
 
-    MockNewKafkaSystmeCosumer newKafkaSystemConsumer =
-        new MockNewKafkaSystmeCosumer(kafkaConsumer, TEST_SYSTEM, config, TEST_CLIENT_ID,
+    MockKafkaSystmeCosumer newKafkaSystemConsumer =
+        new MockKafkaSystmeCosumer(kafkaConsumer, TEST_SYSTEM, config, TEST_CLIENT_ID,
             new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry()), System::currentTimeMillis);
 
     return newKafkaSystemConsumer;
@@ -80,7 +80,7 @@ public class TestNewKafkaSystemConsumer {
   @Test
   public void testConfigValidations() {
 
-    final NewKafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
+    final KafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
 
     consumer.start();
     // should be no failures
@@ -88,7 +88,7 @@ public class TestNewKafkaSystemConsumer {
 
   @Test
   public void testFetchThresholdShouldDivideEvenlyAmongPartitions() {
-    final NewKafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
+    final KafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
     final int partitionsNum = 50;
     for (int i = 0; i < partitionsNum; i++) {
       consumer.register(new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(i)), "0");
@@ -104,7 +104,7 @@ public class TestNewKafkaSystemConsumer {
   @Test
   public void testConsumerRegisterOlderOffsetOfTheSamzaSSP() {
 
-    NewKafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
+    KafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
 
     SystemStreamPartition ssp0 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
     SystemStreamPartition ssp1 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(1));
@@ -116,9 +116,9 @@ public class TestNewKafkaSystemConsumer {
     consumer.register(ssp1, "3");
     consumer.register(ssp2, "0");
 
-    assertEquals("0", consumer.topicPartitions2Offset.get(NewKafkaSystemConsumer.toTopicPartition(ssp0)));
-    assertEquals("2", consumer.topicPartitions2Offset.get(NewKafkaSystemConsumer.toTopicPartition(ssp1)));
-    assertEquals("0", consumer.topicPartitions2Offset.get(NewKafkaSystemConsumer.toTopicPartition(ssp2)));
+    assertEquals("0", consumer.topicPartitions2Offset.get(KafkaSystemConsumer.toTopicPartition(ssp0)));
+    assertEquals("2", consumer.topicPartitions2Offset.get(KafkaSystemConsumer.toTopicPartition(ssp1)));
+    assertEquals("0", consumer.topicPartitions2Offset.get(KafkaSystemConsumer.toTopicPartition(ssp2)));
   }
 
   @Test
@@ -137,7 +137,7 @@ public class TestNewKafkaSystemConsumer {
         bytesSerde.serialize("", "value1".getBytes()), ime1Size);
     IncomingMessageEnvelope ime11 = new IncomingMessageEnvelope(ssp1, "0", bytesSerde.serialize("", "key11".getBytes()),
         bytesSerde.serialize("", "value11".getBytes()), ime11Size);
-    NewKafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
+    KafkaSystemConsumer consumer = setupConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
 
     consumer.register(ssp0, "0");
     consumer.register(ssp1, "0");
@@ -178,7 +178,7 @@ public class TestNewKafkaSystemConsumer {
 
     // limit by number of messages 4/2 = 2 per partition
     // limit by number of bytes - disabled
-    NewKafkaSystemConsumer consumer = setupConsumer("4", "0"); // should disable
+    KafkaSystemConsumer consumer = setupConsumer("4", "0"); // should disable
 
     consumer.register(ssp0, "0");
     consumer.register(ssp1, "0");
@@ -206,16 +206,16 @@ public class TestNewKafkaSystemConsumer {
     }
   }
 
-  static class MockNewKafkaSystmeCosumer extends NewKafkaSystemConsumer {
-    public MockNewKafkaSystmeCosumer(Consumer kafkaConsumer, String systemName, Config config, String clientId,
+  static class MockKafkaSystmeCosumer extends KafkaSystemConsumer {
+    public MockKafkaSystmeCosumer(Consumer kafkaConsumer, String systemName, Config config, String clientId,
         KafkaSystemConsumerMetrics metrics, Clock clock) {
       super(kafkaConsumer, systemName, config, clientId, metrics, clock);
     }
 
-    @Override
-    void createConsumerProxy() {
-      this.messageSink = new KafkaConsumerMessageSink();
-    }
+    //@Override
+    //void createConsumerProxy() {
+    //  this.messageSink = new KafkaConsumerMessageSink();
+    //}
 
     @Override
     void startConsumer() {
