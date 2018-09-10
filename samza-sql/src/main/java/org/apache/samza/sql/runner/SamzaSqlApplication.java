@@ -19,9 +19,16 @@
 
 package org.apache.samza.sql.runner;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
+import org.apache.samza.sql.interfaces.DslConverter;
+import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.translator.QueryTranslator;
 import org.slf4j.Logger;
@@ -38,12 +45,29 @@ public class SamzaSqlApplication implements StreamApplication {
   @Override
   public void describe(StreamApplicationDescriptor appDesc) {
     try {
-      SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(appDesc.getConfig());
+      // 1. Get Calcite plan
+      List<String> dslStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(appDesc.getConfig());
+
+      // TODO: Get the converter factory based on the file type. Create abstraction around this.
+      DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
+      DslConverter dslConverter = dslConverterFactory.create(appDesc.getConfig());
+      Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
+
+      Set<String> inputSystemStreams = new HashSet<>();
+      Set<String> outputSystemStreams = new HashSet<>();
+
+      SamzaSqlApplicationConfig.populateSystemStreams(relRoots.iterator().next().project(), inputSystemStreams,
+          outputSystemStreams);
+
+      // 2. Populate configs
+      SamzaSqlApplicationConfig sqlConfig =
+          new SamzaSqlApplicationConfig(appDesc.getConfig(), inputSystemStreams, outputSystemStreams);
+
+      // 3. Translate Calcite plan to Samza stream operators
       QueryTranslator queryTranslator = new QueryTranslator(sqlConfig);
-      List<SamzaSqlQueryParser.QueryInfo> queries = sqlConfig.getQueryInfo();
-      for (SamzaSqlQueryParser.QueryInfo query : queries) {
-        LOG.info("Translating the query {} to samza stream graph", query.getSelectQuery());
-        queryTranslator.translate(query, appDesc);
+      for (RelRoot relRoot : relRoots) {
+        LOG.info("Translating relRoot {} to samza stream graph", relRoot);
+        queryTranslator.translate(relRoot, appDesc);
       }
     } catch (RuntimeException e) {
       LOG.error("SamzaSqlApplication threw exception.", e);

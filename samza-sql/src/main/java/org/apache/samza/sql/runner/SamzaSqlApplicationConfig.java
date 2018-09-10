@@ -30,6 +30,9 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.BiRel;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
@@ -92,37 +95,25 @@ public class SamzaSqlApplicationConfig {
 
   private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
-
-  private final List<String> sql;
-
-  private final List<QueryInfo> queryInfo;
+  private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
 
   private final long windowDurationMs;
 
-  public SamzaSqlApplicationConfig(Config staticConfig) {
-
-    sql = fetchSqlFromConfig(staticConfig);
-
-    queryInfo = fetchQueryInfo(sql);
+  public SamzaSqlApplicationConfig(Config staticConfig, Set<String> inputSystemStreams,
+      Set<String> outputSystemStreams) {
 
     ioResolver = createIOResolver(staticConfig);
 
-    udfResolver = createUdfResolver(staticConfig);
-    udfMetadata = udfResolver.getUdfs();
+    inputSystemStreamConfigBySource = inputSystemStreams.stream()
+         .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
 
-    inputSystemStreamConfigBySource = queryInfo.stream()
-        .map(QueryInfo::getSources)
-        .flatMap(Collection::stream)
-        .distinct()
-        .collect(Collectors.toMap(Function.identity(), ioResolver::fetchSourceInfo));
+    outputSystemStreamConfigsBySource = outputSystemStreams.stream()
+         .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
 
-    Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
+    systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
+    systemStreamConfigsBySource.putAll(outputSystemStreamConfigsBySource);
 
-    outputSystemStreamConfigsBySource = queryInfo.stream()
-        .map(QueryInfo::getSink)
-        .distinct()
-        .collect(Collectors.toMap(Function.identity(), ioResolver::fetchSinkInfo));
-    systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
+    Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(systemStreamConfigsBySource.values());
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
@@ -135,6 +126,9 @@ public class SamzaSqlApplicationConfig {
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
+
+    udfResolver = createUdfResolver(staticConfig);
+    udfMetadata = udfResolver.getUdfs();
 
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
@@ -224,12 +218,30 @@ public class SamzaSqlApplicationConfig {
     return ret;
   }
 
-  public List<String> getSql() {
-    return sql;
+  public static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
+      Set<String> outputSystemStreams) {
+    if (relNode instanceof TableModify) {
+      outputSystemStreams.add(getSystemStreamName(relNode));
+    } else {
+      if (relNode instanceof BiRel) {
+        BiRel biRelNode = (BiRel) relNode;
+        populateSystemStreams(biRelNode.getLeft(), inputSystemStreams, outputSystemStreams);
+        populateSystemStreams(biRelNode.getRight(), inputSystemStreams, outputSystemStreams);
+      } else {
+        if (relNode.getTable() != null) {
+          inputSystemStreams.add(getSystemStreamName(relNode));
+        }
+      }
+    }
+     List<RelNode> relNodes = relNode.getInputs();
+    if (relNodes == null || relNodes.isEmpty()) {
+      return;
+    }
+    relNodes.forEach(node -> populateSystemStreams(node, inputSystemStreams, outputSystemStreams));
   }
 
-  public List<QueryInfo> getQueryInfo() {
-    return queryInfo;
+  private static String getSystemStreamName(RelNode relNode) {
+    return relNode.getTable().getQualifiedName().stream().map(Object::toString).collect(Collectors.joining("."));
   }
 
   public Collection<UdfMetadata> getUdfMetadata() {
@@ -242,6 +254,10 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, SqlIOConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
+  }
+
+  public Map<String, SqlIOConfig> getSystemStreamConfigsBySource() {
+    return systemStreamConfigsBySource;
   }
 
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {
