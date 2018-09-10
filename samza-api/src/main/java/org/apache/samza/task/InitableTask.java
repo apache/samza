@@ -20,6 +20,8 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
+
 
 /**
  * Used as an interface for user processing StreamTasks that need to have specific functionality performed as their StreamTasks
@@ -28,9 +30,8 @@ import org.apache.samza.config.Config;
 public interface InitableTask {
   /**
    * Called by TaskRunner each time an implementing task is created.
-   * @param config Allows accessing of fields in the configuration files that this StreamTask is specified in.
    * @param context Allows accessing of contextual data of this StreamTask.
    * @throws Exception Any exception types encountered during the execution of the processing task.
    */
-  void init(Config config, TaskContext context) throws Exception;
+  void init(Context context) throws Exception;
 }

@@ -464,8 +464,10 @@ public class TestStreamProcessor {
   @Test
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
-    StreamProcessor streamProcessor = new StreamProcessor(mock(Config.class), new HashMap<>(), mock(TaskFactory.class),
-        sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)), mock(JobCoordinator.class));
+    StreamProcessor streamProcessor =
+        new StreamProcessor(mock(Config.class), new HashMap<>(), mock(TaskFactory.class), null, null,
+            sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
+            mock(JobCoordinator.class));
     assertEquals(streamProcessor, mockListener.get().processor);
   }
 

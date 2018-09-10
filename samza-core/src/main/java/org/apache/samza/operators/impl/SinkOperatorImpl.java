@@ -18,16 +18,16 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Collection;
+import java.util.Collections;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-
-import java.util.Collection;
-import java.util.Collections;
 
 
 /**
@@ -38,14 +38,14 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final SinkOperatorSpec<M> sinkOpSpec;
   private final SinkFunction<M> sinkFn;
 
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOpSpec, Config config, TaskContext context) {
+  SinkOperatorImpl(SinkOperatorSpec<M> sinkOpSpec) {
     this.sinkOpSpec = sinkOpSpec;
     this.sinkFn = sinkOpSpec.getSinkFn();
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
-    this.sinkFn.init(config, context);
+  protected void handleInit(Context context) {
+    this.sinkFn.init(context);
   }
 
   @Override

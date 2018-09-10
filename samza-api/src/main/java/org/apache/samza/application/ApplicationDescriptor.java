@@ -21,6 +21,8 @@ package org.apache.samza.application;
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ApplicationDefinedContainerContextFactory;
+import org.apache.samza.context.ApplicationDefinedTaskContextFactory;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
@@ -44,17 +46,30 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
   Config getConfig();
 
   /**
-   * Sets the {@link ContextManager} for this application.
+   * Sets the {@link ApplicationDefinedContainerContextFactory} for this application. Each task will be given access to
+   * a different instance of the {@link org.apache.samza.context.ApplicationDefinedContainerContext} that this creates.
+   * The context can be accessed through the {@link org.apache.samza.context.Context}.
    * <p>
-   * Setting the {@link ContextManager} is optional. The provided {@link ContextManager} can be used to build the shared
-   * context between the operator functions within a task instance
+   * Setting this is optional.
    *
-   * TODO: this should be replaced by the shared context factory when SAMZA-1714 is fixed.
-
-   * @param contextManager the {@link ContextManager} to use for the application
-   * @return type {@code S} of {@link ApplicationDescriptor} with {@code contextManager} set as its {@link ContextManager}
+   * @param factory the {@link ApplicationDefinedContainerContextFactory} for this application
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code factory} set as its
+   * {@link ApplicationDefinedContainerContextFactory}
    */
-  S withContextManager(ContextManager contextManager);
+  S withApplicationDefinedContainerContextFactory(ApplicationDefinedContainerContextFactory<?> factory);
+
+  /**
+   * Sets the {@link ApplicationDefinedTaskContextFactory} for this application. Each task will be given access to a
+   * different instance of the {@link org.apache.samza.context.ApplicationDefinedTaskContext} that this creates. The
+   * context can be accessed through the {@link org.apache.samza.context.Context}.
+   * <p>
+   * Setting this is optional.
+   *
+   * @param factory the {@link ApplicationDefinedTaskContextFactory} for this application
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code factory} set as its
+   * {@link ApplicationDefinedTaskContextFactory}
+   */
+  S withApplicationDefinedTaskContextFactory(ApplicationDefinedTaskContextFactory<?> factory);
 
   /**
    * Sets the {@link ProcessorLifecycleListenerFactory} for this application.

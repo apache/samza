@@ -21,11 +21,9 @@ package org.apache.samza.table;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -40,10 +38,9 @@ public interface ReadableTable<K, V> extends Table<KV<K, V>> {
   /**
    * Initializes the table during container initialization.
    * Guaranteed to be invoked as the first operation on the table.
-   * @param containerContext Samza container context
-   * @param taskContext nullable for global table
+   * @param context {@link Context} corresponding to this table
    */
-  default void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  default void init(Context context) {
   }
 
   /**

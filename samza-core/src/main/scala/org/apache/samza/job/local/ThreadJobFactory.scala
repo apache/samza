@@ -20,18 +20,18 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.application.{ApplicationDescriptorUtil, ApplicationUtil}
-import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
+import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
+import org.apache.samza.context.{JobContextImpl, SamzaContainerContextProvider}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.task.TaskFactory
-import org.apache.samza.task.TaskFactoryUtil
+import org.apache.samza.task.{TaskFactory, TaskFactoryUtil}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
@@ -113,7 +113,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         jobModel,
         config,
         Map[String, MetricsReporter](),
-        taskFactory)
+        taskFactory,
+        new SamzaContainerContextProvider(new JobContextImpl(config)),
+        Option(appDesc.getApplicationDefinedContainerContextFactory.orElse(null)),
+        Option(appDesc.getApplicationDefinedTaskContextFactory.orElse(null))
+      )
       container.setContainerListener(containerListener)
 
       val threadJob = new ThreadJob(container)

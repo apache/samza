@@ -19,6 +19,7 @@
 package org.apache.samza.table.utils;
 
 import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
@@ -39,14 +40,12 @@ public class DefaultTableReadMetrics {
   /**
    * Constructor based on container and task container context
    *
-   * @param containerContext container context
-   * @param taskContext task context
+   * @param context {@link Context} for this task
    * @param table underlying table
    * @param tableId table Id
    */
-  public DefaultTableReadMetrics(SamzaContainerContext containerContext, TaskContext taskContext,
-      Table table, String tableId) {
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, table, tableId);
+  public DefaultTableReadMetrics(Context context, Table table, String tableId) {
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
     getNs = tableMetricsUtil.newTimer("get-ns");
     getAllNs = tableMetricsUtil.newTimer("getAll-ns");
     numGets = tableMetricsUtil.newCounter("num-gets");

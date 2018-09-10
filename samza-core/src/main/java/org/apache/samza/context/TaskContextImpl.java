@@ -1,12 +1,16 @@
 package org.apache.samza.context;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.scheduling.Scheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
@@ -21,9 +25,19 @@ public class TaskContextImpl implements TaskContext {
   private final Scheduler scheduler;
   private final OffsetManager offsetManager;
 
-  public TaskContextImpl(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions,
-      MetricsRegistry taskMetricsRegistry, Function<String, KeyValueStore> keyValueStoreProvider,
-      TableManager tableManager, Scheduler scheduler, OffsetManager offsetManager) {
+  private final JobModel jobModel;
+  private final StreamMetadataCache streamMetadataCache;
+  private final Map<String, Object> objectRegistry = new HashMap<>();
+
+  public TaskContextImpl(TaskName taskName,
+      Set<SystemStreamPartition> systemStreamPartitions,
+      MetricsRegistry taskMetricsRegistry,
+      Function<String, KeyValueStore> keyValueStoreProvider,
+      TableManager tableManager,
+      Scheduler scheduler,
+      OffsetManager offsetManager,
+      JobModel jobModel,
+      StreamMetadataCache streamMetadataCache) {
     this.taskName = taskName;
     this.systemStreamPartitions = systemStreamPartitions;
     this.taskMetricsRegistry = taskMetricsRegistry;
@@ -31,6 +45,8 @@ public class TaskContextImpl implements TaskContext {
     this.tableManager = tableManager;
     this.scheduler = scheduler;
     this.offsetManager = offsetManager;
+    this.jobModel = jobModel;
+    this.streamMetadataCache = streamMetadataCache;
   }
 
   @Override
@@ -70,5 +86,23 @@ public class TaskContextImpl implements TaskContext {
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
     this.offsetManager.setStartingOffset(this.taskName, systemStreamPartition, offset);
+  }
+
+  // TODO below methods are used by operator code; they should be moved out of this client API to a framework API layer
+
+  public void registerObject(String name, Object value) {
+    this.objectRegistry.put(name, value);
+  }
+
+  public Object fetchObject(String name) {
+    return this.objectRegistry.get(name);
+  }
+
+  public JobModel getJobModel() {
+    return this.jobModel;
+  }
+
+  public StreamMetadataCache getStreamMetadataCache() {
+    return this.streamMetadataCache;
   }
 }

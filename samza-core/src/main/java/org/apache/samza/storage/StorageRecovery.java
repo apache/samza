@@ -27,13 +27,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.ContainerContextImpl;
+import org.apache.samza.context.JobContextImpl;
+import org.apache.samza.context.SamzaContainerContextImpl;
+import org.apache.samza.context.SamzaContainerContextProvider;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.ContainerModel;
@@ -209,8 +212,9 @@ public class StorageRecovery extends CommandLine {
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
-      SamzaContainerContext containerContext = new SamzaContainerContext(containerModel.getProcessorId(), jobConfig, containerModel.getTasks()
-          .keySet(), new MetricsRegistryMap());
+      ContainerContext containerContext =
+          new ContainerContextImpl(containerModel.getProcessorId(), containerModel.getTasks().keySet(),
+              new MetricsRegistryMap());
 
       for (TaskModel taskModel : containerModel.getTasks().values()) {
         HashMap<String, SystemConsumer> storeConsumers = getStoreConsumers();
@@ -233,7 +237,7 @@ public class StorageRecovery extends CommandLine {
                 null,
                 new MetricsRegistryMap(),
                 changeLogSystemStreamPartition,
-                containerContext);
+                new SamzaContainerContextProvider(new JobContextImpl(this.jobConfig)).build(containerContext));
             taskStores.put(storeName, storageEngine);
           }
         }

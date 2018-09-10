@@ -75,7 +75,7 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableReadFunction<?, ?> readFn = getReadFn();
     RateLimiter rateLimiter = deserializeObject(RATE_LIMITER);
     if (rateLimiter != null) {
-      rateLimiter.init(containerContext.config, taskContext);
+      rateLimiter.init(this.context);
     }
     TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(READ_CREDIT_FN);
     TableRateLimiter readRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, readCreditFn, RL_READ_TAG);
@@ -120,7 +120,7 @@ public class RemoteTableProvider extends BaseTableProvider {
           writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
     }
 
-    table.init(containerContext, taskContext);
+    table.init(this.context);
     tables.add(table);
     return table;
   }
@@ -146,7 +146,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   private TableReadFunction<?, ?> getReadFn() {
     TableReadFunction<?, ?> readFn = deserializeObject(READ_FN);
     if (readFn != null) {
-      readFn.init(containerContext.config, taskContext);
+      readFn.init(this.context);
     }
     return readFn;
   }
@@ -154,7 +154,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   private TableWriteFunction<?, ?> getWriteFn() {
     TableWriteFunction<?, ?> writeFn = deserializeObject(WRITE_FN);
     if (writeFn != null) {
-      writeFn.init(containerContext.config, taskContext);
+      writeFn.init(this.context);
     }
     return writeFn;
   }

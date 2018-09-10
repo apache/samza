@@ -19,21 +19,18 @@
 
 package org.apache.samza.table.remote;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
 import org.apache.samza.SamzaException;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.table.utils.TableMetricsUtil;
-import org.apache.samza.task.TaskContext;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -63,10 +60,10 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    super.init(containerContext, taskContext);
-    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+  public void init(Context context) {
+    super.init(context);
+    writeMetrics = new DefaultTableWriteMetrics(context, this, tableId);
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     writeRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("put-throttle-ns"));
   }
 

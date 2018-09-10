@@ -22,10 +22,8 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.context.Context;
 
 /**
  * A rate limiter interface used by Samza components to limit throughput of operations
@@ -53,10 +51,9 @@ public interface RateLimiter extends Serializable {
   /**
    * Initialize this rate limiter, this method should be called during container initialization.
    *
-   * @param config job configuration
-   * @param taskContext task context that owns this rate limiter
+   * @param context {@link Context} that corresponds to this rate limiter
    */
-  void init(Config config, TaskContext taskContext);
+  void init(Context context);
 
   /**
    * Attempt to acquire the provided number of credits, blocks indefinitely until

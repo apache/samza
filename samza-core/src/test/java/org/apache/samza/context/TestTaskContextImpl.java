@@ -1,15 +1,11 @@
 package org.apache.samza.context;
 
-import java.util.Set;
 import java.util.function.Function;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduling.Scheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.table.TableManager;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -23,15 +19,7 @@ public class TestTaskContextImpl {
   private static final TaskName TASK_NAME = new TaskName("myTaskName");
 
   @Mock
-  private Set<SystemStreamPartition> systemStreamPartitions;
-  @Mock
-  private MetricsRegistry taskMetricsRegistry;
-  @Mock
   private Function<String, KeyValueStore> keyValueStoreProvider;
-  @Mock
-  private TableManager tableManager;
-  @Mock
-  private Scheduler scheduler;
   @Mock
   private OffsetManager offsetManager;
 
@@ -40,8 +28,8 @@ public class TestTaskContextImpl {
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    taskContext = new TaskContextImpl(TASK_NAME, systemStreamPartitions, taskMetricsRegistry, keyValueStoreProvider,
-        tableManager, scheduler, offsetManager);
+    taskContext =
+        new TaskContextImpl(TASK_NAME, null, null, keyValueStoreProvider, null, null, offsetManager, null, null);
   }
 
   /**
@@ -72,5 +60,17 @@ public class TestTaskContextImpl {
     SystemStreamPartition ssp = new SystemStreamPartition("mySystem", "myStream", new Partition(0));
     taskContext.setStartingOffset(ssp, "123");
     verify(offsetManager).setStartingOffset(TASK_NAME, ssp, "123");
+  }
+
+  /**
+   * Given a registered object, fetchObject should get it. If an object is not registered at a key, then fetchObject
+   * should return null.
+   */
+  @Test
+  public void testRegisterAndFetchObject() {
+    String value = "hello world";
+    taskContext.registerObject("key", value);
+    assertEquals(value, taskContext.fetchObject("key"));
+    assertNull(taskContext.fetchObject("not a key"));
   }
 }

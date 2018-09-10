@@ -20,14 +20,12 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
-
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -43,13 +41,13 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
   private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
   private final ReadWriteTable<K, V> table;
 
-  SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Config config, TaskContext context) {
+  SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Context context) {
     this.sendToTableOpSpec = sendToTableOpSpec;
-    this.table = (ReadWriteTable) context.getTable(sendToTableOpSpec.getTableSpec().getId());
+    this.table = (ReadWriteTable) context.getTaskContext().getTable(sendToTableOpSpec.getTableSpec().getId());
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
+  protected void handleInit(Context context) {
   }
 
   @Override

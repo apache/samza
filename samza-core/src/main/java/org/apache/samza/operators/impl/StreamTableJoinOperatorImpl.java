@@ -20,14 +20,12 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
-
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -45,15 +43,14 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
   private final ReadableTable<K, ?> table;
 
-  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec,
-      Config config, TaskContext context) {
+  StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec, Context context) {
     this.joinOpSpec = joinOpSpec;
-    this.table = (ReadableTable) context.getTable(joinOpSpec.getTableSpec().getId());
+    this.table = (ReadableTable) context.getTaskContext().getTable(joinOpSpec.getTableSpec().getId());
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
-    this.joinOpSpec.getJoinFn().init(config, context);
+  protected void handleInit(Context context) {
+    this.joinOpSpec.getJoinFn().init(context);
   }
 
   @Override

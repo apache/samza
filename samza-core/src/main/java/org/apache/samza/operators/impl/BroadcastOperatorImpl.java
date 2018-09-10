@@ -19,7 +19,9 @@
 
 package org.apache.samza.operators.impl;
 
-import org.apache.samza.config.Config;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.ControlMessage;
@@ -28,11 +30,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
-
-import java.util.Collection;
-import java.util.Collections;
 
 class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
 
@@ -40,14 +38,14 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final SystemStream systemStream;
   private final String taskName;
 
-  BroadcastOperatorImpl(BroadcastOperatorSpec<M> broadcastOpSpec, SystemStream systemStream, TaskContext context) {
+  BroadcastOperatorImpl(BroadcastOperatorSpec<M> broadcastOpSpec, SystemStream systemStream, Context context) {
     this.broadcastOpSpec = broadcastOpSpec;
     this.systemStream = systemStream;
-    this.taskName = context.getTaskName().getTaskName();
+    this.taskName = context.getTaskContext().getTaskName().getTaskName();
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
+  protected void handleInit(Context context) {
   }
 
   @Override

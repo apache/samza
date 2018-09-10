@@ -20,12 +20,11 @@ package org.apache.samza.operators.spec;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -53,8 +52,8 @@ class MapOperatorSpec<M, OM> extends StreamOperatorSpec<M, OM> {
       }
 
       @Override
-      public void init(Config config, TaskContext context) {
-        mapFn.init(config, context);
+      public void init(Context context) {
+        mapFn.init(context);
       }
 
       @Override

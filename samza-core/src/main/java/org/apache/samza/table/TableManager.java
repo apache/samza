@@ -18,21 +18,18 @@
  */
 package org.apache.samza.table;
 
+import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -95,12 +92,11 @@ public class TableManager {
 
   /**
    * Initialize table providers with container and task contexts
-   * @param containerContext context for the Samza container
-   * @param taskContext context for the current task, nullable for global tables
+   * @param context context for the task
    */
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    Preconditions.checkNotNull(containerContext, "null container context.");
-    tables.values().forEach(ctx -> ctx.tableProvider.init(containerContext, taskContext));
+  public void init(Context context) {
+    Preconditions.checkNotNull(context, "Cannot pass null context");
+    tables.values().forEach(ctx -> ctx.tableProvider.init(context));
     initialized = true;
   }
 

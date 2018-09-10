@@ -24,6 +24,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ApplicationDefinedContainerContext;
+import org.apache.samza.context.ApplicationDefinedContainerContextFactory;
+import org.apache.samza.context.ApplicationDefinedTaskContext;
+import org.apache.samza.context.ApplicationDefinedTaskContextFactory;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
@@ -32,7 +36,6 @@ import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
-import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -51,17 +54,15 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   private final Class<? extends SamzaApplication> appClass;
   private final Map<String, MetricsReporterFactory> reporterFactories = new LinkedHashMap<>();
 
-  // Default to no-op functions in ContextManager
-  // TODO: this should be replaced by shared context factory defined in SAMZA-1714
-  ContextManager contextManager = new ContextManager() {
-    @Override
-    public void init(Config config, TaskContext context) {
-    }
+  /**
+   * Optional factory, so value might be null.
+   */
+  private ApplicationDefinedContainerContextFactory<?> applicationDefinedContainerContextFactory;
 
-    @Override
-    public void close() {
-    }
-  };
+  /**
+   * Optional factory, so value might be null.
+   */
+  private ApplicationDefinedTaskContextFactory<?> applicationDefinedTaskContextFactory;
 
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
@@ -77,12 +78,18 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public S withContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
+  public S withApplicationDefinedContainerContextFactory(ApplicationDefinedContainerContextFactory<?> factory) {
+    this.applicationDefinedContainerContextFactory = factory;
     return (S) this;
   }
 
   @Override
+  public S withApplicationDefinedTaskContextFactory(ApplicationDefinedTaskContextFactory<?> factory) {
+    this.applicationDefinedTaskContextFactory = factory;
+    return (S) this;
+  }
+
+    @Override
   public S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
     this.listenerFactory = listenerFactory;
     return (S) this;
@@ -105,12 +112,21 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   /**
-   * Get the {@link ContextManager} associated with this application
-   *
-   * @return the {@link ContextManager} for this application
+   * @return {@link ApplicationDefinedContainerContextFactory} if application specified it; empty otherwise
    */
-  public ContextManager getContextManager() {
-    return contextManager;
+  public Optional<ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>> getApplicationDefinedContainerContextFactory() {
+    //noinspection unchecked; ok because all context types are at least ApplicationDefinedContainerContext
+    return Optional.ofNullable(
+        (ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>) this.applicationDefinedContainerContextFactory);
+  }
+
+  /**
+   * @return {@link ApplicationDefinedTaskContextFactory} if application specified it; empty otherwise
+   */
+  public Optional<ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext>> getApplicationDefinedTaskContextFactory() {
+    //noinspection unchecked; ok because all context types are at least ApplicationDefinedTaskContext
+    return Optional.ofNullable(
+        (ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext>) this.applicationDefinedTaskContextFactory);
   }
 
   /**
