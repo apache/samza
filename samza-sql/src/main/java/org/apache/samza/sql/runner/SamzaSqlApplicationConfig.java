@@ -20,7 +20,6 @@
 package org.apache.samza.sql.runner;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +34,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
@@ -50,9 +48,6 @@ import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.ReflectionUtils;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
-import org.apache.samza.sql.testutil.SqlFileParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,30 +140,7 @@ public class SamzaSqlApplicationConfig {
     return factoryInvoker.apply(factory, pluginConfig);
   }
 
-  public static List<QueryInfo> fetchQueryInfo(List<String> sqlStmts) {
-    return sqlStmts.stream().map(SamzaSqlQueryParser::parseQuery).collect(Collectors.toList());
-  }
-
-  public static List<String> fetchSqlFromConfig(Map<String, String> config) {
-    List<String> sql;
-    if (config.containsKey(CFG_SQL_STMT) && StringUtils.isNotBlank(config.get(CFG_SQL_STMT))) {
-      String sqlValue = config.get(CFG_SQL_STMT);
-      sql = Collections.singletonList(sqlValue);
-    } else if (config.containsKey(CFG_SQL_STMTS_JSON) && StringUtils.isNotBlank(config.get(CFG_SQL_STMTS_JSON))) {
-      sql = deserializeSqlStmts(config.get(CFG_SQL_STMTS_JSON));
-    } else if (config.containsKey(CFG_SQL_FILE)) {
-      String sqlFile = config.get(CFG_SQL_FILE);
-      sql = SqlFileParser.parseSqlFile(sqlFile);
-    } else {
-      String msg = "Config doesn't contain the SQL that needs to be executed.";
-      LOG.error(msg);
-      throw new SamzaException(msg);
-    }
-
-    return sql;
-  }
-
-  private static List<String> deserializeSqlStmts(String value) {
+  public static List<String> deserializeSqlStmts(String value) {
     Validate.notEmpty(value, "json Value is not set or empty");
     return JsonUtil.fromJson(value, new TypeReference<List<String>>() {
     });

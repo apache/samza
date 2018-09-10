@@ -35,12 +35,12 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,18 +69,21 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
-    List<String> dslStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
-
     // TODO: Get the converter factory based on the file type. Create abstraction around this.
     DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
     DslConverter dslConverter = dslConverterFactory.create(config);
+
+    // TODO: Introduce an API to return a dsl string containing one or more sql statements
+    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
+
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
     Set<String> inputSystemStreams = new HashSet<>();
     Set<String> outputSystemStreams = new HashSet<>();
 
-    SamzaSqlApplicationConfig.populateSystemStreams(relRoots.iterator().next().project(), inputSystemStreams,
-        outputSystemStreams);
+    for (RelRoot relRoot : relRoots) {
+      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    }
 
     SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
 

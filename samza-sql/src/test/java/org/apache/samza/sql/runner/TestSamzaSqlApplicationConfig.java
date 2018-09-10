@@ -36,6 +36,7 @@ import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 

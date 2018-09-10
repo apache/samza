@@ -45,6 +45,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 

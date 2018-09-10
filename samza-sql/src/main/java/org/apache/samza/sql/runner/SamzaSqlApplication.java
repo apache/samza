@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
@@ -46,18 +47,21 @@ public class SamzaSqlApplication implements StreamApplication {
   public void describe(StreamApplicationDescriptor appDesc) {
     try {
       // 1. Get Calcite plan
-      List<String> dslStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(appDesc.getConfig());
-
       // TODO: Get the converter factory based on the file type. Create abstraction around this.
       DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
       DslConverter dslConverter = dslConverterFactory.create(appDesc.getConfig());
+
+      // TODO: Introduce an API to return a dsl string containing one or more sql statements
+      List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(appDesc.getConfig());
+
       Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
       Set<String> inputSystemStreams = new HashSet<>();
       Set<String> outputSystemStreams = new HashSet<>();
 
-      SamzaSqlApplicationConfig.populateSystemStreams(relRoots.iterator().next().project(), inputSystemStreams,
-          outputSystemStreams);
+      for (RelRoot relRoot : relRoots) {
+        SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+      }
 
       // 2. Populate configs
       SamzaSqlApplicationConfig sqlConfig =
