@@ -62,11 +62,11 @@ public class ZkKeyBuilder {
     }
   }
 
-  public String getRootPath() {
+  String getRootPath() {
     return "/" + pathPrefix;
   }
 
-  public String getProcessorsPath() {
+  String getProcessorsPath() {
     return String.format("/%s/%s", pathPrefix, PROCESSORS_PATH);
   }
 
@@ -79,25 +79,25 @@ public class ZkKeyBuilder {
    * @param path Full ZK path of a registered processor
    * @return String representing the processor ID
    */
-  public static String parseIdFromPath(String path) {
+  static String parseIdFromPath(String path) {
     if (!Strings.isNullOrEmpty(path))
       return path.substring(path.lastIndexOf("/") + 1);
     return null;
   }
 
-  public String getJobModelVersionPath() {
+  String getJobModelVersionPath() {
     return String.format("%s/%s/jobModelVersion", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
-  public String getJobModelPathPrefix() {
+  String getJobModelPathPrefix() {
     return String.format("%s/%s/jobModels", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
-  public String getJobModelPath(String jobModelVersion) {
+  String getJobModelPath(String jobModelVersion) {
     return String.format("%s/%s", getJobModelPathPrefix(), jobModelVersion);
   }
 
-  public String getJobModelVersionBarrierPrefix() {
+  String getJobModelVersionBarrierPrefix() {
     return String.format("%s/%s/%s/versionBarriers", getRootPath(), JOBMODEL_GENERATION_PATH, JOB_MODEL_UPGRADE_BARRIER_PATH);
   }
 

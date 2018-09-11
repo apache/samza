@@ -19,12 +19,9 @@
 package org.apache.samza.zk;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.SamzaException;
 
 /**
  * Builds the {@link ZkMetadataStore} based upon the provided {@link Config}
@@ -32,23 +29,8 @@ import org.apache.samza.SamzaException;
  */
 public class ZkMetadataStoreFactory implements MetadataStoreFactory {
 
-  private static final String TASK_LOCALITY_NAMESPACE = "TaskLocalityNamespace";
-
   @Override
   public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new ZkMetadataStore(config, metricsRegistry, getZookeeperNamespace(namespace, config));
-  }
-
-  private static String getZookeeperNamespace(String namespace, Config config) {
-    ZkConfig zkConfig = new ZkConfig(config);
-    ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(zkConfig.getCoordinatorBasePath());
-    switch (namespace) {
-      case SetContainerHostMapping.TYPE:
-        return zkKeyBuilder.getProcessorsPath();
-      case TASK_LOCALITY_NAMESPACE:
-        return zkKeyBuilder.getTaskLocalityPath();
-      default:
-        throw new SamzaException(String.format("Invalid namespace provided: %s", namespace));
-    }
+    return new ZkMetadataStore(namespace, config, metricsRegistry);
   }
 }

@@ -25,7 +25,6 @@ public class ZkConfig extends MapConfig {
   public static final String ZK_SESSION_TIMEOUT_MS = "job.coordinator.zk.session.timeout.ms";
   public static final String ZK_CONNECTION_TIMEOUT_MS = "job.coordinator.zk.connection.timeout.ms";
   public static final String ZK_CONSENSUS_TIMEOUT_MS = "job.coordinator.zk.consensus.timeout.ms";
-  public static final String CONFIG_COORDINATOR_ZK_BASE_PATH = "job.coordinator.zk.base.path";
 
   public static final int DEFAULT_CONNECTION_TIMEOUT_MS = 60000;
   public static final int DEFAULT_SESSION_TIMEOUT_MS = 30000;
@@ -52,9 +51,5 @@ public class ZkConfig extends MapConfig {
 
   public int getZkBarrierTimeoutMs() {
     return getInt(ZK_CONSENSUS_TIMEOUT_MS, DEFAULT_CONSENSUS_TIMEOUT_MS);
-  }
-
-  public String getCoordinatorBasePath() {
-    return get(CONFIG_COORDINATOR_ZK_BASE_PATH);
   }
 }

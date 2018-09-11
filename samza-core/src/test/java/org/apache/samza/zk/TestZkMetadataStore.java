@@ -36,7 +36,6 @@ import org.junit.Test;
 
 public class TestZkMetadataStore {
 
-  private static final String TEST_ZK_NAMESPACE = "TaskLocalityNamespace";
   private static final String LOCALHOST = "127.0.0.1";
 
   private static EmbeddedZookeeper zkServer;
@@ -57,9 +56,8 @@ public class TestZkMetadataStore {
   @Before
   public void beforeTest() {
     String testZkConnectionString = String.format("%s:%s", LOCALHOST, zkServer.getPort());
-    Config zkConfig = new MapConfig(ImmutableMap.of(ZkConfig.ZK_CONNECT, testZkConnectionString,
-                                                    ZkConfig.CONFIG_COORDINATOR_ZK_BASE_PATH, RandomStringUtils.randomAlphabetic(5)));
-    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(TEST_ZK_NAMESPACE, zkConfig, new MetricsRegistryMap());
+    Config zkConfig = new MapConfig(ImmutableMap.of(ZkConfig.ZK_CONNECT, testZkConnectionString));
+    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("/%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
   }
 
   @After

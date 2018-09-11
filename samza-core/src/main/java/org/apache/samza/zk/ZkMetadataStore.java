@@ -18,7 +18,7 @@
  */
 package org.apache.samza.zk;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -45,11 +45,11 @@ public class ZkMetadataStore implements MetadataStore {
   private final ZkConfig zkConfig;
   private final String zkBaseDir;
 
-  public ZkMetadataStore(Config config, MetricsRegistry metricsRegistry, String zkBaseDir) {
+  public ZkMetadataStore(String zkBaseDir, Config config, MetricsRegistry metricsRegistry) {
     this.zkConfig = new ZkConfig(config);
     this.zkClient = new ZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs(), new BytesPushThroughSerializer());
     this.zkBaseDir = zkBaseDir;
-    createIfNotExists(zkBaseDir);
+    zkClient.createPersistent(zkBaseDir, true);
   }
 
   @Override
@@ -65,7 +65,7 @@ public class ZkMetadataStore implements MetadataStore {
   @Override
   public void put(byte[] key, byte[] value) {
     String zkPath = getZkPathForKey(key);
-    createIfNotExists(zkPath);
+    zkClient.createPersistent(zkPath, true);
     zkClient.writeData(zkPath, value);
   }
 
@@ -82,7 +82,9 @@ public class ZkMetadataStore implements MetadataStore {
       for (String zkSubDir : zkSubDirectories) {
         String completeZkPath = String.format("%s/%s", zkBaseDir, zkSubDir);
         byte[] value = zkClient.readData(completeZkPath, true);
-        result.put(completeZkPath.getBytes("UTF-8"), value);
+        if (value != null) {
+          result.put(completeZkPath.getBytes("UTF-8"), value);
+        }
       }
       return result;
     } catch (Exception e) {
@@ -102,16 +104,6 @@ public class ZkMetadataStore implements MetadataStore {
   }
 
   private String getZkPathForKey(byte[] key) {
-    try {
-      return String.format("%s/%s", zkBaseDir, new String(key, "UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      throw new SamzaException(e);
-    }
-  }
-
-  private void createIfNotExists(String path) {
-    if (!zkClient.exists(path)) {
-      zkClient.createPersistent(path, true);
-    }
+    return String.format("%s/%s", zkBaseDir, new String(key, Charset.forName("UTF-8")));
   }
 }

@@ -19,12 +19,10 @@
 
 package org.apache.samza.zk;
 
-import com.google.common.collect.ImmutableMap;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
@@ -52,9 +50,8 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     MetricsRegistry metricsRegistry = new MetricsRegistryMap();
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
-    MapConfig mapConfig = new MapConfig(config, ImmutableMap.of(ZkConfig.CONFIG_COORDINATOR_ZK_BASE_PATH, jobCoordinatorZkBasePath));
-    LOG.debug("Creating ZkJobCoordinator with config: {}.", mapConfig);
-    return new ZkJobCoordinator(mapConfig, metricsRegistry, zkUtils);
+    LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
+    return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {
