@@ -33,14 +33,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.StreamDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
@@ -56,23 +55,23 @@ import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
+import org.apache.samza.test.framework.stream.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
 import org.junit.Assert;
 
 
 /**
- * TestRunner provides apis to quickly set up tests for Samza low level and high level apis. Default running mode
- * for test is Single container without any distributed coordination service. Test runner maintains global job config
- * {@code configs} that are used to run the Samza job
+ * TestRunner provides apis to quickly set up integration tests for Samza's low level and high level apis.
+ * Running mode for test is Single container without any distributed coordination service.
+ * Test runner maintains global job config {@code configs} that are used to run the Samza job
  *
- * For single container mode following configs are set by default
+ * The following configs are set by default
  *  <ol>
  *    <li>"job.coordination.utils.factory" = {@link PassthroughCoordinationUtilsFactory}</li>
  *    <li>"job.coordination.factory" = {@link PassthroughJobCoordinatorFactory}</li>
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
  *    <li>"job.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
- *    <li>"inmemory.scope = " Scope id generated to isolate the run for InMemorySystem</li>
  *  </ol>
  *
  */
@@ -137,10 +136,10 @@ public class TestRunner {
 
   /**
    * Only adds a config from {@code config} to global {@code configs} if they dont exist in it.
-   * @param config represents the {@link Config} supposed to be added to global configs
+   * @param config represents samza configs supposed to be added to global configs
    * @return calling instance of {@link TestRunner} with added configs if they don't exist
    */
-  public TestRunner addConfigs(Map<String,String> config) {
+  public TestRunner addConfigs(Map<String, String> config) {
     Preconditions.checkNotNull(config);
     config.forEach(this.configs::putIfAbsent);
     return this;
@@ -161,17 +160,12 @@ public class TestRunner {
   }
 
   /**
-   * Configures {@code stream} with the TestRunner, adds all the stream specific configs to global job configs.
-   * <p>
-   * Every stream belongs to a System (here a {@link org.apache.samza.operators.descriptors.base.system.SystemDescriptor}),
-   * this utility also registers the system with
-   * {@link TestRunner} if not registered already. Then it creates and initializes the stream partitions with messages for
-   * the registered System
-   * <p>
-   * @param descriptor represents the stream that is supposed to be configured with {@link TestRunner}
-   * @return calling instance of {@link TestRunner} with {@code stream} configured with it
+   * Configures an inmemory input stream with the TestRunner, adds all the stream and system specific configs
+   * to global job configs.
+   * @param descriptor describes the stream that is supposed to be input to Samza application
+   * @return calling instance of {@link TestRunner} with input stream configured with it
    */
-  public TestRunner addInputStream(InputDescriptor descriptor) {
+  public TestRunner addInputStream(InMemoryInputDescriptor descriptor) {
     Preconditions.checkNotNull(descriptor);
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
@@ -187,13 +181,9 @@ public class TestRunner {
   }
 
   /**
-   * Configures {@code stream} with the TestRunner, adds all the stream specific configs to global job configs.
-   * <p>
-   * Every stream belongs to a System (here a {@link InMemoryOutputDescriptor}), this utility also registers the system with
-   * {@link TestRunner} if not registered already. Then it creates the stream partitions with the registered System
-   * <p>
-   * @param descriptor represents the stream that is supposed to be configured with {@link TestRunner}
-   * @return calling instance of {@link TestRunner} with {@code stream} configured with it
+   * Configures an inememory output with the TestRunner, adds all the stream specific configs to global job configs.
+   * @param descriptor describes the stream that is supposed to be output for the Samza application
+   * @return calling instance of {@link TestRunner} with output stream configured with it
    */
   public TestRunner addOutputStream(InMemoryOutputDescriptor descriptor) {
     Preconditions.checkNotNull(descriptor);
@@ -252,10 +242,10 @@ public class TestRunner {
     SystemConsumer consumer = factory.getConsumer(systemName, new MapConfig(stream.toConfig()), null);
     String name = (String) stream.getPhysicalName().orElse(streamId);
     metadata.get(name).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
-      SystemStreamPartition temp = new SystemStreamPartition(systemName, streamId, partition);
-      ssps.add(temp);
-      consumer.register(temp, "0");
-    });
+        SystemStreamPartition temp = new SystemStreamPartition(systemName, streamId, partition);
+        ssps.add(temp);
+        consumer.register(temp, "0");
+      });
 
     long t = System.currentTimeMillis();
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> output = new HashMap<>();

@@ -22,7 +22,6 @@ package org.apache.samza.test.framework;
 import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.stream.Collectors;
-import org.apache.samza.operators.descriptors.base.stream.StreamDescriptor;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
@@ -33,7 +32,7 @@ import static org.junit.Assert.assertThat;
 
 
 /**
- * Assertion utils non the content of a {@link StreamDescriptor}.
+ * Assertion utils non the content of a {@link org.apache.samza.operators.descriptors.base.stream.StreamDescriptor}.
  */
 public class StreamAssert {
   /**

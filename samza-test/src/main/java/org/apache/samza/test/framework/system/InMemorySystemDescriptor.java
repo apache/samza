@@ -34,8 +34,8 @@ import org.apache.samza.test.framework.stream.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
 
 /**
- * CollectionStreamSystem represents a system that interacts with an underlying {@link InMemorySystemFactory} to create
- * various input and output streams and initialize {@link org.apache.samza.system.SystemStreamPartition} with messages
+ * A descriptor for InMemorySystem
+ * System properties configured using a descriptor override corresponding properties provided in configuration.
  * <p>
  * Following system level configs are set by default
  * <ol>
@@ -43,6 +43,7 @@ import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
  *   <li>"jobs.job-name.systems.%s.default.stream.samza.offset.default" = "oldest"</li>
  *   <li>"systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
  *   <li>"jobs.job-name.systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
+ *   <li>"inmemory.scope = "Scope id generated to isolate the system in memory</li>
  * </ol>
  * The "systems.*" configs are required since the planner uses the system to get metadata about streams during
  * planning. The "jobs.job-name.systems.*" configs are required since configs generated from user provided

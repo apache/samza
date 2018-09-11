@@ -61,19 +61,34 @@ public class InMemoryInputDescriptor<StreamMessageType>
     Preconditions.checkNotNull(streamId);
   }
 
+  /**
+   * Using this method on an InMemoryInputDescriptor creates a single partitioned inmemory stream
+   * and initializes the stream with messages
+   *
+   * @param partitionData messages used to initialize the single partition stream
+   * @return this input descriptor
+   */
   public InMemoryInputDescriptor<StreamMessageType> withData(
-      List<StreamMessageType> initPartition) {
-    Preconditions.checkNotNull(initPartition);
+      List<StreamMessageType> partitionData) {
+    Preconditions.checkNotNull(partitionData);
     Map<Integer, Iterable<StreamMessageType>> partition = new HashMap<>();
-    partition.put(0, initPartition);
-    initializeInMemoryStream(partition);
+    partition.put(0, partitionData);
+    initializeInMemoryInputStream(partition);
     return this;
   }
 
+  /**
+   * Using this method on an InMemoryInputDescriptor creates a multi-partitioned inmemory stream
+   * and initializes partitions with stream with messages
+   *
+   * @param partitionData key of the map represents partitionId and value represents
+   *                      messages in the partition
+   * @return this input descriptor
+   */
   public InMemoryInputDescriptor<StreamMessageType> withData(
-      Map<Integer, ? extends Iterable<StreamMessageType>> initPartitions) {
-    Preconditions.checkNotNull(initPartitions);
-    initializeInMemoryStream(initPartitions);
+      Map<Integer, ? extends Iterable<StreamMessageType>> partitionData) {
+    Preconditions.checkNotNull(partitionData);
+    initializeInMemoryInputStream(partitionData);
     return this;
   }
 
@@ -85,32 +100,27 @@ public class InMemoryInputDescriptor<StreamMessageType>
     return configs;
   }
 
-
   /**
    * Creates an in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
-   * Initializes each partition of that stream with messages from {@code stream.getInitPartitions}
-   *
+   * Initializes each partition of that stream with messages
    * @param partitions represents the descriptor describing a stream to initialize with the in memory system
    */
-  private void initializeInMemoryStream(Map<Integer, ? extends Iterable<StreamMessageType>> partitions) {
+  private void initializeInMemoryInputStream(Map<Integer, ? extends Iterable<StreamMessageType>> partitions) {
     String systemName = getSystemName();
     String physicalName = (String) getPhysicalName().orElse(getStreamId());
     StreamSpec spec = new StreamSpec(getStreamId(), physicalName, systemName, partitions.size());
     SystemFactory factory = new InMemorySystemFactory();
     factory.getAdmin(systemName, new MapConfig(toConfig())).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, new MapConfig(toConfig()), null);
+    SystemStream sysStream = new SystemStream(systemName, physicalName);
     partitions.forEach((partitionId, partition) -> {
-      partition.forEach(e -> {
-        Object key = e instanceof KV ? ((KV) e).getKey() : null;
-        Object value = e instanceof KV ? ((KV) e).getValue() : e;
-        producer.send(systemName,
-            new OutgoingMessageEnvelope(new SystemStream(systemName, physicalName), Integer.valueOf(partitionId), key,
-                value));
+        partition.forEach(e -> {
+            Object key = e instanceof KV ? ((KV) e).getKey() : null;
+            Object value = e instanceof KV ? ((KV) e).getValue() : e;
+            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+          });
+        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null, new EndOfStreamMessage(null)));
       });
-      producer.send(systemName,
-          new OutgoingMessageEnvelope(new SystemStream(systemName, physicalName), Integer.valueOf(partitionId), null,
-              new EndOfStreamMessage(null)));
-    });
   }
 
 }
