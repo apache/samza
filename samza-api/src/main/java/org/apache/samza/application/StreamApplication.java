@@ -19,30 +19,27 @@
 package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.operators.functions.InitableFunction;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 
 /**
- * Describes and initializes the transforms for processing message streams and generating results.
+ * Describes and initializes the transforms for processing message streams and generating results in high-level API. 
  * <p>
  * The following example removes page views older than 1 hour from the input stream:
  * <pre>{@code
- * public class PageViewCounter implements StreamApplication {
- *   public void init(StreamGraph graph, Config config) {
- *     MessageStream<PageViewEvent> pageViewEvents =
- *       graph.getInputStream("pageViewEvents", (k, m) -> (PageViewEvent) m);
- *     OutputStream<String, PageViewEvent, PageViewEvent> recentPageViewEvents =
- *       graph.getOutputStream("recentPageViewEvents", m -> m.memberId, m -> m);
+ * public class PageViewFilter implements StreamApplication {
+ *   public void describe(StreamAppDescriptor appDesc) {
+ *     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+ *     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
+ *         trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
+ *
+ *     KafkaOutputDescriptor<PageViewEvent>> outputStreamDescriptor =
+ *         trackingSystem.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
+ *
+ *     MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
+ *     OutputStream<PageViewEvent> recentPageViewEvents = appDesc.getOutputStream(outputStreamDescriptor);
  *
  *     pageViewEvents
  *       .filter(m -> m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis())
- *       .sendTo(filteredPageViewEvents);
+ *       .sendTo(recentPageViewEvents);
  *   }
  * }
  * }</pre>
@@ -52,46 +49,28 @@ import org.apache.samza.task.TaskContext;
  *   public static void main(String[] args) {
  *     CommandLine cmdLine = new CommandLine();
  *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewCounter app = new PageViewCounter();
- *     LocalApplicationRunner runner = new LocalApplicationRunner(config);
- *     runner.run(app);
+ *     PageViewFilter app = new PageViewFilter();
+ *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
+ *     runner.run();
  *     runner.waitForFinish();
  *   }
  * }</pre>
  *
  * <p>
- * Implementation Notes: Currently StreamApplications are wrapped in a {@link StreamTask} during execution.
- * A new StreamApplication instance will be created and initialized with a user-defined {@link StreamGraph}
- * when planning the execution. The {@link StreamGraph} and the functions implemented for transforms are required to
- * be serializable. The execution planner will generate a serialized DAG which will be deserialized in each {@link StreamTask}
- * instance used for processing incoming messages. Execution is synchronous and thread-safe within each {@link StreamTask}.
+ * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link org.apache.samza.task.StreamTask}
+ * during execution. The execution planner will generate a serialized DAG which will be deserialized in each
+ * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous
+ * and thread-safe within each {@link org.apache.samza.task.StreamTask}.
  *
  * <p>
+ * A {@link StreamApplication} implementation must have a proper fully-qualified class name and a default constructor
+ * with no parameters to ensure successful instantiation in both local and remote environments.
  * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
  * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
- * before messages are delivered to them and closed after their execution when the {@link StreamTask} instance is closed.
- * See {@link InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
+ * before messages are delivered to them and closed after their execution when the {@link org.apache.samza.task.StreamTask}
+ * instance is closed. See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
+ * Function implementations are required to be {@link java.io.Serializable}.
  */
-@InterfaceStability.Unstable
-public interface StreamApplication {
-
-  /**
-   * Describes and initializes the transforms for processing message streams and generating results.
-   * <p>
-   * The {@link StreamGraph} provides access to input and output streams. Input {@link MessageStream}s can be
-   * transformed into other {@link MessageStream}s or sent to an {@link OutputStream} using the {@link MessageStream}
-   * operators.
-   * <p>
-   * Most operators accept custom functions for doing the transformations. These functions are {@link InitableFunction}s
-   * and are provided the {@link Config} and {@link TaskContext} during their own initialization. The config and the
-   * context can be used, for example, to create custom metrics or access durable state stores.
-   * <p>
-   * A shared context between {@link InitableFunction}s for different operators within a task instance can be set
-   * up by providing a {@link ContextManager} using {@link StreamGraph#withContextManager}.
-   *
-   * @param graph the {@link StreamGraph} to get input/output streams from
-   * @param config the configuration for the application
-   */
-  void init(StreamGraph graph, Config config);
-
+@InterfaceStability.Evolving
+public interface StreamApplication extends SamzaApplication<StreamApplicationDescriptor> {
 }

@@ -39,11 +39,12 @@ import org.apache.samza.table.Table;
 /**
  * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
- * A {@link MessageStream} corresponding to an input stream can be obtained using {@link StreamGraph#getInputStream}.
+ * A {@link MessageStream} corresponding to an input stream can be obtained using
+ * {@link org.apache.samza.application.StreamApplicationDescriptor#getInputStream}.
  *
  * @param <M> the type of messages in this stream
  */
-@InterfaceStability.Unstable
+@InterfaceStability.Evolving
 public interface MessageStream<M> {
 
   /**
@@ -213,8 +214,8 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the default system provided via {@link StreamGraph#setDefaultSystem}. This intermediate
-   * stream is both an output and input to the job.
+   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamApplicationDescriptor#withDefaultSystem}.
+   * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
    * uses the key and message serde configured for the job's default system.

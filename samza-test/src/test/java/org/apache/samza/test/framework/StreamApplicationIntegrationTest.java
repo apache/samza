@@ -42,22 +42,21 @@ import org.junit.Test;
 
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 
-
 public class StreamApplicationIntegrationTest {
 
-  final StreamApplication pageViewFilter = (streamGraph, cfg) -> {
+  final StreamApplication pageViewFilter = streamAppDesc -> {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
     KafkaInputDescriptor<KV<String, PageView>> isd =
         ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamAppDesc.getInputStream(isd);
     inputStream.map(StreamApplicationIntegrationTest.Values.create()).filter(pv -> pv.getPageKey().equals("inbox"));
   };
 
-  final StreamApplication pageViewRepartition = (streamGraph, cfg) -> {
+  final StreamApplication pageViewRepartition = streamAppDesc -> {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
     KafkaInputDescriptor<KV<String, PageView>> isd =
         ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-    MessageStream<KV<String, TestData.PageView>> inputStream = streamGraph.getInputStream(isd);
+    MessageStream<KV<String, TestData.PageView>> inputStream = streamAppDesc.getInputStream(isd);
     inputStream
         .map(Values.create())
         .partitionBy(PageView::getMemberId, pv -> pv, "p1")

@@ -16,19 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
-
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskCoordinator;
+package org.apache.samza.application;
 
 /**
- * Test implementation class for {@link StreamTask}
+ * Test class of {@link StreamApplication} for unit tests
  */
-public class TestStreamTask implements StreamTask {
+public class MockStreamApplication implements StreamApplication {
   @Override
-  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) throws Exception {
+  public void describe(StreamApplicationDescriptor appSpec) {
 
   }
 }
