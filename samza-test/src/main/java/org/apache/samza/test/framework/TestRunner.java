@@ -33,7 +33,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
-import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
