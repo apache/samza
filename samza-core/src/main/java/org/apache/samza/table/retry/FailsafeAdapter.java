@@ -21,7 +21,6 @@ package org.apache.samza.table.retry;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 import org.apache.samza.SamzaException;
 
@@ -37,10 +36,9 @@ import net.jodah.failsafe.RetryPolicy;
 class FailsafeAdapter {
   /**
    * Convert the {@link TableRetryPolicy} to failsafe {@link RetryPolicy}.
-   * @param isRetriable predicate to signal retriable exceptions.
    * @return this policy instance
    */
-  static RetryPolicy valueOf(Predicate<Throwable> isRetriable, TableRetryPolicy policy) {
+  static RetryPolicy valueOf(TableRetryPolicy policy) {
     RetryPolicy failSafePolicy = new RetryPolicy();
 
     switch (policy.getBackoffType()) {
@@ -74,7 +72,7 @@ class FailsafeAdapter {
       failSafePolicy.withJitter(policy.getJitter().toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    failSafePolicy.retryOn((e) -> isRetriable.test(e));
+    failSafePolicy.retryOn(e -> policy.getRetryOn().test(e));
 
     return failSafePolicy;
   }

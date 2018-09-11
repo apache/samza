@@ -63,7 +63,8 @@ public class RetriableReadFunction<K, V> implements TableReadFunction<K, V> {
 
     this.readFn = readFn;
     this.retryExecutor = retryExecutor;
-    this.retryPolicy = FailsafeAdapter.valueOf((ex) -> readFn.isRetriable(ex), policy);
+    policy.withRetryOn((ex) -> readFn.isRetriable(ex) || policy.getRetryOn().test(ex));
+    this.retryPolicy = FailsafeAdapter.valueOf(policy);
   }
 
   @Override

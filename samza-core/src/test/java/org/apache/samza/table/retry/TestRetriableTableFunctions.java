@@ -276,4 +276,41 @@ public class TestRetriableTableFunctions {
     Assert.assertEquals(0, retryIO.retryMetrics.successCount.getCount());
     Assert.assertTrue(retryIO.retryMetrics.retryTimer.getSnapshot().getMax() > 0);
   }
+
+  @Test
+  public void testMixedIsRetriablePredicates() throws Exception {
+    String tableId = "testMixedIsRetriablePredicates";
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(100));
+
+    // Retry should be attempted based on the custom classification, ie. retry on NPE
+    policy.withRetryOn(ex -> ex instanceof NullPointerException);
+
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+
+    // Table fn classification only retries on IllegalArgumentException
+    doAnswer(arg -> arg.getArgumentAt(0, Throwable.class) instanceof IllegalArgumentException).when(readFn).isRetriable(any());
+
+    int [] times = new int[1];
+    doAnswer(arg -> {
+        if (times[0]++ == 0) {
+          CompletableFuture<String> future = new CompletableFuture();
+          future.completeExceptionally(new NullPointerException("test exception"));
+          return future;
+        } else {
+          return CompletableFuture.completedFuture("bar");
+        }
+      }).when(readFn).getAsync(any());
+
+    RetriableReadFunction<String, String> retryIO = new RetriableReadFunction<>(policy, readFn, schedExec);
+    retryIO.setMetrics(getMetricsUtil(tableId));
+
+    Assert.assertEquals("bar", retryIO.getAsync("foo").get());
+
+    verify(readFn, times(2)).getAsync(anyString());
+    Assert.assertEquals(1, retryIO.retryMetrics.retryCount.getCount());
+    Assert.assertEquals(0, retryIO.retryMetrics.successCount.getCount());
+    Assert.assertTrue(retryIO.retryMetrics.retryTimer.getSnapshot().getMax() > 0);
+  }
+
 }

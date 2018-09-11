@@ -63,7 +63,8 @@ public class RetriableWriteFunction<K, V> implements TableWriteFunction<K, V> {
 
     this.writeFn = writeFn;
     this.retryExecutor = retryExecutor;
-    this.retryPolicy = FailsafeAdapter.valueOf((ex) -> writeFn.isRetriable(ex), policy);
+    policy.withRetryOn((ex) -> writeFn.isRetriable(ex) || policy.getRetryOn().test(ex));
+    this.retryPolicy = FailsafeAdapter.valueOf(policy);
   }
 
   @Override

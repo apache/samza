@@ -21,6 +21,9 @@ package org.apache.samza.table.retry;
 
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.function.Predicate;
+
+import com.google.common.base.Preconditions;
 
 
 /**
@@ -71,11 +74,23 @@ public class TableRetryPolicy implements Serializable {
   private BackoffType backoffType = BackoffType.NONE;
 
   /**
+   * Serializable adapter interface for {@link java.util.function.Predicate}.
+   * This is needed because TableRetryPolicy needs to be serializable as part of the
+   * table config whereas {@link java.util.function.Predicate} is not serializable.
+   */
+  public interface RetryPredicate extends Predicate<Throwable>, Serializable {
+  }
+
+  // By default no custom retry predicate so retry decision is made solely by the table functions
+  private RetryPredicate isRetriable = (ex) -> false;
+
+  /**
    * Set the sleepTime time for the fixed backoff policy.
    * @param sleepTime sleepTime time
    * @return this policy instance
    */
   public TableRetryPolicy withFixedBackoff(Duration sleepTime) {
+    Preconditions.checkNotNull(sleepTime);
     this.sleepTime = sleepTime;
     this.backoffType = BackoffType.FIXED;
     return this;
@@ -89,6 +104,8 @@ public class TableRetryPolicy implements Serializable {
    * @return this policy instance
    */
   public TableRetryPolicy withRandomBackoff(Duration minSleep, Duration maxSleep) {
+    Preconditions.checkNotNull(minSleep);
+    Preconditions.checkNotNull(maxSleep);
     this.randomMin = minSleep;
     this.randomMax = maxSleep;
     this.backoffType = BackoffType.RANDOM;
@@ -105,6 +122,8 @@ public class TableRetryPolicy implements Serializable {
    * @return this policy instance
    */
   public TableRetryPolicy withExponentialBackoff(Duration sleepTime, Duration maxSleep, double factor) {
+    Preconditions.checkNotNull(sleepTime);
+    Preconditions.checkNotNull(maxSleep);
     this.sleepTime = sleepTime;
     this.exponentialMaxSleep = maxSleep;
     this.exponentialFactor = factor;
@@ -121,6 +140,7 @@ public class TableRetryPolicy implements Serializable {
    * @return this policy instance
    */
   public TableRetryPolicy withJitter(Duration jitter) {
+    Preconditions.checkNotNull(jitter);
     if (backoffType != BackoffType.RANDOM) {
       this.jitter = jitter;
     }
@@ -133,6 +153,7 @@ public class TableRetryPolicy implements Serializable {
    * @return this policy instance
    */
   public TableRetryPolicy withStopAfterAttempts(int maxAttempts) {
+    Preconditions.checkArgument(maxAttempts >= 0);
     this.maxAttempts = maxAttempts;
     return this;
   }
@@ -143,7 +164,21 @@ public class TableRetryPolicy implements Serializable {
    * @return this policy instance
    */
   public TableRetryPolicy withStopAfterDelay(Duration maxDelay) {
+    Preconditions.checkNotNull(maxDelay);
     this.maxDuration = maxDelay;
+    return this;
+  }
+
+  /**
+   * Set the predicate to use for identifying retriable exceptions. If specified, table
+   * retry logic will consult both such predicate and table function and retry will be
+   * attempted if either option returns true.
+   * @param isRetriable predicate for retriable exception identification
+   * @return this policy instance
+   */
+  public TableRetryPolicy withRetryOn(RetryPredicate isRetriable) {
+    Preconditions.checkNotNull(isRetriable);
+    this.isRetriable = isRetriable;
     return this;
   }
 
@@ -192,7 +227,7 @@ public class TableRetryPolicy implements Serializable {
 
   /**
    * Termination after a fix number of attempts.
-   * @return maximum number of attempts without success before giving up the operation.
+   * @return maximum number of attempts without success before giving up the operation or null if not set.
    */
   public Integer getMaxAttempts() {
     return maxAttempts;
@@ -200,7 +235,7 @@ public class TableRetryPolicy implements Serializable {
 
   /**
    * Termination after a fixed duration.
-   * @return maximum duration without success before giving up the operation.
+   * @return maximum duration without success before giving up the operation or null if not set.
    */
   public Duration getMaxDuration() {
     return maxDuration;
@@ -211,5 +246,12 @@ public class TableRetryPolicy implements Serializable {
    */
   public BackoffType getBackoffType() {
     return backoffType;
+  }
+
+  /**
+   * @return Custom predicate for retriable exception identification or null if not specified.
+   */
+  public RetryPredicate getRetryOn() {
+    return isRetriable;
   }
 }
