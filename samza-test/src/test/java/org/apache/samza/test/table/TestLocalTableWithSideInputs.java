@@ -43,7 +43,9 @@ import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
-import org.apache.samza.test.framework.stream.CollectionStream;
+import org.apache.samza.test.framework.stream.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
@@ -84,24 +86,30 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
     configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), systemName);
 
-    CollectionStream<PageView> pageViewStream =
-        CollectionStream.of(systemName, PAGEVIEW_STREAM, pageViews);
-    CollectionStream<Profile> profileStream =
-        CollectionStream.of(systemName, PROFILE_STREAM, profiles);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);
 
-    CollectionStream<EnrichedPageView> outputStream =
-        CollectionStream.empty(systemName, ENRICHED_PAGEVIEW_STREAM);
+    InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd
+        .getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<PageView>())
+        .withData(pageViews);
+
+    InMemoryInputDescriptor<Profile> profileStreamDesc = isd
+        .getInputDescriptor(PROFILE_STREAM, new NoOpSerde<Profile>())
+        .withData(profiles);
+
+    InMemoryOutputDescriptor<EnrichedPageView> outputStreamDesc = isd
+        .getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<EnrichedPageView>())
+        .withPartitionCount(1);
 
     TestRunner
         .of(app)
-        .addInputStream(pageViewStream)
-        .addInputStream(profileStream)
-        .addOutputStream(outputStream)
+        .addInputStream(pageViewStreamDesc)
+        .addInputStream(profileStreamDesc)
+        .addOutputStream(outputStreamDesc)
         .addConfigs(new MapConfig(configs))
         .run(Duration.ofMillis(100000));
 
     try {
-      Map<Integer, List<EnrichedPageView>> result = TestRunner.consumeStream(outputStream, Duration.ofMillis(1000));
+      Map<Integer, List<EnrichedPageView>> result = TestRunner.consumeStream(outputStreamDesc, Duration.ofMillis(1000));
       List<EnrichedPageView> results = result.values().stream()
           .flatMap(List::stream)
           .collect(Collectors.toList());
