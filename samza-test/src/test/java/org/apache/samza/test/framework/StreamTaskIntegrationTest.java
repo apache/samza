@@ -57,12 +57,12 @@ public class StreamTaskIntegrationTest {
     TestRunner
         .of(MyStreamTestTask.class)
         .addInputStream(imid)
-        //.addOutputStream(imod)
+        .addOutputStream(imod)
         .run(Duration.ofSeconds(1));
 
-//    Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
-//        IsIterableContainingInOrder.contains(outputList.toArray()));
-//
+    Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
+        IsIterableContainingInOrder.contains(outputList.toArray()));
+
   }
 
   /**
@@ -116,29 +116,19 @@ public class StreamTaskIntegrationTest {
 
   @Test
   public void testSyncTaskWithMultiplePartition() throws Exception {
-    Map<Integer, List<KV<Integer, Integer>>> inputPartitionData = new HashMap<>();
+    Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
-    List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
-    List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
-    for (int i = 0; i < 5; i++) {
-      List<KV<Integer, Integer>> keyedPartition = new ArrayList<>();
-      for (Integer val : partition) {
-        keyedPartition.add(KV.of(i, val));
-      }
-      inputPartitionData.put(i, keyedPartition);
-      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
-    }
+    genData(inputPartitionData, expectedOutputPartitionData);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
-    InMemoryInputDescriptor<KV<Integer,Integer>> imid = isd
-        .getInputDescriptor("input", new NoOpSerde<KV<Integer,Integer>>())
+    InMemoryInputDescriptor<KV> imid = isd
+        .getInputDescriptor("input", new NoOpSerde<KV>())
         .withData(inputPartitionData);
 
     InMemoryOutputDescriptor<Integer> imod = isd
         .getOutputDescriptor("output", new NoOpSerde<Integer>())
         .withPartitionCount(5);
-
 
     TestRunner
         .of(MyStreamTestTask.class)
@@ -153,16 +143,7 @@ public class StreamTaskIntegrationTest {
   public void testSyncTaskWithMultiplePartitionMultithreaded() throws Exception {
     Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
-    List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
-    List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
-    for (int i = 0; i < 5; i++) {
-      List<KV> keyedPartition = new ArrayList<>();
-      for (Integer val : partition) {
-        keyedPartition.add(KV.of(i, val));
-      }
-      inputPartitionData.put(i, keyedPartition);
-      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
-    }
+    genData(inputPartitionData, expectedOutputPartitionData);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
@@ -174,7 +155,6 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<Integer>())
         .withPartitionCount(5);
 
-
     TestRunner
         .of(MyStreamTestTask.class)
         .addInputStream(imid)
@@ -183,5 +163,18 @@ public class StreamTaskIntegrationTest {
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(imod, expectedOutputPartitionData, Duration.ofMillis(1000));
+  }
+
+  public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {
+    List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
+    List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
+    for (int i = 0; i < 5; i++) {
+      List<KV> keyedPartition = new ArrayList<>();
+      for (Integer val : partition) {
+        keyedPartition.add(KV.of(i, val));
+      }
+      inputPartitionData.put(i, keyedPartition);
+      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
+    }
   }
 }

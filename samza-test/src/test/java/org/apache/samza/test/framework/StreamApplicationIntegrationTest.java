@@ -96,6 +96,8 @@ public class StreamApplicationIntegrationTest {
 
     TestRunner
         .of(pageViewRepartition)
+        .addInputStream(imid)
+        .addOutputStream(imod)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
