@@ -174,8 +174,8 @@ import org.codehaus.jackson.map.ObjectMapper;
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
         inputJson.streamId = streamId;
-        Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
-        inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
+        inputJson.nextOperatorIds = operatorSpec.getRegisteredOperatorSpecs().stream()
+            .map(OperatorSpec::getOpId).collect(Collectors.toSet());
 
         updateOperatorGraphJson(operatorSpec, opGraph);
       });

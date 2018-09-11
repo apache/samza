@@ -19,23 +19,33 @@
 
 package org.apache.samza.operators.impl;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.StreamGraphSpec;
+import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.impl.store.TestInMemoryStore;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.triggers.FiringType;
 import org.apache.samza.operators.triggers.Trigger;
 import org.apache.samza.operators.triggers.Triggers;
@@ -56,15 +66,6 @@ import org.apache.samza.testUtils.TestClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Collections;
 
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
@@ -544,68 +545,80 @@ public class TestWindowOperator {
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
-  private StreamGraphSpec getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamApplicationDescriptorImpl getKeyedTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.keyedTumblingWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
-            .setEarlyTrigger(earlyTrigger).setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("kafka", "mockFactoryClass");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("integers", kvSerde);
+      appDesc.getInputStream(inputDescriptor)
+          .window(Windows.keyedTumblingWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
+              .setEarlyTrigger(earlyTrigger).setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    return graph;
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getTumblingWindowStreamGraph(AccumulationMode mode,
+  private StreamApplicationDescriptorImpl getTumblingWindowStreamGraph(AccumulationMode mode,
       Duration duration, Trigger<KV<Integer, Integer>> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("kafka", "mockFactoryClass");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("integers", kvSerde);
+      appDesc.getInputStream(inputDescriptor)
+          .window(Windows.tumblingWindow(duration, kvSerde).setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.tumblingWindow(duration, kvSerde).setEarlyTrigger(earlyTrigger)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+  private StreamApplicationDescriptorImpl getKeyedSessionWindowStreamGraph(AccumulationMode mode, Duration duration) throws IOException {
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("kafka", "mockFactoryClass");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("integers", kvSerde);
+      appDesc.getInputStream(inputDescriptor)
+          .window(Windows.keyedSessionWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
-    graph.getInputStream("integers", kvSerde)
-        .window(Windows.keyedSessionWindow(KV::getKey, duration, new IntegerSerde(), kvSerde)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
-  private StreamGraphSpec getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
+  private StreamApplicationDescriptorImpl getAggregateTumblingWindowStreamGraph(AccumulationMode mode, Duration timeDuration,
         Trigger<IntegerEnvelope> earlyTrigger) throws IOException {
-    StreamGraphSpec graph = new StreamGraphSpec(config);
+    StreamApplication userApp = appDesc -> {
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("kafka", "mockFactoryClass");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("integers", kvSerde);
+      MessageStream<KV<Integer, Integer>> integers = appDesc.getInputStream(inputDescriptor);
 
-    MessageStream<KV<Integer, Integer>> integers = graph.getInputStream("integers",
-        KVSerde.of(new IntegerSerde(), new IntegerSerde()));
+      integers
+          .map(new KVMapFunction())
+          .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(timeDuration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
+              .setEarlyTrigger(earlyTrigger)
+              .setAccumulationMode(mode), "w1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+              SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+              messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+            });
+    };
 
-    integers
-        .map(new KVMapFunction())
-        .window(Windows.<IntegerEnvelope, Integer>tumblingWindow(timeDuration, () -> 0, (m, c) -> c + 1, new IntegerSerde())
-            .setEarlyTrigger(earlyTrigger)
-            .setAccumulationMode(mode), "w1")
-        .sink((message, messageCollector, taskCoordinator) -> {
-            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-          });
-    return graph;
+    return new StreamApplicationDescriptorImpl(userApp, config);
   }
 
   private static class IntegerEnvelope extends IncomingMessageEnvelope {

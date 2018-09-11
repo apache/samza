@@ -46,6 +46,7 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -135,9 +136,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinator jobCoordinator = Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
 
-    StreamProcessorLifecycleListener listener = new StreamProcessorLifecycleListener() {
+    ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
       @Override
-      public void onStart() {
+      public void beforeStart() {
+
+      }
+
+      @Override
+      public void afterStart() {
         if (waitStart != null) {
             waitStart.countDown();
         }
@@ -145,16 +151,18 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
       }
 
       @Override
-      public void onShutdown() {
+      public void afterStop() {
+        // stopped w/o failure
         if (waitStop != null) {
           waitStop.countDown();
         }
-        LOG.info("onShutdown is called for pid=" + pId);
+        LOG.info("afterStop is called for pid=" + pId + " with successful shutdown");
       }
 
       @Override
-      public void onFailure(Throwable t) {
-        LOG.info("onFailure is called for pid=" + pId);
+      public void afterFailure(Throwable t) {
+        // stopped w/ failure
+        LOG.info("afterStop is called for pid=" + pId + " with failure");
       }
     };
 

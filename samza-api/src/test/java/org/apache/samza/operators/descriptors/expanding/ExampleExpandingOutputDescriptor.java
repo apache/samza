@@ -16,19 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.operators.descriptors.expanding;
 
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.serializers.Serde;
 
-/**
- * Test implementation class for {@link StreamTask}
- */
-public class TestStreamTask implements StreamTask {
-  @Override
-  public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) throws Exception {
-
+public class ExampleExpandingOutputDescriptor<StreamMessageType> extends OutputDescriptor<StreamMessageType, ExampleExpandingOutputDescriptor<StreamMessageType>> {
+  ExampleExpandingOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde<StreamMessageType> serde) {
+    super(streamId, serde, systemDescriptor);
   }
 }

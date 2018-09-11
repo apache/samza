@@ -43,7 +43,6 @@ import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
-import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, CoordinatorStreamSystemProducer}
 import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -125,18 +124,15 @@ object SamzaContainer extends Logging {
     jobModel: JobModel,
     config: Config,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
-    taskFactory: Object) = {
+    taskFactory: TaskFactory[_]) = {
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
-    var coordinatorStreamManager: CoordinatorStreamManager = null
     var localityManager: LocalityManager = null
     if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
       val registryMap = new MetricsRegistryMap(containerName)
-      val coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new SamzaContainerMetrics(containerName, registryMap).registry)
-      coordinatorStreamManager = new CoordinatorStreamManager(coordinatorStreamSystemProducer)
-      localityManager = new LocalityManager(coordinatorStreamManager)
+      localityManager = new LocalityManager(config, registryMap)
     }
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
@@ -723,7 +719,6 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
-      coordinatorStreamManager = coordinatorStreamManager,
       localityManager = localityManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -761,7 +756,6 @@ class SamzaContainer(
   diskSpaceMonitor: DiskSpaceMonitor = null,
   hostStatisticsMonitor: SystemStatisticsMonitor = null,
   offsetManager: OffsetManager = new OffsetManager,
-  coordinatorStreamManager: CoordinatorStreamManager = null,
   localityManager: LocalityManager = null,
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
@@ -792,6 +786,10 @@ class SamzaContainer(
     try {
       info("Starting container.")
 
+      if (containerListener != null) {
+        containerListener.beforeStart()
+      }
+
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
 
@@ -815,7 +813,7 @@ class SamzaContainer(
       info("Entering run loop.")
       status = SamzaContainerStatus.STARTED
       if (containerListener != null) {
-        containerListener.onContainerStart()
+        containerListener.afterStart()
       }
       metrics.containerStartupTime.update(System.nanoTime() - startTime)
       runLoop.run
@@ -866,11 +864,11 @@ class SamzaContainer(
     status match {
       case SamzaContainerStatus.STOPPED =>
         if (containerListener != null) {
-          containerListener.onContainerStop()
+          containerListener.afterStop()
         }
       case SamzaContainerStatus.FAILED =>
         if (containerListener != null) {
-          containerListener.onContainerFailed(exceptionSeen)
+          containerListener.afterFailure(exceptionSeen)
         }
     }
   }
@@ -882,8 +880,8 @@ class SamzaContainer(
    * <br>
    * <b>Implementation</b>: Stops the [[RunLoop]], which will eventually transition the container from
    * [[SamzaContainerStatus.STARTED]] to either [[SamzaContainerStatus.STOPPED]] or [[SamzaContainerStatus.FAILED]]].
-   * Based on the final `status`, [[SamzaContainerListener#onContainerStop(boolean)]] or
-   * [[SamzaContainerListener#onContainerFailed(Throwable)]] will be invoked respectively.
+   * Based on the final `status`, [[SamzaContainerListener#afterStop()]] or
+    * [[SamzaContainerListener#afterFailure(Throwable]] will be invoked respectively.
    *
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */
@@ -965,22 +963,14 @@ class SamzaContainer(
 
   def startLocalityManager {
     if(localityManager != null) {
-      if(coordinatorStreamManager == null) {
-        // This should never happen.
-        throw new IllegalStateException("Cannot start LocalityManager without a CoordinatorStreamManager")
-      }
-
       val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
-      info("Registering %s with the coordinator stream manager." format containerName)
-      coordinatorStreamManager.start
-      coordinatorStreamManager.register(containerName)
-
-      info("Writing container locality and JMX address to Coordinator Stream")
+      info("Registering %s with metadata store" format containerName)
       try {
         val hostInet = Util.getLocalHost
         val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
         val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
-        localityManager.writeContainerToHostMapping(containerContext.id, hostInet.getHostName, jmxUrl, jmxTunnelingUrl)
+        info("Writing container locality and JMX address to metadata store")
+        localityManager.writeContainerToHostMapping(containerContext.id, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>
           warn("Received UnknownHostException when persisting locality info for container %s: " +
@@ -1156,9 +1146,9 @@ class SamzaContainer(
   }
 
   def shutdownLocalityManager {
-    if(coordinatorStreamManager != null) {
-      info("Shutting down coordinator stream manager used by locality manager.")
-      coordinatorStreamManager.stop
+    if(localityManager != null) {
+      info("Shutting down locality manager.")
+      localityManager.close()
     }
   }
 

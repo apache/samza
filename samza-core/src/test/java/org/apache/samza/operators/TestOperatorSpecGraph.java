@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -57,14 +58,14 @@ import static org.mockito.Mockito.*;
 @PrepareForTest(OperatorSpec.class)
 public class TestOperatorSpecGraph {
 
-  private StreamGraphSpec mockGraph;
+  private StreamApplicationDescriptorImpl mockAppDesc;
   private Map<String, InputOperatorSpec> inputOpSpecMap;
   private Map<String, OutputStreamImpl> outputStrmMap;
   private Set<OperatorSpec> allOpSpecs;
 
   @Before
   public void setUp() {
-    this.mockGraph = mock(StreamGraphSpec.class);
+    this.mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
 
     /**
      * Setup two linear transformation pipelines:
@@ -73,14 +74,14 @@ public class TestOperatorSpecGraph {
      */
     String inputStreamId1 = "test-input-1";
     String outputStreamId = "test-output-1";
-    InputOperatorSpec testInput = new InputOperatorSpec(inputStreamId1, new NoOpSerde(), new NoOpSerde(), true, inputStreamId1);
+    InputOperatorSpec testInput = new InputOperatorSpec(inputStreamId1, new NoOpSerde(), new NoOpSerde(), null, true, inputStreamId1);
     StreamOperatorSpec filterOp = OperatorSpecs.createFilterOperatorSpec(m -> true, "test-filter-2");
     OutputStreamImpl outputStream1 = new OutputStreamImpl(outputStreamId, null, null, true);
     OutputOperatorSpec outputSpec = OperatorSpecs.createSendToOperatorSpec(outputStream1, "test-output-3");
     testInput.registerNextOperatorSpec(filterOp);
     filterOp.registerNextOperatorSpec(outputSpec);
     String streamId2 = "test-input-2";
-    InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), true, "test-input-4");
+    InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), null, true, "test-input-4");
     StreamOperatorSpec testMap = OperatorSpecs.createMapOperatorSpec(m -> m, "test-map-5");
     SinkOperatorSpec testSink = OperatorSpecs.createSinkOperatorSpec((m, mc, tc) -> { }, "test-sink-6");
     testInput2.registerNextOperatorSpec(testMap);
@@ -91,8 +92,8 @@ public class TestOperatorSpecGraph {
     inputOpSpecMap.put(streamId2, testInput2);
     this.outputStrmMap = new LinkedHashMap<>();
     outputStrmMap.put(outputStreamId, outputStream1);
-    when(mockGraph.getInputOperators()).thenReturn(Collections.unmodifiableMap(inputOpSpecMap));
-    when(mockGraph.getOutputStreams()).thenReturn(Collections.unmodifiableMap(outputStrmMap));
+    when(mockAppDesc.getInputOperators()).thenReturn(Collections.unmodifiableMap(inputOpSpecMap));
+    when(mockAppDesc.getOutputStreams()).thenReturn(Collections.unmodifiableMap(outputStrmMap));
     this.allOpSpecs = new HashSet<OperatorSpec>() { {
         this.add(testInput);
         this.add(filterOp);
@@ -105,7 +106,7 @@ public class TestOperatorSpecGraph {
 
   @After
   public void tearDown() {
-    this.mockGraph = null;
+    this.mockAppDesc = null;
     this.inputOpSpecMap = null;
     this.outputStrmMap = null;
     this.allOpSpecs = null;
@@ -113,7 +114,7 @@ public class TestOperatorSpecGraph {
 
   @Test
   public void testConstructor() {
-    OperatorSpecGraph specGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph specGraph = new OperatorSpecGraph(mockAppDesc);
     assertEquals(specGraph.getInputOperators(), inputOpSpecMap);
     assertEquals(specGraph.getOutputStreams(), outputStrmMap);
     assertTrue(specGraph.getTables().isEmpty());
@@ -123,7 +124,7 @@ public class TestOperatorSpecGraph {
 
   @Test
   public void testClone() {
-    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockAppDesc);
     OperatorSpecGraph clonedSpecGraph = operatorSpecGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(operatorSpecGraph, clonedSpecGraph);
   }
@@ -137,7 +138,7 @@ public class TestOperatorSpecGraph {
 
     //failed with serialization error
     try {
-      new OperatorSpecGraph(mockGraph);
+      new OperatorSpecGraph(mockAppDesc);
       fail("Should have failed with serialization error");
     } catch (SamzaException se) {
       throw se.getCause();
@@ -150,7 +151,7 @@ public class TestOperatorSpecGraph {
     this.allOpSpecs.add(testOp);
     inputOpSpecMap.values().stream().findFirst().get().registerNextOperatorSpec(testOp);
 
-    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockGraph);
+    OperatorSpecGraph operatorSpecGraph = new OperatorSpecGraph(mockAppDesc);
     //failed with serialization error
     try {
       operatorSpecGraph.clone();

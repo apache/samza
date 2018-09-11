@@ -16,18 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.operators.descriptors.expanding;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
+import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.serializers.Serde;
 
-/**
- * Test implementation class for {@link StreamApplication}
- */
-public class TestStreamApplication implements StreamApplication {
-  @Override
-  public void init(StreamGraph graph, Config config) {
-
+public class ExampleExpandingInputDescriptor<StreamMessageType> extends InputDescriptor<StreamMessageType, ExampleExpandingInputDescriptor<StreamMessageType>> {
+  ExampleExpandingInputDescriptor(String streamId, SystemDescriptor systemDescriptor, InputTransformer<StreamMessageType> transformer, Serde serde) {
+    super(streamId, serde, systemDescriptor, transformer);
   }
 }

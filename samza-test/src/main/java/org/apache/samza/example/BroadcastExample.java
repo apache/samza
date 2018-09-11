@@ -20,14 +20,18 @@
 package org.apache.samza.example;
 
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.StreamGraph;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
 
@@ -40,22 +44,28 @@ public class BroadcastExample implements StreamApplication {
   public static void main(String[] args) throws Exception {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
-
-    StreamApplication app = new BroadcastExample();
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
-
-    runner.run(app);
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new BroadcastExample(), config);
+    runner.run();
     runner.waitForFinish();
   }
 
   @Override
-  public void init(StreamGraph graph, Config config) {
-    KVSerde<String, PageViewEvent> pgeMsgSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
-    MessageStream<KV<String, PageViewEvent>> inputStream = graph.getInputStream("pageViewEventStream", pgeMsgSerde);
+  public void describe(StreamApplicationDescriptor appDesc) {
+    KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
+    KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+    KafkaInputDescriptor<KV<String, PageViewEvent>> pageViewEvent =
+        trackingSystem.getInputDescriptor("pageViewEvent", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream1 =
+        trackingSystem.getOutputDescriptor("outStream1", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream2 =
+        trackingSystem.getOutputDescriptor("outStream2", serde);
+    KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream3 =
+        trackingSystem.getOutputDescriptor("outStream3", serde);
 
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(graph.getOutputStream("outStream1", pgeMsgSerde));
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(graph.getOutputStream("outStream2", pgeMsgSerde));
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(graph.getOutputStream("outStream3", pgeMsgSerde));
+    MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream(pageViewEvent);
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(appDesc.getOutputStream(outStream1));
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(appDesc.getOutputStream(outStream2));
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(appDesc.getOutputStream(outStream3));
   }
 
   class PageViewEvent {

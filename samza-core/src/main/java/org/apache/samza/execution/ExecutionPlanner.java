@@ -47,9 +47,10 @@ import static org.apache.samza.util.StreamUtil.*;
 
 
 /**
- * The ExecutionPlanner creates the physical execution graph for the StreamGraph, and
+ * The ExecutionPlanner creates the physical execution graph for the {@link OperatorSpecGraph}, and
  * the intermediate topics needed for the execution.
  */
+// TODO: ExecutionPlanner needs to be able to generate single node JobGraph for low-level TaskApplication as well (SAMZA-1811)
 public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
@@ -63,7 +64,7 @@ public class ExecutionPlanner {
     this.streamManager = streamManager;
   }
 
-  public ExecutionPlan plan(OperatorSpecGraph specGraph) throws Exception {
+  public ExecutionPlan plan(OperatorSpecGraph specGraph) {
     validateConfig();
 
     // create physical job graph based on stream graph
@@ -91,7 +92,7 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Create the physical graph from StreamGraph
+   * Create the physical graph from {@link OperatorSpecGraph}
    */
   /* package private */ JobGraph createJobGraph(OperatorSpecGraph specGraph) {
     JobGraph jobGraph = new JobGraph(config, specGraph);

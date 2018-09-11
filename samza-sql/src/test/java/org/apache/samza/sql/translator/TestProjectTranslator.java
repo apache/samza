@@ -32,12 +32,12 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.StreamGraphSpec;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
@@ -91,9 +91,9 @@ public class TestProjectTranslator extends TranslatorTestBase {
     List<Pair<RexNode, String>> namedProjects = new ArrayList<>();
     namedProjects.add(Pair.of(mockRexField, "test_field"));
     when(mockProject.getNamedProjects()).thenReturn(namedProjects);
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
-    MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
+    MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockAppDesc, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
     doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(2), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
@@ -113,7 +113,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
-    // Verify that the init() method will establish the context for the map function
+    // Verify that the bootstrap() method will establish the context for the map function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);
@@ -183,7 +183,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     flattenProjects.add(mockFlattenProject);
     when(mockProject.getProjects()).thenReturn(flattenProjects);
 
-    StreamGraphSpec mockGraph = mock(StreamGraphSpec.class);
+    StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = new OperatorSpec(OperatorSpec.OpCode.INPUT, "1") {
 
       @Override
@@ -197,7 +197,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       }
     };
 
-    MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
+    MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockAppDesc, mockInputOp);
     when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
     doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(2), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
@@ -248,7 +248,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertNotNull(projectSpec);
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
-    // Verify that the init() method will establish the context for the map function
+    // Verify that the describe() method will establish the context for the map function
     Config mockConfig = mock(Config.class);
     TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
         new HashSet<>(), null, null, null, null, null, null);

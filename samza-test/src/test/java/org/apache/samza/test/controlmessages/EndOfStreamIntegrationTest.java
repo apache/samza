@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -31,8 +32,13 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -40,8 +46,8 @@ import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
-
 import org.junit.Test;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -90,17 +96,25 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("serializers.registry.int.class", "org.apache.samza.serializers.IntegerSerdeFactory");
     configs.put("serializers.registry.json.class", PageViewJsonSerdeFactory.class.getName());
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    final StreamApplication app = (streamGraph, cfg) -> {
-      streamGraph.<KV<String, PageView>>getInputStream("PageView")
-        .map(Values.create())
-        .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
-        .sink((m, collector, coordinator) -> {
-            received.add(m.getValue());
-          });
-    };
+    class PipelineApplication implements StreamApplication {
 
-    runner.run(app);
+      @Override
+      public void describe(StreamApplicationDescriptor appDesc) {
+        DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
+        GenericInputDescriptor<KV<String, PageView>> isd =
+            sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+        appDesc.getInputStream(isd)
+            .map(Values.create())
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .sink((m, collector, coordinator) -> {
+                received.add(m.getValue());
+              });
+      }
+    }
+
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(), new MapConfig(configs));
+
+    runner.run();
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);

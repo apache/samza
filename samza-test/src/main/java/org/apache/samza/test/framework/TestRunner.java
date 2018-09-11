@@ -31,7 +31,9 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
@@ -56,7 +58,10 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
+import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
+import org.apache.samza.task.TaskFactory;
 import org.apache.samza.test.framework.stream.CollectionStream;
 import org.apache.samza.test.framework.system.CollectionStreamSystemSpec;
 import org.junit.Assert;
@@ -138,7 +143,7 @@ public class TestRunner {
    */
   private void registerSystem(String systemName) {
     if (!systems.containsKey(systemName)) {
-      systems.put(systemName, CollectionStreamSystemSpec.create(systemName));
+      systems.put(systemName, CollectionStreamSystemSpec.create(systemName, JOB_NAME));
       configs.putAll(systems.get(systemName).getSystemConfigs());
     }
   }
@@ -186,7 +191,8 @@ public class TestRunner {
   public TestRunner addOverrideConfig(String key, String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
-    configs.put(key, value);
+    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), JOB_NAME);
+    configs.put(String.format("%s%s", configKeyPrefix, key), value);
     return this;
   }
 
@@ -284,17 +290,13 @@ public class TestRunner {
   public void run(Duration timeout) {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
-    Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(),
-        "Timeouts should be positive");
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MapConfig(configs));
-    if (app == null) {
-      runner.runTask();
-    } else {
-      runner.run(app);
-    }
+    Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
+    SamzaApplication testApp = app == null ? (TaskApplication) appDesc -> appDesc.setTaskFactory(createTaskFactory()) : app;
+    final LocalApplicationRunner runner = new LocalApplicationRunner(testApp, new MapConfig(configs));
+    runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
-    ApplicationStatus status = runner.status(app);
+    ApplicationStatus status = runner.status();
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }
@@ -363,5 +365,27 @@ public class TestRunner {
         .stream()
         .collect(Collectors.toMap(entry -> entry.getKey().getPartition().getPartitionId(),
             entry -> entry.getValue().stream().map(e -> (T) e.getMessage()).collect(Collectors.toList())));
+  }
+
+  private TaskFactory createTaskFactory() {
+    if (StreamTask.class.isAssignableFrom(taskClass)) {
+      return (StreamTaskFactory) () -> {
+        try {
+          return (StreamTask) taskClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+          throw new SamzaException(String.format("Failed to instantiate StreamTask class %s", taskClass.getName()), e);
+        }
+      };
+    } else if (AsyncStreamTask.class.isAssignableFrom(taskClass)) {
+      return (AsyncStreamTaskFactory) () -> {
+        try {
+          return (AsyncStreamTask) taskClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+          throw new SamzaException(String.format("Failed to instantiate AsyncStreamTask class %s", taskClass.getName()), e);
+        }
+      };
+    }
+    throw new SamzaException(String.format("Not supported task.class %s. task.class has to implement either StreamTask "
+        + "or AsyncStreamTask", taskClass.getName()));
   }
 }

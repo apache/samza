@@ -20,6 +20,7 @@
 package org.apache.samza.tools.benchmark;
 
 import com.google.common.base.Joiner;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,10 +33,17 @@ import org.apache.commons.cli.ParseException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 
 
@@ -65,15 +73,18 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
   }
 
   public void start() throws IOException, InterruptedException {
-    LocalApplicationRunner runner = new LocalApplicationRunner(config);
     super.start();
     MessageConsumer consumeFn = new MessageConsumer();
-    StreamApplication app = (graph, config) -> {
-      MessageStream<Object> stream = graph.getInputStream(streamId);
+    StreamApplication app = appDesc -> {
+      String systemFactoryName = new SystemConfig(config).getSystemFactory(systemName).get();
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(systemName, systemFactoryName);
+      GenericInputDescriptor<Object> isd = sd.getInputDescriptor(streamId, new NoOpSerde<>());
+      MessageStream<Object> stream = appDesc.getInputStream(isd);
       stream.map(consumeFn);
     };
+    ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, new MapConfig());
 
-    runner.run(app);
+    runner.run();
 
     while (consumeFn.getEventsConsumed() < totalEvents) {
       Thread.sleep(10);
@@ -81,7 +92,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
 
     Instant endTime = Instant.now();
 
-    runner.kill(app);
+    runner.kill();
 
     System.out.println("\n*******************");
     System.out.println(String.format("Started at %s Ending at %s ", consumeFn.startTime, endTime));

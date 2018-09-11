@@ -16,20 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.testUtils;
+package org.apache.samza.metadatastore;
 
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskCallback;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 
 /**
- * Test implementation class for {@link AsyncStreamTask}
+ * Builds the {@link MetadataStore} based upon the provided namespace, {@link Config}
+ * and {@link MetricsRegistry}.
  */
-public class TestAsyncStreamTask implements AsyncStreamTask {
-  @Override
-  public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
-
-  }
+public interface MetadataStoreFactory {
+  MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry);
 }

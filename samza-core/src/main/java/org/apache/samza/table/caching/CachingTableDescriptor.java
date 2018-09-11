@@ -45,8 +45,7 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
   private boolean isWriteAround;
 
   /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table
+   * {@inheritDoc}
    */
   public CachingTableDescriptor(String tableId) {
     super(tableId);
