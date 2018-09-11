@@ -74,7 +74,7 @@ public class KafkaConsumerProxy<K, V> {
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+  /* package private */KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
