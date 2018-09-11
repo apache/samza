@@ -222,6 +222,11 @@ public class HdfsSystemAdmin implements SystemAdmin {
     if (StringUtils.isBlank(offset1) || StringUtils.isBlank(offset2)) {
       return null;
     }
+    /*
+     * Properly handle END_OF_STREAM offset here. If both are END_OF_STREAM,
+     * then they are equal. Otherwise END_OF_STREAM is always greater than any
+     * other offsets.
+     */
     if (offset1.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
       return offset2.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET) ? 0 : 1;
     }
