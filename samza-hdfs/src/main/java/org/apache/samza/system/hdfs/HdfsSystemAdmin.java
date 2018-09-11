@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -220,6 +221,12 @@ public class HdfsSystemAdmin implements SystemAdmin {
   public Integer offsetComparator(String offset1, String offset2) {
     if (StringUtils.isBlank(offset1) || StringUtils.isBlank(offset2)) {
       return null;
+    }
+    if (offset1.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
+      return offset2.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET) ? 0 : 1;
+    }
+    if (offset2.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
+      return -1;
     }
     int fileIndex1 = MultiFileHdfsReader.getCurFileIndex(offset1);
     int fileIndex2 = MultiFileHdfsReader.getCurFileIndex(offset2);
