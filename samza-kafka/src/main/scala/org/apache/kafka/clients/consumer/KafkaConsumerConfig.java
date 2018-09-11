@@ -93,12 +93,12 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     // make sure bootstrap configs are in ?? SHOULD WE FAIL IF THEY ARE NOT?
     if (!subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       // get it from the producer config
-      String bootstrapServer =
+      String bootstrapServers =
           config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-      if (StringUtils.isEmpty(bootstrapServer)) {
+      if (StringUtils.isEmpty(bootstrapServers)) {
         throw new SamzaException("Missing " + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " config  for " + systemName);
       }
-      consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
+      consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     }
 
     // Always use default partition assignment strategy. Do not allow override.

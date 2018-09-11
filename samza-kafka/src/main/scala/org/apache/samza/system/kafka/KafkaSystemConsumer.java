@@ -109,19 +109,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         clientId, metricName, this.kafkaConsumer.toString());
   }
 
-  public static <K, V> KafkaSystemConsumer getNewKafkaSystemConsumer(String systemName, Config config,
-      String clientId, KafkaSystemConsumerMetrics metrics, Clock clock) {
-
-    // extract consumer configs and create kafka consumer
-    KafkaConsumer<K, V> kafkaConsumer = getKafkaConsumerImpl(systemName, clientId, config);
-    LOG.info("Created kafka consumer for system {}, clientId {}: {}", systemName, clientId, kafkaConsumer);
-
-    KafkaSystemConsumer kc = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, clock);
-    LOG.info("Created samza system consumer {}", kc.toString());
-
-    return kc;
-  }
-
   /**
    * create kafka consumer
    * @param systemName system name for which we create the consumer
@@ -129,7 +116,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @param config config
    * @return kafka consumer
    */
-  public static <K, V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
 
     Map<String, String> injectProps = new HashMap<>();
 
@@ -263,7 +250,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     // stop the proxy (with 5 minutes timeout)
     if (proxy != null) {
       LOG.info("Stopping proxy " + proxy);
-      proxy.stop(TimeUnit.MINUTES.toMillis(5));
+      proxy.stop(TimeUnit.SECONDS.toMillis(60));
     }
 
     try {
