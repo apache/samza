@@ -29,10 +29,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OperatorSpec.OpCode;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
@@ -117,6 +120,14 @@ import org.codehaus.jackson.map.ObjectMapper;
     String applicationId;
   }
 
+  // input operators for the application. For low-level task applications, this is empty.
+  private final Map<String, InputOperatorSpec> inputOperators;
+
+  JobGraphJsonGenerator(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+    this.inputOperators = appDesc instanceof StreamApplicationDescriptorImpl ?
+        ((StreamApplicationDescriptorImpl) appDesc).getInputOperators() : new HashMap<>();
+  }
+
   /**
    * Returns the JSON representation of a {@link JobGraph}
    * @param jobGraph {@link JobGraph}
@@ -149,54 +160,8 @@ import org.codehaus.jackson.map.ObjectMapper;
     return new String(out.toByteArray());
   }
 
-  /**
-   * Create JSON POJO for a {@link JobNode}, including the {@link org.apache.samza.operators.StreamGraph} for this job
-   * @param jobNode job node in the {@link JobGraph}
-   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.JobNodeJson}
-   */
-  private JobNodeJson buildJobNodeJson(JobNode jobNode) {
-    JobNodeJson job = new JobNodeJson();
-    job.jobName = jobNode.getJobName();
-    job.jobId = jobNode.getJobId();
-    job.operatorGraph = buildOperatorGraphJson(jobNode);
-    return job;
-  }
-
-  /**
-   * Traverse the {@link OperatorSpec} graph and build the operator graph JSON POJO.
-   * @param jobNode job node in the {@link JobGraph}
-   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
-   */
-  private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
-    OperatorGraphJson opGraph = new OperatorGraphJson();
-    opGraph.inputStreams = new ArrayList<>();
-    jobNode.getSpecGraph().getInputOperators().forEach((streamId, operatorSpec) -> {
-        StreamJson inputJson = new StreamJson();
-        opGraph.inputStreams.add(inputJson);
-        inputJson.streamId = streamId;
-        inputJson.nextOperatorIds = operatorSpec.getRegisteredOperatorSpecs().stream()
-            .map(OperatorSpec::getOpId).collect(Collectors.toSet());
-
-        updateOperatorGraphJson(operatorSpec, opGraph);
-      });
-
-    opGraph.outputStreams = new ArrayList<>();
-    jobNode.getSpecGraph().getOutputStreams().keySet().forEach(streamId -> {
-        StreamJson outputJson = new StreamJson();
-        outputJson.streamId = streamId;
-        opGraph.outputStreams.add(outputJson);
-      });
-    return opGraph;
-  }
-
-  /**
-   * Traverse the {@link OperatorSpec} graph recursively and update the operator graph JSON POJO.
-   * @param operatorSpec input
-   * @param opGraph operator graph to build
-   */
   private void updateOperatorGraphJson(OperatorSpec operatorSpec, OperatorGraphJson opGraph) {
-    // TODO xiliu: render input operators instead of input streams
-    if (operatorSpec.getOpCode() != OpCode.INPUT) {
+    if (operatorSpec.getOpCode() != OperatorSpec.OpCode.INPUT) {
       opGraph.operators.put(operatorSpec.getOpId(), operatorToMap(operatorSpec));
     }
     Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
@@ -240,6 +205,70 @@ import org.codehaus.jackson.map.ObjectMapper;
     }
 
     return map;
+  }
+
+  // get all next operators consuming from the input {@code streamId}
+  private Set<String> getNextOperatorIds(String streamId) {
+    if (!this.inputOperators.containsKey(streamId)) {
+      return new HashSet<>();
+    }
+    return this.inputOperators.get(streamId).getRegisteredOperatorSpecs().stream()
+        .map(op -> op.getOpId()).collect(Collectors.toSet());
+  }
+
+  /**
+   * Traverse the {@link OperatorSpec} graph recursively and update the operator graph JSON POJO.
+   * @param inputStreamId input streamId
+   * @param opGraph operator graph to build
+   */
+  private void updateOperatorGraphJson(String inputStreamId, OperatorGraphJson opGraph) {
+    // TODO xiliu: render input operators instead of input streams
+    InputOperatorSpec operatorSpec = this.inputOperators.get(inputStreamId);
+    if (operatorSpec == null) {
+      // no corresponding input operator for input stream
+      return;
+    }
+    updateOperatorGraphJson(operatorSpec, opGraph);
+  }
+
+  /**
+   * Create JSON POJO for a {@link JobNode}, including the {@link org.apache.samza.application.ApplicationDescriptorImpl}
+   * for this job
+   *
+   * @param jobNode job node in the {@link JobGraph}
+   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.JobNodeJson}
+   */
+  private JobNodeJson buildJobNodeJson(JobNode jobNode) {
+    JobNodeJson job = new JobNodeJson();
+    job.jobName = jobNode.getJobName();
+    job.jobId = jobNode.getJobId();
+    job.operatorGraph = buildOperatorGraphJson(jobNode);
+    return job;
+  }
+
+  /**
+   * Traverse the {@link OperatorSpec} graph and build the operator graph JSON POJO.
+   * @param jobNode job node in the {@link JobGraph}
+   * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.OperatorGraphJson}
+   */
+  private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
+    OperatorGraphJson opGraph = new OperatorGraphJson();
+    opGraph.inputStreams = new ArrayList<>();
+    jobNode.getInEdges().forEach(inStream -> {
+        StreamJson inputJson = new StreamJson();
+        opGraph.inputStreams.add(inputJson);
+        inputJson.streamId = inStream.getStreamSpec().getId();
+        inputJson.nextOperatorIds = getNextOperatorIds(inputJson.streamId);
+        updateOperatorGraphJson(inputJson.streamId, opGraph);
+      });
+
+    opGraph.outputStreams = new ArrayList<>();
+    jobNode.getOutEdges().forEach(outStream -> {
+        StreamJson outputJson = new StreamJson();
+        outputJson.streamId = outStream.getStreamSpec().getId();
+        opGraph.outputStreams.add(outputJson);
+      });
+    return opGraph;
   }
 
   /**

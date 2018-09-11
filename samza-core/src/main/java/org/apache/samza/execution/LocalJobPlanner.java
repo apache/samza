@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Temporarily helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamApplicationDescriptorImpl)}
+ * Temporarily helper class with specific implementation of {@link JobPlanner#prepareJobs()}
  * for standalone Samza processors.
  *
  * TODO: we need to consolidate this with {@link ExecutionPlanner} after SAMZA-1811.
@@ -53,10 +53,10 @@ public class LocalJobPlanner extends JobPlanner {
   }
 
   @Override
-  List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception {
+  public List<JobConfig> prepareJobs() throws Exception {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph());
+    ExecutionPlan plan = getExecutionPlan();
 
     String executionPlanJson = plan.getPlanAsJson();
     writePlanJsonFile(executionPlanJson);

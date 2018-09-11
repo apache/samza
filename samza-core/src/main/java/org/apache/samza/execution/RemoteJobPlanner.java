@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Temporary helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamApplicationDescriptorImpl)}
+ * Temporary helper class with specific implementation of {@link JobPlanner#prepareJobs()}
  * for remote-launched Samza processors (e.g. in YARN).
  *
  * TODO: we need to consolidate this class with {@link ExecutionPlanner} after SAMZA-1811.
@@ -47,7 +47,7 @@ public class RemoteJobPlanner extends JobPlanner {
   }
 
   @Override
-  List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception {
+  public List<JobConfig> prepareJobs() throws Exception {
     // for high-level DAG, generate the plan and job configs
     // TODO: run.id needs to be set for standalone: SAMZA-1531
     // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
@@ -55,7 +55,7 @@ public class RemoteJobPlanner extends JobPlanner {
     LOG.info("The run id for this run is {}", runId);
 
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph(), runId);
+    ExecutionPlan plan = getExecutionPlan(runId);
     writePlanJsonFile(plan.getPlanAsJson());
 
     if (plan.getJobConfigs().isEmpty()) {

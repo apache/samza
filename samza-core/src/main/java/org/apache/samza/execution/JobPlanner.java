@@ -60,22 +60,7 @@ public abstract class JobPlanner {
     this.config = descriptor.getConfig();
   }
 
-  public List<JobConfig> prepareJobs() {
-    String appId = new ApplicationConfig(appDesc.getConfig()).getGlobalAppId();
-    if (appDesc instanceof TaskApplicationDescriptorImpl) {
-      return Collections.singletonList(prepareTaskJob((TaskApplicationDescriptorImpl) appDesc));
-    } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
-      try {
-        return prepareStreamJobs((StreamApplicationDescriptorImpl) appDesc);
-      } catch (Exception e) {
-        throw new SamzaException("Failed to generate JobConfig for StreamApplication " + appId, e);
-      }
-    }
-    throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
-        + "StreamApplicationDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));
-  }
-
-  abstract List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception;
+  public abstract List<JobConfig> prepareJobs() throws Exception;
 
   StreamManager buildAndStartStreamManager(Config config) {
     StreamManager streamManager = new StreamManager(config);
@@ -83,12 +68,12 @@ public abstract class JobPlanner {
     return streamManager;
   }
 
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph) {
-    return getExecutionPlan(specGraph, null);
+  ExecutionPlan getExecutionPlan() {
+    return getExecutionPlan(null);
   }
 
   /* package private */
-  ExecutionPlan getExecutionPlan(OperatorSpecGraph specGraph, String runId) {
+  ExecutionPlan getExecutionPlan(String runId) {
 
     // update application configs
     Map<String, String> cfg = new HashMap<>();
@@ -97,8 +82,9 @@ public abstract class JobPlanner {
     }
 
     StreamConfig streamConfig = new StreamConfig(config);
-    Set<String> inputStreams = new HashSet<>(specGraph.getInputOperators().keySet());
-    inputStreams.removeAll(specGraph.getOutputStreams().keySet());
+    JobGraphConfigureGenerator jobGraphConfigureGenerator = new JobGraphConfigureGenerator(appDesc);
+    Set<String> inputStreams = jobGraphConfigureGenerator.getInputStreamIds();
+    inputStreams.removeAll(jobGraphConfigureGenerator.getOutputStreamIds());
     ApplicationConfig.ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationConfig.ApplicationMode.BATCH : ApplicationConfig.ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
@@ -113,12 +99,12 @@ public abstract class JobPlanner {
 
     // create the physical execution plan and merge with overrides. This works for a single-stage job now
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
-    Config mergedConfig = JobNode.mergeJobConfig(config, new MapConfig(cfg));
+    Config mergedConfig = JobGraphConfigureGenerator.mergeJobConfig(config, new MapConfig(cfg));
     // creating the StreamManager to get all input/output streams' metadata for planning
     StreamManager streamManager = buildAndStartStreamManager(mergedConfig);
     try {
       ExecutionPlanner planner = new ExecutionPlanner(mergedConfig, streamManager);
-      return planner.plan(specGraph);
+      return planner.plan(appDesc);
     } finally {
       streamManager.stop();
     }
@@ -143,21 +129,6 @@ public abstract class JobPlanner {
     } catch (Exception e) {
       LOG.warn("Failed to write execution plan json to file", e);
     }
-  }
-
-  // TODO: SAMZA-1811: The following private helper to generate single node JobGraph for TaskApplication should be consolidated
-  // to ExecutionPlanner
-  // helper method to generate a single node job configuration for low level task applications
-  private JobConfig prepareTaskJob(TaskApplicationDescriptorImpl taskAppDesc) {
-    // copy original configure
-    Map<String, String> cfg = new HashMap<>(config);
-    // expand system and streams configure
-    Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(taskAppDesc);
-    cfg.putAll(systemStreamConfigs);
-
-    Config generatedCfgFromStreamDescriptors = new MapConfig(cfg);
-    JobGraph singleNodeJobGraph = ExecutionPlanner.createJobGraph(generatedCfgFromStreamDescriptors, taskAppDesc);
-    return singleNodeJobGraph.getSingleNodeJobConfig(taskAppDesc);
   }
 
   private Map<String, String> expandSystemStreamConfigs(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {

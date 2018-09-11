@@ -31,12 +31,9 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -61,29 +58,17 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
-  private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
-  private final OperatorSpecGraph specGraph;
-  private final Set<String> broadcastStreams;
-  private final boolean isTaskApplication;
+  private final JobGraphJsonGenerator jsonGenerator;
+  private final JobGraphConfigureGenerator configGenerator;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  JobGraph(Config config, OperatorSpecGraph specGraph) {
+  JobGraph(Config config, JobGraphJsonGenerator jsonGenerator, JobGraphConfigureGenerator configureGenerator) {
+    this.jsonGenerator = jsonGenerator;
+    this.configGenerator = configureGenerator;
     this.config = config;
-    this.specGraph = specGraph;
-    this.broadcastStreams = specGraph.getBroadcastStreams();
-    this.isTaskApplication = false;
-  }
-
-  JobGraph(Config config, TaskApplicationDescriptorImpl taskAppDesc) {
-    this.config = config;
-    // TODO: HACK!!! Need to be fixed after SAMZA-1811
-    // create a dummy specGraph
-    this.specGraph = new StreamApplicationDescriptorImpl(appDesc -> { }, config).getOperatorSpecGraph();
-    this.broadcastStreams = taskAppDesc.getBroadcastStreams();
-    this.isTaskApplication = true;
   }
 
   @Override
@@ -106,16 +91,6 @@ import org.slf4j.LoggerFactory;
         .collect(Collectors.toList());
   }
 
-  // TODO: SAMZA-1811: consolidate this with high-level application JobGraph
-  JobConfig getSingleNodeJobConfig(TaskApplicationDescriptorImpl taskAppDesc) {
-    return getJobNodes().get(0).generateTaskApplicationConfig(taskAppDesc);
-  }
-
-  void addTable(TableSpec tableSpec, JobNode node) {
-    tables.add(tableSpec);
-    node.addTable(tableSpec);
-  }
-
   @Override
   public String getPlanAsJson() throws Exception {
     return jsonGenerator.toJson(this);
@@ -125,12 +100,9 @@ import org.slf4j.LoggerFactory;
    * Returns the config for this application
    * @return {@link ApplicationConfig}
    */
+  @Override
   public ApplicationConfig getApplicationConfig() {
     return new ApplicationConfig(config);
-  }
-
-  public OperatorSpecGraph getSpecGraph() {
-    return specGraph;
   }
 
   /**
@@ -172,6 +144,11 @@ import org.slf4j.LoggerFactory;
     intermediateStreams.add(edge);
   }
 
+  void addTable(TableSpec tableSpec, JobNode node) {
+    tables.add(tableSpec);
+    node.addTable(tableSpec);
+  }
+
   /**
    * Get the {@link JobNode}. Create one if it does not exist.
    * @param jobName name of the job
@@ -182,7 +159,7 @@ import org.slf4j.LoggerFactory;
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, specGraph, config);
+      node = new JobNode(jobName, jobId, config, configGenerator);
       nodes.put(nodeId, node);
     }
     return node;
@@ -207,7 +184,7 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      boolean isBroadcast = broadcastStreams.contains(streamId);
+      boolean isBroadcast = configGenerator.isBroadcastStream(streamId);
       edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
     }
@@ -319,9 +296,6 @@ import org.slf4j.LoggerFactory;
    * Validate all nodes are reachable by sources.
    */
   private void validateReachability() {
-    if (isTaskApplication) {
-      return;
-    }
     // validate all nodes are reachable from the sources
     final Set<JobNode> reachable = findReachable();
     if (reachable.size() != nodes.size()) {

@@ -51,6 +51,9 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 
+/**
+ * Unit test for {@link JobGraphJsonGenerator}
+ */
 public class TestJobGraphJsonGenerator {
 
   public class PageViewEvent {
@@ -142,7 +145,7 @@ public class TestJobGraphJsonGenerator {
       }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
+    ExecutionPlan plan = planner.plan(graphSpec);
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
@@ -202,7 +205,7 @@ public class TestJobGraphJsonGenerator {
       }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    ExecutionPlan plan = planner.plan(graphSpec.getOperatorSpecGraph());
+    ExecutionPlan plan = planner.plan(graphSpec);
     String json = plan.getPlanAsJson();
     System.out.println(json);
 
