@@ -431,12 +431,22 @@ public class KafkaConsumerProxy<K, V> {
     return failureCause;
   }
 
-  public void stop(long timeout) {
+  /**
+   * stop the thread and wait for it to stop
+   * @param timeoutMs how long to wait in join
+   */
+  public void stop(long timeoutMs) {
     LOG.info("Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
 
     isRunning = false;
     try {
-      consumerPollThread.join(timeout);
+      consumerPollThread.join(timeoutMs);
+      // join returns event if the thread didn't finish
+      // in this case we should interrupt it and wait again
+      if (consumerPollThread.isAlive()) {
+        consumerPollThread.interrupt();
+        consumerPollThread.join(timeoutMs);
+      }
     } catch (InterruptedException e) {
       LOG.warn("Join in KafkaConsumerProxy has failed", e);
       consumerPollThread.interrupt();

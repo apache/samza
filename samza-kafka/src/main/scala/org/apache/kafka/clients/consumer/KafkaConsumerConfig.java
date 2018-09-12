@@ -54,7 +54,7 @@ public class KafkaConsumerConfig extends ConsumerConfig {
    * By default, KafkaConsumer will fetch ALL available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
    */
-  private static final String DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS = "100";
+  static final String DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS = "100";
 
   private KafkaConsumerConfig(Properties props) {
     super(props);
@@ -83,6 +83,11 @@ public class KafkaConsumerConfig extends ConsumerConfig {
 
     //Kafka client configuration
 
+    // put overrides
+    consumerProps.putAll(injectProps);
+
+    // These are values we enforce in sazma, and they cannot be overwritten.
+
     // Disable consumer auto-commit because Samza controls commits
     consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
@@ -106,28 +111,24 @@ public class KafkaConsumerConfig extends ConsumerConfig {
 
     // the consumer is fully typed, and deserialization can be too. But in case it is not provided we should
     // default to byte[]
-    if (!config.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
+    if (!consumerProps.containsKey(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG)) {
       LOG.info("setting default key serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
       consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
     }
-    if (!config.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
+    if (!consumerProps.containsKey(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG)) {
       LOG.info("setting default value serialization for the consumer(for {}) to ByteArrayDeserializer", systemName);
       consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
     }
 
-    // NOT SURE THIS IS NEEDED TODO
-    final String maxPollRecords =
-        subConf.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
-    consumerProps.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, maxPollRecords);
-
-    // put overrides
-    consumerProps.putAll(injectProps);
+    // Override default max poll config if there is no value
+    consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
+        (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
     return new KafkaConsumerConfig(consumerProps);
   }
 
   // group id should be unique per job
-  private static String getConsumerGroupId(Config config) {
+  static String getConsumerGroupId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     Option<String> jobIdOption = jobConfig.getJobId();
     Option<String> jobNameOption = jobConfig.getName();
