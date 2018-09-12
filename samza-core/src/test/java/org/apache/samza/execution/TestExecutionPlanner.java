@@ -33,7 +33,6 @@ import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -281,7 +280,7 @@ public class TestExecutionPlanner {
     StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
 
-    ExecutionPlanner.fetchInputAndOutputStreamPartitions(jobGraph, streamManager);
+    planner.fetchInputAndOutputStreamPartitions(jobGraph);
     assertTrue(jobGraph.getOrCreateStreamEdge(input1Spec).getPartitionCount() == 64);
     assertTrue(jobGraph.getOrCreateStreamEdge(input2Spec).getPartitionCount() == 16);
     assertTrue(jobGraph.getOrCreateStreamEdge(input3Spec).getPartitionCount() == 32);
@@ -297,10 +296,7 @@ public class TestExecutionPlanner {
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
-
-    ExecutionPlanner.fetchInputAndOutputStreamPartitions(jobGraph, streamManager);
-    ExecutionPlanner.calculateJoinInputPartitions(jobGraph, new StreamConfig(config));
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -324,8 +320,7 @@ public class TestExecutionPlanner {
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
     StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
-    JobGraph jobGraph = planner.createJobGraph(graphSpec.getOperatorSpecGraph());
-    planner.calculatePartitions(jobGraph);
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec.getOperatorSpecGraph());
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
