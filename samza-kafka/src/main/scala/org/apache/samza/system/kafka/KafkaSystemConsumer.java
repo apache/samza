@@ -363,12 +363,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     }
 
     boolean needsMoreMessages(SystemStreamPartition ssp) {
-      if (LOG.isDebugEnabled()) {
         LOG.debug("needsMoreMessages from following SSP: {}. fetchLimitByBytes enabled={}; messagesSizeInQueue={};"
                 + "(limit={}); messagesNumInQueue={}(limit={};", ssp, fetchThresholdBytesEnabled,
             getMessagesSizeInQueue(ssp), perPartitionFetchThresholdBytes, getNumMessagesInQueue(ssp),
             perPartitionFetchThreshold);
-      }
 
       if (fetchThresholdBytesEnabled) {
         return getMessagesSizeInQueue(ssp) < perPartitionFetchThresholdBytes;
