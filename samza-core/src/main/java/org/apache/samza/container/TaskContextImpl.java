@@ -40,6 +40,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
+
+/**
+ * TODO this will be replaced by {@link org.apache.samza.context.TaskContextImpl} in the near future by SAMZA-1714
+ */
 public class TaskContextImpl implements TaskContext {
   private static final Logger LOG = LoggerFactory.getLogger(TaskContextImpl.class);
 
