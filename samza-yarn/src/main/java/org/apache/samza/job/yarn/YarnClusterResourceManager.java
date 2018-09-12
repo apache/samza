@@ -30,11 +30,9 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
-import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
@@ -114,16 +112,29 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private final ConcurrentHashMap<SamzaResource, Container> allocatedResources = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SamzaResourceRequest, AMRMClient.ContainerRequest> requestsMap = new ConcurrentHashMap<>();
 
-  private final ConcurrentHashMap<ContainerId, Container> containersPendingStartup = new ConcurrentHashMap<>();
-
   private final SamzaAppMasterMetrics metrics;
 
-  final AtomicBoolean started = new AtomicBoolean(false);
+  private final AtomicBoolean started = new AtomicBoolean(false);
   private final Object lock = new Object();
   private final NMClientAsync nmClientAsync;
 
   private static final Logger log = LoggerFactory.getLogger(YarnClusterResourceManager.class);
   private final Config config;
+
+  YarnClusterResourceManager(AMRMClientAsync amClientAsync, NMClientAsync nmClientAsync, Callback callback,
+      YarnAppState yarnAppState, SamzaYarnAppMasterLifecycle lifecycle, SamzaYarnAppMasterService service,
+      SamzaAppMasterMetrics metrics, YarnConfiguration yarnConfiguration, Config config) {
+    super(callback);
+    this.yarnConfiguration  = yarnConfiguration;
+    this.metrics = metrics;
+    this.yarnConfig = new YarnConfig(config);
+    this.config = config;
+    this.amClient = amClientAsync;
+    this.state = yarnAppState;
+    this.lifecycle = lifecycle;
+    this.service = service;
+    this.nmClientAsync = nmClientAsync;
+  }
 
   /**
    * Creates an YarnClusterResourceManager from config, a jobModelReader and a callback.
@@ -513,18 +524,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   }
 
   @Override
-  public void onStartContainerError(ContainerId containerId, Throwable t) {
-    log.error(String.format("Container: %s could not start.", containerId), t);
+  public void onStartContainerError(ContainerId yarnContainerId, Throwable t) {
+    log.error(String.format("Yarn Container: %s could not start.", yarnContainerId), t);
 
-    Container container = containersPendingStartup.remove(containerId);
+    String samzaContainerId = getPendingSamzaContainerId(yarnContainerId);
 
-    if (container != null) {
-      SamzaResource resource = new SamzaResource(container.getResource().getVirtualCores(),
-          container.getResource().getMemory(), container.getNodeId().getHost(), containerId.toString());
-      log.info("Invoking failure callback for container: {}", containerId);
+    if (samzaContainerId != null) {
+      YarnContainer container = state.pendingYarnContainers.remove(samzaContainerId);
+      log.info("Failed Yarn Container: {} had Samza ContainerId: {} ", yarnContainerId, samzaContainerId);
+      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+          container.resource().getMemory(), container.nodeId().getHost(), yarnContainerId.toString());
+      log.info("Invoking failure callback for container: {}", yarnContainerId);
       clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(t));
     } else {
-      log.info("Got an invalid notification for container: {}", containerId);
+      log.info("Got an invalid notification for container: {}", yarnContainerId);
     }
   }
 
@@ -680,7 +693,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     log.info("Container ID {} using environment variables: {}", samzaContainerId, sb.toString());
   }
 
-
   /**
    * Gets the environment variables from the specified {@link CommandBuilder} and escapes certain characters.
    *
@@ -725,6 +737,5 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     }
     return null;
   }
-
 
 }
