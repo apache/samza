@@ -30,7 +30,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
 
-
 /**
  * A descriptor for InMemorySystem
  * System properties configured using a descriptor override corresponding properties provided in configuration.
@@ -44,11 +43,13 @@ import org.apache.samza.config.JavaSystemConfig;
  *   <li>"inmemory.scope = "Scope id generated to isolate the system in memory</li>
  * </ol>
  * <p>
- * @implNote The "systems.*" configs are required since the planner uses the system to get metadata about streams during
+ * Implementation Notes
+ * <p>
+ * The "systems.*" configs are required since the planner uses the system to get metadata about streams during
  * planning. The "jobs.job-name.systems.*" configs are required since configs generated from user provided
  * system/stream descriptors override configs originally supplied to the planner. Configs in the "jobs.job-name.*"
  * scope have the highest precedence.
- * <p/>
+ *
  */
 public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
