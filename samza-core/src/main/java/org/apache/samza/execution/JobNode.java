@@ -65,7 +65,6 @@ import com.google.common.base.Joiner;
  */
 public class JobNode {
   private static final Logger log = LoggerFactory.getLogger(JobNode.class);
-  private static final String CONFIG_JOB_PREFIX = "jobs.%s.";
   private static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   private final String jobName;
@@ -87,7 +86,7 @@ public class JobNode {
 
   public static Config mergeJobConfig(Config fullConfig, Config generatedConfig) {
     return new JobConfig(Util.rewriteConfig(extractScopedConfig(
-        fullConfig, generatedConfig, String.format(CONFIG_JOB_PREFIX, new JobConfig(fullConfig).getName().get()))));
+        fullConfig, generatedConfig, String.format(JobConfig.CONFIG_JOB_PREFIX(), new JobConfig(fullConfig).getName().get()))));
   }
 
   public OperatorSpecGraph getSpecGraph() {
@@ -203,7 +202,7 @@ public class JobNode {
 
     log.info("Job {} has generated configs {}", jobName, configs);
 
-    String configPrefix = String.format(CONFIG_JOB_PREFIX, jobName);
+    String configPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), jobName);
 
     // Disallow user specified job inputs/outputs. This info comes strictly from the user application.
     Map<String, String> allowedConfigs = new HashMap<>(config);

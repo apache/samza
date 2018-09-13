@@ -124,11 +124,14 @@ public class TestTableManager {
     TableManager tableManager = new TableManager(new MapConfig(map), serdeMap);
     tableManager.init(mock(SamzaContainerContext.class), mock(TaskContext.class));
 
-    Table table = tableManager.getTable(TABLE_ID);
-    verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject(), anyObject());
-    Assert.assertEquals(DummyTableProviderFactory.table, table);
+    for (int i = 0; i < 2; i++) {
+      Table table = tableManager.getTable(TABLE_ID);
+      verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject(), anyObject());
+      verify(DummyTableProviderFactory.tableProvider, times(1)).getTable();
+      Assert.assertEquals(DummyTableProviderFactory.table, table);
+    }
 
-    Map<String, TableManager.TableCtx> ctxMap = getFieldValue(tableManager, "tables");
+    Map<String, TableManager.TableCtx> ctxMap = getFieldValue(tableManager, "tableContexts");
     TableManager.TableCtx ctx = ctxMap.get(TABLE_ID);
 
     TableSpec tableSpec = getFieldValue(ctx, "tableSpec");

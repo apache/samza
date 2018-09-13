@@ -32,6 +32,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
@@ -68,8 +69,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         Arrays.asList(TestTableData.generateProfiles(10)));
   }
 
-  // @Test
-  // TODO: re-enable after fixing the coordinator stream issue in SAMZA-1786
+  @Test
   public void testJoinWithDurableSideInputTable() {
     runTest(
         "durable-side-input",
@@ -106,6 +106,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         .addInputStream(profileStreamDesc)
         .addOutputStream(outputStreamDesc)
         .addConfigs(new MapConfig(configs))
+        .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
         .run(Duration.ofMillis(100000));
 
     try {
@@ -124,7 +125,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
       assertEquals("Mismatch between the expected and actual join count", results.size(),
           expectedEnrichedPageviews.size());
       assertTrue("Pageview profile join did not succeed for all inputs", successfulJoin);
-
     } catch (InterruptedException e) {
       e.printStackTrace();
     }
