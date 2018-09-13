@@ -62,9 +62,9 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClass>> {
   private static final Logger LOGGER = LoggerFactory.getLogger(SystemDescriptor.class);
-  protected static final String FACTORY_CONFIG_KEY = "systems.%s.samza.factory";
-  protected static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
-  protected static final String DEFAULT_STREAM_CONFIGS_CONFIG_KEY = "systems.%s.default.stream.%s";
+  private static final String FACTORY_CONFIG_KEY = "systems.%s.samza.factory";
+  private static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
+  private static final String DEFAULT_STREAM_CONFIGS_CONFIG_KEY = "systems.%s.default.stream.%s";
   private static final String SYSTEM_CONFIGS_CONFIG_KEY = "systems.%s.%s";
   private static final Pattern SYSTEM_NAME_PATTERN = Pattern.compile("[\\d\\w-_]+");
 

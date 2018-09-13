@@ -17,18 +17,12 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework.stream;
+package org.apache.samza.test.framework.system;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.config.InMemorySystemConfig;
-import org.apache.samza.config.MapConfig;
+import com.google.common.base.Preconditions;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.inmemory.InMemorySystemFactory;
-import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 
 /**
  * A descriptor for a In Memory output stream.
@@ -39,18 +33,17 @@ import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
  *
  * @param <StreamMessageType> type of messages in this stream.
  */
-
 public class InMemoryOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, InMemoryOutputDescriptor<StreamMessageType>> {
 
-  private Integer partitionCount;
+  private int partitionCount;
 
   /**
    * Constructs an {@link OutputDescriptor} instance.
    * @param streamId id of the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  public InMemoryOutputDescriptor(String streamId, SystemDescriptor systemDescriptor) {
+  InMemoryOutputDescriptor(String streamId, SystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor);
   }
 
@@ -59,26 +52,13 @@ public class InMemoryOutputDescriptor<StreamMessageType>
    * @param partitionCount partition count of output stream
    * @return this output descriptor
    */
-  public InMemoryOutputDescriptor<StreamMessageType> withPartitionCount(Integer partitionCount) {
+  public InMemoryOutputDescriptor<StreamMessageType> withPartitionCount(int partitionCount) {
+    Preconditions.checkState(partitionCount > 0);
     this.partitionCount = partitionCount;
-    InMemorySystemFactory factory = new InMemorySystemFactory();
-    String physicalName = (String) getPhysicalName().orElse(getStreamId());
-    StreamSpec spec = new StreamSpec(getStreamId(), physicalName, getSystemName(), this.partitionCount);
-    factory
-        .getAdmin(getSystemName(), new MapConfig(toConfig()))
-        .createStream(spec);
     return this;
   }
 
   public Integer getPartitionCount() {
     return this.partitionCount;
-  }
-
-  @Override
-  public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>(super.toConfig());
-    InMemorySystemDescriptor descriptor = (InMemorySystemDescriptor) getSystemDescriptor();
-    configs.put(InMemorySystemConfig.INMEMORY_SCOPE, descriptor.getInMemoryScope());
-    return configs;
   }
 }

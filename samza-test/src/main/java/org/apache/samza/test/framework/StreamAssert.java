@@ -24,7 +24,8 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.TestRunner;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 
@@ -32,13 +33,13 @@ import static org.junit.Assert.assertThat;
 
 
 /**
- * Assertion utils non the content of a {@link org.apache.samza.operators.descriptors.base.stream.StreamDescriptor}.
+ * Assertion utils on the content of a {@link org.apache.samza.operators.descriptors.base.stream.StreamDescriptor}.
  */
 public class StreamAssert {
   /**
    * Util to assert  presence of messages in a stream with single partition in any order
    *
-   * @param streamDescriptor represents the actual stream which will be consumed to compare against expected list
+   * @param streamDescriptor describes the stream which will be consumed to compare against expected list
    * @param expected represents the expected stream of messages
    * @param timeout maximum time to wait for consuming the stream
    * @param <StreamMessageType> represents the type of Message in the stream
@@ -47,7 +48,7 @@ public class StreamAssert {
   public static <StreamMessageType> void containsInAnyOrder(
       InMemoryOutputDescriptor<StreamMessageType> streamDescriptor, final List<StreamMessageType> expected,
       Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor, "This util is intended to use only on streamDescriptor");
+    Preconditions.checkNotNull(streamDescriptor);
     assertThat(TestRunner.consumeStream(streamDescriptor, timeout)
         .entrySet()
         .stream()
@@ -58,7 +59,7 @@ public class StreamAssert {
   /**
    * Util to assert presence of messages in a stream with multiple partition in any order
    *
-   * @param streamDescriptor represents the actual stream which will be consumed to compare against expected partition map
+   * @param streamDescriptor describes the stream which will be consumed to compare against expected partition map
    * @param expected represents a map of partitionId as key and list of messages in stream as value
    * @param timeout maximum time to wait for consuming the stream
    * @param <StreamMessageType> represents the type of Message in the stream
@@ -68,7 +69,7 @@ public class StreamAssert {
   public static <StreamMessageType> void containsInAnyOrder(
       InMemoryOutputDescriptor<StreamMessageType> streamDescriptor,
       final Map<Integer, List<StreamMessageType>> expected, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor, "This util is intended to use only on streamDescriptor");
+    Preconditions.checkNotNull(streamDescriptor);
     Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(streamDescriptor, timeout);
     for (Integer paritionId : expected.keySet()) {
       assertThat(actual.get(paritionId),
@@ -79,7 +80,7 @@ public class StreamAssert {
   /**
    * Util to assert ordering of messages in a stream with single partition
    *
-   * @param streamDescriptor represents the actual stream which will be consumed to compare against expected list
+   * @param streamDescriptor describes the stream which will be consumed to compare against expected list
    * @param expected represents the expected stream of messages
    * @param timeout maximum time to wait for consuming the stream
    * @param <StreamMessageType> represents the type of Message in the stream
@@ -87,7 +88,7 @@ public class StreamAssert {
    */
   public static <StreamMessageType> void containsInOrder(InMemoryOutputDescriptor<StreamMessageType> streamDescriptor,
       final List<StreamMessageType> expected, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor, "This util is intended to use only on streamDescriptor");
+    Preconditions.checkNotNull(streamDescriptor);
     assertThat(TestRunner.consumeStream(streamDescriptor, timeout)
         .entrySet()
         .stream()
@@ -98,7 +99,7 @@ public class StreamAssert {
   /**
    * Util to assert ordering of messages in a multi-partitioned stream
    *
-   * @param streamDescriptor represents the actual stream which will be consumed to compare against expected partition map
+   * @param streamDescriptor describes the stream which will be consumed to compare against expected partition map
    * @param expected represents a map of partitionId as key and list of messages as value
    * @param timeout maximum time to wait for consuming the stream
    * @param <StreamMessageType> represents the type of Message in the stream
@@ -106,7 +107,7 @@ public class StreamAssert {
    */
   public static <StreamMessageType> void containsInOrder(InMemoryOutputDescriptor<StreamMessageType> streamDescriptor,
       final Map<Integer, List<StreamMessageType>> expected, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor, "This util is intended to use only on streamDescriptor");
+    Preconditions.checkNotNull(streamDescriptor);
     Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(streamDescriptor, timeout);
     for (Integer paritionId : expected.keySet()) {
       assertThat(actual.get(paritionId), IsIterableContainingInOrder.contains(expected.get(paritionId).toArray()));

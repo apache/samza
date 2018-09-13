@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework;
+package org.apache.samza.test.framework.system;
 
 import com.google.common.base.Preconditions;
 import java.time.Duration;
@@ -28,24 +28,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.base.stream.StreamDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
+import org.apache.samza.system.SystemProducer;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
@@ -54,8 +62,6 @@ import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
-import org.apache.samza.test.framework.stream.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.stream.InMemoryOutputDescriptor;
 import org.junit.Assert;
 
 
@@ -80,9 +86,11 @@ public class TestRunner {
   private Map<String, String> configs;
   private Class taskClass;
   private StreamApplication app;
+  private String inMemoryScope;
 
   private TestRunner() {
     this.configs = new HashMap<>();
+    this.inMemoryScope = RandomStringUtils.random(10, true, true);
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
@@ -174,21 +182,60 @@ public class TestRunner {
     } else {
       configs.put(TaskConfig.INPUT_STREAMS(), systemName + "." + streamName);
     }
+    InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
+    imsd.withInMemoryScope(this.inMemoryScope);
     addConfigs(descriptor.toConfig());
     addConfigs(descriptor.getSystemDescriptor().toConfig());
+    initializeInMemoryInputStream(descriptor);
     return this;
   }
 
   /**
+   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
+   * Initializes each partition of that stream with messages
+   * @param descriptor describes a stream to initialize with the in memory system
+   */
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor) {
+    String systemName = descriptor.getSystemName();
+    String physicalName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
+    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), physicalName, systemName, descriptor.getPartitionSize());
+    SystemFactory factory = new InMemorySystemFactory();
+    Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
+    factory.getAdmin(systemName, config).createStream(spec);
+    SystemProducer producer = factory.getProducer(systemName, config, null);
+    SystemStream sysStream = new SystemStream(systemName, physicalName);
+    Map<Integer, Iterable<StreamMessageType>> partitions = descriptor.getPartitionData();
+    partitions.forEach((partitionId, partition) -> {
+        partition.forEach(e -> {
+            Object key = e instanceof KV ? ((KV) e).getKey() : null;
+            Object value = e instanceof KV ? ((KV) e).getValue() : e;
+            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+          });
+        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
+          new EndOfStreamMessage(null)));
+      });
+  }
+
+  /**
    * Configures an inememory output with the TestRunner, adds all the stream specific configs to global job configs.
-   * @param descriptor describes the stream that is supposed to be output for the Samza application
+   * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @return calling instance of {@link TestRunner} with output stream configured with it
    */
-  public TestRunner addOutputStream(InMemoryOutputDescriptor descriptor) {
-    Preconditions.checkNotNull(descriptor);
-    Preconditions.checkState(descriptor.getPartitionCount() >= 1);
-    addConfigs(descriptor.toConfig());
-    addConfigs(descriptor.getSystemDescriptor().toConfig());
+  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor) {
+    Preconditions.checkNotNull(streamDescriptor);
+    Preconditions.checkState(streamDescriptor.getPartitionCount() >= 1);
+    InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) streamDescriptor.getSystemDescriptor();
+    imsd.withInMemoryScope(this.inMemoryScope);
+    Config config = new MapConfig(streamDescriptor.toConfig(), streamDescriptor.getSystemDescriptor().toConfig());
+    InMemorySystemFactory factory = new InMemorySystemFactory();
+    String physicalName = (String) streamDescriptor.getPhysicalName().orElse(streamDescriptor.getStreamId());
+    StreamSpec spec = new StreamSpec(streamDescriptor.getStreamId(), physicalName, streamDescriptor.getSystemName(),
+        streamDescriptor.getPartitionCount());
+    factory
+        .getAdmin(streamDescriptor.getSystemName(), config)
+        .createStream(spec);
+    addConfigs(streamDescriptor.toConfig());
+    addConfigs(streamDescriptor.getSystemDescriptor().toConfig());
     return this;
   }
 
@@ -219,7 +266,7 @@ public class TestRunner {
    * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
    * TestRunner in order to assert over the streams (ex output streams).
    *
-   * @param stream represents {@link InMemoryOutputDescriptor} whose current state of partitions is requested to be fetched
+   * @param streamDescriptor describes the stream whose current state of partitions is requested to be fetched
    * @param timeout poll timeout in Ms
    * @param <StreamMessageType> represents type of message
    *
@@ -227,19 +274,18 @@ public class TestRunner {
    *         i.e messages in the partition
    * @throws InterruptedException Thrown when a blocking poll has been interrupted by another thread.
    */
-  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor stream, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(stream);
-    Preconditions.checkNotNull(stream.getSystemName());
-    String streamId = stream.getStreamId();
-    String systemName = stream.getSystemName();
+  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(streamDescriptor);
+    String streamId = streamDescriptor.getStreamId();
+    String systemName = streamDescriptor.getSystemName();
     Set<SystemStreamPartition> ssps = new HashSet<>();
     Set<String> streamIds = new HashSet<>();
     streamIds.add(streamId);
     SystemFactory factory = new InMemorySystemFactory();
-    Map<String, SystemStreamMetadata> metadata =
-        factory.getAdmin(systemName, new MapConfig(stream.toConfig())).getSystemStreamMetadata(streamIds);
-    SystemConsumer consumer = factory.getConsumer(systemName, new MapConfig(stream.toConfig()), null);
-    String name = (String) stream.getPhysicalName().orElse(streamId);
+    Config config = new MapConfig(streamDescriptor.toConfig(), streamDescriptor.getSystemDescriptor().toConfig());
+    Map<String, SystemStreamMetadata> metadata = factory.getAdmin(systemName, config).getSystemStreamMetadata(streamIds);
+    SystemConsumer consumer = factory.getConsumer(systemName, config, null);
+    String name = (String) streamDescriptor.getPhysicalName().orElse(streamId);
     metadata.get(name).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
         SystemStreamPartition temp = new SystemStreamPartition(systemName, streamId, partition);
         ssps.add(temp);
@@ -255,7 +301,7 @@ public class TestRunner {
         SystemStreamPartition ssp = entry.getKey();
         output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
         List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
-        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(stream.getStreamId())
+        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(streamDescriptor.getStreamId())
             .getSystemStreamPartitionMetadata()
             .get(ssp.getPartition())
             .getNewestOffset());
