@@ -60,7 +60,8 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
   def bootstrapServers(): String = super.bootstrapUrl
 
   def createSystemAdmin(system: String): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(system, bootstrapServers, connectZk = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled))
+    val connectZk:Function0[ZkUtils] = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
+    new KafkaSystemAdmin(system, bootstrapServers, connectZk)
   }
 
 }

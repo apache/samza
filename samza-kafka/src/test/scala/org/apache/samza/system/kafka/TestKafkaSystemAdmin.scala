@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka
 
+import java.util.function.Supplier
 import java.util.{Properties, UUID}
 
 import kafka.admin.AdminUtils
@@ -33,9 +34,9 @@ import kafka.utils.{TestUtils, ZkUtils}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.KafkaProducerConfig
+import org.apache.samza.config.{KafkaProducerConfig, MapConfig}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 import org.junit._
@@ -53,6 +54,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   val TOTAL_PARTITIONS = 50
   val REPLICATION_FACTOR = 2
   val zkSecure = JaasUtils.isZkSecurityEnabled()
+  val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + SYSTEM + ".consumer."
 
   protected def numBrokers: Int = 3
 
@@ -69,20 +71,42 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   @BeforeClass
   override def setUp() {
     super.setUp()
-    val config = new java.util.HashMap[String, String]()
-    config.put("bootstrap.servers", brokerList)
-    config.put("acks", "all")
-    config.put("serializer.class", "kafka.serializer.StringEncoder")
-    producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+    val map = new java.util.HashMap[String, String]()
+    map.put("bootstrap.servers", brokerList)
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    map.put("acks", "all")
+    map.put("serializer.class", "kafka.serializer.StringEncoder")
+
+
+
+    producerConfig = new KafkaProducerConfig("kafka", "i001", map)
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
-    systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+    systemAdmin = createAdmin(map)
+
     systemAdmin.start()
+  }
+
+  def createAdmin(map: java.util.Map[String, String]): KafkaSystemAdmin = {
+    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+    /*
+    val connectZk = new Supplier[ZkUtils]() {
+      override def get(): ZkUtils = {
+        ZkUtils(zkConnect, 6000, 6000, zkSecure)
+      }
+    }
+
+    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(SYSTEM, new MapConfig(map), "clientId", connectZk)
+    */
   }
 
   @AfterClass
   override def tearDown() {
-    systemAdmin.stop()
+
+import java.util
+
+systemAdmin.stop()
     producer.close()
     super.tearDown()
   }

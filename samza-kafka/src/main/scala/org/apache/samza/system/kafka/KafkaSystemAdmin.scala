@@ -573,6 +573,8 @@ class KafkaSystemAdmin(
       })
 
     val topicMetadata = getTopicMetadata(Set(kSpec.getPhysicalName)).get(kSpec.getPhysicalName).get
+    System.out.println("TOPIC MD=" + topicMetadata)
+    System.out.println("TOPIC MD ps=" + topicMetadata.partitionsMetadata)
     topicMetadata.partitionsMetadata.isEmpty
   }
 

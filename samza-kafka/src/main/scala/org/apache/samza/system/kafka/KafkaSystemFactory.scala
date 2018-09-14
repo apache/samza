@@ -20,9 +20,10 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
+import java.util.function.Supplier
 
 import kafka.utils.ZkUtils
-import org.apache.kafka.clients.consumer.{KafkaConsumer, KafkaConsumerConfig}
+import org.apache.kafka.clients.consumer.{Consumer, KafkaConsumer, KafkaConsumerConfig}
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
@@ -89,9 +90,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val bufferSize = consumerConfig.socketReceiveBufferBytes
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
-    val connectZk = () => {
-      ZkUtils(zkConnect, 6000, 6000, false)
-    }
+
     val coordinatorStreamProperties = getCoordinatorTopicProperties(config)
     val coordinatorStreamReplicationFactor = config.getCoordinatorReplicationFactor.toInt
     val storeToChangelog = config.getKafkaChangelogEnabledStores()
@@ -106,6 +105,19 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
+
+    val connectZk = new Supplier[ZkUtils] () {
+      override def get(): ZkUtils = {
+        ZkUtils(zkConnect, 6000, 6000, false)
+      }
+    }
+
+    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
+      systemName,
+      config,
+      clientId,
+      connectZk);
+    /*
     new KafkaSystemAdmin(
       systemName,
       bootstrapServers,
@@ -118,6 +130,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       topicMetaInformation,
       intermediateStreamProperties,
       deleteCommittedMessages)
+      */
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

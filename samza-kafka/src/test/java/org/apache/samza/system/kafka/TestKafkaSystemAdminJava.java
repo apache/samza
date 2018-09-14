@@ -19,16 +19,26 @@
 
 package org.apache.samza.system.kafka;
 
+import com.google.common.collect.ImmutableSet;
 import java.util.*;
 import java.util.HashMap;
 import java.util.Map;
 
 import kafka.api.TopicMetadata;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.samza.Partition;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.system.ExtendedSystemAdmin;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.zk.ZkUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -37,6 +47,25 @@ import static org.junit.Assert.*;
 
 
 public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
+  public static final String TEST_SYSTEM = "test-system";
+  public static final String TEST_STREAM = "test-stream";
+
+  @Test
+  public void testGetOffsetsAfter() {
+    SystemStreamPartition ssp1 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
+    SystemStreamPartition ssp2 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(1));
+    Map<SystemStreamPartition, String> offsets = new HashMap<>();
+    offsets.put(ssp1, "1");
+    offsets.put(ssp2, "2");
+
+
+    //SamzaLiKafkaSystemAdmin samzaLiKafkaSystemAdmin =
+    //    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(TEST_SYSTEM, new MapConfig(map), "clientI", ()->null);
+    offsets = systemAdmin().getOffsetsAfter(offsets);
+
+    Assert.assertEquals("2", offsets.get(ssp1));
+    Assert.assertEquals("3", offsets.get(ssp2));
+  }
 
   @Test
   public void testCreateCoordinatorStream() {
@@ -184,8 +213,13 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec));
     assertTrue(systemAdmin().clearStream(spec));
 
-    scala.collection.immutable.Set<String> topic = new scala.collection.immutable.Set.Set1<>(spec.getPhysicalName());
-    scala.collection.immutable.Map<String, TopicMetadata> metadata = systemAdmin().getTopicMetadata(topic);
+    //ImmutableSet<String> topics = ImmutableSet.of(spec.getPhysicalName());
+//    Map<String, List<PartitionInfo>> metadata = ((KafkaSystemAdmin)systemAdmin()).getTopicMetadata(topics);
+  //  assertTrue(metadata.get(spec.getPhysicalName()).isEmpty());
+
+    scala.collection.immutable.Set<String> topics = new scala.collection.immutable.Set.Set1<>(spec.getPhysicalName());
+    scala.collection.immutable.Map<String, TopicMetadata> metadata = ((KafkaSystemAdmin)systemAdmin()).getTopicMetadata(topics);
     assertTrue(metadata.get(spec.getPhysicalName()).get().partitionsMetadata().isEmpty());
+
   }
 }
