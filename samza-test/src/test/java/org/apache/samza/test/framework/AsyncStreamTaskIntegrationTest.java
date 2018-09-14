@@ -86,7 +86,7 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(imod)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInAnyOrder(imod, outputList, Duration.ofMillis(1000));
+    StreamAssert.containsInAnyOrder(outputList, imod, Duration.ofMillis(1000));
   }
 
   @Test
@@ -111,7 +111,7 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(imod)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInOrder(imod, expectedOutputPartitionData, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
   @Test
@@ -137,7 +137,7 @@ public class AsyncStreamTaskIntegrationTest {
         .addOverrideConfig("task.max.concurrency", "4")
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInAnyOrder(imod, expectedOutputPartitionData, Duration.ofMillis(1000));
+    StreamAssert.containsInAnyOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
   public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {

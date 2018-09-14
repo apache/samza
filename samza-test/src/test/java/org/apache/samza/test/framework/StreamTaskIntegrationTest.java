@@ -112,7 +112,7 @@ public class StreamTaskIntegrationTest {
         .addOverrideConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(1));
 
-    StreamAssert.containsInOrder(imod, outputList, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(outputList, imod, Duration.ofMillis(1000));
   }
 
   @Test
@@ -137,7 +137,7 @@ public class StreamTaskIntegrationTest {
         .addOutputStream(imod)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInOrder(imod, expectedOutputPartitionData, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
   @Test
@@ -163,7 +163,7 @@ public class StreamTaskIntegrationTest {
         .addOverrideConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInOrder(imod, expectedOutputPartitionData, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
   public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {

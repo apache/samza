@@ -25,7 +25,7 @@ import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
 
 /**
- * A descriptor for a In Memory output stream.
+ * A descriptor for an in memory output stream.
  * <p>
  * An instance of this descriptor may be obtained from an appropriately configured {@link InMemorySystemDescriptor}.
  * <p>
@@ -48,7 +48,7 @@ public class InMemoryOutputDescriptor<StreamMessageType>
   }
 
   /**
-   * Configures an InMemory output stream with InMemory system
+   * Creates an in memory output stream with given partition count
    * @param partitionCount partition count of output stream
    * @return this output descriptor
    */
@@ -58,7 +58,7 @@ public class InMemoryOutputDescriptor<StreamMessageType>
     return this;
   }
 
-  public Integer getPartitionCount() {
+  public int getPartitionCount() {
     return this.partitionCount;
   }
 }
