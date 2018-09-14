@@ -29,6 +29,7 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -64,7 +65,8 @@ public class ExecutionPlanner {
     validateConfig();
 
     // create physical job graph based on stream graph
-    JobGraph jobGraph = createJobGraph(config, new JobGraphJsonGenerator(appDesc), new JobGraphConfigureGenerator(appDesc));
+    JobGraph jobGraph = createJobGraph(config, new JobGraphJsonGenerator(appDesc), new JobGraphConfigureGenerator(appDesc),
+        appDesc.getAppClass().getName().equals(LegacyTaskApplication.class));
 
     // fetch the external streams partition info
     updateExistingPartitions(jobGraph, streamManager);
@@ -90,8 +92,8 @@ public class ExecutionPlanner {
   /**
    * Create the physical graph from {@link OperatorSpecGraph}
    */
-  /* package private */ static JobGraph createJobGraph(Config config, JobGraphJsonGenerator jobJsonGenerator,
-      JobGraphConfigureGenerator jobConfigureGenerator) {
+  /* package private */ JobGraph createJobGraph(Config config, JobGraphJsonGenerator jobJsonGenerator,
+      JobGraphConfigureGenerator jobConfigureGenerator, boolean isLegacyTaskApplication) {
     JobGraph jobGraph = new JobGraph(config, jobJsonGenerator, jobConfigureGenerator);
     StreamConfig streamConfig = new StreamConfig(config);
     Set<StreamSpec> sourceStreams = getStreamSpecs(jobConfigureGenerator.getInputStreamIds(), streamConfig);
@@ -119,7 +121,10 @@ public class ExecutionPlanner {
     // add tables
     tables.forEach(spec -> jobGraph.addTable(spec, node));
 
-    jobGraph.validate();
+    if (!isLegacyTaskApplication) {
+      // skip the validation when input streamIds are empty. This is only possible for LegacyApplication
+      jobGraph.validate();
+    }
 
     return jobGraph;
   }

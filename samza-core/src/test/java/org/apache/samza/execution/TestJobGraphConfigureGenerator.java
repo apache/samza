@@ -18,12 +18,15 @@
  */
 package org.apache.samza.execution;
 
+import com.google.common.base.Joiner;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.StreamApplication;
@@ -31,12 +34,18 @@ import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
@@ -48,15 +57,19 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.IdentityStreamTask;
+import org.apache.samza.task.TaskContext;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 
@@ -72,6 +85,7 @@ public class TestJobGraphConfigureGenerator {
   private StreamSpec input2Spec;
   private StreamSpec outputSpec;
   private StreamSpec repartitionSpec;
+  private StreamSpec broadcastSpec;
   private KVSerde<String, Object> defaultSerde;
   private GenericSystemDescriptor inputSystemDescriptor;
   private GenericSystemDescriptor outputSystemDescriptor;
@@ -79,6 +93,7 @@ public class TestJobGraphConfigureGenerator {
   private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
   private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
   private GenericInputDescriptor<KV<String, Object>> intermediateInputDescriptor;
+  private GenericInputDescriptor<KV<String, Object>> broadcastInputDesriptor;
   private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
   private GenericOutputDescriptor<KV<String, Object>> intermediateOutputDescriptor;
 
@@ -89,6 +104,8 @@ public class TestJobGraphConfigureGenerator {
     outputSpec = new StreamSpec("output", "output", "output-system");
     repartitionSpec =
         new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
+    broadcastSpec = new StreamSpec("jobName-jobId-broadcast-b1", "broadcast-b1", "intermediate-system");
+
 
     defaultSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
     inputSystemDescriptor = new GenericSystemDescriptor("input-system", "mockSystemFactoryClassName");
@@ -101,10 +118,12 @@ public class TestJobGraphConfigureGenerator {
         .withPhysicalName("partition_by-p1");
     intermediateOutputDescriptor = intermediateSystemDescriptor.getOutputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
         .withPhysicalName("partition_by-p1");
+    broadcastInputDesriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-broadcast-b1", defaultSerde);
 
-    mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.JOB_NAME())).thenReturn("jobName");
-    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("jobId");
+    Map<String, String> configs = new HashMap<>();
+    configs.put(JobConfig.JOB_NAME(), "jobName");
+    configs.put(JobConfig.JOB_ID(), "jobId");
+    mockConfig = spy(new MapConfig(configs));
 
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
 
@@ -125,40 +144,30 @@ public class TestJobGraphConfigureGenerator {
     when(mockJobNode.getConfig()).thenReturn(mockConfig);
     when(mockJobNode.getJobName()).thenReturn("jobName");
     when(mockJobNode.getJobId()).thenReturn("jobId");
+    when(mockJobNode.getId()).thenReturn(JobNode.createId("jobName", "jobId"));
   }
 
   @Test
   public void testConfigureSerdesWithRepartitionJoinApplication() {
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
     JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
-//    Collection<OperatorSpec> reachableOperators = configureGenerator.getReachableOperators(mockJobNode);
-//    assertEquals(reachableOperators.toArray(), mockStreamAppDesc.getOperatorSpecGraph().getAllOperatorSpecs().toArray());
-//    List<StoreDescriptor> stores = configureGenerator.getStoreDescriptors(reachableOperators);
-//    Optional<OperatorSpec> joinOpOptional = reachableOperators.stream().filter(operatorSpec ->
-//        operatorSpec.getOpCode() == OperatorSpec.OpCode.JOIN).findFirst();
-//    assertEquals(2, stores.size());
-//    List<StoreDescriptor> nonJoinStores = stores.stream().filter(store ->
-//        !store.getStoreName().contains(joinOpOptional.get().getOpId())).collect(Collectors.toList());
-//    assertEquals(0, nonJoinStores.size());
-
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
-    Config serializers = jobConfig.subset("serializers.registry.", true);
-
-    // make sure that the serializers deserialize correctly
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
-    Map<String, Serde> deserializedSerdes = serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
-        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
-    ));
-    assertEquals(5, serializers.size()); // 2 default + 3 specific for join
-    validateStreamSerdeConfigures(jobConfig, deserializedSerdes);
-    validateJoinStoreSerdeConfigures(jobConfig, deserializedSerdes);
+    // Verify the results
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
+    // additional, check the computed window.ms for join
+    assertEquals("3600000", jobConfig.get(TaskConfig.WINDOW_MS()));
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 5);
+    validateStreamConfigures(jobConfig, deserializedSerdes);
+    validateJoinStoreConfigures(jobConfig, deserializedSerdes);
   }
 
   @Test
   public void testConfigureSerdesForRepartitionWithNoDefaultSystem() {
+    // set the application to RepartitionOnlyStreamApplication
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionOnlyStreamApplication(), mockConfig);
-
+    // add the stream edges to the node
     StreamEdge reparStreamEdge = new StreamEdge(repartitionSpec, true, false, mockConfig);
     List<StreamEdge> inputEdges = new ArrayList<>();
     inputEdges.add(new StreamEdge(input1Spec, false, false, mockConfig));
@@ -168,23 +177,16 @@ public class TestJobGraphConfigureGenerator {
     when(mockJobNode.getInEdges()).thenReturn(inputEdges);
     when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
 
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
     JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
-//    Collection<OperatorSpec> reachableOperators = configureGenerator.getReachableOperators(mockJobNode);
-//    assertEquals(reachableOperators.toArray(), mockStreamAppDesc.getOperatorSpecGraph().getAllOperatorSpecs().toArray());
-//    List<StoreDescriptor> stores = configureGenerator.getStoreDescriptors(reachableOperators);
-//    assertEquals(0, stores.size());
+    // Verify the results
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
 
-    MapConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
-    Config serializers = jobConfig.subset("serializers.registry.", true);
-
-    // make sure that the serializers deserialize correctly
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
-    Map<String, Serde> deserializedSerdes = serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
-        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
-    ));
-    assertEquals(2, serializers.size()); // 2 input stream
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
+    validateStreamConfigures(jobConfig, null);
 
     String partitionByKeySerde = jobConfig.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
     String partitionByMsgSerde = jobConfig.get("streams.jobName-jobId-partition_by-p1.samza.msg.serde");
@@ -196,31 +198,34 @@ public class TestJobGraphConfigureGenerator {
 
   @Test
   public void testGenerateJobConfigWithTaskApplication() {
+    // set the application to TaskApplication, which still wire up all input/output/intermediate streams
     TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
     JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(taskAppDesc);
-    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
-    Config serializers = jobConfig.subset("serializers.registry.", true);
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
-    Map<String, Serde> deserializedSerdes = serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
-        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
-    ));
-    assertEquals(2, serializers.size()); // 2 default
-    validateStreamSerdeConfigures(jobConfig, deserializedSerdes);
+    // Verify the results
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
+    validateStreamConfigures(jobConfig, deserializedSerdes);
   }
 
   @Test
   public void testGenerateJobConfigWithLegacyTaskApplication() {
+    // set the application to LegacyTaskApplication, which only has configuration and no descriptors
     Map<String, String> originConfig = new HashMap<>();
     originConfig.put(JobConfig.JOB_NAME(), "jobName1");
     originConfig.put(JobConfig.JOB_ID(), "jobId1");
     TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getLegacyTaskApplication(), mockConfig);
+    //clear the JobNode's stream edges since legacy task application does not wire up any input/output streams
     when(mockJobNode.getInEdges()).thenReturn(new ArrayList<>());
     when(mockJobNode.getOutEdges()).thenReturn(new ArrayList<>());
     when(mockJobNode.getJobName()).thenReturn("jobName1");
     when(mockJobNode.getJobId()).thenReturn("jobId1");
     when(mockJobNode.getConfig()).thenReturn(new MapConfig(originConfig));
+
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
     JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(taskAppDesc);
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
     // jobConfig should be exactly the same as original config
@@ -228,7 +233,295 @@ public class TestJobGraphConfigureGenerator {
     assertEquals(originConfig, generatedConfig);
   }
 
-  private void validateJoinStoreSerdeConfigures(MapConfig mapConfig, Map<String, Serde> deserializedSerdes) {
+  @Test
+  public void testBroadcastStreamApplication() {
+    // set the application to BroadcastStreamApplication
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(defaultSerde), mockConfig);
+    // add the stream edges to the node
+    StreamEdge broadcastStreamEdge = new StreamEdge(broadcastSpec, true, true, mockConfig);
+    List<StreamEdge> inputEdges = new ArrayList<>();
+    inputEdges.add(new StreamEdge(input1Spec, false, false, mockConfig));
+    inputEdges.add(broadcastStreamEdge);
+    List<StreamEdge> outputEdges = new ArrayList<>();
+    outputEdges.add(broadcastStreamEdge);
+    when(mockJobNode.getInEdges()).thenReturn(inputEdges);
+    when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
+
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, inputEdges);
+    validateJobConfig(expectedJobConfig, jobConfig);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
+    validateStreamSerdeConfigure(broadcastInputDesriptor.getStreamId(), jobConfig, deserializedSerdes);
+    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(),
+        broadcastStreamEdge.getStreamSpec().getPhysicalName(), jobConfig);
+  }
+
+  @Test
+  public void testBroadcastStreamApplicationWithoutSerde() {
+    // set the application to BroadcastStreamApplication withoutSerde
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(null), mockConfig);
+    // add the stream edges to the node
+    StreamEdge broadcastStreamEdge = new StreamEdge(broadcastSpec, true, true, mockConfig);
+    List<StreamEdge> inputEdges = new ArrayList<>();
+    inputEdges.add(new StreamEdge(input1Spec, false, false, mockConfig));
+    inputEdges.add(broadcastStreamEdge);
+    List<StreamEdge> outputEdges = new ArrayList<>();
+    outputEdges.add(broadcastStreamEdge);
+    when(mockJobNode.getInEdges()).thenReturn(inputEdges);
+    when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
+
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, inputEdges);
+    validateJobConfig(expectedJobConfig, jobConfig);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
+    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(),
+        broadcastStreamEdge.getStreamSpec().getPhysicalName(), jobConfig);
+
+    String keySerde = jobConfig.get(String.format("streams.%s.samza.key.serde", broadcastInputDesriptor.getStreamId()));
+    String msgSerde = jobConfig.get(String.format("streams.%s.samza.msg.serde", broadcastInputDesriptor.getStreamId()));
+    assertTrue("Serialized serdes should not contain intermediate stream key serde",
+        !deserializedSerdes.containsKey(keySerde));
+    assertTrue("Serialized serdes should not contain intermediate stream msg serde",
+        !deserializedSerdes.containsKey(msgSerde));
+  }
+
+  @Test
+  public void testStreamApplicationWithTableAndSideInput() {
+    // add table to the RepartitionJoinStreamApplication
+    GenericInputDescriptor<KV<String, Object>> sideInput1 = inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde);
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    TableSpec mockTableSpec = mock(TableSpec.class);
+    when(mockTableSpec.getId()).thenReturn("testTable");
+    when(mockTableSpec.getSerde()).thenReturn((KVSerde) defaultSerde);
+    when(mockTableSpec.getTableProviderFactoryClassName()).thenReturn(MockTableProviderFactory.class.getName());
+    List<String> sideInputs = new ArrayList<>();
+    sideInputs.add(sideInput1.getStreamId());
+    when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
+    when(mockTableDescriptor.getTableId()).thenReturn("testTable");
+    when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
+    // add side input and terminate at table in the appplication
+    mockStreamAppDesc.getInputStream(sideInput1).sendTo(mockStreamAppDesc.getTable(mockTableDescriptor));
+    // add table and input edge to the node
+    List<TableSpec> tables = new ArrayList<>();
+    tables.add(mockTableSpec);
+    List<StreamEdge> inEdges = new ArrayList<>(mockJobNode.getInEdges());
+    StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
+        inputSystemDescriptor.getSystemName()), false, false, mockConfig);
+    inEdges.add(sideInputEdge);
+    // need to put the sideInput related stream configuration to the original config
+    // TODO: this is confusing since part of the system and stream related configuration is generated outside the JobGraphConfigureGenerator
+    // It would be nice if all system and stream related configuration is generated in one place and only intermediate stream
+    // configuration is generated by JobGraphConfigureGenerator
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    configs.putAll(sideInputEdge.generateConfig());
+    mockConfig = spy(new MapConfig(configs));
+    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+    when(mockJobNode.getInEdges()).thenReturn(inEdges);
+    when(mockJobNode.getTables()).thenReturn(tables);
+
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 7);
+    validateTableConfigure(jobConfig, deserializedSerdes, mockTableDescriptor);
+  }
+
+  @Test
+  public void testTaskApplicationWithTableAndSideInput() {
+    // add table to the RepartitionJoinStreamApplication
+    GenericInputDescriptor<KV<String, Object>> sideInput1 = inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde);
+    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+    TableSpec mockTableSpec = mock(TableSpec.class);
+    when(mockTableSpec.getId()).thenReturn("testTable");
+    when(mockTableSpec.getSerde()).thenReturn((KVSerde) defaultSerde);
+    when(mockTableSpec.getTableProviderFactoryClassName()).thenReturn(MockTableProviderFactory.class.getName());
+    List<String> sideInputs = new ArrayList<>();
+    sideInputs.add(sideInput1.getStreamId());
+    when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
+    when(mockTableDescriptor.getTableId()).thenReturn("testTable");
+    when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
+    // add table and input edge to the node
+    List<TableSpec> tables = new ArrayList<>();
+    tables.add(mockTableSpec);
+    List<StreamEdge> inEdges = new ArrayList<>(mockJobNode.getInEdges());
+    StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
+        inputSystemDescriptor.getSystemName()), false, false, mockConfig);
+    inEdges.add(sideInputEdge);
+    // need to put the sideInput related stream configuration to the original config
+    // TODO: this is confusing since part of the system and stream related configuration is generated outside the JobGraphConfigureGenerator
+    // It would be nice if all system and stream related configuration is generated in one place and only intermediate stream
+    // configuration is generated by JobGraphConfigureGenerator
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    configs.putAll(sideInputEdge.generateConfig());
+    mockConfig = spy(new MapConfig(configs));
+    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+    when(mockJobNode.getInEdges()).thenReturn(inEdges);
+    when(mockJobNode.getTables()).thenReturn(tables);
+
+    // set the application to TaskApplication, which still wire up all input/output/intermediate streams
+    TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
+    // add table to the task application
+    taskAppDesc.addTable(mockTableDescriptor);
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(taskAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+
+    // Verify the results
+    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 4);
+    validateStreamConfigures(jobConfig, deserializedSerdes);
+    validateTableConfigure(jobConfig, deserializedSerdes, mockTableDescriptor);
+  }
+
+  @Test
+  public void testTaskInputsRemovedFromOriginalConfig() {
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    configs.put(TaskConfig.INPUT_STREAMS(), "not.allowed1,not.allowed2");
+    mockConfig = spy(new MapConfig(configs));
+    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedConfig, jobConfig);
+  }
+
+  @Test
+  public void testOverrideConfigs() {
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
+    String overrideCfgKey = String.format(JobGraphConfigureGenerator.CONFIG_JOB_PREFIX, mockJobNode.getId()) + streamCfgToOverride;
+    configs.put(overrideCfgKey, "customized-system");
+    mockConfig = spy(new MapConfig(configs));
+    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedConfig, jobConfig);
+    assertEquals("customized-system", jobConfig.get(streamCfgToOverride));
+  }
+
+  @Test
+  public void testConfigureRewriter(){
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
+    String overrideCfgKey = String.format(JobGraphConfigureGenerator.CONFIG_JOB_PREFIX, mockJobNode.getId()) + streamCfgToOverride;
+    configs.put(overrideCfgKey, "customized-system");
+    configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS(), "mock"), MockConfigRewriter.class.getName());
+    configs.put(JobConfig.CONFIG_REWRITERS(), "mock");
+    configs.put(String.format("job.config.rewriter.mock.%s", streamCfgToOverride), "rewritten-system");
+    mockConfig = spy(new MapConfig(configs));
+    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+
+    JobGraphConfigureGenerator configureGenerator = new JobGraphConfigureGenerator(mockStreamAppDesc);
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+    Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedConfig, jobConfig);
+    assertEquals("rewritten-system", jobConfig.get(streamCfgToOverride));
+  }
+
+  private void validateTableConfigure(JobConfig jobConfig, Map<String, Serde> deserializedSerdes,
+      TableDescriptor tableDescriptor) {
+    Config tableConfig = jobConfig.subset(String.format("tables.%s.", tableDescriptor.getTableId()));
+    assertEquals(MockTableProviderFactory.class.getName(), tableConfig.get("provider.factory"));
+    MockTableProvider mockTableProvider =
+        (MockTableProvider) new MockTableProviderFactory().getTableProvider(((BaseTableDescriptor) tableDescriptor).getTableSpec());
+    assertEquals(mockTableProvider.configMap.get("mock.table.provider.config"), jobConfig.get("mock.table.provider.config"));
+    validateTableSerdeConfigure(tableDescriptor.getTableId(), jobConfig, deserializedSerdes);
+  }
+
+  private Config getExpectedJobConfig(Config originConfig, List<StreamEdge> inputEdges) {
+    Map<String, String> configMap = new HashMap<>(originConfig);
+    Set<String> inputs = new HashSet<>();
+    Set<String> broadcasts = new HashSet<>();
+    for (StreamEdge inputEdge : inputEdges) {
+      if (inputEdge.isBroadcast()) {
+        broadcasts.add(inputEdge.getName() + "#0");
+      } else {
+        inputs.add(inputEdge.getName());
+      }
+    }
+    if (!inputs.isEmpty()) {
+      configMap.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    }
+    if (!broadcasts.isEmpty()) {
+      configMap.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
+    }
+    return new MapConfig(configMap);
+  }
+
+  private Map<String,Serde> validateAndGetDeserializedSerdes(Config jobConfig, int numSerdes) {
+    Config serializers = jobConfig.subset("serializers.registry.", true);
+    // make sure that the serializers deserialize correctly
+    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
+    assertEquals(numSerdes, serializers.size());
+    return serializers.entrySet().stream().collect(Collectors.toMap(
+        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
+        e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
+    ));
+  }
+
+  private void validateJobConfig(Config expectedConfig, JobConfig jobConfig) {
+    assertEquals(expectedConfig.get(JobConfig.JOB_NAME()), jobConfig.getName().get());
+    assertEquals(expectedConfig.get(JobConfig.JOB_ID()), jobConfig.getJobId().get());
+    assertEquals("testJobGraphJson", jobConfig.get(JobGraphConfigureGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
+    assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS()), jobConfig.get(TaskConfig.INPUT_STREAMS()));
+    assertEquals(expectedConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS));
+  }
+
+  private void validateStreamSerdeConfigure(String streamId, Config config, Map<String, Serde> deserializedSerdes) {
+    Config streamConfig = config.subset(String.format("streams.%s.samza.", streamId));
+    String keySerdeName = streamConfig.get("key.serde");
+    String valueSerdeName = streamConfig.get("msg.serde");
+    assertTrue(String.format("Serialized serdes should contain %s key serde", streamId), deserializedSerdes.containsKey(keySerdeName));
+    assertTrue(String.format("Serialized %s key serde should be a StringSerde", streamId), keySerdeName.startsWith(StringSerde.class.getSimpleName()));
+    assertTrue(String.format("Serialized serdes should contain %s msg serde", streamId), deserializedSerdes.containsKey(valueSerdeName));
+    assertTrue(String.format("Serialized %s msg serde should be a JsonSerdeV2", streamId), valueSerdeName.startsWith(JsonSerdeV2.class.getSimpleName()));
+  }
+
+  private void validateTableSerdeConfigure(String tableId, Config config, Map<String, Serde> deserializedSerdes) {
+    Config streamConfig = config.subset(String.format("tables.%s.", tableId));
+    String keySerdeName = streamConfig.get("key.serde");
+    String valueSerdeName = streamConfig.get("value.serde");
+    assertTrue(String.format("Serialized serdes should contain %s key serde", tableId), deserializedSerdes.containsKey(keySerdeName));
+    assertTrue(String.format("Serialized %s key serde should be a StringSerde", tableId), keySerdeName.startsWith(StringSerde.class.getSimpleName()));
+    assertTrue(String.format("Serialized serdes should contain %s value serde", tableId), deserializedSerdes.containsKey(valueSerdeName));
+    assertTrue(String.format("Serialized %s msg serde should be a JsonSerdeV2", tableId), valueSerdeName.startsWith(JsonSerdeV2.class.getSimpleName()));
+  }
+
+  private void validateIntermediateStreamConfigure(String streamId, String physicalName, Config config) {
+    Config intStreamConfig = config.subset(String.format("streams.%s.", streamId),  true);
+    assertEquals("intermediate-system", intStreamConfig.get("samza.system"));
+    assertEquals(String.valueOf(Integer.MAX_VALUE), intStreamConfig.get("samza.priority"));
+    assertEquals("true", intStreamConfig.get("samza.delete.committed.messages"));
+    assertEquals(physicalName, intStreamConfig.get("samza.physical.name"));
+    assertEquals("true", intStreamConfig.get("samza.intermediate"));
+    assertEquals("oldest", intStreamConfig.get("samza.offset.default"));
+  }
+
+  private void validateStreamConfigures(Config config, Map<String, Serde> deserializedSerdes) {
+
+    if (deserializedSerdes != null) {
+      validateStreamSerdeConfigure(input1Descriptor.getStreamId(), config, deserializedSerdes);
+      validateStreamSerdeConfigure(input2Descriptor.getStreamId(), config, deserializedSerdes);
+      validateStreamSerdeConfigure(outputDescriptor.getStreamId(), config, deserializedSerdes);
+      validateStreamSerdeConfigure(intermediateInputDescriptor.getStreamId(), config, deserializedSerdes);
+    }
+
+    // generated stream config for intermediate stream
+    validateIntermediateStreamConfigure(intermediateInputDescriptor.getStreamId(),
+        intermediateInputDescriptor.getPhysicalName().get(), config);
+  }
+
+  private void validateJoinStoreConfigures(MapConfig mapConfig, Map<String, Serde> deserializedSerdes) {
     String leftJoinStoreKeySerde = mapConfig.get("stores.jobName-jobId-join-j1-L.key.serde");
     String leftJoinStoreMsgSerde = mapConfig.get("stores.jobName-jobId-join-j1-L.msg.serde");
     assertTrue("Serialized serdes should contain left join store key serde",
@@ -250,53 +543,19 @@ public class TestJobGraphConfigureGenerator {
         deserializedSerdes.containsKey(rightJoinStoreMsgSerde));
     assertTrue("Serialized right join store msg serde should be a TimestampedValueSerde",
         rightJoinStoreMsgSerde.startsWith(TimestampedValueSerde.class.getSimpleName()));
+
+    Config leftJoinStoreConfig = mapConfig.subset("stores.jobName-jobId-join-j1-L.", true);
+    validateJoinStoreConfigure(leftJoinStoreConfig, "jobName-jobId-join-j1-L");
+    Config rightJoinStoreConfig = mapConfig.subset("stores.jobName-jobId-join-j1-R.", true);
+    validateJoinStoreConfigure(rightJoinStoreConfig, "jobName-jobId-join-j1-R");
   }
 
-  private void validateStreamSerdeConfigures(Config config, Map<String, Serde> deserializedSerdes) {
-    String input1KeySerde = config.get("streams.input1.samza.key.serde");
-    String input1MsgSerde = config.get("streams.input1.samza.msg.serde");
-    assertTrue("Serialized serdes should contain input1 key serde",
-        deserializedSerdes.containsKey(input1KeySerde));
-    assertTrue("Serialized input1 key serde should be a StringSerde",
-        input1KeySerde.startsWith(StringSerde.class.getSimpleName()));
-    assertTrue("Serialized serdes should contain input1 msg serde",
-        deserializedSerdes.containsKey(input1MsgSerde));
-    assertTrue("Serialized input1 msg serde should be a JsonSerdeV2",
-        input1MsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
-
-    String input2KeySerde = config.get("streams.input2.samza.key.serde");
-    String input2MsgSerde = config.get("streams.input2.samza.msg.serde");
-    assertTrue("Serialized serdes should contain input2 key serde",
-        deserializedSerdes.containsKey(input2KeySerde));
-    assertTrue("Serialized input2 key serde should be a StringSerde",
-        input2KeySerde.startsWith(StringSerde.class.getSimpleName()));
-    assertTrue("Serialized serdes should contain input2 msg serde",
-        deserializedSerdes.containsKey(input2MsgSerde));
-    assertTrue("Serialized input2 msg serde should be a JsonSerdeV2",
-        input2MsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
-
-    String outputKeySerde = config.get("streams.output.samza.key.serde");
-    String outputMsgSerde = config.get("streams.output.samza.msg.serde");
-    assertTrue("Serialized serdes should contain output key serde",
-        deserializedSerdes.containsKey(outputKeySerde));
-    assertTrue("Serialized output key serde should be a StringSerde",
-        outputKeySerde.startsWith(StringSerde.class.getSimpleName()));
-    assertTrue("Serialized serdes should contain output msg serde",
-        deserializedSerdes.containsKey(outputMsgSerde));
-    assertTrue("Serialized output msg serde should be a JsonSerdeV2",
-        outputMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
-
-    String partitionByKeySerde = config.get("streams.jobName-jobId-partition_by-p1.samza.key.serde");
-    String partitionByMsgSerde = config.get("streams.jobName-jobId-partition_by-p1.samza.msg.serde");
-    assertTrue("Serialized serdes should contain intermediate stream key serde",
-        deserializedSerdes.containsKey(partitionByKeySerde));
-    assertTrue("Serialized intermediate stream key serde should be a StringSerde",
-        partitionByKeySerde.startsWith(StringSerde.class.getSimpleName()));
-    assertTrue("Serialized serdes should contain intermediate stream msg serde",
-        deserializedSerdes.containsKey(partitionByMsgSerde));
-    assertTrue(
-        "Serialized intermediate stream msg serde should be a JsonSerdeV2",
-        partitionByMsgSerde.startsWith(JsonSerdeV2.class.getSimpleName()));
+  private void validateJoinStoreConfigure(Config joinStoreConfig, String changelogName) {
+    assertEquals("org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory", joinStoreConfig.get("factory"));
+    assertEquals(changelogName, joinStoreConfig.get("changelog"));
+    assertEquals("delete", joinStoreConfig.get("changelog.kafka.cleanup.policy"));
+    assertEquals("3600000", joinStoreConfig.get("changelog.kafka.retention.ms"));
+    assertEquals("3600000", joinStoreConfig.get("rocksdb.ttl.ms"));
   }
 
   private TaskApplication getTaskApplication() {
@@ -335,5 +594,64 @@ public class TestJobGraphConfigureGenerator {
       MessageStream<KV<String, Object>> input = appDesc.getInputStream(input1Descriptor);
       input.partitionBy(KV::getKey, KV::getValue, "p1");
     };
+  }
+
+  private StreamApplication getBroadcastOnlyStreamApplication(Serde serde) {
+    return appDesc -> {
+      MessageStream<KV<String, Object>> input = appDesc.getInputStream(input1Descriptor);
+      if (serde != null) {
+        input.broadcast(serde, "b1");
+      } else {
+        input.broadcast("b1");
+      }
+    };
+  }
+
+  private static class MockTableProvider implements TableProvider {
+    private final Map<String, String> configMap;
+
+    MockTableProvider(Map<String, String> configMap) {
+      this.configMap = configMap;
+    }
+
+    @Override
+    public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+
+    }
+
+    @Override
+    public Table getTable() {
+      return null;
+    }
+
+    @Override
+    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
+      return configMap;
+    }
+
+    @Override
+    public void close() {
+
+    }
+  }
+
+  public static class MockTableProviderFactory implements TableProviderFactory {
+
+    @Override
+    public TableProvider getTableProvider(TableSpec tableSpec) {
+      Map<String, String> configMap = new HashMap<>();
+      configMap.put("mock.table.provider.config", "mock.config.value");
+      return new MockTableProvider(configMap);
+    }
+  }
+
+  public static class MockConfigRewriter implements ConfigRewriter {
+
+    @Override
+    public Config rewrite(String name, Config config) {
+      Map<String, String> configMap = new HashMap<>(config);
+      configMap.putAll(config.subset(String.format("job.config.rewriter.%s.", name)));
+      return new MapConfig(configMap);
+    }
   }
 }

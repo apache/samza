@@ -68,7 +68,6 @@ class IntermediateStreamPartitionPlanner {
    * Figure out the number of partitions of all streams
    */
   /* package private */ void calculatePartitions(JobGraph jobGraph) {
-    // only compute partitions for high-level API applications
 
     // calculate the partitions for the input streams of join operators
     calculateJoinInputPartitions(jobGraph);
