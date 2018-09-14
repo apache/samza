@@ -782,7 +782,7 @@ public class TestGroupByContainerCount {
     Set<ContainerModel> prevContainers = new HashSet<>();
     taskModels.forEach(model -> {
         prevContainers.add(
-          new ContainerModel(UUID.randomUUID().toString(), -1, Collections.singletonMap(model.getTaskName(), model)));
+          new ContainerModel(UUID.randomUUID().toString(), Collections.singletonMap(model.getTaskName(), model)));
       });
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);

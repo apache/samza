@@ -19,6 +19,9 @@
 
 package org.apache.samza.serializers.model;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -48,10 +51,6 @@ import org.codehaus.jackson.map.introspect.AnnotatedMethod;
 import org.codehaus.jackson.map.module.SimpleModule;
 import org.codehaus.jackson.type.TypeReference;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * <p>
  * A collection of utility classes and (de)serializers to make Samza's job model
@@ -59,7 +58,7 @@ import java.util.Map;
  * Jackson-specific code is isolated so that Samza's core data model does not
  * require a direct dependency on Jackson.
  * </p>
- * 
+ *
  * <p>
  * To use Samza's job data model, use the SamzaObjectMapper.getObjectMapper()
  * method.
@@ -99,19 +98,26 @@ public class SamzaObjectMapper {
       public ContainerModel deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
         ObjectCodec oc = jp.getCodec();
         JsonNode node = oc.readTree(jp);
-        int containerId = node.get("container-id").getIntValue();
-        if (node.get("container-id") == null) {
-          throw new SamzaException("JobModel did not contain a container-id. This can never happen. JobModel corrupt!");
-        }
         String processorId;
         if (node.get("processor-id") == null) {
-          processorId = String.valueOf(containerId);
+          /*
+           * Before Samza 0.13, "container-id" was used. In Samza 0.13 "processor-id" was added to be the id to use and
+           * "container-id" was deprecated, but "container-id" still needed to be checked for backwards compatibility in
+           * case "processor-id" was missing from an older version of the job model. In Samza 1.0, "container-id" was
+           * further cleaned up from ContainerModel, but we are still leaving this fallback here for backwards
+           * compatibility.
+           */
+          if (node.get("container-id") == null) {
+            throw new SamzaException("JobModel was missing processor-id and container-id. This should never happen. "
+                + "JobModel corrupt!");
+          }
+          processorId = String.valueOf(node.get("container-id").getIntValue());
         } else {
           processorId = node.get("processor-id").getTextValue();
         }
         Map<TaskName, TaskModel> tasksMapping =
             OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() { });
-        return new ContainerModel(processorId, containerId, tasksMapping);
+        return new ContainerModel(processorId, tasksMapping);
       }
     });
 

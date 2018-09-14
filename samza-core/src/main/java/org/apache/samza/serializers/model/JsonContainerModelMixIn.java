@@ -19,25 +19,19 @@
 
 package org.apache.samza.serializers.model;
 
+import java.util.Map;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
-import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
-
-import java.util.Map;
 
 /**
  * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.
+ * Note: Constructor is not needed because this mixin is not used for deserialization. See {@link SamzaObjectMapper} for
+ * the deserialization code.
  */
+@JsonIgnoreProperties({"container-id"})
 public abstract class JsonContainerModelMixIn {
-  @JsonCreator
-  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
-  }
-
-  @Deprecated
-  @JsonProperty("container-id")
-  abstract int getContainerId();
-
   @JsonProperty("processor-id")
   abstract String getProcessorId();
 

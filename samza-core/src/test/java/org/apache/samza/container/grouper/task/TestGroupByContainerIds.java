@@ -238,14 +238,13 @@ public class TestGroupByContainerIds {
   public void testFewerTasksThanContainers() {
     final String testContainerId1 = "1";
     final String testContainerId2 = "2";
-    final int testProcessorId = 1;
 
     Set<TaskModel> taskModels = generateTaskModels(1);
     List<String> containerIds = ImmutableList.of(testContainerId1, testContainerId2);
 
     Map<TaskName, TaskModel> expectedTasks = taskModels.stream()
                                                        .collect(Collectors.toMap(TaskModel::getTaskName, x -> x));
-    ContainerModel expectedContainerModel = new ContainerModel(testContainerId1, testProcessorId, expectedTasks);
+    ContainerModel expectedContainerModel = new ContainerModel(testContainerId1, expectedTasks);
 
     Set<ContainerModel> actualContainerModels = buildSimpleGrouper().group(taskModels, containerIds);
 
