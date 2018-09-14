@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.framework.system;
 
-import com.google.common.base.Preconditions;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
@@ -36,8 +35,6 @@ import org.apache.samza.serializers.NoOpSerde;
 public class InMemoryOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, InMemoryOutputDescriptor<StreamMessageType>> {
 
-  private int partitionCount;
-
   /**
    * Constructs an {@link OutputDescriptor} instance.
    * @param streamId id of the stream
@@ -45,20 +42,5 @@ public class InMemoryOutputDescriptor<StreamMessageType>
    */
   InMemoryOutputDescriptor(String streamId, SystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor);
-  }
-
-  /**
-   * Creates an in memory output stream with given partition count
-   * @param partitionCount partition count of output stream
-   * @return this output descriptor
-   */
-  public InMemoryOutputDescriptor<StreamMessageType> withPartitionCount(int partitionCount) {
-    Preconditions.checkState(partitionCount > 0);
-    this.partitionCount = partitionCount;
-    return this;
-  }
-
-  public int getPartitionCount() {
-    return this.partitionCount;
   }
 }

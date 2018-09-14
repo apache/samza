@@ -47,17 +47,15 @@ public class AsyncStreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
     InMemoryInputDescriptor<Integer> imid = isd
-        .getInputDescriptor("ints", new NoOpSerde<Integer>())
-        .withData(inputList);
+        .getInputDescriptor("ints", new NoOpSerde<Integer>());
 
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("ints-out", new NoOpSerde<>())
-        .withPartitionCount(1);
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
 
     Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
@@ -72,18 +70,15 @@ public class AsyncStreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
     InMemoryInputDescriptor<Integer> imid = isd
-        .getInputDescriptor("ints", new NoOpSerde<Integer>())
-        .withData(inputList);
+        .getInputDescriptor("ints", new NoOpSerde<Integer>());
 
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("ints-out", new NoOpSerde<>())
-        .withPartitionCount(1);
-
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInAnyOrder(outputList, imod, Duration.ofMillis(1000));
@@ -98,17 +93,14 @@ public class AsyncStreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
     InMemoryInputDescriptor<KV> imid = isd
-        .getInputDescriptor("ints", new NoOpSerde<KV>())
-        .withData(inputPartitionData);
-
+        .getInputDescriptor("ints", new NoOpSerde<KV>());
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("ints-out", new NoOpSerde<>())
-        .withPartitionCount(5);
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -123,17 +115,15 @@ public class AsyncStreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
     InMemoryInputDescriptor<KV> imid = isd
-        .getInputDescriptor("ints", new NoOpSerde<KV>())
-        .withData(inputPartitionData);
+        .getInputDescriptor("ints", new NoOpSerde<>());
 
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("ints-out", new NoOpSerde<>())
-        .withPartitionCount(5);
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
         .addOverrideConfig("task.max.concurrency", "4")
         .run(Duration.ofSeconds(2));
 
@@ -158,22 +148,18 @@ public class AsyncStreamTaskIntegrationTest {
    */
   @Test(expected = AssertionError.class)
   public void testSamzaJobTimeoutFailureForAsyncTask() {
-    List<Integer> inputList = Arrays.asList(1, 2, 3, 4);
-
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
     InMemoryInputDescriptor<Integer> imid = isd
-        .getInputDescriptor("ints", new NoOpSerde<Integer>())
-        .withData(inputList);
+        .getInputDescriptor("ints", new NoOpSerde<>());
 
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("ints-out", new NoOpSerde<>())
-        .withPartitionCount(1);
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, Arrays.asList(1, 2, 3, 4))
+        .addOutputStream(imod, 1)
         .run(Duration.ofMillis(1));
   }
 

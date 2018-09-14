@@ -170,41 +170,60 @@ public class TestRunner {
   /**
    * Adds the provided input stream with mock data to the test application.
    * @param descriptor describes the stream that is supposed to be input to Samza application
+   * @param messages messages used to initialize the single partition stream
    * @return calling instance of {@link TestRunner} with input stream configured with it
+   * <p>
+   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
+   * <p>
    */
-  public TestRunner addInputStream(InMemoryInputDescriptor descriptor) {
-    Preconditions.checkNotNull(descriptor);
-    String systemName = descriptor.getSystemName();
-    String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
-      configs.put(TaskConfig.INPUT_STREAMS(),
-          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + systemName + "." + streamName));
-    } else {
-      configs.put(TaskConfig.INPUT_STREAMS(), systemName + "." + streamName);
-    }
-    InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
-    imsd.withInMemoryScope(this.inMemoryScope);
-    addConfigs(descriptor.toConfig());
-    addConfigs(descriptor.getSystemDescriptor().toConfig());
-    initializeInMemoryInputStream(descriptor);
+  public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
+      List<StreamMessageType> messages) {
+    Preconditions.checkNotNull(descriptor, messages);
+    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<Integer, Iterable<StreamMessageType>>();
+    partitionData.put(0, messages);
+    initializeInMemoryInputStream(descriptor, partitionData);
+    return this;
+  }
+
+  /**
+   * Adds the provided input stream with mock data to the test application.
+   * @param descriptor describes the stream that is supposed to be input to Samza application
+   * @param messages key of the map represents partitionId and value represents
+   *                 messages in the partition
+   * @return calling instance of {@link TestRunner} with input stream configured with it
+   * <p>
+   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
+   * <p>
+   */
+  public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
+      Map<Integer, ? extends Iterable<StreamMessageType>> messages) {
+    Preconditions.checkNotNull(descriptor, messages);
+    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<Integer, Iterable<StreamMessageType>>();
+    partitionData.putAll(messages);
+    initializeInMemoryInputStream(descriptor, partitionData);
     return this;
   }
 
   /**
    * Adds the provided output stream to the test application.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
+   * @param partitionCount partition count of output stream
    * @return calling instance of {@link TestRunner} with output stream configured with it
    */
-  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor) {
+  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor, int partitionCount) {
     Preconditions.checkNotNull(streamDescriptor);
-    Preconditions.checkState(streamDescriptor.getPartitionCount() >= 1);
+    Preconditions.checkState(partitionCount >= 1);
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) streamDescriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
     Config config = new MapConfig(streamDescriptor.toConfig(), streamDescriptor.getSystemDescriptor().toConfig());
     InMemorySystemFactory factory = new InMemorySystemFactory();
     String physicalName = (String) streamDescriptor.getPhysicalName().orElse(streamDescriptor.getStreamId());
     StreamSpec spec = new StreamSpec(streamDescriptor.getStreamId(), physicalName, streamDescriptor.getSystemName(),
-        streamDescriptor.getPartitionCount());
+        partitionCount);
     factory
         .getAdmin(streamDescriptor.getSystemName(), config)
         .createStream(spec);
@@ -329,27 +348,38 @@ public class TestRunner {
 
   /**
    * Creates an in memory stream with {@link InMemorySystemFactory} and initializes its partition stream with messages
-   *
+   * @param partitonData key of the map represents partitionId and value represents
+   *                 messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system
    */
-  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor) {
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor,
+      Map<Integer, Iterable<StreamMessageType>> partitonData) {
     String systemName = descriptor.getSystemName();
-    String physicalName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), physicalName, systemName, descriptor.getPartitionSize());
+    String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
+    if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
+      configs.put(TaskConfig.INPUT_STREAMS(),
+          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + systemName + "." + streamName));
+    } else {
+      configs.put(TaskConfig.INPUT_STREAMS(), systemName + "." + streamName);
+    }
+    InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
+    imsd.withInMemoryScope(this.inMemoryScope);
+    addConfigs(descriptor.toConfig());
+    addConfigs(descriptor.getSystemDescriptor().toConfig());
+    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
     factory.getAdmin(systemName, config).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, config, null);
-    SystemStream sysStream = new SystemStream(systemName, physicalName);
-    Map<Integer, Iterable<StreamMessageType>> partitions = descriptor.getPartitionData();
-    partitions.forEach((partitionId, partition) -> {
-      partition.forEach(e -> {
-        Object key = e instanceof KV ? ((KV) e).getKey() : null;
-        Object value = e instanceof KV ? ((KV) e).getValue() : e;
-        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
-      });
-      producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
+    SystemStream sysStream = new SystemStream(systemName, streamName);
+    partitonData.forEach((partitionId, partition) -> {
+        partition.forEach(e -> {
+            Object key = e instanceof KV ? ((KV) e).getKey() : null;
+            Object value = e instanceof KV ? ((KV) e).getValue() : e;
+            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+          });
+        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
           new EndOfStreamMessage(null)));
-    });
+      });
   }
 }

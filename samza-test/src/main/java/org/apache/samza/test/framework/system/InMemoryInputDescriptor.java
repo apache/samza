@@ -19,10 +19,6 @@
 
 package org.apache.samza.test.framework.system;
 
-import com.google.common.base.Preconditions;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
 
@@ -35,9 +31,6 @@ import org.apache.samza.serializers.NoOpSerde;
  */
 public class InMemoryInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, InMemoryInputDescriptor<StreamMessageType>> {
-
-  private Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<Integer, Iterable<StreamMessageType>>();
-
   /**
    * Constructs a new InMemoryInputDescriptor from specified components.
    * @param systemDescriptor represents name of the system stream is associated with
@@ -45,48 +38,5 @@ public class InMemoryInputDescriptor<StreamMessageType>
    */
   InMemoryInputDescriptor(String streamId, InMemorySystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor, null);
-  }
-
-  /**
-   * Creates a single partitioned in memory stream with the provided messages
-   * @param messages messages used to initialize the single partition stream
-   * @return this input descriptor
-   * <p>
-   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
-   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
-   * <p>
-   */
-  public InMemoryInputDescriptor<StreamMessageType> withData(List<StreamMessageType> messages) {
-    Preconditions.checkNotNull(messages);
-    this.partitionData.put(0, messages);
-    return this;
-  }
-
-  /**
-   * Creates a single partitioned in memory stream with the provided messages
-   *
-   * @param messages key of the map represents partitionId and value represents
-   *                      messages in the partition
-   * @return this input descriptor
-   * <p>
-   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
-   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
-   * <p>
-   */
-  public InMemoryInputDescriptor<StreamMessageType> withData(
-      Map<Integer, ? extends Iterable<StreamMessageType>> messages) {
-    Preconditions.checkNotNull(messages);
-    this.partitionData.putAll(messages);
-    return this;
-  }
-
-  public int getPartitionSize() {
-    return partitionData.size();
-  }
-
-  public Map<Integer, Iterable<StreamMessageType>> getPartitionData() {
-    return partitionData;
   }
 }

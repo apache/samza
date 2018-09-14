@@ -48,17 +48,15 @@ public class StreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<Integer> imid = isd
-        .getInputDescriptor("input", new NoOpSerde<Integer>())
-        .withData(inputList);
+        .getInputDescriptor("input", new NoOpSerde<Integer>());
 
     InMemoryOutputDescriptor<Integer> imod = isd
-        .getOutputDescriptor("output", new NoOpSerde<Integer>())
-        .withPartitionCount(1);
+        .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
         .of(MyStreamTestTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(1));
 
     Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
@@ -76,17 +74,15 @@ public class StreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<Double> imid = isd
-        .getInputDescriptor("doubles", new NoOpSerde<Double>())
-        .withData(inputList);
+        .getInputDescriptor("doubles", new NoOpSerde<Double>());
 
     InMemoryOutputDescriptor imod = isd
-        .getOutputDescriptor("output", new NoOpSerde<>())
-        .withPartitionCount(1);
+        .getOutputDescriptor("output", new NoOpSerde<>());
 
     TestRunner
         .of(MyStreamTestTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(1));
   }
 
@@ -98,17 +94,15 @@ public class StreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<Integer> imid = isd
-        .getInputDescriptor("input", new NoOpSerde<Integer>())
-        .withData(inputList);
+        .getInputDescriptor("input", new NoOpSerde<Integer>());
 
     InMemoryOutputDescriptor<Integer> imod = isd
-        .getOutputDescriptor("output", new NoOpSerde<Integer>())
-        .withPartitionCount(1);
+        .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
         .of(MyStreamTestTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .addOverrideConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(1));
 
@@ -124,17 +118,15 @@ public class StreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<KV> imid = isd
-        .getInputDescriptor("input", new NoOpSerde<KV>())
-        .withData(inputPartitionData);
+        .getInputDescriptor("input", new NoOpSerde<KV>());
 
     InMemoryOutputDescriptor<Integer> imod = isd
-        .getOutputDescriptor("output", new NoOpSerde<Integer>())
-        .withPartitionCount(5);
+        .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
         .of(MyStreamTestTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -149,17 +141,15 @@ public class StreamTaskIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<KV> imid = isd
-        .getInputDescriptor("input", new NoOpSerde<KV>())
-        .withData(inputPartitionData);
+        .getInputDescriptor("input", new NoOpSerde<KV>());
 
     InMemoryOutputDescriptor<Integer> imod = isd
-        .getOutputDescriptor("output", new NoOpSerde<Integer>())
-        .withPartitionCount(5);
+        .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
         .of(MyStreamTestTask.class)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
         .addOverrideConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(2));
 

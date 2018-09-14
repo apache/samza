@@ -88,17 +88,15 @@ public class StreamApplicationIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<PageView> imid = isd
-        .getInputDescriptor("PageView", new NoOpSerde<PageView>())
-        .withData(pageviews);
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
 
     InMemoryOutputDescriptor<PageView> imod = isd
-        .getOutputDescriptor("Output", new NoOpSerde<PageView>())
-        .withPartitionCount(10);
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner
         .of(pageViewRepartition)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, pageviews)
+        .addOutputStream(imod, 10)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
@@ -120,17 +118,15 @@ public class StreamApplicationIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<PageView> imid = isd
-        .getInputDescriptor("PageView", new NoOpSerde<PageView>())
-        .withData(new ArrayList<>());
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
 
     InMemoryOutputDescriptor<PageView> imod = isd
-        .getOutputDescriptor("Output", new NoOpSerde<PageView>())
-        .withPartitionCount(10);
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner
         .of(pageViewRepartition)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, new ArrayList<>())
+        .addOutputStream(imod, 10)
         .run(Duration.ofMillis(1000));
   }
 
@@ -151,16 +147,14 @@ public class StreamApplicationIntegrationTest {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<PageView> imid = isd
-        .getInputDescriptor("PageView", new NoOpSerde<PageView>())
-        .withData(pageviews);
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
 
     InMemoryOutputDescriptor<PageView> imod = isd
-        .getOutputDescriptor("Output", new NoOpSerde<PageView>())
-        .withPartitionCount(10);
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner.of(pageViewFilter)
-        .addInputStream(imid)
-        .addOutputStream(imod)
+        .addInputStream(imid, pageviews)
+        .addOutputStream(imod, 10)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1000));
   }

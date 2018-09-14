@@ -90,22 +90,19 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);
 
     InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd
-        .getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<PageView>())
-        .withData(pageViews);
+        .getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<PageView>());
 
     InMemoryInputDescriptor<Profile> profileStreamDesc = isd
-        .getInputDescriptor(PROFILE_STREAM, new NoOpSerde<Profile>())
-        .withData(profiles);
+        .getInputDescriptor(PROFILE_STREAM, new NoOpSerde<Profile>());
 
     InMemoryOutputDescriptor<EnrichedPageView> outputStreamDesc = isd
-        .getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<EnrichedPageView>())
-        .withPartitionCount(1);
+        .getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<EnrichedPageView>());
 
     TestRunner
         .of(app)
-        .addInputStream(pageViewStreamDesc)
-        .addInputStream(profileStreamDesc)
-        .addOutputStream(outputStreamDesc)
+        .addInputStream(pageViewStreamDesc, pageViews)
+        .addInputStream(profileStreamDesc, profiles)
+        .addOutputStream(outputStreamDesc, 1)
         .addConfigs(new MapConfig(configs))
         .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
         .run(Duration.ofMillis(100000));
