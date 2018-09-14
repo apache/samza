@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
@@ -125,7 +126,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
       assertEquals("Mismatch between the expected and actual join count", results.size(),
           expectedEnrichedPageviews.size());
       assertTrue("Pageview profile join did not succeed for all inputs", successfulJoin);
-    } catch (InterruptedException e) {
+    } catch (SamzaException e) {
       e.printStackTrace();
     }
   }

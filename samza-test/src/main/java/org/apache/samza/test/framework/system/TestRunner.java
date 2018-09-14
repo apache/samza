@@ -168,8 +168,7 @@ public class TestRunner {
   }
 
   /**
-   * Configures an inmemory input stream with the TestRunner, adds all the stream and system specific configs
-   * to global job configs.
+   * Adds the provided input stream with mock data to the test application.
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @return calling instance of {@link TestRunner} with input stream configured with it
    */
@@ -192,33 +191,7 @@ public class TestRunner {
   }
 
   /**
-   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes the metadata for the stream.
-   * Initializes each partition of that stream with messages
-   * @param descriptor describes a stream to initialize with the in memory system
-   */
-  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor) {
-    String systemName = descriptor.getSystemName();
-    String physicalName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), physicalName, systemName, descriptor.getPartitionSize());
-    SystemFactory factory = new InMemorySystemFactory();
-    Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
-    factory.getAdmin(systemName, config).createStream(spec);
-    SystemProducer producer = factory.getProducer(systemName, config, null);
-    SystemStream sysStream = new SystemStream(systemName, physicalName);
-    Map<Integer, Iterable<StreamMessageType>> partitions = descriptor.getPartitionData();
-    partitions.forEach((partitionId, partition) -> {
-        partition.forEach(e -> {
-            Object key = e instanceof KV ? ((KV) e).getKey() : null;
-            Object value = e instanceof KV ? ((KV) e).getValue() : e;
-            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
-          });
-        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
-          new EndOfStreamMessage(null)));
-      });
-  }
-
-  /**
-   * Configures an inememory output with the TestRunner, adds all the stream specific configs to global job configs.
+   * Adds the provided output stream to the test application.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @return calling instance of {@link TestRunner} with output stream configured with it
    */
@@ -265,17 +238,17 @@ public class TestRunner {
 
   /**
    * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
-   * TestRunner in order to assert over the streams (ex output streams).
+   * TestRunner in order to assert over output streams
    *
-   * @param streamDescriptor describes the stream whose current state of partitions is requested to be fetched
-   * @param timeout poll timeout in Ms
+   * @param streamDescriptor describes the stream to be consumed
+   * @param timeout timeout for consumption of stream in Ms
    * @param <StreamMessageType> represents type of message
    *
    * @return a map key of which represents the {@code partitionId} and value represents the current state of the partition
    *         i.e messages in the partition
    * @throws InterruptedException Thrown when a blocking poll has been interrupted by another thread.
    */
-  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws InterruptedException {
+  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws SamzaException {
     Preconditions.checkNotNull(streamDescriptor);
     String streamId = streamDescriptor.getStreamId();
     String systemName = streamDescriptor.getSystemName();
@@ -297,7 +270,12 @@ public class TestRunner {
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> output = new HashMap<>();
     HashSet<SystemStreamPartition> didNotReachEndOfStream = new HashSet<>(ssps);
     while (System.currentTimeMillis() < t + timeout.toMillis()) {
-      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> currentState = consumer.poll(ssps, 10);
+      Map<SystemStreamPartition, List<IncomingMessageEnvelope>> currentState = null;
+      try {
+        currentState = consumer.poll(ssps, 10);
+      } catch (InterruptedException e) {
+        throw new SamzaException("Timed out while consuming stream \n" + e.getMessage());
+      }
       for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> entry : currentState.entrySet()) {
         SystemStreamPartition ssp = entry.getKey();
         output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
@@ -347,5 +325,31 @@ public class TestRunner {
     }
     throw new SamzaException(String.format("Not supported task.class %s. task.class has to implement either StreamTask "
         + "or AsyncStreamTask", taskClass.getName()));
+  }
+
+  /**
+   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes its partition stream with messages
+   *
+   * @param descriptor describes a stream to initialize with the in memory system
+   */
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor) {
+    String systemName = descriptor.getSystemName();
+    String physicalName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
+    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), physicalName, systemName, descriptor.getPartitionSize());
+    SystemFactory factory = new InMemorySystemFactory();
+    Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
+    factory.getAdmin(systemName, config).createStream(spec);
+    SystemProducer producer = factory.getProducer(systemName, config, null);
+    SystemStream sysStream = new SystemStream(systemName, physicalName);
+    Map<Integer, Iterable<StreamMessageType>> partitions = descriptor.getPartitionData();
+    partitions.forEach((partitionId, partition) -> {
+      partition.forEach(e -> {
+        Object key = e instanceof KV ? ((KV) e).getKey() : null;
+        Object value = e instanceof KV ? ((KV) e).getValue() : e;
+        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+      });
+      producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
+          new EndOfStreamMessage(null)));
+    });
   }
 }

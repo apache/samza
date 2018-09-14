@@ -101,10 +101,6 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
     return this;
   }
 
-  public String getInMemoryScope() {
-    return inMemoryScope;
-  }
-
   @Override
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>(super.toConfig());
