@@ -72,7 +72,7 @@ class FailsafeAdapter {
       failSafePolicy.withJitter(policy.getJitter().toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    failSafePolicy.retryOn(e -> policy.getRetryOn().test(e));
+    failSafePolicy.retryOn(e -> policy.getRetryPredicate().test(e));
 
     return failSafePolicy;
   }

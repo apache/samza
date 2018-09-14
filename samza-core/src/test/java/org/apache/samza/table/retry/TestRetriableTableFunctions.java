@@ -284,7 +284,7 @@ public class TestRetriableTableFunctions {
     policy.withFixedBackoff(Duration.ofMillis(100));
 
     // Retry should be attempted based on the custom classification, ie. retry on NPE
-    policy.withRetryOn(ex -> ex instanceof NullPointerException);
+    policy.withRetryPredicate(ex -> ex instanceof NullPointerException);
 
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
 

@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Predicate;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -63,14 +64,15 @@ public class RetriableReadFunction<K, V> implements TableReadFunction<K, V> {
 
     this.readFn = readFn;
     this.retryExecutor = retryExecutor;
-    policy.withRetryOn((ex) -> readFn.isRetriable(ex) || policy.getRetryOn().test(ex));
+    Predicate<Throwable> retryPredicate = policy.getRetryPredicate();
+    policy.withRetryPredicate((ex) -> readFn.isRetriable(ex) || retryPredicate.test(ex));
     this.retryPolicy = FailsafeAdapter.valueOf(policy);
   }
 
   @Override
   public CompletableFuture<V> getAsync(K key) {
     return failsafe(retryPolicy, retryMetrics, retryExecutor)
-        .future(k -> readFn.getAsync(key))
+        .future(() -> readFn.getAsync(key))
         .exceptionally(e -> {
             throw new SamzaException("Failed to get the record for " + key + " after retries.", e);
           });
@@ -79,7 +81,7 @@ public class RetriableReadFunction<K, V> implements TableReadFunction<K, V> {
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(Collection<K> keys) {
     return failsafe(retryPolicy, retryMetrics, retryExecutor)
-        .future(k -> readFn.getAllAsync(keys))
+        .future(() -> readFn.getAllAsync(keys))
         .exceptionally(e -> {
             throw new SamzaException("Failed to get the records for " + keys + " after retries.", e);
           });

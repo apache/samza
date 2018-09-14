@@ -82,7 +82,7 @@ public class TableRetryPolicy implements Serializable {
   }
 
   // By default no custom retry predicate so retry decision is made solely by the table functions
-  private RetryPredicate isRetriable = (ex) -> false;
+  private RetryPredicate retryPredicate = (ex) -> false;
 
   /**
    * Set the sleepTime time for the fixed backoff policy.
@@ -173,12 +173,12 @@ public class TableRetryPolicy implements Serializable {
    * Set the predicate to use for identifying retriable exceptions. If specified, table
    * retry logic will consult both such predicate and table function and retry will be
    * attempted if either option returns true.
-   * @param isRetriable predicate for retriable exception identification
+   * @param retryPredicate predicate for retriable exception identification
    * @return this policy instance
    */
-  public TableRetryPolicy withRetryOn(RetryPredicate isRetriable) {
-    Preconditions.checkNotNull(isRetriable);
-    this.isRetriable = isRetriable;
+  public TableRetryPolicy withRetryPredicate(RetryPredicate retryPredicate) {
+    Preconditions.checkNotNull(retryPredicate);
+    this.retryPredicate = retryPredicate;
     return this;
   }
 
@@ -251,7 +251,7 @@ public class TableRetryPolicy implements Serializable {
   /**
    * @return Custom predicate for retriable exception identification or null if not specified.
    */
-  public RetryPredicate getRetryOn() {
-    return isRetriable;
+  public RetryPredicate getRetryPredicate() {
+    return retryPredicate;
   }
 }

@@ -45,7 +45,7 @@ public class TestTableRetryPolicy {
     Assert.assertEquals(1000, fsRetry.getDelay().toMillis());
     Assert.assertEquals(100, fsRetry.getJitter().toMillis());
     Assert.assertEquals(4, fsRetry.getMaxRetries());
-    Assert.assertNotNull(retryPolicy.getRetryOn());
+    Assert.assertNotNull(retryPolicy.getRetryPredicate());
   }
 
   @Test
@@ -75,8 +75,8 @@ public class TestTableRetryPolicy {
   @Test
   public void testCustomRetryPredicate() {
     TableRetryPolicy retryPolicy = new TableRetryPolicy();
-    retryPolicy.withRetryOn((e) -> e instanceof IllegalArgumentException);
-    Assert.assertTrue(retryPolicy.getRetryOn().test(new IllegalArgumentException()));
-    Assert.assertFalse(retryPolicy.getRetryOn().test(new NullPointerException()));
+    retryPolicy.withRetryPredicate((e) -> e instanceof IllegalArgumentException);
+    Assert.assertTrue(retryPolicy.getRetryPredicate().test(new IllegalArgumentException()));
+    Assert.assertFalse(retryPolicy.getRetryPredicate().test(new NullPointerException()));
   }
 }

@@ -142,7 +142,7 @@ public class TestRemoteTableDescriptor {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
     RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1");
     TableRetryPolicy retryPolicy = new TableRetryPolicy();
-    retryPolicy.withRetryOn((ex) -> false);
+    retryPolicy.withRetryPredicate((ex) -> false);
     desc.withReadFunction(mock(TableReadFunction.class), retryPolicy);
     desc.withWriteFunction(mock(TableWriteFunction.class));
     desc.withAsyncCallbackExecutorPoolSize(10);
