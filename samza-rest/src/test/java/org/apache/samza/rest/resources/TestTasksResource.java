@@ -35,7 +35,9 @@ import org.apache.samza.rest.resources.mock.MockTaskProxyFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
+import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
+import org.glassfish.jersey.test.TestProperties;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -52,6 +54,7 @@ public class TestTasksResource extends JerseyTest {
                                                     SamzaRestConfig.CONFIG_REST_RESOURCE_FACTORIES,
                                                     MockResourceFactory.class.getName());
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
+    forceSet(TestProperties.CONTAINER_PORT, "0");
     return new SamzaRestApplication(config);
   }
 

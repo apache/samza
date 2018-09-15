@@ -123,7 +123,8 @@ subprojects {
 
   tasks.withType(Test) {
     test {
-      testLogging {
+        maxParallelForks = 5
+        testLogging {
         showStackTraces = true
         showExceptions = true
         showCauses = true
@@ -788,6 +789,7 @@ project(":samza-test_$scalaVersion") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
+    maxParallelForks = 5
   }
 
   checkstyle {
