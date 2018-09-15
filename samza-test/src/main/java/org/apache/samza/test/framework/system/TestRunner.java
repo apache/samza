@@ -169,14 +169,13 @@ public class TestRunner {
 
   /**
    * Adds the provided input stream with mock data to the test application.
+   *
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages messages used to initialize the single partition stream
+   * @param <StreamMessageType> here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message
    * @return calling instance of {@link TestRunner} with input stream configured with it
-   * <p>
-   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
-   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
-   * <p>
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       List<StreamMessageType> messages) {
@@ -192,12 +191,10 @@ public class TestRunner {
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages key of the map represents partitionId and value represents
    *                 messages in the partition
+   * @param <StreamMessageType> here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message
    * @return calling instance of {@link TestRunner} with input stream configured with it
-   * <p>
-   * {@code StreamMessageType} here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
-   * A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   * {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message of the same
-   * <p>
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       Map<Integer, ? extends Iterable<StreamMessageType>> messages) {
@@ -265,7 +262,7 @@ public class TestRunner {
    *
    * @return a map key of which represents the {@code partitionId} and value represents the current state of the partition
    *         i.e messages in the partition
-   * @throws InterruptedException Thrown when a blocking poll has been interrupted by another thread.
+   * @throws SamzaException Thrown when a poll is incomplete
    */
   public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws SamzaException {
     Preconditions.checkNotNull(streamDescriptor);
