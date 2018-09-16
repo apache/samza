@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
@@ -35,7 +36,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.table.TableSpec;
@@ -46,7 +47,7 @@ import static org.apache.samza.util.StreamUtil.*;
 
 
 /**
- * The ExecutionPlanner creates the physical execution graph for the {@link OperatorSpecGraph}, and
+ * The ExecutionPlanner creates the physical execution graph for the {@link ApplicationDescriptorImpl}, and
  * the intermediate topics needed for the execution.
  */
 // TODO: ExecutionPlanner needs to be able to generate single node JobGraph for low-level TaskApplication as well (SAMZA-1811)
@@ -65,8 +66,7 @@ public class ExecutionPlanner {
     validateConfig();
 
     // create physical job graph based on stream graph
-    JobGraph jobGraph = createJobGraph(config, new JobGraphJsonGenerator(appDesc), new JobGraphConfigureGenerator(appDesc),
-        appDesc.getAppClass().getName().equals(LegacyTaskApplication.class));
+    JobGraph jobGraph = createJobGraph(config, appDesc, new JobGraphJsonGenerator(), new JobNodeConfigureGenerator());
 
     // fetch the external streams partition info
     updateExistingPartitions(jobGraph, streamManager);
@@ -90,16 +90,18 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Create the physical graph from {@link OperatorSpecGraph}
+   * Create the physical graph from {@link ApplicationDescriptorImpl}
    */
-  /* package private */ JobGraph createJobGraph(Config config, JobGraphJsonGenerator jobJsonGenerator,
-      JobGraphConfigureGenerator jobConfigureGenerator, boolean isLegacyTaskApplication) {
-    JobGraph jobGraph = new JobGraph(config, jobJsonGenerator, jobConfigureGenerator);
+  /* package private */
+  JobGraph createJobGraph(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
+      JobGraphJsonGenerator jobJsonGenerator, JobNodeConfigureGenerator jobConfigureGenerator) {
+    JobGraph jobGraph = new JobGraph(config, appDesc, jobJsonGenerator, jobConfigureGenerator);
     StreamConfig streamConfig = new StreamConfig(config);
-    Set<StreamSpec> sourceStreams = getStreamSpecs(jobConfigureGenerator.getInputStreamIds(), streamConfig);
-    Set<StreamSpec> sinkStreams = getStreamSpecs(jobConfigureGenerator.getOutputStreamIds(), streamConfig);
+    Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
+    Set<StreamSpec> sinkStreams = getStreamSpecs(appDesc.getOutputStreamIds(), streamConfig);
     Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
-    Set<TableSpec> tables = new HashSet<>(jobConfigureGenerator.getTableSpecs());
+    Set<TableSpec> tables = appDesc.getTableDescriptors().stream()
+        .map(tableDescriptor -> ((BaseTableDescriptor) tableDescriptor).getTableSpec()).collect(Collectors.toSet());
     intStreams.retainAll(sinkStreams);
     sourceStreams.removeAll(intStreams);
     sinkStreams.removeAll(intStreams);
@@ -121,7 +123,7 @@ public class ExecutionPlanner {
     // add tables
     tables.forEach(spec -> jobGraph.addTable(spec, node));
 
-    if (!isLegacyTaskApplication) {
+    if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
       // skip the validation when input streamIds are empty. This is only possible for LegacyApplication
       jobGraph.validate();
     }

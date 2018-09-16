@@ -20,25 +20,20 @@ package org.apache.samza.execution;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,9 +77,8 @@ public abstract class JobPlanner {
     }
 
     StreamConfig streamConfig = new StreamConfig(config);
-    JobGraphConfigureGenerator jobGraphConfigureGenerator = new JobGraphConfigureGenerator(appDesc);
-    Set<String> inputStreams = jobGraphConfigureGenerator.getInputStreamIds();
-    inputStreams.removeAll(jobGraphConfigureGenerator.getOutputStreamIds());
+    Set<String> inputStreams = new HashSet<>(appDesc.getInputStreamIds());
+    inputStreams.removeAll(appDesc.getOutputStreamIds());
     ApplicationConfig.ApplicationMode mode = inputStreams.stream().allMatch(streamConfig::getIsBounded)
         ? ApplicationConfig.ApplicationMode.BATCH : ApplicationConfig.ApplicationMode.STREAM;
     cfg.put(ApplicationConfig.APP_MODE, mode.name());
@@ -99,7 +93,7 @@ public abstract class JobPlanner {
 
     // create the physical execution plan and merge with overrides. This works for a single-stage job now
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
-    Config mergedConfig = JobGraphConfigureGenerator.mergeJobConfig(config, new MapConfig(cfg));
+    Config mergedConfig = JobNodeConfigureGenerator.mergeJobConfig(config, new MapConfig(cfg));
     // creating the StreamManager to get all input/output streams' metadata for planning
     StreamManager streamManager = buildAndStartStreamManager(mergedConfig);
     try {

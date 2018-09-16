@@ -191,6 +191,7 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
   }
 
   checkstyle {

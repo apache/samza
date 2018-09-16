@@ -239,6 +239,35 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
   }
 
+  @Override
+  public Set<String> getInputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(inputOperators.keySet()));
+  }
+
+  @Override
+  public Set<String> getOutputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(outputStreams.keySet()));
+  }
+
+  @Override
+  public Serde getInputSerde(String inputStreamId) {
+    if (!inputOperators.containsKey(inputStreamId)) {
+      // the corresponding inputStreamId does not exist
+      return null;
+    }
+    InputOperatorSpec inputOperator = inputOperators.get(inputStreamId);
+    return KVSerde.of(inputOperator.getKeySerde(), inputOperator.getValueSerde());
+  }
+
+  @Override
+  public Serde getOutputSerde(String outputStreamId) {
+    if (!outputStreams.containsKey(outputStreamId)) {
+      return null;
+    }
+    OutputStreamImpl outputStream = outputStreams.get(outputStreamId);
+    return KVSerde.of(outputStream.getKeySerde(), outputStream.getValueSerde());
+  }
+
   /**
    * Get the default {@link SystemDescriptor} in this application
    *

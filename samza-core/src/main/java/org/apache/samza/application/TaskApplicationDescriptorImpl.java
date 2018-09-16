@@ -29,6 +29,7 @@ import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.TaskFactory;
 
 
@@ -109,6 +110,34 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     // We enforce that users must not use different system descriptor instances for the same system name
     // when getting an input/output stream or setting the default system descriptor
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+  }
+
+  @Override
+  public Set<String> getInputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(inputDescriptors.keySet()));
+  }
+
+  @Override
+  public Set<String> getOutputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(outputDescriptors.keySet()));
+  }
+
+  @Override
+  public Serde getInputSerde(String inputStreamId) {
+    if (!inputDescriptors.containsKey(inputStreamId)) {
+      return null;
+    }
+    InputDescriptor inputDescriptor = inputDescriptors.get(inputStreamId);
+    return inputDescriptor.getSerde();
+  }
+
+  @Override
+  public Serde getOutputSerde(String outputStreamId) {
+    if (!outputDescriptors.containsKey(outputStreamId)) {
+      return null;
+    }
+    OutputDescriptor outputDescriptor = outputDescriptors.get(outputStreamId);
+    return outputDescriptor.getSerde();
   }
 
   /**

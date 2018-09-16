@@ -19,9 +19,7 @@
 package org.apache.samza.execution;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
@@ -108,13 +106,13 @@ public class TestIntermediateStreamPartitionPlanner {
     StreamEdge input2Edge = new StreamEdge(input2Spec, false, false, mockConfig);
     StreamEdge outputEdge = new StreamEdge(outputSpec, false, false, mockConfig);
     StreamEdge repartitionEdge = new StreamEdge(repartitionSpec, true, false, mockConfig);
-    List<StreamEdge> inputEdges = new ArrayList<>();
-    inputEdges.add(input1Edge);
-    inputEdges.add(input2Edge);
-    inputEdges.add(repartitionEdge);
-    List<StreamEdge> outputEdges = new ArrayList<>();
-    outputEdges.add(outputEdge);
-    outputEdges.add(repartitionEdge);
+    Map<String, StreamEdge> inputEdges = new HashMap<>();
+    inputEdges.put(input1Descriptor.getStreamId(), input1Edge);
+    inputEdges.put(input2Descriptor.getStreamId(), input2Edge);
+    inputEdges.put(repartitionSpec.getId(), repartitionEdge);
+    Map<String, StreamEdge> outputEdges = new HashMap<>();
+    outputEdges.put(outputDescriptor.getStreamId(), outputEdge);
+    outputEdges.put(repartitionSpec.getId(), repartitionEdge);
     when(mockJobNode.getInEdges()).thenReturn(inputEdges);
     when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
     when(mockJobNode.getConfig()).thenReturn(mockConfig);

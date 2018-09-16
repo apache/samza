@@ -29,11 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
@@ -120,12 +116,7 @@ import org.codehaus.jackson.map.ObjectMapper;
     String applicationId;
   }
 
-  // input operators for the application. For low-level task applications, this is empty.
-  private final Map<String, InputOperatorSpec> inputOperators;
-
-  JobGraphJsonGenerator(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    this.inputOperators = appDesc instanceof StreamApplicationDescriptorImpl ?
-        ((StreamApplicationDescriptorImpl) appDesc).getInputOperators() : new HashMap<>();
+  JobGraphJsonGenerator() {
   }
 
   /**
@@ -151,7 +142,7 @@ import org.codehaus.jackson.map.ObjectMapper;
     jobGraph.getTables().forEach(t -> buildTableJson(t, jobGraphJson.tables));
 
     jobGraphJson.jobs = jobGraph.getJobNodes().stream()
-        .map(jobNode -> buildJobNodeJson(jobNode))
+        .map(this::buildJobNodeJson)
         .collect(Collectors.toList());
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -207,30 +198,6 @@ import org.codehaus.jackson.map.ObjectMapper;
     return map;
   }
 
-  // get all next operators consuming from the input {@code streamId}
-  private Set<String> getNextOperatorIds(String streamId) {
-    if (!this.inputOperators.containsKey(streamId)) {
-      return new HashSet<>();
-    }
-    return this.inputOperators.get(streamId).getRegisteredOperatorSpecs().stream()
-        .map(op -> op.getOpId()).collect(Collectors.toSet());
-  }
-
-  /**
-   * Traverse the {@link OperatorSpec} graph recursively and update the operator graph JSON POJO.
-   * @param inputStreamId input streamId
-   * @param opGraph operator graph to build
-   */
-  private void updateOperatorGraphJson(String inputStreamId, OperatorGraphJson opGraph) {
-    // TODO xiliu: render input operators instead of input streams
-    InputOperatorSpec operatorSpec = this.inputOperators.get(inputStreamId);
-    if (operatorSpec == null) {
-      // no corresponding input operator for input stream
-      return;
-    }
-    updateOperatorGraphJson(operatorSpec, opGraph);
-  }
-
   /**
    * Create JSON POJO for a {@link JobNode}, including the {@link org.apache.samza.application.ApplicationDescriptorImpl}
    * for this job
@@ -254,16 +221,16 @@ import org.codehaus.jackson.map.ObjectMapper;
   private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
-    jobNode.getInEdges().forEach(inStream -> {
+    jobNode.getInEdges().values().forEach(inStream -> {
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
         inputJson.streamId = inStream.getStreamSpec().getId();
-        inputJson.nextOperatorIds = getNextOperatorIds(inputJson.streamId);
-        updateOperatorGraphJson(inputJson.streamId, opGraph);
+        inputJson.nextOperatorIds = jobNode.getNextOperatorIds(inputJson.streamId);
+        updateOperatorGraphJson(jobNode.getInputOperator(inputJson.streamId), opGraph);
       });
 
     opGraph.outputStreams = new ArrayList<>();
-    jobNode.getOutEdges().forEach(outStream -> {
+    jobNode.getOutEdges().values().forEach(outStream -> {
         StreamJson outputJson = new StreamJson();
         outputJson.streamId = outStream.getStreamSpec().getId();
         opGraph.outputStreams.add(outputJson);
@@ -290,15 +257,11 @@ import org.codehaus.jackson.map.ObjectMapper;
       edgeJson.streamSpec = streamSpecJson;
 
       List<String> sourceJobs = new ArrayList<>();
-      edge.getSourceNodes().forEach(jobNode -> {
-          sourceJobs.add(jobNode.getJobName());
-        });
+      edge.getSourceNodes().forEach(jobNode -> sourceJobs.add(jobNode.getJobName()));
       edgeJson.sourceJobs = sourceJobs;
 
       List<String> targetJobs = new ArrayList<>();
-      edge.getTargetNodes().forEach(jobNode -> {
-          targetJobs.add(jobNode.getJobName());
-        });
+      edge.getTargetNodes().forEach(jobNode -> targetJobs.add(jobNode.getJobName()));
       edgeJson.targetJobs = targetJobs;
 
       streamEdges.put(streamId, edgeJson);
@@ -314,12 +277,7 @@ import org.codehaus.jackson.map.ObjectMapper;
    */
   private TableSpecJson buildTableJson(TableSpec tableSpec, Map<String, TableSpecJson> tableSpecs) {
     String tableId = tableSpec.getId();
-    TableSpecJson tableSpecJson = tableSpecs.get(tableId);
-    if (tableSpecJson == null) {
-      tableSpecJson = buildTableJson(tableSpec);
-      tableSpecs.put(tableId, tableSpecJson);
-    }
-    return tableSpecJson;
+    return tableSpecs.computeIfAbsent(tableId, k -> buildTableJson(tableSpec));
   }
 
   /**

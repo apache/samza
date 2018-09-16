@@ -28,13 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.StreamApplicationDescriptor;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -43,13 +38,8 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.operators.BaseTableDescriptor;
-import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
-import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
-import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.StoreDescriptor;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
@@ -68,28 +58,14 @@ import org.slf4j.LoggerFactory;
 /**
  * This class provides methods to generate configuration for a {@link JobNode}
  */
-public class JobGraphConfigureGenerator {
+/* package private */ class JobNodeConfigureGenerator {
 
-  private static final Logger LOG = LoggerFactory.getLogger(JobGraphConfigureGenerator.class);
-
-  private final StreamSerdeConfigureGenerator streamSerdeConfigureGenerator;
-  private final Set<String> broadcastStreamIds;
-  private final Set<String> inputStreamIds;
-  private final Set<String> outputStreamIds;
-  private final Set<TableSpec> tableSpecs;
+  private static final Logger LOG = LoggerFactory.getLogger(JobNodeConfigureGenerator.class);
 
   static final String CONFIG_JOB_PREFIX = "jobs.%s.";
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
-  JobGraphConfigureGenerator(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    this.streamSerdeConfigureGenerator = new StreamSerdeConfigureGenerator(appDesc);
-    this.broadcastStreamIds = appDesc.getBroadcastStreams();
-    this.inputStreamIds = appDesc instanceof StreamApplicationDescriptor ?
-        ((StreamApplicationDescriptorImpl) appDesc).getInputOperators().keySet() : appDesc.getInputDescriptors().keySet();
-    this.outputStreamIds = appDesc instanceof StreamApplicationDescriptor ?
-        ((StreamApplicationDescriptorImpl) appDesc).getOutputStreams().keySet() : appDesc.getOutputDescriptors().keySet();
-    this.tableSpecs = appDesc.getTableDescriptors().stream().map(tableDesc -> ((BaseTableDescriptor) tableDesc).getTableSpec())
-        .collect(Collectors.toSet());
+  JobNodeConfigureGenerator() {
   }
 
   static Config mergeJobConfig(Config originalConfig, Config generatedConfig) {
@@ -99,31 +75,15 @@ public class JobGraphConfigureGenerator {
         String.format(CONFIG_JOB_PREFIX, jobId))));
   }
 
-  boolean isBroadcastStream(String streamId) {
-    return this.broadcastStreamIds.contains(streamId);
-  }
-
-  Set<String> getInputStreamIds() {
-    return inputStreamIds;
-  }
-
-  Set<String> getOutputStreamIds() {
-    return outputStreamIds;
-  }
-
-  Set<TableSpec> getTableSpecs() {
-    return tableSpecs;
-  }
-
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
     Map<String, String> configs = new HashMap<>();
     // set up job name and job ID
     configs.put(JobConfig.JOB_NAME(), jobNode.getJobName());
     configs.put(JobConfig.JOB_ID(), jobNode.getJobId());
 
-    List<StreamEdge> inEdges = jobNode.getInEdges();
-    List<StreamEdge> outEdges = jobNode.getOutEdges();
-    Collection<OperatorSpec> reachableOperators = getReachableOperators(jobNode);
+    Map<String, StreamEdge> inEdges = jobNode.getInEdges();
+    Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
+    Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
     boolean hasWindowOrJoin = reachableOperators.stream().anyMatch(op -> op.getOpCode() == OperatorSpec.OpCode.WINDOW
         || op.getOpCode() == OperatorSpec.OpCode.JOIN);
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
@@ -132,7 +92,7 @@ public class JobGraphConfigureGenerator {
     // check all inputs to the node for broadcast and input streams
     final Set<String> inputs = new HashSet<>();
     final Set<String> broadcasts = new HashSet<>();
-    for (StreamEdge inEdge : inEdges) {
+    for (StreamEdge inEdge : inEdges.values()) {
       String formattedSystemStream = inEdge.getName();
       if (inEdge.isBroadcast()) {
         broadcasts.add(formattedSystemStream + "#0");
@@ -157,10 +117,10 @@ public class JobGraphConfigureGenerator {
     configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     // write intermediate input/output streams to configs
-    inEdges.stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
+    inEdges.values().stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
 
     // write serialized serde instances and stream /store serdes to configs
-    configureSerdes(configs, inEdges, outEdges, stores);
+    configureSerdes(configs, inEdges, outEdges, stores, jobNode);
 
     // generate table configuration and potential side input configuration
     configureTables(configs, config, jobNode.getTables(), inputs);
@@ -245,22 +205,23 @@ public class JobGraphConfigureGenerator {
         .collect(Collectors.toList());
   }
 
-  private void configureTables(Map<String, String> configs, Config config, List<TableSpec> tables, Set<String> inputs) {
-    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(configs), tables));
+  private void configureTables(Map<String, String> configs, Config config, Map<String, TableSpec> tables, Set<String> inputs) {
+    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(configs),
+        tables.values().stream().collect(Collectors.toList())));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
-    tables.forEach(tableSpec -> {
-      List<String> sideInputs = tableSpec.getSideInputs();
-      if (sideInputs != null && !sideInputs.isEmpty()) {
-        sideInputs.stream()
-            .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(config, sideInput))
-            .forEach(systemStream -> {
-              inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-              configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
-                  systemStream.getSystem(), systemStream.getStream()), "true");
-            });
-      }
-    });
+    tables.values().forEach(tableSpec -> {
+        List<String> sideInputs = tableSpec.getSideInputs();
+        if (sideInputs != null && !sideInputs.isEmpty()) {
+          sideInputs.stream()
+              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(config, sideInput))
+              .forEach(systemStream -> {
+                  inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
+                  configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                      systemStream.getSystem(), systemStream.getStream()), "true");
+                });
+        }
+      });
   }
 
   /**
@@ -276,19 +237,15 @@ public class JobGraphConfigureGenerator {
    *
    * @param configs the configs to add serialized serde instances and stream serde configs to
    */
-  private void configureSerdes(Map<String, String> configs, List<StreamEdge> inEdges, List<StreamEdge> outEdges,
-      List<StoreDescriptor> stores) {
+  private void configureSerdes(Map<String, String> configs, Map<String, StreamEdge> inEdges, Map<String, StreamEdge> outEdges,
+      List<StoreDescriptor> stores, JobNode jobNode) {
     // collect all key and msg serde instances for streams
     Map<String, Serde> streamKeySerdes = new HashMap<>();
     Map<String, Serde> streamMsgSerdes = new HashMap<>();
-    inEdges.forEach(edge -> {
-      String streamId = edge.getStreamSpec().getId();
-      streamSerdeConfigureGenerator.addSerde(sid -> streamSerdeConfigureGenerator.getInputSerde(sid), streamId, streamKeySerdes, streamMsgSerdes);
-    });
-    outEdges.forEach(edge -> {
-      String streamId = edge.getStreamSpec().getId();
-      streamSerdeConfigureGenerator.addSerde(sid -> streamSerdeConfigureGenerator.getOutputSerde(sid), streamId, streamKeySerdes, streamMsgSerdes);
-    });
+    inEdges.keySet().forEach(streamId ->
+        addSerde(jobNode.getInputSerde(streamId), streamId, streamKeySerdes, streamMsgSerdes));
+    outEdges.keySet().forEach(streamId ->
+        addSerde(jobNode.getOutputSerde(streamId), streamId, streamKeySerdes, streamMsgSerdes));
 
     Map<String, Serde> storeKeySerdes = new HashMap<>();
     Map<String, Serde> storeMsgSerdes = new HashMap<>();
@@ -306,35 +263,35 @@ public class JobGraphConfigureGenerator {
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
     serdes.forEach(serde -> {
-      String serdeName = serdeUUIDs.computeIfAbsent(serde,
-          s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-      configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
-          base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
-    });
+        String serdeName = serdeUUIDs.computeIfAbsent(serde,
+            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
+      });
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-      String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-      String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
-      configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-      String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
-      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-      String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
-      configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
-    });
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
+      });
   }
 
   /**
@@ -364,91 +321,18 @@ public class JobGraphConfigureGenerator {
     return MathUtil.gcd(candidateTimerIntervals);
   }
 
-  Collection<OperatorSpec> getReachableOperators(JobNode jobNode) {
-    // Filter out window operators, and obtain a list of their triggering interval values
-    Set<OperatorSpec> inputOperatorsInJobNode = jobNode.getInEdges().stream()
-        .filter(streamEdge -> streamSerdeConfigureGenerator.inputOperators.containsKey(streamEdge.getStreamSpec().getId()))
-        .map(streamEdge -> streamSerdeConfigureGenerator.inputOperators.get(streamEdge.getStreamSpec().getId()))
-        .collect(Collectors.toSet());
-    Set<OperatorSpec> reachableOperators = new HashSet<>();
-    findReachableOperators(inputOperatorsInJobNode, reachableOperators);
-    return reachableOperators;
-  }
-
-  private void findReachableOperators(Collection<OperatorSpec> inputOperatorsInJobNode, Set<OperatorSpec> reachableOperators) {
-    inputOperatorsInJobNode.forEach(op -> {
-      if (reachableOperators.contains(op)) {
-        return;
-      }
-      reachableOperators.add(op);
-      findReachableOperators(op.getRegisteredOperatorSpecs(), reachableOperators);
-    });
-  }
-
-  private class StreamSerdeConfigureGenerator {
-    private final Map<String, InputDescriptor> inputDescriptors;
-    private final Map<String, InputOperatorSpec> inputOperators;
-    private final Map<String, OutputDescriptor> outputDescriptors;
-    private final Map<String, OutputStreamImpl> outputStreams;
-
-    private StreamSerdeConfigureGenerator(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-      this.inputDescriptors = appDesc.getInputDescriptors();
-      this.outputDescriptors = appDesc.getOutputDescriptors();
-      if (appDesc instanceof StreamApplicationDescriptorImpl) {
-        StreamApplicationDescriptorImpl streamAppDesc = (StreamApplicationDescriptorImpl) appDesc;
-        this.inputOperators = streamAppDesc.getInputOperators();
-        this.outputStreams = streamAppDesc.getOutputStreams();
-      } else {
-        this.inputOperators = new HashMap<>();
-        this.outputStreams = new HashMap<>();
-      }
-    }
-
-    private Serde getInputSerde(String streamId) {
-      InputDescriptor inputDescriptor = inputDescriptors.get(streamId);
-      if (inputDescriptor != null) {
-        return inputDescriptor.getSerde();
-      }
-
-      // for high-level applications, the intermediate streams don't have the input descriptor yet
-      InputOperatorSpec inputOp = inputOperators.get(streamId);
-      if (inputOp == null) {
-        LOG.warn("Input stream {} don't have any corresponding InputDescriptor or InputOperatorSpec.", streamId);
-        return null;
-      }
-      return KVSerde.of(inputOp.getKeySerde(), inputOp.getValueSerde());
-    }
-
-    private Serde getOutputSerde(String streamId) {
-      OutputDescriptor outputDescriptor = outputDescriptors.get(streamId);
-      if (outputDescriptor != null) {
-        return outputDescriptor.getSerde();
-      }
-
-      // for high-level applications, the intermediate streams don't have the input descriptor yet
-      OutputStreamImpl outputStream = outputStreams.get(streamId);
-      if (outputStream == null) {
-        LOG.warn("Output stream {} don't have any corresponding OutputDescriptor or OutputStreamImpl.", streamId);
-        return null;
-      }
-      return KVSerde.of(outputStream.getKeySerde(), outputStream.getValueSerde());
-    }
-
-    private void addSerde(Function<String, Serde> serdeFinder, String streamId, Map<String, Serde> keySerdeMap,
-        Map<String, Serde> msgSerdeMap) {
-      Serde serde = serdeFinder.apply(streamId);
-      if (serde != null) {
-        if (serde instanceof KVSerde) {
-          KVSerde kvSerde = (KVSerde) serde;
-          if (kvSerde.getKeySerde() != null) {
-            keySerdeMap.put(streamId, ((KVSerde) serde).getKeySerde());
-          }
-          if (kvSerde.getValueSerde() != null) {
-            msgSerdeMap.put(streamId, ((KVSerde) serde).getValueSerde());
-          }
-        } else {
-          msgSerdeMap.put(streamId, serde);
+  private void addSerde(Serde serde, String streamId, Map<String, Serde> keySerdeMap, Map<String, Serde> msgSerdeMap) {
+    if (serde != null) {
+      if (serde instanceof KVSerde) {
+        KVSerde kvSerde = (KVSerde) serde;
+        if (kvSerde.getKeySerde() != null) {
+          keySerdeMap.put(streamId, ((KVSerde) serde).getKeySerde());
         }
+        if (kvSerde.getValueSerde() != null) {
+          msgSerdeMap.put(streamId, ((KVSerde) serde).getValueSerde());
+        }
+      } else {
+        msgSerdeMap.put(streamId, serde);
       }
     }
   }

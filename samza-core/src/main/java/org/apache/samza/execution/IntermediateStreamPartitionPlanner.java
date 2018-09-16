@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
@@ -32,7 +31,6 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
@@ -60,8 +58,7 @@ class IntermediateStreamPartitionPlanner {
 
   IntermediateStreamPartitionPlanner(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     this.config = config;
-    this.inputOperators = appDesc instanceof StreamApplicationDescriptorImpl ?
-        ((StreamApplicationDescriptorImpl) appDesc).getInputOperators() : new HashMap<>();
+    this.inputOperators = appDesc.getInputOperators();
   }
 
   /**
@@ -95,10 +92,10 @@ class IntermediateStreamPartitionPlanner {
     StreamConfig streamConfig = new StreamConfig(config);
 
     inputOperators.forEach((key, value) -> {
-      StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(key, streamConfig));
-      // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
-      findReachableJoins(value, streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
-    });
+        StreamEdge streamEdge = jobGraph.getOrCreateStreamEdge(getStreamSpec(key, streamConfig));
+        // Traverses the StreamGraph to find and update mappings for all Joins reachable from this input StreamEdge
+        findReachableJoins(value, streamEdge, joinSpecToStreamEdges, streamEdgeToJoinSpecs, joinQ, visited);
+      });
 
     // At this point, joinQ contains joinSpecs where at least one of the input stream edge partitions is known.
     while (!joinQ.isEmpty()) {

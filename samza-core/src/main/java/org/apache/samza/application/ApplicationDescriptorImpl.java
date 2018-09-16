@@ -30,8 +30,11 @@ import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.TaskContext;
 
 
@@ -176,4 +179,53 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
    */
   public abstract Set<SystemDescriptor> getSystemDescriptors();
 
+  /**
+   * Get all the unique input streamIds in this application
+   *
+   * @return an immutable set of input streamIds
+   */
+  public abstract Set<String> getInputStreamIds();
+
+  /**
+   * Get all the unique output streamIds in this application
+   *
+   * @return an immutable set of output streamIds
+   */
+  public abstract Set<String> getOutputStreamIds();
+
+  /**
+   * Get the corresponding {@link Serde} for the input {@code inputStreamId}
+   *
+   * @param inputStreamId id of the input stream
+   * @return the {@link Serde} for the input stream. null if the serde is not defined or {@code inputStreamId}
+   *         does not exist
+   */
+  public abstract Serde getInputSerde(String inputStreamId);
+
+  /**
+   * Get the corresponding {@link Serde} for the output {@code outputStreamId}
+   *
+   * @param outputStreamId of the output stream
+   * @return the {@link Serde} for the output stream. null if the serde is not defined or {@code outputStreamId}
+   *         does not exist
+   */
+  public abstract Serde getOutputSerde(String outputStreamId);
+
+  /**
+   * Get the map of all {@link InputOperatorSpec}s in this applicaiton
+   *
+   * @return an immutable map from streamId to {@link InputOperatorSpec}. Default to empty map for low-level {@link TaskApplication}
+   */
+  public Map<String, InputOperatorSpec> getInputOperators() {
+    return Collections.EMPTY_MAP;
+  }
+
+  /**
+   * Get the map of all {@link OutputStreamImpl}s in this application
+   *
+   * @return an immutable map from streamId to {@link OutputStreamImpl}. Default to empty map for low-level {@link TaskApplication}
+   */
+  public Map<String, OutputStreamImpl> getOutputStreams() {
+    return Collections.EMPTY_MAP;
+  }
 }

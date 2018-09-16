@@ -20,11 +20,9 @@
 package org.apache.samza.execution;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -58,7 +56,6 @@ import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hamcrest.Matchers;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -119,13 +116,13 @@ public class TestJobGraphJsonGenerator {
     StreamEdge input2Edge = new StreamEdge(input2Spec, false, false, mockConfig);
     StreamEdge outputEdge = new StreamEdge(outputSpec, false, false, mockConfig);
     StreamEdge repartitionEdge = new StreamEdge(repartitionSpec, true, false, mockConfig);
-    List<StreamEdge> inputEdges = new ArrayList<>();
-    inputEdges.add(input1Edge);
-    inputEdges.add(input2Edge);
-    inputEdges.add(repartitionEdge);
-    List<StreamEdge> outputEdges = new ArrayList<>();
-    outputEdges.add(outputEdge);
-    outputEdges.add(repartitionEdge);
+    Map<String, StreamEdge> inputEdges = new HashMap<>();
+    inputEdges.put(input1Descriptor.getStreamId(), input1Edge);
+    inputEdges.put(input2Descriptor.getStreamId(), input2Edge);
+    inputEdges.put(repartitionSpec.getId(), repartitionEdge);
+    Map<String, StreamEdge> outputEdges = new HashMap<>();
+    outputEdges.put(outputDescriptor.getStreamId(), outputEdge);
+    outputEdges.put(repartitionSpec.getId(), repartitionEdge);
     when(mockJobNode.getInEdges()).thenReturn(inputEdges);
     when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
     when(mockJobNode.getConfig()).thenReturn(mockConfig);
@@ -301,15 +298,15 @@ public class TestJobGraphJsonGenerator {
   @Test
   public void testTaskApplication() throws Exception {
     mockAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
-    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator(mockAppDesc);
+    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
     JobGraph mockJobGraph = mock(JobGraph.class);
     ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
     when(mockAppConfig.getAppName()).thenReturn("testTaskApp");
     when(mockAppConfig.getAppId()).thenReturn("testTaskAppId");
     when(mockJobGraph.getApplicationConfig()).thenReturn(mockAppConfig);
     // compute the three disjoint sets of the JobGraph: input only, output only, and intermediate streams
-    Set<StreamEdge> inEdges = new HashSet<>(mockJobNode.getInEdges());
-    Set<StreamEdge> outEdges = new HashSet<>(mockJobNode.getOutEdges());
+    Set<StreamEdge> inEdges = new HashSet<>(mockJobNode.getInEdges().values());
+    Set<StreamEdge> outEdges = new HashSet<>(mockJobNode.getOutEdges().values());
     Set<StreamEdge> intermediateEdges = new HashSet<>(inEdges);
     // intermediate streams are the intersection between input and output
     intermediateEdges.retainAll(outEdges);
@@ -348,7 +345,7 @@ public class TestJobGraphJsonGenerator {
   @Test
   public void testLegacyTaskApplication() throws Exception {
     mockAppDesc = new TaskApplicationDescriptorImpl(getLegacyTaskApplication(), mockConfig);
-    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator(mockAppDesc);
+    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
     JobGraph mockJobGraph = mock(JobGraph.class);
     ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
     when(mockAppConfig.getAppName()).thenReturn("testTaskApp");

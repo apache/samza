@@ -31,6 +31,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -59,16 +61,19 @@ import org.slf4j.LoggerFactory;
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator;
-  private final JobGraphConfigureGenerator configGenerator;
+  private final JobNodeConfigureGenerator configGenerator;
+  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
-   * @param config Config
+   * @param appDesc Config
    */
-  JobGraph(Config config, JobGraphJsonGenerator jsonGenerator, JobGraphConfigureGenerator configureGenerator) {
+  JobGraph(Config config, ApplicationDescriptorImpl appDesc, JobGraphJsonGenerator jsonGenerator,
+      JobNodeConfigureGenerator configureGenerator) {
     this.jsonGenerator = jsonGenerator;
     this.configGenerator = configureGenerator;
     this.config = config;
+    this.appDesc = appDesc;
   }
 
   @Override
@@ -153,16 +158,11 @@ import org.slf4j.LoggerFactory;
    * Get the {@link JobNode}. Create one if it does not exist.
    * @param jobName name of the job
    * @param jobId id of the job
-   * @return
+   * @return {@link JobNode} created with {@code jobName} and {@code jobId}
    */
   JobNode getOrCreateJobNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
-    JobNode node = nodes.get(nodeId);
-    if (node == null) {
-      node = new JobNode(jobName, jobId, config, configGenerator);
-      nodes.put(nodeId, node);
-    }
-    return node;
+    return nodes.computeIfAbsent(nodeId, k -> new JobNode(jobName, jobId, config, appDesc, configGenerator));
   }
 
   /**
@@ -180,11 +180,11 @@ import org.slf4j.LoggerFactory;
    * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
    * @return stream edge
    */
-  StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
+  private StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      boolean isBroadcast = configGenerator.isBroadcastStream(streamId);
+      boolean isBroadcast = appDesc.getBroadcastStreams().contains(streamId);
       edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
     }
@@ -322,7 +322,7 @@ import org.slf4j.LoggerFactory;
 
     while (!queue.isEmpty()) {
       JobNode node = queue.poll();
-      node.getOutEdges().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(target -> {
+      node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(target -> {
           if (!visited.contains(target)) {
             visited.add(target);
             queue.offer(target);
@@ -350,7 +350,7 @@ import org.slf4j.LoggerFactory;
     pnodes.forEach(node -> {
         String nid = node.getId();
         //only count the degrees of intermediate streams
-        long degree = node.getInEdges().stream().filter(e -> !sources.contains(e)).count();
+        long degree = node.getInEdges().values().stream().filter(e -> !sources.contains(e)).count();
         indegree.put(nid, degree);
 
         if (degree == 0L) {
@@ -375,7 +375,7 @@ import org.slf4j.LoggerFactory;
       while (!q.isEmpty()) {
         JobNode node = q.poll();
         sortedNodes.add(node);
-        node.getOutEdges().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
+        node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
             String nid = n.getId();
             Long degree = indegree.get(nid) - 1;
             indegree.put(nid, degree);
