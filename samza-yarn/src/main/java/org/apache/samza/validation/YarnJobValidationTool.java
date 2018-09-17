@@ -76,7 +76,7 @@ public class YarnJobValidationTool {
     this.config = config;
     this.client = client;
     String name = this.config.getName().get();
-    String jobId = this.config.getJobId().nonEmpty()? this.config.getJobId().get() : "1";
+    String jobId = this.config.getJobId();
     this.jobName =  name + "_" + jobId;
     this.validator = validator;
   }

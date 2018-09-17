@@ -62,7 +62,8 @@ public class LocalJobPlanner extends JobPlanner {
     LOG.info("Execution Plan: \n" + executionPlanJson);
     String planId = String.valueOf(executionPlanJson.hashCode());
 
-    if (plan.getJobConfigs().isEmpty()) {
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    if (jobConfigs.isEmpty()) {
       throw new SamzaException("No jobs in the plan.");
     }
 
@@ -70,7 +71,7 @@ public class LocalJobPlanner extends JobPlanner {
     // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
-    JobConfig jobConfig = plan.getJobConfigs().get(0);
+    JobConfig jobConfig = jobConfigs.get(0);
     StreamManager streamManager = null;
     try {
       // create the StreamManager to create intermediate streams in the plan
@@ -81,7 +82,7 @@ public class LocalJobPlanner extends JobPlanner {
         streamManager.stop();
       }
     }
-    return plan.getJobConfigs();
+    return jobConfigs;
   }
 
   /**

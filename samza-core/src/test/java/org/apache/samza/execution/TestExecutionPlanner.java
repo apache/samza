@@ -30,6 +30,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.LegacyTaskApplication;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -60,8 +63,12 @@ import org.apache.samza.testUtils.StreamTestUtils;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestExecutionPlanner {
@@ -503,10 +510,13 @@ public class TestExecutionPlanner {
     broadcastStreams.add(intermediateBroadcast);
 
     when(taskAppDesc.getInputDescriptors()).thenReturn(inputDescriptors);
+    when(taskAppDesc.getInputStreamIds()).thenReturn(inputDescriptors.keySet());
     when(taskAppDesc.getOutputDescriptors()).thenReturn(outputDescriptors);
-    when(taskAppDesc.getTableDescriptors()).thenReturn(tableDescriptors);
+    when(taskAppDesc.getOutputStreamIds()).thenReturn(outputDescriptors.keySet());
+    when(taskAppDesc.getTableDescriptors()).thenReturn(Collections.emptySet());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(systemDescriptors);
     when(taskAppDesc.getBroadcastStreams()).thenReturn(broadcastStreams);
+    doReturn(MockTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();
     inputDescriptors.forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
@@ -538,6 +548,7 @@ public class TestExecutionPlanner {
     when(taskAppDesc.getTableDescriptors()).thenReturn(new HashSet<>());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(new HashSet<>());
     when(taskAppDesc.getBroadcastStreams()).thenReturn(new HashSet<>());
+    doReturn(LegacyTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();
     inputDescriptors.forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
@@ -555,5 +566,13 @@ public class TestExecutionPlanner {
     assertEquals(0, jobNode.getOutEdges().size());
     assertEquals(0, jobNode.getTables().size());
     assertEquals(config, jobNode.getConfig());
+  }
+
+  public static class MockTaskApplication implements SamzaApplication {
+
+    @Override
+    public void describe(ApplicationDescriptor appDesc) {
+
+    }
   }
 }

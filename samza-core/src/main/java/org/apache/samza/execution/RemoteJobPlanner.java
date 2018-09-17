@@ -57,14 +57,15 @@ public class RemoteJobPlanner extends JobPlanner {
     ExecutionPlan plan = getExecutionPlan(runId);
     writePlanJsonFile(plan.getPlanAsJson());
 
-    if (plan.getJobConfigs().isEmpty()) {
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    if (jobConfigs.isEmpty()) {
       throw new SamzaException("No jobs in the plan.");
     }
 
     // 2. create the necessary streams
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
-    JobConfig jobConfig = plan.getJobConfigs().get(0);
+    JobConfig jobConfig = jobConfigs.get(0);
     StreamManager streamManager = null;
     try {
       // create the StreamManager to create intermediate streams in the plan
@@ -78,7 +79,7 @@ public class RemoteJobPlanner extends JobPlanner {
         streamManager.stop();
       }
     }
-    return plan.getJobConfigs();
+    return jobConfigs;
   }
 
   private Config getConfigFromPrevRun() {

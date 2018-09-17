@@ -70,7 +70,7 @@ import org.slf4j.LoggerFactory;
 
   static Config mergeJobConfig(Config originalConfig, Config generatedConfig) {
     JobConfig jobConfig = new JobConfig(originalConfig);
-    String jobId = JobNode.createId(jobConfig.getName().get(), jobConfig.getJobId().get());
+    String jobId = JobNode.createId(jobConfig.getName().get(), jobConfig.getJobId());
     return new JobConfig(Util.rewriteConfig(extractScopedConfig(originalConfig, generatedConfig,
         String.format(CONFIG_JOB_PREFIX, jobId))));
   }
@@ -160,10 +160,11 @@ import org.slf4j.LoggerFactory;
 
     // Disallow user specified job inputs/outputs. This info comes strictly from the user application.
     Map<String, String> allowedConfigs = new HashMap<>(config);
-    if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
-      LOG.warn("Specifying task inputs in configuration is not allowed with Fluent API. "
-          + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
-      allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
+    if (!jobNode.isLegacyTaskApplication()) {
+      if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
+        LOG.warn("Specifying task inputs in configuration is not allowed with Fluent API. " + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
+        allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
+      }
     }
 
     LOG.debug("Job {} has allowed configs {}", jobNode.getId(), allowedConfigs);
@@ -305,7 +306,7 @@ import org.slf4j.LoggerFactory;
 
     // Filter out the join operators, and obtain a list of their ttl values
     List<Long> joinTtlIntervals = reachableOperators.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.JOIN)
+        .filter(spec -> spec instanceof JoinOperatorSpec)
         .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
         .collect(Collectors.toList());
 

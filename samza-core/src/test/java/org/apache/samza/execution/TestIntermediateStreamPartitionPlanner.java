@@ -33,7 +33,6 @@ import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -41,10 +40,9 @@ import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
-
 
 /**
  * Unit tests for {@link IntermediateStreamPartitionPlanner}
@@ -80,7 +78,6 @@ public class TestIntermediateStreamPartitionPlanner {
         new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
     broadcastSpec = new StreamSpec("jobName-jobId-broadcast-b1", "broadcast-b1", "intermediate-system");
 
-
     defaultSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
     inputSystemDescriptor = new GenericSystemDescriptor("input-system", "mockSystemFactoryClassName");
     outputSystemDescriptor = new GenericSystemDescriptor("output-system", "mockSystemFactoryClassName");
@@ -97,46 +94,60 @@ public class TestIntermediateStreamPartitionPlanner {
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), "jobName");
     configs.put(JobConfig.JOB_ID(), "jobId");
+    configs.putAll(input1Descriptor.toConfig());
+    configs.putAll(input2Descriptor.toConfig());
+    configs.putAll(outputDescriptor.toConfig());
+    configs.putAll(inputSystemDescriptor.toConfig());
+    configs.putAll(outputSystemDescriptor.toConfig());
+    configs.putAll(intermediateSystemDescriptor.toConfig());
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystemDescriptor.getSystemName());
     mockConfig = spy(new MapConfig(configs));
 
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-
-    mockJobNode = mock(JobNode.class);
-    StreamEdge input1Edge = new StreamEdge(input1Spec, false, false, mockConfig);
-    StreamEdge input2Edge = new StreamEdge(input2Spec, false, false, mockConfig);
-    StreamEdge outputEdge = new StreamEdge(outputSpec, false, false, mockConfig);
-    StreamEdge repartitionEdge = new StreamEdge(repartitionSpec, true, false, mockConfig);
-    Map<String, StreamEdge> inputEdges = new HashMap<>();
-    inputEdges.put(input1Descriptor.getStreamId(), input1Edge);
-    inputEdges.put(input2Descriptor.getStreamId(), input2Edge);
-    inputEdges.put(repartitionSpec.getId(), repartitionEdge);
-    Map<String, StreamEdge> outputEdges = new HashMap<>();
-    outputEdges.put(outputDescriptor.getStreamId(), outputEdge);
-    outputEdges.put(repartitionSpec.getId(), repartitionEdge);
-    when(mockJobNode.getInEdges()).thenReturn(inputEdges);
-    when(mockJobNode.getOutEdges()).thenReturn(outputEdges);
-    when(mockJobNode.getConfig()).thenReturn(mockConfig);
-    when(mockJobNode.getJobName()).thenReturn("jobName");
-    when(mockJobNode.getJobId()).thenReturn("jobId");
-    when(mockJobNode.getId()).thenReturn(JobNode.createId("jobName", "jobId"));
-
-    mockGraph = mock(JobGraph.class);
   }
 
   @Test
-  public void testConstructor() {
-    StreamApplicationDescriptorImpl mockAppDesc = spy(new StreamApplicationDescriptorImpl(appDesc -> { },
-        mock(Config.class)));
-    InputOperatorSpec inputOp1 = mock(InputOperatorSpec.class);
-    InputOperatorSpec inputOp2 = mock(InputOperatorSpec.class);
-    Map<String, InputOperatorSpec> inputOpMaps = new HashMap<>();
-    inputOpMaps.put("input-op1", inputOp1);
-    inputOpMaps.put("input-op2", inputOp2);
-    when(mockAppDesc.getInputOperators()).thenReturn(inputOpMaps);
-    IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mock(Config.class),
-        mockAppDesc);
-    JobGraph mockGraph = mock(JobGraph.class);
+  public void testCalculateRepartitionJoinTopicPartitions() {
+    IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mockConfig, mockStreamAppDesc);
+    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
+        mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    // set the input stream partitions
+    mockGraph.getSources().forEach(inEdge -> {
+        if (inEdge.getStreamSpec().getId().equals(input1Descriptor.getStreamId())) {
+          inEdge.setPartitionCount(6);
+        } else if (inEdge.getStreamSpec().getId().equals(input2Descriptor.getStreamId())) {
+          inEdge.setPartitionCount(5);
+        }
+      });
     partitionPlanner.calculatePartitions(mockGraph);
+    assertEquals(1, mockGraph.getIntermediateStreamEdges().size());
+    assertEquals(5, mockGraph.getIntermediateStreamEdges().stream()
+        .filter(inEdge -> inEdge.getStreamSpec().getId().equals(intermediateInputDescriptor.getStreamId()))
+        .findFirst().get().getPartitionCount());
+  }
+
+  @Test
+  public void testCalculateRepartitionIntermediateTopicPartitions() {
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionOnlyStreamApplication(), mockConfig);
+    IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mockConfig, mockStreamAppDesc);
+    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
+        mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    // set the input stream partitions
+    mockGraph.getSources().forEach(inEdge -> inEdge.setPartitionCount(7));
+    partitionPlanner.calculatePartitions(mockGraph);
+    assertEquals(1, mockGraph.getIntermediateStreamEdges().size());
+    assertEquals(7, mockGraph.getIntermediateStreamEdges().stream()
+        .filter(inEdge -> inEdge.getStreamSpec().getId().equals(intermediateInputDescriptor.getStreamId()))
+        .findFirst().get().getPartitionCount());
+  }
+
+  private StreamApplication getRepartitionOnlyStreamApplication() {
+    return appDesc -> {
+      MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(input1Descriptor);
+      OutputStream<KV<String, Object>> output = appDesc.getOutputStream(outputDescriptor);
+      JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
+      input1.partitionBy(KV::getKey, KV::getValue, defaultSerde, "p1").sendTo(output);
+    };
   }
 
   private StreamApplication getRepartitionJoinStreamApplication() {

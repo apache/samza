@@ -58,13 +58,13 @@ public class CollectionStreamSystemSpec {
    * <p>
    * @param systemName represents unique name of the system
    */
-  private CollectionStreamSystemSpec(String systemName, String jobName) {
+  private CollectionStreamSystemSpec(String systemName, String jobNameAndId) {
     this.systemName = systemName;
     systemConfigs = new HashMap<String, String>();
     systemConfigs.put(String.format(SYSTEM_FACTORY, systemName), InMemorySystemFactory.class.getName());
-    systemConfigs.put(String.format(CONFIG_OVERRIDE_PREFIX + SYSTEM_FACTORY, jobName, systemName), InMemorySystemFactory.class.getName());
+    systemConfigs.put(String.format(CONFIG_OVERRIDE_PREFIX + SYSTEM_FACTORY, jobNameAndId, systemName), InMemorySystemFactory.class.getName());
     systemConfigs.put(String.format(SYSTEM_OFFSET, systemName), "oldest");
-    systemConfigs.put(String.format(CONFIG_OVERRIDE_PREFIX + SYSTEM_OFFSET, jobName, systemName), "oldest");
+    systemConfigs.put(String.format(CONFIG_OVERRIDE_PREFIX + SYSTEM_OFFSET, jobNameAndId, systemName), "oldest");
   }
 
   public String getSystemName() {
@@ -78,13 +78,13 @@ public class CollectionStreamSystemSpec {
   /**
    * Creates a {@link CollectionStreamSystemSpec} with name {@code systemName}
    * @param systemName represents name of the {@link CollectionStreamSystemSpec}
-   * @param jobName name of the job
+   * @param jobNameAndId name of the job
    * @return an instance of {@link CollectionStreamSystemSpec}
    */
-  public static CollectionStreamSystemSpec create(String systemName, String jobName) {
+  public static CollectionStreamSystemSpec create(String systemName, String jobNameAndId) {
     Preconditions.checkState(StringUtils.isNotBlank(systemName));
-    Preconditions.checkState(StringUtils.isNotBlank(jobName));
-    return new CollectionStreamSystemSpec(systemName, jobName);
+    Preconditions.checkState(StringUtils.isNotBlank(jobNameAndId));
+    return new CollectionStreamSystemSpec(systemName, jobNameAndId);
   }
 }
 

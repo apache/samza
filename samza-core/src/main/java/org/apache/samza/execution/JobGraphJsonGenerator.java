@@ -152,6 +152,10 @@ import org.codehaus.jackson.map.ObjectMapper;
   }
 
   private void updateOperatorGraphJson(OperatorSpec operatorSpec, OperatorGraphJson opGraph) {
+    if (operatorSpec == null) {
+      // task application may not have any defined OperatorSpec
+      return;
+    }
     if (operatorSpec.getOpCode() != OperatorSpec.OpCode.INPUT) {
       opGraph.operators.put(operatorSpec.getOpId(), operatorToMap(operatorSpec));
     }

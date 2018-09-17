@@ -163,7 +163,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
-  def getJobId = getOption(JobConfig.JOB_ID)
+  def getJobId = getOption(JobConfig.JOB_ID).getOrElse("1")
 
   def failOnCheckpointValidation = { getBoolean(JobConfig.JOB_FAIL_CHECKPOINT_VALIDATION, true) }
 

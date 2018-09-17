@@ -28,6 +28,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.ApplicationUtil;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -159,5 +161,9 @@ public class JobNode {
       return null;
     }
     return appDesc.getInputOperators().get(inputStreamId);
+  }
+
+  boolean isLegacyTaskApplication() {
+    return ApplicationUtil.isLegacyTaskApplication(appDesc);
   }
 }

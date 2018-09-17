@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -123,7 +124,7 @@ public class ExecutionPlanner {
     // add tables
     tables.forEach(spec -> jobGraph.addTable(spec, node));
 
-    if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
+    if (!ApplicationUtil.isLegacyTaskApplication(appDesc)) {
       // skip the validation when input streamIds are empty. This is only possible for LegacyApplication
       jobGraph.validate();
     }
