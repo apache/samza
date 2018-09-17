@@ -33,13 +33,13 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
  * Following system level configs are set by default
  * <ol>
  *   <li>"systems.%s.default.stream.samza.offset.default" = "oldest"</li>
- *   <li>"jobs.job-name.systems.%s.default.stream.samza.offset.default" = "oldest"</li>
+ *   <li>"jobs.job-name-and-id.systems.%s.default.stream.samza.offset.default" = "oldest"</li>
  *   <li>"systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
- *   <li>"jobs.job-name.systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
+ *   <li>"jobs.job-name-and-id.systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
  * </ol>
  * The "systems.*" configs are required since the planner uses the system to get metadata about streams during
- * planning. The "jobs.job-name.systems.*" configs are required since configs generated from user provided
- * system/stream descriptors override configs originally supplied to the planner. Configs in the "jobs.job-name.*"
+ * planning. The "jobs.job-name-and-id.systems.*" configs are required since configs generated from user provided
+ * system/stream descriptors override configs originally supplied to the planner. Configs in the "jobs.job-name-and-id.*"
  * scope have the highest precedence.
  */
 public class CollectionStreamSystemSpec {
@@ -57,6 +57,7 @@ public class CollectionStreamSystemSpec {
    * is used for testing purpose. System uses {@link InMemorySystemFactory} to initialize in memory streams.
    * <p>
    * @param systemName represents unique name of the system
+   * @param jobNameAndId the job name and ID
    */
   private CollectionStreamSystemSpec(String systemName, String jobNameAndId) {
     this.systemName = systemName;
@@ -78,7 +79,7 @@ public class CollectionStreamSystemSpec {
   /**
    * Creates a {@link CollectionStreamSystemSpec} with name {@code systemName}
    * @param systemName represents name of the {@link CollectionStreamSystemSpec}
-   * @param jobNameAndId name of the job
+   * @param jobNameAndId the job name and ID
    * @return an instance of {@link CollectionStreamSystemSpec}
    */
   public static CollectionStreamSystemSpec create(String systemName, String jobNameAndId) {

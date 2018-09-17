@@ -66,7 +66,11 @@ import org.slf4j.LoggerFactory;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
-   * @param appDesc Config
+   *
+   * @param config configuration for the application
+   * @param appDesc {@link ApplicationDescriptorImpl} describing the application
+   * @param jsonGenerator {@link JobGraphJsonGenerator} to create Json graph for the application
+   * @param configureGenerator configuration generator to create configuration for each {@link JobNode}
    */
   JobGraph(Config config, ApplicationDescriptorImpl appDesc, JobGraphJsonGenerator jsonGenerator,
       JobNodeConfigureGenerator configureGenerator) {
