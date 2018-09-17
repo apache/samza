@@ -24,8 +24,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Supplier;
+import kafka.admin.AdminClient;
+import kafka.utils.ZkUtils;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -38,13 +44,13 @@ import static org.junit.Assert.*;
 
 
 public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
-  public static final String TEST_SYSTEM = "test-system";
-  public static final String TEST_STREAM = "test-stream";
+  private static final String KAFKA_CONSUMER_PROPERTY_PREFIX = "systems." + SYSTEM() + ".consumer.";
+  private static final String KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM() + ".consumer.";
 
   @Test
   public void testGetOffsetsAfter() {
-    SystemStreamPartition ssp1 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
-    SystemStreamPartition ssp2 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(1));
+    SystemStreamPartition ssp1 = new SystemStreamPartition(SYSTEM(), TOPIC(), new Partition(0));
+    SystemStreamPartition ssp2 = new SystemStreamPartition(SYSTEM(), TOPIC(), new Partition(1));
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     offsets.put(ssp1, "1");
     offsets.put(ssp2, "2");
@@ -90,6 +96,39 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     admin.validateStream(spec);
   }
 
+  public SamzaLiKafkaSystemAdmin createSystemAdminJava(
+      java.util.Properties coordinatorStreamProperties,
+      int coordinatorStreamReplicationFactor,
+      java.util.Map<String, ChangelogInfo> topicMetaInformation) {
+    //new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+
+
+    Supplier<ZkUtils> zkConnectSupplier = () ->  ZkUtils.apply(TestKafkaSystemAdmin$.MODULE$.zkConnect(), 6000, 6000, false);
+
+    final Properties props = new Properties();
+    Supplier<AdminClient> adminClientSupplier = () -> AdminClient.create(props);
+
+
+    Map<String, String> map = new java.util.HashMap();
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+        org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + "zookeeper.connect", TestKafkaSystemAdmin$.MODULE$.zkConnect());
+
+
+    final Config config = new MapConfig(map);
+    // KafkaConsumer for metadata access
+    Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
+        () -> KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM(), "clientId", config);
+
+    Map<String, Properties> intermediateStreamProperties = new HashMap();
+    boolean deleteCommittedMessages = false;
+
+    return new SamzaLiKafkaSystemAdmin(SYSTEM(), metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
+        topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
+        coordinatorStreamReplicationFactor, deleteCommittedMessages);
+  }
+
+
   @Test
   public void testCreateChangelogStream() {
     final String STREAM = "testChangeLogStream";
@@ -103,7 +142,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap));
+    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
 
     Mockito.doAnswer(invocationOnMock -> {
@@ -136,7 +175,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap));
+    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
