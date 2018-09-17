@@ -164,6 +164,18 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
+  static class MyReadFunction implements TableReadFunction {
+    @Override
+    public CompletableFuture getAsync(Object key) {
+      return null;
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+  }
+
   private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
     final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
 
