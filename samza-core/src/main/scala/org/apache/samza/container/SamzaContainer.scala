@@ -799,7 +799,7 @@ class SamzaContainer(
       startDiagnostics
       startAdmins
       startOffsetManager
-      startLocalityManager
+      storeContainerLocality
       startStores
       startTableManager
       startDiskSpaceMonitor
@@ -841,7 +841,6 @@ class SamzaContainer(
       shutdownDiskSpaceMonitor
       shutdownHostStatisticsMonitor
       shutdownProducers
-      shutdownLocalityManager
       shutdownOffsetManager
       shutdownMetrics
       shutdownSecurityManger
@@ -961,7 +960,7 @@ class SamzaContainer(
     offsetManager.start
   }
 
-  def startLocalityManager {
+  def storeContainerLocality {
     if(localityManager != null) {
       val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
       info("Registering %s with metadata store" format containerName)
@@ -978,6 +977,9 @@ class SamzaContainer(
         case unknownException: Throwable =>
           warn("Received an exception when persisting locality info for container %s: " +
             "%s" format (containerContext.id, unknownException.getMessage))
+      } finally {
+        info("Shutting down locality manager.")
+        localityManager.close()
       }
     }
   }
@@ -1143,13 +1145,6 @@ class SamzaContainer(
     info("Shutting down task instance table manager.")
 
     taskInstances.values.foreach(_.shutdownTableManager)
-  }
-
-  def shutdownLocalityManager {
-    if(localityManager != null) {
-      info("Shutting down locality manager.")
-      localityManager.close()
-    }
   }
 
   def shutdownOffsetManager {
