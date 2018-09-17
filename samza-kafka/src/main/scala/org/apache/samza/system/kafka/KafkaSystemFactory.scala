@@ -79,12 +79,14 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
     val clientId = KafkaConsumerConfig.getAdminClientId(config)
+    /*
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
+
     val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
-
+*/
     /*
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))

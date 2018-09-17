@@ -17,41 +17,39 @@
  * under the License.
  */
 package org.apache.samza.test.harness
-import java.util.Properties
-import java.util.function.Supplier
 
-import kafka.admin.AdminClient
+import java.util.Properties
+
 import kafka.server.KafkaConfig
-import kafka.utils.{TestUtils, ZkUtils}
-import org.apache.kafka.clients.CommonClientConfigs
-import org.apache.kafka.common.security.JaasUtils
+import kafka.utils.TestUtils
 import org.apache.samza.config.MapConfig
-import org.apache.samza.system.kafka.TestKafkaSystemAdmin.{KAFKA_CONSUMER_PROPERTY_PREFIX, SYSTEM, brokerList, zkConnect, zkSecure}
-import org.apache.samza.system.kafka.{KafkaSystemAdmin, SamzaLiKafkaSystemAdmin}
+import org.apache.samza.system.kafka.SamzaLiKafkaSystemAdmin
 
 /**
- * LinkedIn integration test harness for Kafka
- * This is simply a copy of open source code. We do this because java does not support trait and we are making it an
- * abstract class so that user's java test class can extend it.
- */
+  * LinkedIn integration test harness for Kafka
+  * This is simply a copy of open source code. We do this because java does not support trait and we are making it an
+  * abstract class so that user's java test class can extend it.
+  */
 abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHarness {
 
   def generateConfigs() =
     TestUtils.createBrokerConfigs(clusterSize(), zkConnect, enableControlledShutdown = false).map(KafkaConfig.fromProps(_, overridingProps()))
 
   /**
-   * User can override this method to return the number of brokers they want.
-   * By default only one broker will be launched.
-   * @return the number of brokers needed in the Kafka cluster for the test.
-   */
+    * User can override this method to return the number of brokers they want.
+    * By default only one broker will be launched.
+    *
+    * @return the number of brokers needed in the Kafka cluster for the test.
+    */
   def clusterSize(): Int = 1
 
   /**
-   * User can override this method to apply customized configurations to the brokers.
-   * By default the only configuration is number of partitions when topics get automatically created. The default value
-   * is 1.
-   * @return The configurations to be used by brokers.
-   */
+    * User can override this method to apply customized configurations to the brokers.
+    * By default the only configuration is number of partitions when topics get automatically created. The default value
+    * is 1.
+    *
+    * @return The configurations to be used by brokers.
+    */
   def overridingProps(): Properties = {
     val props = new Properties()
     props.setProperty(KafkaConfig.NumPartitionsProp, 1.toString)
@@ -59,9 +57,10 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
   }
 
   /**
-   * Returns the bootstrap servers configuration string to be used by clients.
-   * @return bootstrap servers string.
-   */
+    * Returns the bootstrap servers configuration string to be used by clients.
+    *
+    * @return bootstrap servers string.
+    */
   def bootstrapServers(): String = super.bootstrapUrl
 
   def createSystemAdmin(system: String): SamzaLiKafkaSystemAdmin[_, _] = {
@@ -86,6 +85,9 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
 */
     val map: java.util.Map[String, String] = new java.util.HashMap();
 
+    val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + system + ".consumer."
+    val KAFKA_PRODUCER_PROPERTY_PREFIX: String = "systems." + system + ".consumer."
+
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
 
@@ -93,10 +95,10 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
       "zookeeper.connect", zkConnect)
 
     SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
-      SYSTEM,
+      system,
       new MapConfig(map),
       "clientId"
-      );
+    );
     //new KafkaSystemAdmin(system, bootstrapServers, connectZk)
   }
 
