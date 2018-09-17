@@ -66,9 +66,9 @@ import org.junit.Assert;
 
 
 /**
- * TestRunner provides apis to quickly set up integration tests for Samza's low level and high level apis.
- * Running mode for test is Single container without any distributed coordination service.
- * Test runner maintains global job config {@code configs} that are used to run the Samza job
+ * TestRunner provides APIs to set up integration tests for Samza's low level and high level apis.
+ * Running mode for test is Single container mode
+ * Test sets following configuration for the application
  *
  * The following configs are set by default
  *  <ol>
@@ -81,11 +81,15 @@ import org.junit.Assert;
  *
  */
 public class TestRunner {
-  public static final String JOB_NAME = "test-samza";
+  public static final String JOB_NAME = "samza-test";
 
   private Map<String, String> configs;
   private Class taskClass;
   private StreamApplication app;
+  /*
+   * inMemoryScope is a unique global key per TestRunner, this key when configured with {@link InMemorySystemDescriptor}
+   * provides an isolated state to run with in memory system
+   */
   private String inMemoryScope;
 
   private TestRunner() {
@@ -111,7 +115,7 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app represent a class containing Samza job logic implementing {@link StreamApplication}
+   * @param app samza job implementing {@link StreamApplication}
    */
   private TestRunner(StreamApplication app) {
     this();
@@ -121,7 +125,7 @@ public class TestRunner {
 
   /**
    * Creates an instance of {@link TestRunner} for Low Level Samza Api
-   * @param taskClass represent a class extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param taskClass samza job extending either {@link StreamTask} or {@link AsyncStreamTask}
    * @return a {@link TestRunner} for {@code taskClass}
    */
   public static TestRunner of(Class taskClass) {
@@ -133,7 +137,7 @@ public class TestRunner {
 
   /**
    * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app represent a class representing Samza job by implementing {@link StreamApplication}
+   * @param app samza job implementing {@link StreamApplication}
    * @return a {@link TestRunner} for {@code app}
    */
   public static TestRunner of(StreamApplication app) {
@@ -142,8 +146,8 @@ public class TestRunner {
   }
 
   /**
-   * Only adds a config from {@code config} to global {@code configs} if they dont exist in it.
-   * @param config represents samza configs supposed to be added to global configs
+   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
+   * @param config samza configs for the application
    * @return calling instance of {@link TestRunner} with added configs if they don't exist
    */
   public TestRunner addConfigs(Map<String, String> config) {
@@ -172,9 +176,9 @@ public class TestRunner {
    *
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages messages used to initialize the single partition stream
-   * @param <StreamMessageType> here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
-   *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message
+   * @param <StreamMessageType> a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   *                            key of KV represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
    * @return calling instance of {@link TestRunner} with input stream configured with it
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
@@ -189,11 +193,10 @@ public class TestRunner {
   /**
    * Adds the provided input stream with mock data to the test application.
    * @param descriptor describes the stream that is supposed to be input to Samza application
-   * @param messages key of the map represents partitionId and value represents
-   *                 messages in the partition
-   * @param <StreamMessageType> here can represent a message with null key or a KV {@link org.apache.samza.operators.KV}.
+   * @param messages map whose key is partitionId and value is messages in the partition
+   * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
    *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
-   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value represents the message
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
    * @return calling instance of {@link TestRunner} with input stream configured with it
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
@@ -230,7 +233,7 @@ public class TestRunner {
   }
 
   /**
-   * Utility to run a test configured using TestRunner
+   * Run a test with specific timeout
    *
    * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
    *                input stream initialization time or the assertion time over output streams. This timeout just accounts
@@ -258,10 +261,9 @@ public class TestRunner {
    *
    * @param streamDescriptor describes the stream to be consumed
    * @param timeout timeout for consumption of stream in Ms
-   * @param <StreamMessageType> represents type of message
+   * @param <StreamMessageType> type of message
    *
-   * @return a map key of which represents the {@code partitionId} and value represents the current state of the partition
-   *         i.e messages in the partition
+   * @return a map whose key is {@code partitionId} and value is messages in partition
    * @throws SamzaException Thrown when a poll is incomplete
    */
   public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws SamzaException {
@@ -344,7 +346,7 @@ public class TestRunner {
   }
 
   /**
-   * Creates an in memory stream with {@link InMemorySystemFactory} and initializes its partition stream with messages
+   * Creates an in memory stream with {@link InMemorySystemFactory} and feeds its partition with stream of messages
    * @param partitonData key of the map represents partitionId and value represents
    *                 messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system

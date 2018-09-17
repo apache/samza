@@ -33,8 +33,8 @@ public class InMemoryInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, InMemoryInputDescriptor<StreamMessageType>> {
   /**
    * Constructs a new InMemoryInputDescriptor from specified components.
-   * @param systemDescriptor represents name of the system stream is associated with
-   * @param streamId represents name of the stream
+   * @param systemDescriptor name of the system stream is associated with
+   * @param streamId name of the stream
    */
   InMemoryInputDescriptor(String streamId, InMemorySystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor, null);

@@ -31,7 +31,7 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
 
 /**
- * A descriptor for InMemorySystem
+ * A descriptor for InMemorySystem.
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  * <p>
  * Following system level configs are set by default
@@ -45,8 +45,6 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = InMemorySystemFactory.class.getName();
   /**
-   * <p>
-   * Implementation Notes
    * <p>
    * The "systems.*" configs are required since the planner uses the system to get metadata about streams during
    * planning. The "jobs.job-name.systems.*" configs are required since configs generated from user provided
@@ -71,7 +69,7 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
    * Every {@link InMemorySystemDescriptor} is configured to consume from the oldest offset, since stream is in memory and
    * is used for testing purpose. System uses {@link InMemorySystemFactory} to initialize in memory streams.
    * <p>
-   * @param systemName represents unique name of the system
+   * @param systemName unique name of the system
    */
   public InMemorySystemDescriptor(String systemName) {
     super(systemName, FACTORY_CLASS_NAME, null, null);

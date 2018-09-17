@@ -38,18 +38,19 @@ import static org.junit.Assert.assertThat;
  */
 public class StreamAssert {
   /**
-   * Util to assert  presence of messages in a stream with single partition in any order
+   * Verifies that the {@code expected} messages are present in any order in the single partition stream
+   * represented by {@code outputDescriptor}
    *
-   * @param expected represents the expected stream of messages
-   * @param streamDescriptor describes the stream which will be consumed to compare against expected list
+   * @param expected expected stream of messages
+   * @param outputDescriptor describes the stream which will be consumed to compare against expected list
    * @param timeout maximum time to wait for consuming the stream
-   * @param <StreamMessageType> represents the type of messages in the stream
+   * @param <StreamMessageType> type of messages in the stream
    * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
    */
   public static <StreamMessageType> void containsInAnyOrder(List<StreamMessageType> expected,
-      InMemoryOutputDescriptor<StreamMessageType> streamDescriptor, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor);
-    assertThat(TestRunner.consumeStream(streamDescriptor, timeout)
+      InMemoryOutputDescriptor<StreamMessageType> outputDescriptor, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(outputDescriptor);
+    assertThat(TestRunner.consumeStream(outputDescriptor, timeout)
         .entrySet()
         .stream()
         .flatMap(entry -> entry.getValue().stream())
@@ -57,19 +58,20 @@ public class StreamAssert {
   }
 
   /**
-   * Util to assert presence of messages in a stream with multiple partition in any order
+   * Verifies that the {@code expected} messages are present in any order in the multi partition stream
+   * represented by {@code outputDescriptor}
    *
-   * @param expected represents a map of partitionId as key and list of messages in stream as value
-   * @param streamDescriptor describes the stream which will be consumed to compare against expected partition map
+   * @param expected map of partitionId as key and list of messages in stream as value
+   * @param outputDescriptor describes the stream which will be consumed to compare against expected partition map
    * @param timeout maximum time to wait for consuming the stream
-   * @param <StreamMessageType> represents the type of messages in the stream
+   * @param <StreamMessageType>  type of messages in the stream
    * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
    *
    */
   public static <StreamMessageType> void containsInAnyOrder(Map<Integer, List<StreamMessageType>> expected,
-      InMemoryOutputDescriptor<StreamMessageType> streamDescriptor, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor);
-    Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(streamDescriptor, timeout);
+      InMemoryOutputDescriptor<StreamMessageType> outputDescriptor, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(outputDescriptor);
+    Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(outputDescriptor, timeout);
     for (Integer paritionId : expected.keySet()) {
       assertThat(actual.get(paritionId),
           IsIterableContainingInAnyOrder.containsInAnyOrder(expected.get(paritionId).toArray()));
@@ -77,18 +79,19 @@ public class StreamAssert {
   }
 
   /**
-   * Util to assert ordering of messages in a stream with single partition
+   * Verifies that the {@code expected} messages are present in order in the single partition stream
+   * represented by {@code outputDescriptor}
    *
-   * @param expected represents the expected stream of messages
-   * @param streamDescriptor describes the stream which will be consumed to compare against expected list
+   * @param expected  expected stream of messages
+   * @param outputDescriptor describes the stream which will be consumed to compare against expected list
    * @param timeout maximum time to wait for consuming the stream
-   * @param <StreamMessageType> represents the type of messages in the stream
+   * @param <StreamMessageType> type of messages in the stream
    * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
    */
   public static <StreamMessageType> void containsInOrder(List<StreamMessageType> expected,
-      InMemoryOutputDescriptor<StreamMessageType> streamDescriptor, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor);
-    assertThat(TestRunner.consumeStream(streamDescriptor, timeout)
+      InMemoryOutputDescriptor<StreamMessageType> outputDescriptor, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(outputDescriptor);
+    assertThat(TestRunner.consumeStream(outputDescriptor, timeout)
         .entrySet()
         .stream()
         .flatMap(entry -> entry.getValue().stream())
@@ -96,18 +99,19 @@ public class StreamAssert {
   }
 
   /**
-   * Util to assert ordering of messages in a multi-partitioned stream
+   * Verifies that the {@code expected} messages are present in order in the multi partition stream
+   * represented by {@code outputDescriptor}
    *
-   * @param expected represents a map of partitionId as key and list of messages as value
-   * @param streamDescriptor describes the stream which will be consumed to compare against expected partition map
+   * @param expected map of partitionId as key and list of messages as value
+   * @param outputDescriptor describes the stream which will be consumed to compare against expected partition map
    * @param timeout maximum time to wait for consuming the stream
-   * @param <StreamMessageType> represents the type of messages in the stream
+   * @param <StreamMessageType> type of messages in the stream
    * @throws InterruptedException when {@code consumeStream} is interrupted by another thread during polling messages
    */
   public static <StreamMessageType> void containsInOrder(Map<Integer, List<StreamMessageType>> expected,
-      InMemoryOutputDescriptor<StreamMessageType> streamDescriptor, Duration timeout) throws InterruptedException {
-    Preconditions.checkNotNull(streamDescriptor);
-    Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(streamDescriptor, timeout);
+      InMemoryOutputDescriptor<StreamMessageType> outputDescriptor, Duration timeout) throws InterruptedException {
+    Preconditions.checkNotNull(outputDescriptor);
+    Map<Integer, List<StreamMessageType>> actual = TestRunner.consumeStream(outputDescriptor, timeout);
     for (Integer paritionId : expected.keySet()) {
       assertThat(actual.get(paritionId), IsIterableContainingInOrder.contains(expected.get(paritionId).toArray()));
     }
