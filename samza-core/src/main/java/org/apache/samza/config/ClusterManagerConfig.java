@@ -56,7 +56,6 @@ public class ClusterManagerConfig extends MapConfig {
    */
   public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
   public static final String CLUSTER_MANAGER_HOST_AFFINITY_ENABLED = "job.host-affinity.enabled";
-  private static final boolean DEFAULT_HOST_AFFINITY_ENABLED = false;
 
   /**
    * Number of CPU cores to request from the cluster manager per container

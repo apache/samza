@@ -175,8 +175,8 @@ class IntermediateStreamPartitionPlanner {
       // partition = MAX(MAX(Input topic partitions), MAX(Output topic partitions))
       // partition will be further bounded by MAX_INFERRED_PARTITIONS.
       // This is important when running in hadoop where an HDFS input can have lots of files (partitions).
-      int maxInPartitions = maxPartition(jobGraph.getSources());
-      int maxOutPartitions = maxPartition(jobGraph.getSinks());
+      int maxInPartitions = maxPartition(jobGraph.getInputStreams());
+      int maxOutPartitions = maxPartition(jobGraph.getOutputStreams());
       partitions = Math.max(maxInPartitions, maxOutPartitions);
 
       if (partitions > MAX_INFERRED_PARTITIONS) {

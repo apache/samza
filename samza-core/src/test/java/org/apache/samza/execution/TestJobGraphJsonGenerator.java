@@ -315,8 +315,8 @@ public class TestJobGraphJsonGenerator {
     // remove all intermediate streams from output
     outEdges.removeAll(intermediateEdges);
     // set the return values for mockJobGraph
-    when(mockJobGraph.getSources()).thenReturn(inEdges);
-    when(mockJobGraph.getSinks()).thenReturn(outEdges);
+    when(mockJobGraph.getInputStreams()).thenReturn(inEdges);
+    when(mockJobGraph.getOutputStreams()).thenReturn(outEdges);
     when(mockJobGraph.getIntermediateStreamEdges()).thenReturn(intermediateEdges);
     when(mockJobGraph.getJobNodes()).thenReturn(Collections.singletonList(mockJobNode));
     String graphJson = jsonGenerator.toJson(mockJobGraph);

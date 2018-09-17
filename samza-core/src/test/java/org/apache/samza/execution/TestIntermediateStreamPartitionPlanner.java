@@ -36,7 +36,6 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -49,15 +48,8 @@ import static org.mockito.Mockito.spy;
  */
 public class TestIntermediateStreamPartitionPlanner {
 
-  private JobGraph mockGraph;
   private StreamApplicationDescriptorImpl mockStreamAppDesc;
   private Config mockConfig;
-  private JobNode mockJobNode;
-  private StreamSpec input1Spec;
-  private StreamSpec input2Spec;
-  private StreamSpec outputSpec;
-  private StreamSpec repartitionSpec;
-  private StreamSpec broadcastSpec;
   private KVSerde<String, Object> defaultSerde;
   private GenericSystemDescriptor inputSystemDescriptor;
   private GenericSystemDescriptor outputSystemDescriptor;
@@ -65,19 +57,10 @@ public class TestIntermediateStreamPartitionPlanner {
   private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
   private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
   private GenericInputDescriptor<KV<String, Object>> intermediateInputDescriptor;
-  private GenericInputDescriptor<KV<String, Object>> broadcastInputDesriptor;
   private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
-  private GenericOutputDescriptor<KV<String, Object>> intermediateOutputDescriptor;
 
   @Before
   public void setUp() {
-    input1Spec = new StreamSpec("input1", "input1", "input-system");
-    input2Spec = new StreamSpec("input2", "input2", "input-system");
-    outputSpec = new StreamSpec("output", "output", "output-system");
-    repartitionSpec =
-        new StreamSpec("jobName-jobId-partition_by-p1", "partition_by-p1", "intermediate-system");
-    broadcastSpec = new StreamSpec("jobName-jobId-broadcast-b1", "broadcast-b1", "intermediate-system");
-
     defaultSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
     inputSystemDescriptor = new GenericSystemDescriptor("input-system", "mockSystemFactoryClassName");
     outputSystemDescriptor = new GenericSystemDescriptor("output-system", "mockSystemFactoryClassName");
@@ -87,9 +70,6 @@ public class TestIntermediateStreamPartitionPlanner {
     outputDescriptor = outputSystemDescriptor.getOutputDescriptor("output", defaultSerde);
     intermediateInputDescriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
         .withPhysicalName("partition_by-p1");
-    intermediateOutputDescriptor = intermediateSystemDescriptor.getOutputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("partition_by-p1");
-    broadcastInputDesriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-broadcast-b1", defaultSerde);
 
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), "jobName");
@@ -112,7 +92,7 @@ public class TestIntermediateStreamPartitionPlanner {
     JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
         mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
     // set the input stream partitions
-    mockGraph.getSources().forEach(inEdge -> {
+    mockGraph.getInputStreams().forEach(inEdge -> {
         if (inEdge.getStreamSpec().getId().equals(input1Descriptor.getStreamId())) {
           inEdge.setPartitionCount(6);
         } else if (inEdge.getStreamSpec().getId().equals(input2Descriptor.getStreamId())) {
@@ -133,7 +113,7 @@ public class TestIntermediateStreamPartitionPlanner {
     JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
         mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
     // set the input stream partitions
-    mockGraph.getSources().forEach(inEdge -> inEdge.setPartitionCount(7));
+    mockGraph.getInputStreams().forEach(inEdge -> inEdge.setPartitionCount(7));
     partitionPlanner.calculatePartitions(mockGraph);
     assertEquals(1, mockGraph.getIntermediateStreamEdges().size());
     assertEquals(7, mockGraph.getIntermediateStreamEdges().stream()

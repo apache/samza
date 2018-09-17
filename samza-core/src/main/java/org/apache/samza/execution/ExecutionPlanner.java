@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +32,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.application.ApplicationUtil;
-import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -39,7 +39,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,11 +55,13 @@ public class ExecutionPlanner {
   private static final Logger log = LoggerFactory.getLogger(ExecutionPlanner.class);
 
   private final Config config;
+  private final StreamConfig streamConfig;
   private final StreamManager streamManager;
 
   public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
     this.streamManager = streamManager;
+    this.streamConfig = new StreamConfig(config);
   }
 
   public ExecutionPlan plan(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
@@ -70,7 +71,7 @@ public class ExecutionPlanner {
     JobGraph jobGraph = createJobGraph(config, appDesc, new JobGraphJsonGenerator(), new JobNodeConfigureGenerator());
 
     // fetch the external streams partition info
-    updateExistingPartitions(jobGraph, streamManager);
+    fetchInputAndOutputStreamPartitions(jobGraph, streamManager);
 
     if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
       // figure out the partitions for internal streams
@@ -84,9 +85,9 @@ public class ExecutionPlanner {
     ApplicationConfig appConfig = new ApplicationConfig(config);
     ClusterManagerConfig clusterConfig = new ClusterManagerConfig(config);
     // currently we don't support host-affinity in batch mode
-    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH
-        && clusterConfig.getHostAffinityEnabled()) {
-      throw new SamzaException("Host affinity is not supported in batch mode. Please configure job.host-affinity.enabled=false.");
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && clusterConfig.getHostAffinityEnabled()) {
+      throw new SamzaException(String.format("Host affinity is not supported in batch mode. Please configure %s=false.",
+          ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED));
     }
   }
 
@@ -100,28 +101,28 @@ public class ExecutionPlanner {
     StreamConfig streamConfig = new StreamConfig(config);
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
     Set<StreamSpec> sinkStreams = getStreamSpecs(appDesc.getOutputStreamIds(), streamConfig);
-    Set<StreamSpec> intStreams = new HashSet<>(sourceStreams);
+    Set<StreamSpec> intermediateStreams = Sets.intersection(sourceStreams, sinkStreams);
+    Set<StreamSpec> inputStreams = Sets.difference(sourceStreams, intermediateStreams);
+    Set<StreamSpec> outputStreams = Sets.difference(sinkStreams, intermediateStreams);
+
     Set<TableSpec> tables = appDesc.getTableDescriptors().stream()
         .map(tableDescriptor -> ((BaseTableDescriptor) tableDescriptor).getTableSpec()).collect(Collectors.toSet());
-    intStreams.retainAll(sinkStreams);
-    sourceStreams.removeAll(intStreams);
-    sinkStreams.removeAll(intStreams);
 
     // For this phase, we have a single job node for the whole dag
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
 
-    // add sources
-    sourceStreams.forEach(spec -> jobGraph.addSource(spec, node));
+    // Add input streams
+    inputStreams.forEach(spec -> jobGraph.addInputStream(spec, node));
 
-    // add sinks
-    sinkStreams.forEach(spec -> jobGraph.addSink(spec, node));
+    // Add output streams
+    outputStreams.forEach(spec -> jobGraph.addOutputStream(spec, node));
 
-    // add intermediate streams
-    intStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
+    // Add intermediate streams
+    intermediateStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
 
-    // add tables
+    // Add tables
     tables.forEach(spec -> jobGraph.addTable(spec, node));
 
     if (!ApplicationUtil.isLegacyTaskApplication(appDesc)) {
@@ -137,30 +138,41 @@ public class ExecutionPlanner {
    * @param jobGraph {@link JobGraph}
    * @param streamManager the {@link StreamManager} to interface with the streams.
    */
-  /* package private */ static void updateExistingPartitions(JobGraph jobGraph, StreamManager streamManager) {
+  /* package private */ static void fetchInputAndOutputStreamPartitions(JobGraph jobGraph, StreamManager streamManager) {
     Set<StreamEdge> existingStreams = new HashSet<>();
-    existingStreams.addAll(jobGraph.getSources());
-    existingStreams.addAll(jobGraph.getSinks());
+    existingStreams.addAll(jobGraph.getInputStreams());
+    existingStreams.addAll(jobGraph.getOutputStreams());
 
+    // System to StreamEdges
     Multimap<String, StreamEdge> systemToStreamEdges = HashMultimap.create();
-    // group the StreamEdge(s) based on the system name
-    existingStreams.forEach(streamEdge -> {
-        SystemStream systemStream = streamEdge.getSystemStream();
-        systemToStreamEdges.put(systemStream.getSystem(), streamEdge);
-      });
-    for (Map.Entry<String, Collection<StreamEdge>> entry : systemToStreamEdges.asMap().entrySet()) {
-      String systemName = entry.getKey();
-      Collection<StreamEdge> streamEdges = entry.getValue();
+
+    // Group StreamEdges by system
+    for (StreamEdge streamEdge : existingStreams) {
+      String system = streamEdge.getSystemStream().getSystem();
+      systemToStreamEdges.put(system, streamEdge);
+    }
+
+    // Fetch partition count for every set of StreamEdges belonging to a particular system.
+    for (String system : systemToStreamEdges.keySet()) {
+      Collection<StreamEdge> streamEdges = systemToStreamEdges.get(system);
+
+      // Map every stream to its corresponding StreamEdge so we can retrieve a StreamEdge given its stream.
       Map<String, StreamEdge> streamToStreamEdge = new HashMap<>();
-      // create the stream name to StreamEdge mapping for this system
-      streamEdges.forEach(streamEdge -> streamToStreamEdge.put(streamEdge.getSystemStream().getStream(), streamEdge));
-      // retrieve the partition counts for the streams in this system
-      Map<String, Integer> streamToPartitionCount = streamManager.getStreamPartitionCounts(systemName, streamToStreamEdge.keySet());
-      // set the partitions of a stream to its StreamEdge
-      streamToPartitionCount.forEach((stream, partitionCount) -> {
-          streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
-          log.info("Partition count is {} for stream {}", partitionCount, stream);
-        });
+      for (StreamEdge streamEdge : streamEdges) {
+        streamToStreamEdge.put(streamEdge.getSystemStream().getStream(), streamEdge);
+      }
+
+      // Retrieve partition count for every set of streams.
+      Set<String> streams = streamToStreamEdge.keySet();
+      Map<String, Integer> streamToPartitionCount = streamManager.getStreamPartitionCounts(system, streams);
+
+      // Retrieve StreamEdge corresponding to every stream and set partition count on it.
+      for (Map.Entry<String, Integer> entry : streamToPartitionCount.entrySet()) {
+        String stream = entry.getKey();
+        Integer partitionCount = entry.getValue();
+        streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
+        log.info("Fetched partition count value {} for stream {}", partitionCount, stream);
+      }
     }
   }
 }
