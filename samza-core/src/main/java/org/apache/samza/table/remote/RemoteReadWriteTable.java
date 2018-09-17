@@ -43,11 +43,11 @@ import com.google.common.base.Preconditions;
  * @param <V> the type of the value in this table
  */
 public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implements ReadWriteTable<K, V> {
-  private final TableWriteFunction<K, V> writeFn;
 
   private DefaultTableWriteMetrics writeMetrics;
 
   @VisibleForTesting
+  final TableWriteFunction<K, V> writeFn;
   final TableRateLimiter writeRateLimiter;
 
   public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,

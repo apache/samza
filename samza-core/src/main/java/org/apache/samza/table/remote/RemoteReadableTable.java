@@ -80,10 +80,10 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   protected final ExecutorService callbackExecutor;
   protected final ExecutorService tableExecutor;
 
-  private final TableReadFunction<K, V> readFn;
   private DefaultTableReadMetrics readMetrics;
 
   @VisibleForTesting
+  final TableReadFunction<K, V> readFn;
   final TableRateLimiter<K, V> readRateLimiter;
 
   /**
