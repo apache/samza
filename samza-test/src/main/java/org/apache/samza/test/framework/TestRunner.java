@@ -89,8 +89,6 @@ public class TestRunner {
 
   private Map<String, String> configs;
   private Map<String, CollectionStreamSystemSpec> systems;
-//  private LegacyTaskApplication taskApp;
-//  private StreamApplication app;
   private SamzaApplication app;
   private String testId;
   private SystemFactory factory;
@@ -364,26 +362,4 @@ public class TestRunner {
         .collect(Collectors.toMap(entry -> entry.getKey().getPartition().getPartitionId(),
             entry -> entry.getValue().stream().map(e -> (T) e.getMessage()).collect(Collectors.toList())));
   }
-
-//  private TaskFactory createTaskFactory() {
-//    if (StreamTask.class.isAssignableFrom(taskClass)) {
-//      return (StreamTaskFactory) () -> {
-//        try {
-//          return (StreamTask) taskClass.newInstance();
-//        } catch (InstantiationException | IllegalAccessException e) {
-//          throw new SamzaException(String.format("Failed to instantiate StreamTask class %s", taskClass.getName()), e);
-//        }
-//      };
-//    } else if (AsyncStreamTask.class.isAssignableFrom(taskClass)) {
-//      return (AsyncStreamTaskFactory) () -> {
-//        try {
-//          return (AsyncStreamTask) taskClass.newInstance();
-//        } catch (InstantiationException | IllegalAccessException e) {
-//          throw new SamzaException(String.format("Failed to instantiate AsyncStreamTask class %s", taskClass.getName()), e);
-//        }
-//      };
-//    }
-//    throw new SamzaException(String.format("Not supported task.class %s. task.class has to implement either StreamTask "
-//        + "or AsyncStreamTask", taskClass.getName()));
-//  }
 }
