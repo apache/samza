@@ -346,8 +346,7 @@ public class TestExecutionPlanner {
       });
   }
 
-//  @Test(expected = SamzaException.class)
-  @Test
+  @Test(expected = SamzaException.class)
   public void testRejectsInvalidJoin() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithInvalidJoin();

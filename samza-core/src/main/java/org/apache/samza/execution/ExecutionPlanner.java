@@ -73,10 +73,8 @@ public class ExecutionPlanner {
     // fetch the external streams partition info
     fetchInputAndOutputStreamPartitions(jobGraph, streamManager);
 
-    if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
-      // figure out the partitions for internal streams
-      new IntermediateStreamPartitionPlanner(config, appDesc).calculatePartitions(jobGraph);
-    }
+    // figure out the partitions for internal streams
+    new IntermediateStreamPartitionPlanner(config, appDesc).calculatePartitions(jobGraph);
 
     return jobGraph;
   }
