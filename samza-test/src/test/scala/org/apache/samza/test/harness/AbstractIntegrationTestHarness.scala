@@ -18,11 +18,16 @@
  */
 package org.apache.samza.test.harness
 import java.util.Properties
+import java.util.function.Supplier
 
+import kafka.admin.AdminClient
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
+import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.common.security.JaasUtils
-import org.apache.samza.system.kafka.KafkaSystemAdmin
+import org.apache.samza.config.MapConfig
+import org.apache.samza.system.kafka.TestKafkaSystemAdmin.{KAFKA_CONSUMER_PROPERTY_PREFIX, SYSTEM, brokerList, zkConnect, zkSecure}
+import org.apache.samza.system.kafka.{KafkaSystemAdmin, SamzaLiKafkaSystemAdmin}
 
 /**
  * LinkedIn integration test harness for Kafka
@@ -59,9 +64,40 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
    */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  def createSystemAdmin(system: String): KafkaSystemAdmin = {
-    val connectZk:Function0[ZkUtils] = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
-    new KafkaSystemAdmin(system, bootstrapServers, connectZk)
+  def createSystemAdmin(system: String): SamzaLiKafkaSystemAdmin[_, _] = {
+    //val connectZk:Function0[ZkUtils] = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
+
+    /*
+    val connectZk = new Supplier[ZkUtils]() {
+      override def get(): ZkUtils = {
+        ZkUtils(zkConnect, 6000, 6000, zkSecure)
+      }
+    }
+
+
+
+    val props = new Properties()
+    props.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    val connectAdminClient = new Supplier[AdminClient]() {
+      override def get(): AdminClient = {
+        AdminClient.create(props)
+      }
+    }
+*/
+    val map: java.util.Map[String, String] = new java.util.HashMap();
+
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      "zookeeper.connect", zkConnect)
+
+    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
+      SYSTEM,
+      new MapConfig(map),
+      "clientId"
+      );
+    //new KafkaSystemAdmin(system, bootstrapServers, connectZk)
   }
 
 }

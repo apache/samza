@@ -1,17 +1,23 @@
 package org.apache.samza.system.kafka
 
-import kafka.admin.AdminUtils
+import java.util
+import java.util.Properties
+
+import kafka.admin.{AdminClient, AdminUtils}
 import kafka.utils.{Logging, ZkUtils}
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.TopicExistsException
+import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.kafka.KafkaSystemAdmin.{CLEAR_STREAM_RETRIES, debug}
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
-class KafkaSystemAdminUtils(systemName: String) {
+class KafkaSystemAdminUtilsScala(systemName: String) {
+  val CLEAR_STREAM_RETRIES = 3
 
   val LOG: Logger = LoggerFactory.getLogger("KafkaSystemAdminUtils")
 
@@ -90,7 +96,7 @@ class KafkaSystemAdminUtils(systemName: String) {
 
 }
 
-object  KafkaSystemAdminUtils extends Logging {
+object  KafkaSystemAdminUtilsScala extends Logging {
   /**
     * A helper method that takes oldest, newest, and upcoming offsets for each
     * system stream partition, and creates a single map from stream name to
@@ -121,5 +127,34 @@ object  KafkaSystemAdminUtils extends Logging {
     debug("Got metadata: %s" format allMetadata)
 
     allMetadata
+  }
+
+  def getCoordinatorTopicProperties(config: KafkaConfig) = {
+    val segmentBytes = config.getCoordinatorSegmentBytes
+    (new Properties /: Map(
+      "cleanup.policy" -> "compact",
+      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+  }
+
+  def getIntermediateStreamProperties(config: Config): Map[String, Properties] = {
+    val appConfig = new ApplicationConfig(config)
+    if (appConfig.getAppMode == ApplicationMode.BATCH) {
+      val streamConfig = new StreamConfig(config)
+      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
+        val properties = new Properties()
+        properties.putAll(streamConfig.getStreamProperties(streamId))
+        properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+        (streamId, properties)
+      }).toMap
+    } else {
+      Map()
+    }
+  }
+
+  def deleteMessages(adminClient : AdminClient, offsets: util.Map[SystemStreamPartition, String]) = {
+    val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
+      (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
+    }.toMap
+    adminClient.deleteRecordsBefore(nextOffsets);
   }
 }

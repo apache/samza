@@ -20,16 +20,12 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
-import java.util.function.Supplier
 
-import kafka.utils.ZkUtils
-import org.apache.kafka.clients.consumer.{Consumer, KafkaConsumer, KafkaConsumerConfig}
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
 import org.apache.samza.metrics.MetricsRegistry
@@ -48,14 +44,14 @@ object KafkaSystemFactory extends Logging {
 class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
-    val clientId = KafkaConsumerConfig.getConsumerClientId( config)
+    val clientId = KafkaConsumerConfig.getConsumerClientId(config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
     val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, clientId, config)
-    info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, clientId, kafkaConsumer))
+    info("Created kafka consumer for system %s, clientId %s: %s" format(systemName, clientId, kafkaConsumer))
 
     val kc = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, new SystemClock)
-    info("Created samza system consumer %s" format  (kc.toString))
+    info("Created samza system consumer %s" format (kc.toString))
 
     kc
   }
@@ -88,6 +84,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
+
+    /*
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
 
@@ -102,21 +100,23 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       (topicName, changelogInfo)
     }
     }
+    */
 
-    val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
-    val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
+    //val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
+    //val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
 
+    /*
     val connectZk = new Supplier[ZkUtils] () {
       override def get(): ZkUtils = {
         ZkUtils(zkConnect, 6000, 6000, false)
       }
     }
+    */
 
     SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
       systemName,
       config,
-      clientId,
-      connectZk);
+      clientId);
     /*
     new KafkaSystemAdmin(
       systemName,

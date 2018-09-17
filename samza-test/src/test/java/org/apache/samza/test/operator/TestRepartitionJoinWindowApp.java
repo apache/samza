@@ -140,9 +140,9 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
         remainingMessageNum = 0;
-        SystemStreamMetadata metadatas = systemAdmin.getSystemStreamMetadata(
+        SystemStreamMetadata metadatas = (SystemStreamMetadata)systemAdmin.getSystemStreamMetadata(
             new HashSet<>(Arrays.asList(streamId)), new ExponentialSleepStrategy.Mock(3)
-        ).get(streamId).get();
+        ).get(streamId);
 
         for (Map.Entry<Partition, SystemStreamPartitionMetadata> entry : metadatas.getSystemStreamPartitionMetadata().entrySet()) {
           SystemStreamPartitionMetadata metadata = entry.getValue();
