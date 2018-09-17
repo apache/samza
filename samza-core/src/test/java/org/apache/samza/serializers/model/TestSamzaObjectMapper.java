@@ -88,6 +88,14 @@ public class TestSamzaObjectMapper {
     ObjectNode jobModelJson = buildJobModelJson();
     // JobModel ignores all unknown fields
     jobModelJson.put("unknown_job_model_key", "unknown_job_model_value");
+    ObjectNode taskPartitionMappings = new ObjectMapper().createObjectNode();
+    taskPartitionMappings.put("1", (Integer) null);
+    // old key that used to be serialized
+    jobModelJson.put("task-partition-mappings", taskPartitionMappings);
+    ObjectNode allContainerLocality = new ObjectMapper().createObjectNode();
+    allContainerLocality.put("1", (Integer) null);
+    // currently gets serialized since there is a getAllContainerLocality
+    jobModelJson.put("all-container-locality", allContainerLocality);
     assertEquals(this.jobModel, deserializeFromObjectNode(jobModelJson));
   }
 
