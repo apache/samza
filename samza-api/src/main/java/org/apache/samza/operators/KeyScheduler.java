@@ -19,11 +19,9 @@
 
 package org.apache.samza.operators;
 
-import org.apache.samza.operators.functions.SchedulingFunction;
-
-
 /**
- * Manages scheduling keys to be triggered later. See {@link SchedulingFunction} for details.
+ * Manages scheduling keys to be triggered later. See {@link org.apache.samza.operators.functions.SchedulingFunction}
+ * for details.
  * @param <K> type of the key
  */
 public interface KeyScheduler<K> {
