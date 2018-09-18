@@ -112,12 +112,18 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null metadataConsumer");
     }
 
-    adminClient = connectAdminClient.get();
+    if (adminClient == null) {
+      throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null adminClient");
+    }
   }
 
   @Override
   public void stop() {
-    metadataConsumer.close();
+    if (metadataConsumer != null) {
+      metadataConsumer.close();
+    } else {
+      LOG.warn("In Stop KafkaSystemAdmin: metadataConsumer is null");
+    }
     metadataConsumer = null;
     if (adminClient != null) {
       adminClient.close();
@@ -141,6 +147,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       boolean deleteCommittedMessages) {
     this.systemName = systemName;
     this.metadataConsumer = metadataConsumerSupplier.get();
+    this.adminClient = connectAdminClient.get();
     this.changelogTopicMetaInformation = changelogTopicMetaInformation;
     this.intermediateStreamProperties = intermediateStreamProperties;
     this.coordinatorStreamProperties = coordinatorStreamProperties;
