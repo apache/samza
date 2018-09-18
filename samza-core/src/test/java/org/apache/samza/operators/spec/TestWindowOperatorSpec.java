@@ -19,8 +19,8 @@
 
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.TimerRegistry;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.KeyScheduler;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.operators.functions.FoldLeftFunction;
@@ -90,8 +90,8 @@ public class TestWindowOperatorSpec {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testIllegalTimerFunctionAsInitializer() {
-    class TimedSupplierFunction implements SupplierFunction<Collection>, TimerFunction<Object, Collection> {
+  public void testIllegalSchedulingFunctionAsInitializer() {
+    class TimedSupplierFunction implements SupplierFunction<Collection>, SchedulingFunction<Object, Collection> {
 
       @Override
       public Collection get() {
@@ -99,12 +99,12 @@ public class TestWindowOperatorSpec {
       }
 
       @Override
-      public void registerTimer(TimerRegistry<Object> timerRegistry) {
+      public void schedulingInit(KeyScheduler<Object> keyScheduler) {
 
       }
 
       @Override
-      public Collection<Collection> onTimer(Object key, long timestamp) {
+      public Collection<Collection> executeForKey(Object key, long timestamp) {
         return null;
       }
     }
@@ -138,8 +138,8 @@ public class TestWindowOperatorSpec {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testIllegalTimerFunctionAsKeyFn() {
-    class TimerMapFunction implements MapFunction<Object, Object>, TimerFunction<Object, Object> {
+  public void testIllegalSchedulingFunctionAsKeyFn() {
+    class SchedulingMapFunction implements MapFunction<Object, Object>, SchedulingFunction<Object, Object> {
 
       @Override
       public Object apply(Object message) {
@@ -147,16 +147,16 @@ public class TestWindowOperatorSpec {
       }
 
       @Override
-      public void registerTimer(TimerRegistry<Object> timerRegistry) {
+      public void schedulingInit(KeyScheduler<Object> keyScheduler) {
 
       }
 
       @Override
-      public Collection<Object> onTimer(Object key, long timestamp) {
+      public Collection<Object> executeForKey(Object key, long timestamp) {
         return null;
       }
     }
-    keyFn = new TimerMapFunction();
+    keyFn = new SchedulingMapFunction();
 
     getWindowOperatorSpec("w0");
   }
@@ -186,8 +186,8 @@ public class TestWindowOperatorSpec {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testIllegalTimerFunctionAsEventTimeFn() {
-    class TimerMapFunction implements MapFunction<Object, Long>, TimerFunction<Object, Object> {
+  public void testIllegalSchedulingFunctionAsEventTimeFn() {
+    class SchedulingMapFunction implements MapFunction<Object, Long>, SchedulingFunction<Object, Object> {
 
       @Override
       public Long apply(Object message) {
@@ -195,16 +195,16 @@ public class TestWindowOperatorSpec {
       }
 
       @Override
-      public void registerTimer(TimerRegistry<Object> timerRegistry) {
+      public void schedulingInit(KeyScheduler<Object> keyScheduler) {
 
       }
 
       @Override
-      public Collection<Object> onTimer(Object key, long timestamp) {
+      public Collection<Object> executeForKey(Object key, long timestamp) {
         return null;
       }
     }
-    timeFn = new TimerMapFunction();
+    timeFn = new SchedulingMapFunction();
 
     getWindowOperatorSpec("w0");
   }
@@ -234,8 +234,9 @@ public class TestWindowOperatorSpec {
   }
 
   @Test
-  public void testTimerFunctionAsFoldLeftFn() {
-    class TimerFoldLeftFunction implements FoldLeftFunction<Object, Collection>, TimerFunction<Object, Collection> {
+  public void testSchedulingFunctionAsFoldLeftFn() {
+    class SchedulingFoldLeftFunction
+        implements FoldLeftFunction<Object, Collection>, SchedulingFunction<Object, Collection> {
 
       @Override
       public Collection apply(Object message, Collection oldValue) {
@@ -244,19 +245,19 @@ public class TestWindowOperatorSpec {
       }
 
       @Override
-      public void registerTimer(TimerRegistry<Object> timerRegistry) {
+      public void schedulingInit(KeyScheduler<Object> keyScheduler) {
 
       }
 
       @Override
-      public Collection<Collection> onTimer(Object key, long timestamp) {
+      public Collection<Collection> executeForKey(Object key, long timestamp) {
         return null;
       }
     }
 
-    foldFn = new TimerFoldLeftFunction();
+    foldFn = new SchedulingFoldLeftFunction();
     WindowOperatorSpec<Object, Object, Collection> windowSpec = getWindowOperatorSpec("w0");
-    assertEquals(windowSpec.getTimerFn(), foldFn);
+    assertEquals(windowSpec.getSchedulingFn(), foldFn);
     assertNull(windowSpec.getWatermarkFn());
   }
 
@@ -284,7 +285,7 @@ public class TestWindowOperatorSpec {
     foldFn = new WatermarkFoldLeftFunction();
     WindowOperatorSpec<Object, Object, Collection> windowSpec = getWindowOperatorSpec("w0");
     assertEquals(windowSpec.getWatermarkFn(), foldFn);
-    assertNull(windowSpec.getTimerFn());
+    assertNull(windowSpec.getSchedulingFn());
   }
 
   @Test

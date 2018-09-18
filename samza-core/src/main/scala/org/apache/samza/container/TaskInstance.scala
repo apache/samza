@@ -28,6 +28,7 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.scheduler.SchedulingCallback
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{TaskSideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
@@ -221,12 +222,12 @@ class TaskInstance(
     }
   }
 
-  def timer(coordinator: ReadableCoordinator) {
-    trace("Timer for taskName: %s" format taskName)
+  def scheduler(coordinator: ReadableCoordinator) {
+    trace("Scheduler for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
       context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
-        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
+        entry.getValue.asInstanceOf[SchedulingCallback[Any]].execute(entry.getKey.getKey, collector, coordinator)
       }
     }
   }

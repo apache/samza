@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.InputTransformer;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -99,7 +99,7 @@ public class InputOperatorSpec extends OperatorSpec<IncomingMessageEnvelope, Obj
   }
 
   @Override
-  public TimerFunction getTimerFn() {
+  public SchedulingFunction getSchedulingFn() {
     return null;
   }
 }

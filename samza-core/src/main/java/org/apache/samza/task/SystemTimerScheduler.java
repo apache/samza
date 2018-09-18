@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.scheduler.SchedulingCallback;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -46,7 +47,7 @@ public class SystemTimerScheduler {
 
   private final ScheduledExecutorService executor;
   private final Map<Object, ScheduledFuture> scheduledFutures = new ConcurrentHashMap<>();
-  private final Map<TimerKey<?>, TimerCallback> readyTimers = new ConcurrentHashMap<>();
+  private final Map<TimerKey<?>, SchedulingCallback> readyTimers = new ConcurrentHashMap<>();
   private TimerListener timerListener;
 
   public static SystemTimerScheduler create(ScheduledExecutorService executor) {
@@ -57,7 +58,7 @@ public class SystemTimerScheduler {
     this.executor = executor;
   }
 
-  public <K> void setTimer(K key, long timestamp, TimerCallback<K> callback) {
+  public <K> void setTimer(K key, long timestamp, SchedulingCallback<K> callback) {
     checkState(!scheduledFutures.containsKey(key),
         String.format("Duplicate key %s registration for the same timer", key));
 
@@ -84,8 +85,8 @@ public class SystemTimerScheduler {
     timerListener = listener;
   }
 
-  public Map<TimerKey<?>, TimerCallback> removeReadyTimers() {
-    final Map<TimerKey<?>, TimerCallback> timers = new TreeMap<>(readyTimers);
+  public Map<TimerKey<?>, SchedulingCallback> removeReadyTimers() {
+    final Map<TimerKey<?>, SchedulingCallback> timers = new TreeMap<>(readyTimers);
     readyTimers.keySet().removeAll(timers.keySet());
     return timers;
   }

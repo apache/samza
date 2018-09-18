@@ -17,25 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.scheduler;
+
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
+
 
 /**
- * Allows registering epoch-time timer callbacks from the operators.
- * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
- * @param <K> type of the timer key
+ * The callback that is invoked when its corresponding schedule time registered via
+ * {@link org.apache.samza.task.TaskContext} is reached.
+ * @param <K> type of the callback key
  */
-public interface TimerRegistry<K> {
-
+public interface SchedulingCallback<K> {
   /**
-   * Register a epoch-time timer with key.
-   * @param key unique timer key
-   * @param timestamp epoch time when the timer will be fired, in milliseconds
+   * Invoked when the corresponding schedule time is reached.
+   * @param key key for callback
+   * @param collector contains the means of sending message envelopes to the output stream.
+   * @param coordinator manages execution of tasks.
    */
-  void register(K key, long timestamp);
-
-  /**
-   * Delete the timer for the provided key.
-   * @param key key for the timer to delete
-   */
-  void delete(K key);
+  void execute(K key, MessageCollector collector, TaskCoordinator coordinator);
 }

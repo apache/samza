@@ -39,7 +39,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
@@ -192,7 +192,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       }
 
       @Override
-      public TimerFunction getTimerFn() {
+      public SchedulingFunction getSchedulingFn() {
         return null;
       }
     };

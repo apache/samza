@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -41,7 +41,7 @@ class FlatMapOperatorSpec<M, OM> extends StreamOperatorSpec<M, OM> {
   }
 
   @Override
-  public TimerFunction getTimerFn() {
-    return this.transformFn instanceof TimerFunction ? (TimerFunction) this.transformFn : null;
+  public SchedulingFunction getSchedulingFn() {
+    return this.transformFn instanceof SchedulingFunction ? (SchedulingFunction) this.transformFn : null;
   }
 }

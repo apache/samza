@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -177,7 +177,7 @@ public class TestOperatorSpecGraph {
     }
 
     @Override
-    public TimerFunction getTimerFn() {
+    public SchedulingFunction getSchedulingFn() {
       return null;
     }
   }

@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.scheduler.SchedulingCallback;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 
@@ -76,21 +77,21 @@ public interface TaskContext {
   }
 
   /**
-   * Register a keyed timer with a callback of {@link TimerCallback} in this task.
+   * Register a keyed callback in this task.
    * The callback will be invoked exclusively with any other operations for this task,
    * e.g. processing, windowing and commit.
-   * @param key timer key
-   * @param timestamp epoch time when the timer will be fired, in milliseconds
-   * @param callback callback when the timer is fired
+   * @param key key for the callback
+   * @param timestamp epoch time when the callback will be fired, in milliseconds
+   * @param callback callback to call when the {@code timestamp} is reached
    * @param <K> type of the key
    */
-  <K> void registerTimer(K key, long timestamp, TimerCallback<K> callback);
+  <K> void scheduleCallback(K key, long timestamp, SchedulingCallback<K> callback);
 
   /**
-   * Delete the keyed timer in this task.
-   * Deletion only happens if the timer hasn't been fired. Otherwise it will not interrupt.
-   * @param key timer key
+   * Delete the keyed callback in this task.
+   * Deletion only happens if the callback hasn't been fired. Otherwise it will not interrupt.
+   * @param key callback key
    * @param <K> type of the key
    */
-  <K> void deleteTimer(K key);
+  <K> void deleteScheduledCallback(K key);
 }

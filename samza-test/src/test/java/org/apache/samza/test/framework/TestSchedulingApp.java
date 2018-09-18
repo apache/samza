@@ -26,16 +26,16 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.operators.KeyScheduler;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
 
-public class TestTimerApp implements StreamApplication {
+public class TestSchedulingApp implements StreamApplication {
   public static final String PAGE_VIEWS = "page-views";
 
   @Override
@@ -44,9 +44,9 @@ public class TestTimerApp implements StreamApplication {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
     KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);
     final MessageStream<PageView> pageViews = appDesc.getInputStream(isd);
-    final MessageStream<PageView> output = pageViews.flatMap(new FlatmapTimerFn());
+    final MessageStream<PageView> output = pageViews.flatMap(new FlatmapSchedulingFn());
 
-    MessageStreamAssert.that("Output from timer function should container all complete messages", output, serde)
+    MessageStreamAssert.that("Output from scheduling function should container all complete messages", output, serde)
         .containsInAnyOrder(
             Arrays.asList(
                 new PageView("v1-complete", "p1", "u1"),
@@ -56,14 +56,15 @@ public class TestTimerApp implements StreamApplication {
             ));
   }
 
-  private static class FlatmapTimerFn implements FlatMapFunction<PageView, PageView>, TimerFunction<String, PageView> {
+  private static class FlatmapSchedulingFn
+      implements FlatMapFunction<PageView, PageView>, SchedulingFunction<String, PageView> {
 
     private transient List<PageView> pageViews;
-    private transient TimerRegistry<String> timerRegistry;
+    private transient KeyScheduler<String> keyScheduler;
 
     @Override
-    public void registerTimer(TimerRegistry<String> timerRegistry) {
-      this.timerRegistry = timerRegistry;
+    public void schedulingInit(KeyScheduler<String> keyScheduler) {
+      this.keyScheduler = keyScheduler;
       this.pageViews = new ArrayList<>();
     }
 
@@ -75,13 +76,13 @@ public class TestTimerApp implements StreamApplication {
       if (pageViews.size() == 2) {
         //got all messages for this task
         final long time = System.currentTimeMillis() + 100;
-        timerRegistry.register("CompleteTimer", time);
+        keyScheduler.schedule("CompleteScheduler", time);
       }
       return Collections.emptyList();
     }
 
     @Override
-    public Collection<PageView> onTimer(String key, long time) {
+    public Collection<PageView> executeForKey(String key, long time) {
       return pageViews;
     }
   }

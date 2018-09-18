@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.TableImpl;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableSpec;
@@ -72,7 +72,7 @@ public class OperatorSpecTestUtils {
     assertNotEquals(oOpSpec, nOpSpec);
     assertEquals(oOpSpec.getOpId(), nOpSpec.getOpId());
     assertEquals(oOpSpec.getOpCode(), nOpSpec.getOpCode());
-    assertTimerFnsNotEqual(oOpSpec.getTimerFn(), nOpSpec.getTimerFn());
+    assertSchedulingFnsNotEqual(oOpSpec.getSchedulingFn(), nOpSpec.getSchedulingFn());
     assertWatermarkFnNotEqual(nOpSpec.getWatermarkFn(), nOpSpec.getWatermarkFn());
     assertAllOperators(oOpSpec.getRegisteredOperatorSpecs(), nOpSpec.getRegisteredOperatorSpecs());
   }
@@ -84,11 +84,11 @@ public class OperatorSpecTestUtils {
     assertNotEquals(watermarkFn, watermarkFn1);
   }
 
-  private static void assertTimerFnsNotEqual(TimerFunction timerFn, TimerFunction timerFn1) {
-    if (timerFn == timerFn1 && timerFn == null) {
+  private static void assertSchedulingFnsNotEqual(SchedulingFunction schedulingFn, SchedulingFunction schedulingFn1) {
+    if (schedulingFn == schedulingFn1 && schedulingFn == null) {
       return;
     }
-    assertNotEquals(timerFn, timerFn1);
+    assertNotEquals(schedulingFn, schedulingFn1);
   }
 
   private static void assertClonedTables(Map<TableSpec, TableImpl> originalTables, Map<TableSpec, TableImpl> clonedTables) {

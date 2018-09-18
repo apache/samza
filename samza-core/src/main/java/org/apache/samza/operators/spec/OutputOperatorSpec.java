@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.SchedulingFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
@@ -59,7 +59,7 @@ public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
   }
 
   @Override
-  public TimerFunction getTimerFn() {
+  public SchedulingFunction getSchedulingFn() {
     return null;
   }
 }
