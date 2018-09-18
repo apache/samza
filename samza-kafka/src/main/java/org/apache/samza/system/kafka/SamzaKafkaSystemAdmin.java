@@ -62,7 +62,7 @@ import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 
 
-public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
+public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
   private final String systemName;
   private Consumer<K, V> metadataConsumer = null;
@@ -85,7 +85,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   // Kafka properties to be used during the intermediate topic creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaLiKafkaSystemAdmin.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaKafkaSystemAdmin.class);
 
   private final KafkaSystemAdminUtilsScala kafkaAdminUtils;
 
@@ -109,11 +109,11 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
     // Also we assume that start is called only once.
     if (metadataConsumer == null) {
-      throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null metadataConsumer");
+      throw new SamzaException("Cannot start SamzaKafkaSystemAdmin with null metadataConsumer");
     }
 
     if (adminClient == null) {
-      throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null adminClient");
+      throw new SamzaException("Cannot start SamzaKafkaSystemAdmin with null adminClient");
     }
   }
 
@@ -140,7 +140,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
    * Kafka properties to be used during the Changelog topic creation
    *
    */
-  SamzaLiKafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
+  SamzaKafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
       Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
       Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
       Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor,
@@ -161,7 +161,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     kafkaAdminUtils = new KafkaSystemAdminUtilsScala(systemName);
   }
 
-  public static SamzaLiKafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
+  public static SamzaKafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
       final String idPrefix) {
 
     boolean zkSecure = false; // needs to be added to the argument if ever true is possible
@@ -232,7 +232,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
     LOG.info(String.format("Creating kafka Admin for system %s, idPrefix %s", systemName, idPrefix));
 
-    return new SamzaLiKafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
+    return new SamzaKafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
         coordinatorStreamReplicationFactor, deleteCommittedMessages);
   }

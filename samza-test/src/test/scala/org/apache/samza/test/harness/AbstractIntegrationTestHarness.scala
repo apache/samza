@@ -23,7 +23,7 @@ import java.util.Properties
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
 import org.apache.samza.config.MapConfig
-import org.apache.samza.system.kafka.SamzaLiKafkaSystemAdmin
+import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
 
 /**
   * LinkedIn integration test harness for Kafka
@@ -63,7 +63,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  def createSystemAdmin(system: String): SamzaLiKafkaSystemAdmin[_, _] = {
+  def createSystemAdmin(system: String): SamzaKafkaSystemAdmin[_, _] = {
     //val connectZk:Function0[ZkUtils] = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
 
     /*
@@ -94,7 +94,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       "zookeeper.connect", zkConnect)
 
-    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
+    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
       system,
       new MapConfig(map),
       "clientId"

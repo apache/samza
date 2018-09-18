@@ -81,7 +81,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
 
-    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
+    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
       systemName,
       config,
       KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX);

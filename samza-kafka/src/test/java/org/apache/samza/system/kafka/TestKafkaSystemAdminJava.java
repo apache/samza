@@ -79,7 +79,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Properties coordProps = new Properties();
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
 
-    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap));
+    SamzaKafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap));
     StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(STREAM, SYSTEM());
 
     Mockito.doAnswer(invocationOnMock -> {
@@ -97,7 +97,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     admin.validateStream(spec);
   }
 
-  public SamzaLiKafkaSystemAdmin createSystemAdminJava(
+  public SamzaKafkaSystemAdmin createSystemAdminJava(
       java.util.Properties coordinatorStreamProperties,
       int coordinatorStreamReplicationFactor,
       java.util.Map<String, ChangelogInfo> topicMetaInformation) {
@@ -122,7 +122,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, Properties> intermediateStreamProperties = new HashMap();
     boolean deleteCommittedMessages = false;
 
-    return new SamzaLiKafkaSystemAdmin(SYSTEM(), metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
+    return new SamzaKafkaSystemAdmin(SYSTEM(), metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
         coordinatorStreamReplicationFactor, deleteCommittedMessages);
   }
@@ -141,7 +141,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
+    SamzaKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
 
     Mockito.doAnswer(invocationOnMock -> {
@@ -174,7 +174,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    SamzaLiKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
+    SamzaKafkaSystemAdmin admin = Mockito.spy(createSystemAdminJava(coordProps, 1, changeLogMap));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
