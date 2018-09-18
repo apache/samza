@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.TestRunner;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 

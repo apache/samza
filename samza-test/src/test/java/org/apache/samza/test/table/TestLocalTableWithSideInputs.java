@@ -44,7 +44,7 @@ import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
-import org.apache.samza.test.framework.system.TestRunner;
+import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;

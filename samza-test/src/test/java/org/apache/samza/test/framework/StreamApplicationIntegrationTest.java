@@ -39,7 +39,6 @@ import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
-import org.apache.samza.test.framework.system.TestRunner;
 import org.junit.Assert;
 import org.junit.Test;
 

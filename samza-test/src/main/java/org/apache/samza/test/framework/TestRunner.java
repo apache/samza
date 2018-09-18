@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework.system;
+package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
 import java.time.Duration;
@@ -62,11 +62,14 @@ import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
+import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
 
 
 /**
- * TestRunner provides APIs to set up integration tests for Samza's low level and high level apis.
+ * TestRunner provides APIs to set up integration tests for a Samza application.
  * Running mode for test is Single container mode
  * Test sets following configuration for the application
  *
@@ -126,7 +129,7 @@ public class TestRunner {
   /**
    * Creates an instance of {@link TestRunner} for Low Level Samza Api
    * @param taskClass samza job extending either {@link StreamTask} or {@link AsyncStreamTask}
-   * @return a {@link TestRunner} for {@code taskClass}
+   * @return this {@link TestRunner}
    */
   public static TestRunner of(Class taskClass) {
     Preconditions.checkNotNull(taskClass);
@@ -138,7 +141,7 @@ public class TestRunner {
   /**
    * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
    * @param app samza job implementing {@link StreamApplication}
-   * @return a {@link TestRunner} for {@code app}
+   * @return this {@link TestRunner}
    */
   public static TestRunner of(StreamApplication app) {
     Preconditions.checkNotNull(app);
@@ -147,8 +150,8 @@ public class TestRunner {
 
   /**
    * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
-   * @param config samza configs for the application
-   * @return calling instance of {@link TestRunner} with added configs if they don't exist
+   * @param config configs for the application
+   * @return this {@link TestRunner}
    */
   public TestRunner addConfigs(Map<String, String> config) {
     Preconditions.checkNotNull(config);
@@ -161,7 +164,7 @@ public class TestRunner {
    * exisiting in {@code configs}
    * @param key key of the config
    * @param value value of the config
-   * @return calling instance of {@link TestRunner} with added config
+   * @return this {@link TestRunner}
    */
   public TestRunner addOverrideConfig(String key, String value) {
     Preconditions.checkNotNull(key);
@@ -179,7 +182,7 @@ public class TestRunner {
    * @param <StreamMessageType> a message with null key or a KV {@link org.apache.samza.operators.KV}.
    *                            key of KV represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
    *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
-   * @return calling instance of {@link TestRunner} with input stream configured with it
+   * @return this {@link TestRunner}
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       List<StreamMessageType> messages) {
@@ -197,7 +200,7 @@ public class TestRunner {
    * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
    *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
    *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
-   * @return calling instance of {@link TestRunner} with input stream configured with it
+   * @return this {@link TestRunner}
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       Map<Integer, ? extends Iterable<StreamMessageType>> messages) {
@@ -212,7 +215,7 @@ public class TestRunner {
    * Adds the provided output stream to the test application.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @param partitionCount partition count of output stream
-   * @return calling instance of {@link TestRunner} with output stream configured with it
+   * @return this {@link TestRunner}
    */
   public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor, int partitionCount) {
     Preconditions.checkNotNull(streamDescriptor);
@@ -233,11 +236,11 @@ public class TestRunner {
   }
 
   /**
-   * Run a test with specific timeout
+   * Run the application with the specified timeout
    *
-   * @param timeout time to wait for the high level application or low level task to finish. This timeout does not include
+   * @param timeout time to wait for the application to finish. This timeout does not include
    *                input stream initialization time or the assertion time over output streams. This timeout just accounts
-   *                for time that samza job takes run. Samza job won't be invoked with negative or zero timeout
+   *                for time that samza job takes run. Timeout must be greater than 0.
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
   public void run(Duration timeout) {
@@ -256,28 +259,29 @@ public class TestRunner {
   }
 
   /**
-   * Utility to read the messages from a stream from the beginning, this is supposed to be used after executing the
-   * TestRunner in order to assert over output streams
+   * Gets the contents of the output stream represented by {@code outputDescriptor} after {@link TestRunner#run(Duration)}
+   * has completed
    *
-   * @param streamDescriptor describes the stream to be consumed
+   * @param outputDescriptor describes the stream to be consumed
    * @param timeout timeout for consumption of stream in Ms
    * @param <StreamMessageType> type of message
    *
    * @return a map whose key is {@code partitionId} and value is messages in partition
    * @throws SamzaException Thrown when a poll is incomplete
    */
-  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(StreamDescriptor streamDescriptor, Duration timeout) throws SamzaException {
-    Preconditions.checkNotNull(streamDescriptor);
-    String streamId = streamDescriptor.getStreamId();
-    String systemName = streamDescriptor.getSystemName();
+  public static <StreamMessageType> Map<Integer, List<StreamMessageType>> consumeStream(
+      InMemoryOutputDescriptor outputDescriptor, Duration timeout) throws SamzaException {
+    Preconditions.checkNotNull(outputDescriptor);
+    String streamId = outputDescriptor.getStreamId();
+    String systemName = outputDescriptor.getSystemName();
     Set<SystemStreamPartition> ssps = new HashSet<>();
     Set<String> streamIds = new HashSet<>();
     streamIds.add(streamId);
     SystemFactory factory = new InMemorySystemFactory();
-    Config config = new MapConfig(streamDescriptor.toConfig(), streamDescriptor.getSystemDescriptor().toConfig());
+    Config config = new MapConfig(outputDescriptor.toConfig(), outputDescriptor.getSystemDescriptor().toConfig());
     Map<String, SystemStreamMetadata> metadata = factory.getAdmin(systemName, config).getSystemStreamMetadata(streamIds);
     SystemConsumer consumer = factory.getConsumer(systemName, config, null);
-    String name = (String) streamDescriptor.getPhysicalName().orElse(streamId);
+    String name = (String) outputDescriptor.getPhysicalName().orElse(streamId);
     metadata.get(name).getSystemStreamPartitionMetadata().keySet().forEach(partition -> {
         SystemStreamPartition temp = new SystemStreamPartition(systemName, streamId, partition);
         ssps.add(temp);
@@ -298,7 +302,7 @@ public class TestRunner {
         SystemStreamPartition ssp = entry.getKey();
         output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
         List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
-        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(streamDescriptor.getStreamId())
+        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(outputDescriptor.getStreamId())
             .getSystemStreamPartitionMetadata()
             .get(ssp.getPartition())
             .getNewestOffset());

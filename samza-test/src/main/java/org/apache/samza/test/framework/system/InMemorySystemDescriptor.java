@@ -29,6 +29,8 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.test.framework.TestRunner;
+
 
 /**
  * A descriptor for InMemorySystem.
@@ -90,11 +92,12 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
 
   /**
    * {@code inMemoryScope} defines the unique instance of InMemorySystem, that this system uses
+   * This method is framework use only, users are not supposed to use it
    *
    * @param inMemoryScope acts as a unique global identifier for this instance of InMemorySystem
    * @return this system descriptor
    */
-  InMemorySystemDescriptor withInMemoryScope(String inMemoryScope) {
+  public InMemorySystemDescriptor withInMemoryScope(String inMemoryScope) {
     this.inMemoryScope = inMemoryScope;
     return this;
   }
