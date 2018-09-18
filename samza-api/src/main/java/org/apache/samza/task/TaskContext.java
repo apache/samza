@@ -24,7 +24,7 @@ import java.util.Set;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduler.SchedulingCallback;
+import org.apache.samza.scheduler.ScheduledCallback;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 
@@ -85,7 +85,7 @@ public interface TaskContext {
    * @param callback callback to call when the {@code timestamp} is reached
    * @param <K> type of the key
    */
-  <K> void scheduleCallback(K key, long timestamp, SchedulingCallback<K> callback);
+  <K> void scheduleCallback(K key, long timestamp, ScheduledCallback<K> callback);
 
   /**
    * Delete the keyed callback in this task.

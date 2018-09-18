@@ -26,10 +26,10 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
-import org.apache.samza.operators.KeyScheduler;
+import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.FlatMapFunction;
-import org.apache.samza.operators.functions.SchedulingFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
@@ -44,7 +44,7 @@ public class TestSchedulingApp implements StreamApplication {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
     KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);
     final MessageStream<PageView> pageViews = appDesc.getInputStream(isd);
-    final MessageStream<PageView> output = pageViews.flatMap(new FlatmapSchedulingFn());
+    final MessageStream<PageView> output = pageViews.flatMap(new FlatmapScheduledFn());
 
     MessageStreamAssert.that("Output from scheduling function should container all complete messages", output, serde)
         .containsInAnyOrder(
@@ -56,15 +56,15 @@ public class TestSchedulingApp implements StreamApplication {
             ));
   }
 
-  private static class FlatmapSchedulingFn
-      implements FlatMapFunction<PageView, PageView>, SchedulingFunction<String, PageView> {
+  private static class FlatmapScheduledFn
+      implements FlatMapFunction<PageView, PageView>, ScheduledFunction<String, PageView> {
 
     private transient List<PageView> pageViews;
-    private transient KeyScheduler<String> keyScheduler;
+    private transient Scheduler<String> scheduler;
 
     @Override
-    public void schedulingInit(KeyScheduler<String> keyScheduler) {
-      this.keyScheduler = keyScheduler;
+    public void schedule(Scheduler<String> scheduler) {
+      this.scheduler = scheduler;
       this.pageViews = new ArrayList<>();
     }
 
@@ -76,13 +76,13 @@ public class TestSchedulingApp implements StreamApplication {
       if (pageViews.size() == 2) {
         //got all messages for this task
         final long time = System.currentTimeMillis() + 100;
-        keyScheduler.schedule("CompleteScheduler", time);
+        scheduler.schedule("CompleteScheduler", time);
       }
       return Collections.emptyList();
     }
 
     @Override
-    public Collection<PageView> executeForKey(String key, long time) {
+    public Collection<PageView> onCallback(String key, long time) {
       return pageViews;
     }
   }

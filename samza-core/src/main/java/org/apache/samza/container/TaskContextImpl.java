@@ -31,7 +31,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
 import org.apache.samza.task.SystemTimerScheduler;
 import org.apache.samza.task.TaskContext;
-import org.apache.samza.scheduler.SchedulingCallback;
+import org.apache.samza.scheduler.ScheduledCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -134,7 +134,7 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public <K> void scheduleCallback(K key, long timestamp, SchedulingCallback<K> callback) {
+  public <K> void scheduleCallback(K key, long timestamp, ScheduledCallback<K> callback) {
     timerScheduler.setTimer(key, timestamp, callback);
   }
 

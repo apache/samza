@@ -25,7 +25,7 @@ import java.util.LinkedHashSet;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.operators.functions.SchedulingFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
@@ -143,5 +143,5 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
 
   abstract public WatermarkFunction getWatermarkFn();
 
-  abstract public SchedulingFunction getSchedulingFn();
+  abstract public ScheduledFunction getScheduledFn();
 }

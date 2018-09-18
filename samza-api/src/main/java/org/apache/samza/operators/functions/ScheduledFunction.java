@@ -19,9 +19,10 @@
 
 package org.apache.samza.operators.functions;
 
-import org.apache.samza.operators.KeyScheduler;
+import org.apache.samza.operators.Scheduler;
 
 import java.util.Collection;
+
 
 /**
  * Allows scheduling with key(s) and is invoked when the specified time(s) occurs.
@@ -29,17 +30,17 @@ import java.util.Collection;
  * corresponding schedule time occurs.
  *
  * <p>
- * Example of a {@link FlatMapFunction} with {@link SchedulingFunction}:
+ * Example of a {@link FlatMapFunction} with {@link ScheduledFunction}:
  * <pre>{@code
- *    public class ExampleSchedulingFn implements FlatMapFunction<String, String>, SchedulingFunction<String, String> {
- *      public void schedulingInit(KeyScheduler keyScheduler) {
+ *    public class ExampleScheduledFn implements FlatMapFunction<String, String>, ScheduledFunction<String, String> {
+ *      public void schedule(Scheduler scheduler) {
  *        long time = System.currentTimeMillis() + 5000; // fire after 5 sec
- *        keyScheduler.schedule("example-scheduler-logic", time);
+ *        scheduler.schedule("example-scheduler-logic", time);
  *      }
  *      public Collection<String> apply(String s) {
  *        ...
  *      }
- *      public Collection<String> executeForKey(String key, long timestamp) {
+ *      public Collection<String> onCallback(String key, long timestamp) {
  *        // fired with key as "example-scheduler-logic"
  *        ...
  *      }
@@ -48,14 +49,14 @@ import java.util.Collection;
  * @param <K> type of the key
  * @param <OM> type of the output
  */
-public interface SchedulingFunction<K, OM> {
+public interface ScheduledFunction<K, OM> {
 
   /**
    * Initialize the function for scheduling, such as setting some initial scheduling logic or saving the
-   * {@code keyScheduler} for later use.
-   * @param keyScheduler used to specify the schedule time(s) and key(s)
+   * {@code scheduler} for later use.
+   * @param scheduler used to specify the schedule time(s) and key(s)
    */
-  void schedulingInit(KeyScheduler<K> keyScheduler);
+  void schedule(Scheduler<K> scheduler);
 
   /**
    * Returns the output from the scheduling logic corresponding to the key that was triggered.
@@ -63,5 +64,5 @@ public interface SchedulingFunction<K, OM> {
    * @param timestamp schedule time that was set for the key, in milliseconds since epoch
    * @return {@link Collection} of output elements
    */
-  Collection<OM> executeForKey(K key, long timestamp);
+  Collection<OM> onCallback(K key, long timestamp);
 }

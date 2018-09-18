@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.SinkFunction;
-import org.apache.samza.operators.functions.SchedulingFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -57,7 +57,7 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
   }
 
   @Override
-  public SchedulingFunction getSchedulingFn() {
-    return sinkFn instanceof SchedulingFunction ? (SchedulingFunction) sinkFn : null;
+  public ScheduledFunction getScheduledFn() {
+    return sinkFn instanceof ScheduledFunction ? (ScheduledFunction) sinkFn : null;
   }
 }

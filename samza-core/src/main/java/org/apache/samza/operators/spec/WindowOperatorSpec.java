@@ -20,7 +20,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.FoldLeftFunction;
-import org.apache.samza.operators.functions.SchedulingFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimeSeriesKeySerde;
 import org.apache.samza.operators.triggers.AnyTrigger;
@@ -64,14 +64,14 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   WindowOperatorSpec(WindowInternal<M, WK, WV> window, String opId) {
     super(OpCode.WINDOW, opId);
     checkArgument(window.getInitializer() == null ||
-        !(window.getInitializer() instanceof SchedulingFunction || window.getInitializer() instanceof WatermarkFunction),
-        "A window does not accepts a user-defined SchedulingFunction or WatermarkFunction as the initializer.");
+        !(window.getInitializer() instanceof ScheduledFunction || window.getInitializer() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined ScheduledFunction or WatermarkFunction as the initializer.");
     checkArgument(window.getKeyExtractor() == null ||
-        !(window.getKeyExtractor() instanceof SchedulingFunction || window.getKeyExtractor() instanceof WatermarkFunction),
-        "A window does not accepts a user-defined SchedulingFunction or WatermarkFunction as the keyExtractor.");
+        !(window.getKeyExtractor() instanceof ScheduledFunction || window.getKeyExtractor() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined ScheduledFunction or WatermarkFunction as the keyExtractor.");
     checkArgument(window.getEventTimeExtractor() == null ||
-        !(window.getEventTimeExtractor() instanceof SchedulingFunction || window.getEventTimeExtractor() instanceof WatermarkFunction),
-        "A window does not accepts a user-defined SchedulingFunction or WatermarkFunction as the eventTimeExtractor.");
+        !(window.getEventTimeExtractor() instanceof ScheduledFunction || window.getEventTimeExtractor() instanceof WatermarkFunction),
+        "A window does not accepts a user-defined ScheduledFunction or WatermarkFunction as the eventTimeExtractor.");
     this.window = window;
   }
 
@@ -135,9 +135,9 @@ public class WindowOperatorSpec<M, WK, WV> extends OperatorSpec<M, WindowPane<WK
   }
 
   @Override
-  public SchedulingFunction getSchedulingFn() {
+  public ScheduledFunction getScheduledFn() {
     FoldLeftFunction fn = window.getFoldLeftFunction();
-    return fn instanceof SchedulingFunction ? (SchedulingFunction) fn : null;
+    return fn instanceof ScheduledFunction ? (ScheduledFunction) fn : null;
   }
 
   @Override

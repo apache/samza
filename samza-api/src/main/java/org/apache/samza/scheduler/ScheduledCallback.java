@@ -17,25 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.operators;
+package org.apache.samza.scheduler;
+
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
+
 
 /**
- * Manages scheduling keys to be triggered later. See {@link org.apache.samza.operators.functions.SchedulingFunction}
- * for details.
- * @param <K> type of the key
+ * The callback that is invoked when its corresponding schedule time registered via
+ * {@link org.apache.samza.task.TaskContext} is reached.
+ * @param <K> type of the callback key
  */
-public interface KeyScheduler<K> {
-
+public interface ScheduledCallback<K> {
   /**
-   * Schedule a key to be triggered at {@code timestamp}.
-   * @param key unique key
-   * @param timestamp epoch time when the key will be triggered, in milliseconds
+   * Invoked when the corresponding schedule time is reached.
+   * @param key key for callback
+   * @param collector contains the means of sending message envelopes to the output stream.
+   * @param coordinator manages execution of tasks.
    */
-  void schedule(K key, long timestamp);
-
-  /**
-   * Delete the scheduler entry for the provided key.
-   * @param key key to delete
-   */
-  void delete(K key);
+  void onCallback(K key, MessageCollector collector, TaskCoordinator coordinator);
 }
