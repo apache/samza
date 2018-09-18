@@ -41,9 +41,9 @@ public class KafkaConsumerConfig extends ConsumerConfig {
 
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
-  private static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
-  private static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
-  private static final String ADMIN_CLIENT_ID_PREFIX = "samza-admin";
+  public static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
+  public static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
+  public static final String ADMIN_CLIENT_ID_PREFIX = "kafka-admin-metadata";
   private static final String SAMZA_OFFSET_LARGEST = "largest";
   private static final String SAMZA_OFFSET_SMALLEST = "smallest";
   private static final String KAFKA_OFFSET_LATEST = "latest";
@@ -64,16 +64,17 @@ public class KafkaConsumerConfig extends ConsumerConfig {
    * Create kafka consumer configs, based on the subset of global configs.
    * @param config
    * @param systemName
-   * @param clientId
+   * @param idPrefix - prefix for the client id provided by the caller
    * @param injectProps
    * @return KafkaConsumerConfig
    */
-  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId,
+  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String idPrefix,
       Map<String, String> injectProps) {
 
     final Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
     final String groupId = getConsumerGroupId(config);
+    final String clientId = getClientId(idPrefix, config);
 
     final Properties consumerProps = new Properties();
     consumerProps.putAll(subConf);
@@ -137,24 +138,14 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   }
 
   // client id should be unique per job
-  public static String getConsumerClientId(Config config) {
-    return getConsumerClientId(CONSUMER_CLIENT_ID_PREFIX, config);
-  }
-  public static String getProducerClientId(Config config) {
-    return getConsumerClientId(PRODUCER_CLIENT_ID_PREFIX, config);
-  }
-  public static String getAdminClientId(Config config) {
-    return getConsumerClientId(ADMIN_CLIENT_ID_PREFIX, config);
-  }
-
-  private static String getConsumerClientId(String id, Config config) {
+  private static String getClientId(String prefix, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
       throw new ConfigException("Missing job name");
     }
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = (config.get(JobConfig.JOB_ID()) != null) ? config.get(JobConfig.JOB_ID()) : "1";
 
-    return String.format("%s-%s-%s", id.replaceAll("[^A-Za-z0-9]", "_"), jobName.replaceAll("[^A-Za-z0-9]", "_"),
+    return String.format("%s-%s-%s", prefix.replaceAll("[^A-Za-z0-9]", "_"), jobName.replaceAll("[^A-Za-z0-9]", "_"),
         jobId.replaceAll("[^A-Za-z0-9]", "_"));
   }
 

@@ -112,17 +112,17 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   /**
    * create kafka consumer
    * @param systemName system name for which we create the consumer
-   * @param clientId client id to use int the kafka client
+   * @param idPrefix prefix for client id to use int the kafka client
    * @param config config
    * @return kafka consumer
    */
-  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String idPrefix, Config config) {
 
     Map<String, String> injectProps = new HashMap<>();
 
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId, injectProps);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix, injectProps);
 
     LOG.info("KafkaClient properties for systemName {}: {}", systemName, consumerConfig.originals());
 

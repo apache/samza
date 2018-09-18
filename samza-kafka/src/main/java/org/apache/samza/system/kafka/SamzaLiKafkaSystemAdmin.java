@@ -63,6 +63,7 @@ import scala.runtime.BoxedUnit;
 
 
 public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
+  public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
   private final String systemName;
   private Consumer<K, V> metadataConsumer = null;
 
@@ -154,32 +155,34 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   }
 
   public static SamzaLiKafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
-      final String clientId) {
+      final String idPrefix) {
 
     boolean zkSecure = false; // needs to be added to the argument if ever true is possible
 
-    // adminClient for deleteBeforeMessages
-    Supplier<AdminClient> adminClientSupplier = () -> {
-      Properties props = new Properties();
-      String brokerListString =
-          config.get(String.format("systems.%s.consumer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-      if (brokerListString == null) {
-        brokerListString =
-            config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-      }
-      if (brokerListString == null) {
-        throw new SamzaException("" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName );
-      }
-      props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerListString);
-      return AdminClient.create(props);
-    };
+    // admin requires adminClient for deleteBeforeMessages
+    Properties props = new Properties();
+    String brokerListString =
+        config.get(String.format("systems.%s.consumer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    if (brokerListString == null) {
+      brokerListString =
+          config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    }
+    if (brokerListString == null) {
+      throw new SamzaException("" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName );
+    }
+    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerListString);
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient
-    String zkConnectStr = config.get(String.format("systems.%s.consumer.%s", systemName, "zookeeper.connect"));
+    String zkConnectStr = config.get(String.format("systems.%s.consumer.%s", systemName, ZOOKEEPER_CONNECT));
     if (zkConnectStr == null) {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
+    props.put(ZOOKEEPER_CONNECT, zkConnectStr);
+
+    Supplier<AdminClient> adminClientSupplier = () -> {
+      return AdminClient.create(props);
+    };
 
     Supplier<ZkUtils> zkConnectSupplier = () -> {
       return ZkUtils.apply(zkConnectStr, 6000, 6000, zkSecure);
@@ -187,9 +190,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
-        () -> KafkaSystemConsumer.getKafkaConsumerImpl(systemName, clientId, config);
-
-    //KafkaConsumerConfig consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId, Collections.emptyMap());
+        () -> KafkaSystemConsumer.getKafkaConsumerImpl(systemName, idPrefix, config);
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     Properties coordinatorStreamProperties = KafkaSystemAdminUtilsScala.getCoordinatorTopicProperties(kafkaConfig);
@@ -212,17 +213,17 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       topicMetaInformation.put(topicName, changelogInfo);
     }
 
+    // special flag to allow/enforce deleting of committed messages
     SystemConfig systemConfig = new SystemConfig(config);
-    Option<String> deleteCommittedMessagesOpt =
-        systemConfig.deleteCommittedMessages(systemName);
-    //        .exists((isEnabled) -> Boolean.valueOf(isEnabled));
-
+    Option<String> deleteCommittedMessagesOpt = systemConfig.deleteCommittedMessages(systemName);
     boolean deleteCommittedMessages =
         (deleteCommittedMessagesOpt.isEmpty()) ? false : Boolean.valueOf(deleteCommittedMessagesOpt.get());
 
     Map<String, Properties> intermediateStreamProperties =
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
             .asJava();
+
+    LOG.info(String.format("Creating kafka Admin for system %s, idPrefix %s", systemName, idPrefix));
 
     return new SamzaLiKafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
