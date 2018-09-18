@@ -829,7 +829,7 @@ class SamzaContainer(
     }
 
     try {
-      info("Shutting down.")
+      info("Shutting down SamzaContaier.")
       removeShutdownHook
 
       jmxServer.stop
