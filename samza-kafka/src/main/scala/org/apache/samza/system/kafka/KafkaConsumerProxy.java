@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
-public class KafkaConsumerProxy<K, V> {
+/*package private */class KafkaConsumerProxy<K, V> {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerProxy.class);
 
   private static final int SLEEP_MS_WHILE_NO_TOPIC_PARTITION = 100;

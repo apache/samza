@@ -50,10 +50,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, clientId, config)
     info("Created kafka consumer for system %s, clientId %s: %s" format(systemName, clientId, kafkaConsumer))
 
-    val kc = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, new SystemClock)
-    info("Created samza system consumer %s" format (kc.toString))
+    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
+      new SystemClock)
+    info("Created samza system consumer %s" format  (kafkaSystemConsumer.toString))
 
-    kc
+    kafkaSystemConsumer
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
