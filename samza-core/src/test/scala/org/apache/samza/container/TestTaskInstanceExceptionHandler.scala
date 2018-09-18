@@ -29,13 +29,13 @@ import org.scalatest.mockito.MockitoSugar
 
 class TestTaskInstanceExceptionHandler extends AssertionsForJUnit with MockitoSugar {
   @Mock
-  private var metrics: MetricsHelper = _
+  private var metrics: MetricsHelper = null
   @Mock
-  private var troublesomeExceptionCounter: Counter = _
+  private var troublesomeExceptionCounter: Counter = null
   @Mock
-  private var nonFatalExceptionCounter: Counter = _
+  private var nonFatalExceptionCounter: Counter = null
   @Mock
-  private var fatalExceptionCounter: Counter = _
+  private var fatalExceptionCounter: Counter = null
 
   @Before
   def setup() {
