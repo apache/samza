@@ -61,9 +61,10 @@ import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 
+import static org.apache.kafka.clients.consumer.KafkaConsumerConfig.*;
+
 
 public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
-  public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
   private final String systemName;
   private Consumer<K, V> metadataConsumer = null;
 
@@ -558,8 +559,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
     kafkaAdminUtils.clearStream(streamSpec, connectZk);
 
-    ImmutableSet topics = ImmutableSet.of(streamSpec.getPhysicalName());
-    Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(topics);
+    Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
     return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();
   }
 

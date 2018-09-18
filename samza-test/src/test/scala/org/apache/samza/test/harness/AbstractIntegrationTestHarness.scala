@@ -22,6 +22,7 @@ import java.util.Properties
 
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.samza.config.MapConfig
 import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
 
@@ -64,25 +65,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
   def bootstrapServers(): String = super.bootstrapUrl
 
   def createSystemAdmin(system: String): SamzaKafkaSystemAdmin[_, _] = {
-    //val connectZk:Function0[ZkUtils] = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
 
-    /*
-    val connectZk = new Supplier[ZkUtils]() {
-      override def get(): ZkUtils = {
-        ZkUtils(zkConnect, 6000, 6000, zkSecure)
-      }
-    }
-
-
-
-    val props = new Properties()
-    props.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
-    val connectAdminClient = new Supplier[AdminClient]() {
-      override def get(): AdminClient = {
-        AdminClient.create(props)
-      }
-    }
-*/
     val map: java.util.Map[String, String] = new java.util.HashMap();
 
     val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + system + ".consumer."
@@ -92,14 +75,13 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
       org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
 
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
-      "zookeeper.connect", zkConnect)
+      KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
     SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
       system,
       new MapConfig(map),
       "clientId"
     );
-    //new KafkaSystemAdmin(system, bootstrapServers, connectZk)
   }
 
 }

@@ -44,6 +44,7 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   public static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
   public static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
   public static final String ADMIN_CLIENT_ID_PREFIX = "kafka-admin-metadata";
+  public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
   private static final String SAMZA_OFFSET_LARGEST = "largest";
   private static final String SAMZA_OFFSET_SMALLEST = "smallest";
   private static final String KAFKA_OFFSET_LATEST = "latest";

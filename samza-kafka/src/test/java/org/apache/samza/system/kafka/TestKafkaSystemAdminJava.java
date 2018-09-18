@@ -29,6 +29,7 @@ import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
@@ -105,7 +106,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Supplier<ZkUtils> zkConnectSupplier = () ->  ZkUtils.apply(TestKafkaSystemAdmin$.MODULE$.zkConnect(), 6000, 6000, false);
 
     final Properties props = new Properties();
-    props.put("zookeeper.connect", TestKafkaSystemAdmin$.MODULE$.zkConnect());
+    props.put(KafkaConsumerConfig.ZOOKEEPER_CONNECT, TestKafkaSystemAdmin$.MODULE$.zkConnect());
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
     Supplier<AdminClient> adminClientSupplier = () -> AdminClient.create(props);
 
