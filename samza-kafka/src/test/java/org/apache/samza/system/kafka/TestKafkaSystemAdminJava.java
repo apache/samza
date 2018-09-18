@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
@@ -100,20 +101,18 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
       java.util.Properties coordinatorStreamProperties,
       int coordinatorStreamReplicationFactor,
       java.util.Map<String, ChangelogInfo> topicMetaInformation) {
-    //new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
-
 
     Supplier<ZkUtils> zkConnectSupplier = () ->  ZkUtils.apply(TestKafkaSystemAdmin$.MODULE$.zkConnect(), 6000, 6000, false);
 
     final Properties props = new Properties();
+    props.put("zookeeper.connect", TestKafkaSystemAdmin$.MODULE$.zkConnect());
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
     Supplier<AdminClient> adminClientSupplier = () -> AdminClient.create(props);
 
 
-    Map<String, String> map = new java.util.HashMap();
+    Map<String, String> map = new HashMap<>();
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
         org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
-    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + "zookeeper.connect", TestKafkaSystemAdmin$.MODULE$.zkConnect());
-
 
     final Config config = new MapConfig(map);
     // KafkaConsumer for metadata access

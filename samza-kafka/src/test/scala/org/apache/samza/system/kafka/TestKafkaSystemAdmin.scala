@@ -31,8 +31,9 @@ import kafka.utils.{TestUtils, ZkUtils}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.{KafkaProducerConfig, MapConfig}
+import org.apache.samza.config.{Config, KafkaProducerConfig, MapConfig}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.kafka.TestKafkaSystemAdmin.KAFKA_PRODUCER_PROPERTY_PREFIX
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
@@ -52,6 +53,8 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   val REPLICATION_FACTOR = 2
   val zkSecure = JaasUtils.isZkSecurityEnabled()
   val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + SYSTEM + ".consumer."
+  val KAFKA_PRODUCER_PROPERTY_PREFIX: String = "systems." + SYSTEM + ".producer."
+
 
   protected def numBrokers: Int = 3
 
@@ -139,45 +142,55 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     Consumer.create(consumerConfig)
   }
 
-  /*
-  def createSystemAdmin(coordinatorStreamProperties: Properties,
+  def createSystemAdmin(coordinatorStreamProperties: java.util.Properties,
                         coordinatorStreamReplicationFactor: Int,
-                        topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties,
-      coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map(), false)
-  }
-  */
+                        topicMetaInformation: java.util.Map[String, ChangelogInfo]) = {
 
-  def createSystemAdmin(
-                         coordinatorStreamProperties: java.util.Properties,
-                         coordinatorStreamReplicationFactor: Int,
-                         topicMetaInformation: java.util.Map[java.lang.String, ChangelogInfo]): SamzaLiKafkaSystemAdmin[_, _] = {
-    //new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
 
-    /*
-    val connectZk = new Supplier[ZkUtils]() {
+    val zkConnectSupplier: Supplier[ZkUtils] = new Supplier[ZkUtils]() {
       override def get(): ZkUtils = {
-        ZkUtils(zkConnect, 6000, 6000, zkSecure)
+        ZkUtils.apply(zkConnect, 6000, 6000, false)
       }
     }
 
-    val connectAdmniClient = new Supplier[AdminClient]() {
+    val map: java.util.Map[String, String] = new java.util.HashMap[String, String]
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+      brokerList)
+    map.put(KAFKA_PRODUCER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+      brokerList)
+
+    val props: java.util.Properties = new java.util.Properties
+    props.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    props.put("zookeeper.connect", brokerList)
+    val adminClientSupplier: Supplier[AdminClient] = new Supplier[AdminClient]() {
       override def get(): AdminClient = {
-        return AdminClient()
+        AdminClient.create(props)
       }
     }
-*/
-    val map: java.util.Map[String, String] = new java.util.HashMap();
-    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
-      org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
-    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + "zookeeper.connect", zkConnect)
 
-    SamzaLiKafkaSystemAdmin.getKafkaSystemAdmin(
+    val config: Config = new MapConfig(map)
+    // KafkaConsumer for metadata access
+    val metadataConsumerSupplier: Supplier[org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]]] =
+      new Supplier[org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]]]() {
+        override def get(): org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]] = {
+          KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM, "clientId", config)
+        }
+      }
+
+    val intermediateStreamProperties: java.util.Map[String, java.util.Properties] = new java.util.HashMap[String, java.util.Properties]
+    val deleteCommittedMessages: Boolean = false
+
+    new SamzaLiKafkaSystemAdmin[Array[Byte], Array[Byte]](
       SYSTEM,
-      new MapConfig(map),
-      "clientId");
+      metadataConsumerSupplier,
+      zkConnectSupplier,
+      adminClientSupplier,
+      topicMetaInformation,
+      intermediateStreamProperties,
+      coordinatorStreamProperties,
+      coordinatorStreamReplicationFactor,
+      deleteCommittedMessages)
   }
-
 }
 
 /**
