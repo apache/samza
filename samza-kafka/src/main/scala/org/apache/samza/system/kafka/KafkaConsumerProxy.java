@@ -367,20 +367,20 @@ import org.slf4j.LoggerFactory;
     Using the consumer to poll the messages from the stream.
    */
   private void fetchMessages() {
-    Set<SystemStreamPartition> SSPsToFetch = new HashSet<>();
+    Set<SystemStreamPartition> sspsToFetch = new HashSet<>();
     for (SystemStreamPartition ssp : nextOffsets.keySet()) {
       if (sink.needsMoreMessages(ssp)) {
-        SSPsToFetch.add(ssp);
+        sspsToFetch.add(ssp);
       }
     }
-    LOG.debug("pollConsumer {}", SSPsToFetch.size());
-    if (!SSPsToFetch.isEmpty()) {
+    LOG.debug("pollConsumer {}", sspsToFetch.size());
+    if (!sspsToFetch.isEmpty()) {
       kafkaConsumerMetrics.incClientReads(metricName);
 
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> response;
-      LOG.debug("pollConsumer from following SSPs: {}; total#={}", SSPsToFetch, SSPsToFetch.size());
+      LOG.debug("pollConsumer from following SSPs: {}; total#={}", sspsToFetch, sspsToFetch.size());
 
-      response = pollConsumer(SSPsToFetch, 500); // TODO should be default value from ConsumerConfig
+      response = pollConsumer(sspsToFetch, 500); // TODO should be default value from ConsumerConfig
 
       // move the responses into the queue
       for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> e : response.entrySet()) {
@@ -390,7 +390,7 @@ import org.slf4j.LoggerFactory;
         }
       }
 
-      populateCurrentLags(SSPsToFetch); // find current lags for for each SSP
+      populateCurrentLags(sspsToFetch); // find current lags for for each SSP
     } else { // nothing to read
 
       LOG.debug("No topic/partitions need to be fetched for consumer {} right now. Sleeping {}ms.", kafkaConsumer,
