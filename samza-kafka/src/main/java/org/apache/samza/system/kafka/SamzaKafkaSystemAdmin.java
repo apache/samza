@@ -548,10 +548,8 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   @Override
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
-    //connectZk:Function0[ZkUtils]
 
     return kafkaAdminUtils.createStream(toKafkaSpec(streamSpec), connectZk);
-    //return kafkaAdmin.createStream(streamSpec);
   }
 
   @Override
@@ -559,10 +557,6 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
     kafkaAdminUtils.clearStream(streamSpec, connectZk);
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-    }
 
     ImmutableSet topics = ImmutableSet.of(streamSpec.getPhysicalName());
     Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(topics);
