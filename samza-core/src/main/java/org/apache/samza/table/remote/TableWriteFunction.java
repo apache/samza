@@ -143,6 +143,13 @@ public interface TableWriteFunction<K, V> extends Serializable, InitableFunction
   }
 
   /**
+   * Determine whether the current operation can be retried with the last thrown exception.
+   * @param exception exception thrown by a table operation
+   * @return whether the operation can be retried
+   */
+  boolean isRetriable(Throwable exception);
+
+  /**
    * Flush the remote store (optional)
    */
   default void flush() {
