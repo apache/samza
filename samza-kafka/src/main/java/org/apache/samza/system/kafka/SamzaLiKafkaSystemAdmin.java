@@ -92,6 +92,9 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
   private final boolean deleteCommittedMessages;
 
+  @VisibleForTesting
+  public static volatile boolean deleteMessageCalled = false;
+
   // The same default exponential sleep strategy values as in open source
   private static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
   private static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
@@ -636,7 +639,7 @@ public class SamzaLiKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     }
     if (deleteCommittedMessages) {
       KafkaSystemAdminUtilsScala.deleteMessages(adminClient, offsets);
-      //deleteMessagesCalled = true;
+      deleteMessageCalled = true;
     }
   }
 

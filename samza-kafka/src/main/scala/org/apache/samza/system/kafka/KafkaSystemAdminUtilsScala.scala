@@ -112,8 +112,16 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
         }
       })
   }
-
 }
+
+/**
+  * A helper class that is used to construct the changelog stream specific information
+  *
+  * @param replicationFactor The number of replicas for the changelog stream
+  * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
+  */
+case class ChangelogInfo(var replicationFactor: Int, var kafkaProps: Properties)
+
 
 object  KafkaSystemAdminUtilsScala extends Logging {
   /**

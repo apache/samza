@@ -31,7 +31,7 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
-import org.apache.samza.system.kafka.KafkaSystemAdmin;
+import org.apache.samza.system.kafka.SamzaLiKafkaSystemAdmin;
 import org.apache.samza.test.framework.BroadcastAssertApp;
 import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.util.ExponentialSleepStrategy;
@@ -73,7 +73,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String inputTopicName2 = "ad-clicks";
     String outputTopicName = "user-ad-click-counts";
 
-    KafkaSystemAdmin.deleteMessagesCalled_$eq(false);
+    SamzaLiKafkaSystemAdmin.deleteMessageCalled = false;
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
@@ -98,7 +98,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     assertEquals(2, messages.size());
 
-    Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
+    Assert.assertFalse(SamzaLiKafkaSystemAdmin.deleteMessageCalled);
   }
 
   @Test
