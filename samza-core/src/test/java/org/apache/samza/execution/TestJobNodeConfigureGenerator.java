@@ -19,7 +19,6 @@
 package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -28,11 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.LegacyTaskApplication;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
@@ -44,13 +39,8 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
-import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -62,9 +52,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.task.TaskContext;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -77,75 +65,12 @@ import static org.mockito.Mockito.when;
 /**
  * Unit test for {@link JobNodeConfigureGenerator}
  */
-public class TestJobNodeConfigureGenerator {
-
-  private StreamApplicationDescriptorImpl mockStreamAppDesc;
-  private Config mockConfig;
-  private JobNode mockJobNode;
-  private StreamSpec input1Spec;
-  private StreamSpec input2Spec;
-  private StreamSpec outputSpec;
-  private StreamSpec repartitionSpec;
-  private StreamSpec broadcastSpec;
-  private KVSerde<String, Object> defaultSerde;
-  private GenericSystemDescriptor inputSystemDescriptor;
-  private GenericSystemDescriptor outputSystemDescriptor;
-  private GenericSystemDescriptor intermediateSystemDescriptor;
-  private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
-  private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
-  private GenericInputDescriptor<KV<String, Object>> intermediateInputDescriptor;
-  private GenericInputDescriptor<KV<String, Object>> broadcastInputDesriptor;
-  private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
-  private GenericOutputDescriptor<KV<String, Object>> intermediateOutputDescriptor;
-
-  @Before
-  public void setUp() {
-    input1Spec = new StreamSpec("input1", "input1", "input-system");
-    input2Spec = new StreamSpec("input2", "input2", "input-system");
-    outputSpec = new StreamSpec("output", "output", "output-system");
-    repartitionSpec =
-        new StreamSpec("jobName-jobId-partition_by-p1", "jobName-jobId-partition_by-p1", "intermediate-system");
-    broadcastSpec = new StreamSpec("jobName-jobId-broadcast-b1", "jobName-jobId-broadcast-b1", "intermediate-system");
-
-
-    defaultSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
-    inputSystemDescriptor = new GenericSystemDescriptor("input-system", "mockSystemFactoryClassName");
-    outputSystemDescriptor = new GenericSystemDescriptor("output-system", "mockSystemFactoryClassName");
-    intermediateSystemDescriptor = new GenericSystemDescriptor("intermediate-system", "mockSystemFactoryClassName");
-    input1Descriptor = inputSystemDescriptor.getInputDescriptor("input1", defaultSerde);
-    input2Descriptor = inputSystemDescriptor.getInputDescriptor("input2", defaultSerde);
-    outputDescriptor = outputSystemDescriptor.getOutputDescriptor("output", defaultSerde);
-    intermediateInputDescriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("jobName-jobId-partition_by-p1");
-    intermediateOutputDescriptor = intermediateSystemDescriptor.getOutputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("jobName-jobId-partition_by-p1");
-    broadcastInputDesriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-broadcast-b1", defaultSerde)
-        .withPhysicalName("jobName-jobId-broadcast-b1");
-
-    Map<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
-    configs.putAll(input1Descriptor.toConfig());
-    configs.putAll(input2Descriptor.toConfig());
-    configs.putAll(outputDescriptor.toConfig());
-    configs.putAll(inputSystemDescriptor.toConfig());
-    configs.putAll(outputSystemDescriptor.toConfig());
-    configs.putAll(intermediateSystemDescriptor.toConfig());
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystemDescriptor.getSystemName());
-    mockConfig = spy(new MapConfig(configs));
-
-    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-    configureJobNode(mockStreamAppDesc);
-  }
-
-  private void configureJobNode(ApplicationDescriptorImpl mockStreamAppDesc) {
-    JobGraph jobGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig,
-        mockStreamAppDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
-    mockJobNode = spy(jobGraph.getJobNodes().get(0));
-  }
+public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
 
   @Test
   public void testConfigureSerdesWithRepartitionJoinApplication() {
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
+    configureJobNode(mockStreamAppDesc);
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
     JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
@@ -228,7 +153,7 @@ public class TestJobNodeConfigureGenerator {
     validateJobConfig(expectedJobConfig, jobConfig);
     Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
     validateStreamSerdeConfigure(broadcastInputDesriptor.getStreamId(), jobConfig, deserializedSerdes);
-    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(), broadcastSpec.getPhysicalName(), jobConfig);
+    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(), broadcastInputDesriptor.getPhysicalName().get(), jobConfig);
   }
 
   @Test
@@ -243,7 +168,7 @@ public class TestJobNodeConfigureGenerator {
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
     Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
-    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(), broadcastSpec.getPhysicalName(), jobConfig);
+    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(), broadcastInputDesriptor.getPhysicalName().get(), jobConfig);
 
     String keySerde = jobConfig.get(String.format("streams.%s.samza.key.serde", broadcastInputDesriptor.getStreamId()));
     String msgSerde = jobConfig.get(String.format("streams.%s.samza.msg.serde", broadcastInputDesriptor.getStreamId()));
@@ -255,6 +180,7 @@ public class TestJobNodeConfigureGenerator {
 
   @Test
   public void testStreamApplicationWithTableAndSideInput() {
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     // add table to the RepartitionJoinStreamApplication
     GenericInputDescriptor<KV<String, Object>> sideInput1 = inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde);
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
@@ -337,7 +263,9 @@ public class TestJobNodeConfigureGenerator {
     Map<String, String> configs = new HashMap<>(mockConfig);
     configs.put(TaskConfig.INPUT_STREAMS(), "not.allowed1,not.allowed2");
     mockConfig = spy(new MapConfig(configs));
-    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(defaultSerde), mockConfig);
+    configureJobNode(mockStreamAppDesc);
 
     JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
@@ -346,13 +274,30 @@ public class TestJobNodeConfigureGenerator {
   }
 
   @Test
+  public void testTaskInputsRetainedForLegacyTaskApplication() {
+    Map<String, String> originConfig = new HashMap<>(mockConfig);
+    originConfig.put(TaskConfig.INPUT_STREAMS(), "must.retain1,must.retain2");
+    mockConfig = new MapConfig(originConfig);
+    TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getLegacyTaskApplication(), mockConfig);
+    configureJobNode(taskAppDesc);
+
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
+    // jobConfig should be exactly the same as original config
+    Map<String, String> generatedConfig = new HashMap<>(jobConfig);
+    assertEquals(originConfig, generatedConfig);
+  }
+
+  @Test
   public void testOverrideConfigs() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, mockJobNode.getId()) + streamCfgToOverride;
+    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, getJobNameAndId()) + streamCfgToOverride;
     configs.put(overrideCfgKey, "customized-system");
     mockConfig = spy(new MapConfig(configs));
-    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
+    configureJobNode(mockStreamAppDesc);
 
     JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
@@ -365,13 +310,14 @@ public class TestJobNodeConfigureGenerator {
   public void testConfigureRewriter() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, mockJobNode.getId()) + streamCfgToOverride;
+    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, getJobNameAndId()) + streamCfgToOverride;
     configs.put(overrideCfgKey, "customized-system");
     configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS(), "mock"), MockConfigRewriter.class.getName());
     configs.put(JobConfig.CONFIG_REWRITERS(), "mock");
     configs.put(String.format("job.config.rewriter.mock.%s", streamCfgToOverride), "rewritten-system");
     mockConfig = spy(new MapConfig(configs));
-    when(mockJobNode.getConfig()).thenReturn(mockConfig);
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
+    configureJobNode(mockStreamAppDesc);
 
     JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
@@ -509,55 +455,6 @@ public class TestJobNodeConfigureGenerator {
     assertEquals("delete", joinStoreConfig.get("changelog.kafka.cleanup.policy"));
     assertEquals("3600000", joinStoreConfig.get("changelog.kafka.retention.ms"));
     assertEquals("3600000", joinStoreConfig.get("rocksdb.ttl.ms"));
-  }
-
-  private TaskApplication getTaskApplication() {
-    return appDesc -> {
-      appDesc.addInputStream(input1Descriptor);
-      appDesc.addInputStream(input2Descriptor);
-      appDesc.addInputStream(intermediateInputDescriptor);
-      appDesc.addOutputStream(intermediateOutputDescriptor);
-      appDesc.addOutputStream(outputDescriptor);
-      appDesc.setTaskFactory(() -> new IdentityStreamTask());
-    };
-  }
-
-  private TaskApplication getLegacyTaskApplication() {
-    return new LegacyTaskApplication(IdentityStreamTask.class.getName());
-  }
-
-  private StreamApplication getRepartitionJoinStreamApplication() {
-    return appDesc -> {
-      MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(input1Descriptor);
-      MessageStream<KV<String, Object>> input2 = appDesc.getInputStream(input2Descriptor);
-      OutputStream<KV<String, Object>> output = appDesc.getOutputStream(outputDescriptor);
-      JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
-      input1
-          .partitionBy(KV::getKey, KV::getValue, defaultSerde, "p1")
-          .map(kv -> kv.value)
-          .join(input2.map(kv -> kv.value), mockJoinFn,
-              new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
-              Duration.ofHours(1), "j1")
-          .sendTo(output);
-    };
-  }
-
-  private StreamApplication getRepartitionOnlyStreamApplication() {
-    return appDesc -> {
-      MessageStream<KV<String, Object>> input = appDesc.getInputStream(input1Descriptor);
-      input.partitionBy(KV::getKey, KV::getValue, "p1");
-    };
-  }
-
-  private StreamApplication getBroadcastOnlyStreamApplication(Serde serde) {
-    return appDesc -> {
-      MessageStream<KV<String, Object>> input = appDesc.getInputStream(input1Descriptor);
-      if (serde != null) {
-        input.broadcast(serde, "b1");
-      } else {
-        input.broadcast("b1");
-      }
-    };
   }
 
   private static class MockTableProvider implements TableProvider {

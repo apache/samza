@@ -139,8 +139,7 @@ public class TestRunner {
    */
   private void registerSystem(String systemName) {
     if (!systems.containsKey(systemName)) {
-      systems.put(systemName, CollectionStreamSystemSpec.create(systemName,
-          String.format("%s-%s", JOB_NAME, configs.getOrDefault(JobConfig.JOB_ID(), "1"))));
+      systems.put(systemName, CollectionStreamSystemSpec.create(systemName, getJobNameAndId()));
       configs.putAll(systems.get(systemName).getSystemConfigs());
     }
   }
@@ -188,7 +187,7 @@ public class TestRunner {
   public TestRunner addOverrideConfig(String key, String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
-    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), JOB_NAME);
+    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), getJobNameAndId());
     configs.put(String.format("%s%s", configKeyPrefix, key), value);
     return this;
   }
@@ -219,6 +218,10 @@ public class TestRunner {
       });
 
     return this;
+  }
+
+  private String getJobNameAndId() {
+    return String.format("%s-%s", JOB_NAME, configs.getOrDefault(JobConfig.JOB_ID(), "1"));
   }
 
   /**

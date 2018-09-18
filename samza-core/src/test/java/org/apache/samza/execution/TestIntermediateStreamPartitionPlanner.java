@@ -18,76 +18,20 @@
  */
 package org.apache.samza.execution;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
-import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 
 /**
  * Unit tests for {@link IntermediateStreamPartitionPlanner}
  */
-public class TestIntermediateStreamPartitionPlanner {
-
-  private StreamApplicationDescriptorImpl mockStreamAppDesc;
-  private Config mockConfig;
-  private KVSerde<String, Object> defaultSerde;
-  private GenericSystemDescriptor inputSystemDescriptor;
-  private GenericSystemDescriptor outputSystemDescriptor;
-  private GenericSystemDescriptor intermediateSystemDescriptor;
-  private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
-  private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
-  private GenericInputDescriptor<KV<String, Object>> intermediateInputDescriptor;
-  private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
-
-  @Before
-  public void setUp() {
-    defaultSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>());
-    inputSystemDescriptor = new GenericSystemDescriptor("input-system", "mockSystemFactoryClassName");
-    outputSystemDescriptor = new GenericSystemDescriptor("output-system", "mockSystemFactoryClassName");
-    intermediateSystemDescriptor = new GenericSystemDescriptor("intermediate-system", "mockSystemFactoryClassName");
-    input1Descriptor = inputSystemDescriptor.getInputDescriptor("input1", defaultSerde);
-    input2Descriptor = inputSystemDescriptor.getInputDescriptor("input2", defaultSerde);
-    outputDescriptor = outputSystemDescriptor.getOutputDescriptor("output", defaultSerde);
-    intermediateInputDescriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("partition_by-p1");
-
-    Map<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
-    configs.putAll(input1Descriptor.toConfig());
-    configs.putAll(input2Descriptor.toConfig());
-    configs.putAll(outputDescriptor.toConfig());
-    configs.putAll(inputSystemDescriptor.toConfig());
-    configs.putAll(outputSystemDescriptor.toConfig());
-    configs.putAll(intermediateSystemDescriptor.toConfig());
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystemDescriptor.getSystemName());
-    mockConfig = spy(new MapConfig(configs));
-
-    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-  }
+public class TestIntermediateStreamPartitionPlanner extends ExecutionPlannerTestBase {
 
   @Test
   public void testCalculateRepartitionJoinTopicPartitions() {
+    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mockConfig, mockStreamAppDesc);
     JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
         mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
@@ -121,28 +65,4 @@ public class TestIntermediateStreamPartitionPlanner {
         .findFirst().get().getPartitionCount());
   }
 
-  private StreamApplication getRepartitionOnlyStreamApplication() {
-    return appDesc -> {
-      MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(input1Descriptor);
-      OutputStream<KV<String, Object>> output = appDesc.getOutputStream(outputDescriptor);
-      JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
-      input1.partitionBy(KV::getKey, KV::getValue, defaultSerde, "p1").sendTo(output);
-    };
-  }
-
-  private StreamApplication getRepartitionJoinStreamApplication() {
-    return appDesc -> {
-      MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(input1Descriptor);
-      MessageStream<KV<String, Object>> input2 = appDesc.getInputStream(input2Descriptor);
-      OutputStream<KV<String, Object>> output = appDesc.getOutputStream(outputDescriptor);
-      JoinFunction<String, Object, Object, KV<String, Object>> mockJoinFn = mock(JoinFunction.class);
-      input1
-          .partitionBy(KV::getKey, KV::getValue, defaultSerde, "p1")
-          .map(kv -> kv.value)
-          .join(input2.map(kv -> kv.value), mockJoinFn,
-              new StringSerde(), new JsonSerdeV2<>(Object.class), new JsonSerdeV2<>(Object.class),
-              Duration.ofHours(1), "j1")
-          .sendTo(output);
-    };
-  }
 }

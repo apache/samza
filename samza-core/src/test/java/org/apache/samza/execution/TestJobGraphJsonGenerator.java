@@ -26,11 +26,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -52,7 +48,6 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hamcrest.Matchers;
@@ -68,7 +63,6 @@ import static org.mockito.Mockito.*;
  * Unit test for {@link JobGraphJsonGenerator}
  */
 public class TestJobGraphJsonGenerator {
-  private ApplicationDescriptorImpl mockAppDesc;
   private Config mockConfig;
   private JobNode mockJobNode;
   private StreamSpec input1Spec;
@@ -81,9 +75,7 @@ public class TestJobGraphJsonGenerator {
   private GenericSystemDescriptor intermediateSystemDescriptor;
   private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
   private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
-  private GenericInputDescriptor<KV<String, Object>> intermediateInputDescriptor;
   private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
-  private GenericOutputDescriptor<KV<String, Object>> intermediateOutputDescriptor;
 
   @Before
   public void setUp() {
@@ -101,10 +93,6 @@ public class TestJobGraphJsonGenerator {
     input1Descriptor = inputSystemDescriptor.getInputDescriptor("input1", defaultSerde);
     input2Descriptor = inputSystemDescriptor.getInputDescriptor("input2", defaultSerde);
     outputDescriptor = outputSystemDescriptor.getOutputDescriptor("output", defaultSerde);
-    intermediateInputDescriptor = intermediateSystemDescriptor.getInputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("partition_by-p1");
-    intermediateOutputDescriptor = intermediateSystemDescriptor.getOutputDescriptor("jobName-jobId-partition_by-p1", defaultSerde)
-        .withPhysicalName("partition_by-p1");
 
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), "jobName");
@@ -297,7 +285,6 @@ public class TestJobGraphJsonGenerator {
 
   @Test
   public void testTaskApplication() throws Exception {
-    mockAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
     JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
     JobGraph mockJobGraph = mock(JobGraph.class);
     ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
@@ -344,7 +331,6 @@ public class TestJobGraphJsonGenerator {
 
   @Test
   public void testLegacyTaskApplication() throws Exception {
-    mockAppDesc = new TaskApplicationDescriptorImpl(getLegacyTaskApplication(), mockConfig);
     JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
     JobGraph mockJobGraph = mock(JobGraph.class);
     ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
@@ -366,20 +352,5 @@ public class TestJobGraphJsonGenerator {
     String getCountry() {
       return "";
     }
-  }
-
-  private TaskApplication getLegacyTaskApplication() {
-    return new LegacyTaskApplication(IdentityStreamTask.class.getName());
-  }
-
-  private TaskApplication getTaskApplication() {
-    return appDesc -> {
-      appDesc.addInputStream(input1Descriptor);
-      appDesc.addInputStream(input2Descriptor);
-      appDesc.addInputStream(intermediateInputDescriptor);
-      appDesc.addOutputStream(intermediateOutputDescriptor);
-      appDesc.addOutputStream(outputDescriptor);
-      appDesc.setTaskFactory(() -> new IdentityStreamTask());
-    };
   }
 }
