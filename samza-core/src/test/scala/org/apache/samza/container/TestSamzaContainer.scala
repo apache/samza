@@ -46,23 +46,23 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")
 
   @Mock
-  private var containerContext: SamzaContainerContext = _
+  private var containerContext: SamzaContainerContext = null
   @Mock
-  private var taskInstance: TaskInstance = _
+  private var taskInstance: TaskInstance = null
   @Mock
-  private var runLoop: Runnable = _
+  private var runLoop: Runnable = null
   @Mock
-  private var systemAdmins: SystemAdmins = _
+  private var systemAdmins: SystemAdmins = null
   @Mock
-  private var consumerMultiplexer: SystemConsumers = _
+  private var consumerMultiplexer: SystemConsumers = null
   @Mock
-  private var producerMultiplexer: SystemProducers = _
+  private var producerMultiplexer: SystemProducers = null
   @Mock
-  private var metrics: SamzaContainerMetrics = _
+  private var metrics: SamzaContainerMetrics = null
   @Mock
-  private var samzaContainerListener: SamzaContainerListener = _
+  private var samzaContainerListener: SamzaContainerListener = null
 
-  private var samzaContainer: SamzaContainer = _
+  private var samzaContainer: SamzaContainer = null
 
   @Before
   def setup(): Unit = {

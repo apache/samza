@@ -46,29 +46,29 @@ class TestTaskInstance extends MockitoSugar {
   private val SYSTEM_STREAM_PARTITIONS = Set(SYSTEM_STREAM_PARTITION)
 
   @Mock
-  private var task: AllTask = _
+  private var task: AllTask = null
   @Mock
-  private var config: Config = _
+  private var config: Config = null
   @Mock
-  private var metrics: TaskInstanceMetrics = _
+  private var metrics: TaskInstanceMetrics = null
   @Mock
-  private var systemAdmins: SystemAdmins = _
+  private var systemAdmins: SystemAdmins = null
   @Mock
-  private var systemAdmin: SystemAdmin = _
+  private var systemAdmin: SystemAdmin = null
   @Mock
-  private var consumerMultiplexer: SystemConsumers = _
+  private var consumerMultiplexer: SystemConsumers = null
   @Mock
-  private var collector: TaskInstanceCollector = _
+  private var collector: TaskInstanceCollector = null
   @Mock
-  private var containerContext: SamzaContainerContext = _
+  private var containerContext: SamzaContainerContext = null
   @Mock
-  private var offsetManager: OffsetManager = _
+  private var offsetManager: OffsetManager = null
   @Mock
-  private var taskStorageManager: TaskStorageManager = _
+  private var taskStorageManager: TaskStorageManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
-  private var taskInstanceExceptionHandler: MockTaskInstanceExceptionHandler = _
+  private var taskInstanceExceptionHandler: MockTaskInstanceExceptionHandler = null
 
-  private var taskInstance: TaskInstance = _
+  private var taskInstance: TaskInstance = null
 
   @Before
   def setup(): Unit = {
@@ -91,7 +91,7 @@ class TestTaskInstance extends MockitoSugar {
   }
 
   @Test
-  def testBasicProcess() {
+  def testProcess() {
     val processesCounter = mock[Counter]
     when(this.metrics.processes).thenReturn(processesCounter)
     val messagesActuallyProcessedCounter = mock[Counter]
