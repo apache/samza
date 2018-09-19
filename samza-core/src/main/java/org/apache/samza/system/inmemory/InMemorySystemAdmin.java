@@ -28,10 +28,6 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 
-
-/**
- * Initial draft of in-memory {@link SystemAdmin}. It is test only and not meant for production use right now.
- */
 public class InMemorySystemAdmin implements SystemAdmin {
   private final InMemoryManager inMemoryManager;
   private final String systemName;

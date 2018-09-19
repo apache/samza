@@ -21,7 +21,6 @@ package org.apache.samza.system.chooser
 
 import org.apache.samza.Partition
 import org.apache.samza.config.{DefaultChooserConfig, MapConfig}
-import org.apache.samza.container.MockSystemAdmin
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
