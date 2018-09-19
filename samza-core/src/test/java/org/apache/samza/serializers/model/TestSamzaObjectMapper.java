@@ -62,7 +62,7 @@ public class TestSamzaObjectMapper {
   @Test
   public void testSerializeJobModel() throws IOException {
     String serializedString = this.samzaObjectMapper.writeValueAsString(this.jobModel);
-    // use a plain ObjectMapper to read to make comparison easier
+    // use a plain ObjectMapper to read JSON to make comparison easier
     ObjectNode serializedAsJson = (ObjectNode) new ObjectMapper().readTree(serializedString);
     ObjectNode expectedJson = buildJobModelJson();
 
@@ -104,9 +104,10 @@ public class TestSamzaObjectMapper {
    * the container-id.
    */
   @Test
-  public void testDeserializeContainerModelAndProcessorId() throws IOException {
+  public void testDeserializeContainerIdAndProcessorId() throws IOException {
     ObjectNode jobModelJson = buildJobModelJson();
-    ((ObjectNode) jobModelJson.get("containers").get("1")).put("container-id", 123);
+    ObjectNode containerModelJson = (ObjectNode) jobModelJson.get("containers").get("1");
+    containerModelJson.put("container-id", 123);
     assertEquals(this.jobModel, deserializeFromObjectNode(jobModelJson));
   }
 
@@ -131,6 +132,20 @@ public class TestSamzaObjectMapper {
     ObjectNode jobModelJson = buildJobModelJson();
     ObjectNode containerModelJson = (ObjectNode) jobModelJson.get("containers").get("1");
     containerModelJson.remove("processor-id");
+    deserializeFromObjectNode(jobModelJson);
+  }
+
+  /**
+   * Given a {@link ContainerModel} JSON with only an "id" field, deserialization should fail.
+   * This verifies that even though {@link ContainerModel} has a getId method, the "id" field is not used, since
+   * "processor-id" is the field that is supposed to be used.
+   */
+  @Test(expected = SamzaException.class)
+  public void testDeserializeContainerModelIdFieldOnly() throws IOException {
+    ObjectNode jobModelJson = buildJobModelJson();
+    ObjectNode containerModelJson = (ObjectNode) jobModelJson.get("containers").get("1");
+    containerModelJson.remove("processor-id");
+    containerModelJson.put("id", 1);
     deserializeFromObjectNode(jobModelJson);
   }
 
@@ -166,6 +181,7 @@ public class TestSamzaObjectMapper {
     containerModel1TasksJson.put("test", containerModel1TaskTestJson);
 
     ObjectNode containerModel1Json = objectMapper.createObjectNode();
+    // important: needs to be "processor-id" for compatibility between Samza 0.14 and 1.0
     containerModel1Json.put("processor-id", "1");
     containerModel1Json.put("tasks", containerModel1TasksJson);
 

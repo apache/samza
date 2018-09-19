@@ -98,26 +98,31 @@ public class SamzaObjectMapper {
       public ContainerModel deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
         ObjectCodec oc = jp.getCodec();
         JsonNode node = oc.readTree(jp);
-        String processorId;
-        if (node.get("processor-id") == null) {
-          /*
-           * Before Samza 0.13, "container-id" was used. In Samza 0.13 "processor-id" was added to be the id to use and
-           * "container-id" was deprecated, but "container-id" still needed to be checked for backwards compatibility in
-           * case "processor-id" was missing from an older version of the job model. In Samza 1.0, "container-id" was
-           * further cleaned up from ContainerModel, but we are still leaving this fallback here for backwards
-           * compatibility.
-           */
-          if (node.get("container-id") == null) {
-            throw new SamzaException("JobModel was missing processor-id and container-id. This should never happen. "
-                + "JobModel corrupt!");
+        /*
+         * Before Samza 0.13, "container-id" was used.
+         * In Samza 0.13, "processor-id" was added to be the id to use and "container-id" was deprecated. However,
+         * "container-id" still needed to be checked for backwards compatibility in case "processor-id" was missing
+         * (i.e. from a job model corresponding to a version of the job that was on a pre Samza 0.13 version).
+         * In Samza 1.0, "container-id" was further cleaned up from ContainerModel. This logic is still being left here
+         * as a fallback for backwards compatibility with pre Samza 0.13. ContainerModel.getProcessorId was changed to
+         * ContainerModel.getId in the Java API, but "processor-id" still needs to be used as the JSON key for backwards
+         * compatibility with Samza 0.13 and Samza 0.14.
+         */
+        String id;
+        if (node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY) == null) {
+          if (node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY) == null) {
+            throw new SamzaException(
+                String.format("JobModel was missing %s and %s. This should never happen. JobModel corrupt!",
+                    JsonContainerModelMixIn.PROCESSOR_ID_KEY, JsonContainerModelMixIn.CONTAINER_ID_KEY));
           }
-          processorId = String.valueOf(node.get("container-id").getIntValue());
+          id = String.valueOf(node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY).getIntValue());
         } else {
-          processorId = node.get("processor-id").getTextValue();
+          id = node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY).getTextValue();
         }
         Map<TaskName, TaskModel> tasksMapping =
-            OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() { });
-        return new ContainerModel(processorId, tasksMapping);
+            OBJECT_MAPPER.readValue(node.get(JsonContainerModelMixIn.TASKS_KEY),
+                new TypeReference<Map<TaskName, TaskModel>>() { });
+        return new ContainerModel(id, tasksMapping);
       }
     });
 

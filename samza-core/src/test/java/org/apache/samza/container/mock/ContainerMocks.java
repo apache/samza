@@ -56,7 +56,7 @@ public class ContainerMocks {
     Set<ContainerModel> containers = generateContainerModels(numContainers, taskCount);
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        mapping.put(taskName.getTaskName(), container.getProcessorId());
+        mapping.put(taskName.getTaskName(), container.getId());
       }
     }
     return mapping;
@@ -121,7 +121,7 @@ public class ContainerMocks {
     Map<String, String> taskMapping = new HashMap<>();
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        taskMapping.put(taskName.getTaskName(), container.getProcessorId());
+        taskMapping.put(taskName.getTaskName(), container.getId());
       }
     }
     return taskMapping;

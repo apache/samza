@@ -557,8 +557,8 @@ public class TestOperatorImplGraph {
     ContainerModel cm1 = new ContainerModel("c1", Collections.singletonMap(task1, tm1));
 
     Map<String, ContainerModel> cms = new HashMap<>();
-    cms.put(cm0.getProcessorId(), cm0);
-    cms.put(cm1.getProcessorId(), cm1);
+    cms.put(cm0.getId(), cm0);
+    cms.put(cm1.getId(), cm1);
 
     JobModel jobModel = new JobModel(config, cms, null);
     Multimap<SystemStream, String> streamToTasks = OperatorImplGraph.getStreamToConsumerTasks(jobModel);

@@ -279,7 +279,7 @@ public class TestApplicationMasterRestClient {
     Set<ContainerModel> containerModels = grouper.group(taskModels);
     HashMap<String, ContainerModel> containers = new HashMap<>();
     for (ContainerModel containerModel : containerModels) {
-      containers.put(containerModel.getProcessorId(), containerModel);
+      containers.put(containerModel.getId(), containerModel);
     }
     return containers;
   }

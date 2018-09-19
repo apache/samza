@@ -19,10 +19,9 @@
 
 package org.apache.samza.job.model;
 
-import org.apache.samza.container.TaskName;
-
 import java.util.Collections;
 import java.util.Map;
+import org.apache.samza.container.TaskName;
 
 /**
  * <p>
@@ -41,16 +40,16 @@ import java.util.Map;
  * </p>
  */
 public class ContainerModel {
-  private final String processorId;
+  private final String id;
   private final Map<TaskName, TaskModel> tasks;
 
-  public ContainerModel(String processorId, Map<TaskName, TaskModel> tasks) {
-    this.processorId = processorId;
+  public ContainerModel(String id, Map<TaskName, TaskModel> tasks) {
+    this.id = id;
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 
-  public String getProcessorId() {
-    return processorId;
+  public String getId() {
+    return id;
   }
 
   public Map<TaskName, TaskModel> getTasks() {
@@ -59,14 +58,14 @@ public class ContainerModel {
 
   @Override
   public String toString() {
-    return "ContainerModel [processorId=" + processorId + ", tasks=" + tasks + "]";
+    return "ContainerModel [id=" + id + ", tasks=" + tasks + "]";
   }
 
   @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + ((processorId == null) ? 0 : processorId.hashCode());
+    result = prime * result + ((id == null) ? 0 : id.hashCode());
     result = prime * result + ((tasks == null) ? 0 : tasks.hashCode());
     return result;
   }
@@ -80,7 +79,7 @@ public class ContainerModel {
     if (getClass() != obj.getClass())
       return false;
     ContainerModel other = (ContainerModel) obj;
-    if (!processorId.equals(other.processorId))
+    if (!id.equals(other.id))
       return false;
     if (tasks == null) {
       if (other.tasks != null)

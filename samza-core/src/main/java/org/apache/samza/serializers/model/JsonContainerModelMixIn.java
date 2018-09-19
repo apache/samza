@@ -26,16 +26,27 @@ import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.
+ * A mix-in Jackson class to convert Samza's ContainerModel to JSON.
  * Note: Constructor is not needed because this mixin is not used for deserialization. See {@link SamzaObjectMapper} for
  * the deserialization code.
+ * See {@link SamzaObjectMapper} for more context about why the JSON keys are named in this specified way.
  */
-@JsonIgnoreProperties({"container-id"})
+@JsonIgnoreProperties({JsonContainerModelMixIn.CONTAINER_ID_KEY})
 public abstract class JsonContainerModelMixIn {
-  @JsonProperty("processor-id")
-  abstract String getProcessorId();
+  /**
+   * This is intentionally not "id" for backwards compatibility reasons. See {@link SamzaObjectMapper} for more details.
+   */
+  static final String PROCESSOR_ID_KEY = "processor-id";
+  /**
+   * This is used for backwards compatibility. See {@link SamzaObjectMapper} for more details.
+   */
+  static final String CONTAINER_ID_KEY = "container-id";
+  static final String TASKS_KEY = "tasks";
 
-  @JsonProperty("tasks")
+  @JsonProperty(PROCESSOR_ID_KEY)
+  abstract String getId();
+
+  @JsonProperty(TASKS_KEY)
   abstract Map<TaskName, TaskModel> getTasks();
 }
 
