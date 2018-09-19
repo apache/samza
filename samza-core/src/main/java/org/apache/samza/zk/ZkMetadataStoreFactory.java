@@ -16,28 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.zk;
 
-package org.apache.samza.serializers.model;
-
-import java.util.Map;
 import org.apache.samza.config.Config;
-import org.apache.samza.job.model.ContainerModel;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 
 /**
- * A mix-in Jackson class to convert Samza's JobModel to/from JSON.
+ * Builds the {@link ZkMetadataStore} based upon the provided {@link Config}
+ * and {@link MetricsRegistry}.
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
-public abstract class JsonJobModelMixIn {
-  @JsonCreator
-  public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<String, ContainerModel> containers) {
+public class ZkMetadataStoreFactory implements MetadataStoreFactory {
+
+  @Override
+  public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
+    return new ZkMetadataStore(namespace, config, metricsRegistry);
   }
-
-  @JsonProperty("config")
-  abstract Config getConfig();
-
-  @JsonProperty("containers")
-  abstract Map<String, ContainerModel> getContainers();
 }

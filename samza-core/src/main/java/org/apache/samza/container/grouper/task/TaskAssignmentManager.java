@@ -84,7 +84,7 @@ public class TaskAssignmentManager {
   }
 
   public void init(Config config, MetricsRegistry metricsRegistry) {
-    this.metadataStore.init(config, metricsRegistry);
+    this.metadataStore.init();
   }
 
   /**

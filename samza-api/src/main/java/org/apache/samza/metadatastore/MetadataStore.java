@@ -19,8 +19,6 @@
 package org.apache.samza.metadatastore;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.metrics.MetricsRegistry;
 import java.util.Map;
 
 /**
@@ -32,10 +30,8 @@ public interface MetadataStore {
   /**
    * Initializes the metadata store, if applicable, setting up the underlying resources
    * and connections to the store endpoints.
-   *
-   * @param config the configuration for instantiating the MetadataStore.
    */
-  void init(Config config, MetricsRegistry metricsRegistry);
+  void init();
 
   /**
    * Gets the value associated with the specified {@code key}.

@@ -16,28 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.system.chooser
 
-package org.apache.samza.serializers.model;
+import org.apache.samza.system.{SystemAdmin, SystemStreamPartition}
 
-import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.job.model.ContainerModel;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
+class MockSystemAdmin extends SystemAdmin {
+  override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
+  override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
 
-/**
- * A mix-in Jackson class to convert Samza's JobModel to/from JSON.
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-public abstract class JsonJobModelMixIn {
-  @JsonCreator
-  public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<String, ContainerModel> containers) {
+  override def offsetComparator(offset1: String, offset2: String) = {
+    offset1.toLong compare offset2.toLong
   }
-
-  @JsonProperty("config")
-  abstract Config getConfig();
-
-  @JsonProperty("containers")
-  abstract Map<String, ContainerModel> getContainers();
 }
