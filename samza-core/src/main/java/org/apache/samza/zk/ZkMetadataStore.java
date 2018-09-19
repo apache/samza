@@ -52,16 +52,25 @@ public class ZkMetadataStore implements MetadataStore {
     zkClient.createPersistent(zkBaseDir, true);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void init() {
     zkClient.waitUntilConnected(zkConfig.getZkConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public byte[] get(byte[] key) {
     return zkClient.readData(getZkPathForKey(key), true);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void put(byte[] key, byte[] value) {
     String zkPath = getZkPathForKey(key);
@@ -69,11 +78,18 @@ public class ZkMetadataStore implements MetadataStore {
     zkClient.writeData(zkPath, value);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void delete(byte[] key) {
     zkClient.delete(getZkPathForKey(key));
   }
 
+  /**
+   * {@inheritDoc}
+   * @throws SamzaException if there're exceptions reading data from zookeeper.
+   */
   @Override
   public Map<byte[], byte[]> all() {
     try {
@@ -88,16 +104,23 @@ public class ZkMetadataStore implements MetadataStore {
       }
       return result;
     } catch (Exception e) {
-      LOG.error("Exception occurred on reading the path: {} from zookeeper.", zkBaseDir, e);
-      throw new SamzaException(e);
+      String errorMsg = String.format("Error reading path: %s from zookeeper.", zkBaseDir);
+      LOG.error(errorMsg, e);
+      throw new SamzaException(errorMsg, e);
     }
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void flush() {
     // No-op for zookeeper implementation.
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void close() {
     zkClient.close();

@@ -129,12 +129,6 @@ object SamzaContainer extends Logging {
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
-    var localityManager: LocalityManager = null
-    if (new ClusterManagerConfig(config).getHostAffinityEnabled()) {
-      val registryMap = new MetricsRegistryMap(containerName)
-      localityManager = new LocalityManager(config, registryMap)
-    }
-
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
 
     info("Setting up Samza container: %s" format containerName)
@@ -719,7 +713,6 @@ object SamzaContainer extends Logging {
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       offsetManager = offsetManager,
-      localityManager = localityManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
       reporters = reporters,
@@ -961,7 +954,9 @@ class SamzaContainer(
   }
 
   def storeContainerLocality {
-    if(localityManager != null) {
+    val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(containerContext.config).getHostAffinityEnabled
+    if (isHostAffinityEnabled) {
+      val localityManager: LocalityManager = new LocalityManager(containerContext.config, containerContext.metricsRegistry)
       val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
       info("Registering %s with metadata store" format containerName)
       try {
