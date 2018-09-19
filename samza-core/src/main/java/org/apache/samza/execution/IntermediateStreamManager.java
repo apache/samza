@@ -27,15 +27,14 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import org.apache.commons.collections4.ListUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
-import org.apache.samza.operators.spec.JoinOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,14 +46,14 @@ class IntermediateStreamManager {
   private static final Logger log = LoggerFactory.getLogger(IntermediateStreamManager.class);
 
   private final Config config;
-  private final Map<String, InputOperatorSpec> inputOperators;
+  private final Collection<InputOperatorSpec> inputOpSpecs;
 
   @VisibleForTesting
   static final int MAX_INFERRED_PARTITIONS = 256;
 
-  IntermediateStreamManager(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+  IntermediateStreamManager(Config config, Collection<InputOperatorSpec> inputOpSpecs) {
     this.config = config;
-    this.inputOperators = appDesc.getInputOperators();
+    this.inputOpSpecs = inputOpSpecs;
   }
 
   /**
@@ -79,14 +78,26 @@ class IntermediateStreamManager {
    */
   private void validateJoinInputStreamPartitions(JobGraph jobGraph) {
     // Group input operator specs (input/intermediate streams) by the joins they participate in.
-    Multimap<JoinOperatorSpec, InputOperatorSpec> joinOpSpecToInputOpSpecs =
-        OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(inputOperators.values());
+    Multimap<OperatorSpec, InputOperatorSpec> joinOpSpecToInputOpSpecs =
+        OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(inputOpSpecs);
 
     // Convert every group of input operator specs into a group of corresponding stream edges.
     List<StreamEdgeSet> streamEdgeSets = new ArrayList<>();
-    for (JoinOperatorSpec joinOpSpec : joinOpSpecToInputOpSpecs.keySet()) {
+    for (OperatorSpec joinOpSpec : joinOpSpecToInputOpSpecs.keySet()) {
       Collection<InputOperatorSpec> joinedInputOpSpecs = joinOpSpecToInputOpSpecs.get(joinOpSpec);
       StreamEdgeSet streamEdgeSet = getStreamEdgeSet(joinOpSpec.getOpId(), joinedInputOpSpecs, jobGraph);
+
+      // If current join is a stream-table join, add the stream edges corresponding to side-input
+      // streams associated with the joined table (if any).
+      if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
+        StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
+        Iterable<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
+        for (String sideInput : sideInputs) {
+          StreamEdge sideInputStreamEdge = jobGraph.getStreamEdge(sideInput);
+          streamEdgeSet.getStreamEdges().add(sideInputStreamEdge);
+        }
+      }
+
       streamEdgeSets.add(streamEdgeSet);
     }
 

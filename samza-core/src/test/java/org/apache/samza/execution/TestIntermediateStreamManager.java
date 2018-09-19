@@ -32,9 +32,9 @@ public class TestIntermediateStreamManager extends ExecutionPlannerTestBase {
   @Test
   public void testCalculateRepartitionJoinTopicPartitions() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc);
+    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc.getInputOperators().values());
     JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class))
-        .createJobGraph(mockConfig, mockStreamAppDesc);
+        .createJobGraph(mockStreamAppDesc);
     // set the input stream partitions
     mockGraph.getInputStreams().forEach(inEdge -> {
         if (inEdge.getStreamSpec().getId().equals(input1Descriptor.getStreamId())) {
@@ -53,9 +53,9 @@ public class TestIntermediateStreamManager extends ExecutionPlannerTestBase {
   @Test
   public void testCalculateRepartitionIntermediateTopicPartitions() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionOnlyStreamApplication(), mockConfig);
-    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc);
+    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc.getInputOperators().values());
     JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class))
-        .createJobGraph(mockConfig, mockStreamAppDesc);
+        .createJobGraph(mockStreamAppDesc);
     // set the input stream partitions
     mockGraph.getInputStreams().forEach(inEdge -> inEdge.setPartitionCount(7));
     partitionPlanner.calculatePartitions(mockGraph);

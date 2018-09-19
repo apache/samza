@@ -22,12 +22,12 @@ package org.apache.samza.execution;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.collections4.ListUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
@@ -56,23 +56,26 @@ public class ExecutionPlanner {
 
   private final Config config;
   private final StreamManager streamManager;
+  private final StreamConfig streamConfig;
 
   public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
     this.streamManager = streamManager;
+    this.streamConfig = new StreamConfig(config);
   }
 
   public ExecutionPlan plan(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     validateConfig();
 
     // create physical job graph based on stream graph
-    JobGraph jobGraph = createJobGraph(config, appDesc);
+    JobGraph jobGraph = createJobGraph(appDesc);
 
     // fetch the external streams partition info
-    setInputAndOutputStreamPartitionCount(jobGraph, streamManager);
+    setInputAndOutputStreamPartitionCount(jobGraph);
 
     // figure out the partitions for internal streams
-    new IntermediateStreamManager(config, appDesc).calculatePartitions(jobGraph);
+    new IntermediateStreamManager(config, appDesc.getInputOperators().values())
+        .calculatePartitions(jobGraph);
 
     return jobGraph;
   }
@@ -91,9 +94,8 @@ public class ExecutionPlanner {
    * Create the physical graph from {@link ApplicationDescriptorImpl}
    */
   /* package private */
-  JobGraph createJobGraph(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+  JobGraph createJobGraph(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     JobGraph jobGraph = new JobGraph(config, appDesc);
-    StreamConfig streamConfig = new StreamConfig(config);
     // Source streams contain both input and intermediate streams.
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
     // Sink streams contain both output and intermediate streams.
@@ -106,7 +108,7 @@ public class ExecutionPlanner {
     Set<TableSpec> tables = appDesc.getTableDescriptors().stream()
         .map(tableDescriptor -> ((BaseTableDescriptor) tableDescriptor).getTableSpec()).collect(Collectors.toSet());
 
-    // For this phase, we have a single job node for the whole dag
+    // For this phase, we have a single job node for the whole DAG
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
@@ -121,7 +123,14 @@ public class ExecutionPlanner {
     intermediateStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
 
     // Add tables
-    tables.forEach(spec -> jobGraph.addTable(spec, node));
+    for (TableSpec table : tables) {
+      jobGraph.addTable(table, node);
+      // Add side-input streams (if any)
+      Iterable<String> sideInputs = ListUtils.emptyIfNull(table.getSideInputs());
+      for (String sideInput : sideInputs) {
+        jobGraph.addSideInputStream(getStreamSpec(sideInput, streamConfig));
+      }
+    }
 
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
       // skip the validation when input streamIds are empty. This is only possible for LegacyTaskApplication
@@ -134,11 +143,11 @@ public class ExecutionPlanner {
   /**
    * Fetch the partitions of source/sink streams and update the StreamEdges.
    * @param jobGraph {@link JobGraph}
-   * @param streamManager the {@link StreamManager} to interface with the streams.
    */
-  /* package private */ static void setInputAndOutputStreamPartitionCount(JobGraph jobGraph, StreamManager streamManager) {
+  /* package private */ void setInputAndOutputStreamPartitionCount(JobGraph jobGraph) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(jobGraph.getInputStreams());
+    existingStreams.addAll(jobGraph.getSideInputStreams());
     existingStreams.addAll(jobGraph.getOutputStreams());
 
     // System to StreamEdges
@@ -152,7 +161,7 @@ public class ExecutionPlanner {
 
     // Fetch partition count for every set of StreamEdges belonging to a particular system.
     for (String system : systemToStreamEdges.keySet()) {
-      Collection<StreamEdge> streamEdges = systemToStreamEdges.get(system);
+      Iterable<StreamEdge> streamEdges = systemToStreamEdges.get(system);
 
       // Map every stream to its corresponding StreamEdge so we can retrieve a StreamEdge given its stream.
       Map<String, StreamEdge> streamToStreamEdge = new HashMap<>();
@@ -173,5 +182,4 @@ public class ExecutionPlanner {
       }
     }
   }
-
 }

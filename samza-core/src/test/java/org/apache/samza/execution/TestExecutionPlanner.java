@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -51,15 +53,19 @@ import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.storage.SideInputsProcessor;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.TableSpec;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -145,7 +151,7 @@ public class TestExecutionPlanner {
       }, config);
   }
 
-  private StreamApplicationDescriptorImpl createStreamGraphWithJoin() {
+  private StreamApplicationDescriptorImpl createStreamGraphWithStreamStreamJoin() {
 
     /**
      * the graph looks like the following. number of partitions in parentheses. quotes indicate expected value.
@@ -175,14 +181,35 @@ public class TestExecutionPlanner {
 
         messageStream1
             .join(messageStream2,
-                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
             .sendTo(output1);
         messageStream3
             .join(messageStream2,
-                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
             .sendTo(output2);
+      }, config);
+  }
+
+  private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamStreamJoin() {
+    /**
+     * Creates the following stream-stream join which is invalid due to partition count disagreement
+     * between the 2 input streams.
+     *
+     *   input1 (64) --
+     *                 |
+     *                join -> output1 (8)
+     *                 |
+     *   input3 (32) --
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+        MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+
+        messageStream1
+            .join(messageStream3,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+            .sendTo(output1);
       }, config);
   }
 
@@ -205,33 +232,125 @@ public class TestExecutionPlanner {
             .filter(m -> true)
             .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), (Serde<KV<Object, Object>>) mock(Serde.class), (Serde<KV<Object, Object>>) mock(Serde.class)), "w2");
 
-        messageStream1.join(messageStream2, (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-          mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1").sendTo(output1);
-        messageStream3.join(messageStream2, (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-          mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2").sendTo(output2);
-        messageStream3.join(messageStream2, (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-          mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3").sendTo(output2);
+        messageStream1.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1").sendTo(output1);
+        messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2").sendTo(output2);
+        messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3").sendTo(output2);
       }, config);
   }
 
-  private StreamApplicationDescriptorImpl createStreamGraphWithInvalidJoin() {
+  private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoin() {
     /**
-     *   input1 (64) --
-     *                 |
-     *                join -> output1 (8)
-     *                 |
-     *   input3 (32) --
+     * Example stream-table join app. Expected partition counts of intermediate streams introduced
+     * by partitionBy operations are enclosed in quotes.
+     *
+     *    input2 (16) -> partitionBy ("32") -> send-to-table t
+     *
+     *                                      join-table t —————
+     *                                       |                |
+     *    input1 (64) -> partitionBy ("32") _|                |
+     *                                                       join -> output1 (8)
+     *                                                        |
+     *                                      input3 (32) ——————
+     *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
         MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
+        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id");
+        Table table = appDesc.getTable(tableDescriptor);
+
+        messageStream2
+            .partitionBy(m -> m.key, m -> m.value, "p1")
+            .sendTo(table);
+
         messageStream1
-          .join(messageStream3,
-              (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-              mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-          .sendTo(output1);
+            .partitionBy(m -> m.key, m -> m.value, "p2")
+            .join(table, mock(StreamTableJoinFunction.class))
+            .join(messageStream3,
+                  mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+            .sendTo(output1);
+      }, config);
+  }
+
+  private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamTableJoin() {
+    /**
+     * Example stream-table join that is invalid due to disagreement in partition count
+     * between the 2 input streams.
+     *
+     *    input1 (64) -> send-to-table t
+     *
+     *                   join-table t -> output1 (8)
+     *                         |
+     *    input2 (16) —————————
+     *
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+
+        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id");
+        Table table = appDesc.getTable(tableDescriptor);
+
+        messageStream1.sendTo(table);
+
+        messageStream1
+            .join(table, mock(StreamTableJoinFunction.class))
+            .join(messageStream2,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+            .sendTo(output1);
+      }, config);
+  }
+
+  private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoinWithSideInputs() {
+    /**
+     * Example stream-table join where table t is configured with input1 (64) as a side-input stream.
+     *
+     *                                   join-table t -> output1 (8)
+     *                                        |
+     *    input2 (16) -> partitionBy ("64") __|
+     *
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+
+        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id", Arrays.asList("input1"),
+            (message, store) -> Collections.emptyList());
+        Table table = appDesc.getTable(tableDescriptor);
+
+        messageStream2
+            .partitionBy(m -> m.key, m -> m.value, "p1")
+            .join(table, mock(StreamTableJoinFunction.class))
+            .sendTo(output1);
+      }, config);
+  }
+
+  private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamTableJoinWithSideInputs() {
+    /**
+     * Example stream-table join that is invalid due to disagreement in partition count between the
+     * stream behind table t and another joined stream. Table t is configured with input2 (16) as
+     * side-input stream.
+     *
+     *                   join-table t -> output1 (8)
+     *                         |
+     *    input1 (64) —————————
+     *
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+
+        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id", Arrays.asList("input2"),
+            (message, store) -> Collections.emptyList());
+        Table table = appDesc.getTable(tableDescriptor);
+
+        messageStream1
+            .join(table, mock(StreamTableJoinFunction.class))
+            .sendTo(output1);
       }, config);
   }
 
@@ -302,9 +421,9 @@ public class TestExecutionPlanner {
   @Test
   public void testCreateProcessorGraph() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamStreamJoin();
 
-    JobGraph jobGraph = planner.createJobGraph(graphSpec.getConfig(), graphSpec);
+    JobGraph jobGraph = planner.createJobGraph(graphSpec);
     assertTrue(jobGraph.getInputStreams().size() == 3);
     assertTrue(jobGraph.getOutputStreams().size() == 2);
     assertTrue(jobGraph.getIntermediateStreams().size() == 2); // two streams generated by partitionBy
@@ -313,10 +432,10 @@ public class TestExecutionPlanner {
   @Test
   public void testFetchExistingStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(graphSpec.getConfig(), graphSpec);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamStreamJoin();
+    JobGraph jobGraph = planner.createJobGraph(graphSpec);
 
-    ExecutionPlanner.setInputAndOutputStreamPartitionCount(jobGraph, streamManager);
+    planner.setInputAndOutputStreamPartitionCount(jobGraph);
     assertTrue(jobGraph.getOrCreateStreamEdge(input1Spec).getPartitionCount() == 64);
     assertTrue(jobGraph.getOrCreateStreamEdge(input2Spec).getPartitionCount() == 16);
     assertTrue(jobGraph.getOrCreateStreamEdge(input3Spec).getPartitionCount() == 32);
@@ -331,24 +450,52 @@ public class TestExecutionPlanner {
   @Test
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
-    JobGraph jobGraph = planner.createJobGraph(graphSpec.getConfig(), graphSpec);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamStreamJoin();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
 
-    ExecutionPlanner.setInputAndOutputStreamPartitionCount(jobGraph, streamManager);
-    new IntermediateStreamManager(config, graphSpec).calculatePartitions(jobGraph);
-
-    // the partitions should be the same as input1
+    // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertEquals(64, edge.getPartitionCount());
       });
   }
 
-  @Test(expected = SamzaException.class)
-  public void testRejectsInvalidJoin() {
+  @Test
+  public void testCalculateIntStreamPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithInvalidJoin();
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
 
-    planner.plan(graphSpec);
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    // Partitions should be the same as input1
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(64, edge.getPartitionCount()); // max of input1 and output1
+      });
+  }
+
+  @Test
+  public void testCalculateInStreamPartitionsBehindTables() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamTableJoin();
+
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    // Partitions should be the same as input3
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(32, edge.getPartitionCount());
+      });
+  }
+
+  @Test
+  public void testCalculateInStreamPartitionsBehindTablesWithSideInputs() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamTableJoinWithSideInputs();
+
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    // Partitions should be the same as input1
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(64, edge.getPartitionCount());
+      });
   }
 
   @Test
@@ -361,10 +508,53 @@ public class TestExecutionPlanner {
     StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
     JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
 
-    // the partitions should be the same as input1
+    // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
+  }
+
+  @Test
+  public void testMaxPartitionLimit() {
+    int partitionLimit = IntermediateStreamManager.MAX_INFERRED_PARTITIONS;
+
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+        input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
+      }, config);
+
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    // Partitions should be the same as input1
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
+      });
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testRejectsInvalidStreamStreamJoin() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithInvalidStreamStreamJoin();
+
+    planner.plan(graphSpec);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testRejectsInvalidStreamTableJoin() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithInvalidStreamTableJoin();
+
+    planner.plan(graphSpec);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testRejectsInvalidStreamTableJoinWithSideInputs() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithInvalidStreamTableJoinWithSideInputs();
+
+    planner.plan(graphSpec);
   }
 
   @Test
@@ -374,8 +564,9 @@ public class TestExecutionPlanner {
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithJoin();
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamStreamJoin();
     ExecutionPlan plan = planner.plan(graphSpec);
+
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     for (JobConfig config : jobConfigs) {
       System.out.println(config);
@@ -445,18 +636,6 @@ public class TestExecutionPlanner {
   }
 
   @Test
-  public void testCalculateIntStreamPartitions() {
-    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
-    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
-
-    // the partitions should be the same as input1
-    jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(64, edge.getPartitionCount()); // max of input1 and output1
-      });
-  }
-
-  @Test
   public void testMaxPartition() {
     Collection<StreamEdge> edges = new ArrayList<>();
     StreamEdge edge = new StreamEdge(input1Spec, false, false, config);
@@ -475,23 +654,26 @@ public class TestExecutionPlanner {
     assertEquals(StreamEdge.PARTITIONS_UNKNOWN, IntermediateStreamManager.maxPartitions(edges));
   }
 
-  @Test
-  public void testMaxPartitionLimit() throws Exception {
-    int partitionLimit = IntermediateStreamManager.MAX_INFERRED_PARTITIONS;
+  private static class TestTableDescriptor extends BaseTableDescriptor implements TableDescriptor {
+    private final List<String> sideInputs;
+    private final SideInputsProcessor sideInputsProcessor;
 
-    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
-      }, config);
+    public TestTableDescriptor(String tableId) {
+      this(tableId, Collections.emptyList(), null);
+    }
 
-    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+    public TestTableDescriptor(String tableId, List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
+      super(tableId);
+      this.sideInputs = sideInputs;
+      this.sideInputsProcessor = sideInputsProcessor;
+    }
 
-    // the partitions should be the same as input1
-    jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
-      });
+    @Override
+    public TableSpec getTableSpec() {
+      validate();
+      return new TableSpec(tableId, serde, "dummyTableProviderFactoryClassName",
+          Collections.emptyMap(), sideInputs, sideInputsProcessor);
+    }
   }
 
   @Test
@@ -532,7 +714,7 @@ public class TestExecutionPlanner {
     systemDescriptors.forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    JobGraph jobGraph = planner.createJobGraph(config, taskAppDesc);
+    JobGraph jobGraph = planner.createJobGraph(taskAppDesc);
     assertEquals(1, jobGraph.getJobNodes().size());
     assertTrue(jobGraph.getInputStreams().stream().map(edge -> edge.getName())
         .filter(streamId -> inputDescriptors.containsKey(streamId)).collect(Collectors.toList()).isEmpty());
@@ -563,7 +745,7 @@ public class TestExecutionPlanner {
     systemDescriptors.forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
-    JobGraph jobGraph = planner.createJobGraph(config, taskAppDesc);
+    JobGraph jobGraph = planner.createJobGraph(taskAppDesc);
     assertEquals(1, jobGraph.getJobNodes().size());
     JobNode jobNode = jobGraph.getJobNodes().get(0);
     assertEquals("test-app", jobNode.getJobName());
