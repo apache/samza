@@ -23,7 +23,6 @@ import java.util.Arrays
 
 import org.apache.samza.system._
 import org.apache.samza.Partition
-import org.apache.samza.container.MockSystemAdmin
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.junit.Assert._
