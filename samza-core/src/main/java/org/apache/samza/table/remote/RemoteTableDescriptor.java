@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.table.utils.SerdeUtils;
@@ -83,6 +84,13 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    */
   public RemoteTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public RemoteTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   @Override

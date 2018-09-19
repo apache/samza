@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.kv.BaseLocalStoreBackedTableDescriptor;
 import org.apache.samza.table.TableSpec;
 
@@ -38,6 +39,13 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
    */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public InMemoryTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   @Override

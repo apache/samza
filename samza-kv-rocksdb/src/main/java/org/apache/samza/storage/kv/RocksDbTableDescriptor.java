@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
 
 
@@ -61,6 +62,13 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
    */
   public RocksDbTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public RocksDbTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   /**
