@@ -51,7 +51,7 @@ public class TestSystemTimerScheduler {
 
   private void fireTimers(SystemTimerScheduler factory) {
     factory.removeReadyTimers().entrySet().forEach(entry -> {
-        entry.getValue().onTimer(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
+        entry.getValue().onCallback(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
       });
   }
 

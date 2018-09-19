@@ -16,26 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.system.chooser
 
-package org.apache.samza.operators;
+import org.apache.samza.system.{SystemAdmin, SystemStreamPartition}
 
-/**
- * Allows registering epoch-time timer callbacks from the operators.
- * See {@link org.apache.samza.operators.functions.TimerFunction} for details.
- * @param <K> type of the timer key
- */
-public interface TimerRegistry<K> {
+class MockSystemAdmin extends SystemAdmin {
+  override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
+  override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
 
-  /**
-   * Register a epoch-time timer with key.
-   * @param key unique timer key
-   * @param timestamp epoch time when the timer will be fired, in milliseconds
-   */
-  void register(K key, long timestamp);
-
-  /**
-   * Delete the timer for the provided key.
-   * @param key key for the timer to delete
-   */
-  void delete(K key);
+  override def offsetComparator(offset1: String, offset2: String) = {
+    offset1.toLong compare offset2.toLong
+  }
 }

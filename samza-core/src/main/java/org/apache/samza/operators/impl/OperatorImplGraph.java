@@ -26,7 +26,7 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.util.TimestampedValue;
@@ -170,9 +170,9 @@ public class OperatorImplGraph {
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
 
-      if (operatorSpec.getTimerFn() != null) {
-        final TimerRegistry timerRegistry = operatorImpl.createOperatorTimerRegistry();
-        operatorSpec.getTimerFn().registerTimer(timerRegistry);
+      if (operatorSpec.getScheduledFn() != null) {
+        final Scheduler scheduler = operatorImpl.createOperatorScheduler();
+        operatorSpec.getScheduledFn().schedule(scheduler);
       }
 
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).

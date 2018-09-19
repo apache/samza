@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ConfigRewriter;
@@ -116,15 +118,27 @@ public class TestTableDescriptorsProvider {
   public static class MySampleNonTableDescriptorsProvider {
   }
 
+  static class MyReadFunction implements TableReadFunction {
+    @Override
+    public CompletableFuture getAsync(Object key) {
+      return null;
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+  }
+
   public static class MySampleTableDescriptorsProvider implements TableDescriptorsProvider {
     @Override
     public List<TableDescriptor> getTableDescriptors(Config config) {
       List<TableDescriptor> tableDescriptors = new ArrayList<>();
       final RateLimiter readRateLimiter = mock(RateLimiter.class);
-      final TableReadFunction readRemoteTable = (TableReadFunction) key -> null;
+      final MyReadFunction readFn = new MyReadFunction();
 
       tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1")
-          .withReadFunction(readRemoteTable)
+          .withReadFunction(readFn)
           .withRateLimiter(readRateLimiter, null, null)
           .withSerde(KVSerde.of(new StringSerde(), new LongSerde())));
       tableDescriptors.add(new RocksDbTableDescriptor("local-table-1")
