@@ -20,6 +20,7 @@ package org.apache.samza.test.framework;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,21 +29,28 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.storage.kv.RocksDbTableDescriptor;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
+import org.apache.samza.table.Table;
 import org.apache.samza.test.controlmessages.TestData;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.test.table.PageViewToProfileJoinFunction;
+import static org.apache.samza.test.controlmessages.TestData.*;
+import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
 
@@ -69,7 +77,58 @@ public class StreamApplicationIntegrationTest {
           });
   };
 
+  final StreamApplication pageViewProfileViewTableJoin = appDesc -> {
+    Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(
+        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store").withSerde(
+            KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+    KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+    appDesc.getInputStream(profileISD).map(m -> new KV(m.getMemberId(), m)).sendTo(table);
+
+    KafkaInputDescriptor<TestTableData.PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+    KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
+        ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+    OutputStream<TestTableData.EnrichedPageView> outputStream = appDesc.getOutputStream(enrichedPageViewOSD);
+
+    appDesc.getInputStream(pageViewISD)
+        .partitionBy(TestTableData.PageView::getMemberId, v -> v, "p1")
+        .join(table, new PageViewToProfileJoinFunction())
+        .sendTo(outputStream);
+  };
+
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
+
+
+  @Test
+  public void testStatefulJobWithLocalTable() {
+    TestTableData.PageView[] pageViews = TestTableData.generatePageViews(10);
+    TestTableData.Profile[] profiles = TestTableData.generateProfiles(10);
+
+    RocksDbTableDescriptor tableDescriptor =
+        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store")
+            .withSerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()));
+
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+
+    InMemoryInputDescriptor<TestTableData.PageView> pageViewStreamDesc = isd
+        .getInputDescriptor("PageView", new NoOpSerde<TestTableData.PageView>());
+
+    InMemoryInputDescriptor<TestTableData.Profile> profileStreamDesc = isd
+        .getInputDescriptor("Profile", new NoOpSerde<TestTableData.Profile>())
+        .withBootstrap(true);
+
+    InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
+        .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+
+    TestRunner
+        .of(pageViewProfileViewTableJoin)
+        .addInputStream(pageViewStreamDesc, Arrays.asList(pageViews))
+        .addInputStream(profileStreamDesc, Arrays.asList(profiles))
+        .addOutputStream(outputStreamDesc, 1)
+        .run(Duration.ofSeconds(2));
+
+
+  }
 
   @Test
   public void testHighLevelApi() throws Exception {
@@ -107,6 +166,7 @@ public class StreamApplicationIntegrationTest {
       return (M m) -> m.getValue();
     }
   }
+
 
   /**
    * Job should fail since it is missing config "job.default.system" for partitionBy Operator
