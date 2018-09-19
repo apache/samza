@@ -100,5 +100,12 @@ public interface TableReadFunction<K, V> extends Serializable, InitableFunction,
             .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue().join())));
   }
 
+  /**
+   * Determine whether the current operation can be retried with the last thrown exception.
+   * @param exception exception thrown by a table operation
+   * @return whether the operation can be retried
+   */
+  boolean isRetriable(Throwable exception);
+
   // optionally implement readObject() to initialize transient states
 }

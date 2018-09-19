@@ -92,6 +92,11 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
       return CompletableFuture.completedFuture(profileMap.get(key));
     }
 
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+
     static InMemoryReadFunction getInMemoryReadFunction(String serializedProfiles) {
       return new InMemoryReadFunction(serializedProfiles);
     }
@@ -124,6 +129,11 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
       records.remove(key);
       return CompletableFuture.completedFuture(null);
     }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
   }
 
   private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
@@ -140,6 +150,18 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
 
     cachingDesc.withTable(actualTable);
     return appDesc.getTable(cachingDesc);
+  }
+
+  static class MyReadFunction implements TableReadFunction {
+    @Override
+    public CompletableFuture getAsync(Object key) {
+      return null;
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
   }
 
   private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
@@ -166,9 +188,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
           .withRateLimiter(readRateLimiter, null, null);
 
+      // dummy reader
+      TableReadFunction readFn = new MyReadFunction();
+
       RemoteTableDescriptor<Integer, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
       outputTableDesc
-          .withReadFunction(key -> null) // dummy reader
+          .withReadFunction(readFn)
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, null, null);
 
