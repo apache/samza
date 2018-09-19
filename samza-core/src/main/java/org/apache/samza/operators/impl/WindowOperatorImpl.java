@@ -181,7 +181,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
 
   @Override
   public Collection<WindowPane<K, Object>> handleTimer(MessageCollector collector, TaskCoordinator coordinator) {
-    LOG.trace("Processing timer.");
+    LOG.trace("Processing time triggers");
     List<WindowPane<K, Object>> results = new ArrayList<>();
     List<TriggerKey<K>> keys = triggerScheduler.runPendingCallbacks();
 

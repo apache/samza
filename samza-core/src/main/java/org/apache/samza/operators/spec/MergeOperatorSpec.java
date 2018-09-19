@@ -19,7 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import java.util.ArrayList;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -45,7 +45,7 @@ class MergeOperatorSpec<M> extends StreamOperatorSpec<M, M> {
   }
 
   @Override
-  public TimerFunction getTimerFn() {
+  public ScheduledFunction getScheduledFn() {
     return null;
   }
 }

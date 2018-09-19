@@ -213,7 +213,7 @@ public class StorageRecovery extends CommandLine {
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
       ContainerContext containerContext =
-          new ContainerContextImpl(containerModel.getProcessorId(), containerModel.getTasks().keySet(),
+          new ContainerContextImpl(containerModel.getId(), containerModel.getTasks().keySet(),
               new MetricsRegistryMap());
 
       for (TaskModel taskModel : containerModel.getTasks().values()) {

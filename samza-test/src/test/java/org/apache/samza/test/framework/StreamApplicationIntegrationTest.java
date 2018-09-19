@@ -36,7 +36,9 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.controlmessages.TestData;
-import org.apache.samza.test.framework.stream.CollectionStream;
+import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -82,17 +84,22 @@ public class StreamApplicationIntegrationTest {
       pageviews.add(pv);
     }
 
-    CollectionStream<PageView> input = CollectionStream.of("test", "PageView", pageviews);
-    CollectionStream output = CollectionStream.empty("test", "Output", 10);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+
+    InMemoryInputDescriptor<PageView> imid = isd
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
+
+    InMemoryOutputDescriptor<PageView> imod = isd
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner
         .of(pageViewRepartition)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, pageviews)
+        .addOutputStream(imod, 10)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
-    Assert.assertEquals(TestRunner.consumeStream(output, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
   }
 
   public static final class Values {
@@ -107,13 +114,18 @@ public class StreamApplicationIntegrationTest {
   @Test(expected = SamzaException.class)
   public void testSamzaJobStartMissingConfigFailureForStreamApplication() {
 
-    CollectionStream<TestData.PageView> input = CollectionStream.of("test", "PageView", new ArrayList<>());
-    CollectionStream output = CollectionStream.empty("test", "Output", 10);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+
+    InMemoryInputDescriptor<PageView> imid = isd
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
+
+    InMemoryOutputDescriptor<PageView> imod = isd
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner
         .of(pageViewRepartition)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, new ArrayList<>())
+        .addOutputStream(imod, 10)
         .run(Duration.ofMillis(1000));
   }
 
@@ -131,12 +143,17 @@ public class StreamApplicationIntegrationTest {
       pageviews.add(new TestData.PageView(null, memberId));
     }
 
-    CollectionStream<TestData.PageView> input = CollectionStream.of("test", "PageView", pageviews);
-    CollectionStream output = CollectionStream.empty("test", "Output", 1);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+
+    InMemoryInputDescriptor<PageView> imid = isd
+        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
+
+    InMemoryOutputDescriptor<PageView> imod = isd
+        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner.of(pageViewFilter)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, pageviews)
+        .addOutputStream(imod, 10)
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1000));
   }

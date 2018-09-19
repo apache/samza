@@ -34,12 +34,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link TableManager} manages tables within a Samza task. For each table, it maintains
- * the {@link TableSpec} and the {@link TableProvider}. It is used at execution for
- * {@link org.apache.samza.container.TaskInstance} to retrieve table instances for
- * read/write operations.
+ * the {@link TableSpec}, the {@link TableProvider} and the {@link Table} instance.
+ * It is used at execution for {@link org.apache.samza.container.TaskInstance} to retrieve
+ * table instances for read/write operations.
  *
  * A {@link TableManager} is constructed from job configuration, the {@link TableSpec}
- * and {@link TableProvider} are constructed by processing the job configuration.
+ * and {@link TableProvider} are constructed by processing the job configuration
+ * during initialization. The {@link Table} is constructed when {@link #getTable(String)}
+ * is called and cached.
  *
  * After a {@link TableManager} is constructed, local tables are associated with
  * local store instances created during {@link org.apache.samza.container.SamzaContainer}
@@ -48,19 +50,19 @@ import org.slf4j.LoggerFactory;
  * Method {@link TableManager#getTable(String)} will throw {@link IllegalStateException},
  * if it's called before initialization.
  *
- * For store backed tables, the list of stores must be injected into the constructor.
  */
 public class TableManager {
 
   static public class TableCtx {
     private TableSpec tableSpec;
     private TableProvider tableProvider;
+    private Table table;
   }
 
   private final Logger logger = LoggerFactory.getLogger(TableManager.class.getName());
 
   // tableId -> TableCtx
-  private final Map<String, TableCtx> tables = new HashMap<>();
+  private final Map<String, TableCtx> tableContexts = new HashMap<>();
 
   private boolean initialized;
 
@@ -96,7 +98,7 @@ public class TableManager {
    */
   public void init(Context context) {
     Preconditions.checkNotNull(context, "Cannot pass null context");
-    tables.values().forEach(ctx -> ctx.tableProvider.init(context));
+    tableContexts.values().forEach(ctx -> ctx.tableProvider.init(context));
     initialized = true;
   }
 
@@ -105,7 +107,7 @@ public class TableManager {
    * @param tableSpec the table spec
    */
   private void addTable(TableSpec tableSpec) {
-    if (tables.containsKey(tableSpec.getId())) {
+    if (tableContexts.containsKey(tableSpec.getId())) {
       throw new SamzaException("Table " + tableSpec.getId() + " already exists");
     }
     TableCtx ctx = new TableCtx();
@@ -113,14 +115,14 @@ public class TableManager {
         Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableSpec);
     ctx.tableSpec = tableSpec;
-    tables.put(tableSpec.getId(), ctx);
+    tableContexts.put(tableSpec.getId(), ctx);
   }
 
   /**
    * Shutdown the table manager, internally it shuts down all tables
    */
   public void close() {
-    tables.values().forEach(ctx -> ctx.tableProvider.close());
+    tableContexts.values().forEach(ctx -> ctx.tableProvider.close());
   }
 
   /**
@@ -129,10 +131,14 @@ public class TableManager {
    * @return table instance
    */
   public Table getTable(String tableId) {
-    if (!initialized) {
-      throw new IllegalStateException("TableManager has not been initialized.");
+    Preconditions.checkState(initialized, "TableManager has not been initialized.");
+
+    TableCtx ctx = tableContexts.get(tableId);
+    Preconditions.checkNotNull(ctx, "Unknown tableId " + tableId);
+
+    if (ctx.table == null) {
+      ctx.table = ctx.tableProvider.getTable();
     }
-    Preconditions.checkArgument(tables.containsKey(tableId), "Unknown tableId=" + tableId);
-    return tables.get(tableId).tableProvider.getTable();
+    return ctx.table;
   }
 }

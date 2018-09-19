@@ -30,6 +30,7 @@ import org.apache.samza.context._
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.scheduling.SchedulerImpl
+import org.apache.samza.scheduler.ScheduledCallback
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{TaskSideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
@@ -225,12 +226,12 @@ class TaskInstance(
     }
   }
 
-  def timer(coordinator: ReadableCoordinator) {
-    trace("Timer for taskName: %s" format taskName)
+  def scheduler(coordinator: ReadableCoordinator) {
+    trace("Scheduler for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
       systemTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
-        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
+        entry.getValue.asInstanceOf[ScheduledCallback[Any]].onCallback(entry.getKey.getKey, collector, coordinator)
       }
     }
   }

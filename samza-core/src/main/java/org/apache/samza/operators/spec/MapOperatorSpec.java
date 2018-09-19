@@ -23,7 +23,7 @@ import java.util.Collection;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -70,7 +70,7 @@ class MapOperatorSpec<M, OM> extends StreamOperatorSpec<M, OM> {
   }
 
   @Override
-  public TimerFunction getTimerFn() {
-    return this.mapFn instanceof TimerFunction ? (TimerFunction) this.mapFn : null;
+  public ScheduledFunction getScheduledFn() {
+    return this.mapFn instanceof ScheduledFunction ? (ScheduledFunction) this.mapFn : null;
   }
 }

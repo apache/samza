@@ -19,66 +19,51 @@
 
 package org.apache.samza.job.model;
 
-import org.apache.samza.container.TaskName;
-
 import java.util.Collections;
 import java.util.Map;
+import org.apache.samza.container.TaskName;
 
 /**
+ * This contains metadata about a Samza container, such as which tasks a Samza container should process.
  * <p>
- * The data model is used to define which TaskModels a SamzaContainer should
- * process. The model is used in the job coordinator and SamzaContainer to
- * determine how to execute Samza jobs.
- * </p>
- *
- * <p>
- * The hierarchy for a Samza's job data model is that jobs have containers, and
- * containers have tasks. Each data model contains relevant information, such as
- * an id, partition information, etc.
- * </p>
- * <p>
- * <b>Note</b>: This class has a natural ordering that is inconsistent with equals.
- * </p>
+ * The hierarchy for a Samza's job data model is that jobs have containers, and containers have tasks.
  */
 public class ContainerModel {
-  @Deprecated
-  private final int containerId;
-  private final String processorId;
+  private final String id;
   private final Map<TaskName, TaskModel> tasks;
 
-  public ContainerModel(String processorId, int containerId, Map<TaskName, TaskModel> tasks) {
-    this.containerId = containerId;
-    if (processorId == null) {
-      this.processorId = String.valueOf(containerId);
-    } else {
-      this.processorId = processorId;
-    }
+  public ContainerModel(String id, Map<TaskName, TaskModel> tasks) {
+    this.id = id;
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 
-  @Deprecated
-  public int getContainerId() {
-    return containerId;
+  /**
+   * Returns the id for the container associated with this model.
+   * @return id for the container
+   */
+  public String getId() {
+    return id;
   }
 
-  public String getProcessorId() {
-    return processorId;
-  }
-
+  /**
+   * Returns a map for all tasks in this container. The keys are the names of the tasks in the container and the values
+   * are the corresponding {@link TaskModel}s.
+   * @return map from {@link TaskName} to {@link TaskModel}
+   */
   public Map<TaskName, TaskModel> getTasks() {
     return tasks;
   }
 
   @Override
   public String toString() {
-    return "ContainerModel [processorId=" + processorId + ", tasks=" + tasks + "]";
+    return "ContainerModel [id=" + id + ", tasks=" + tasks + "]";
   }
 
   @Override
   public int hashCode() {
     final int prime = 31;
     int result = 1;
-    result = prime * result + ((processorId == null) ? 0 : processorId.hashCode());
+    result = prime * result + ((id == null) ? 0 : id.hashCode());
     result = prime * result + ((tasks == null) ? 0 : tasks.hashCode());
     return result;
   }
@@ -92,7 +77,7 @@ public class ContainerModel {
     if (getClass() != obj.getClass())
       return false;
     ContainerModel other = (ContainerModel) obj;
-    if (!processorId.equals(other.processorId))
+    if (!id.equals(other.id))
       return false;
     if (tasks == null) {
       if (other.tasks != null)
