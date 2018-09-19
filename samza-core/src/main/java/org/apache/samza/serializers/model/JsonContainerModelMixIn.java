@@ -19,29 +19,35 @@
 
 package org.apache.samza.serializers.model;
 
+import java.util.Map;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
-import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import java.util.Map;
-
 /**
- * A mix-in Jackson class to convert Samza's ContainerModel to/from JSON.
+ * A mix-in Jackson class to convert {@link org.apache.samza.job.model.ContainerModel} to JSON.
+ * Notes:
+ * 1) Constructor is not needed because this mixin is not used for deserialization. See {@link SamzaObjectMapper}.
+ * 2) It is unnecessary to use {@link org.codehaus.jackson.annotate.JsonIgnoreProperties#ignoreUnknown()} here since
+ * {@link SamzaObjectMapper} already uses custom deserialization code for the
+ * {@link org.apache.samza.job.model.ContainerModel}.
+ * 3) See {@link SamzaObjectMapper} for more context about why the JSON keys are named in this specified way.
  */
 public abstract class JsonContainerModelMixIn {
-  @JsonCreator
-  public JsonContainerModelMixIn(@JsonProperty("processor-id") String processorId, @JsonProperty("tasks") Map<TaskName, TaskModel> tasks) {
-  }
+  /**
+   * This is intentionally not "id" for backwards compatibility reasons. See {@link SamzaObjectMapper} for more details.
+   */
+  static final String PROCESSOR_ID_KEY = "processor-id";
+  /**
+   * This is used for backwards compatibility. See {@link SamzaObjectMapper} for more details.
+   */
+  static final String CONTAINER_ID_KEY = "container-id";
+  static final String TASKS_KEY = "tasks";
 
-  @Deprecated
-  @JsonProperty("container-id")
-  abstract int getContainerId();
+  @JsonProperty(PROCESSOR_ID_KEY)
+  abstract String getId();
 
-  @JsonProperty("processor-id")
-  abstract String getProcessorId();
-
-  @JsonProperty("tasks")
+  @JsonProperty(TASKS_KEY)
   abstract Map<TaskName, TaskModel> getTasks();
 }
 

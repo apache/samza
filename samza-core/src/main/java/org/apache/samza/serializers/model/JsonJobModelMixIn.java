@@ -23,11 +23,13 @@ import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
 import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
  * A mix-in Jackson class to convert Samza's JobModel to/from JSON.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class JsonJobModelMixIn {
   @JsonCreator
   public JsonJobModelMixIn(@JsonProperty("config") Config config, @JsonProperty("containers") Map<String, ContainerModel> containers) {
