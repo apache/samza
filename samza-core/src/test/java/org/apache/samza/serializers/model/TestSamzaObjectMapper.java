@@ -112,15 +112,37 @@ public class TestSamzaObjectMapper {
   }
 
   /**
+   * Given a {@link ContainerModel} JSON with an unknown field, deserialization should properly ignore it.
+   */
+  @Test
+  public void testDeserializeUnknownContainerModelField() throws IOException {
+    ObjectNode jobModelJson = buildJobModelJson();
+    ObjectNode containerModelJson = (ObjectNode) jobModelJson.get("containers").get("1");
+    containerModelJson.put("unknown_container_model_key", "unknown_container_model_value");
+    assertEquals(this.jobModel, deserializeFromObjectNode(jobModelJson));
+  }
+
+  /**
    * Given a {@link ContainerModel} JSON without a processor-id but with a container-id, deserialization should use the
    * container-id to calculate the processor-id.
    */
   @Test
-  public void testDeserializeContainerModelMissingProcessorId() throws IOException {
+  public void testDeserializeContainerModelOnlyContainerId() throws IOException {
     ObjectNode jobModelJson = buildJobModelJson();
     ObjectNode containerModelJson = (ObjectNode) jobModelJson.get("containers").get("1");
     containerModelJson.remove("processor-id");
     containerModelJson.put("container-id", 1);
+    assertEquals(this.jobModel, deserializeFromObjectNode(jobModelJson));
+  }
+
+  /**
+   * Given a {@link ContainerModel} JSON with an unknown field, deserialization should properly ignore it.
+   */
+  @Test
+  public void testDeserializeUnknownTaskModelField() throws IOException {
+    ObjectNode jobModelJson = buildJobModelJson();
+    ObjectNode taskModelJson = (ObjectNode) jobModelJson.get("containers").get("1").get("tasks").get("test");
+    taskModelJson.put("unknown_task_model_key", "unknown_task_model_value");
     assertEquals(this.jobModel, deserializeFromObjectNode(jobModelJson));
   }
 
