@@ -28,10 +28,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 
-
-/**
- * Initial draft of in-memory {@link SystemFactory}. It is test only and not meant for production use right now.
- */
 public class InMemorySystemFactory implements SystemFactory {
   private static final ConcurrentHashMap<String, InMemoryManager> IN_MEMORY_MANAGERS = new ConcurrentHashMap<>();
 

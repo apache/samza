@@ -27,10 +27,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-/**
- * Initial draft of in-memory {@link SystemProducer}. It is test only and not meant for production use right now.
- */
 public class InMemorySystemProducer implements SystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(InMemorySystemProducer.class);
   private final InMemoryManager memoryManager;
