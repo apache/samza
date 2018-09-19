@@ -18,31 +18,22 @@
  */
 package org.apache.samza.context;
 
-import java.util.Collection;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.MetricsRegistry;
 
 
 public class ContainerContextImpl implements ContainerContext {
-  private final String containerId;
-  private final Collection<TaskName> taskNames;
+  private final ContainerModel containerModel;
   private final MetricsRegistry containerMetricsRegistry;
 
-  public ContainerContextImpl(String containerId, Collection<TaskName> taskNames,
-      MetricsRegistry containerMetricsRegistry) {
-    this.containerId = containerId;
-    this.taskNames = taskNames;
+  public ContainerContextImpl(ContainerModel containerModel, MetricsRegistry containerMetricsRegistry) {
+    this.containerModel = containerModel;
     this.containerMetricsRegistry = containerMetricsRegistry;
   }
 
   @Override
-  public String getContainerId() {
-    return this.containerId;
-  }
-
-  @Override
-  public Collection<TaskName> getTaskNames() {
-    return this.taskNames;
+  public ContainerModel getContainerModel() {
+    return this.containerModel;
   }
 
   @Override

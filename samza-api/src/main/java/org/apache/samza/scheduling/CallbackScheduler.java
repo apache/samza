@@ -18,15 +18,15 @@
  */
 package org.apache.samza.scheduling;
 
-import org.apache.samza.task.TimerCallback;
+import org.apache.samza.scheduler.ScheduledCallback;
 
 
 /**
  * Provides a way for applications to register some logic to be executed at a future time.
  */
-public interface Scheduler {
+public interface CallbackScheduler {
   /**
-   * Register a keyed callback of {@link TimerCallback} in this task.
+   * Register a keyed callback of {@link ScheduledCallback} in this task.
    * The callback will be invoked exclusively with any other operations for this task, e.g. processing, windowing, and
    * commit.
    * @param key callback key
@@ -34,7 +34,7 @@ public interface Scheduler {
    * @param callback callback to run
    * @param <K> type of the key
    */
-  <K> void scheduleCallback(K key, long timestamp, TimerCallback<K> callback);
+  <K> void scheduleCallback(K key, long timestamp, ScheduledCallback<K> callback);
 
   /**
    * Delete the keyed callback in this task.

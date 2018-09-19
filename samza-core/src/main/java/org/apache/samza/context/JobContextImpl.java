@@ -23,13 +23,27 @@ import org.apache.samza.config.Config;
 
 public class JobContextImpl implements JobContext {
   private final Config config;
+  private final String jobName;
+  private final String jobId;
 
-  public JobContextImpl(Config config) {
+  public JobContextImpl(Config config, String jobName, String jobId) {
     this.config = config;
+    this.jobName = jobName;
+    this.jobId = jobId;
   }
 
   @Override
   public Config getConfig() {
     return this.config;
+  }
+
+  @Override
+  public String getJobName() {
+    return this.jobName;
+  }
+
+  @Override
+  public String getJobId() {
+    return this.jobId;
   }
 }

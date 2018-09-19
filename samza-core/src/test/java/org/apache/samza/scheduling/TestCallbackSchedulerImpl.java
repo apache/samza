@@ -18,8 +18,8 @@
  */
 package org.apache.samza.scheduling;
 
+import org.apache.samza.scheduler.ScheduledCallback;
 import org.apache.samza.task.SystemTimerScheduler;
-import org.apache.samza.task.TimerCallback;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -28,16 +28,16 @@ import org.mockito.MockitoAnnotations;
 import static org.mockito.Mockito.*;
 
 
-public class TestSchedulerImpl {
+public class TestCallbackSchedulerImpl {
   @Mock
   private SystemTimerScheduler systemTimerScheduler;
 
-  private SchedulerImpl scheduler;
+  private CallbackSchedulerImpl scheduler;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    scheduler = new SchedulerImpl(systemTimerScheduler);
+    scheduler = new CallbackSchedulerImpl(systemTimerScheduler);
   }
 
   /**
@@ -46,13 +46,13 @@ public class TestSchedulerImpl {
   @Test
   public void testScheduleCallback() {
     @SuppressWarnings("unchecked")
-    TimerCallback<String> stringCallback = mock(TimerCallback.class);
+    ScheduledCallback<String> stringCallback = mock(ScheduledCallback.class);
     scheduler.scheduleCallback("string_key", 123, stringCallback);
     verify(systemTimerScheduler).setTimer("string_key", 123, stringCallback);
 
     // check some other type of key
     @SuppressWarnings("unchecked")
-    TimerCallback<Integer> intCallback = mock(TimerCallback.class);
+    ScheduledCallback<Integer> intCallback = mock(ScheduledCallback.class);
     scheduler.scheduleCallback(777, 456, intCallback);
     verify(systemTimerScheduler).setTimer(777, 456, intCallback);
   }

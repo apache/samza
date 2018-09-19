@@ -18,8 +18,8 @@
  */
 package org.apache.samza.context;
 
-import java.util.Collection;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 
 
@@ -32,16 +32,11 @@ import org.apache.samza.metrics.MetricsRegistry;
  */
 public interface ContainerContext {
   /**
-   * Returns the id for this container.
-   * @return id for this container
+   * Returns the {@link ContainerModel} associated with this container. This contains information like the id and the
+   * associated {@link TaskModel}s.
+   * @return {@link ContainerModel} associated with this container
    */
-  String getContainerId();
-
-  /**
-   * Returns {@link TaskName}s for all tasks running on this container. There is one {@link TaskName} for each task.
-   * @return {@link TaskName}s for all tasks running on this container
-   */
-  Collection<TaskName> getTaskNames();
+  ContainerModel getContainerModel();
 
   /**
    * Returns the {@link MetricsRegistry} for this container. Metrics built using this registry will be associated with

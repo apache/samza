@@ -18,11 +18,10 @@
  */
 package org.apache.samza.context;
 
-import java.util.Set;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduling.Scheduler;
+import org.apache.samza.scheduling.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
@@ -36,17 +35,11 @@ import org.apache.samza.table.Table;
  */
 public interface TaskContext {
   /**
-   * Returns the {@link TaskName} corresponding to this task.
-   * @return {@link TaskName} for this task
+   * Returns the {@link TaskModel} associated with this task. This contains information like the task name and
+   * associated {@link SystemStreamPartition}s.
+   * @return {@link TaskModel} associated with this task
    */
-  TaskName getTaskName();
-
-  /**
-   * Returns all of the input {@link SystemStreamPartition}s for this task. This does not include side input
-   * {@link SystemStreamPartition}s.
-   * @return all of the input {@link SystemStreamPartition}s for this task
-   */
-  Set<SystemStreamPartition> getSystemStreamPartitions();
+  TaskModel getTaskModel();
 
   /**
    * Returns the {@link MetricsRegistry} for this task. Metrics built using this registry will be associated with the
@@ -74,15 +67,16 @@ public interface TaskContext {
   Table<?> getTable(String tableId);
 
   /**
-   * Returns a task-level {@link Scheduler} which can be used to delay execution of some logic.
-   * @return {@link Scheduler} for this task
+   * Returns a task-level {@link CallbackScheduler} which can be used to delay execution of some logic.
+   * @return {@link CallbackScheduler} for this task
    */
-  Scheduler getScheduler();
+  CallbackScheduler getCallbackScheduler();
 
   /**
    * Set the starting offset for the given {@link SystemStreamPartition}. Offsets can only be set for a
-   * {@link SystemStreamPartition} assigned to this task (as returned by {@link #getSystemStreamPartitions()}); trying
-   * to set the offset for any other partition will have no effect.
+   * {@link SystemStreamPartition} assigned to this task. The {@link SystemStreamPartition}s assigned to this task can
+   * be accessed through {@link TaskModel#getSystemStreamPartitions()} for the {@link TaskModel} obtained by calling
+   * {@link #getTaskModel()}. Trying to set the offset for any other partition will have no effect.
    *
    * NOTE: this feature is experimental, and the API may change in a future release.
    *

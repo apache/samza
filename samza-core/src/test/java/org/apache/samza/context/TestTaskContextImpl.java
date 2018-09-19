@@ -18,13 +18,13 @@
  */
 package org.apache.samza.context;
 
-import java.util.Set;
 import java.util.function.Function;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduling.Scheduler;
+import org.apache.samza.scheduling.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.TableManager;
@@ -41,7 +41,7 @@ public class TestTaskContextImpl {
   private static final TaskName TASK_NAME = new TaskName("myTaskName");
 
   @Mock
-  private Set<SystemStreamPartition> systemStreamPartitions;
+  private TaskModel taskModel;
   @Mock
   private MetricsRegistry taskMetricsRegistry;
   @Mock
@@ -49,7 +49,7 @@ public class TestTaskContextImpl {
   @Mock
   private TableManager tableManager;
   @Mock
-  private Scheduler scheduler;
+  private CallbackScheduler callbackScheduler;
   @Mock
   private OffsetManager offsetManager;
 
@@ -59,8 +59,9 @@ public class TestTaskContextImpl {
   public void setup() {
     MockitoAnnotations.initMocks(this);
     taskContext =
-        new TaskContextImpl(TASK_NAME, systemStreamPartitions, taskMetricsRegistry, keyValueStoreProvider, tableManager,
-            scheduler, offsetManager);
+        new TaskContextImpl(taskModel, taskMetricsRegistry, keyValueStoreProvider, tableManager, callbackScheduler,
+            offsetManager);
+    when(this.taskModel.getTaskName()).thenReturn(TASK_NAME);
   }
 
   /**

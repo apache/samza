@@ -18,12 +18,11 @@
  */
 package org.apache.samza.context;
 
-import java.util.Set;
 import java.util.function.Function;
 import org.apache.samza.checkpoint.OffsetManager;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduling.Scheduler;
+import org.apache.samza.scheduling.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
@@ -31,34 +30,30 @@ import org.apache.samza.table.TableManager;
 
 
 public class TaskContextImpl implements TaskContext {
-  private final TaskName taskName;
-  private final Set<SystemStreamPartition> systemStreamPartitions;
+  private final TaskModel taskModel;
   private final MetricsRegistry taskMetricsRegistry;
   private final Function<String, KeyValueStore> keyValueStoreProvider;
   private final TableManager tableManager;
-  private final Scheduler scheduler;
+  private final CallbackScheduler callbackScheduler;
   private final OffsetManager offsetManager;
 
-  public TaskContextImpl(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions,
-      MetricsRegistry taskMetricsRegistry, Function<String, KeyValueStore> keyValueStoreProvider,
-      TableManager tableManager, Scheduler scheduler, OffsetManager offsetManager) {
-    this.taskName = taskName;
-    this.systemStreamPartitions = systemStreamPartitions;
+  public TaskContextImpl(TaskModel taskModel,
+      MetricsRegistry taskMetricsRegistry,
+      Function<String, KeyValueStore> keyValueStoreProvider,
+      TableManager tableManager,
+      CallbackScheduler callbackScheduler,
+      OffsetManager offsetManager) {
+    this.taskModel = taskModel;
     this.taskMetricsRegistry = taskMetricsRegistry;
     this.keyValueStoreProvider = keyValueStoreProvider;
     this.tableManager = tableManager;
-    this.scheduler = scheduler;
+    this.callbackScheduler = callbackScheduler;
     this.offsetManager = offsetManager;
   }
 
   @Override
-  public TaskName getTaskName() {
-    return this.taskName;
-  }
-
-  @Override
-  public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return this.systemStreamPartitions;
+  public TaskModel getTaskModel() {
+    return this.taskModel;
   }
 
   @Override
@@ -81,12 +76,12 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public Scheduler getScheduler() {
-    return this.scheduler;
+  public CallbackScheduler getCallbackScheduler() {
+    return this.callbackScheduler;
   }
 
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
-    this.offsetManager.setStartingOffset(this.taskName, systemStreamPartition, offset);
+    this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
   }
 }
