@@ -23,6 +23,9 @@ package org.apache.samza.util
 
 import java.nio.channels.ClosedByInterruptException
 import org.apache.samza.util.ExponentialSleepStrategy.RetryLoop
+import org.apache.samza.util.ExponentialSleepStrategy.DefaultBackOffMultiplier
+import org.apache.samza.util.ExponentialSleepStrategy.DefaultInitialDelayMs
+import org.apache.samza.util.ExponentialSleepStrategy.DefaultMaximumDelayMs
 
 /**
  * Encapsulates the pattern of retrying an operation until it succeeds.
@@ -35,13 +38,17 @@ import org.apache.samza.util.ExponentialSleepStrategy.RetryLoop
  * @param maximumDelayMs Cap up to which we will increase the delay.
  */
 class ExponentialSleepStrategy(
-    backOffMultiplier: Double = 2.0,
-    initialDelayMs: Long = 100,
-    maximumDelayMs: Long = 10000) {
+    backOffMultiplier: Double = DefaultBackOffMultiplier,
+    initialDelayMs: Long = DefaultInitialDelayMs,
+    maximumDelayMs: Long = DefaultMaximumDelayMs) {
 
   require(backOffMultiplier > 1.0, "backOffMultiplier must be greater than 1")
   require(initialDelayMs > 0, "initialDelayMs must be positive")
   require(maximumDelayMs >= initialDelayMs, "maximumDelayMs must be >= initialDelayMs")
+
+  def this() {
+    this(DefaultBackOffMultiplier, DefaultInitialDelayMs, DefaultMaximumDelayMs)
+  }
 
   /**
    * Given the delay before the last retry, calculate what the delay before the
@@ -118,6 +125,10 @@ class ExponentialSleepStrategy(
 }
 
 object ExponentialSleepStrategy {
+  val DefaultBackOffMultiplier = 2.0
+  val DefaultInitialDelayMs = 100
+  val DefaultMaximumDelayMs = 10000
+
   /**
    * State of the retry loop, passed to every invocation of the loopOperation
    * or the exception handler.

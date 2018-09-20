@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.StreamGraphImpl;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -54,19 +54,21 @@ import org.slf4j.LoggerFactory;
 
   private final Map<String, JobNode> nodes = new HashMap<>();
   private final Map<String, StreamEdge> edges = new HashMap<>();
-  private final Set<StreamEdge> sources = new HashSet<>();
-  private final Set<StreamEdge> sinks = new HashSet<>();
+  private final Set<StreamEdge> inputStreams = new HashSet<>();
+  private final Set<StreamEdge> outputStreams = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+  private final OperatorSpecGraph specGraph;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
    * @param config Config
    */
-  JobGraph(Config config) {
+  JobGraph(Config config, OperatorSpecGraph specGraph) {
     this.config = config;
+    this.specGraph = specGraph;
   }
 
   @Override
@@ -85,7 +87,7 @@ import org.slf4j.LoggerFactory;
   @Override
   public List<StreamSpec> getIntermediateStreams() {
     return getIntermediateStreamEdges().stream()
-        .map(streamEdge -> streamEdge.getStreamSpec())
+        .map(StreamEdge::getStreamSpec)
         .collect(Collectors.toList());
   }
 
@@ -107,28 +109,32 @@ import org.slf4j.LoggerFactory;
     return new ApplicationConfig(config);
   }
 
-  /**
-   * Add a source stream to a {@link JobNode}
-   * @param input source stream
-   * @param node the job node that consumes from the source
-   */
-  void addSource(StreamSpec input, JobNode node) {
-    StreamEdge edge = getOrCreateStreamEdge(input);
-    edge.addTargetNode(node);
-    node.addInEdge(edge);
-    sources.add(edge);
+  public OperatorSpecGraph getSpecGraph() {
+    return specGraph;
   }
 
   /**
-   * Add a sink stream to a {@link JobNode}
-   * @param output sink stream
-   * @param node the job node that outputs to the sink
+   * Add a source stream to a {@link JobNode}
+   * @param streamSpec input stream
+   * @param node the job node that consumes from the streamSpec
    */
-  void addSink(StreamSpec output, JobNode node) {
-    StreamEdge edge = getOrCreateStreamEdge(output);
+  void addInputStream(StreamSpec streamSpec, JobNode node) {
+    StreamEdge edge = getOrCreateStreamEdge(streamSpec);
+    edge.addTargetNode(node);
+    node.addInEdge(edge);
+    inputStreams.add(edge);
+  }
+
+  /**
+   * Add an output stream to a {@link JobNode}
+   * @param streamSpec output stream
+   * @param node the job node that outputs to the output stream
+   */
+  void addOutputStream(StreamSpec streamSpec, JobNode node) {
+    StreamEdge edge = getOrCreateStreamEdge(streamSpec);
     edge.addSourceNode(node);
     node.addOutEdge(edge);
-    sinks.add(edge);
+    outputStreams.add(edge);
   }
 
   /**
@@ -152,11 +158,11 @@ import org.slf4j.LoggerFactory;
    * @param jobId id of the job
    * @return
    */
-  JobNode getOrCreateJobNode(String jobName, String jobId, StreamGraphImpl streamGraph) {
+  JobNode getOrCreateJobNode(String jobName, String jobId) {
     String nodeId = JobNode.createId(jobName, jobId);
     JobNode node = nodes.get(nodeId);
     if (node == null) {
-      node = new JobNode(jobName, jobId, streamGraph, config);
+      node = new JobNode(jobName, jobId, specGraph, config);
       nodes.put(nodeId, node);
     }
     return node;
@@ -181,17 +187,12 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      edge = new StreamEdge(streamSpec, isIntermediate, config);
+      boolean isBroadcast = specGraph.getBroadcastStreams().contains(streamId);
+      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
     }
     return edge;
   }
-
-  /**
-   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
-   * @param streamSpec spec of the StreamEdge
-   * @return stream edge
-   */
 
   /**
    * Returns the job nodes to be executed in the topological order
@@ -203,19 +204,19 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Returns the source streams in the graph
+   * Returns the input streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  Set<StreamEdge> getSources() {
-    return Collections.unmodifiableSet(sources);
+  Set<StreamEdge> getInputStreams() {
+    return Collections.unmodifiableSet(inputStreams);
   }
 
   /**
-   * Return the sink streams in the graph
+   * Return the output streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
-  Set<StreamEdge> getSinks() {
-    return Collections.unmodifiableSet(sinks);
+  Set<StreamEdge> getOutputStreams() {
+    return Collections.unmodifiableSet(outputStreams);
   }
 
   /**
@@ -235,45 +236,45 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Validate the graph has the correct topology, meaning the sources are coming from external streams,
-   * sinks are going to external streams, and the nodes are connected with intermediate streams.
-   * Also validate all the nodes are reachable from the sources.
+   * Validate the graph has the correct topology, meaning the input streams are coming from external streams,
+   * output streams are going to external streams, and the nodes are connected with intermediate streams.
+   * Also validate all the nodes are reachable from the input streams.
    */
   void validate() {
-    validateSources();
-    validateSinks();
+    validateInputStreams();
+    validateOutputStreams();
     validateInternalStreams();
     validateReachability();
   }
 
   /**
-   * Validate the sources should have indegree being 0 and outdegree greater than 0
+   * Validate the input streams should have indegree being 0 and outdegree greater than 0
    */
-  private void validateSources() {
-    sources.forEach(edge -> {
+  private void validateInputStreams() {
+    inputStreams.forEach(edge -> {
         if (!edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should not have producers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should not have producers.", edge.getName()));
         }
         if (edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Source stream %s should have consumers.", edge.getFormattedSystemStream()));
+              String.format("Source stream %s should have consumers.", edge.getName()));
         }
       });
   }
 
   /**
-   * Validate the sinks should have outdegree being 0 and indegree greater than 0
+   * Validate the output streams should have outdegree being 0 and indegree greater than 0
    */
-  private void validateSinks() {
-    sinks.forEach(edge -> {
+  private void validateOutputStreams() {
+    outputStreams.forEach(edge -> {
         if (!edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should not have consumers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should not have consumers", edge.getName()));
         }
         if (edge.getSourceNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Sink stream %s should have producers", edge.getFormattedSystemStream()));
+              String.format("Sink stream %s should have producers", edge.getName()));
         }
       });
   }
@@ -283,22 +284,22 @@ import org.slf4j.LoggerFactory;
    */
   private void validateInternalStreams() {
     Set<StreamEdge> internalEdges = new HashSet<>(edges.values());
-    internalEdges.removeAll(sources);
-    internalEdges.removeAll(sinks);
+    internalEdges.removeAll(inputStreams);
+    internalEdges.removeAll(outputStreams);
 
     internalEdges.forEach(edge -> {
         if (edge.getSourceNodes().isEmpty() || edge.getTargetNodes().isEmpty()) {
           throw new IllegalArgumentException(
-              String.format("Internal stream %s should have both producers and consumers", edge.getFormattedSystemStream()));
+              String.format("Internal stream %s should have both producers and consumers", edge.getName()));
         }
       });
   }
 
   /**
-   * Validate all nodes are reachable by sources.
+   * Validate all nodes are reachable by input streams.
    */
   private void validateReachability() {
-    // validate all nodes are reachable from the sources
+    // validate all nodes are reachable from the input streams
     final Set<JobNode> reachable = findReachable();
     if (reachable.size() != nodes.size()) {
       Set<JobNode> unreachable = new HashSet<>(nodes.values());
@@ -316,8 +317,8 @@ import org.slf4j.LoggerFactory;
     Queue<JobNode> queue = new ArrayDeque<>();
     Set<JobNode> visited = new HashSet<>();
 
-    sources.forEach(source -> {
-        List<JobNode> next = source.getTargetNodes();
+    inputStreams.forEach(input -> {
+        List<JobNode> next = input.getTargetNodes();
         queue.addAll(next);
         visited.addAll(next);
       });
@@ -352,11 +353,11 @@ import org.slf4j.LoggerFactory;
     pnodes.forEach(node -> {
         String nid = node.getId();
         //only count the degrees of intermediate streams
-        long degree = node.getInEdges().stream().filter(e -> !sources.contains(e)).count();
+        long degree = node.getInEdges().stream().filter(e -> !inputStreams.contains(e)).count();
         indegree.put(nid, degree);
 
         if (degree == 0L) {
-          // start from the nodes that has no intermediate input streams, so it only consumes from sources
+          // start from the nodes that has no intermediate input streams, so it only consumes from input streams
           q.add(node);
           visited.add(node);
         }
@@ -409,9 +410,9 @@ import org.slf4j.LoggerFactory;
           q.add(minNode);
           visited.add(minNode);
         } else {
-          // all the remaining nodes should be reachable from sources
-          // start from sources again to find the next node that hasn't been visited
-          JobNode nextNode = sources.stream().flatMap(source -> source.getTargetNodes().stream())
+          // all the remaining nodes should be reachable from input streams
+          // start from input streams again to find the next node that hasn't been visited
+          JobNode nextNode = inputStreams.stream().flatMap(input -> input.getTargetNodes().stream())
               .filter(node -> !visited.contains(node))
               .findAny().get();
           q.add(nextNode);

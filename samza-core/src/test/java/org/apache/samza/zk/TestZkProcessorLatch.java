@@ -217,10 +217,6 @@ public class TestZkProcessorLatch {
   private ZkUtils getZkUtilsWithNewClient(String processorId) {
     ZkClient zkClient = ZkCoordinationUtilsFactory
         .createZkClient(testZkConnectionString, SESSION_TIMEOUT_MS, CONNECTION_TIMEOUT_MS);
-    return new ZkUtils(
-        KEY_BUILDER,
-        zkClient,
-        CONNECTION_TIMEOUT_MS,
-        new NoOpMetricsRegistry());
+    return new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 }

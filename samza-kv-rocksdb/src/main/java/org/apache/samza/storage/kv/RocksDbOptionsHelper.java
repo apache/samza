@@ -75,12 +75,10 @@ public class RocksDbOptionsHelper {
     }
     options.setCompressionType(compressionType);
 
-    Long cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L);
-    Long cacheSizePerContainer = cacheSize / numTasks;
-
+    long blockCacheSize = getBlockCacheSize(storeConfig, containerContext);
     int blockSize = storeConfig.getInt(ROCKSDB_BLOCK_SIZE_BYTES, 4096);
     BlockBasedTableConfig tableOptions = new BlockBasedTableConfig();
-    tableOptions.setBlockCacheSize(cacheSizePerContainer).setBlockSize(blockSize);
+    tableOptions.setBlockCacheSize(blockCacheSize).setBlockSize(blockSize);
     options.setTableFormatConfig(tableOptions);
 
     CompactionStyle compactionStyle = CompactionStyle.UNIVERSAL;
@@ -109,5 +107,11 @@ public class RocksDbOptionsHelper {
     options.setKeepLogFileNum(storeConfig.getLong(ROCKSDB_KEEP_LOG_FILE_NUM, 2));
 
     return options;
+  }
+
+  public static Long getBlockCacheSize(Config storeConfig, SamzaContainerContext containerContext) {
+    int numTasks = containerContext.taskNames.size();
+    long cacheSize = storeConfig.getLong("container.cache.size.bytes", 100 * 1024 * 1024L);
+    return cacheSize / numTasks;
   }
 }

@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
 
 
@@ -44,8 +45,8 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
   static final public String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   static final public String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
 
-  protected Integer writeBatchSize;
-  protected Integer objectCacheSize;
+  private Integer writeBatchSize;
+  private Integer objectCacheSize;
   private Integer cacheSize;
   private Integer writeBufferSize;
   private Integer blockSize;
@@ -56,8 +57,21 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
   private String compressionType;
   private String compactionStyle;
 
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   */
   public RocksDbTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
+   */
+  public RocksDbTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   /**
@@ -182,7 +196,8 @@ public class RocksDbTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescr
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig,
+        sideInputs, sideInputsProcessor);
   }
 
   @Override

@@ -43,8 +43,11 @@ public class MapConfig extends Config {
 
   public MapConfig(List<Map<String, String>> maps) {
     this.map = new HashMap<>();
-    for (Map<String, String> m: maps)
-      this.map.putAll(m);
+    for (Map<String, String> m: maps) {
+      if (m != null) {
+        this.map.putAll(m);
+      }
+    }
   }
 
   public MapConfig(Map<String, String>... maps) {
@@ -80,7 +83,7 @@ public class MapConfig extends Config {
   }
 
   public boolean containsValue(Object v) {
-    return map.containsKey(v);
+    return map.containsValue(v);
   }
 
   @Override

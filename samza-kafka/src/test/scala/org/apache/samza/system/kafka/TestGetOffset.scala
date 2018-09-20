@@ -26,14 +26,18 @@ import kafka.common.TopicAndPartition
 import kafka.consumer.SimpleConsumer
 import kafka.message.Message
 import kafka.message.ByteBufferMessageSet
-
+import org.apache.kafka.common.errors.OffsetOutOfRangeException
 import org.junit._
 import org.junit.Assert._
-import org.mockito.{ Matchers, Mockito }
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.Matchers._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 
 class TestGetOffset {
+
+  private val outOfRangeOffset : String = "0"
 
   /**
    * An empty message set is still a valid offset. It just means that the
@@ -46,6 +50,19 @@ class TestGetOffset {
     val getOffset = new GetOffset(OffsetRequest.LargestTimeString)
     // Should not throw an exception.
     assertTrue(getOffset.isValidOffset(getMockDefaultFetchSimpleConsumer, TopicAndPartition("foo", 1), "1234"))
+  }
+
+  /**
+    * An empty message set is still a valid offset. It just means that the
+    * offset was for the upcoming message, which hasn't yet been written. The
+    * fetch request times out in such a case, and an empty message set is
+    * returned.
+    */
+  @Test
+  def testIsValidOffsetWorksWithOffsetOutOfRangeException {
+    val getOffset = new GetOffset(OffsetRequest.LargestTimeString)
+    // Should not throw an exception.
+    assertFalse(getOffset.isValidOffset(getMockDefaultFetchSimpleConsumer, TopicAndPartition("foo", 1), outOfRangeOffset))
   }
 
   /**
@@ -75,7 +92,15 @@ class TestGetOffset {
         fetchResponse
       }
 
-      when(sc.fetch(any(classOf[FetchRequest]))).thenReturn(fetchResponse)
+      doAnswer(new Answer[FetchResponse] {
+          override def answer(invocation: InvocationOnMock): FetchResponse = {
+            if (invocation.getArgumentAt(0, classOf[FetchRequest]).requestInfo.exists(
+              req => req._2.offset.toString.equals(outOfRangeOffset))) {
+              throw new OffsetOutOfRangeException("test exception")
+            }
+            fetchResponse
+          }
+        }).when(sc).fetch(any(classOf[FetchRequest]))
 
       override def fetch(request: FetchRequest): FetchResponse = {
         sc.fetch(request)

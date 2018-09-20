@@ -21,7 +21,6 @@ package org.apache.samza.operators;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Function;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -40,11 +39,12 @@ import org.apache.samza.table.Table;
 /**
  * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
- * A {@link MessageStream} corresponding to an input stream can be obtained using {@link StreamGraph#getInputStream}.
+ * A {@link MessageStream} corresponding to an input stream can be obtained using
+ * {@link org.apache.samza.application.StreamApplicationDescriptor#getInputStream}.
  *
  * @param <M> the type of messages in this stream
  */
-@InterfaceStability.Unstable
+@InterfaceStability.Evolving
 public interface MessageStream<M> {
 
   /**
@@ -214,13 +214,11 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the {@code job.default.system}. This intermediate stream is both an output and
-   * input to the job.
+   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamApplicationDescriptor#withDefaultSystem}.
+   * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * uses the key and message serde configured for the job's default system.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -237,34 +235,32 @@ public interface MessageStream<M> {
    * <p>
    * Unlike {@link #sendTo}, messages with a null key are all sent to partition 0.
    *
-   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message.
+   * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message.
    *                     Messages with a null key are all sent to partition 0.
-   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param valueExtractor the {@link MapFunction} to extract the value from the input message
    * @param serde the {@link KVSerde} to use for (de)serializing the key and value.
    * @param id the unique id of this operator in this application
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
+  <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
   /**
-   * Same as calling {@link #partitionBy(Function, Function, KVSerde, String)} with a null KVSerde.
+   * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the default serde provided via {@link StreamGraph#setDefaultSerde}, which must be a KVSerde. If the default
-   * serde is not a {@link KVSerde}, a runtime exception will be thrown. If no default serde has been provided
-   * <b>before</b> calling this method, a {@code KVSerde<NoOpSerde, NoOpSerde>} is used.
+   * Uses the key and message serde configured for the job's default system.
    *
-   * @param keyExtractor the {@link Function} to extract the message and partition key from the input message
-   * @param valueExtractor the {@link Function} to extract the value from the input message
+   * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
+   * @param valueExtractor the {@link MapFunction} to extract the value from the input message
    * @param id the unique id of this operator in this application
    * @param <K> the type of output key
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> partitionBy(Function<? super M, ? extends K> keyExtractor,
-      Function<? super M, ? extends V> valueExtractor, String id);
+  <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor, String id);
 
   /**
    * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
@@ -275,5 +271,20 @@ public interface MessageStream<M> {
    * @param <V> the type of record value in the table
    */
   <K, V> void sendTo(Table<KV<K, V>> table);
+
+  /**
+   * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
+   * @param serde the {@link Serde} to use for (de)serializing the message.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
+   */
+  MessageStream<M> broadcast(Serde<M> serde, String id);
+
+  /**
+   * Same as calling {@link MessageStream#broadcast(Serde, String)} with a null Serde.
+   * @param id id the unique id of this operator in this application
+   * @return the broadcast {@link MessageStream}
+   */
+  MessageStream<M> broadcast(String id);
 
 }

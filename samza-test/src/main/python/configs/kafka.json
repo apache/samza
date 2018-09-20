@@ -3,7 +3,7 @@
     "kafka_instance_0": "localhost"
   },
   "kafka_port": 9092,
-  "kafka_start_cmd": "kafka_2.10-0.10.1.1/bin/kafka-server-start.sh -daemon kafka_2.10-0.10.1.1/config/server.properties",
+  "kafka_start_cmd": "kafka_2.10-0.10.1.1/bin/kafka-server-start.sh -daemon kafka_2.10-0.10.1.1/config/server.properties --override delete.topic.enable=true",
   "kafka_stop_cmd": "kafka_2.10-0.10.1.1/bin/kafka-server-stop.sh",
   "kafka_install_path": "deploy/kafka",
   "kafka_executable": "kafka_2.10-0.10.1.1.tgz",

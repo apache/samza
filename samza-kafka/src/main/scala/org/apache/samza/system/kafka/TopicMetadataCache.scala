@@ -73,6 +73,6 @@ object TopicMetadataCache extends Logging {
    * partition's metadata has a bad errorCode.
    */
   def hasBadErrorCode(streamMetadata: TopicMetadata) = {
-    KafkaUtil.isBadErrorCode(streamMetadata.errorCode) || streamMetadata.partitionsMetadata.exists(partitionMetadata => KafkaUtil.isBadErrorCode(partitionMetadata.errorCode))
+    KafkaUtil.isBadErrorCode(streamMetadata.error.code()) || streamMetadata.partitionsMetadata.exists(partitionMetadata => KafkaUtil.isBadErrorCode(partitionMetadata.error.code()))
   }
 }

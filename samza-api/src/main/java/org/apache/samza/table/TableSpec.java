@@ -18,12 +18,15 @@
  */
 package org.apache.samza.table;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.storage.SideInputsProcessor;
 
 
 /**
@@ -41,12 +44,19 @@ import org.apache.samza.serializers.KVSerde;
  * It is immutable by design.
  */
 @InterfaceStability.Unstable
-public class TableSpec {
+public class TableSpec implements Serializable {
 
   private final String id;
-  private final KVSerde serde;
   private final String tableProviderFactoryClassName;
-  private final Map<String, String> config = new HashMap<>();
+
+  /**
+   * The following fields are serialized by the ExecutionPlanner when generating the configs for a table, and deserialized
+   * once during startup in SamzaContainer. They don't need to be deserialized here on a per-task basis
+   */
+  private transient final KVSerde serde;
+  private transient final List<String> sideInputs;
+  private transient final SideInputsProcessor sideInputsProcessor;
+  private transient final Map<String, String> config = new HashMap<>();
 
   /**
    * Default constructor
@@ -55,6 +65,8 @@ public class TableSpec {
     this.id = null;
     this.serde = null;
     this.tableProviderFactoryClassName = null;
+    this.sideInputs = null;
+    this.sideInputsProcessor = null;
   }
 
   /**
@@ -65,12 +77,28 @@ public class TableSpec {
    * @param serde the serde
    * @param config implementation specific configuration
    */
-  public TableSpec(String tableId, KVSerde serde, String tableProviderFactoryClassName,
-      Map<String, String> config) {
+  public TableSpec(String tableId, KVSerde serde, String tableProviderFactoryClassName, Map<String, String> config) {
+    this(tableId, serde, tableProviderFactoryClassName, config, Collections.emptyList(), null);
+  }
+
+  /**
+   * Constructs a {@link TableSpec}
+   *
+   * @param tableId Id of the table
+   * @param tableProviderFactoryClassName table provider factory
+   * @param serde the serde
+   * @param config implementation specific configuration
+   * @param sideInputs list of side inputs for the table
+   * @param sideInputsProcessor side input processor for the table
+   */
+  public TableSpec(String tableId, KVSerde serde, String tableProviderFactoryClassName, Map<String, String> config,
+      List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
     this.id = tableId;
     this.serde = serde;
     this.tableProviderFactoryClassName = tableProviderFactoryClassName;
     this.config.putAll(config);
+    this.sideInputs = sideInputs;
+    this.sideInputsProcessor = sideInputsProcessor;
   }
 
   /**
@@ -105,6 +133,24 @@ public class TableSpec {
    */
   public Map<String, String> getConfig() {
     return Collections.unmodifiableMap(config);
+  }
+
+  /**
+   * Get the list of side inputs for the table.
+   *
+   * @return a {@link List} of side input streams
+   */
+  public List<String> getSideInputs() {
+    return sideInputs;
+  }
+
+  /**
+   * Get the {@link SideInputsProcessor} associated with the table.
+   *
+   * @return a {@link SideInputsProcessor}
+   */
+  public SideInputsProcessor getSideInputsProcessor() {
+    return sideInputsProcessor;
   }
 
   @Override

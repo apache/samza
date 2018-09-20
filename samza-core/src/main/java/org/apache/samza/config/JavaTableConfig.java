@@ -53,7 +53,7 @@ public class JavaTableConfig extends MapConfig {
     Config subConfig = subset(TABLES_PREFIX, true);
     Set<String> tableNames = subConfig.keySet().stream()
         .filter(k -> k.endsWith(TABLE_PROVIDER_FACTORY_SUFFIX))
-        .map(k -> k.substring(0, k.indexOf(".")))
+        .map(k -> k.replace(TABLE_PROVIDER_FACTORY_SUFFIX, ""))
         .collect(Collectors.toSet());
     return new LinkedList<>(tableNames);
   }

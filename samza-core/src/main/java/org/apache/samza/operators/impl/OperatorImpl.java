@@ -25,6 +25,8 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -63,7 +65,7 @@ public abstract class OperatorImpl<M, RM> {
   private Counter numMessage;
   private Timer handleMessageNs;
   private Timer handleTimerNs;
-  private long inputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
+  private long currentWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private long outputWatermark = WatermarkStates.WATERMARK_NOT_EXIST;
   private TaskName taskName;
   // Although the operator node is in the operator graph, the current task may not consume any message in it.
@@ -80,6 +82,8 @@ public abstract class OperatorImpl<M, RM> {
   private EndOfStreamStates eosStates;
   // watermark states
   private WatermarkStates watermarkStates;
+  private TaskContext taskContext;
+  private ControlMessageSender controlMessageSender;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -111,6 +115,7 @@ public abstract class OperatorImpl<M, RM> {
     TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
+    this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
 
     if (taskContext.getJobModel() != null) {
       ContainerModel containerModel = taskContext.getJobModel().getContainers()
@@ -121,7 +126,8 @@ public abstract class OperatorImpl<M, RM> {
       this.usedInCurrentTask = true;
     }
 
-    handleInit(config, context);
+    this.taskContext = taskContext;
+    handleInit(config, taskContext);
 
     initialized = true;
   }
@@ -190,7 +196,7 @@ public abstract class OperatorImpl<M, RM> {
 
     results.forEach(rm ->
         this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));    
+            op.onMessage(rm, collector, coordinator)));
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
@@ -261,6 +267,12 @@ public abstract class OperatorImpl<M, RM> {
     SystemStream stream = ssp.getSystemStream();
     if (eosStates.isEndOfStream(stream)) {
       LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+      if (eos.getTaskName() != null) {
+        // This is the aggregation task, which already received all the eos messages from upstream
+        // broadcast the end-of-stream to all the peer partitions
+        controlMessageSender.broadcastToOtherPartitions(new EndOfStreamMessage(), ssp, collector);
+      }
+      // populate the end-of-stream through the dag
       onEndOfStream(collector, coordinator);
 
       if (eosStates.allEndOfStream()) {
@@ -316,8 +328,15 @@ public abstract class OperatorImpl<M, RM> {
     LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
     watermarkStates.update(watermarkMessage, ssp);
     long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
-    if (watermark != WatermarkStates.WATERMARK_NOT_EXIST) {
+    if (currentWatermark < watermark) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
+
+      if (watermarkMessage.getTaskName() != null) {
+        // This is the aggregation task, which already received all the watermark messages from upstream
+        // broadcast the watermark to all the peer partitions
+        controlMessageSender.broadcastToOtherPartitions(new WatermarkMessage(watermark), ssp, collector);
+      }
+      // populate the watermark through the dag
       onWatermark(watermark, collector, coordinator);
     }
   }
@@ -340,23 +359,23 @@ public abstract class OperatorImpl<M, RM> {
       inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
     }
 
-    if (inputWatermark < inputWatermarkMin) {
+    if (currentWatermark < inputWatermarkMin) {
       // advance the watermark time of this operator
-      inputWatermark = inputWatermarkMin;
-      LOG.trace("Advance input watermark to {} in operator {}", inputWatermark, getOpImplId());
+      currentWatermark = inputWatermarkMin;
+      LOG.trace("Advance input watermark to {} in operator {}", currentWatermark, getOpImplId());
 
       final Long outputWm;
       final Collection<RM> output;
       final WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
       if (watermarkFn != null) {
         // user-overrided watermark handling here
-        output = (Collection<RM>) watermarkFn.processWatermark(inputWatermark);
+        output = (Collection<RM>) watermarkFn.processWatermark(currentWatermark);
         outputWm = watermarkFn.getOutputWatermark();
       } else {
         // use samza-provided watermark handling
         // default is to propagate the input watermark
-        output = handleWatermark(inputWatermark, collector, coordinator);
-        outputWm = getOutputWatermark();
+        output = handleWatermark(currentWatermark, collector, coordinator);
+        outputWm = currentWatermark;
       }
 
       if (!output.isEmpty()) {
@@ -398,22 +417,57 @@ public abstract class OperatorImpl<M, RM> {
 
   /* package private for testing */
   final long getInputWatermark() {
-    return this.inputWatermark;
+    return this.currentWatermark;
   }
 
   /**
-   * Returns the output watermark, default is the same as input.
-   * Operators which keep track of watermark should override this to return the current watermark.
+   * Returns the output watermark,
    * @return output watermark
    */
-  protected long getOutputWatermark() {
+  final long getOutputWatermark() {
     if (usedInCurrentTask) {
       // default as input
-      return getInputWatermark();
+      return this.outputWatermark;
     } else {
       // always emit the max to indicate no input will be emitted afterwards
       return Long.MAX_VALUE;
     }
+  }
+
+  /**
+   * Returns a registry which allows registering arbitrary system-clock timer with K-typed key.
+   * The user-defined function in the operator spec needs to implement {@link TimerFunction#onTimer(Object, long)}
+   * for timer notifications.
+   * @param <K> key type for the timer.
+   * @return an instance of {@link TimerRegistry}
+   */
+  <K> TimerRegistry<K> createOperatorTimerRegistry() {
+    return new TimerRegistry<K>() {
+      @Override
+      public void register(K key, long time) {
+        taskContext.registerTimer(key, time, (k, collector, coordinator) -> {
+            final TimerFunction<K, RM> timerFn = getOperatorSpec().getTimerFn();
+            if (timerFn != null) {
+              final Collection<RM> output = timerFn.onTimer(key, time);
+
+              if (!output.isEmpty()) {
+                output.forEach(rm ->
+                    registeredOperators.forEach(op ->
+                        op.onMessage(rm, collector, coordinator)));
+              }
+            } else {
+              throw new SamzaException(
+                  String.format("Operator %s id %s (created at %s) must implement TimerFunction to use system timer.",
+                      getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
+            }
+          });
+      }
+
+      @Override
+      public void delete(K key) {
+        taskContext.deleteTimer(key);
+      }
+    };
   }
 
   public void close() {

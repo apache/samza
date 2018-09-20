@@ -20,7 +20,8 @@
 package org.apache.samza.system.kafka
 
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.{ AtomicBoolean, AtomicInteger }
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+
 import kafka.api.TopicMetadata
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.util.Clock
@@ -30,6 +31,7 @@ import org.junit.Before
 import org.junit.Test
 import kafka.common.ErrorMapping
 import kafka.api.PartitionMetadata
+import org.apache.kafka.common.protocol.Errors
 
 class TestTopicMetadataCache {
 
@@ -41,8 +43,8 @@ class TestTopicMetadataCache {
 
   class MockTopicMetadataStore extends TopicMetadataStore {
     var mockCache = Map(
-      "topic1" -> new TopicMetadata("topic1", List.empty, 0),
-      "topic2" -> new TopicMetadata("topic2", List.empty, 0))
+      "topic1" -> new TopicMetadata("topic1", List.empty, Errors.NONE),
+      "topic2" -> new TopicMetadata("topic2", List.empty, Errors.NONE))
     var numberOfCalls: AtomicInteger = new AtomicInteger(0)
 
     def getTopicInfo(topics: Set[String]) = {
@@ -53,7 +55,7 @@ class TestTopicMetadataCache {
     }
 
     def setErrorCode(topic: String, errorCode: Short) {
-      mockCache += topic -> new TopicMetadata(topic, List.empty, errorCode)
+      mockCache += topic -> new TopicMetadata(topic, List.empty, Errors.forCode(errorCode))
     }
   }
 
@@ -70,7 +72,7 @@ class TestTopicMetadataCache {
     mockStore.setErrorCode("topic1", 3)
     var metadata = TopicMetadataCache.getTopicMetadata(Set("topic1"), "kafka", mockStore.getTopicInfo, 5, mockTime.currentTimeMillis)
     assertEquals("topic1", metadata("topic1").topic)
-    assertEquals(3, metadata("topic1").errorCode)
+    assertEquals(3, metadata("topic1").error.code)
     assertEquals(1, mockStore.numberOfCalls.get())
 
     // Retrieve the same topic from the cache which has an error code. Ensure the store is called to refresh the cache
@@ -78,21 +80,21 @@ class TestTopicMetadataCache {
     mockStore.setErrorCode("topic1", 0)
     metadata = TopicMetadataCache.getTopicMetadata(Set("topic1"), "kafka", mockStore.getTopicInfo, 5, mockTime.currentTimeMillis)
     assertEquals("topic1", metadata("topic1").topic)
-    assertEquals(0, metadata("topic1").errorCode)
+    assertEquals(0, metadata("topic1").error.code)
     assertEquals(2, mockStore.numberOfCalls.get())
 
     // Retrieve the same topic from the cache with refresh rate greater than the last update. Ensure the store is not
     // called
     metadata = TopicMetadataCache.getTopicMetadata(Set("topic1"), "kafka", mockStore.getTopicInfo, 5, mockTime.currentTimeMillis)
     assertEquals("topic1", metadata("topic1").topic)
-    assertEquals(0, metadata("topic1").errorCode)
+    assertEquals(0, metadata("topic1").error.code)
     assertEquals(2, mockStore.numberOfCalls.get())
 
     // Ensure that refresh happens when refresh rate is less than the last update. Ensure the store is called
     mockTime.currentValue = 11
     metadata = TopicMetadataCache.getTopicMetadata(Set("topic1"), "kafka", mockStore.getTopicInfo, 5, mockTime.currentTimeMillis)
     assertEquals("topic1", metadata("topic1").topic)
-    assertEquals(0, metadata("topic1").errorCode)
+    assertEquals(0, metadata("topic1").error.code)
     assertEquals(3, mockStore.numberOfCalls.get())
   }
 
@@ -113,7 +115,7 @@ class TestTopicMetadataCache {
           waitForThreadStart.await()
           val metadata = TopicMetadataCache.getTopicMetadata(Set("topic1"), "kafka", mockStore.getTopicInfo, 5, mockTime.currentTimeMillis)
           numAssertionSuccess.compareAndSet(true, metadata("topic1").topic.equals("topic1"))
-          numAssertionSuccess.compareAndSet(true, metadata("topic1").errorCode == 0)
+          numAssertionSuccess.compareAndSet(true, metadata("topic1").error.code == 0)
         }
       })
       threads(i).start()
@@ -127,11 +129,11 @@ class TestTopicMetadataCache {
 
   @Test
   def testBadErrorCodes {
-    val partitionMetadataBad = new PartitionMetadata(0, None, Seq(), errorCode = ErrorMapping.LeaderNotAvailableCode)
-    val partitionMetadataGood = new PartitionMetadata(0, None, Seq(), errorCode = ErrorMapping.NoError)
-    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, ErrorMapping.RequestTimedOutCode)))
-    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataBad), ErrorMapping.NoError)))
-    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, ErrorMapping.NoError)))
-    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataGood), ErrorMapping.NoError)))
+    val partitionMetadataBad = new PartitionMetadata(0, None, Seq(), error = Errors.LEADER_NOT_AVAILABLE)
+    val partitionMetadataGood = new PartitionMetadata(0, None, Seq(), error = Errors.NONE)
+    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, Errors.REQUEST_TIMED_OUT)))
+    assertTrue(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataBad), Errors.NONE)))
+    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List.empty, Errors.NONE)))
+    assertFalse(TopicMetadataCache.hasBadErrorCode(new TopicMetadata("test", List(partitionMetadataGood), Errors.NONE)))
   }
 }

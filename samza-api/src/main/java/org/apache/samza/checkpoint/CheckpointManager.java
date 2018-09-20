@@ -26,6 +26,14 @@ import org.apache.samza.container.TaskName;
  * implementation-specific location.
  */
 public interface CheckpointManager {
+  /**
+   * Creates checkpoint stream.
+   */
+  default void createResources() { }
+
+  /**
+   * Perform startup operations.
+   */
   void start();
 
   /**
@@ -57,5 +65,5 @@ public interface CheckpointManager {
   /**
    * Clear the checkpoints in the checkpoint stream.
    */
-  default void clearCheckpoints() { };
+  default void clearCheckpoints() { }
 }

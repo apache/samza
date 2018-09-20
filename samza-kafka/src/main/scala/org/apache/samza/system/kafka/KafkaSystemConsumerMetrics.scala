@@ -82,10 +82,10 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
     reads.get(topicAndPartition).inc;
   }
   def incBytesReads(topicAndPartition: TopicAndPartition, inc: Long) {
-    reads.get(topicAndPartition).inc(inc);
+    bytesRead.get(topicAndPartition).inc(inc);
   }
-  def incBrokerBytesReads(host: String, port: Int, inc: Long) {
-    brokerReads.get((host,port)).inc(inc)
+  def incBrokerBytesReads(host: String, port: Int, incBytes: Long) {
+    brokerBytesRead.get((host,port)).inc(incBytes)
   }
   def incBrokerSkippedFetchRequests(host: String, port: Int) {
     brokerSkippedFetchRequests.get((host,port)).inc()

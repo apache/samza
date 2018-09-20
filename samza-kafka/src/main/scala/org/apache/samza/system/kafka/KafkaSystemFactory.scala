@@ -33,6 +33,7 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemAdmin
+import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.system.SystemConsumer
 
 object KafkaSystemFactory extends Logging {
@@ -124,9 +125,9 @@ class KafkaSystemFactory extends SystemFactory with Logging {
        val changelogInfo = ChangelogInfo(replicationFactor, config.getChangelogKafkaProperties(storeName))
        info("Creating topic meta information for topic: %s with replication factor: %s" format (topicName, replicationFactor))
        (topicName, changelogInfo)
-    }}.toMap
+    }}
 
-
+    val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(
       systemName,
@@ -138,7 +139,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       bufferSize,
       clientId,
       topicMetaInformation,
-      intermediateStreamProperties)
+      intermediateStreamProperties,
+      deleteCommittedMessages)
   }
 
   def getCoordinatorTopicProperties(config: Config) = {
@@ -152,7 +154,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val appConfig = new ApplicationConfig(config)
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
       val streamConfig = new StreamConfig(config)
-      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediate(_)).map(streamId => {
+      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
         val properties = new Properties()
         properties.putAll(streamConfig.getStreamProperties(streamId))
         properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))

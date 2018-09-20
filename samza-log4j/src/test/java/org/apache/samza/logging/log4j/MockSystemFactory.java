@@ -40,6 +40,6 @@ public class MockSystemFactory implements SystemFactory {
 
   @Override
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return null;
+    return new MockSystemAdmin();
   }
 }

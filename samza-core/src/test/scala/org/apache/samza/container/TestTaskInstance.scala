@@ -20,428 +20,211 @@
 package org.apache.samza.container
 
 
-import java.util.concurrent.ConcurrentHashMap
-
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
-import org.apache.samza.config.{Config, MapConfig}
-import org.apache.samza.metrics.{Counter, Metric, MetricsRegistryMap}
-import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemConsumer
-import org.apache.samza.system.SystemConsumers
-import org.apache.samza.system.SystemProducer
-import org.apache.samza.system.SystemProducers
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.config.Config
+import org.apache.samza.metrics.Counter
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system._
-import org.apache.samza.system.chooser.RoundRobinChooser
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStream, _}
 import org.apache.samza.task._
 import org.junit.Assert._
-import org.junit.Test
+import org.junit.{Before, Test}
 import org.mockito.Matchers._
-import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.scalatest.Assertions.intercept
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{Matchers, Mock, MockitoAnnotations}
+import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
-class TestTaskInstance {
+class TestTaskInstance extends MockitoSugar {
+  private val SYSTEM_NAME = "test-system"
+  private val TASK_NAME = new TaskName("taskName")
+  private val SYSTEM_STREAM_PARTITION =
+    new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-stream"), new Partition(0))
+  private val SYSTEM_STREAM_PARTITIONS = Set(SYSTEM_STREAM_PARTITION)
+
+  @Mock
+  private var task: AllTask = null
+  @Mock
+  private var config: Config = null
+  @Mock
+  private var metrics: TaskInstanceMetrics = null
+  @Mock
+  private var systemAdmins: SystemAdmins = null
+  @Mock
+  private var systemAdmin: SystemAdmin = null
+  @Mock
+  private var consumerMultiplexer: SystemConsumers = null
+  @Mock
+  private var collector: TaskInstanceCollector = null
+  @Mock
+  private var containerContext: SamzaContainerContext = null
+  @Mock
+  private var offsetManager: OffsetManager = null
+  @Mock
+  private var taskStorageManager: TaskStorageManager = null
+  // not a mock; using MockTaskInstanceExceptionHandler
+  private var taskInstanceExceptionHandler: MockTaskInstanceExceptionHandler = null
+
+  private var taskInstance: TaskInstance = null
+
+  @Before
+  def setup(): Unit = {
+    MockitoAnnotations.initMocks(this)
+    // not using Mockito mock since Mockito doesn't work well with the call-by-name argument in maybeHandle
+    this.taskInstanceExceptionHandler = new MockTaskInstanceExceptionHandler
+    this.taskInstance = new TaskInstance(this.task,
+      TASK_NAME,
+      this.config,
+      this.metrics,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.collector,
+      this.containerContext,
+      this.offsetManager,
+      storageManager = this.taskStorageManager,
+      systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
+      exceptionHandler = this.taskInstanceExceptionHandler)
+    when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
+  }
+
   @Test
-  def testOffsetsAreUpdatedOnProcess {
-    val task = new StreamTask {
-      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
+  def testProcess() {
+    val processesCounter = mock[Counter]
+    when(this.metrics.processes).thenReturn(processesCounter)
+    val messagesActuallyProcessedCounter = mock[Counter]
+    when(this.metrics.messagesActuallyProcessed).thenReturn(messagesActuallyProcessedCounter)
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("0"))
+    val envelope = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "0", null, null)
+    val coordinator = mock[ReadableCoordinator]
+    this.taskInstance.process(envelope, coordinator)
+    assertEquals(1, this.taskInstanceExceptionHandler.numTimesCalled)
+    verify(this.task).process(envelope, this.collector, coordinator)
+    verify(processesCounter).inc()
+    verify(messagesActuallyProcessedCounter).inc()
+  }
+
+  @Test
+  def testWindow() {
+    val windowsCounter = mock[Counter]
+    when(this.metrics.windows).thenReturn(windowsCounter)
+    val coordinator = mock[ReadableCoordinator]
+    this.taskInstance.window(coordinator)
+    assertEquals(1, this.taskInstanceExceptionHandler.numTimesCalled)
+    verify(this.task).window(this.collector, coordinator)
+    verify(windowsCounter).inc()
+  }
+
+  @Test
+  def testOffsetsAreUpdatedOnProcess() {
+    when(this.metrics.processes).thenReturn(mock[Counter])
+    when(this.metrics.messagesActuallyProcessed).thenReturn(mock[Counter])
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("2"))
+    this.taskInstance.process(new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "4", null, null),
+      mock[ReadableCoordinator])
+    verify(this.offsetManager).update(TASK_NAME, SYSTEM_STREAM_PARTITION, "4")
+  }
+
+  /**
+   * Tests that the init() method of task can override the existing offset assignment.
+   * This helps verify wiring for the task context (i.e. offset manager).
+   */
+  @Test
+  def testManualOffsetReset() {
+    when(this.task.init(any(), any())).thenAnswer(new Answer[Void] {
+      override def answer(invocation: InvocationOnMock): Void = {
+        val taskContext = invocation.getArgumentAt(1, classOf[TaskContext])
+        taskContext.setStartingOffset(SYSTEM_STREAM_PARTITION, "10")
+        null
       }
-    }
-    val config = new MapConfig
-    val partition = new Partition(0)
-    val consumerMultiplexer = new SystemConsumers(
-      new RoundRobinChooser,
-      Map[String, SystemConsumer]())
-    val producerMultiplexer = new SystemProducers(
-      Map[String, SystemProducer](),
-      new SerdeManager)
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-    val systemStreamPartitions = Set(systemStreamPartition)
-    // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
-    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
-    val taskName = new TaskName("taskName")
-    val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
-    val taskInstance: TaskInstance = new TaskInstance(
-      task,
-      taskName,
-      config,
-      new TaskInstanceMetrics,
-      null,
-      consumerMultiplexer,
-      collector,
-      containerContext,
-      offsetManager,
-      systemStreamPartitions = systemStreamPartitions)
-    // Pretend we got a message with offset 2 and next offset 3.
-    val coordinator = new ReadableCoordinator(taskName)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
-    // Check to see if the offset manager has been properly updated with offset 3.
-    val lastProcessedOffset = offsetManager.getLastProcessedOffset(taskName, systemStreamPartition)
-    assertTrue(lastProcessedOffset.isDefined)
-    assertEquals("2", lastProcessedOffset.get)
-  }
-
-  /**
-   * Mock exception used to test exception counts metrics.
-   */
-  class TroublesomeException extends RuntimeException {
-  }
-
-  /**
-   * Mock exception used to test exception counts metrics.
-   */
-  class NonFatalException extends RuntimeException {
-  }
-
-  /**
-   * Mock exception used to test exception counts metrics.
-   */
-  class FatalException extends RuntimeException {
-  }
-
-  /**
-   * Task used to test exception counts metrics.
-   */
-  class TroublesomeTask extends StreamTask with WindowableTask {
-    def process(
-                 envelope: IncomingMessageEnvelope,
-                 collector: MessageCollector,
-                 coordinator: TaskCoordinator) {
-
-      envelope.getOffset().toInt match {
-        case offset if offset % 2 == 0 => throw new TroublesomeException
-        case _ => throw new NonFatalException
-      }
-    }
-
-    def window(collector: MessageCollector, coordinator: TaskCoordinator) {
-      throw new FatalException
-    }
-  }
-
-  /*
-   * Helper method used to retrieve the value of a counter from a group.
-   */
-  private def getCount(
-                        group: ConcurrentHashMap[String, Metric],
-                        name: String): Long = {
-    group.get("exception-ignored-" + name.toLowerCase).asInstanceOf[Counter].getCount
-  }
-
-  /**
-   * Test task instance exception metrics with two ignored exceptions and one
-   * exception not ignored.
-   */
-  @Test
-  def testExceptionCounts {
-    val task = new TroublesomeTask
-    val ignoredExceptions = classOf[TroublesomeException].getName + "," +
-      classOf[NonFatalException].getName
-    val config = new MapConfig(Map[String, String](
-      "task.ignored.exceptions" -> ignoredExceptions).asJava)
-
-    val partition = new Partition(0)
-    val consumerMultiplexer = new SystemConsumers(
-      new RoundRobinChooser,
-      Map[String, SystemConsumer]())
-    val producerMultiplexer = new SystemProducers(
-      Map[String, SystemProducer](),
-      new SerdeManager)
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-    val systemStreamPartitions = Set(systemStreamPartition)
-    // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
-    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
-    val taskName = new TaskName("taskName")
-    val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
-
-    val registry = new MetricsRegistryMap
-    val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance = new TaskInstance(
-      task,
-      taskName,
-      config,
-      taskMetrics,
-      null,
-      consumerMultiplexer,
-      collector,
-      containerContext,
-      offsetManager,
-      systemStreamPartitions = systemStreamPartitions,
-      exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
-
-    val coordinator = new ReadableCoordinator(taskName)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "1", null, null), coordinator)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "3", null, null), coordinator)
-
-    val group = registry.getGroup(taskMetrics.group)
-    assertEquals(1L, getCount(group, classOf[TroublesomeException].getName))
-    assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
-
-    intercept[FatalException] {
-      taskInstance.window(coordinator)
-    }
-    assertFalse(group.contains(classOf[FatalException].getName.toLowerCase))
-  }
-
-  /**
-   * Test task instance exception metrics with all exception ignored using a
-   * wildcard.
-   */
-  @Test
-  def testIgnoreAllExceptions {
-    val task = new TroublesomeTask
-    val config = new MapConfig(Map[String, String](
-      "task.ignored.exceptions" -> "*").asJava)
-
-    val partition = new Partition(0)
-    val consumerMultiplexer = new SystemConsumers(
-      new RoundRobinChooser,
-      Map[String, SystemConsumer]())
-    val producerMultiplexer = new SystemProducers(
-      Map[String, SystemProducer](),
-      new SerdeManager)
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-    val systemStreamPartitions = Set(systemStreamPartition)
-    // Pretend our last checkpointed (next) offset was 2.
-    val testSystemStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
-    val offsetManager = OffsetManager(Map(systemStream -> testSystemStreamMetadata), config)
-    val taskName = new TaskName("taskName")
-    val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
-
-    val registry = new MetricsRegistryMap
-    val taskMetrics = new TaskInstanceMetrics(registry = registry)
-    val taskInstance = new TaskInstance(
-      task,
-      taskName,
-      config,
-      taskMetrics,
-      null,
-      consumerMultiplexer,
-      collector,
-      containerContext,
-      offsetManager,
-      systemStreamPartitions = systemStreamPartitions,
-      exceptionHandler = TaskInstanceExceptionHandler(taskMetrics, config))
-
-    val coordinator = new ReadableCoordinator(taskName)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "1", null, null), coordinator)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "2", null, null), coordinator)
-    taskInstance.process(new IncomingMessageEnvelope(systemStreamPartition, "3", null, null), coordinator)
-    taskInstance.window(coordinator)
-
-    val group = registry.getGroup(taskMetrics.group)
-    assertEquals(1L, getCount(group, classOf[TroublesomeException].getName))
-    assertEquals(2L, getCount(group, classOf[NonFatalException].getName))
-    assertEquals(1L, getCount(group, classOf[FatalException].getName))
-  }
-
-  /**
-   * Tests that the init() method of task can override the existing offset
-   * assignment.
-   */
-  @Test
-  def testManualOffsetReset {
-
-    val partition0 = new SystemStreamPartition("system", "stream", new Partition(0))
-    val partition1 = new SystemStreamPartition("system", "stream", new Partition(1))
-
-    val task = new StreamTask with InitableTask {
-
-      override def init(config: Config, context: TaskContext): Unit = {
-
-        assertTrue("Can only update offsets for assigned partition",
-          context.getSystemStreamPartitions.contains(partition1))
-
-        context.setStartingOffset(partition1, "10")
-      }
-
-      override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
-    }
-
-    val config = new MapConfig()
-    val chooser = new RoundRobinChooser()
-    val consumers = new SystemConsumers(chooser, consumers = Map.empty)
-    val producers = new SystemProducers(Map.empty, new SerdeManager())
-    val metrics = new TaskInstanceMetrics()
-    val taskName = new TaskName("Offset Reset Task 0")
-    val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
-
-    val offsetManager = new OffsetManager()
-
-    offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "0")
-
-    val taskInstance = new TaskInstance(
-      task,
-      taskName,
-      config,
-      metrics,
-      null,
-      consumers,
-      collector,
-      containerContext,
-      offsetManager,
-      systemStreamPartitions = Set(partition0, partition1))
-
+    })
     taskInstance.initTask
 
-    assertEquals(Some("0"), offsetManager.getStartingOffset(taskName, partition0))
-    assertEquals(Some("10"), offsetManager.getStartingOffset(taskName, partition1))
+    verify(this.offsetManager).setStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION, "10")
+    verifyNoMoreInteractions(this.offsetManager)
   }
 
   @Test
-  def testIgnoreMessagesOlderThanStartingOffsets {
-    val partition0 = new SystemStreamPartition("system", "stream", new Partition(0))
-    val partition1 = new SystemStreamPartition("system", "stream", new Partition(1))
-    val config = new MapConfig()
-    val chooser = new RoundRobinChooser()
-    val consumers = new SystemConsumers(chooser, consumers = Map.empty)
-    val producers = new SystemProducers(Map.empty, new SerdeManager())
-    val metrics = new TaskInstanceMetrics()
-    val taskName = new TaskName("testing")
-    val collector = new TaskInstanceCollector(producers)
-    val containerContext = new SamzaContainerContext("0", config, Set(taskName).asJava, new MetricsRegistryMap)
-    val offsetManager = new OffsetManager()
-    offsetManager.startingOffsets += taskName -> Map(partition0 -> "0", partition1 -> "100")
-    val systemAdmins = Map("system" -> new MockSystemAdmin)
-    var result = new ListBuffer[IncomingMessageEnvelope]
-
-    val task = new StreamTask {
-      def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
-        result += envelope
+  def testIgnoreMessagesOlderThanStartingOffsets() {
+    val processesCounter = mock[Counter]
+    when(this.metrics.processes).thenReturn(processesCounter)
+    val messagesActuallyProcessedCounter = mock[Counter]
+    when(this.metrics.messagesActuallyProcessed).thenReturn(messagesActuallyProcessedCounter)
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("5"))
+    when(this.systemAdmin.offsetComparator(any(), any())).thenAnswer(new Answer[Integer] {
+      override def answer(invocation: InvocationOnMock): Integer = {
+        val offset1 = invocation.getArgumentAt(0, classOf[String])
+        val offset2 = invocation.getArgumentAt(1, classOf[String])
+        offset1.toLong.compareTo(offset2.toLong)
       }
-    }
+    })
+    val oldEnvelope = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "0", null, null)
+    val newEnvelope0 = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "5", null, null)
+    val newEnvelope1 = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "7", null, null)
 
-    val taskInstance = new TaskInstance(
-      task,
-      taskName,
-      config,
-      metrics,
-      systemAdmins,
-      consumers,
-      collector,
-      containerContext,
-      offsetManager,
-      systemStreamPartitions = Set(partition0, partition1))
-
-    val coordinator = new ReadableCoordinator(taskName)
-    val envelope1 = new IncomingMessageEnvelope(partition0, "1", null, null)
-    val envelope2 = new IncomingMessageEnvelope(partition0, "2", null, null)
-    val envelope3 = new IncomingMessageEnvelope(partition1, "1", null, null)
-    val envelope4 = new IncomingMessageEnvelope(partition1, "102", null, null)
-
-    taskInstance.process(envelope1, coordinator)
-    taskInstance.process(envelope2, coordinator)
-    taskInstance.process(envelope3, coordinator)
-    taskInstance.process(envelope4, coordinator)
-
-    val expected = List(envelope1, envelope2, envelope4)
-    assertEquals(expected, result.toList)
+    this.taskInstance.process(oldEnvelope, mock[ReadableCoordinator])
+    this.taskInstance.process(newEnvelope0, mock[ReadableCoordinator])
+    this.taskInstance.process(newEnvelope1, mock[ReadableCoordinator])
+    verify(this.task).process(Matchers.eq(newEnvelope0), Matchers.eq(this.collector), any())
+    verify(this.task).process(Matchers.eq(newEnvelope1), Matchers.eq(this.collector), any())
+    verify(this.task, never()).process(Matchers.eq(oldEnvelope), any(), any())
+    verify(processesCounter, times(3)).inc()
+    verify(messagesActuallyProcessedCounter, times(2)).inc()
   }
 
   @Test
-  def testCommitOrder {
-    // Simple objects
-    val partition = new Partition(0)
-    val taskName = new TaskName("taskName")
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-    val checkpoint = new Checkpoint(Map(systemStreamPartition -> "4").asJava)
-
-    // Mocks
-    val collector = Mockito.mock(classOf[TaskInstanceCollector])
-    val storageManager = Mockito.mock(classOf[TaskStorageManager])
-    val offsetManager = Mockito.mock(classOf[OffsetManager])
-    when(offsetManager.buildCheckpoint(any())).thenReturn(checkpoint)
-    val mockOrder = inOrder(offsetManager, collector, storageManager)
-
-    val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
-      taskName,
-      new MapConfig,
-      new TaskInstanceMetrics,
-      null,
-      Mockito.mock(classOf[SystemConsumers]),
-      collector,
-      Mockito.mock(classOf[SamzaContainerContext]),
-      offsetManager,
-      storageManager,
-      systemStreamPartitions = Set(systemStreamPartition))
+  def testCommitOrder() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val checkpoint = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(checkpoint)
 
     taskInstance.commit
 
+    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskStorageManager)
+
     // We must first get a snapshot of the checkpoint so it doesn't change while we flush. SAMZA-1384
-    mockOrder.verify(offsetManager).buildCheckpoint(taskName)
+    mockOrder.verify(this.offsetManager).buildCheckpoint(TASK_NAME)
     // Producers must be flushed next and ideally the output would be flushed before the changelog
     // s.t. the changelog and checkpoints (state and inputs) are captured last
-    mockOrder.verify(collector).flush
+    mockOrder.verify(this.collector).flush
     // Local state is next, to ensure that the state (particularly the offset file) never points to a newer changelog
     // offset than what is reflected in the on disk state.
-    mockOrder.verify(storageManager).flush()
+    mockOrder.verify(this.taskStorageManager).flush()
     // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
-    mockOrder.verify(offsetManager).writeCheckpoint(taskName, checkpoint)
+    mockOrder.verify(offsetManager).writeCheckpoint(TASK_NAME, checkpoint)
+    verify(commitsCounter).inc()
   }
 
   @Test(expected = classOf[SystemProducerException])
-  def testProducerExceptionsIsPropagated {
-    // Simple objects
-    val partition = new Partition(0)
-    val taskName = new TaskName("taskName")
-    val systemStream = new SystemStream("test-system", "test-stream")
-    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
-
-    // Mocks
-    val collector = Mockito.mock(classOf[TaskInstanceCollector])
-    when(collector.flush).thenThrow(new SystemProducerException("Test"))
-    val storageManager = Mockito.mock(classOf[TaskStorageManager])
-    val offsetManager = Mockito.mock(classOf[OffsetManager])
-
-    val taskInstance: TaskInstance = new TaskInstance(
-      Mockito.mock(classOf[StreamTask]).asInstanceOf[StreamTask],
-      taskName,
-      new MapConfig,
-      new TaskInstanceMetrics,
-      null,
-      Mockito.mock(classOf[SystemConsumers]),
-      collector,
-      Mockito.mock(classOf[SamzaContainerContext]),
-      offsetManager,
-      storageManager,
-      systemStreamPartitions = Set(systemStreamPartition))
+  def testProducerExceptionsIsPropagated() {
+    when(this.metrics.commits).thenReturn(mock[Counter])
+    when(this.collector.flush).thenThrow(new SystemProducerException("systemProducerException"))
 
     try {
       taskInstance.commit // Should not swallow the SystemProducerException
     } finally {
-      Mockito.verify(offsetManager, times(0)).writeCheckpoint(any(classOf[TaskName]), any(classOf[Checkpoint]))
+      verify(offsetManager, never()).writeCheckpoint(any(), any())
     }
   }
 
-}
+  /**
+    * Task type which has all task traits, which can be mocked.
+    */
+  trait AllTask extends StreamTask with InitableTask with WindowableTask {}
 
-class MockSystemAdmin extends SystemAdmin {
-  override def getOffsetsAfter(offsets: java.util.Map[SystemStreamPartition, String]) = { offsets }
-  override def getSystemStreamMetadata(streamNames: java.util.Set[String]) = null
+  /**
+    * Mock version of [TaskInstanceExceptionHandler] which just does a passthrough execution and keeps track of the
+    * number of times it is called. This is used to verify that the handler does get used to wrap the actual processing.
+    */
+  class MockTaskInstanceExceptionHandler extends TaskInstanceExceptionHandler {
+    var numTimesCalled = 0
 
-  override def offsetComparator(offset1: String, offset2: String) = {
-    offset1.toLong compare offset2.toLong
+    override def maybeHandle(tryCodeBlock: => Unit): Unit = {
+      numTimesCalled += 1
+      tryCodeBlock
+    }
   }
 }

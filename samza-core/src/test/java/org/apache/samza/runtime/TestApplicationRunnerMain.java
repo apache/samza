@@ -18,11 +18,12 @@
  */
 package org.apache.samza.runtime;
 
-import java.io.File;
-import org.apache.samza.application.StreamApplication;
+import java.time.Duration;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.MockStreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.operators.StreamGraph;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -37,9 +38,9 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
-        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts"
+        getClass().getResource("/test.properties").getPath(),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
+        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.runCount);
@@ -52,9 +53,9 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
-        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
+        getClass().getResource("/test.properties").getPath(),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
+        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=kill"
     });
 
@@ -68,51 +69,48 @@ public class TestApplicationRunnerMain {
         "--config-factory",
         "org.apache.samza.config.factories.PropertiesConfigFactory",
         "--config-path",
-        String.format("file://%s/src/test/resources/test.properties", new File(".").getCanonicalPath()),
-        "-config", ApplicationRunnerMain.STREAM_APPLICATION_CLASS_CONFIG + "=org.apache.samza.runtime.TestApplicationRunnerMain$TestStreamApplicationDummy",
-        "-config", "app.runner.class=org.apache.samza.runtime.TestApplicationRunnerMain$TestApplicationRunnerInvocationCounts",
+        getClass().getResource("/test.properties").getPath(),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
+        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=status"
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
   }
 
-  public static class TestApplicationRunnerInvocationCounts extends AbstractApplicationRunner {
+  public static class TestApplicationRunnerInvocationCounts implements ApplicationRunner {
     protected static int runCount = 0;
     protected static int killCount = 0;
     protected static int statusCount = 0;
 
-    public TestApplicationRunnerInvocationCounts(Config config) {
-      super(config);
+    public TestApplicationRunnerInvocationCounts(SamzaApplication userApp, Config config) {
     }
 
     @Override
-    public void runTask() {
-      throw new UnsupportedOperationException("runTask() not supported in this test");
-    }
-
-    @Override
-    public void run(StreamApplication streamApp) {
+    public void run() {
       runCount++;
     }
 
     @Override
-    public void kill(StreamApplication streamApp) {
+    public void kill() {
       killCount++;
     }
 
     @Override
-    public ApplicationStatus status(StreamApplication streamApp) {
+    public ApplicationStatus status() {
       statusCount++;
       return ApplicationStatus.Running;
     }
-  }
-
-  public static class TestStreamApplicationDummy implements StreamApplication {
 
     @Override
-    public void init(StreamGraph graph, Config config) {
-
+    public void waitForFinish() {
+      waitForFinish(Duration.ofSeconds(0));
     }
+
+    @Override
+    public boolean waitForFinish(Duration timeout) {
+      return false;
+    }
+
   }
 }

@@ -20,6 +20,7 @@ package org.apache.samza.operators.impl.store;
 
 import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.util.TimestampedValue;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;

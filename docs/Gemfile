@@ -14,5 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 source 'https://rubygems.org'
-gem 'jekyll'
+
+gem 'jekyll', '3.4.5'
+gem 'json', '2.1.0'
+gem 'redcarpet', '3.4.0'
+gem 'pygments.rb', '1.2.1'

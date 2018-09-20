@@ -21,13 +21,15 @@ package org.apache.samza.logging.log4j;
 
 import java.util.ArrayList;
 
+import java.util.List;
 import org.apache.log4j.Logger;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 
 public class MockSystemProducer implements SystemProducer {
-  static public ArrayList<Object> messagesReceived = new ArrayList<Object>();
-  static private Logger log = Logger.getLogger(MockSystemProducer.class);
+  public static ArrayList<Object> messagesReceived = new ArrayList<>();
+  private static Logger log = Logger.getLogger(MockSystemProducer.class);
+  public static List<MockSystemProducerListener> listeners = new ArrayList<>();
 
   @Override
   public void start() {
@@ -45,9 +47,15 @@ public class MockSystemProducer implements SystemProducer {
   @Override
   public void send(String source, OutgoingMessageEnvelope envelope) {
     messagesReceived.add(envelope.getMessage());
+
+    listeners.forEach((listener) -> listener.onSend(source, envelope));
   }
 
   @Override
   public void flush(String source) {
+  }
+
+  public interface MockSystemProducerListener {
+    void onSend(String source, OutgoingMessageEnvelope envelope);
   }
 }

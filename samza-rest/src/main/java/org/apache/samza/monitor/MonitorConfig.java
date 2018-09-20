@@ -42,6 +42,10 @@ public class MonitorConfig extends MapConfig {
 
   private static final String MONITOR_PREFIX = String.format("monitor%s", MONITOR_CONFIG_KEY_SEPARATOR);
 
+  private static final String CONFIG_SCHEDULING_JITTER_PERCENT = "scheduling.jitter.percent";
+
+  private static final int DEFAULT_SCHEDULING_JITTER_PERCENT = 0;
+
   public MonitorConfig(Config config) {
     super(config);
   }
@@ -95,5 +99,9 @@ public class MonitorConfig extends MapConfig {
    */
   public int getSchedulingIntervalInMs() {
     return getInt(CONFIG_SCHEDULING_INTERVAL, DEFAULT_SCHEDULING_INTERVAL_IN_MS);
+  }
+
+  public double getSchedulingJitterPercent() {
+    return getDouble(CONFIG_SCHEDULING_JITTER_PERCENT, DEFAULT_SCHEDULING_JITTER_PERCENT);
   }
 }

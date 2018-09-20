@@ -18,6 +18,18 @@
  */
 
 package org.apache.samza.config
+
+import org.apache.samza.SamzaException
+import org.apache.samza.serializers.ByteBufferSerdeFactory
+import org.apache.samza.serializers.ByteSerdeFactory
+import org.apache.samza.serializers.DoubleSerdeFactory
+import org.apache.samza.serializers.IntegerSerdeFactory
+import org.apache.samza.serializers.JsonSerdeFactory
+import org.apache.samza.serializers.LongSerdeFactory
+import org.apache.samza.serializers.SerializableSerdeFactory
+import org.apache.samza.serializers.StringSerdeFactory
+import org.apache.samza.util.Util.info
+
 import scala.collection.JavaConverters._
 
 object SerializerConfig {
@@ -28,6 +40,26 @@ object SerializerConfig {
   val SERDE_SERIALIZED_INSTANCE = SERIALIZER_PREFIX + SERIALIZED_INSTANCE_SUFFIX
 
   implicit def Config2Serializer(config: Config) = new SerializerConfig(config)
+
+  /**
+    * Returns the pre-defined serde factory class name for the provided serde name. If no pre-defined factory exists,
+    * throws an exception.
+    */
+  def getSerdeFactoryName(serdeName: String) = {
+    val serdeFactoryName = serdeName match {
+      case "byte" => classOf[ByteSerdeFactory].getCanonicalName
+      case "bytebuffer" => classOf[ByteBufferSerdeFactory].getCanonicalName
+      case "integer" => classOf[IntegerSerdeFactory].getCanonicalName
+      case "json" => classOf[JsonSerdeFactory].getCanonicalName
+      case "long" => classOf[LongSerdeFactory].getCanonicalName
+      case "serializable" => classOf[SerializableSerdeFactory[java.io.Serializable]].getCanonicalName
+      case "string" => classOf[StringSerdeFactory].getCanonicalName
+      case "double" => classOf[DoubleSerdeFactory].getCanonicalName
+      case _ => throw new SamzaException("No pre-defined factory class name for serde name %s" format serdeName)
+    }
+    info("Using default serde %s for serde name %s" format (serdeFactoryName, serdeName))
+    serdeFactoryName
+  }
 }
 
 class SerializerConfig(config: Config) extends ScalaMapConfig(config) {

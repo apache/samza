@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -32,7 +33,7 @@ import java.util.regex.Pattern;
 /**
  * Store and retrieve named, typed values as configuration for classes implementing this interface.
  */
-public abstract class Config implements Map<String, String> {
+public abstract class Config implements Map<String, String>, Serializable {
   public static final String SENSITIVE_PREFIX = "sensitive.";
   public static final String SENSITIVE_MASK = "********";
 
@@ -154,6 +155,9 @@ public abstract class Config implements Map<String, String> {
       return defaultValue;
 
     String value = get(k);
+    if (value.trim().isEmpty()) {
+      return defaultValue;
+    }
     String[] pieces = value.split("\\s*,\\s*");
     return Arrays.asList(pieces);
   }

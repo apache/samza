@@ -472,8 +472,39 @@
                             <dt><code>org.apache.samza.coordinator.AzureCoordinationUtilsFactory</code></dt>
                             <dd>Azure based coordination utils.</dd>
                         These coordination utils are currently used for intermediate stream creation.
+                        </dl>
                     </td>
                 </tr>
+
+                <tr>
+                    <td class="property" id="job.logged.store.base.dir">job.logged.store.base.dir</td>
+                    <td class="default">
+                        <i>user.dir</i> environment property if set, else current working directory of the process
+                    </td>
+                    <td class="description">
+                        The base directory for changelog stores used by Samza application. Another way to configure the base directory is by setting environment variable <i>LOGGED_STORE_BASE_DIR</i>.
+                        <b>Note:</b> The environment variable takes precedence over <i>job.logged.store.base.dir</i>.
+
+                        <br>By opting in, users are responsible for cleaning up the store directories if necessary. Jobs using host affinity should ensure that the stores are persisted across application/container restarts.
+                        This means that the location and cleanup of this directory should be separate from the container lifecycle and resource cleanup.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="job.non-logged.store.base.dir">job.non-logged.store.base.dir</td>
+                    <td class="default">
+                        <i>user.dir</i> environment property if set, else current working directory of the process
+                    </td>
+                    <td class="description">
+                        The base directory for non-changelog stores used by Samza application.
+
+                        <br>In YARN, the default behaviour without the configuration is to create non-changelog store directories in CWD which happens to be the YARN container directory.
+                        This gets cleaned up periodically as part of NodeManager's deletion service, which is controlled by the YARN config <i>yarn.nodemanager.delete.debug-delay-sec</i>.
+
+                        <br>In non-YARN deployment models or when using a different directory other than YARN container directory, stores need to be cleaned up periodically.
+                    </td>
+                </tr>
+
                 <tr>
                                               <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
                 <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
@@ -766,6 +797,18 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-max-idle-ms">task.max.idle.ms</td>
+                    <td class="default">10</td>
+                    <td class="description">
+                        The maximum time to wait for a task worker to complete when there are no new messages to handle before resuming the main
+                        loop and potentially polling for more messages. See <a href="#task-poll-interval-ms" class="property">task.poll.interval.ms</a>
+                        This timeout value prevents the main loop from spinning when there is nothing for it to do.  Increasing this value will reduce
+                        the background load of the thread, but, also potentially increase message latency.  It should not be set greater than the
+                        <a href="#task-poll-interval-ms" class="property">task.poll.interval.ms</a>.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-ignored-exceptions">task.ignored.exceptions</td>
                     <td class="default"></td>
                     <td class="description">
@@ -939,6 +982,16 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="systems-samza-delete-committed-messages">systems.<span class="system">system-name</span>.<br>samza.delete.committed.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, automatically delete committed messages from streams whose committed messages can be deleted.
+                        A stream's committed messages can be deleted if it is a intermediate stream, or if user has manually
+                        set <a href="#streams-samza-delete-committed-messages">streams.<span class="stream">stream-id</span>.<br>samza.delete.committed.messages</a> to true in the configuration.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="systems-samza-key-serde-legacy">systems.<span class="system">system-name</span>.<br>samza.key.serde</td>
                     <td class="default" rowspan="2"></td>
                     <td class="description">
@@ -1089,6 +1142,16 @@
                         This property is for an individual stream. To set it for all streams within a system, see
                         <a href="#systems-samza-offset-default">systems.<span class="system">system-name</span>.<br>samza.offset.default</a>
                         If both are defined, the stream-level definition takes precedence.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="streams-samza-delete-committed-messages">streams.<span class="stream">stream-id</span>.<br>samza.delete.committed.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to true, committed messages of this stream can be deleted. Committed messages of this stream will be deleted
+                        if <a href="#systems-samza-delete-committed-messages">systems.<span class="system">system-name</span>.samza.delete.committed.messages</a> is also
+                        set to true.
                     </td>
                 </tr>
 
@@ -2043,6 +2106,26 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="yarn-job-view-acl">yarn.job.view.acl</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is for secured YARN cluster only.
+                        The 'viewing' acl of the YARN application that controls who can view the application (e.g. application status, logs).
+                        See <a href="https://hadoop.apache.org/docs/r2.6.0/api/org/apache/hadoop/yarn/api/records/ApplicationAccessType.html">ApplicationAccessType</a> for more details.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="yarn-job-modify-acl">yarn.job.modify.acl</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This is for secured YARN cluster only.
+                        The 'modify' acl of the YARN application that controls who can modify the application (e.g. killing the application).
+                        See <a href="https://hadoop.apache.org/docs/r2.6.0/api/org/apache/hadoop/yarn/api/records/ApplicationAccessType.html">ApplicationAccessType</a> for more details.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="yarn-token-renewal-interval-seconds">yarn.token.renewal.interval.seconds</td>
                     <td class="default"></td>
                     <td class="description">
@@ -2247,6 +2330,152 @@
                     <td class="property" id="hdfs-staging-directory">systems.<span class="system">system-name</span>.<br>.stagingDirectory</td>
                     <td class="default"></td>
                     <td class="description">Staging directory for storing partition description. By default (if not set by users) the value is inherited from "yarn.job.staging.directory" internally. The default value is typically good enough unless you want explicitly use a separate location.</td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="eventhub">
+                        Using <a href="https://azure.microsoft.com/en-us/services/event-hubs/">EventHubs</a> for input and output streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.eventhub.EventHubSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-list">systems.<span class="system">system-name</span>.<br>stream.list</td>
+                    <td class="default"></td>
+                    <td class="description">List of Samza <span class="stream">stream-ids</span> used for the Eventhub system</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-namespace">streams.<span class="stream">stream-id</span>.<br>eventhubs.namespace</td>
+                    <td class="default"></td>
+                    <td class="description">Namespace of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-entity">streams.<span class="stream">stream-id</span>.<br>eventhubs.entitypath</td>
+                    <td class="default"></td>
+                    <td class="description">Entity of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-keyname">sensitive.streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.keyname</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Keyname of the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-stream-sas-token">sensitive.streams.<span class="stream">stream-id</span>.<br>eventhubs.sas.token</td>
+                    <td class="default"></td>
+                    <td class="description">SAS Token the associated <span class="stream">stream-ids</span>. Required to access the Eventhubs entity per stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-client-threads">streams.<span class="system">stream-name</span>.<br>eventhubs.numClientThreads</td>
+                    <td class="default">10</td>
+                    <td class="description">Number of threads in thread pool that will be used by the EventHubClient. See <a href="https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_hub_client.create">here </a> for more details.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-prefetch-count">systems.<span class="system">system-name</span>.<br>eventhubs.prefetchCount</td>
+                    <td class="default">999</td>
+                    <td class="description">Number of events that EventHub client should prefetch from the server. See <a href="https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._partition_receiver.setprefetchcount">here </a> for more details.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-max-event-count">systems.<span class="system">system-name</span>.<br>eventhubs.maxEventCountPerPoll</td>
+                    <td class="default">50</td>
+                    <td class="description">Maximum number of events that EventHub client can return in a receive call. See <a href="https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._partition_receive_handler.getmaxeventcount#com_microsoft_azure_eventhubs__partition_receive_handler_getMaxEventCount__">here </a> for more details.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-runtime-timeout">systems.<span class="system">system-name</span>.<br>eventhubs.runtime.info.timeout</td>
+                    <td class="default">60000</td>
+                    <td class="description">Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-partition-method">systems.<span class="system">system-name</span>.<br>eventhubs.partition.method</td>
+                    <td class="default"><code>EVENT_HUB_HASHING</code></td>
+                    <td class="description">
+                        Producer only config. Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:
+                        <dl>
+                            <dt><code>ROUND_ROBIN</code></dt>
+                            <dd>The message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.</dd>
+                            <dt><code>EVENT_HUB_HASHING</code></dt>
+                            <dd>Employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.</dd>
+                            <dt><code>PARTITION_KEY_AS_PARTITION</code></dt>
+                            <dd>Use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting paritition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to EVENT_HUB_HASHING, if the partition key is not set the message key is used instead.</dd>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-send-key">systems.<span class="system">system-name</span>.<br>eventhubs.send.key</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        Producer only config. Sending each message key to the eventhub in the properties of the AMQP message. If the Samza Eventhub consumer is used, this field is used as the message key if the partition key is not present.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-group">streams.<span class="stream">stream-id</span>.<br>eventhubs.consumer.group</td>
+                    <td class="default"><code>$Default</code></td>
+                    <td class="description">
+                        Consumer only config. Set the consumer group from the upstream Eventhub that the consumer is part of. Defaults to the <code>$Default</code> group that is initially present in all Eventhub entities (unless removed)
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="eventhub-consumer-buffer-capacity">systems.<span class="system">system-name</span>.<br>eventhubs.receive.queue.size</td>
+                    <td class="default">100</td>
+                    <td class="description">
+                        Consumer only config. Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.
+                    </td>
+                </tr>
+
+                <tr>
+                    <th colspan="3" class="section" id="kinesis">
+                        Using <a href="https://aws.amazon.com/kinesis/">Kinesis</a> for input streams<br>
+                        <span class="subtitle">
+                            (This section applies if you have set
+                            <a href="#systems-samza-factory" class="property">systems.*.samza.factory</a>
+                            <code>= org.apache.samza.system.kinesis.KinesisSystemFactory</code>)
+                        </span>
+                    </th>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-region">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.region</td>
+                    <td class="default"></td>
+                    <td class="description">Region of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-access-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.accessKey</td>
+                    <td class="default"></td>
+                    <td class="description">AccessKey of the associated <span class="stream">stream-name</span>. Required to access Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-secret-key">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.secretKey</td>
+                    <td class="default"></td>
+                    <td class="description">SecretKey of the associated <span class="stream">stream-name</span>. Required to access the Kinesis data stream.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-stream-aws-kcl-configs">systems.<span class="system">system-name</span>.<br>streams.<span class="stream">stream-name</span>.<br>aws.kcl.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/KinesisClientLibConfiguration.java">AWS Kinesis Client Library configuration</a> associated with the <span class="stream">stream-name</span>.</td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="kinesis-system-aws-client-configs">systems.<span class="system">system-name</span>.<br>aws.clientConfig.*</td>
+                    <td class="default"></td>
+                    <td class="description"><a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html">AWS ClientConfiguration</a> associated with the <span class="system">system-name</span>.</td>
                 </tr>
             </tbody>
         </table>

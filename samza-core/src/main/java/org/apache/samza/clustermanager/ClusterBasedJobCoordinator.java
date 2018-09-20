@@ -19,34 +19,39 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.PartitionChangeException;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 
 /**
  * Implements a JobCoordinator that is completely independent of the underlying cluster
@@ -76,7 +81,6 @@ public class ClusterBasedJobCoordinator {
   private static final Logger log = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
 
   private final Config config;
-
   private final ClusterManagerConfig clusterManagerConfig;
 
   /**
@@ -96,6 +100,16 @@ public class ClusterBasedJobCoordinator {
    * A JobModelManager to return and refresh the {@link org.apache.samza.job.model.JobModel} when required.
    */
   private final JobModelManager jobModelManager;
+
+  /**
+   * A ChangelogStreamManager to handle creation of changelog stream and map changelog stream partitions
+   */
+  private final ChangelogStreamManager changelogStreamManager;
+
+  /**
+   * Single instance of the coordinator stream to use.
+   */
+  private final CoordinatorStreamManager coordinatorStreamManager;
 
   /*
    * The interval for polling the Task Manager for shutdown.
@@ -137,6 +151,8 @@ public class ClusterBasedJobCoordinator {
    */
   volatile private Exception coordinatorException = null;
 
+  private SystemAdmins systemAdmins = null;
+
   /**
    * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
    * run the jobcoordinator.
@@ -148,12 +164,24 @@ public class ClusterBasedJobCoordinator {
 
     metrics = new MetricsRegistryMap();
 
-    //build a JobModelReader and perform partition assignments.
-    jobModelManager = buildJobModelManager(coordinatorSystemConfig, metrics);
+    coordinatorStreamManager = new CoordinatorStreamManager(coordinatorSystemConfig, metrics);
+    // register ClusterBasedJobCoordinator with the CoordinatorStreamManager.
+    coordinatorStreamManager.register(getClass().getSimpleName());
+    // start the coordinator stream's underlying consumer and producer.
+    coordinatorStreamManager.start();
+    // bootstrap current configuration.
+    coordinatorStreamManager.bootstrap();
+
+    // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
+    changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
+    jobModelManager = JobModelManager.apply(coordinatorStreamManager, changelogStreamManager.readPartitionMapping());
+
     config = jobModelManager.jobModel().getConfig();
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
-    partitionMonitor = getPartitionCountMonitor(config);
+    // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
+    systemAdmins = new SystemAdmins(config);
+    partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabled();
 
@@ -185,7 +213,29 @@ public class ClusterBasedJobCoordinator {
       //initialize JobCoordinator state
       log.info("Starting Cluster Based Job Coordinator");
 
+      //create necessary checkpoint and changelog streams, if not created
+      JobModel jobModel = jobModelManager.jobModel();
+      CheckpointManager checkpointManager = new TaskConfigJava(config).getCheckpointManager(metrics);
+      if (checkpointManager != null) {
+        checkpointManager.createResources();
+      }
+      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+
+      // Remap changelog partitions to tasks
+      Map<TaskName, Integer> prevPartitionMappings = changelogStreamManager.readPartitionMapping();
+
+      Map<TaskName, Integer> taskPartitionMappings = new HashMap<>();
+      Map<String, ContainerModel> containers = jobModel.getContainers();
+      for (ContainerModel containerModel: containers.values()) {
+        for (TaskModel taskModel : containerModel.getTasks().values()) {
+          taskPartitionMappings.put(taskModel.getTaskName(), taskModel.getChangelogPartition().getPartitionId());
+        }
+      }
+
+      changelogStreamManager.updatePartitionMapping(prevPartitionMappings, taskPartitionMappings);
+
       containerProcessManager.start();
+      systemAdmins.start();
       partitionMonitor.start();
 
       boolean isInterrupted = false;
@@ -221,7 +271,9 @@ public class ClusterBasedJobCoordinator {
 
     try {
       partitionMonitor.stop();
+      systemAdmins.stop();
       containerProcessManager.stop();
+      coordinatorStreamManager.stop();
     } catch (Throwable e) {
       log.error("Exception while stopping task manager {}", e);
     }
@@ -237,14 +289,8 @@ public class ClusterBasedJobCoordinator {
     }
   }
 
-  private JobModelManager buildJobModelManager(Config coordinatorSystemConfig, MetricsRegistryMap registry)  {
-    JobModelManager jobModelManager = JobModelManager.apply(coordinatorSystemConfig, registry);
-    return jobModelManager;
-  }
-
-  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config) {
-    Map<String, SystemAdmin> systemAdmins = new JavaSystemConfig(config).getSystemAdmins();
-    StreamMetadataCache streamMetadata = new StreamMetadataCache(Util.javaMapAsScalaMap(systemAdmins), 0, SystemClock.instance());
+  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
+    StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");

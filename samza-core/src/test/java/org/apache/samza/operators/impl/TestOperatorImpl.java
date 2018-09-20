@@ -21,12 +21,14 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
@@ -214,6 +216,11 @@ public class TestOperatorImpl {
 
     @Override
     public WatermarkFunction getWatermarkFn() {
+      return null;
+    }
+
+    @Override
+    public TimerFunction getTimerFn() {
       return null;
     }
   }

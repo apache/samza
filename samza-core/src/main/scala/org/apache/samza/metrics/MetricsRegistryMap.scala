@@ -75,6 +75,21 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
     newTimer(group, new Timer(name))
   }
 
+  /**
+    * Register a {@link org.apache.samza.metrics.ListGauge}
+    *
+    * @param group     Group for this ListGauge
+    * @param listGauge the ListGauge to register
+    * @tparam T the type of the list gauge
+    */
+  def newListGauge[T](group: String, listGauge: ListGauge[T]) = {
+    debug("Adding new listgauge %s %s %s." format(group, listGauge.getName, listGauge))
+    putAndGetGroup(group).putIfAbsent(listGauge.getName, listGauge)
+    val realListGauge = metrics.get(group).get(listGauge.getName).asInstanceOf[ListGauge[T]]
+    listeners.foreach(_.onListGauge(group, realListGauge))
+    realListGauge
+  }
+
   private def putAndGetGroup(group: String) = {
     metrics.putIfAbsent(group, new ConcurrentHashMap[String, Metric])
     metrics.get(group)

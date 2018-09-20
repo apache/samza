@@ -78,13 +78,19 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         boolean expired = requestExpired(request);
         boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
 
-        if (expired && resourceAvailableOnAnyHost) {
-          log.info("Request expired. running on ANY_HOST");
-          runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+        if (expired) {
+          updateExpiryMetrics(request);
+          if (resourceAvailableOnAnyHost) {
+            log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
+            runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+          } else {
+            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
+            resourceRequestState.cancelResourceRequest(request);
+            requestResource(containerID, ResourceRequestState.ANY_HOST);
+          }
         } else {
-          log.info("Either the request timestamp {} is greater than resource request timeout {}ms or we couldn't "
-                  + "find any free allocated resources in the buffer. Breaking out of loop.",
-              request.getRequestTimestampMs(), requestTimeout);
+          log.info("Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
+              new Object[]{request.getContainerID(), request.getPreferredHost(), request.getRequestTimestampMs(), requestTimeout});
           break;
         }
       }
@@ -103,5 +109,14 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       log.info("Request {} with currTime {} has expired", request, currTime);
     }
     return requestExpired;
+  }
+
+  private void updateExpiryMetrics(SamzaResourceRequest request) {
+    String preferredHost = request.getPreferredHost();
+    if (ResourceRequestState.ANY_HOST.equals(preferredHost)) {
+      state.expiredAnyHostRequests.incrementAndGet();
+    } else {
+      state.expiredPreferredHostRequests.incrementAndGet();
+    }
   }
 }

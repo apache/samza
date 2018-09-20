@@ -41,7 +41,7 @@ class TestKafkaSystemProducer {
     systemProducer.register("test")
     systemProducer.start
     systemProducer.send("test", someMessage)
-    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer[Array[Byte], Array[Byte]]].history().size())
+    assertEquals(1, systemProducer.producerRef.get().asInstanceOf[MockProducer[Array[Byte], Array[Byte]]].history().size())
     systemProducer.stop
   }
 
@@ -207,7 +207,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName =  "test",
                                            getProducer = () => {
-                                             mockProducer.open() // A new producer is never closed
+                                             mockProducer.open() // A new producer would not already be closed, so reset it.
                                              mockProducer
                                            },
                                            metrics = producerMetrics)
@@ -219,6 +219,7 @@ class TestKafkaSystemProducer {
     mockProducer.setErrorNext(true, true, new RecordTooLargeException())
     producer.send("test", msg3) // Callback exception
     assertTrue(mockProducer.isClosed)
+    assertNotNull(producer.producerRef.get())
     assertEquals("Should NOT have created a new producer", 1, mockProducer.getOpenCount)
 
     val senderException = intercept[SystemProducerException] {
@@ -269,7 +270,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName =  "test",
       getProducer = () => {
-        mockProducer.open() // A new producer is never closed
+        mockProducer.open() // A new producer would not already be closed, so reset it.
         mockProducer
       },
       metrics = producerMetrics)
@@ -286,6 +287,7 @@ class TestKafkaSystemProducer {
     mockProducer.setErrorNext(true, true, new RecordTooLargeException())
     producer.send("test1", msg3) // Callback exception
     assertTrue(mockProducer.isClosed)
+    assertNotNull(producer.producerRef.get())
     assertEquals("Should NOT have created a new producer", 1, mockProducer.getOpenCount)
 
     // Subsequent sends
@@ -343,7 +345,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName = "test",
       getProducer = () => {
-        mockProducer.open() // A new producer is never closed
+        mockProducer.open() // A new producer would not already be closed, so reset it.
         mockProducer
       },
       metrics = producerMetrics)
@@ -359,6 +361,7 @@ class TestKafkaSystemProducer {
     }
     assertTrue(sendException.getCause.isInstanceOf[SerializationException])
     assertFalse(mockProducer.isClosed)
+    assertNotNull(producer.producerRef.get())
     assertEquals("Should NOT have created a new producer", 1, mockProducer.getOpenCount)
 
     producer.send("test1", msg3) // Should be able to resend msg3
@@ -406,7 +409,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName =  "test",
       getProducer = () => {
-        mockProducer.open() // A new producer is never closed
+        mockProducer.open() // A new producer would not already be closed, so reset it.
         mockProducer
       },
       metrics = producerMetrics,
@@ -418,13 +421,18 @@ class TestKafkaSystemProducer {
     producer.send("test", msg2)
     mockProducer.setErrorNext(true, true, new RecordTooLargeException())
     producer.send("test", msg3) // Callback exception
-    assertFalse(mockProducer.isClosed)
-    assertEquals("Should have created a new producer", 2, mockProducer.getOpenCount)
+    assertTrue(mockProducer.isClosed)
+    assertNull(producer.producerRef.get())
+    assertEquals("Should not have created a new producer", 1, mockProducer.getOpenCount)
 
     producer.send("test", msg4) // Should succeed because the producer recovered.
+    assertFalse(mockProducer.isClosed)
+    assertNotNull(producer.producerRef.get())
+    assertEquals("Should have created a new producer", 2, mockProducer.getOpenCount)
     producer.flush("test") // Should not throw
 
     producer.send("test", msg5) // Should be able to send again after flush
+    assertEquals("Should not have created a new producer", 2, mockProducer.getOpenCount)
     producer.flush("test")
 
     assertEquals(4, mockProducer.getMsgsSent) // every message except the one with the error should get sent
@@ -456,7 +464,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName =  "test",
       getProducer = () => {
-        mockProducer.open() // A new producer is never closed
+        mockProducer.open() // A new producer would not already be closed, so reset it.
         mockProducer
       },
       metrics = producerMetrics,
@@ -473,12 +481,17 @@ class TestKafkaSystemProducer {
     // Inject error for next send
     mockProducer.setErrorNext(true, true, new RecordTooLargeException())
     producer.send("test1", msg3) // Callback exception
-    assertFalse(mockProducer.isClosed)
-    assertEquals("Should have created a new producer", 2, mockProducer.getOpenCount)
+    assertTrue(mockProducer.isClosed)
+    assertNull(producer.producerRef.get())
+    assertEquals("Should not have created a new producer", 1, mockProducer.getOpenCount)
 
     // Subsequent sends
     producer.send("test1", msg4) // Should succeed because the producer recovered.
+    assertFalse(mockProducer.isClosed)
+    assertEquals("Should have created a new producer", 2, mockProducer.getOpenCount)
+    assertNotNull(producer.producerRef.get())
     producer.send("test2", msg5) // Second source should also not have any error.
+    assertEquals("Should not have created a new producer", 2, mockProducer.getOpenCount)
 
     // Flushes
     producer.flush("test2") // Should not throw for test2
@@ -503,7 +516,7 @@ class TestKafkaSystemProducer {
     val mockProducer = new MockKafkaProducer(1, "test", 1)
     val producer = new KafkaSystemProducer(systemName = "test",
       getProducer = () => {
-        mockProducer.open() // A new producer is never closed
+        mockProducer.open() // A new producer would not already be closed, so reset it.
         mockProducer
       },
       metrics = producerMetrics,
@@ -520,9 +533,13 @@ class TestKafkaSystemProducer {
     }
     assertTrue(sendException.getCause.isInstanceOf[SerializationException])
     assertFalse(mockProducer.isClosed)
+    assertNotNull(producer.producerRef.get()) // Synchronous error; producer should not be recreated
     assertEquals("Should NOT have created a new producer", 1, mockProducer.getOpenCount)
 
     producer.send("test1", msg3) // Should be able to resend msg3
+    assertFalse(mockProducer.isClosed)
+    assertEquals("Should NOT have created a new producer", 1, mockProducer.getOpenCount)
+    assertNotNull(producer.producerRef.get())
     producer.send("test2", msg4) // Second source should not be affected
 
     producer.flush("test1") // Flush should be unaffected

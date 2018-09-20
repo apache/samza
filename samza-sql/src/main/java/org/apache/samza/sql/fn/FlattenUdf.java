@@ -24,7 +24,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-public class FlattenUdf implements ScalarUdf {
+public class FlattenUdf implements ScalarUdf<Object> {
   @Override
   public void init(Config udfConfig) {
   }

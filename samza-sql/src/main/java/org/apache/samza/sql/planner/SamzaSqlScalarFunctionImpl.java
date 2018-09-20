@@ -67,8 +67,11 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
       final Expression context = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
       final Expression getUdfInstance = Expressions.call(ScalarUdf.class, context, getUdfMethod,
           Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName));
-      return Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
-          translatedOperands);
+      final Expression callExpression = Expressions.convert_(Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
+          translatedOperands), Object.class);
+      // The Janino compiler which is used to compile the expressions doesn't seem to understand the Type of the ScalarUdf.execute
+      // because it is a generic. To work around that we are explicitly casting it to the return type.
+      return Expressions.convert_(callExpression, udfMethod.getReturnType());
     }, NullPolicy.NONE, false);
   }
 

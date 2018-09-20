@@ -18,6 +18,8 @@
  */
 package org.apache.samza.container.host;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,9 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An implementation of {@link SystemStatisticsMonitor} for unix and mac platforms. Users can implement their own
@@ -42,8 +42,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * This class is thread-safe.
  */
 public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
-
-  private static final ThreadFactory THREAD_FACTORY = new StatisticsMonitorThreadFactory();
   private static final Logger LOG = LoggerFactory.getLogger(StatisticsMonitorImpl.class);
 
   /**
@@ -60,7 +58,8 @@ public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
 
   // Single threaded executor to handle callback invocations.
   private final ScheduledExecutorService schedulerService =
-      Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
+      Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder().setNameFormat("Samza StatisticsMonitor Thread-%d").setDaemon(true).build());
 
   // Use this as a set with value always set to True
   private final ConcurrentMap<StatisticsMonitorImpl.Listener, Boolean> listenerSet = new ConcurrentHashMap<>();
@@ -172,17 +171,6 @@ public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
         listenerSet.put(listener, Boolean.TRUE);
         return true;
       }
-    }
-  }
-
-  // A convenience class that provides named threads
-  private static class StatisticsMonitorThreadFactory implements ThreadFactory {
-    private static final AtomicInteger INSTANCE_COUNT = new AtomicInteger();
-    private static final String PREFIX = "Samza-StatisticsMonitor-Thread-";
-
-    @Override
-    public Thread newThread(Runnable runnable) {
-      return new Thread(runnable, PREFIX + INSTANCE_COUNT.getAndIncrement());
     }
   }
 }

@@ -19,7 +19,7 @@
 
 package org.apache.samza.metrics.reporter
 
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{ApplicationConfig, Config}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -30,9 +30,8 @@ import org.apache.samza.config.SerializerConfig.Config2Serializer
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
-import org.apache.samza.util.Util
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.serializers.SerdeFactory
+import org.apache.samza.serializers.{MetricsSnapshotSerdeV2, SerdeFactory}
 import org.apache.samza.system.SystemFactory
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
@@ -65,10 +64,10 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       })
 
     val metricsSystemStreamName = config
-      .getMetricsReporterStream(name)
+      .getMetricsSnapshotReporterStream(name)
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
 
-    val systemStream = Util.getSystemStreamFromNames(metricsSystemStreamName)
+    val systemStream = StreamUtil.getSystemStreamFromNames(metricsSystemStreamName)
 
     info("Got system stream %s." format systemStream)
 
@@ -78,7 +77,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       .getSystemFactory(systemName)
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 
-    val systemFactory = Util.getObj[SystemFactory](systemFactoryClassName)
+    val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     info("Got system factory %s." format systemFactory)
 
@@ -94,22 +93,24 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val serde = if (serdeName != null) {
       config.getSerdeClass(serdeName) match {
         case Some(serdeClassName) =>
-          Util
-            .getObj[SerdeFactory[MetricsSnapshot]](serdeClassName)
-            .getSerde(serdeName, config)
+          Util.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
         case _ => null
       }
     } else {
-      null
+      new MetricsSnapshotSerdeV2
     }
 
     info("Got serde %s." format serde)
 
     val pollingInterval: Int = config
-      .getMetricsReporterInterval(name)
+      .getMetricsSnapshotReporterInterval(name)
       .getOrElse("60").toInt
 
     info("Setting polling interval to %d" format pollingInterval)
+
+    val blacklist = config.getMetricsSnapshotReporterBlacklist(name)
+    info("Setting blacklist to %s" format blacklist)
+
     val reporter = new MetricsSnapshotReporter(
       producer,
       systemStream,
@@ -120,7 +121,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       version,
       samzaVersion,
       Util.getLocalHost.getHostName,
-      serde)
+      serde, blacklist)
 
     reporter.register(this.getClass.getSimpleName.toString, registry)
 

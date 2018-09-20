@@ -44,7 +44,7 @@ class TestRocksDbKeyValueStore
                                               config,
                                               false,
                                               "someStore",
-                                              null)
+                                              new KeyValueStoreMetrics())
     val key = "test".getBytes("UTF-8")
     rocksDB.put(key, "val".getBytes("UTF-8"))
     Assert.assertNotNull(rocksDB.get(key))
@@ -76,7 +76,7 @@ class TestRocksDbKeyValueStore
                                               config,
                                               false,
                                               "dbStore",
-                                              null)
+                                              new KeyValueStoreMetrics())
     val key = "key".getBytes("UTF-8")
     rocksDB.put(key, "val".getBytes("UTF-8"))
     // SAMZA-836: Mysteriously,calling new FlushOptions() does not invoke the NativeLibraryLoader in rocksdbjni-3.13.1!
@@ -136,7 +136,7 @@ class TestRocksDbKeyValueStore
                                               config,
                                               false,
                                               "dbStore",
-                                              null)
+                                              new KeyValueStoreMetrics())
 
     val key = "key".getBytes("UTF-8")
     val key1 = "key1".getBytes("UTF-8")

@@ -19,6 +19,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.TimerFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 
@@ -53,5 +54,10 @@ public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
   @Override
   public WatermarkFunction getWatermarkFn() {
     return sinkFn instanceof WatermarkFunction ? (WatermarkFunction) sinkFn : null;
+  }
+
+  @Override
+  public TimerFunction getTimerFn() {
+    return sinkFn instanceof TimerFunction ? (TimerFunction) sinkFn : null;
   }
 }

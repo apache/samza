@@ -139,7 +139,6 @@ public class StreamPartitionCountMonitor {
               }
             }, monitorPeriodMs, monitorPeriodMs, TimeUnit.MILLISECONDS);
           }
-
           state = State.RUNNING;
           break;
 
@@ -185,11 +184,16 @@ public class StreamPartitionCountMonitor {
           int prevPartitionCount = metadata.getSystemStreamPartitionMetadata().size();
 
           Gauge gauge = gauges.get(systemStream);
-          gauge.set(currentPartitionCount - prevPartitionCount);
+          gauge.set(currentPartitionCount);
           if (currentPartitionCount != prevPartitionCount) {
             log.warn(String.format("Change of partition count detected in stream %s. old partition count: %d, current partition count: %d",
                 systemStream.toString(), prevPartitionCount, currentPartitionCount));
-            streamsChanged.add(systemStream);
+            if (currentPartitionCount  > prevPartitionCount) {
+              log.error(String.format("Shutting down (stateful) or restarting (stateless) the job since current " +
+                      "partition count %d is greater than the old partition count %d for stream %s.",
+                  currentPartitionCount, prevPartitionCount, systemStream.toString()));
+              streamsChanged.add(systemStream);
+            }
           }
         } catch (Exception e) {
           log.error(String.format("Error comparing partition count differences for stream: %s", metadataEntry.getKey().toString()));

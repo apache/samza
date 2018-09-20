@@ -34,6 +34,8 @@ public class TestScheduleAfterDebounceTime {
 
   private static final long WAIT_TIME = 500;
 
+  private static final String TEST_PROCESSOR_ID = "TEST_PROCESSOR_ID";
+
   @Rule
   public Timeout testTimeOutInSeconds = new Timeout(10, TimeUnit.SECONDS);
 
@@ -52,7 +54,7 @@ public class TestScheduleAfterDebounceTime {
 
   @Test
   public void testSchedule() throws InterruptedException {
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     final CountDownLatch latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
@@ -72,7 +74,7 @@ public class TestScheduleAfterDebounceTime {
 
   @Test
   public void testCancelAndSchedule() throws InterruptedException {
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     final CountDownLatch test1Latch = new CountDownLatch(1);
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
@@ -101,7 +103,7 @@ public class TestScheduleAfterDebounceTime {
   public void testRunnableWithExceptionInvokesCallback() throws InterruptedException {
     final CountDownLatch latch = new CountDownLatch(1);
     final Throwable[] taskCallbackException = new Exception[1];
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     scheduledQueue.setScheduledTaskCallback(throwable -> {
         taskCallbackException[0] = throwable;
         latch.countDown();
@@ -122,56 +124,11 @@ public class TestScheduleAfterDebounceTime {
     scheduledQueue.stopScheduler();
   }
 
-  /**
-   * Validates if the interrupted exception triggered by ExecutorService is handled by ScheduleAfterDebounceTime.
-   */
   @Test
-  public void testStopSchedulerInvokesRegisteredCallback() throws InterruptedException {
-    final CountDownLatch hasTaskCallbackCompleted = new CountDownLatch(1);
-    final CountDownLatch hasThreadStarted = new CountDownLatch(1);
-    final CountDownLatch isSchedulerShutdownTriggered = new CountDownLatch(1);
+  public void testNewTasksScheduledAfterShutdownDoesNotThrowException() throws InterruptedException {
+    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
 
-    /**
-     * Declaring this as an array to record the value inside the lambda.
-     */
-    final Throwable[] taskCallbackException = new Exception[1];
-
-    ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime();
-    scheduledQueue.setScheduledTaskCallback(throwable -> {
-      /**
-       * Assertion failures in callback doesn't fail the test.
-       * Record the received exception here and assert outside
-       * the callback.
-       */
-        taskCallbackException[0] = throwable;
-        hasTaskCallbackCompleted.countDown();
-      });
-
-    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME , () -> {
-        hasThreadStarted.countDown();
-        try {
-          LOG.debug("Waiting for the scheduler shutdown trigger.");
-          isSchedulerShutdownTriggered.await();
-        } catch (InterruptedException e) {
-          /**
-           * Don't swallow the exception and restore the interrupt status.
-           * Expect the ScheduleDebounceTime to handle this interrupt
-           * and invoke ScheduledTaskCallback.
-           */
-          Thread.currentThread().interrupt();
-        }
-      });
-
-    // Wait for the task to run.
-    hasThreadStarted.await();
-
-    // Shutdown the scheduler and update relevant state.
     scheduledQueue.stopScheduler();
-    isSchedulerShutdownTriggered.countDown();
-
-    hasTaskCallbackCompleted.await();
-
-    // Assert on exception thrown.
-    Assert.assertEquals(InterruptedException.class, taskCallbackException[0].getClass());
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", 2 * WAIT_TIME, () -> Assert.fail("New event should not be scheduled"));
   }
 }

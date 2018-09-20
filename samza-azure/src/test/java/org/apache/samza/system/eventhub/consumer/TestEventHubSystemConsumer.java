@@ -29,6 +29,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.*;
 import org.apache.samza.system.eventhub.admin.PassThroughInterceptor;
 import org.apache.samza.system.eventhub.producer.SwapFirstLastByteInterceptor;
+import org.apache.samza.testUtils.TestClock;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,13 +37,15 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.util.*;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({EventHubRuntimeInformation.class, EventHubPartitionRuntimeInformation.class,
+@PrepareForTest({EventHubRuntimeInformation.class, PartitionRuntimeInformation.class,
         EventHubClient.class, PartitionReceiver.class, PartitionSender.class})
 public class TestEventHubSystemConsumer {
   private static final String MOCK_ENTITY_1 = "mocktopic1";
@@ -83,10 +86,10 @@ public class TestEventHubSystemConsumer {
     // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), MOCK_ENTITY_1);
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -99,8 +102,8 @@ public class TestEventHubSystemConsumer {
     consumer.register(ssp, EventHubSystemConsumer.START_OF_STREAM);
     consumer.start();
 
-    Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM,
-            eventHubClientWrapperFactory.getPartitionOffset(String.valueOf(partitionId)));
+    Assert.assertEquals(EventPosition.fromOffset(EventHubSystemConsumer.START_OF_STREAM, false).toString(),
+            eventHubClientWrapperFactory.getPartitionOffset(String.valueOf(partitionId)).toString());
   }
 
   @Test
@@ -123,10 +126,10 @@ public class TestEventHubSystemConsumer {
     // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), MOCK_ENTITY_1);
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -173,10 +176,10 @@ public class TestEventHubSystemConsumer {
     // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), MOCK_ENTITY_1);
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -203,7 +206,16 @@ public class TestEventHubSystemConsumer {
   }
 
   @Test
-  public void testMultiPartitionConsumptionHappyPath() throws Exception {
+  public void testMultiPartitionConsumptionPerPartitionConnection() throws Exception {
+    testMultiPartitionConsumptionHappyPath(true);
+  }
+
+  @Test
+  public void testMultiPartitionConsumptionShareConnection() throws Exception {
+    testMultiPartitionConsumptionHappyPath(false);
+  }
+
+  private void testMultiPartitionConsumptionHappyPath(boolean perPartitionConnection) throws Exception {
     String systemName = "eventhubs";
     String streamName = "testStream";
     int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
@@ -225,10 +237,12 @@ public class TestEventHubSystemConsumer {
     // Set configs
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName), MOCK_ENTITY_1);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_PER_PARTITION_CONNECTION, systemName),
+        String.valueOf(perPartitionConnection));
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -257,6 +271,14 @@ public class TestEventHubSystemConsumer {
 
     Assert.assertEquals(counters.get(EventHubSystemConsumer.EVENT_READ_RATE).getCount(), numEvents * 2);
     Assert.assertEquals(counters.get(EventHubSystemConsumer.READ_ERRORS).getCount(), 0);
+    if (perPartitionConnection) {
+      Assert.assertNotEquals("perPartitionConnection=true; SSPs should not share the same client",
+          consumer.perPartitionEventHubManagers.get(ssp1), consumer.perPartitionEventHubManagers.get(ssp2));
+    } else {
+
+      Assert.assertEquals("perPartitionConnection=false; SSPs should share the same client",
+          consumer.perPartitionEventHubManagers.get(ssp1), consumer.perPartitionEventHubManagers.get(ssp2));
+    }
   }
 
   @Test
@@ -282,14 +304,14 @@ public class TestEventHubSystemConsumer {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName),
             String.format("%s,%s", streamName1, streamName2));
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName1), MOCK_ENTITY_1);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName1), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName1), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName1), EVENTHUB_KEY);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, systemName, streamName2), MOCK_ENTITY_2);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, systemName, streamName2), EVENTHUB_NAMESPACE);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, systemName, streamName2), EVENTHUB_KEY_NAME);
-    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, systemName, streamName2), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName1), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName1), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName1), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName1), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName2), MOCK_ENTITY_2);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName2), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName2), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName2), EVENTHUB_KEY);
     MapConfig config = new MapConfig(configMap);
 
     MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
@@ -329,5 +351,96 @@ public class TestEventHubSystemConsumer {
 
     Assert.assertEquals(counters2.get(EventHubSystemConsumer.EVENT_READ_RATE).getCount(), numEvents);
     Assert.assertEquals(counters2.get(EventHubSystemConsumer.READ_ERRORS).getCount(), 0);
+  }
+
+  @Test
+  public void testNonTransientErrorRetry() throws Exception {
+    String systemName = "eventhubs";
+    String streamName = "testNonTransientErrorRetry";
+    int numEvents = 10; // needs to be less than BLOCKING_QUEUE_SIZE
+    int partitionId = 0;
+    TestClock testClock = new TestClock();
+
+    TestMetricsRegistry testMetrics = new TestMetricsRegistry();
+    Map<SystemStreamPartition, List<EventData>> eventData = new HashMap<>();
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, streamName, new Partition(partitionId));
+    Map<String, Interceptor> interceptors = new HashMap<>();
+    interceptors.put(streamName, new PassThroughInterceptor());
+
+    // create EventData
+    List<EventData> singlePartitionEventData = MockEventData.generateEventData(numEvents);
+    eventData.put(ssp, singlePartitionEventData);
+
+    // Set configs
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), streamName);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamName), EVENTHUB_NAMESPACE);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamName), EVENTHUB_KEY_NAME);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamName), EVENTHUB_KEY);
+    configMap.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamName), MOCK_ENTITY_1);
+    configMap.put(String.format(EventHubConfig.CONFIG_MAX_RETRY_COUNT, systemName), "1");
+    MapConfig config = new MapConfig(configMap);
+
+    MockEventHubClientManagerFactory eventHubClientWrapperFactory = new MockEventHubClientManagerFactory(eventData);
+
+    EventHubSystemConsumer consumer =
+        new EventHubSystemConsumer(new EventHubConfig(config), systemName, eventHubClientWrapperFactory, interceptors,
+            testMetrics, testClock);
+    consumer.register(ssp, EventHubSystemConsumer.END_OF_STREAM);
+    consumer.start();
+
+    // 1st error should retry instead of throw
+    testClock.advanceTime(System.currentTimeMillis());
+    eventHubClientWrapperFactory.triggerError(consumer.streamPartitionHandlers,
+        new EventHubException(false /* is transient */, "test"));
+    consumer.poll(Collections.singleton(ssp), 0).get(ssp);
+    // assert that the reconnect task was submitted and completed eventually
+    Assert.assertNotNull("reconnect task should have been submitted", consumer.reconnectTaskStatus);
+    Future lastReconnectTask = consumer.reconnectTaskStatus;
+    lastReconnectTask.get(10000, TimeUnit.MILLISECONDS); // should return instantaneously
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 1);
+
+    // after retry should receive events normally
+    testClock.advanceTime(1);
+    eventHubClientWrapperFactory.sendToHandlers(consumer.streamPartitionHandlers);
+    List<IncomingMessageEnvelope> result = consumer.poll(Collections.singleton(ssp), 0).get(ssp);
+    verifyEvents(result, singlePartitionEventData);
+    Assert.assertEquals(testMetrics.getCounters(streamName).size(), 3);
+    Assert.assertEquals(testMetrics.getGauges(streamName).size(), 2);
+    Map<String, Counter> counters =
+        testMetrics.getCounters(streamName).stream().collect(Collectors.toMap(Counter::getName, Function.identity()));
+    Assert.assertEquals(counters.get(EventHubSystemConsumer.EVENT_READ_RATE).getCount(), numEvents);
+
+    // 2nd error: advance into next window, the older retry should have been evicted so this error should cause retry
+    testClock.advanceTime(EventHubConfig.DEFAULT_CONFIG_RETRY_WINDOW_MS + 1);
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 0);
+    eventHubClientWrapperFactory.triggerError(consumer.streamPartitionHandlers,
+        new EventHubException(false /* is transient */, "test"));
+    consumer.poll(Collections.singleton(ssp), 0).get(ssp);
+    Assert.assertNotNull("reconnect task should have been submitted", consumer.reconnectTaskStatus);
+    lastReconnectTask = consumer.reconnectTaskStatus;
+    lastReconnectTask.get(10000, TimeUnit.MILLISECONDS); // should return instantaneously
+    Assert.assertEquals(consumer.recentRetryAttempts.size(), 1);
+
+    // 3rd error: 1 ms is within the min retry interval; so poll should do nothing
+    testClock.advanceTime(1);
+    eventHubClientWrapperFactory.triggerError(consumer.streamPartitionHandlers,
+        new EventHubException(false /* is transient */, "test"));
+    consumer.poll(Collections.singleton(ssp), 0).get(ssp);
+    Assert.assertEquals("there shouldn't be another retry task within min retry interval", consumer.reconnectTaskStatus,
+        lastReconnectTask);
+
+    // 4th error: now the poll should throw
+    testClock.advanceTime(EventHubConfig.DEFAULT_CONFIG_RETRY_INTERVAL_MS + 1);
+    eventHubClientWrapperFactory.triggerError(consumer.streamPartitionHandlers,
+        new EventHubException(false /* is transient */, "test"));
+    try {
+      consumer.poll(Collections.singleton(ssp), 0).get(ssp);
+      Assert.fail("poll should have thrown");
+    } catch (Exception e) {
+      Assert.assertEquals(e.getCause().getMessage(), "test");
+    }
+
+    Assert.assertEquals(counters.get(EventHubSystemConsumer.READ_ERRORS).getCount(), 4);
   }
 }

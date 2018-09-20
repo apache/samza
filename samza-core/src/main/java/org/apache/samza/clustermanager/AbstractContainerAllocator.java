@@ -151,20 +151,11 @@ public abstract class AbstractContainerAllocator implements Runnable {
     log.info("Found available resources on {}. Assigning request for container_id {} with "
             + "timestamp {} to resource {}",
         new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
-    try {
-      //launches a StreamProcessor on the resource
-      clusterResourceManager.launchStreamProcessor(resource, builder);
 
-      if (state.neededContainers.decrementAndGet() == 0) {
-        state.jobHealthy.set(true);
-      }
-      state.runningContainers.put(request.getContainerID(), resource);
-
-    } catch (SamzaContainerLaunchException e) {
-      log.warn(String.format("Got exception while starting resource %s. Requesting a new resource on any host", resource), e);
-      resourceRequestState.releaseUnstartableContainer(resource);
-      requestResource(containerID, ResourceRequestState.ANY_HOST);
-    }
+    //Submit a request to launch a StreamProcessor on the provided resource. To match with the response returned later
+    //in the callback, we should also store state about the container whose launch is pending.
+    clusterResourceManager.launchStreamProcessor(resource, builder);
+    state.pendingContainers.put(containerID, resource);
   }
 
   /**
@@ -216,6 +207,11 @@ public abstract class AbstractContainerAllocator implements Runnable {
         preferredHost, containerID);
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
+    if (ResourceRequestState.ANY_HOST.equals(preferredHost)) {
+      state.anyHostRequests.incrementAndGet();
+    } else {
+      state.preferredHostRequests.incrementAndGet();
+    }
   }
 
   /**
@@ -244,7 +240,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private CommandBuilder getCommandBuilder(String samzaContainerId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
-    CommandBuilder cmdBuilder = (CommandBuilder) Util.getObj(cmdBuilderClassName);
+    CommandBuilder cmdBuilder = Util.getObj(cmdBuilderClassName, CommandBuilder.class);
 
     cmdBuilder.setConfig(config).setId(samzaContainerId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;

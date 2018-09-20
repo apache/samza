@@ -41,7 +41,7 @@ class YarnContainer(container: Container) {
   val startTime = System.currentTimeMillis()
   def startTimeStr(dtFormatter: Option[DateTimeFormatter] = None) =
     dtFormatter.getOrElse(YarnContainerUtils.dateFormater).print(startTime)
-  def upTime = System.currentTimeMillis()
+  val upTime = System.currentTimeMillis()
   def upTimeStr(periodFormatter: Option[PeriodFormatter] = None) =
     periodFormatter.getOrElse(YarnContainerUtils.periodFormater).print(new Period(startTime, upTime))
 }

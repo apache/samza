@@ -19,20 +19,21 @@
 
 package org.apache.samza.system.eventhub;
 
-import org.apache.commons.collections4.map.HashedMap;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.Timer;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.collections4.map.HashedMap;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.ListGauge;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.Timer;
 
 public class TestMetricsRegistry implements MetricsRegistry {
 
   private Map<String, List<Counter>> counters = new HashedMap<>();
   private Map<String, List<Gauge<?>>> gauges = new HashedMap<>();
+  private Map<String, List<ListGauge>> listGauges = new HashedMap<>();
 
   public List<Counter> getCounters(String groupName) {
     return counters.get(groupName);
@@ -69,8 +70,20 @@ public class TestMetricsRegistry implements MetricsRegistry {
   }
 
   @Override
+  public ListGauge newListGauge(String group, ListGauge listGauge) {
+    listGauges.putIfAbsent(group, new ArrayList());
+    listGauges.get(group).add(listGauge);
+    return listGauge;
+  }
+
+  @Override
   public <T> Gauge<T> newGauge(String group, Gauge<T> value) {
-    return null;
+    if (!gauges.containsKey(group)) {
+      gauges.put(group, new ArrayList<>());
+    }
+
+    gauges.get(group).add(value);
+    return value;
   }
 
   @Override

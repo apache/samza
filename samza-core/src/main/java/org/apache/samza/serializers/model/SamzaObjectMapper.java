@@ -19,6 +19,9 @@
 
 package org.apache.samza.serializers.model;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -27,8 +30,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Util;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
@@ -48,10 +51,6 @@ import org.codehaus.jackson.map.introspect.AnnotatedMethod;
 import org.codehaus.jackson.map.module.SimpleModule;
 import org.codehaus.jackson.type.TypeReference;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * <p>
  * A collection of utility classes and (de)serializers to make Samza's job model
@@ -59,7 +58,7 @@ import java.util.Map;
  * Jackson-specific code is isolated so that Samza's core data model does not
  * require a direct dependency on Jackson.
  * </p>
- * 
+ *
  * <p>
  * To use Samza's job data model, use the SamzaObjectMapper.getObjectMapper()
  * method.
@@ -99,19 +98,31 @@ public class SamzaObjectMapper {
       public ContainerModel deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
         ObjectCodec oc = jp.getCodec();
         JsonNode node = oc.readTree(jp);
-        int containerId = node.get("container-id").getIntValue();
-        if (node.get("container-id") == null) {
-          throw new SamzaException("JobModel did not contain a container-id. This can never happen. JobModel corrupt!");
-        }
-        String processorId;
-        if (node.get("processor-id") == null) {
-          processorId = String.valueOf(containerId);
+        /*
+         * Before Samza 0.13, "container-id" was used.
+         * In Samza 0.13, "processor-id" was added to be the id to use and "container-id" was deprecated. However,
+         * "container-id" still needed to be checked for backwards compatibility in case "processor-id" was missing
+         * (i.e. from a job model corresponding to a version of the job that was on a pre Samza 0.13 version).
+         * In Samza 1.0, "container-id" was further cleaned up from ContainerModel. This logic is still being left here
+         * as a fallback for backwards compatibility with pre Samza 0.13. ContainerModel.getProcessorId was changed to
+         * ContainerModel.getId in the Java API, but "processor-id" still needs to be used as the JSON key for backwards
+         * compatibility with Samza 0.13 and Samza 0.14.
+         */
+        String id;
+        if (node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY) == null) {
+          if (node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY) == null) {
+            throw new SamzaException(
+                String.format("JobModel was missing %s and %s. This should never happen. JobModel corrupt!",
+                    JsonContainerModelMixIn.PROCESSOR_ID_KEY, JsonContainerModelMixIn.CONTAINER_ID_KEY));
+          }
+          id = String.valueOf(node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY).getIntValue());
         } else {
-          processorId = node.get("processor-id").getTextValue();
+          id = node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY).getTextValue();
         }
         Map<TaskName, TaskModel> tasksMapping =
-            OBJECT_MAPPER.readValue(node.get("tasks"), new TypeReference<Map<TaskName, TaskModel>>() { });
-        return new ContainerModel(processorId, containerId, tasksMapping);
+            OBJECT_MAPPER.readValue(node.get(JsonContainerModelMixIn.TASKS_KEY),
+                new TypeReference<Map<TaskName, TaskModel>>() { });
+        return new ContainerModel(id, tasksMapping);
       }
     });
 
@@ -166,16 +177,23 @@ public class SamzaObjectMapper {
 
   public static class SystemStreamPartitionKeySerializer extends JsonSerializer<SystemStreamPartition> {
     @Override
-    public void serialize(SystemStreamPartition systemStreamPartition, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-      String ssp = Util.sspToString(systemStreamPartition);
-      jgen.writeFieldName(ssp);
+    public void serialize(SystemStreamPartition ssp, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+      String sspString = ssp.getSystem() + "." + ssp.getStream() + "." + String.valueOf(ssp.getPartition().getPartitionId());
+      jgen.writeFieldName(sspString);
     }
   }
 
   public static class SystemStreamPartitionKeyDeserializer extends KeyDeserializer {
     @Override
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
-      return Util.stringToSsp(sspString);
+      int idx = sspString.indexOf('.');
+      int lastIdx = sspString.lastIndexOf('.');
+      if (idx < 0 || lastIdx < 0) {
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
+      }
+      return new SystemStreamPartition(
+          new SystemStream(sspString.substring(0, idx), sspString.substring(idx + 1, lastIdx)),
+          new Partition(Integer.parseInt(sspString.substring(lastIdx + 1))));
     }
   }
 

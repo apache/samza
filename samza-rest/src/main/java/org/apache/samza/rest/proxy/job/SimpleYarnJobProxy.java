@@ -20,13 +20,14 @@ package org.apache.samza.rest.proxy.job;
 
 import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ConfigFactory;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;
 import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.apache.samza.rest.proxy.installation.SimpleInstallationFinder;
 import org.apache.samza.rest.resources.JobsResourceConfig;
-import org.apache.samza.util.ClassLoaderHelper;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +50,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
   public SimpleYarnJobProxy(JobsResourceConfig config) throws Exception {
     super(config);
     this.installFinder = new SimpleInstallationFinder(config.getInstallationsPath(),
-                                                      ClassLoaderHelper.fromClassName(config.getJobConfigFactory()));
+        Util.getObj(config.getJobConfigFactory(), ConfigFactory.class));
     this.statusProvider = new YarnRestJobStatusProvider(config);
   }
 

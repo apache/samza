@@ -58,8 +58,8 @@ public class AvroSchemaGenRelConverter extends AvroRelConverter {
 
   private Schema computeSchema(String streamName, SamzaSqlRelMessage relMessage) {
     List<Schema.Field> keyFields = new ArrayList<>();
-    List<String> fieldNames = relMessage.getFieldNames();
-    List<Object> values = relMessage.getFieldValues();
+    List<String> fieldNames = relMessage.getSamzaSqlRelRecord().getFieldNames();
+    List<Object> values = relMessage.getSamzaSqlRelRecord().getFieldValues();
 
     for (int index = 0; index < fieldNames.size(); index++) {
       if (fieldNames.get(index).equals(SamzaSqlRelMessage.KEY_NAME) || values.get(index) == null) {

@@ -23,9 +23,12 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,29 +37,53 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the LogicalFilter node in the relational graph to the corresponding StreamGraph
  * implementation
  */
-public class FilterTranslator {
+class FilterTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(FilterTranslator.class);
 
-  public void translate(final LogicalFilter filter, final TranslatorContext context) {
-    MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(filter.getInput().getId());
-    Expression expr =
-        context.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
+  private static class FilterTranslatorFunction implements FilterFunction<SamzaSqlRelMessage> {
+    private transient Expression expr;
+    private transient TranslatorContext context;
+    private transient LogicalFilter filter;
 
-    MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(message -> {
+    private final int filterId;
+
+    FilterTranslatorFunction(int filterId) {
+      this.filterId = filterId;
+    }
+
+    @Override
+    public void init(Config config, TaskContext context) {
+      this.context = (TranslatorContext) context.getUserContext();
+      this.filter = (LogicalFilter) this.context.getRelNode(filterId);
+      this.expr = this.context.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
+    }
+
+    @Override
+    public boolean apply(SamzaSqlRelMessage message) {
       Object[] result = new Object[1];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), message.getRelFieldValues().toArray(), result);
+      expr.execute(context.getExecutionContext(), context.getDataContext(),
+          message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
       if (result.length > 0 && result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
         log.debug(
-            String.format("return value for input %s is %s", Arrays.asList(message.getFieldValues()).toString(), retVal));
+            String.format("return value for input %s is %s",
+                Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
         return retVal;
       } else {
         log.error("return value is not boolean");
         return false;
       }
-    });
+    }
+  }
 
-    context.registerMessageStream(filter.getId(), outputStream);
+  void translate(final LogicalFilter filter, final TranslatorContext context) {
+    MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(filter.getInput().getId());
+    final int filterId = filter.getId();
+
+    MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(new FilterTranslatorFunction(filterId));
+
+    context.registerMessageStream(filterId, outputStream);
+    context.registerRelNode(filterId, filter);
   }
 }

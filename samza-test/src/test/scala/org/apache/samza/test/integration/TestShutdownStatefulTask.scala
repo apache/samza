@@ -120,7 +120,7 @@ class ShutdownStateStoreTask extends TestTask {
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     iter.asScala.foreach( p => restored += (p.getKey -> p.getValue))
-    System.err.println("ShutdownStateStoreTask.init(): %s" format restored)
+    System.err.println("ShutdownStateStoreTask.createStream(): %s" format restored)
     iter.close
   }
 

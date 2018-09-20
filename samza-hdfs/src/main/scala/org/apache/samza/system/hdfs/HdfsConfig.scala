@@ -197,7 +197,7 @@ class HdfsConfig(config: Config) extends ScalaMapConfig(config) {
    * Staging directory for storing partition description. If not set, will use the staging directory set
    * by yarn job.
    */
-  def getStagingDirectory(): String = {
-    getOrElse(HdfsConfig.STAGING_DIRECTORY, getOrElse(YarnConfig.YARN_JOB_STAGING_DIRECTORY, HdfsConfig.STAGING_DIRECTORY_DEFAULT))
+  def getStagingDirectory(systemName: String): String = {
+    getOrElse(HdfsConfig.STAGING_DIRECTORY format systemName, getOrElse(YarnConfig.YARN_JOB_STAGING_DIRECTORY, HdfsConfig.STAGING_DIRECTORY_DEFAULT))
   }
 }

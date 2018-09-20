@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Test UDF used by unit and integration tests.
  */
-public class MyTestUdf implements ScalarUdf {
+public class MyTestUdf implements ScalarUdf<Integer> {
 
   private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
 

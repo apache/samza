@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 
 
@@ -32,6 +33,7 @@ public class LocalStoreMonitorConfig extends MapConfig {
 
   /**
    * Defines the local store directory of the job.
+   * @deprecated in favor of {@link org.apache.samza.config.JobConfig#JOB_LOGGED_STORE_BASE_DIR}
    */
   static final String CONFIG_LOCAL_STORE_DIR = "job.local.store.dir";
 
@@ -68,7 +70,7 @@ public class LocalStoreMonitorConfig extends MapConfig {
    * @return the location of the job's local directory.
    */
   public String getLocalStoreBaseDir() {
-    return get(CONFIG_LOCAL_STORE_DIR);
+    return get(JobConfig.JOB_LOGGED_STORE_BASE_DIR(), get(CONFIG_LOCAL_STORE_DIR));
   }
 
   /**

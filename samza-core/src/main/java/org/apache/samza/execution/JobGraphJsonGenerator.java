@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -133,8 +134,8 @@ import org.codehaus.jackson.map.ObjectMapper;
     jobGraphJson.sinkStreams = new HashMap<>();
     jobGraphJson.intermediateStreams = new HashMap<>();
     jobGraphJson.tables = new HashMap<>();
-    jobGraph.getSources().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sourceStreams));
-    jobGraph.getSinks().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sinkStreams));
+    jobGraph.getInputStreams().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sourceStreams));
+    jobGraph.getOutputStreams().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.sinkStreams));
     jobGraph.getIntermediateStreamEdges().forEach(e -> buildStreamEdgeJson(e, jobGraphJson.intermediateStreams));
     jobGraph.getTables().forEach(t -> buildTableJson(t, jobGraphJson.tables));
 
@@ -169,20 +170,20 @@ import org.codehaus.jackson.map.ObjectMapper;
   private OperatorGraphJson buildOperatorGraphJson(JobNode jobNode) {
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
-    jobNode.getStreamGraph().getInputOperators().forEach((streamSpec, operatorSpec) -> {
+    jobNode.getSpecGraph().getInputOperators().forEach((streamId, operatorSpec) -> {
         StreamJson inputJson = new StreamJson();
         opGraph.inputStreams.add(inputJson);
-        inputJson.streamId = streamSpec.getId();
-        Collection<OperatorSpec> specs = operatorSpec.getRegisteredOperatorSpecs();
-        inputJson.nextOperatorIds = specs.stream().map(OperatorSpec::getOpId).collect(Collectors.toSet());
+        inputJson.streamId = streamId;
+        inputJson.nextOperatorIds = operatorSpec.getRegisteredOperatorSpecs().stream()
+            .map(OperatorSpec::getOpId).collect(Collectors.toSet());
 
         updateOperatorGraphJson(operatorSpec, opGraph);
       });
 
     opGraph.outputStreams = new ArrayList<>();
-    jobNode.getStreamGraph().getOutputStreams().keySet().forEach(streamSpec -> {
+    jobNode.getSpecGraph().getOutputStreams().keySet().forEach(streamId -> {
         StreamJson outputJson = new StreamJson();
-        outputJson.streamId = streamSpec.getId();
+        outputJson.streamId = streamId;
         opGraph.outputStreams.add(outputJson);
       });
     return opGraph;
@@ -218,10 +219,15 @@ import org.codehaus.jackson.map.ObjectMapper;
 
     if (spec instanceof OutputOperatorSpec) {
       OutputStreamImpl outputStream = ((OutputOperatorSpec) spec).getOutputStream();
-      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+      map.put("outputStreamId", outputStream.getStreamId());
     } else if (spec instanceof PartitionByOperatorSpec) {
       OutputStreamImpl outputStream = ((PartitionByOperatorSpec) spec).getOutputStream();
-      map.put("outputStreamId", outputStream.getStreamSpec().getId());
+      map.put("outputStreamId", outputStream.getStreamId());
+    }
+
+    if (spec instanceof StreamTableJoinOperatorSpec) {
+      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
+      map.put("tableId", tableSpec.getId());
     }
 
     if (spec instanceof StreamTableJoinOperatorSpec) {

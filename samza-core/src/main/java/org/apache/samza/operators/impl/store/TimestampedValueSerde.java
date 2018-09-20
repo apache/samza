@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl.store;
 import org.apache.samza.serializers.Serde;
 
 import java.nio.ByteBuffer;
+import org.apache.samza.util.TimestampedValue;
 
 
 public class TimestampedValueSerde<V> implements Serde<TimestampedValue<V>> {

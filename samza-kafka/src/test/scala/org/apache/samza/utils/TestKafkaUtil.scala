@@ -20,14 +20,15 @@
 package org.apache.samza.utils
 
 import org.junit.Test
-import org.scalatest.{ Matchers => ScalaTestMatchers }
+import org.scalatest.{Matchers => ScalaTestMatchers}
 import org.apache.samza.util.KafkaUtil
 import kafka.common.ErrorMapping
+import org.apache.kafka.common.protocol.Errors
 
 class TestKafkaUtil extends ScalaTestMatchers {
   @Test
   def testMaybeThrowException {
-    intercept[Exception] { KafkaUtil.maybeThrowException(ErrorMapping.UnknownTopicOrPartitionCode) }
-    KafkaUtil.maybeThrowException(ErrorMapping.ReplicaNotAvailableCode)
+    intercept[Exception] { KafkaUtil.maybeThrowException(Errors.UNKNOWN_TOPIC_OR_PARTITION.exception()) }
+    KafkaUtil.maybeThrowException(Errors.REPLICA_NOT_AVAILABLE.exception())
   }
 }

@@ -19,8 +19,12 @@
 package org.apache.samza.storage.kv;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.utils.DefaultTableWriteMetrics;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -32,37 +36,116 @@ import org.apache.samza.table.ReadWriteTable;
 public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadableTable<K, V>
     implements ReadWriteTable<K, V> {
 
+  protected DefaultTableWriteMetrics writeMetrics;
+
   /**
    * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
+   * @param tableId the table Id
    * @param kvStore the backing store
    */
-  public LocalStoreBackedReadWriteTable(KeyValueStore kvStore) {
-    super(kvStore);
+  public LocalStoreBackedReadWriteTable(String tableId, KeyValueStore kvStore) {
+    super(tableId, kvStore);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+    super.init(containerContext, taskContext);
+    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
   }
 
   @Override
   public void put(K key, V value) {
-    kvStore.put(key, value);
+    if (value != null) {
+      writeMetrics.numPuts.inc();
+      long startNs = System.nanoTime();
+      kvStore.put(key, value);
+      writeMetrics.putNs.update(System.nanoTime() - startNs);
+    } else {
+      delete(key);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> putAsync(K key, V value) {
+    CompletableFuture<Void> future = new CompletableFuture();
+    try {
+      put(key, value);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    entries.forEach(e -> kvStore.put(e.getKey(), e.getValue()));
+    writeMetrics.numPutAlls.inc();
+    long startNs = System.nanoTime();
+    kvStore.putAll(entries);
+    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+  }
+
+  @Override
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+    CompletableFuture<Void> future = new CompletableFuture();
+    try {
+      putAll(entries);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void delete(K key) {
+    writeMetrics.numDeletes.inc();
+    long startNs = System.nanoTime();
     kvStore.delete(key);
+    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAsync(K key) {
+    CompletableFuture<Void> future = new CompletableFuture();
+    try {
+      delete(key);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void deleteAll(List<K> keys) {
-    keys.forEach(k -> kvStore.delete(k));
+    writeMetrics.numDeleteAlls.inc();
+    long startNs = System.nanoTime();
+    kvStore.deleteAll(keys);
+    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+    CompletableFuture<Void> future = new CompletableFuture();
+    try {
+      deleteAll(keys);
+      future.complete(null);
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void flush() {
+    writeMetrics.numFlushes.inc();
+    long startNs = System.nanoTime();
     kvStore.flush();
+    writeMetrics.flushNs.update(System.nanoTime() - startNs);
   }
 
 }

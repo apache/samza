@@ -59,4 +59,12 @@ public class ProcessorEntity extends TableServiceEntity {
   public boolean getIsLeader() {
     return isLeader;
   }
+
+  public String getJobModelVersion() {
+    return partitionKey;
+  }
+
+  public String getProcessorId() {
+    return rowKey;
+  }
 }

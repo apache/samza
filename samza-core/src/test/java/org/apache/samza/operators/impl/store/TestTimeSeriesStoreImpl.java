@@ -24,6 +24,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.ClosableIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.util.TimestampedValue;
 import org.junit.Assert;
 import org.junit.Test;
 

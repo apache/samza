@@ -19,21 +19,23 @@
 
 package org.apache.samza.sql.runner;
 
+import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.Validate;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.runtime.AbstractApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunner;
+import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.interfaces.SourceResolver;
-import org.apache.samza.sql.interfaces.SqlSystemStreamConfig;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
+import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,51 +47,54 @@ import org.slf4j.LoggerFactory;
  * This runner invokes the SamzaSqlConfig re-writer if it is invoked on a standalone mode (i.e. localRunner == true)
  * otherwise directly calls the RemoteApplicationRunner which automatically performs the config rewriting .
  */
-public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
+public class SamzaSqlApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplicationRunner.class);
 
-  private final Config sqlConfig;
-  private final ApplicationRunner appRunner;
-  private final Boolean localRunner;
+  private final ApplicationRunner runner;
 
   public static final String RUNNER_CONFIG = "app.runner.class";
   public static final String CFG_FMT_SAMZA_STREAM_SYSTEM = "streams.%s.samza.system";
 
-  public SamzaSqlApplicationRunner(Config config) {
-    this(false, config);
-  }
-
   public SamzaSqlApplicationRunner(Boolean localRunner, Config config) {
-    super(config);
-    this.localRunner = localRunner;
-    sqlConfig = computeSamzaConfigs(localRunner, config);
-    appRunner = ApplicationRunner.fromConfig(sqlConfig);
+    this.runner = ApplicationRunners.getApplicationRunner(new SamzaSqlApplication(),
+        computeSamzaConfigs(localRunner, config));
   }
 
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
-    SourceResolver sourceResolver = SamzaSqlApplicationConfig.createSourceResolver(config);
-    // Parse the sql and find the input stream streams
-    List<String> sqlStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
+    // TODO: Introduce an API to return a dsl string containing one or more sql statements
+    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
 
     // This is needed because the SQL file may not be available in all the node managers.
-    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(sqlStmts);
+    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlApplicationConfig.fetchQueryInfo(sqlStmts);
-    for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
-      // Populate stream to system mapping config for input and output system streams
-      for (String inputSource : query.getInputSources()) {
-        SqlSystemStreamConfig inputSystemStreamConfig = sourceResolver.fetchSourceInfo(inputSource);
-        newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
-            inputSystemStreamConfig.getSystemName());
-      }
-      SqlSystemStreamConfig outputSystemStreamConfig = sourceResolver.fetchSourceInfo(query.getOutputSource());
+    Set<String> inputSystemStreams = new HashSet<>();
+    Set<String> outputSystemStreams = new HashSet<>();
+
+    SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config,
+        inputSystemStreams, outputSystemStreams);
+
+    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
+
+    // Populate stream to system mapping config for input and output system streams
+    for (String source : inputSystemStreams) {
+      SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(source);
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
+          inputSystemStreamConfig.getSystemName());
+      newConfig.putAll(inputSystemStreamConfig.getConfig());
+    }
+
+    for (String sink : outputSystemStreams) {
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(sink);
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
+      newConfig.putAll(outputSystemStreamConfig.getConfig());
     }
+
+    newConfig.putAll(config);
 
     if (localRunner) {
       newConfig.put(RUNNER_CONFIG, LocalApplicationRunner.class.getName());
@@ -97,37 +102,39 @@ public class SamzaSqlApplicationRunner extends AbstractApplicationRunner {
       newConfig.put(RUNNER_CONFIG, RemoteApplicationRunner.class.getName());
     }
 
-    newConfig.putAll(config);
-
     LOG.info("New Samza configs: " + newConfig);
     return new MapConfig(newConfig);
   }
 
   public void runAndWaitForFinish() {
-    Validate.isTrue(localRunner, "This method can be called only in standalone mode.");
-    SamzaSqlApplication app = new SamzaSqlApplication();
-    run(app);
-    ((LocalApplicationRunner) appRunner).waitForFinish();
+    Validate.isTrue(runner instanceof LocalApplicationRunner, "This method can be called only in standalone mode.");
+    run();
+    waitForFinish();
   }
 
   @Override
-  public void runTask() {
-    appRunner.runTask();
+  public void run() {
+    runner.run();
   }
 
   @Override
-  public void run(StreamApplication streamApp) {
-    Validate.isInstanceOf(SamzaSqlApplication.class, streamApp);
-    appRunner.run(streamApp);
+  public void kill() {
+    runner.kill();
   }
 
   @Override
-  public void kill(StreamApplication streamApp) {
-    appRunner.kill(streamApp);
+  public ApplicationStatus status() {
+    return runner.status();
   }
 
   @Override
-  public ApplicationStatus status(StreamApplication streamApp) {
-    return appRunner.status(streamApp);
+  public void waitForFinish() {
+    runner.waitForFinish();
   }
+
+  @Override
+  public boolean waitForFinish(Duration timeout) {
+    return runner.waitForFinish(timeout);
+  }
+
 }

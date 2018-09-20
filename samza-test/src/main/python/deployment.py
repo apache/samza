@@ -72,9 +72,7 @@ def setup_suite():
     runtime.set_deployer(name, deployer)
     for instance, host in c(name + '_hosts').iteritems():
       logger.info('Deploying {0} on host: {1}'.format(instance, host))
-      deployer.deploy(instance, {
-        'hostname': host
-      })
+      deployer.start(instance, {'hostname': host})
 
   # Setup Samza job deployer.
   samza_job_deployer = SamzaJobYarnDeployer({

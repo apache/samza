@@ -19,13 +19,10 @@
 
 package org.apache.samza.job
 
-import java.io.File
-
 import org.apache.samza.config.Config
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
-import org.junit.After
 import org.junit.Assert._
-import org.junit.Test
+import org.junit.{After, Test}
 
 object TestJobRunner {
   var processCount = 0
@@ -49,7 +46,7 @@ class TestJobRunner {
       "--config-factory",
       "org.apache.samza.config.factories.PropertiesConfigFactory",
       "--config-path",
-      "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath))
+      getClass.getResource("/test.properties").getPath))
     assertEquals(1, TestJobRunner.processCount)
   }
 
@@ -62,7 +59,7 @@ class TestJobRunner {
       "--config-factory",
       "org.apache.samza.config.factories.PropertiesConfigFactory",
       "--config-path",
-      "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath,
+      getClass.getResource("/test.properties").getPath,
       "--operation=kill"))
     assertEquals(1, TestJobRunner.killCount)
   }
@@ -76,7 +73,7 @@ class TestJobRunner {
       "--config-factory",
       "org.apache.samza.config.factories.PropertiesConfigFactory",
       "--config-path",
-      "file://%s/src/test/resources/test.properties" format new File(".").getCanonicalPath,
+      getClass.getResource("/test.properties").getPath,
       "--operation=status"))
     assertEquals(1, TestJobRunner.getStatusCount)
   }

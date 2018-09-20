@@ -19,12 +19,15 @@
 
 package org.apache.samza.system.eventhub;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.servicebus.ClientConstants;
-import com.microsoft.azure.servicebus.ConnectionStringBuilder;
-import com.microsoft.azure.servicebus.RetryExponential;
-import com.microsoft.azure.servicebus.RetryPolicy;
-import com.microsoft.azure.servicebus.ServiceBusException;
+import com.microsoft.azure.eventhubs.impl.ClientConstants;
+import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
+import com.microsoft.azure.eventhubs.impl.RetryExponential;
+import com.microsoft.azure.eventhubs.RetryPolicy;
+import com.microsoft.azure.eventhubs.EventHubException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +46,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   private static final Duration MAX_RETRY_BACKOFF = Duration.ofMillis(11000);
   private static final int MAX_RETRY_COUNT = 100;
   private static final String SAMZA_EVENTHUB_RETRY = "SAMZA_CONNECTOR_RETRY";
+  private final int numClientThreads;
 
   private EventHubClient eventHubClient;
 
@@ -51,35 +55,45 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
   private final String sasKeyName;
   private final String sasKey;
   private final RetryPolicy retryPolicy;
+  private ExecutorService eventHubClientExecutor;
 
-  public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey) {
+  public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey,
+      Integer numClientThreads) {
     this(eventHubNamespace, entityPath, sasKeyName, sasKey,
-            new RetryExponential(MIN_RETRY_BACKOFF, MAX_RETRY_BACKOFF, MAX_RETRY_COUNT, SAMZA_EVENTHUB_RETRY));
+            new RetryExponential(MIN_RETRY_BACKOFF, MAX_RETRY_BACKOFF, MAX_RETRY_COUNT, SAMZA_EVENTHUB_RETRY), numClientThreads);
   }
 
   public SamzaEventHubClientManager(String eventHubNamespace, String entityPath, String sasKeyName, String sasKey,
-                                    RetryPolicy retryPolicy) {
+                                    RetryPolicy retryPolicy, int numClientThreads) {
     this.eventHubNamespace = eventHubNamespace;
     this.entityPath = entityPath;
     this.sasKeyName = sasKeyName;
     this.sasKey = sasKey;
     this.retryPolicy = retryPolicy;
+    this.numClientThreads = numClientThreads;
   }
 
   @Override
   public void init() {
     String remoteHost = String.format(EVENTHUB_REMOTE_HOST_FORMAT, eventHubNamespace);
+    LOG.info("Initializing SamzaEventHubClientManager for namespace: " + eventHubNamespace);
     try {
-      ConnectionStringBuilder connectionStringBuilder =
-              new ConnectionStringBuilder(eventHubNamespace, entityPath, sasKeyName, sasKey);
+      ConnectionStringBuilder connectionStringBuilder = new ConnectionStringBuilder()
+          .setNamespaceName(eventHubNamespace)
+          .setEventHubName(entityPath)
+          .setSasKeyName(sasKeyName)
+          .setSasKey(sasKey);
 
-      eventHubClient = EventHubClient.createFromConnectionStringSync(connectionStringBuilder.toString(), retryPolicy);
-    } catch (IOException | ServiceBusException e) {
+      ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder().setNameFormat("Samza EventHubClient Thread-%d").setDaemon(true);
+      eventHubClientExecutor = Executors.newFixedThreadPool(numClientThreads, threadFactoryBuilder.build());
+      eventHubClient = EventHubClient.createSync(connectionStringBuilder.toString(), retryPolicy, eventHubClientExecutor);
+    } catch (IOException | EventHubException e) {
       String msg = String.format("Creation of EventHub client failed for eventHub EntityPath: %s on remote host %s:%d",
               entityPath, remoteHost, ClientConstants.AMQPS_PORT);
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     }
+    LOG.info("SamzaEventHubClientManager initialized for namespace: " + eventHubNamespace);
   }
 
   @Override
@@ -92,6 +106,7 @@ public class SamzaEventHubClientManager implements EventHubClientManager {
     try {
       if (timeoutMS == EventHubClientManager.BLOCK_UNTIL_CLOSE) {
         eventHubClient.closeSync();
+        eventHubClientExecutor.shutdown();
       } else {
         CompletableFuture<Void> future = eventHubClient.close();
         future.get(timeoutMS, TimeUnit.MILLISECONDS);

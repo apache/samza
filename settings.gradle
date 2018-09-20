@@ -19,13 +19,13 @@
 
 include \
   'samza-api',
+  'samza-aws',
+  'samza-azure',
   'samza-elasticsearch',
   'samza-log4j',
   'samza-rest',
   'samza-shell',
-  'samza-azure',
   'samza-sql',
-  'samza-aws',
   'samza-tools'
 
 def scalaModules = [

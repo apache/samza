@@ -23,14 +23,14 @@ import java.io.IOException;
 import java.net.URL;
 import junit.framework.Assert;
 import org.apache.hadoop.yarn.util.ConverterUtils;
-import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatResponse;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ExponentialSleepStrategy;
+import org.apache.samza.util.HttpUtil;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -77,7 +77,7 @@ public class TestYarnContainerHeartbeatServlet {
     when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
     yarnAppState.runningYarnContainers.put(VALID_CONTAINER_ID, container);
     URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + VALID_CONTAINER_ID);
-    String response = Util.read(url, 1000);
+    String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertTrue(heartbeat.isAlive());
   }
@@ -90,7 +90,7 @@ public class TestYarnContainerHeartbeatServlet {
     when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
     yarnAppState.runningYarnContainers.put(VALID_CONTAINER_ID, container);
     URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + INVALID_CONTAINER_ID);
-    String response = Util.read(url, 1000);
+    String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertFalse(heartbeat.isAlive());
   }

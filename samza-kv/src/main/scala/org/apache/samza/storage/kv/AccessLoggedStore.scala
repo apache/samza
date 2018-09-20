@@ -41,6 +41,7 @@ class AccessLoggedStore[K, V](
     val WRITE = 2
     val DELETE = 3
     val RANGE = 4
+    val SNAPSHOT = 5
   }
 
   val streamName = storageConfig.getAccessLogStream(changelogSystemStreamPartition.getSystemStream.getStream)
@@ -89,6 +90,13 @@ class AccessLoggedStore[K, V](
 
   def all(): KeyValueIterator[K, V] = {
     store.all()
+  }
+
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
+    val list : util.ArrayList[K] = new util.ArrayList[K]()
+    list.add(from)
+    list.add(to)
+    logAccess(DBOperation.SNAPSHOT, serializeKeys(list), store.snapshot(from, to))
   }
 
   def close(): Unit = {
@@ -151,5 +159,4 @@ class AccessLoggedStore[K, V](
     val bytes = keySerde.toBytes(key)
     bytes
   }
-
 }

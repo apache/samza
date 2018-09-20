@@ -19,61 +19,95 @@
 
 package org.apache.samza.test.operator;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.StreamGraph;
 import org.apache.samza.operators.functions.JoinFunction;
+import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.KafkaSystemDescriptor;
+import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.operator.data.AdClick;
 import org.apache.samza.test.operator.data.PageView;
 import org.apache.samza.test.operator.data.UserPageAdClick;
 
-import java.time.Duration;
 
 /**
  * A {@link StreamApplication} that demonstrates a partitionBy, stream-stream join and a windowed count.
  */
 public class RepartitionJoinWindowApp implements StreamApplication {
-  static final String PAGE_VIEWS = "page-views";
-  static final String AD_CLICKS = "ad-clicks";
-  static final String OUTPUT_TOPIC = "user-ad-click-counts";
+  public static final String SYSTEM = "kafka";
+  public static final String INPUT_TOPIC_1_CONFIG_KEY = "inputTopic1";
+  public static final String INPUT_TOPIC_2_CONFIG_KEY = "inputTopic2";
+  public static final String OUTPUT_TOPIC_CONFIG_KEY = "outputTopic";
+
+  private final List<String> intermediateStreamIds = new ArrayList<>();
 
   @Override
-  public void init(StreamGraph graph, Config config) {
-    MessageStream<PageView> pageViews = graph.getInputStream(PAGE_VIEWS, new JsonSerdeV2<>(PageView.class));
-    MessageStream<AdClick> adClicks = graph.getInputStream(AD_CLICKS, new JsonSerdeV2<>(AdClick.class));
-    OutputStream<KV<String, String>> outputStream =
-        graph.getOutputStream(OUTPUT_TOPIC, new KVSerde<>(new StringSerde(), new StringSerde()));
+  public void describe(StreamApplicationDescriptor appDesc) {
+    // offset.default = oldest required for tests since checkpoint topic is empty on start and messages are published
+    // before the application is run
+    Config config = appDesc.getConfig();
+    String inputTopic1 = config.get(INPUT_TOPIC_1_CONFIG_KEY);
+    String inputTopic2 = config.get(INPUT_TOPIC_2_CONFIG_KEY);
+    String outputTopic = config.get(OUTPUT_TOPIC_CONFIG_KEY);
+    KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
+    KafkaInputDescriptor<PageView> id1 = ksd.getInputDescriptor(inputTopic1, new JsonSerdeV2<>(PageView.class));
+    KafkaInputDescriptor<AdClick> id2 = ksd.getInputDescriptor(inputTopic2, new JsonSerdeV2<>(AdClick.class));
 
-    MessageStream<PageView> pageViewsRepartitionedByViewId = pageViews
+    MessageStream<PageView> pageViews = appDesc.getInputStream(id1);
+    MessageStream<AdClick> adClicks = appDesc.getInputStream(id2);
+
+    MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,
-            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)), "pageViewsByViewId")
-        .map(KV::getValue);
+            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(PageView.class)), "pageViewsByViewId");
 
-    MessageStream<AdClick> adClicksRepartitionedByViewId = adClicks
+    MessageStream<PageView> pageViewsRepartitionedByViewIdValueONly = pageViewsRepartitionedByViewId.map(KV::getValue);
+
+    MessageStream<KV<String, AdClick>> adClicksRepartitionedByViewId = adClicks
         .partitionBy(AdClick::getViewId, ac -> ac,
-            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)), "adClicksByViewId")
-        .map(KV::getValue);
+            new KVSerde<>(new StringSerde(), new JsonSerdeV2<>(AdClick.class)), "adClicksByViewId");
+    MessageStream<AdClick> adClicksRepartitionedByViewIdValueOnly = adClicksRepartitionedByViewId.map(KV::getValue);
 
-    MessageStream<UserPageAdClick> userPageAdClicks = pageViewsRepartitionedByViewId
-        .join(adClicksRepartitionedByViewId, new UserPageViewAdClicksJoiner(),
+    MessageStream<UserPageAdClick> userPageAdClicks = pageViewsRepartitionedByViewIdValueONly
+        .join(adClicksRepartitionedByViewIdValueOnly, new UserPageViewAdClicksJoiner(),
             new StringSerde(), new JsonSerdeV2<>(PageView.class), new JsonSerdeV2<>(AdClick.class),
             Duration.ofMinutes(1), "pageViewAdClickJoin");
 
-    userPageAdClicks
+    MessageStream<KV<String, UserPageAdClick>> userPageAdClicksByUserId = userPageAdClicks
         .partitionBy(UserPageAdClick::getUserId, upac -> upac,
-            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userPageAdClicksByUserId")
-        .map(KV::getValue)
+            KVSerde.of(new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userPageAdClicksByUserId");
+
+    userPageAdClicksByUserId.map(KV::getValue)
         .window(Windows.keyedSessionWindow(UserPageAdClick::getUserId, Duration.ofSeconds(3),
             new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userAdClickWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
-        .sendTo(outputStream);
+        .sink((message, messageCollector, taskCoordinator) -> {
+            taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+            messageCollector.send(
+                new OutgoingMessageEnvelope(
+                    new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+          });
+
+
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) adClicksRepartitionedByViewId).getStreamId());
+    intermediateStreamIds.add(((IntermediateMessageStreamImpl) userPageAdClicksByUserId).getStreamId());
+  }
+
+  List<String> getIntermediateStreamIds() {
+    return intermediateStreamIds;
   }
 
   private static class UserPageViewAdClicksJoiner implements JoinFunction<String, PageView, AdClick, UserPageAdClick> {

@@ -26,6 +26,8 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.zk.TestZkUtils;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 
 /**
@@ -42,12 +44,12 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     return "test_ZK_failure_";
   }
 
-//  @Before
+  @Before
   public void setUp() {
     super.setUp();
   }
 
-  //@Test(expected = org.apache.samza.SamzaException.class)
+  @Test(expected = org.apache.samza.SamzaException.class)
   public void testZkUnavailable() {
     map.put(ZkConfig.ZK_CONNECT, "localhost:2222"); // non-existing zk
     map.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, "3000"); // shorter timeout
@@ -56,7 +58,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
     Assert.fail("should've thrown an exception");
   }
 
-  //@Test
+  @Test
   // Test with a single processor failing.
   // One processor fails (to simulate the failure we inject a special message (id > 1000) which causes the processor to
   // throw an exception.
@@ -106,8 +108,8 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
 
     // make sure they consume all the messages
     waitUntilMessagesLeftN(totalEventsToBeConsumed - messageCount);
-    CountDownLatch containerStopped1 = sp1.jcContainerShutdownLatch;
-    CountDownLatch containerStopped2 = sp2.jcContainerShutdownLatch;
+    CountDownLatch containerStopped1 = sp1.containerShutdownLatch;
+    CountDownLatch containerStopped2 = sp2.containerShutdownLatch;
 
     // produce the bad messages
     produceMessages(BAD_MESSAGE_KEY, inputTopic, 4);

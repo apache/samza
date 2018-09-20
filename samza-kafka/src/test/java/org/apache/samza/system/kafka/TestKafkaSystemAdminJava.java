@@ -27,7 +27,9 @@ import kafka.api.TopicMetadata;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ScalaJavaUtil;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -36,18 +38,13 @@ import static org.junit.Assert.*;
 
 public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
-  KafkaSystemAdmin basicSystemAdmin = createSystemAdmin();
-
-
   @Test
   public void testCreateCoordinatorStream() {
-    KafkaSystemAdmin systemAdmin = createSystemAdmin();//coordProps, 3, new scala.collection.immutable.HashMap<>(), 1000);
-    SystemAdmin admin = Mockito.spy(systemAdmin);
+    SystemAdmin admin = Mockito.spy(systemAdmin());
     StreamSpec spec = StreamSpec.createCoordinatorStreamSpec("testCoordinatorStream", "testSystem");
 
     admin.createStream(spec);
     admin.validateStream(spec);
-
     Mockito.verify(admin).createStream(Mockito.any());
   }
 
@@ -58,7 +55,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Properties coordProps = new Properties();
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
 
-    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, Util.javaMapAsScalaMap(changeLogMap)));
+    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, ScalaJavaUtil.toScalaMap(changeLogMap)));
     StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(STREAM, SYSTEM());
 
     Mockito.doAnswer(invocationOnMock -> {
@@ -90,7 +87,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, Util.javaMapAsScalaMap(changeLogMap)));
+    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, ScalaJavaUtil.toScalaMap(changeLogMap)));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
 
     Mockito.doAnswer(invocationOnMock -> {
@@ -123,7 +120,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
     changeLogMap.put(STREAM, new ChangelogInfo(REP_FACTOR, changeLogProps));
 
-    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, Util.javaMapAsScalaMap(changeLogMap)));
+    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, ScalaJavaUtil.toScalaMap(changeLogMap)));
     StreamSpec spec = StreamSpec.createChangeLogStreamSpec(STREAM, SYSTEM(), PARTITIONS);
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
@@ -144,56 +141,51 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
   @Test
   public void testCreateStream() {
-    SystemAdmin admin = this.basicSystemAdmin;
     StreamSpec spec = new StreamSpec("testId", "testStream", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec));
-    admin.validateStream(spec);
+    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec));
+    systemAdmin().validateStream(spec);
 
-    assertFalse("createStream should return false if the stream already exists.", admin.createStream(spec));
+    assertFalse("createStream should return false if the stream already exists.", systemAdmin().createStream(spec));
   }
 
   @Test(expected = StreamValidationException.class)
   public void testValidateStreamDoesNotExist() {
-    SystemAdmin admin = this.basicSystemAdmin;
 
     StreamSpec spec = new StreamSpec("testId", "testStreamNameExist", "testSystem", 8);
 
-    admin.validateStream(spec);
+    systemAdmin().validateStream(spec);
   }
 
   @Test(expected = StreamValidationException.class)
   public void testValidateStreamWrongPartitionCount() {
-    SystemAdmin admin = this.basicSystemAdmin;
     StreamSpec spec1 = new StreamSpec("testId", "testStreamPartition", "testSystem", 8);
     StreamSpec spec2 = new StreamSpec("testId", "testStreamPartition", "testSystem", 4);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec1));
+    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec1));
 
-    admin.validateStream(spec2);
+    systemAdmin().validateStream(spec2);
   }
 
   @Test(expected = StreamValidationException.class)
   public void testValidateStreamWrongName() {
-    SystemAdmin admin = this.basicSystemAdmin;
     StreamSpec spec1 = new StreamSpec("testId", "testStreamName1", "testSystem", 8);
     StreamSpec spec2 = new StreamSpec("testId", "testStreamName2", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec1));
+    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec1));
 
-    admin.validateStream(spec2);
+    systemAdmin().validateStream(spec2);
   }
 
   @Test
   public void testClearStream() {
-    KafkaSystemAdmin admin = this.basicSystemAdmin;
     StreamSpec spec = new StreamSpec("testId", "testStreamClear", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec));
-    assertTrue(admin.clearStream(spec));
+    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec));
+    assertTrue(systemAdmin().clearStream(spec));
 
     scala.collection.immutable.Set<String> topic = new scala.collection.immutable.Set.Set1<>(spec.getPhysicalName());
-    scala.collection.immutable.Map<String, TopicMetadata> metadata = admin.getTopicMetadata(topic);
+    scala.collection.immutable.Map<String, TopicMetadata> metadata = systemAdmin().getTopicMetadata(topic);
     assertTrue(metadata.get(spec.getPhysicalName()).get().partitionsMetadata().isEmpty());
   }
 }

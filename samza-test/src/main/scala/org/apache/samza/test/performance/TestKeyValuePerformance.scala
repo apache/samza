@@ -34,7 +34,7 @@ import org.apache.samza.storage.StorageEngineFactory
 import org.apache.samza.storage.kv.{KeyValueStorageEngine, KeyValueStore}
 import org.apache.samza.system.{SystemProducer, SystemProducers}
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.{CommandLine, Logging, Util}
+import org.apache.samza.util.{CommandLine, FileUtil, Logging, Util}
 import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
@@ -99,7 +99,7 @@ object TestKeyValuePerformance extends Logging {
         val storageFactoryClassName =
           config.getStorageFactoryClassName(storeName)
                 .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, Util.getObj[StorageEngineFactory[Array[Byte], Array[Byte]]](storageFactoryClassName))
+        (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
     })
 
     for((storeName, storageEngine) <- storageEngineMappings) {
@@ -128,7 +128,7 @@ object TestKeyValuePerformance extends Logging {
         // Run the test method
         testMethod(db, config.subset("set-" + testSet + ".", true))
 
-        Util.rm(output)
+        FileUtil.rm(output)
       })
     }
   }

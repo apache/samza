@@ -142,24 +142,12 @@ public class KinesisConfig extends MapConfig {
   }
 
   /**
-   * @param system name of the system
-   * @return {@link ClientConfiguration} which has options controlling how the client connects to kinesis
-   *         (eg: proxy settings, retry counts, etc)
-   */
-  ClientConfiguration getAWSClientConfig(String system) {
-    ClientConfiguration awsClientConfig = new ClientConfiguration();
-    setAwsClientConfigs(subset(String.format(CONFIG_AWS_CLIENT_CONFIG, system)), awsClientConfig);
-    awsClientConfig.getApacheHttpClientConfig().setSslSocketFactory(getSSLSocketFactory(system));
-    return awsClientConfig;
-  }
-
-  /**
    * Get the proxy host as a system level config. This is needed when
    * users need to go through a proxy for the Kinesis connections.
    * @param system name of the system
    * @return proxy host name or empty string if not defined
    */
-  String getProxyHost(String system) {
+  protected String getProxyHost(String system) {
     return get(String.format(CONFIG_PROXY_HOST, system), DEFAULT_CONFIG_PROXY_HOST);
   }
 
@@ -169,8 +157,20 @@ public class KinesisConfig extends MapConfig {
    * @param system name of the system
    * @return proxy port number or 0 if not defined
    */
-  int getProxyPort(String system) {
+  protected int getProxyPort(String system) {
     return getInt(String.format(CONFIG_PROXY_PORT, system), DEFAULT_CONFIG_PROXY_PORT);
+  }
+
+  /**
+   * @param system name of the system
+   * @return {@link ClientConfiguration} which has options controlling how the client connects to kinesis
+   *         (eg: proxy settings, retry counts, etc)
+   */
+  ClientConfiguration getAWSClientConfig(String system) {
+    ClientConfiguration awsClientConfig = new ClientConfiguration();
+    setAwsClientConfigs(subset(String.format(CONFIG_AWS_CLIENT_CONFIG, system)), awsClientConfig);
+    awsClientConfig.getApacheHttpClientConfig().setSslSocketFactory(getSSLSocketFactory(system));
+    return awsClientConfig;
   }
 
   /**

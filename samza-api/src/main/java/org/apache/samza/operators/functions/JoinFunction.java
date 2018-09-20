@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.functions;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 
 
@@ -30,7 +31,7 @@ import org.apache.samza.annotation.InterfaceStability;
  * @param <RM>  type of the joined message
  */
 @InterfaceStability.Unstable
-public interface JoinFunction<K, M, JM, RM>  extends InitableFunction, ClosableFunction {
+public interface JoinFunction<K, M, JM, RM>  extends InitableFunction, ClosableFunction, Serializable {
 
   /**
    * Joins the provided messages and returns the joined message.

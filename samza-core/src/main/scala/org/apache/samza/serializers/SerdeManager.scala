@@ -25,8 +25,6 @@ import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.config.StorageConfig
-import org.apache.samza.system.WatermarkMessage
-
 
 class SerdeManager(
   serdes: Map[String, Serde[Object]] = Map(),

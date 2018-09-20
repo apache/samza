@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.windows;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.triggers.Trigger;
 
@@ -70,7 +71,7 @@ import org.apache.samza.operators.triggers.Trigger;
  * @param <WV> the type of the value in the window
  */
 @InterfaceStability.Unstable
-public interface Window<M, K, WV> {
+public interface Window<M, K, WV> extends Serializable {
 
   /**
    * Set the early triggers for this {@link Window}.

@@ -97,7 +97,7 @@ public class ThrottlingScheduler implements Throttleable {
     long newValue;
     do {
       currentValue = pendingNanos.get();
-      newValue = Util.clampAdd(currentValue, amount);
+      newValue = MathUtil.clampAdd(currentValue, amount);
     } while (!pendingNanos.compareAndSet(currentValue, newValue));
   }
 

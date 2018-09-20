@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.kv.BaseLocalStoreBackedTableDescriptor;
 import org.apache.samza.table.TableSpec;
 
@@ -33,8 +34,21 @@ import org.apache.samza.table.TableSpec;
  */
 public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
+   */
+  public InMemoryTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   @Override
@@ -50,7 +64,8 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig,
+        sideInputs, sideInputsProcessor);
   }
 
   private void addInMemoryConfig(Map<String, String> map, String key, String value) {

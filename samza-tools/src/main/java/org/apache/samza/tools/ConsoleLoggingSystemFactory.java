@@ -19,9 +19,11 @@
 
 package org.apache.samza.tools;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.NotImplementedException;
@@ -35,6 +37,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +49,9 @@ import org.slf4j.LoggerFactory;
 public class ConsoleLoggingSystemFactory implements SystemFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ConsoleLoggingSystemFactory.class);
+
+  public static AtomicInteger messageCounter = new AtomicInteger();
+  private static ObjectMapper mapper = new ObjectMapper();
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
@@ -82,12 +88,27 @@ public class ConsoleLoggingSystemFactory implements SystemFactory {
           new String((byte[]) envelope.getMessage()));
       LOG.info(msg);
 
+      System.out.println(String.format("Message %d :", messageCounter.incrementAndGet()));
       if (envelope.getKey() != null) {
-        System.out.println(String.format("Key:%s Value:%s", envelope.getKey(),
-            new String((byte[]) envelope.getMessage())));
+        System.out.println(String.format("Key:%s Value:%s", envelope.getKey(), getFormattedValue(envelope)));
       } else {
-        System.out.println(new String((byte[]) envelope.getMessage()));
+        System.out.println(getFormattedValue(envelope));
       }
+    }
+
+    private String getFormattedValue(OutgoingMessageEnvelope envelope) {
+      String value = new String((byte[]) envelope.getMessage());
+      String formattedValue;
+
+      try {
+        Object json = mapper.readValue(value, Object.class);
+        formattedValue = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+      } catch (IOException e) {
+        formattedValue = value;
+        LOG.error("Error while formatting json", e);
+      }
+
+      return formattedValue;
     }
 
     @Override

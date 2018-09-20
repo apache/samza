@@ -20,7 +20,11 @@
 package org.apache.samza.config;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
@@ -38,6 +42,14 @@ public class JavaStorageConfig extends MapConfig {
   private static final String MSG_SERDE = "stores.%s.msg.serde";
   private static final String CHANGELOG_STREAM = "stores.%s.changelog";
   private static final String CHANGELOG_SYSTEM = "job.changelog.system";
+  private static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
+  private static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
+  private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
+  private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
+
+  public static final String SIDE_INPUTS = "stores.%s.side.inputs";
+  public static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
+  public static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE = "stores.%s.side.inputs.processor.serialized.instance";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -80,6 +92,18 @@ public class JavaStorageConfig extends MapConfig {
     return systemStreamRes;
   }
 
+  public boolean getAccessLogEnabled(String storeName) {
+    return getBoolean(String.format(ACCESSLOG_ENABLED, storeName), false);
+  }
+
+  public String getAccessLogStream(String changeLogStream) {
+    return String.format("%s-%s", changeLogStream, ACCESSLOG_STREAM_SUFFIX);
+  }
+
+  public int getAccessLogSamplingRatio(String storeName) {
+    return getInt(String.format(ACCESSLOG_SAMPLING_RATIO, storeName), DEFAULT_ACCESSLOG_SAMPLING_RATIO);
+  }
+
   public String getStorageFactoryClassName(String storeName) {
     return get(String.format(FACTORY, storeName), null);
   }
@@ -105,9 +129,48 @@ public class JavaStorageConfig extends MapConfig {
    *
    * If the former syntax is used, that system name will still be honored. For the latter syntax, this method is used.
    *
-   * @return the name of the system to use by default for all changelogs, if defined. 
+   * @return the name of the system to use by default for all changelogs, if defined.
    */
   public String getChangelogSystem() {
     return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
+  }
+
+  /**
+   * Gets the side inputs for the store. A store can have multiple side input streams which can be
+   * provided as a comma separated list.
+   *
+   * Each side input must either be a {@code streamId}, or of the format {@code systemName.streamName}.
+   * E.g. {@code stores.storeName.side.inputs = kafka.topicA, mySystem.topicB}
+   *
+   * @param storeName name of the store
+   * @return a list of side input streams for the store, or an empty list if it has none.
+   */
+  public List<String> getSideInputs(String storeName) {
+    return Optional.ofNullable(get(String.format(SIDE_INPUTS, storeName), null))
+        .map(inputs -> Stream.of(inputs.split(","))
+            .map(String::trim)
+            .filter(input -> !input.isEmpty())
+            .collect(Collectors.toList()))
+        .orElse(Collections.emptyList());
+  }
+
+  /**
+   * Gets the SideInputsProcessorFactory associated with the {@code storeName}.
+   *
+   * @param storeName name of the store
+   * @return the class name of SideInputsProcessorFactory if present, null otherwise
+   */
+  public String getSideInputsProcessorFactory(String storeName) {
+    return get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName), null);
+  }
+
+  /**
+   * Gets the serialized instance of SideInputsProcessor associated with the {@code storeName}.
+   *
+   * @param storeName name of the store
+   * @return the serialized instance of SideInputsProcessor if present, null otherwise
+   */
+  public String getSideInputsProcessorSerializedInstance(String storeName) {
+    return get(String.format(SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, storeName), null);
   }
 }

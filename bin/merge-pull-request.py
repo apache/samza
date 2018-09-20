@@ -350,25 +350,25 @@ def resolve_jira_issue(title, merge_branches, comment):
 
 def standardize_jira_ref(text):
     """
-    Standardize the jira reference commit message prefix to "PROJECT_NAME-XXX; Issue"
-    >>> standardize_jira_ref("%s-5954; Top by key" % CAPITALIZED_PROJECT_NAME)
-    'SAMZA-5954; Top by key'
-    >>> standardize_jira_ref("%s-5821; ParquetRelation2 CTAS should check if delete is successful" % PROJECT_NAME)
-    'SAMZA-5821; ParquetRelation2 CTAS should check if delete is successful'
+    Standardize the jira reference commit message prefix to "PROJECT_NAME-XXX: Issue"
+    >>> standardize_jira_ref("%s-5954: Top by key" % CAPITALIZED_PROJECT_NAME)
+    'SAMZA-5954: Top by key'
+    >>> standardize_jira_ref("%s-5821: ParquetRelation2 CTAS should check if delete is successful" % PROJECT_NAME)
+    'SAMZA-5821: ParquetRelation2 CTAS should check if delete is successful'
     >>> standardize_jira_ref("%s-4123 [WIP] Show new dependencies added in pull requests" % PROJECT_NAME)
-    'SAMZA-4123; [WIP] Show new dependencies added in pull requests'
+    'SAMZA-4123: [WIP] Show new dependencies added in pull requests'
     >>> standardize_jira_ref("%s  5954: Top by key" % PROJECT_NAME)
-    'SAMZA-5954; Top by key'
+    'SAMZA-5954: Top by key'
     >>> standardize_jira_ref("%s-979 a LRU scheduler for load balancing in TaskSchedulerImpl" % PROJECT_NAME)
-    'SAMZA-979; a LRU scheduler for load balancing in TaskSchedulerImpl'
+    'SAMZA-979: a LRU scheduler for load balancing in TaskSchedulerImpl'
     >>> standardize_jira_ref("%s-1094 Support MiMa for reporting binary compatibility across versions." % CAPITALIZED_PROJECT_NAME)
-    'SAMZA-1094; Support MiMa for reporting binary compatibility across versions.'
-    >>> standardize_jira_ref("[WIP] %s-1146; Vagrant support" % CAPITALIZED_PROJECT_NAME)
-    'SAMZA-1146; [WIP] Vagrant support'
+    'SAMZA-1094: Support MiMa for reporting binary compatibility across versions.'
+    >>> standardize_jira_ref("[WIP] %s-1146: Vagrant support" % CAPITALIZED_PROJECT_NAME)
+    'SAMZA-1146: [WIP] Vagrant support'
     >>> standardize_jira_ref("%s-1032. If Yarn app fails before registering, app master stays aroun..." % PROJECT_NAME)
-    'SAMZA-1032; If Yarn app fails before registering, app master stays aroun...'
+    'SAMZA-1032: If Yarn app fails before registering, app master stays aroun...'
     >>> standardize_jira_ref("%s-6250 %s-6146 %s-5911: Types are now reserved words in DDL parser." % (PROJECT_NAME, PROJECT_NAME, CAPITALIZED_PROJECT_NAME))
-    'SAMZA-6250 SAMZA-6146 SAMZA-5911; Types are now reserved words in DDL parser.'
+    'SAMZA-6250 SAMZA-6146 SAMZA-5911: Types are now reserved words in DDL parser.'
     >>> standardize_jira_ref("Additional information for users building from source code")
     'Additional information for users building from source code'
 
@@ -400,7 +400,7 @@ def standardize_jira_ref(text):
     # Assemble full text (JIRA ref(s), module(s), remaining text)
     jira_prefix = ' '.join(jira_refs).strip()
     if jira_prefix:
-        jira_prefix = jira_prefix + "; "
+        jira_prefix = jira_prefix + ": "
     clean_text = jira_prefix + ' '.join(components).strip() + " " + text.strip()
 
     # Replace multiple spaces with a single space, e.g. if no jira refs and/or components were included

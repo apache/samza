@@ -20,9 +20,12 @@ package org.apache.samza.table;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.operators.KV;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -34,6 +37,14 @@ import org.apache.samza.operators.KV;
  */
 @InterfaceStability.Unstable
 public interface ReadableTable<K, V> extends Table<KV<K, V>> {
+  /**
+   * Initializes the table during container initialization.
+   * Guaranteed to be invoked as the first operation on the table.
+   * @param containerContext Samza container context
+   * @param taskContext nullable for global table
+   */
+  default void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  }
 
   /**
    * Gets the value associated with the specified {@code key}.
@@ -45,6 +56,15 @@ public interface ReadableTable<K, V> extends Table<KV<K, V>> {
   V get(K key);
 
   /**
+   * Asynchronously gets the value associated with the specified {@code key}.
+   *
+   * @param key the key with which the associated value is to be fetched.
+   * @return completableFuture for the requested value
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   */
+  CompletableFuture<V> getAsync(K key);
+
+  /**
    * Gets the values with which the specified {@code keys} are associated.
    *
    * @param keys the keys with which the associated values are to be fetched.
@@ -54,8 +74,16 @@ public interface ReadableTable<K, V> extends Table<KV<K, V>> {
   Map<K, V> getAll(List<K> keys);
 
   /**
+   * Asynchronously gets the values with which the specified {@code keys} are associated.
+   *
+   * @param keys the keys with which the associated values are to be fetched.
+   * @return completableFuture for the requested entries
+   * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
+   */
+  CompletableFuture<Map<K, V>> getAllAsync(List<K> keys);
+
+  /**
    * Close the table and release any resources acquired
    */
   void close();
-
 }

@@ -19,8 +19,11 @@
 
 package org.apache.samza.system;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 
 /**
  * Helper interface attached to an underlying system to fetch information about
@@ -28,6 +31,17 @@ import java.util.Set;
  * utility methods that Samza needs in order to interact with a system.
  */
 public interface SystemAdmin {
+
+  /*
+   * Start this SystemAdmin
+   */
+  default void start() {};
+
+  /*
+   * Stop this SystemAdmin
+   */
+  default void stop() {};
+
   /**
    * Fetches the offsets for the messages immediately after the supplied offsets
    * for a group of SystemStreamPartitions.
@@ -48,6 +62,34 @@ public interface SystemAdmin {
    *         requested in the parameter set.
    */
   Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
+
+  /**
+   * Fetch metadata from a system for a set of SSPs.
+   * Implementors should override this if there is a more efficient implementation than delegating to
+   * {@link #getSystemStreamMetadata}.
+   *
+   * @param ssps SSPs for which to get metadata
+   * @return A map from SystemStreamPartition to the SystemStreamPartitionMetadata, with an entry for each SSP in
+   * {@code ssps} for which metadata could be found
+   * @throws RuntimeException if there was an error fetching metadata
+   */
+  default Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
+      Set<SystemStreamPartition> ssps) {
+    Set<String> streams = ssps.stream().map(SystemStream::getStream).collect(Collectors.toSet());
+    Map<String, SystemStreamMetadata> streamToSystemStreamMetadata = getSystemStreamMetadata(streams);
+    Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
+    for (SystemStreamPartition ssp : ssps) {
+      SystemStreamMetadata systemStreamMetadata = streamToSystemStreamMetadata.get(ssp.getStream());
+      if (systemStreamMetadata != null) {
+        SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata =
+            systemStreamMetadata.getSystemStreamPartitionMetadata().get(ssp.getPartition());
+        if (sspMetadata != null) {
+          sspToSSPMetadata.put(ssp, sspMetadata);
+        }
+      }
+    }
+    return sspToSSPMetadata;
+  }
 
   /**
    * Compare the two offsets. -1, 0, +1 means offset1 &lt; offset2,
@@ -84,7 +126,7 @@ public interface SystemAdmin {
   }
 
   /**
-   * Clear the stream described by the spec.
+   * Clear the entire stream described by the spec.
    * @param streamSpec  The spec for the physical stream on the system.
    * @return {@code true} if the stream was successfully cleared.
    *         {@code false} if clearing stream failed.
@@ -92,4 +134,14 @@ public interface SystemAdmin {
   default boolean clearStream(StreamSpec streamSpec) {
     throw new UnsupportedOperationException();
   }
+
+  /**
+   * Delete records up to (and including) the provided ssp offsets for all system stream partitions specified in the map
+   *
+   * @param offsets a map from system stream partition to offset
+   */
+  default void deleteMessages(Map<SystemStreamPartition, String> offsets) {
+
+  }
+
 }

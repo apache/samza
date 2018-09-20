@@ -30,17 +30,17 @@ Committer, and PMC member<br/>
 <a href="https://twitter.com/navina_r" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
 **Jagadish Venkatraman**<br/>
-Committer<br/>
+Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/jagadishvenkat" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/vjagadish1989" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
 **Jake Maes**<br/>
-Committer<br/>
+Committer, and PMC member<br/>
 <a href="www.linkedin.com/in/jacobmaes" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 <a href="https://twitter.com/jakemaes" target="_blank"><i class="fa fa-twitter committer-icon"></i></a>
 
 **Xinyu Liu**<br/>
-Committer<br/>
+Committer, and PMC member<br/>
 <a href="https://www.linkedin.com/in/xinyu-liu-b0b21648" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
 
 **Chris Riccomini**<br/>
@@ -96,3 +96,8 @@ Committer<br/>
 **Prateek Maheshwari**<br/>
 Committer<br/>
 <a href="https://www.linkedin.com/in/mprateek" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+
+**Wei Song**<br/>
+Committer<br/>
+<a href="https://www.linkedin.com/in/weisong44" target="_blank"><i class="fa fa-linkedin committer-icon"></i></a>
+

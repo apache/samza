@@ -19,6 +19,7 @@
 package org.apache.samza.monitor;
 
 import com.google.common.base.Strings;
+import java.security.SecureRandom;
 import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -40,6 +41,7 @@ import static org.apache.samza.monitor.MonitorLoader.instantiateMonitor;
 public class SamzaMonitorService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SamzaMonitorService.class);
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final SchedulingProvider scheduler;
     private final SamzaRestConfig config;
@@ -62,9 +64,9 @@ public class SamzaMonitorService {
 
                 if (!Strings.isNullOrEmpty(monitorConfig.getMonitorFactoryClass())) {
                     int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
-                    LOGGER.info("Scheduling monitor {} to run every {} ms", monitorName, schedulingIntervalInMs);
-                    // MetricsRegistry has been added in the Monitor interface, since it's required in the eventual future to record metrics.
-                    // We have plans to record metrics, hence adding this as a placeholder. We just aren't doing it yet.
+                    int monitorSchedulingJitterInMs = (int) (RANDOM.nextInt(schedulingIntervalInMs + 1) * (monitorConfig.getSchedulingJitterPercent() / 100.0));
+                    schedulingIntervalInMs += monitorSchedulingJitterInMs;
+                    LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
                     scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
                                                    schedulingIntervalInMs);
                 } else {

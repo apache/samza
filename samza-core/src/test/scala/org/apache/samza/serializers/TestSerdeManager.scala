@@ -31,6 +31,9 @@ import org.apache.samza.system.SystemStream
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.Partition
+import org.apache.samza.SamzaException
+import org.apache.samza.config.MapConfig
+import org.apache.samza.util.Util
 
 class TestSerdeManager {
   @Test

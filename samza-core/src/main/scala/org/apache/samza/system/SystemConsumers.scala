@@ -24,7 +24,7 @@ import java.util
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.util.{Logging, TimerUtils}
+import org.apache.samza.util.{Logging, TimerUtil}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.ArrayDeque
@@ -106,7 +106,7 @@ class SystemConsumers (
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtils {
+  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtil {
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
@@ -215,8 +215,11 @@ class SystemConsumers (
 
         metrics.choseNull.inc
 
-        // Sleep for a while so we don't poll in a tight loop.
-        timeout = noNewMessagesTimeout
+        // Sleep for a while so we don't poll in a tight loop, but, don't do this when called from the AsyncRunLoop
+        // code because in that case the chooser will not get updated with a new message for an SSP until after a
+        // message is processed, See how updateChooser variable is used below. The AsyncRunLoop has its own way to
+        // block when there is no work to process.
+        timeout = if (updateChooser) noNewMessagesTimeout else 0
       } else {
         val systemStreamPartition = envelopeFromChooser.getSystemStreamPartition
 

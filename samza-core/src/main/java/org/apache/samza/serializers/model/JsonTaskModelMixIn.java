@@ -25,11 +25,13 @@ import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
  * A mix-in Jackson class to convert Samza's TaskModel to/from JSON.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class JsonTaskModelMixIn {
   @JsonCreator
   public JsonTaskModelMixIn(@JsonProperty("task-name") TaskName taskName, @JsonProperty("system-stream-partitions") Set<SystemStreamPartition> systemStreamPartitions, @JsonProperty("changelog-partition") Partition changelogPartition) {

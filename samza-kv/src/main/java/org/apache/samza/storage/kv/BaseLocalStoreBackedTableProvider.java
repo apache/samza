@@ -19,38 +19,59 @@
 package org.apache.samza.storage.kv;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.storage.StorageEngine;
-import org.apache.samza.table.LocalStoreBackedTableProvider;
+import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.samza.table.utils.BaseTableProvider;
+import org.apache.samza.table.utils.SerdeUtils;
+import org.apache.samza.task.TaskContext;
+
+import com.google.common.base.Preconditions;
 
 
 /**
- * Base class for tables backed by Samza stores, see {@link LocalStoreBackedTableProvider}.
+ * Base class for tables backed by Samza local stores. The backing stores are
+ * injected during initialization of the table. Since the lifecycle
+ * of the underlying stores are already managed by Samza container,
+ * the table provider will not manage the lifecycle of the backing
+ * stores.
  */
-abstract public class BaseLocalStoreBackedTableProvider implements LocalStoreBackedTableProvider {
-
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
-
-  protected final TableSpec tableSpec;
+abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
+  public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   protected KeyValueStore kvStore;
 
   public BaseLocalStoreBackedTableProvider(TableSpec tableSpec) {
-    this.tableSpec = tableSpec;
+    super(tableSpec);
   }
 
   @Override
-  public void init(StorageEngine store) {
-    kvStore = (KeyValueStore) store;
+  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+
+    super.init(containerContext, taskContext);
+
+    Preconditions.checkNotNull(this.taskContext, "Must specify task context for local tables.");
+
+    kvStore = (KeyValueStore) taskContext.getStore(tableSpec.getId());
+
+    if (kvStore == null) {
+      throw new SamzaException(String.format(
+          "Backing store for table %s was not injected by SamzaContainer", tableSpec.getId()));
+    }
+
     logger.info("Initialized backing store for table " + tableSpec.getId());
   }
 
@@ -59,27 +80,19 @@ abstract public class BaseLocalStoreBackedTableProvider implements LocalStoreBac
     if (kvStore == null) {
       throw new SamzaException("Store not initialized for table " + tableSpec.getId());
     }
-    return new LocalStoreBackedReadWriteTable(kvStore);
+    ReadableTable table = new LocalStoreBackedReadWriteTable(tableSpec.getId(), kvStore);
+    table.init(containerContext, taskContext);
+    return table;
   }
 
-  @Override
-  public void start() {
-    logger.info("Starting table provider for table " + tableSpec.getId());
-  }
-
-  @Override
-  public void stop() {
-    logger.info("Stopping table provider for table " + tableSpec.getId());
-  }
-
-  protected Map<String, String> generateCommonStoreConfig(Map<String, String> config) {
+  protected Map<String, String> generateCommonStoreConfig(Config jobConfig, Map<String, String> generatedConfig) {
 
     Map<String, String> storeConfig = new HashMap<>();
 
     // We assume the configuration for serde are already generated for this table,
     // so we simply carry them over to store configuration.
     //
-    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(config));
+    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(generatedConfig));
 
     String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
@@ -87,6 +100,49 @@ abstract public class BaseLocalStoreBackedTableProvider implements LocalStoreBac
     String valueSerde = tableConfig.getValueSerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.MSG_SERDE(), tableSpec.getId()), valueSerde);
 
+    List<String> sideInputs = tableSpec.getSideInputs();
+    if (sideInputs != null && !sideInputs.isEmpty()) {
+      sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(
+          "Side input stream %s doesn't confirm to pattern %s", si, SYSTEM_STREAM_NAME_PATTERN)));
+      String formattedSideInputs = String.join(",", sideInputs);
+      storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS, tableSpec.getId()), formattedSideInputs);
+      storeConfig.put(String.format(JavaStorageConfig.SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, tableSpec.getId()),
+          SerdeUtils.serialize("Side Inputs Processor", tableSpec.getSideInputsProcessor()));
+    }
+
+    // Changelog configuration
+    Boolean enableChangelog = Boolean.valueOf(
+        tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    if (enableChangelog) {
+      String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
+      if (StringUtils.isEmpty(changelogStream)) {
+        changelogStream = String.format("%s-%s-table-%s",
+            jobConfig.get(JobConfig.JOB_NAME()),
+            jobConfig.get(JobConfig.JOB_ID(), "1"),
+            tableSpec.getId());
+      }
+
+      Preconditions.checkState(isValidSystemStreamName(changelogStream), String.format(
+          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, SYSTEM_STREAM_NAME_PATTERN));
+      storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
+
+      String changelogReplicationFactor = tableSpec.getConfig().get(
+          BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR);
+      if (changelogReplicationFactor != null) {
+        storeConfig.put(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), tableSpec.getId()),
+            changelogReplicationFactor);
+      }
+    }
+
     return storeConfig;
+  }
+
+  @Override
+  public void close() {
+    logger.info("Shutting down table provider for table " + tableSpec.getId());
+  }
+
+  private boolean isValidSystemStreamName(String name) {
+    return StringUtils.isNotBlank(name) && SYSTEM_STREAM_NAME_PATTERN.matcher(name).matches();
   }
 }

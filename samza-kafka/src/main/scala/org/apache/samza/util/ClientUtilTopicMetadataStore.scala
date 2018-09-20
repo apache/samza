@@ -34,7 +34,10 @@ class ClientUtilTopicMetadataStore(brokersListString: String, clientId: String, 
 
   def getTopicInfo(topics: Set[String]) = {
     val currCorrId = corrID.getAndIncrement
+
+    debug("Fetching topic metadata.")
     val response: TopicMetadataResponse = ClientUtils.fetchTopicMetadata(topics, brokers, clientId, timeout, currCorrId)
+    debug("Got topic metadata response: %s" format(response))
 
     if (response.correlationId != currCorrId) {
       throw new SamzaException("CorrelationID did not match for request on topics %s (sent %d, got %d)" format (topics, currCorrId, response.correlationId))

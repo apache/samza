@@ -18,26 +18,25 @@
  */
 package org.apache.samza.standalone;
 
-import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemFactory;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -79,6 +78,12 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
+      CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(null);
+      if (checkpointManager != null) {
+        checkpointManager.createResources();
+      }
+
+      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {
@@ -87,6 +92,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     }
     if (jobModel != null && jobModel.getContainers().containsKey(processorId)) {
       if (coordinatorListener != null) {
+        coordinatorListener.onJobModelExpired();
         coordinatorListener.onNewJobModel(processorId, jobModel);
       }
     } else {
@@ -110,20 +116,10 @@ public class PassthroughJobCoordinator implements JobCoordinator {
 
   @Override
   public JobModel getJobModel() {
-    JavaSystemConfig systemConfig = new JavaSystemConfig(this.config);
-    Map<String, SystemAdmin> systemAdmins = new HashMap<>();
-    for (String systemName: systemConfig.getSystemNames()) {
-      String systemFactoryClassName = systemConfig.getSystemFactory(systemName);
-      if (systemFactoryClassName == null) {
-        LOGGER.error(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-        throw new SamzaException(String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-      }
-      SystemFactory systemFactory = Util.<SystemFactory>getObj(systemFactoryClassName);
-      systemAdmins.put(systemName, systemFactory.getAdmin(systemName, this.config));
-    }
-
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(
-        Util.<String, SystemAdmin>javaMapAsScalaMap(systemAdmins), 5000, SystemClock.instance());
+    SystemAdmins systemAdmins = new SystemAdmins(config);
+    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
+    systemAdmins.start();
+    String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
 
     /** TODO:
      Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
@@ -131,7 +127,10 @@ public class PassthroughJobCoordinator implements JobCoordinator {
      TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
      (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
      */
-    return JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache, null);
+    JobModel jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
+        Collections.singletonList(containerId));
+    systemAdmins.stop();
+    return jobModel;
   }
 
   @Override
@@ -146,7 +145,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       return appConfig.getProcessorId();
     } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
       ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
       return idGenerator.generateProcessorId(config);
     } else {
       throw new ConfigException(String

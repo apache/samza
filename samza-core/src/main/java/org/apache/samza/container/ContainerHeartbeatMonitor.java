@@ -24,6 +24,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +57,7 @@ public class ContainerHeartbeatMonitor {
           scheduler.schedule(() -> {
               // On timeout of container shutting down, force exit.
               LOG.error("Graceful shutdown timeout expired. Force exiting.");
+              Util.logThreadDump("Thread dump at heartbeat monitor shutdown timeout.");
               System.exit(1);
             }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
           onContainerExpired.run();

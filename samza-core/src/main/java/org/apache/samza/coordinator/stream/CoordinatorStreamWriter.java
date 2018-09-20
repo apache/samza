@@ -47,7 +47,7 @@ public class CoordinatorStreamWriter {
 
 
   public CoordinatorStreamWriter(Config config) {
-    coordinatorStreamSystemProducer = new CoordinatorStreamSystemFactory().getCoordinatorStreamSystemProducer(config, new MetricsRegistryMap());
+    coordinatorStreamSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap());
   }
 
   /**

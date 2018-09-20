@@ -31,9 +31,12 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,53 +45,54 @@ import org.slf4j.LoggerFactory;
  * Translator to translate the Project node in the relational graph to the corresponding StreamGraph
  * implementation.
  */
-public class ProjectTranslator {
+class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
 
-  public void translate(final Project project, final TranslatorContext context) {
-    MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
-    List<Integer> flattenProjects =
-        project.getProjects().stream().filter(this::isFlatten).map(this::getProjectIndex).collect(Collectors.toList());
+  private static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
+    private transient Project project;
+    private transient Expression expr;
+    private transient TranslatorContext context;
 
-    if (flattenProjects.size() > 0) {
-      if (flattenProjects.size() > 1) {
-        String msg = "Multiple flatten operators in a single query is not supported";
-        LOG.error(msg);
-        throw new SamzaException(msg);
-      }
+    private final int projectId;
 
-      messageStream = translateFlatten(flattenProjects.get(0), messageStream);
+    ProjectMapFunction(int projectId) {
+      this.projectId = projectId;
     }
 
-    Expression expr = context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
+    @Override
+    public void init(Config config, TaskContext taskContext) {
+      this.context = (TranslatorContext) taskContext.getUserContext();
+      this.project = (Project) this.context.getRelNode(projectId);
+      this.expr = this.context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
+    }
 
-    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(m -> {
+    @Override
+    public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(context.getExecutionContext(), context.getDataContext(), m.getRelFieldValues().toArray(), output);
+      expr.execute(context.getExecutionContext(), context.getDataContext(),
+          message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
 
-      return SamzaSqlRelMessage.createRelMessage(Arrays.asList(output), names);
-    });
-
-    context.registerMessageStream(project.getId(), outputStream);
+      return new SamzaSqlRelMessage(names, Arrays.asList(output));
+    }
   }
 
   private MessageStream<SamzaSqlRelMessage> translateFlatten(Integer flattenIndex,
       MessageStream<SamzaSqlRelMessage> inputStream) {
     return inputStream.flatMap(message -> {
-      Object field = message.getRelFieldValues().get(flattenIndex);
+      Object field = message.getSamzaSqlRelRecord().getFieldValues().get(flattenIndex);
 
       if (field != null && field instanceof List) {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
         for (Object fieldValue : (List) field) {
-          List<Object> newValues = new ArrayList<>(message.getFieldValues());
+          List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getKey(), message.getFieldNames(), newValues));
+          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues));
         }
         return outMessages;
       } else {
@@ -105,4 +109,27 @@ public class ProjectTranslator {
   private Integer getProjectIndex(RexNode rexNode) {
     return ((RexInputRef) ((RexCall) rexNode).getOperands().get(0)).getIndex();
   }
+
+  void translate(final Project project, final TranslatorContext context) {
+    MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
+    List<Integer> flattenProjects =
+        project.getProjects().stream().filter(this::isFlatten).map(this::getProjectIndex).collect(Collectors.toList());
+
+    if (flattenProjects.size() > 0) {
+      if (flattenProjects.size() > 1) {
+        String msg = "Multiple flatten operators in a single query is not supported";
+        LOG.error(msg);
+        throw new SamzaException(msg);
+      }
+      messageStream = translateFlatten(flattenProjects.get(0), messageStream);
+    }
+
+    final int projectId = project.getId();
+
+    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId));
+
+    context.registerMessageStream(project.getId(), outputStream);
+    context.registerRelNode(project.getId(), project);
+  }
+
 }

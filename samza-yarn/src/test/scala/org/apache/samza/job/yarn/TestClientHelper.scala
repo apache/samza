@@ -20,19 +20,16 @@ package org.apache.samza.job.yarn
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.hadoop.fs.{FileStatus, Path, FileSystem}
-import org.apache.hadoop.yarn.api.records.ApplicationId
-import org.apache.hadoop.yarn.api.records.ApplicationReport
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
-import org.apache.hadoop.yarn.api.records.YarnApplicationState
+import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
+import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{MapConfig, JobConfig, YarnConfig}
+import org.apache.samza.config.{JobConfig, MapConfig, YarnConfig}
 import org.apache.samza.job.ApplicationStatus
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.mockito.Mockito._
+import org.apache.samza.webapp.ApplicationMasterRestClient
+import org.junit.Assert.{assertEquals, assertNotNull}
 import org.mockito.Matchers.any
+import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.scalatest.mockito.MockitoSugar
 
@@ -40,10 +37,14 @@ import org.scalatest.mockito.MockitoSugar
 class TestClientHelper extends FunSuite {
   import MockitoSugar._
   val hadoopConfig = mock[Configuration]
+  val mockAmClient = mock[ApplicationMasterRestClient]
 
   val clientHelper = new ClientHelper(hadoopConfig) {
     override def createYarnClient() = {
       mock[YarnClient]
+    }
+    override def createAmClient(applicationReport: ApplicationReport) = {
+      mockAmClient
     }
   }
 
@@ -120,5 +121,22 @@ class TestClientHelper extends FunSuite {
     when(appReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
     appStatus = clientHelper.toAppStatus(appReport).get
     assertEquals(appStatus, ApplicationStatus.SuccessfulFinish)
+
+    val appMasterMetrics =  new java.util.HashMap[String, Object]()
+    val metrics = new java.util.HashMap[String, java.util.Map[String, Object]]()
+    metrics.put(classOf[SamzaAppMasterMetrics].getCanonicalName(), appMasterMetrics)
+    appMasterMetrics.put("needed-containers", "1")
+    when(mockAmClient.getMetrics).thenReturn(metrics)
+
+    when(appReport.getYarnApplicationState).thenReturn(YarnApplicationState.RUNNING)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.New) // Should not be RUNNING if there are still needed containers
+
+    appMasterMetrics.put("needed-containers", "0")
+    when(mockAmClient.getMetrics).thenReturn(metrics)
+
+    when(appReport.getYarnApplicationState).thenReturn(YarnApplicationState.RUNNING)
+    appStatus = clientHelper.toAppStatus(appReport).get
+    assertEquals(appStatus, ApplicationStatus.Running) // Should not be RUNNING if there are still needed containers
   }
 }

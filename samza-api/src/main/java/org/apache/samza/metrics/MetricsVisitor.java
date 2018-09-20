@@ -31,8 +31,13 @@ public abstract class MetricsVisitor {
 
   public abstract void timer(Timer timer);
 
+  public abstract <T> void listGauge(ListGauge<T> listGauge);
+
   public void visit(Metric metric) {
-    if (metric instanceof Counter) {
+    // Cast for metrics of type ListGauge
+    if (metric instanceof ListGauge<?>) {
+      listGauge((ListGauge<?>) metric);
+    } else if (metric instanceof Counter) {
       counter((Counter) metric);
     } else if (metric instanceof Gauge<?>) {
       gauge((Gauge<?>) metric);

@@ -21,10 +21,8 @@ package org.apache.samza.config
 
 
 import java.util.concurrent.TimeUnit
-import org.apache.samza.SamzaException
 import scala.collection.JavaConverters._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{Logging, StreamUtil}
 
 object StorageConfig {
   // stream config constants
@@ -33,6 +31,7 @@ object StorageConfig {
   val MSG_SERDE = "stores.%s.msg.serde"
   val CHANGELOG_STREAM = "stores.%s.changelog"
   val CHANGELOG_SYSTEM = "job.changelog.system"
+  val CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor"
   val CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms"
   val DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1)
   val ACCESSLOG_STREAM_SUFFIX = "access-log"
@@ -51,7 +50,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStorageMsgSerde(name: String) = getOption(StorageConfig.MSG_SERDE format name)
 
   def getAccessLogEnabled(storeName: String) = {
-    getBoolean(ACCESSLOG_ENABLED format storeName, false)
+    new JavaStorageConfig(config).getAccessLogEnabled(storeName)
   }
 
   def getChangelogStream(name: String) = {
@@ -61,11 +60,11 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
 
   //Returns the accesslog stream name given a changelog stream name
   def getAccessLogStream(changeLogStream: String) = {
-    changeLogStream + "-" + ACCESSLOG_STREAM_SUFFIX
+    new JavaStorageConfig(config).getAccessLogStream(changeLogStream)
   }
 
   def getAccessLogSamplingRatio(storeName: String) = {
-    getInt(ACCESSLOG_SAMPLING_RATIO format storeName, DEFAULT_ACCESSLOG_SAMPLING_RATIO)
+    new JavaStorageConfig(config).getAccessLogSamplingRatio(storeName)
   }
 
   def getChangeLogDeleteRetentionInMs(storeName: String) = {
@@ -75,6 +74,18 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
   def getStoreNames: Seq[String] = {
     val conf = config.subset("stores.", true)
     conf.asScala.keys.filter(k => k.endsWith(".factory")).map(k => k.substring(0, k.length - ".factory".length)).toSeq
+  }
+
+  def getSideInputs(storeName: String): Seq[String] = {
+    new JavaStorageConfig(config).getSideInputs(storeName).asScala
+  }
+
+  def getSideInputsProcessorFactory(storeName: String): Option[String] = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorFactory(storeName))
+  }
+
+  def getSideInputsProcessorSerializedInstance(storeName: String): Option[String] = {
+    Option(new JavaStorageConfig(config).getSideInputsProcessorSerializedInstance(storeName))
   }
 
   /**
@@ -95,7 +106,7 @@ class StorageConfig(config: Config) extends ScalaMapConfig(config) with Logging 
       .map(getChangelogStream(_))
       .filter(_.isDefined)
       // Convert "system.stream" to systemName
-      .map(systemStreamName => Util.getSystemStreamFromNames(systemStreamName.get).getSystem)
+      .map(systemStreamName => StreamUtil.getSystemStreamFromNames(systemStreamName.get).getSystem)
       .contains(systemName)
   }
 

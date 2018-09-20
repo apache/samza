@@ -19,128 +19,116 @@
 
 package org.apache.samza.container;
 
-import org.apache.samza.container.grouper.task.TaskAssignmentManager;
-import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
-import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
-import org.apache.samza.coordinator.stream.AbstractCoordinatorStreamManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.container.grouper.task.TaskAssignmentManager;
+import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Locality Manager is used to persist and read the container-to-host
- * assignment information from the coordinator stream
+ * assignment information from the coordinator stream.
  * */
-public class LocalityManager extends AbstractCoordinatorStreamManager {
-  private static final Logger log = LoggerFactory.getLogger(LocalityManager.class);
-  private Map<String, Map<String, String>> containerToHostMapping = new HashMap<>();
+public class LocalityManager {
+  private static final Logger LOG = LoggerFactory.getLogger(LocalityManager.class);
+
+  private final Config config;
+  private final Serde<String> keySerde;
+  private final Serde<String> valueSerde;
+  private final MetadataStore metadataStore;
   private final TaskAssignmentManager taskAssignmentManager;
-  private final boolean writeOnly;
 
   /**
-   * Default constructor that creates a read-write manager
+   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
+   * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
+   * serialize messages before reading/writing into coordinator stream.
    *
-   * @param coordinatorStreamProducer producer to the coordinator stream
-   * @param coordinatorStreamConsumer consumer for the coordinator stream
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
    */
-  public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamProducer,
-                         CoordinatorStreamSystemConsumer coordinatorStreamConsumer) {
-    super(coordinatorStreamProducer, coordinatorStreamConsumer, "SamzaContainer-");
-    this.writeOnly = coordinatorStreamConsumer == null;
-    this.taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamProducer, coordinatorStreamConsumer);
-  }
-
-
-  /**
-   * Special constructor that creates a write-only {@link LocalityManager} that only writes
-   * to coordinator stream in {@link SamzaContainer}
-   *
-   * @param coordinatorStreamSystemProducer producer to the coordinator stream
-   */
-  public LocalityManager(CoordinatorStreamSystemProducer coordinatorStreamSystemProducer) {
-    this(coordinatorStreamSystemProducer, null);
+  public LocalityManager(Config config, MetricsRegistry metricsRegistry) {
+    this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetContainerHostMapping.TYPE),
+         new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE));
   }
 
   /**
-   * This method is not supported in {@link LocalityManager}. Use {@link LocalityManager#register(String)} instead.
+   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
+   * Uses keySerde, valueSerde to serialize/deserialize (key, value) pairs before reading/writing
+   * into {@link MetadataStore}.
    *
-   * @throws UnsupportedOperationException in the case if a {@link TaskName} is passed
+   * Key and value serializer are different for yarn (uses CoordinatorStreamMessage) and standalone (native ObjectOutputStream for serialization) modes.
+   * @param config the configuration required for setting up metadata store.
+   * @param metricsRegistry the registry for reporting metrics.
+   * @param keySerde the key serializer.
+   * @param valueSerde the value serializer.
    */
-  @Override
-  public void register(TaskName taskName) {
-    throw new UnsupportedOperationException("TaskName cannot be registered with LocalityManager");
+  LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
+    this.config = config;
+    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
+    this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
+    this.metadataStore.init();
+    this.keySerde = keySerde;
+    this.valueSerde = valueSerde;
+    this.taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry, keySerde, valueSerde);
   }
 
   /**
-   * Registers the locality manager with a source suffix that is container id
+   * Method to allow read container locality information from the {@link MetadataStore}.
+   * This method is used in {@link org.apache.samza.coordinator.JobModelManager}.
    *
-   * @param sourceSuffix the source suffix which is a container id
-   */
-  public void register(String sourceSuffix) {
-    if (!this.writeOnly) {
-      registerCoordinatorStreamConsumer();
-    }
-    registerCoordinatorStreamProducer(getSource() + sourceSuffix);
-  }
-
-  /**
-   * Method to allow read container locality information from coordinator stream. This method is used
-   * in {@link org.apache.samza.coordinator.JobModelManager}.
-   *
-   * @return the map of containerId: (hostname, jmxAddress, jmxTunnelAddress)
+   * @return the map of containerId: (hostname)
    */
   public Map<String, Map<String, String>> readContainerLocality() {
-    if (this.writeOnly) {
-      throw new UnsupportedOperationException("Read container locality function is not supported in write-only LocalityManager");
-    }
-
     Map<String, Map<String, String>> allMappings = new HashMap<>();
-    for (CoordinatorStreamMessage message: getBootstrappedStream(SetContainerHostMapping.TYPE)) {
-      SetContainerHostMapping mapping = new SetContainerHostMapping(message);
-      Map<String, String> localityMappings = new HashMap<>();
-      localityMappings.put(SetContainerHostMapping.HOST_KEY, mapping.getHostLocality());
-      localityMappings.put(SetContainerHostMapping.JMX_URL_KEY, mapping.getJmxUrl());
-      localityMappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, mapping.getJmxTunnelingUrl());
-      allMappings.put(mapping.getKey(), localityMappings);
-    }
-    containerToHostMapping = Collections.unmodifiableMap(allMappings);
-
-    if (log.isDebugEnabled()) {
-      for (Map.Entry<String, Map<String, String>> entry : containerToHostMapping.entrySet()) {
-        log.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+    metadataStore.all().forEach((keyBytes, valueBytes) -> {
+        if (valueBytes != null) {
+          String locationId = valueSerde.fromBytes(valueBytes);
+          allMappings.put(keySerde.fromBytes(keyBytes), ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId));
+        }
+      });
+    if (LOG.isDebugEnabled()) {
+      for (Map.Entry<String, Map<String, String>> entry : allMappings.entrySet()) {
+        LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
       }
     }
 
-    return allMappings;
+    return Collections.unmodifiableMap(allMappings);
   }
 
   /**
-   * Method to write locality info to coordinator stream. This method is used in {@link SamzaContainer}.
+   * Method to write locality information to the {@link MetadataStore}. This method is used in {@link SamzaContainer}.
    *
    * @param containerId  the {@link SamzaContainer} ID
    * @param hostName  the hostname
-   * @param jmxAddress  the JMX URL address
-   * @param jmxTunnelingAddress  the JMX Tunnel URL address
    */
-  public void writeContainerToHostMapping(String containerId, String hostName, String jmxAddress, String jmxTunnelingAddress) {
+  public void writeContainerToHostMapping(String containerId, String hostName) {
+    Map<String, Map<String, String>> containerToHostMapping = readContainerLocality();
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
     if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
-      log.info("Container {} moved from {} to {}", new Object[]{containerId, existingHostMapping, hostName});
+      LOG.info("Container {} moved from {} to {}", new Object[]{containerId, existingHostMapping, hostName});
     } else {
-      log.info("Container {} started at {}", containerId, hostName);
+      LOG.info("Container {} started at {}", containerId, hostName);
     }
-    send(new SetContainerHostMapping(getSource() + containerId, String.valueOf(containerId), hostName, jmxAddress,
-        jmxTunnelingAddress));
-    Map<String, String> mappings = new HashMap<>();
-    mappings.put(SetContainerHostMapping.HOST_KEY, hostName);
-    mappings.put(SetContainerHostMapping.JMX_URL_KEY, jmxAddress);
-    mappings.put(SetContainerHostMapping.JMX_TUNNELING_URL_KEY, jmxTunnelingAddress);
-    containerToHostMapping.put(containerId, mappings);
+
+    metadataStore.put(keySerde.toBytes(containerId), valueSerde.toBytes(hostName));
+  }
+
+  public void close() {
+    metadataStore.close();
+    taskAssignmentManager.close();
   }
 
   public TaskAssignmentManager getTaskAssignmentManager() {

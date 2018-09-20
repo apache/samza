@@ -38,7 +38,7 @@ public class TestHdfsFileSystemAdapter {
     FileSystemAdapter adapter = new HdfsFileSystemAdapter();
     List<FileSystemAdapter.FileMetadata> result =
       adapter.getAllFiles(url.getPath());
-    Assert.assertEquals(2, result.size());
+    Assert.assertEquals(3, result.size());
   }
 
   @Test

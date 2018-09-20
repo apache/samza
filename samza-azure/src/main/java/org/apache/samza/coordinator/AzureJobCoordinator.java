@@ -19,6 +19,42 @@
 
 package org.apache.samza.coordinator;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.AzureClient;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.AzureConfig;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
+import org.apache.samza.coordinator.data.BarrierState;
+import org.apache.samza.coordinator.data.ProcessorEntity;
+import org.apache.samza.coordinator.scheduler.HeartbeatScheduler;
+import org.apache.samza.coordinator.scheduler.JMVersionUpgradeScheduler;
+import org.apache.samza.coordinator.scheduler.LeaderBarrierCompleteScheduler;
+import org.apache.samza.coordinator.scheduler.LeaderLivenessCheckScheduler;
+import org.apache.samza.coordinator.scheduler.LivenessCheckScheduler;
+import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
+import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.BlobUtils;
+import org.apache.samza.util.LeaseBlobManager;
+import org.apache.samza.util.SystemClock;
+import org.apache.samza.util.TableUtils;
+import org.apache.samza.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import scala.collection.JavaConverters;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,39 +66,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.AzureClient;
-import org.apache.samza.config.AzureConfig;
-import org.apache.samza.coordinator.data.BarrierState;
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfig;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.runtime.ProcessorIdGenerator;
-import org.apache.samza.coordinator.scheduler.HeartbeatScheduler;
-import org.apache.samza.coordinator.scheduler.JMVersionUpgradeScheduler;
-import org.apache.samza.coordinator.scheduler.LeaderBarrierCompleteScheduler;
-import org.apache.samza.coordinator.scheduler.LeaderLivenessCheckScheduler;
-import org.apache.samza.coordinator.scheduler.LivenessCheckScheduler;
-import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
-import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
-import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.BlobUtils;
-import org.apache.samza.util.ClassLoaderHelper;
-import org.apache.samza.util.LeaseBlobManager;
-import org.apache.samza.util.TableUtils;
-import org.apache.samza.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 
 /**
@@ -80,7 +83,6 @@ public class AzureJobCoordinator implements JobCoordinator {
   private final TableUtils table;
   private final Config config;
   private final String processorId;
-  private final AzureClient client;
   private final AtomicReference<String> currentJMVersion;
   private final AtomicBoolean versionUpgradeDetected;
   private final HeartbeatScheduler heartbeat;
@@ -90,6 +92,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private RenewLeaseScheduler renewLease;
   private LeaderBarrierCompleteScheduler leaderBarrierScheduler;
   private StreamMetadataCache streamMetadataCache = null;
+  private SystemAdmins systemAdmins = null;
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel jobModel = null;
 
@@ -103,7 +106,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     processorId = createProcessorId(config);
     currentJMVersion = new AtomicReference<>(INITIAL_STATE);
     AzureConfig azureConfig = new AzureConfig(config);
-    client = new AzureClient(azureConfig.getAzureConnectionString());
+    AzureClient client = new AzureClient(azureConfig.getAzureConnectionString());
     leaderBlob = new BlobUtils(client, azureConfig.getAzureContainerName(), azureConfig.getAzureBlobName(), azureConfig.getAzureBlobLength());
     errorHandler = (errorMsg) -> {
       LOG.error(errorMsg);
@@ -123,9 +126,12 @@ public class AzureJobCoordinator implements JobCoordinator {
 
   @Override
   public void start() {
-
     LOG.info("Starting Azure job coordinator.");
-    streamMetadataCache = StreamMetadataCache.apply(METADATA_CACHE_TTL_MS, config);
+
+    // The systemAdmins should be started before streamMetadataCache can be used. And it should be stopped when this coordinator is stopped.
+    systemAdmins = new SystemAdmins(config);
+    systemAdmins.start();
+    streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     table.addProcessorEntity(INITIAL_STATE, processorId, false);
 
     // Start scheduler for heartbeating
@@ -149,21 +155,22 @@ public class AzureJobCoordinator implements JobCoordinator {
   public void stop() {
     LOG.info("Shutting down Azure job coordinator.");
 
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-    }
-
-    // Resign leadership
-    if (azureLeaderElector.amILeader()) {
-      azureLeaderElector.resignLeadership();
-    }
+    // Clean up resources & Resign leadership (if you are leader)
+    azureLeaderElector.resignLeadership();
+    table.deleteProcessorEntity(currentJMVersion.get(), processorId, true);
 
     // Shutdown all schedulers
     shutdownSchedulers();
 
     if (coordinatorListener != null) {
+      coordinatorListener.onJobModelExpired();
+    }
+
+    if (coordinatorListener != null) {
       coordinatorListener.onCoordinatorStop();
     }
+
+    systemAdmins.stop();
   }
 
   @Override
@@ -217,7 +224,6 @@ public class AzureJobCoordinator implements JobCoordinator {
       if (!leaderBlob.publishBarrierState(state, azureLeaderElector.getLeaseId().get())) {
         LOG.info("Leader failed to publish the job model {}. Stopping the processor with PID: .", jobModel, processorId);
         stop();
-        table.deleteProcessorEntity(currentJMVersion.get(), processorId);
       }
       leaderBarrierScheduler.shutdown();
     };
@@ -294,7 +300,8 @@ public class AzureJobCoordinator implements JobCoordinator {
   private SystemStreamPartitionGrouper getSystemStreamPartitionGrouper() {
     JobConfig jobConfig = new JobConfig(config);
     String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
-    SystemStreamPartitionGrouper grouper = Util.<SystemStreamPartitionGrouperFactory>getObj(factoryString).getSystemStreamPartitionGrouper(jobConfig);
+    SystemStreamPartitionGrouper grouper = Util.getObj(factoryString, SystemStreamPartitionGrouperFactory.class)
+        .getSystemStreamPartitionGrouper(jobConfig);
     return grouper;
   }
 
@@ -374,7 +381,6 @@ public class AzureJobCoordinator implements JobCoordinator {
     if (!jmWrite || !barrierWrite || !processorWrite) {
       LOG.info("Leader failed to publish the job model {}. Stopping the processor with PID: .", jobModel, processorId);
       stop();
-      table.deleteProcessorEntity(currentJMVersion.get(), processorId);
     }
 
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
@@ -400,7 +406,6 @@ public class AzureJobCoordinator implements JobCoordinator {
     if (!jobModel.getContainers().containsKey(processorId)) {
       LOG.info("JobModel: {} does not contain the processorId: {}. Stopping the processor.", jobModel, processorId);
       stop();
-      table.deleteProcessorEntity(currentJMVersion.get(), processorId);
     } else {
       //Stop current work
       if (coordinatorListener != null) {
@@ -443,17 +448,23 @@ public class AzureJobCoordinator implements JobCoordinator {
   private void onNewJobModelConfirmed(final String nextJMVersion) {
     LOG.info("pid=" + processorId + "new version " + nextJMVersion + " of the job model got confirmed");
 
-    // Delete previous value
-    if (table.getEntity(currentJMVersion.get(), processorId) != null) {
-      table.deleteProcessorEntity(currentJMVersion.get(), processorId);
-    }
-    if (table.getEntity(INITIAL_STATE, processorId) != null) {
-      table.deleteProcessorEntity(INITIAL_STATE, processorId);
-    }
+    String prevVersion = currentJMVersion.get();
 
-    //Start heartbeating to new entry only when barrier reached.
+    //Start heart-beating to new entry only when barrier reached.
     //Changing the current job model version enables that since we are heartbeating to a row identified by the current job model version.
     currentJMVersion.getAndSet(nextJMVersion);
+
+    // Delete previous value
+    ProcessorEntity entity = table.getEntity(prevVersion, processorId);
+    if (entity != null) {
+      entity.setEtag("*");
+      table.deleteProcessorEntity(entity);
+    }
+    entity = table.getEntity(INITIAL_STATE, processorId);
+    if (entity != null) {
+      entity.setEtag("*");
+      table.deleteProcessorEntity(entity);
+    }
 
     //Start the container with the new model
     if (coordinatorListener != null) {
@@ -468,7 +479,7 @@ public class AzureJobCoordinator implements JobCoordinator {
       return appConfig.getProcessorId();
     } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
       ProcessorIdGenerator idGenerator =
-          ClassLoaderHelper.fromClassName(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
       return idGenerator.generateProcessorId(config);
     } else {
       throw new ConfigException(String
