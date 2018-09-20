@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.Partition;
@@ -195,10 +196,14 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     Supplier<ZkUtils> zkConnectSupplier = () -> {
       return ZkUtils.apply(zkConnectStr, 6000, 6000, zkSecure);
     };
+    // extract kafka client configs
+    KafkaConsumerConfig consumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix, Collections.emptyMap());
+
 
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
-        () -> KafkaSystemConsumer.getKafkaConsumerImpl(systemName, idPrefix, config);
+        () -> KafkaSystemConsumer.getKafkaConsumerImpl(systemName, consumerConfig);
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     Properties coordinatorStreamProperties = KafkaSystemAdminUtilsScala.getCoordinatorTopicProperties(kafkaConfig);

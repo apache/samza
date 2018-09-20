@@ -20,6 +20,7 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,9 +117,13 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
         org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
 
     final Config config = new MapConfig(map);
+    // extract kafka client configs
+    KafkaConsumerConfig consumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM(), "clientPrefix", Collections.emptyMap());
+    
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
-        () -> KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM(), "clientId", config);
+        () -> KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM(), consumerConfig);
 
     Map<String, Properties> intermediateStreamProperties = new HashMap();
     boolean deleteCommittedMessages = false;

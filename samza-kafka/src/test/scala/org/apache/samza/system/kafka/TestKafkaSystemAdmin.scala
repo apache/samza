@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka
 
+import java.util.Collections
 import java.util.function.Supplier
 
 import kafka.admin.{AdminClient, AdminUtils}
@@ -28,6 +29,7 @@ import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
@@ -169,11 +171,16 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     }
 
     val config: Config = new MapConfig(map)
+
+    // extract kafka client configs
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
+      config, SYSTEM, "clientPrefix", Collections.emptyMap())
+
     // KafkaConsumer for metadata access
     val metadataConsumerSupplier: Supplier[org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]]] =
       new Supplier[org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]]]() {
         override def get(): org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]] = {
-          KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM, "clientId", config)
+          KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM, consumerConfig)
         }
       }
 
