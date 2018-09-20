@@ -1,6 +1,10 @@
 ---
-layout: test
+layout: case-study
+hide_title: true # so we have control in case-study layout, but can still use page
 title: Real Time Session Aggregation at Optimizely
+study_domain: optimizely.com
+menu_title: Optimizely
+excerpt_separator: <!--more-->
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -18,6 +22,10 @@ title: Real Time Session Aggregation at Optimizely
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
+
+Testing the excerpt
+
+<!--more-->
 
 Optimizely is a world’s leading experimentation platform, enabling businesses to deliver continuous experimentation and personalization across websites, mobile apps and connected devices. At Optimizely, billions of events are tracked on a daily basis. Session metrics are among the key metrics provided to their end user in real time. Prior to introducing Samza for realtime computation, the engineering team at Optimizely used HBase to store and serve experimentation data, and Druid for personalization data including session metrics. As business requirements evolved, the Druid-based solution became more and more challenging.
 
@@ -48,4 +56,3 @@ More information
     
 -   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820)
     
--   [https://docs.google.com/document/d/1xqiLIIBYfY_o9ByQ4xlhUY6yo3kQlMbZAc3ut95EyZU/edit](https://docs.google.com/document/d/1xqiLIIBYfY_o9ByQ4xlhUY6yo3kQlMbZAc3ut95EyZU/edit)

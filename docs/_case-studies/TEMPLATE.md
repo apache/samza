@@ -1,6 +1,11 @@
 ---
-layout: page
-title: Testing something 
+exclude_from_loop: true # useful for drafts
+layout: case-study # the layout to use
+hide_title: true # so we have control in case-study layout, but can still use page
+title: Totally awesome use-case of samza by Company # title of case study page
+study_domain: company.com # just the domain, not the protocol
+menu_title: Company # what shows up in the menu
+excerpt_separator: <!--more-->
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,7 +24,9 @@ title: Testing something
    limitations under the License.
 -->
 
-<div class="something">Other stuff here...</div>
+Testing the excerpt
+
+<!--more-->
 
 
-{{ content }}
+Markdown content goes here

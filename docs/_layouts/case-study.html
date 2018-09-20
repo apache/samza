@@ -48,8 +48,15 @@
   <link rel="stylesheet" href="/css/main.new.css" />
 </head>
 
-<body class="page">
+<body class="page page--case-study">
   {% include main-navigation.html %}
+
+  <div class="section section--bottom-flare section--hero">
+      <div class="case-study-hero">
+          <img src="https://logo.clearbit.com/{{ page.study_domain }}?size=256"/>
+          <h2>{{ page.title }}</h2>
+      </div>
+  </div>
 
   <div class="container">
       <div class="container__toggle">
@@ -91,8 +98,42 @@
           <hr class="releases-list-divider">
 
           {% endif %}
-    
-          {{ content }}
+          
+          <h3>
+            <a href="https://{{ page.study_domain }}" rel="nofollow" target="_blank">
+              {{ page.study_domain }}
+            </a>
+          </h3>
+          
+          {{ page.content | remove: page.excerpt }}
+          
+          <hr/>
+          
+          <h3>
+            More Case Studies...
+          </h3>
+
+          <div class="case-studies">
+          
+              <div class="case-studies-list">
+          
+              {% for study in site.case-studies %}
+          
+                  {% if study.exclude_from_loop or study.url == page.url %}
+                      {% continue %}
+                  {% endif %}
+          
+                  <div class="case-studies-list__item">
+                      <a class="case-studies-list__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+                        <div class="case-studies-list__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=512');"></div>
+                      </a>
+                  </div>
+          
+              {% endfor %}
+          
+              </div>
+          
+          </div>
            
         </div>
       </div>

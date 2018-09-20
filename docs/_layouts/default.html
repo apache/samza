@@ -48,29 +48,7 @@
 </head>
 
 <body class="home">
-  <div class="main-navigation" data-plugin="menu">
-    <div class="main-navigation__toggle" data-menu-closed>
-      <i class="icon ion-md-menu"></i>
-    </div>
-    <div class="main-navigation__toggle main-navigation__toggle--opened" data-menu-opened>
-      <i class="icon ion-md-close"></i>
-    </div>
-    <div class="main-navigation__inner">
-      <div class="main-navigation__logo">
-        <a href="/">
-          <img class="main-navigation__logo-img" src="/img/samza-logo.png" srcset="/img/samza-logo.png 1x, /img/samza-logo@2x.png 2x"
-            alt="Samza Logo" />
-        </a>
-      </div>
-      <div class="main-navigation__items" data-menu-opened>
-        <a class="main-navigation__item" href="/case-studies/">Case Studies</a>
-        <a class="main-navigation__item" href="/startup/hello-samza/{{site.version}}">Get Started</a>
-        <a class="main-navigation__item" href="/learn/documentation/{{site.version}}/introduction/background.html">Docs</a>
-        <a class="main-navigation__item" href="/startup/download/">Download</a>
-      </div>
-
-    </div>
-  </div>
+  {% include main-navigation.html %}
 
   <div class="section section--bottom-flare section--hero" id="hero">
     <canvas id="canvas"></canvas>
@@ -193,132 +171,28 @@
 
     <div class="section__items">
 
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="linkedin">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/linkedin.com?size=256');"></div>
-        </a>
-      </div>
+      {% for study in site.case-studies %}
+
+      {% if study.exclude_from_loop %}
+        {% continue %}
+      {% endif %}
 
       <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="netflix">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/netflix.com?size=256');"></div>
+        <a class="section__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
         </a>
       </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="slack">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/slack.com?size=256');"></div>
-        </a>
-      </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="uber">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/uber.com?size=256');"></div>
-        </a>
-      </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="optimizely">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/optimizely.com?size=256');"></div>
-        </a>
-      </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="vmware">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/vmware.com?size=256');"></div>
-        </a>
-      </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="ntent">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/ntent.com?size=256');"></div>
-        </a>
-      </div>
-
-      <div class="section__item">
-        <a class="section__item-logo" href="/case-studies/#" title="redfin">
-          <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/redfin.com?size=256');"></div>
-        </a>
-      </div>
+      
+      {% endfor %}
 
     </div>
+
   </div>
 
   <!-- footer starts here -->
 
-  <footer>
-    <div class="footer-inner">
-      <div class="side-by-side">
-        <div>
-          <div class="footer__heading">Learn More</div>
-          <div class="footer__items">
-            <a class="footer__item" href="#">Talks & Meetups</a>
-            <a class="footer__item" href="#">News</a>
-            <a class="footer__item" href="/learn/documentation/{{site.version}}/introduction/background.html">About</a>
-          </div>
-        </div>
-        <div>
-          <div class="footer__heading">Community</div>
-          <div class="footer__items">
-            <a class="footer__item" href="/community/mailing-lists.html">Contact Us</a>
-            <a class="footer__item" href="/contribute/contributors-corner.html">Contributors' Corner</a>
-            <a class="footer__item" href="/community/committers.html">PMC members and committers</a>
-            <a class="footer__item" href="/powered-by/">Powered By</a>
-          </div>
-        </div>
-
-        <div>
-          <div class="quick-links">
-            <a class="quick-link" href="/startup/download" target="_blank">
-              <i class="icon ion-md-download"></i>
-            </a>
-            <a class="quick-link" href="https://git-wip-us.apache.org/repos/asf?p=samza.git;a=tree" target="_blank">
-              <i class="icon ion-md-code"></i>
-            </a>
-            <a class="quick-link" href="https://twitter.com/samzastream" target="_blank">
-              <i class="icon ion-logo-twitter"></i>
-            </a>
-          </div>
-
-          <p>
-            <script>document.write(new Date().getFullYear());</script> &copy; samza.apache.org</p>
-        </div>
-
-      </div>
-    </div>
-
-  </footer>
-
-  {% if page.url contains "versioned" %}
-  <script>
-    var tryFile = function (url, cb) {
-      var myRequest = new Request(url);
-      fetch(myRequest).then((response, cb) => {
-        console.log(response.status); // returns 200
-        cb(response.status != 404);
-      });
-    }
-
-    tryFile(window.location.pathname, function (status) {
-      // do something with the status
-      console.log(status);
-    });
-  </script> {% endif %}
-
-  <!-- Google Analytics -->
-  <script>
-    (function (i, s, o, g, r, a, m) {
-      i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
-        (i[r].q = i[r].q || []).push(arguments)
-      }, i[r].l = 1 * new Date(); a = s.createElement(o),
-        m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
-    })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
-
-    ga('create', 'UA-43122768-1', 'apache.org');
-    ga('send', 'pageview');
-
-  </script>
-  <script src="/js/main.new.js"></script>
+  {% include footer.html %}
+  
 </body>
 
 </html>

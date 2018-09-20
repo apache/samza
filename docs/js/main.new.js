@@ -191,6 +191,7 @@ var doMenu = () => {
 // This takes the response of the documentation and builds the menu in right format
 var buildDocMenu = (status, body, docMenu) => {
 	if (status == 404) {
+		doMenu();
 		return;
 	}
 
@@ -325,8 +326,8 @@ var doReleasesList = () => {
 
 	if (releasesList) {
 
-		console.log(releasesList);
-		console.log(curLoc);
+		// console.log(releasesList);
+		// console.log(curLoc);
 
 		var items = releasesList.children;
 
@@ -482,3 +483,144 @@ var doCanvas = function() {
 
 // Do the canvas
 doCanvas();
+
+
+/***************************************
+ * EVENTS
+ **************************************/
+
+var doEvents = () => {
+	const eventSelector = '[data-plugin="event"]';
+	const events = document.querySelectorAll(eventSelector);
+	
+	if (!events) {
+		return;
+	}
+
+	events.forEach( event => {
+
+		var date = event.getAttribute('data-date');
+		var upcomingClass = event.getAttribute('data-upcoming-class');
+
+		var d = new Date(date);
+		var timestamp = d.getTime();
+
+		var c = new Date();
+		var curstamp = c.getTime();
+
+		if (timestamp >= curstamp) {
+			event.classList.add(upcomingClass);
+		}
+	});
+
+};
+
+doEvents();
+
+
+/***************************************
+ * PAGINATE
+ **************************************/
+
+var doPagination = () => {
+	const paginateSelector = '[data-plugin="paginate"]';
+	const paginates = document.querySelectorAll(paginateSelector);
+	
+	if (!paginates) {
+		return;
+	}
+
+	paginates.forEach( paginate => {
+
+		var maxPosts = parseInt(paginate.getAttribute('data-max-posts'));
+
+		var posts = paginate.children;
+		var count = 0;
+		var nextBtn = document.querySelector(paginate.getAttribute('data-next'));
+		var prevBtn = document.querySelector(paginate.getAttribute('data-previous'));
+		var pagination = document.querySelector(paginate.getAttribute('data-pagination'));
+
+		// Initial page load, hide extra posts
+		Array.from(posts).forEach( post => {
+			if (count >= maxPosts) {
+				post.classList.add('hide');
+			}
+
+			count++
+		});
+
+		// Initial page load, determine if next shows
+		if (posts && posts.length && posts.length > maxPosts) {
+			nextBtn.classList.remove('hide');
+		} else {
+			pagination.classList.add('hide');
+		}
+
+		// handle next
+		nextBtn.addEventListener("click", function(e) {
+			
+			// Find index of last showing post
+			var visiblePosts = Array.prototype.filter.call(posts, (post) => {
+				return !Array.from(post.classList).includes('hide');
+			});
+
+			var lastPost = visiblePosts[visiblePosts.length - 1];
+			var index = Array.from(posts).indexOf(lastPost);
+
+			// Hide all + show up to max posts after index
+			Array.from(posts).forEach( (post, i) => {
+				post.classList.add('hide');
+
+				// show next posts and prev button
+				if (i > index && i <= (index + maxPosts)) {
+					post.classList.remove('hide');
+					prevBtn.classList.remove('hide');
+				}
+				
+			});
+
+			// determine if next button does not show up
+			if (posts.length <= index + maxPosts + 1) { // 1 bc indexes start at 0
+				nextBtn.classList.add('hide');
+			}
+
+			paginate.scrollIntoView();
+		});
+
+		// handle previous
+		prevBtn.addEventListener("click", function(e) {
+
+			// Find index of first showing post
+			var visiblePosts = Array.prototype.filter.call(posts, (post) => {
+				return !Array.from(post.classList).includes('hide');
+			});
+
+			var firstPost = visiblePosts[0];
+			var index = Array.from(posts).indexOf(firstPost);
+
+			// Hide all + show up to max posts before index
+			Array.from(posts).forEach( (post, i) => {
+				post.classList.add('hide');
+
+				// show next posts and next button
+				if (i < index && i >= index - maxPosts) {
+					post.classList.remove('hide');
+					nextBtn.classList.remove('hide');
+				}
+				
+			});
+
+			// determine if prev button does not show up
+			if (index - maxPosts == 0) {
+				prevBtn.classList.add('hide');
+			}
+
+			paginate.scrollIntoView();
+			
+		});
+
+
+	});
+};
+
+doPagination();

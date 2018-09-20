@@ -1,5 +1,7 @@
 ---
-layout: default
+exclude_from_loop: true # useful for drafts
+version: '0.7' # make sure it is a string
+order: 7 # this matters for sorting... since .7 needs to be thought of as an earlier version than .14... if you need to do 1.7 do 107, 1.14 as 114.
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -17,7 +19,3 @@ layout: default
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-<h2>{{ page.title }}</h2>
-
-{{ content }}
