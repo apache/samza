@@ -44,13 +44,11 @@ import org.apache.samza.operators.TableDescriptor;
  *   public List<TableDescriptor> getTableDescriptors() {
  *     List<TableDescriptor> tableDescriptors = new ArrayList<>();
  *     final TableReadFunction readRemoteTableFn = new MyStoreReadFunction();
- *     tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1")
- *       .withReadFunction(readRemoteTableFn)
- *       .withSerde(KVSerde.of(new StringSerde(), new StringSerde())));
+ *     tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1", KVSerde.of(new StringSerde(), new StringSerde()))
+ *       .withReadFunction(readRemoteTableFn);
  *
- *     tableDescriptors.add(new RocksDbTableDescriptor("local-table-1")
+ *     tableDescriptors.add(new RocksDbTableDescriptor("local-table-1", KVSerde.of(new LongSerde(), new StringSerde<>()))
  *       .withBlockSize(4096)
- *       .withSerde(KVSerde.of(new LongSerde(), new StringSerde<>())));
  *       .withConfig("some-key", "some-value");
  *     return tableDescriptors;
  *   }
