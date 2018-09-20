@@ -27,9 +27,10 @@ import org.apache.calcite.sql.type.SqlTypeName;
 
 
 /**
- * Extending {@link JavaTypeFactoryImpl} to make Calcite validation work with all output types of Samza SQL UDFs
- * (Eg: Samza SQL UDF returns an object of type {@link Object}. Using the default {@link JavaTypeFactoryImpl}
- * results in validation failure.)
+ * Calcite does validation of projected field types in select statement with the output schema types. If one of the
+ * projected fields is an UDF with return type of {@link Object} or any other java type not defined in
+ * {@link JavaToSqlTypeConversionRules}, using the default {@link JavaTypeFactoryImpl} results in validation failure.
+ * Hence, extending {@link JavaTypeFactoryImpl} to make Calcite validation work with all output types of Samza SQL UDFs.
  */
 public class SamzaSqlJavaTypeFactoryImpl
     extends JavaTypeFactoryImpl {
@@ -57,7 +58,7 @@ public class SamzaSqlJavaTypeFactoryImpl
     }
     if (type instanceof JavaType) {
       SqlTypeName typeName = JavaToSqlTypeConversionRules.instance().lookup(((JavaType) type).getJavaClass());
-      // For unknown sql type names, return
+      // For unknown sql type names, return ANY sql type to make Calcite validation not fail.
       if (typeName == null) {
         typeName = SqlTypeName.ANY;
       }
