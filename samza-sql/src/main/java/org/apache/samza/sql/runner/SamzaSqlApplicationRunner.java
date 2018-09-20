@@ -69,12 +69,16 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
+    // TODO: Introduce an API to return a dsl string containing one or more sql statements
+    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
+
+    // This is needed because the SQL file may not be available in all the node managers.
+    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
+    newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
+
     // TODO: Get the converter factory based on the file type. Create abstraction around this.
     DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
     DslConverter dslConverter = dslConverterFactory.create(config);
-
-    // TODO: Introduce an API to return a dsl string containing one or more sql statements
-    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
@@ -86,10 +90,6 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     }
 
     SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
-
-    // This is needed because the SQL file may not be available in all the node managers.
-    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
-    newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
     // Populate stream to system mapping config for input and output system streams
     for (String source : inputSystemStreams) {
