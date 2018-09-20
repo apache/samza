@@ -552,13 +552,13 @@ public class TestOperatorImplGraph {
     ssps.add(ssp0);
     ssps.add(ssp2);
     TaskModel tm0 = new TaskModel(task0, ssps, new Partition(0));
-    ContainerModel cm0 = new ContainerModel("c0", 0, Collections.singletonMap(task0, tm0));
+    ContainerModel cm0 = new ContainerModel("c0", Collections.singletonMap(task0, tm0));
     TaskModel tm1 = new TaskModel(task1, Collections.singleton(ssp1), new Partition(1));
-    ContainerModel cm1 = new ContainerModel("c1", 1, Collections.singletonMap(task1, tm1));
+    ContainerModel cm1 = new ContainerModel("c1", Collections.singletonMap(task1, tm1));
 
     Map<String, ContainerModel> cms = new HashMap<>();
-    cms.put(cm0.getProcessorId(), cm0);
-    cms.put(cm1.getProcessorId(), cm1);
+    cms.put(cm0.getId(), cm0);
+    cms.put(cm1.getId(), cm1);
 
     JobModel jobModel = new JobModel(config, cms, null);
     Multimap<SystemStream, String> streamToTasks = OperatorImplGraph.getStreamToConsumerTasks(jobModel);

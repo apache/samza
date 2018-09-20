@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.operators.KV;
-import org.apache.samza.test.framework.stream.CollectionStream;
+import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
@@ -40,16 +43,21 @@ public class AsyncStreamTaskIntegrationTest {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);
 
-    CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);
-    CollectionStream output = CollectionStream.empty("async-test", "ints-out");
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
+
+    InMemoryInputDescriptor<Integer> imid = isd
+        .getInputDescriptor("ints", new NoOpSerde<Integer>());
+
+    InMemoryOutputDescriptor imod = isd
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
 
-    Assert.assertThat(TestRunner.consumeStream(output, Duration.ofMillis(1000)).get(0),
+    Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
         IsIterableContainingInOrder.contains(outputList.toArray()));
   }
 
@@ -58,49 +66,70 @@ public class AsyncStreamTaskIntegrationTest {
     List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputList = Arrays.asList(50, 10, 20, 30, 40);
 
-    CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);
-    CollectionStream output = CollectionStream.empty("async-test", "ints-out");
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
+
+    InMemoryInputDescriptor<Integer> imid = isd
+        .getInputDescriptor("ints", new NoOpSerde<Integer>());
+
+    InMemoryOutputDescriptor imod = isd
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, inputList)
+        .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInAnyOrder(output, outputList, Duration.ofMillis(1000));
+    StreamAssert.containsInAnyOrder(outputList, imod, Duration.ofMillis(1000));
   }
 
   @Test
   public void testAsyncTaskWithMultiplePartition() throws Exception {
     Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
-    List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
-    List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
-    for (int i = 0; i < 5; i++) {
-      List<KV> keyedPartition = new ArrayList<>();
-      for (Integer val : partition) {
-        keyedPartition.add(KV.of(i, val));
-      }
-      inputPartitionData.put(i, keyedPartition);
-      expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
-    }
+    genData(inputPartitionData, expectedOutputPartitionData);
 
-    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", inputPartitionData);
-    CollectionStream outputStream = CollectionStream.empty("async-test", "ints-out", 5);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
+
+    InMemoryInputDescriptor<KV> imid = isd
+        .getInputDescriptor("ints", new NoOpSerde<KV>());
+    InMemoryOutputDescriptor imod = isd
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(inputStream)
-        .addOutputStream(outputStream)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
         .run(Duration.ofSeconds(2));
 
-    StreamAssert.containsInOrder(outputStream, expectedOutputPartitionData, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
   @Test
   public void testAsyncTaskWithMultiplePartitionMultithreaded() throws Exception {
     Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
+    genData(inputPartitionData, expectedOutputPartitionData);
+
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
+
+    InMemoryInputDescriptor<KV> imid = isd
+        .getInputDescriptor("ints", new NoOpSerde<>());
+
+    InMemoryOutputDescriptor imod = isd
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
+
+    TestRunner
+        .of(MyAsyncStreamTask.class)
+        .addInputStream(imid, inputPartitionData)
+        .addOutputStream(imod, 5)
+        .addOverrideConfig("task.max.concurrency", "4")
+        .run(Duration.ofSeconds(2));
+
+    StreamAssert.containsInAnyOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
+  }
+
+  public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {
     List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
     for (int i = 0; i < 5; i++) {
@@ -111,18 +140,6 @@ public class AsyncStreamTaskIntegrationTest {
       inputPartitionData.put(i, keyedPartition);
       expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
     }
-
-    CollectionStream<KV> inputStream = CollectionStream.of("async-test", "ints", inputPartitionData);
-    CollectionStream outputStream = CollectionStream.empty("async-test", "ints-out", 5);
-
-    TestRunner
-        .of(MyAsyncStreamTask.class)
-        .addInputStream(inputStream)
-        .addOutputStream(outputStream)
-        .addOverrideConfig("task.max.concurrency", "4")
-        .run(Duration.ofSeconds(2));
-
-    StreamAssert.containsInAnyOrder(outputStream, expectedOutputPartitionData, Duration.ofMillis(1000));
   }
 
   /**
@@ -130,15 +147,20 @@ public class AsyncStreamTaskIntegrationTest {
    */
   @Test(expected = AssertionError.class)
   public void testSamzaJobTimeoutFailureForAsyncTask() {
-    List<Integer> inputList = Arrays.asList(1, 2, 3, 4);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 
-    CollectionStream<Integer> input = CollectionStream.of("async-test", "ints", inputList);
-    CollectionStream output = CollectionStream.empty("async-test", "ints-out");
+    InMemoryInputDescriptor<Integer> imid = isd
+        .getInputDescriptor("ints", new NoOpSerde<>());
+
+    InMemoryOutputDescriptor imod = isd
+        .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
         .of(MyAsyncStreamTask.class)
-        .addInputStream(input)
-        .addOutputStream(output)
+        .addInputStream(imid, Arrays.asList(1, 2, 3, 4))
+        .addOutputStream(imod, 1)
         .run(Duration.ofMillis(1));
   }
+
+
 }
