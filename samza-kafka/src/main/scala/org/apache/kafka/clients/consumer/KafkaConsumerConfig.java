@@ -51,14 +51,17 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   private static final String KAFKA_OFFSET_EARLIEST = "earliest";
   private static final String KAFKA_OFFSET_NONE = "none";
 
+  private final String systemName;
+
   /*
    * By default, KafkaConsumer will fetch ALL available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
    */
   static final String DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS = "100";
 
-  private KafkaConsumerConfig(Properties props) {
+  private KafkaConsumerConfig(Properties props, String systemName) {
     super(props);
+    this.systemName = systemName;
   }
 
   /**
@@ -74,8 +77,8 @@ public class KafkaConsumerConfig extends ConsumerConfig {
 
     final Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
-    final String groupId = getConsumerGroupId(config);
-    final String clientId = getClientId(idPrefix, config);
+    final String groupId = createConsumerGroupId(config);
+    final String clientId = createClientId(idPrefix, config);
 
     final Properties consumerProps = new Properties();
     consumerProps.putAll(subConf);
@@ -126,11 +129,19 @@ public class KafkaConsumerConfig extends ConsumerConfig {
     consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
         (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
-    return new KafkaConsumerConfig(consumerProps);
+    return new KafkaConsumerConfig(consumerProps, systemName);
+  }
+
+  public String getClientId() {
+    String clientId = getString(ConsumerConfig.CLIENT_ID_CONFIG);
+    if (clientId == null) {
+      throw new SamzaException("client Id is not set for consumer for system=" + systemName);
+    }
+    return clientId;
   }
 
   // group id should be unique per job
-  static String getConsumerGroupId(Config config) {
+  static String createConsumerGroupId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     Option<String> jobIdOption = jobConfig.getJobId();
     Option<String> jobNameOption = jobConfig.getName();
@@ -139,7 +150,7 @@ public class KafkaConsumerConfig extends ConsumerConfig {
   }
 
   // client id should be unique per job
-  private static String getClientId(String prefix, Config config) {
+  private static String createClientId(String prefix, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
       throw new ConfigException("Missing job name");
     }

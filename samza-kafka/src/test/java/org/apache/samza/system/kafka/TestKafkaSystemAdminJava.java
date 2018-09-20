@@ -120,7 +120,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM(), "clientPrefix", Collections.emptyMap());
-    
+
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
         () -> KafkaSystemConsumer.getKafkaConsumerImpl(SYSTEM(), consumerConfig);
