@@ -64,8 +64,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
-    val idPrefix = KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX;
-    val producerConfig = config.getKafkaSystemProducerConfig(systemName, idPrefix, injectedProps)
+    val clientId = KafkaConsumerConfig.createProducerClientId(KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX, config);
+    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     }
@@ -74,7 +74,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     // Unlike consumer, no need to use encoders here, since they come for free
     // inside the producer configs. Kafka's producer will handle all of this
     // for us.
-    info("Creating kafka producer for system %s, idPrefix %s" format(systemName, idPrefix))
+    info("Creating kafka producer for system %s, idPrefix %s" format(systemName, clientId))
 
     new KafkaSystemProducer(
       systemName,

@@ -149,8 +149,11 @@ public class KafkaConsumerConfig extends ConsumerConfig {
         ? jobIdOption.get() : "undefined_job_id");
   }
 
+  public static String createProducerClientId(String prefix, Config config) {
+    return createClientId(prefix , config);
+  }
   // client id should be unique per job
-  private static String createClientId(String prefix, Config config) {
+  static String createClientId(String prefix, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
       throw new ConfigException("Missing job name");
     }
