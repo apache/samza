@@ -123,7 +123,7 @@ public class TestRunner {
     this.taskClass = taskClass;
   }
 
-  /**TestLocalTableWithSideInputs
+  /**
    * Constructs a new {@link TestRunner} from following components
    * @param app samza job implementing {@link StreamApplication}
    */
