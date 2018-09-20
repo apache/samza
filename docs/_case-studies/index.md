@@ -32,14 +32,14 @@ Explore the many use-cases of the Samza Framework via our case-studies.
       <a href="{{ company.url }}" title="{{ company.menu_title }}">
         <span style="background-image: url('https://logo.clearbit.com/{{ company.study_domain }}?size=256');"></span>
       </a>
-      <div>
+      <div class="study-detail">
         <a href="https://{{ company.study_domain }}" class="external-link" rel="nofollow">
           <i class="icon ion-md-share-alt"></i> {{ company.menu_title }}
         </a>
         {% if company.excerpt %}
-        <p>
+        <div class="study-description">
         {{ company.excerpt }}
-        </p>
+        </div>
         {% endif %}
         <a class="btn" href="{{ company.url }}">View Case Study</a>
       </div>

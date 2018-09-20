@@ -97,14 +97,8 @@ a.side-navigation__group-title:hover::after {
 .content {
   max-width: 1200px;
   margin: auto;
-  padding: 20px 0px;
+  padding: 20px;
   line-height: 25px;
-}
-
-@media only screen and (min-width: 600px) {
-  .content {
-    padding: 20px;
-  }
 }
 
 .content p {
@@ -1062,31 +1056,50 @@ ul.case-studies {
   border: none;
 }
 
-.case-studies li div {
+.case-studies li .study-description {
+  margin: 40px 0 10px;
+  margin-left: -90px;
+}
+
+@media only screen and (min-width:768px) {
+  .case-studies li .study-description {
+    margin: 20px 0;
+  }
+}
+
+.case-studies li .study-detail {
   padding: 20px;
+  width: 100%;
+  margin-right: -20px;
 }
 
-.case-studies li:nth-child(odd) div {
+.case-studies li:nth-child(odd) .study-detail {
 }
 
-.case-studies li div > a {
+.case-studies li .study-detail > a {
   text-transform: uppercase;
-  font-size: 22px;
+  font-size: 17px;
   color: #999;
   transition: color .3s ease 0s;
 }
 
-.case-studies li div > a:after {
+@media only screen and (min-width:768px) {
+  .case-studies li .study-detail > a {
+    font-size: 22px;
+  }
+}
+
+.case-studies li .study-detail > a:after {
   border: none;
 }
-.case-studies li div > a:hover {
+.case-studies li .study-detail > a:hover {
   color: #7a2c68;
 }
 
 .case-studies li a span {
   display: block;
-  width: 128px;
-  height: 128px;
+  width: 50px;
+  height: 50px;
   transition: all .3s ease 0s;
   opacity: .8;
   background-color: #fff;
@@ -1094,6 +1107,13 @@ ul.case-studies {
   background-repeat: no-repeat;
   background-position: center;
   background-blend-mode: luminosity;
+}
+
+@media only screen and (min-width: 768px) {
+  .case-studies li a span {
+    width: 128px;
+    height: 128px;
+  }
 }
 
 .case-studies li a:hover span {
@@ -1111,9 +1131,21 @@ ul.case-studies {
   color: #fff;
   font-weight: bold;
   font-size: 15px;
-  display: inline-block;
+  display: block;
+  text-align: center;
   margin: 20px 0;
+  margin-left: -90px;
   transition: background .3s ease 0s;
+  width: 100%;
+}
+
+@media only screen and (min-width:768px) {
+  .case-studies li div a.btn {
+    margin: 20px 0;
+    text-align: left;
+    display: inline-block;
+    width: auto;
+  }
 }
 
 .case-studies li div a.btn:hover {
@@ -1139,7 +1171,7 @@ ul.case-studies {
   justify-content: center;
   margin: 0px;
   position: relative;
-  padding: 70px 10px;
+  padding: 50px 10px;
 }
 
 .case-study-hero > * {
@@ -1152,8 +1184,10 @@ ul.case-studies {
 }
 
 .case-study-hero img {
-  width: 256px;
-  height: auto;
+  width: 50vw;
+  height: 50vw;
+  max-width: 256px;
+  max-height: 256px;
   border-radius:100%;
   border: 3px solid #fff;
   box-sizing: border-box;
@@ -1172,15 +1206,26 @@ ul.case-studies {
 .case-studies-list {
   display: flex;
   flex-wrap: wrap;
+  margin-top: 40px;
+  justify-content: center;
 }
+
+@media only screen and (min-width: 768px) {
+  .case-studies-list {
+    justify-content: start;
+  }
+}
+
 
 .case-studies-list_item a {
 
 }
 
 .case-studies-list__item-logo-bg {
-  width: 128px;
-  height: 128px;
+  width: 30vw;
+  height: 30vw;
+  max-width: 128px;
+  max-height: 128px;
   transition: all .3s ease 0s;
   opacity: .8;
   background-color: #fff;
@@ -1323,7 +1368,15 @@ ul.case-studies {
 }
 
 .news__card-title {
-  margin: 10px 0;
+  margin-top: 50px;
+  margin-left: -67px;
+  margin-right: -10px;
+}
+
+@media only screen and (min-width: 768px) {
+  .news__card-title {
+    margin: 10px 0;
+  }
 }
 
 .news__card-date {
@@ -1342,15 +1395,38 @@ ul.case-studies {
   margin: 10px 0;
 }
 
+.news__card-description {
+  margin-left: -67px;
+  margin-right: -10px;
+}
+
+@media only screen and (min-width: 768px) {
+  .news__card-description {
+    margin: 10px 0;
+  }
+}
+
 .news__card-button {
   padding: 15px 40px;
   background: #eb1c23;
   color: #fff;
   font-weight: bold;
   font-size: 15px;
-  display: inline-block;
-  margin: 20px 0;
+  display: block;
+  width: 100%;
   transition: background .3s ease 0s;
+  margin-left: -67px;
+  margin-right: -10px;
+  text-align: center;
+}
+
+@media only screen and (min-width: 768px) {
+  .news__card-button {
+    display: inline-block;
+    width: auto;
+    margin: 20px 0;
+    text-align: left;
+  }
 }
 
 
@@ -1395,12 +1471,19 @@ ul.case-studies {
 
 .news-end-action {
   background: #7a2c68;
-  padding: 40px;
+  padding: 20px;
   color: #fff;
-  font-size: 20px;
+  font-size: 15px;
   flex-grow: 1;
   display: block;
   transition: background .3s ease 0s;
+  box-sizing: border-box;
+}
+
+@media only screen and (min-width:768px) {
+  .news-end-action {
+    padding: 40px;
+  }
 }
 
 .news-previous {
@@ -1423,6 +1506,23 @@ ul.case-studies {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-direction: column;
+  box-sizing: border-box;
+  text-align: right;
+}
+
+.news-next .news-end-action-title {
+  flex-direction: column-reverse;
+  text-align: left;
+  /* align-items: flex-end; */
+}
+
+@media only screen and (min-width:768px) {
+  .news-end .news-end-action-title {
+    flex-direction: row;
+    align-items: center;
+    font-size: 20px;
+  }
 }
 
 .news-end-action-title i {
@@ -1574,7 +1674,15 @@ ul.case-studies {
 
 .talk-event {
   padding: 10px;
-  margin-left: 20px;
+  margin-left: -50px;
+  margin-right: -30px;
+}
+
+@media only screen and (min-width: 768px) {
+  .talk-event {
+    margin-left: 20px;
+    margin-right: 0px;
+  }
 }
 
 .talk-event-link {
@@ -1672,11 +1780,25 @@ ul.case-studies {
 }
 
 .talk-actions {
-  margin-left: 30px;
+  margin-left: -35px;
+}
+
+@media only screen and (min-width: 768px) {
+  .talk-event {
+    margin-left: 30px;
+    margin-right: 0px;
+  }
 }
 
 .talk-description {
-  margin-left: 30px;
+  margin-left: -35px;
+}
+
+@media only screen and (min-width: 768px) {
+  .talk-description {
+    margin-left: 30px;
+    margin-right: 0px;
+  }
 }
 
 /**
@@ -1823,7 +1945,8 @@ ul.case-studies {
   margin-left: 20px;
   margin-bottom: 40px;
   padding: 10px 20px;
-  margin-left: 0px;
+  margin-left: -80px;
+  margin-right: -40px;
   background-image: linear-gradient(to bottom, #ffffff, #fbfbfb, #f6f6f6, #f2f2f2, #eeeeee);
 }
 
@@ -1831,6 +1954,7 @@ ul.case-studies {
   .meet {
     padding: 20px 40px;
     margin-left: 30px;
+    margin-right: 0px;
   }
 }
 
