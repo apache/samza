@@ -22,23 +22,32 @@ package org.apache.samza.test.framework;
 import java.io.File;
 import java.io.FileFilter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.kv.RocksDbKeyValueReader;
 import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
+import org.apache.samza.storage.kv.RocksDbTableDescriptor;
+import org.apache.samza.table.TableConfigGenerator;
+import org.apache.samza.table.TableSpec;
 
 import static org.junit.Assert.*;
 
 
 public class StateAssert {
 
-  public static <M> void contains(String storeName, Config config, M key) {
-    config.put(String.format(StorageConfig.FACTORY(), storeName), RocksDbKeyValueStorageEngineFactory.class.getName());
+  public static void contains(RocksDbTableDescriptor descriptor, Object key) {
     boolean contains = false;
-    for(File partition: getPartitionDirectories(storeName)) {
+
+    for(File partition: getPartitionDirectories(descriptor.getTableId())) {
+      List<TableSpec> tables = new ArrayList<>(Arrays.asList(descriptor.getTableSpec()));
+      Config config = new MapConfig(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(),tables));
       RocksDbKeyValueReader
-          reader = new RocksDbKeyValueReader(storeName, partition.getAbsolutePath(), config);
+          reader = new RocksDbKeyValueReader(descriptor.getTableId(), partition.getAbsolutePath(), config);
       if(reader.get(key) != null) {
         contains = true;
         reader.stop();

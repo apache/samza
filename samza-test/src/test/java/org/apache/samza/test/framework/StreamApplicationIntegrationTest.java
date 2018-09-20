@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ClusterManagerConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -100,9 +102,9 @@ public class StreamApplicationIntegrationTest {
 
 
   @Test
-  public void testStatefulJobWithLocalTable() {
-    TestTableData.PageView[] pageViews = TestTableData.generatePageViews(10);
-    TestTableData.Profile[] profiles = TestTableData.generateProfiles(10);
+  public void testStatefulJoinWithLocalTable() {
+    List<TestTableData.PageView> pageViews = Arrays.asList(TestTableData.generatePageViews(10));
+    List<TestTableData.Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
 
     RocksDbTableDescriptor tableDescriptor =
         new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store")
@@ -122,12 +124,16 @@ public class StreamApplicationIntegrationTest {
 
     TestRunner
         .of(pageViewProfileViewTableJoin)
-        .addInputStream(pageViewStreamDesc, Arrays.asList(pageViews))
-        .addInputStream(profileStreamDesc, Arrays.asList(profiles))
+        .addInputStream(pageViewStreamDesc, pageViews)
+        .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
+        .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
+        .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofSeconds(2));
 
-
+    Integer x = 1;
+    // Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).size());
+    profiles.forEach(p -> StateAssert.contains(tableDescriptor, p.getMemberId()));
   }
 
   @Test
