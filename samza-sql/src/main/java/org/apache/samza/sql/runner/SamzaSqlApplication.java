@@ -42,7 +42,7 @@ public class SamzaSqlApplication implements StreamApplication {
   @Override
   public void describe(StreamApplicationDescriptor appDesc) {
     try {
-      // TODO: Introduce an API to return a dsl string containing one or more sql statements
+      // TODO: Introduce an API to return a dsl string containing one or more sql statements.
       List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(appDesc.getConfig());
 
       // 1. Get Calcite plan
