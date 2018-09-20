@@ -49,6 +49,7 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
@@ -114,11 +115,11 @@ public class RexToJavaCompiler {
     final ParameterExpression root = DataContext.ROOT;
     final ParameterExpression inputValues = Expressions.parameter(Object[].class, "inputValues");
     final ParameterExpression outputValues = Expressions.parameter(Object[].class, "outputValues");
-    final JavaTypeFactoryImpl javaTypeFactory = new JavaTypeFactoryImpl(rexBuilder.getTypeFactory().getTypeSystem());
+    final JavaTypeFactoryImpl javaTypeFactory = new SamzaSqlJavaTypeFactoryImpl(rexBuilder.getTypeFactory().getTypeSystem());
 
     // public void execute(Object[] inputValues, Object[] outputValues)
     final RexToLixTranslator.InputGetter inputGetter = new RexToLixTranslator.InputGetterImpl(ImmutableList.of(
-        Pair.<org.apache.calcite.linq4j.tree.Expression, PhysType>of(
+        Pair.of(
             Expressions.variable(Object[].class, "inputValues"),
             PhysTypeImpl.of(javaTypeFactory, inputRowType, JavaRowFormat.ARRAY, false))));
 
