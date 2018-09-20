@@ -31,7 +31,6 @@ import java.util.stream.IntStream;
 
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.calcite.avatica.util.ByteString;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
@@ -50,7 +49,6 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +70,7 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
   public static final byte[] DEFAULT_TRACKING_ID_BYTES =
       {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+
 
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
 
