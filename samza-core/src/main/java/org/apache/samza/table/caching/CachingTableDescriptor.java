@@ -54,7 +54,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
   }
 
   @Override
-  public List<? extends TableDescriptor<K, V, ?>> getTables() {
+  public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors() {
     return cache != null
         ? Arrays.asList(cache, table)
         : Arrays.asList(table);

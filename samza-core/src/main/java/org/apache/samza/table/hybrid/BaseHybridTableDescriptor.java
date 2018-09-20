@@ -24,7 +24,7 @@ import org.apache.samza.operators.TableDescriptor;
 
 /**
  * Base class for hybrid table descriptors. A hybrid table consists of one or more
- * tables, and it orchestrates operations between them to achieve more advanced
+ * table descriptors, and it orchestrates operations between them to achieve more advanced
  * functionality.
  *
  * @param <K> the type of the key
@@ -45,6 +45,6 @@ abstract public class BaseHybridTableDescriptor<K, V, D extends BaseHybridTableD
    * Get tables contained within this table.
    * @return list of tables
    */
-  abstract public List<? extends TableDescriptor<K, V, ?>> getTables();
+  abstract public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors();
 
 }

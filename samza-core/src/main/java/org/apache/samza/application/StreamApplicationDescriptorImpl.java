@@ -175,7 +175,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor) {
 
     if (tableDescriptor instanceof BaseHybridTableDescriptor) {
-      List<? extends TableDescriptor<K, V, ?>> tableDescs = ((BaseHybridTableDescriptor) tableDescriptor).getTables();
+      List<? extends TableDescriptor<K, V, ?>> tableDescs = ((BaseHybridTableDescriptor) tableDescriptor).getTableDescriptors();
       tableDescs.forEach(td -> getTable(td));
     }
 
