@@ -57,7 +57,11 @@ class ModifyTranslator {
     this.systemStreamConfig = ssc;
   }
 
+  // OutputMapFunction converts SamzaSqlRelMessage to SamzaMessage in KV format
   private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
+    // All the user-supplied functions are expected to be serializable in order to enable full serialization of user
+    // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
+    // initialization.
     private transient SamzaRelConverter samzaMsgConverter;
     private final String outputTopic;
 

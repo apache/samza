@@ -53,6 +53,9 @@ class ScanTranslator {
   }
 
   private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
+    // All the user-supplied functions are expected to be serializable in order to enable full serialization of user
+    // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
+    // initialization.
     private transient SamzaRelConverter msgConverter;
     private final String streamName;
 
