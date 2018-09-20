@@ -35,14 +35,17 @@ import org.apache.samza.table.TableSpec;
 public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
    */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
   }
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
    */
   public InMemoryTableDescriptor(String tableId, KVSerde<K, V> serde) {
     super(tableId, serde);

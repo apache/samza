@@ -49,14 +49,17 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   protected Integer changelogReplicationFactor;
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
     super(tableId);
   }
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId, KVSerde<K, V> serde) {
     super(tableId, serde);
