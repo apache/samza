@@ -31,12 +31,16 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
+import org.apache.samza.sql.interfaces.DslConverter;
+import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -190,7 +194,22 @@ public class SamzaSqlApplicationConfig {
     return ret;
   }
 
-  public static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
+  public static Collection<RelRoot> populateSystemStreamsAndGetRelRoots(List<String> dslStmts, Config config,
+      Set<String> inputSystemStreams, Set<String> outputSystemStreams) {
+    // TODO: Get the converter factory based on the file type. Create abstraction around this.
+    DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
+    DslConverter dslConverter = dslConverterFactory.create(config);
+
+    Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
+
+    for (RelRoot relRoot : relRoots) {
+      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    }
+
+    return relRoots;
+  }
+
+  private static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
       Set<String> outputSystemStreams) {
     if (relNode instanceof TableModify) {
       outputSystemStreams.add(getSystemStreamName(relNode));
