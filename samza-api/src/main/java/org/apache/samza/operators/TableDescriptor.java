@@ -19,7 +19,6 @@
 package org.apache.samza.operators;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.serializers.KVSerde;
 
 /**
  * User facing class to collect metadata that fully describes a
@@ -30,8 +29,8 @@ import org.apache.samza.serializers.KVSerde;
  *
  * <pre>
  * {@code
- * TableDescriptor<Integer, String, ?> tableDesc = new RocksDbTableDescriptor("tbl")
- *     .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde("UTF-8")))
+ * TableDescriptor<Integer, String, ?> tableDesc = new RocksDbTableDescriptor("tbl",
+ *         KVSerde.of(new IntegerSerde(), new StringSerde("UTF-8")))
  *     .withBlockSize(1024)
  *     .withConfig("some-key", "some-value");
  * }
@@ -53,14 +52,6 @@ public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
    * @return Id of the table
    */
   String getTableId();
-
-  /**
-   * Set the Serde for this table
-   * @param serde the serde
-   * @return this table descriptor instance
-   * @throws IllegalArgumentException if null is provided
-   */
-  D withSerde(KVSerde<K, V> serde);
 
   /**
    * Add a configuration entry for the table

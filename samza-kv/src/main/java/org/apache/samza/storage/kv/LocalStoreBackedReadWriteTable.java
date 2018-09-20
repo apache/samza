@@ -40,6 +40,7 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
 
   /**
    * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
+   * @param tableId the table Id
    * @param kvStore the backing store
    */
   public LocalStoreBackedReadWriteTable(String tableId, KeyValueStore kvStore) {
