@@ -77,7 +77,7 @@ public interface TaskContext {
   }
 
   /**
-   * Register a keyed callback in this task.
+   * Schedule the {@code callback} for the provided {@code key} to be invoked at epoch-time {@code timestamp}.
    * The callback will be invoked exclusively with any other operations for this task,
    * e.g. processing, windowing and commit.
    * @param key key for the callback
@@ -88,7 +88,7 @@ public interface TaskContext {
   <K> void scheduleCallback(K key, long timestamp, ScheduledCallback<K> callback);
 
   /**
-   * Delete the keyed callback in this task.
+   * Delete the scheduled {@code callback} for the {@code key}.
    * Deletion only happens if the callback hasn't been fired. Otherwise it will not interrupt.
    * @param key callback key
    * @param <K> type of the key

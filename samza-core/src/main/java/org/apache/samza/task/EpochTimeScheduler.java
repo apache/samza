@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
  * 2) keeps track of the timers created and timers that are ready.
  * 3) triggers listener whenever a timer fires.
  */
-public class SystemTimerScheduler {
+public class EpochTimeScheduler {
 
   /**
    * For run loop to listen to timer firing so it can schedule the callbacks.
@@ -50,11 +50,11 @@ public class SystemTimerScheduler {
   private final Map<TimerKey<?>, ScheduledCallback> readyTimers = new ConcurrentHashMap<>();
   private TimerListener timerListener;
 
-  public static SystemTimerScheduler create(ScheduledExecutorService executor) {
-    return new SystemTimerScheduler(executor);
+  public static EpochTimeScheduler create(ScheduledExecutorService executor) {
+    return new EpochTimeScheduler(executor);
   }
 
-  private SystemTimerScheduler(ScheduledExecutorService executor) {
+  private EpochTimeScheduler(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 

@@ -20,21 +20,19 @@
 package org.apache.samza.operators;
 
 /**
- * Manages scheduling keys to be triggered later. See {@link org.apache.samza.operators.functions.ScheduledFunction}
- * for details.
- * @param <K> type of the key
+ * Allows scheduling {@link org.apache.samza.operators.functions.ScheduledFunction} callbacks to be invoked later.
+ * @param <K> type of the key to schedule
  */
 public interface Scheduler<K> {
-
   /**
-   * Schedule a key to be triggered at {@code timestamp}.
-   * @param key unique key
-   * @param timestamp epoch time when the key will be triggered, in milliseconds
+   * Schedule a callback for the {@code key} to be invoked at {@code timestamp}.
+   * @param key unique key associated with the callback to schedule
+   * @param timestamp epoch time when the callback for the key will be invoked, in milliseconds
    */
   void schedule(K key, long timestamp);
 
   /**
-   * Delete the scheduler entry for the provided key.
+   * Delete the scheduled callback for the provided {@code key}.
    * @param key key to delete
    */
   void delete(K key);
