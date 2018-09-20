@@ -137,13 +137,11 @@ public class TestTableDescriptorsProvider {
       final RateLimiter readRateLimiter = mock(RateLimiter.class);
       final MyReadFunction readFn = new MyReadFunction();
 
-      tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1")
+      tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1", KVSerde.of(new StringSerde(), new LongSerde()))
           .withReadFunction(readFn)
-          .withRateLimiter(readRateLimiter, null, null)
-          .withSerde(KVSerde.of(new StringSerde(), new LongSerde())));
-      tableDescriptors.add(new RocksDbTableDescriptor("local-table-1")
-          .withBlockSize(4096)
-          .withSerde(KVSerde.of(new StringSerde(), new StringSerde())));
+          .withRateLimiter(readRateLimiter, null, null));
+      tableDescriptors.add(new RocksDbTableDescriptor("local-table-1", KVSerde.of(new StringSerde(), new StringSerde()))
+          .withBlockSize(4096));
       return tableDescriptors;
     }
   }
