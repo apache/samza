@@ -30,7 +30,6 @@ import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.translator.QueryTranslator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

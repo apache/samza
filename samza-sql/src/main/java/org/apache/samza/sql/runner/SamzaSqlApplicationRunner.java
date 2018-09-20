@@ -69,6 +69,43 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
+    // TODO: Get the converter factory based on the file type. Create abstraction around this.
+    DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
+    DslConverter dslConverter = dslConverterFactory.create(config);
+
+    // TODO: Introduce an API to return a dsl string containing one or more sql statements
+    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
+
+    Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
+
+    Set<String> inputSystemStreams = new HashSet<>();
+    Set<String> outputSystemStreams = new HashSet<>();
+
+    for (RelRoot relRoot : relRoots) {
+      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    }
+
+    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
+
+    // This is needed because the SQL file may not be available in all the node managers.
+    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
+    newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
+
+    // Populate stream to system mapping config for input and output system streams
+    for (String source : inputSystemStreams) {
+      SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(source);
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
+          inputSystemStreamConfig.getSystemName());
+      newConfig.putAll(inputSystemStreamConfig.getConfig());
+    }
+
+    for (String sink : outputSystemStreams) {
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(sink);
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
+          outputSystemStreamConfig.getSystemName());
+      newConfig.putAll(outputSystemStreamConfig.getConfig());
+    }
+
     newConfig.putAll(config);
 
     if (localRunner) {
