@@ -42,7 +42,7 @@ import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 public class SamzaSqlDslConverter implements DslConverter {
 
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplicationConfig.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlDslConverter.class);
 
   private final Config config;
 
