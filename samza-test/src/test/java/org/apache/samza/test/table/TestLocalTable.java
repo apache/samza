@@ -96,8 +96,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
     final StreamApplication app = appDesc -> {
 
-      Table<KV<Integer, Profile>> table = appDesc.getTable(new InMemoryTableDescriptor("t1")
-          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+      Table<KV<Integer, Profile>> table = appDesc.getTable(new InMemoryTableDescriptor("t1",
+          KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
       DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       GenericInputDescriptor<Profile> isd = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
 
@@ -134,7 +134,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
       final StreamApplication app = appDesc -> {
 
         Table<KV<Integer, Profile>> table = appDesc.getTable(
-            new InMemoryTableDescriptor("t1").withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+            new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
         DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
         appDesc.getInputStream(profileISD)
@@ -209,8 +209,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
       final StreamApplication app = appDesc -> {
 
-        Table<KV<Integer, Profile>> profileTable = appDesc.getTable(new InMemoryTableDescriptor("t1")
-            .withSerde(profileKVSerde));
+        Table<KV<Integer, Profile>> profileTable = appDesc.getTable(new InMemoryTableDescriptor("t1", profileKVSerde));
 
         DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<Profile> profileISD1 = ksd.getInputDescriptor("Profile1", new NoOpSerde<>());
