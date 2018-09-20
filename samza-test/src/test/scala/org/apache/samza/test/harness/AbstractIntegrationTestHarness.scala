@@ -17,36 +17,40 @@
  * under the License.
  */
 package org.apache.samza.test.harness
+
 import java.util.Properties
 
 import kafka.server.KafkaConfig
-import kafka.utils.{TestUtils, ZkUtils}
-import org.apache.kafka.common.security.JaasUtils
-import org.apache.samza.system.kafka.KafkaSystemAdmin
+import kafka.utils.TestUtils
+import org.apache.kafka.clients.consumer.KafkaConsumerConfig
+import org.apache.samza.config.{JobConfig, MapConfig}
+import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
 
 /**
- * LinkedIn integration test harness for Kafka
- * This is simply a copy of open source code. We do this because java does not support trait and we are making it an
- * abstract class so that user's java test class can extend it.
- */
+  * LinkedIn integration test harness for Kafka
+  * This is simply a copy of open source code. We do this because java does not support trait and we are making it an
+  * abstract class so that user's java test class can extend it.
+  */
 abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHarness {
 
   def generateConfigs() =
     TestUtils.createBrokerConfigs(clusterSize(), zkConnect, enableControlledShutdown = false).map(KafkaConfig.fromProps(_, overridingProps()))
 
   /**
-   * User can override this method to return the number of brokers they want.
-   * By default only one broker will be launched.
-   * @return the number of brokers needed in the Kafka cluster for the test.
-   */
+    * User can override this method to return the number of brokers they want.
+    * By default only one broker will be launched.
+    *
+    * @return the number of brokers needed in the Kafka cluster for the test.
+    */
   def clusterSize(): Int = 1
 
   /**
-   * User can override this method to apply customized configurations to the brokers.
-   * By default the only configuration is number of partitions when topics get automatically created. The default value
-   * is 1.
-   * @return The configurations to be used by brokers.
-   */
+    * User can override this method to apply customized configurations to the brokers.
+    * By default the only configuration is number of partitions when topics get automatically created. The default value
+    * is 1.
+    *
+    * @return The configurations to be used by brokers.
+    */
   def overridingProps(): Properties = {
     val props = new Properties()
     props.setProperty(KafkaConfig.NumPartitionsProp, 1.toString)
@@ -54,13 +58,31 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
   }
 
   /**
-   * Returns the bootstrap servers configuration string to be used by clients.
-   * @return bootstrap servers string.
-   */
+    * Returns the bootstrap servers configuration string to be used by clients.
+    *
+    * @return bootstrap servers string.
+    */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  def createSystemAdmin(system: String): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(system, bootstrapServers, connectZk = () => ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled))
+  def createSystemAdmin(system: String): SamzaKafkaSystemAdmin[_, _] = {
+
+    val map: java.util.Map[String, String] = new java.util.HashMap();
+
+    val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + system + ".consumer."
+    val KAFKA_PRODUCER_PROPERTY_PREFIX: String = "systems." + system + ".consumer."
+
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    map.put(JobConfig.JOB_NAME, "test.job")
+
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
+
+    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
+      system,
+      new MapConfig(map),
+      "idPrefix"
+    );
   }
 
 }

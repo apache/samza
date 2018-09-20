@@ -22,6 +22,7 @@ import java.util.Map;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Before;
@@ -29,15 +30,18 @@ import org.junit.Test;
 
 
 public class TestKafkaConsumerConfig {
+  public static final String JOB_NAME = "jobName";
+  public static final String JOB_ID = "jobId";
   private final Map<String, String> props = new HashMap<>();
   public final static String SYSTEM_NAME = "testSystem";
   public final static String KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer.";
   public final static String KAFKA_CONSUMER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".consumer.";
-  private final static String CLIENT_ID = "clientId";
+  private final static String ID_PREFIX = "ID_PREFIX";
 
   @Before
   public void setProps() {
-
+    props.put(JobConfig.JOB_NAME(), JOB_NAME);
+    props.put(JobConfig.JOB_ID(), JOB_ID);
   }
 
   @Test
@@ -62,7 +66,7 @@ public class TestKafkaConsumerConfig {
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-        config, SYSTEM_NAME, CLIENT_ID, overrides);
+        config, SYSTEM_NAME, ID_PREFIX, overrides);
 
     Assert.assertEquals(kafkaConsumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG), false);
 
@@ -89,13 +93,15 @@ public class TestKafkaConsumerConfig {
         kafkaConsumerConfig.getClass(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG),
         ByteArrayDeserializer.class);
 
+    String expectedClientId = String.format("%s-%s-%s", ID_PREFIX, JOB_NAME, JOB_ID);
     Assert.assertEquals(
-        kafkaConsumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG),
-        CLIENT_ID);
+        expectedClientId,
+        kafkaConsumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG));
 
+    String expectedGroupId = String.format("%s-%s", JOB_NAME, JOB_ID);
     Assert.assertEquals(
-        kafkaConsumerConfig.getString(ConsumerConfig.GROUP_ID_CONFIG),
-        KafkaConsumerConfig.getConsumerGroupId(config));
+        expectedGroupId,
+        kafkaConsumerConfig.getString(ConsumerConfig.GROUP_ID_CONFIG));
   }
 
   @Test
@@ -110,7 +116,7 @@ public class TestKafkaConsumerConfig {
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-        config, SYSTEM_NAME, CLIENT_ID, Collections.emptyMap());
+        config, SYSTEM_NAME, ID_PREFIX, Collections.emptyMap());
 
     Assert.assertEquals(
         kafkaConsumerConfig.getList(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG).get(0),
