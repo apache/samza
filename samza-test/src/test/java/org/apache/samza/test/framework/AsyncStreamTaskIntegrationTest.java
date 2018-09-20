@@ -123,7 +123,7 @@ public class AsyncStreamTaskIntegrationTest {
         .of(MyAsyncStreamTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
-        .addOverrideConfig("task.max.concurrency", "4")
+        .addConfig("task.max.concurrency", "4")
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInAnyOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
