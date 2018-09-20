@@ -34,6 +34,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
@@ -115,6 +116,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Map<String, String> map = new HashMap<>();
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
         org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
+    map.put(JobConfig.JOB_NAME(), "job.Name");
 
     final Config config = new MapConfig(map);
     // extract kafka client configs

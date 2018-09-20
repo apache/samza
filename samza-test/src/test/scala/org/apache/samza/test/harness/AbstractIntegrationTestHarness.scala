@@ -23,7 +23,7 @@ import java.util.Properties
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
 import org.apache.kafka.clients.consumer.KafkaConsumerConfig
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config.{JobConfig, MapConfig}
 import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
 
 /**
@@ -73,6 +73,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
 
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    map.put(JobConfig.JOB_NAME, "test.job")
 
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
@@ -80,7 +81,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
       system,
       new MapConfig(map),
-      "clientId"
+      "idPrefix"
     );
   }
 

@@ -33,7 +33,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.{Config, KafkaProducerConfig, MapConfig}
+import org.apache.samza.config.{Config, JobConfig, KafkaProducerConfig, MapConfig}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.kafka.TestKafkaSystemAdmin.KAFKA_PRODUCER_PROPERTY_PREFIX
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
@@ -160,6 +160,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
       brokerList)
     map.put(KAFKA_PRODUCER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
       brokerList)
+    map.put(JobConfig.JOB_NAME, "job.name")
 
     val props: java.util.Properties = new java.util.Properties
     props.put(org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
