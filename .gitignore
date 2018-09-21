@@ -31,3 +31,4 @@ out/
 **.pyc
 samza-shell/src/main/visualizer/plan.json
 **/hs_err_pid*.log
+.vscode/
