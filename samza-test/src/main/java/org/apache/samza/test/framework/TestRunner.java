@@ -99,7 +99,7 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    */
   private TestRunner(SamzaApplication app) {
     this();
@@ -109,7 +109,7 @@ public class TestRunner {
 
   /**
    * Creates an instance of {@link TestRunner} for Legacy Samza Api
-   * @param taskApp legacy samza task application
+   * @param taskApp a {@link LegacyTaskApplication}
    * @return this {@link TestRunner}
    */
   public static TestRunner of(LegacyTaskApplication taskApp) {
@@ -118,8 +118,8 @@ public class TestRunner {
   }
 
   /**
-   * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app samza job implementing {@link SamzaApplication}
+   * Creates an instance of {@link TestRunner} for a {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    * @return this {@link TestRunner}
    */
   public static TestRunner of(SamzaApplication app) {
