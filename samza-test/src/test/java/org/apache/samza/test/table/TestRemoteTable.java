@@ -42,6 +42,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -67,6 +68,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
 
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
@@ -136,19 +138,18 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  private <K, V> Table<KV<K, V>> getCachingTable(Table<KV<K, V>> actualTable, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
+  private <K, V> Table<KV<K, V>> getCachingTable(TableDescriptor<K, V, ?> actualTableDesc, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
     CachingTableDescriptor<K, V> cachingDesc = new CachingTableDescriptor<>("caching-table-" + id);
     if (defaultCache) {
       cachingDesc.withReadTtl(Duration.ofMinutes(5));
       cachingDesc.withWriteTtl(Duration.ofMinutes(5));
     } else {
-      GuavaCacheTableDescriptor<K, V> guavaDesc = new GuavaCacheTableDescriptor<>("guava-table-" + id);
-      guavaDesc.withCache(CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build());
-      Table<KV<K, V>> guavaTable = appDesc.getTable(guavaDesc);
-      cachingDesc.withCache(guavaTable);
+      GuavaCacheTableDescriptor<K, V> guavaTableDesc = new GuavaCacheTableDescriptor<>("guava-table-" + id);
+      guavaTableDesc.withCache(CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build());
+      cachingDesc.withCache(guavaTableDesc);
     }
 
-    cachingDesc.withTable(actualTable);
+    cachingDesc.withTable(actualTableDesc);
     return appDesc.getTable(cachingDesc);
   }
 
@@ -180,8 +181,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
 
-    final RateLimiter readRateLimiter = mock(RateLimiter.class);
-    final RateLimiter writeRateLimiter = mock(RateLimiter.class);
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final StreamApplication app = appDesc -> {
       RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
@@ -197,17 +198,13 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, null, null);
 
-      Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
+      Table<KV<Integer, EnrichedPageView>> outputTable = withCache
+          ? getCachingTable(outputTableDesc, defaultCache, "output", appDesc)
+          : appDesc.getTable(outputTableDesc);
 
-      if (withCache) {
-        outputTable = getCachingTable(outputTable, defaultCache, "output", appDesc);
-      }
-
-      Table<KV<Integer, Profile>> inputTable = appDesc.getTable(inputTableDesc);
-
-      if (withCache) {
-        inputTable = getCachingTable(inputTable, defaultCache, "input", appDesc);
-      }
+      Table<KV<Integer, Profile>> inputTable = withCache
+          ? getCachingTable(inputTableDesc, defaultCache, "input", appDesc)
+          : appDesc.getTable(inputTableDesc);
 
       DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       GenericInputDescriptor<TestTableData.PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
