@@ -29,7 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -38,7 +39,6 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
-import org.apache.samza.task.TaskContext;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -57,14 +57,14 @@ import static org.mockito.Mockito.verify;
 public class TestRemoteTable {
   private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
 
-  public static TaskContext getMockTaskContext() {
+  public static Context getMockContext() {
+    Context context = new MockContext();
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doAnswer(args -> new Timer((String) args.getArguments()[0])).when(metricsRegistry).newTimer(anyString(), anyString());
     doAnswer(args -> new Counter((String) args.getArguments()[0])).when(metricsRegistry).newCounter(anyString(), anyString());
     doAnswer(args -> new Gauge((String) args.getArguments()[0], 0)).when(metricsRegistry).newGauge(anyString(), any());
-    TaskContext taskContext = mock(TaskContext.class);
-    doReturn(metricsRegistry).when(taskContext).getMetricsRegistry();
-    return taskContext;
+    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    return context;
   }
 
   private <K, V, T extends RemoteReadableTable<K, V>> T getTable(String tableId,
@@ -89,11 +89,9 @@ public class TestRemoteTable {
       table = new RemoteReadWriteTable<K, V>(tableId, readFn, writeFn, readRateLimiter, writeRateLimiter, tableExecutor, cbExecutor);
     }
 
-    TaskContext taskContext = getMockTaskContext();
+    Context context = getMockContext();
 
-    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
-
-    table.init(containerContext, taskContext);
+    table.init(context);
 
     return (T) table;
   }

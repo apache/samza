@@ -19,11 +19,11 @@
 
 package org.apache.samza.test.integration
 
-import org.apache.samza.config.Config
+import org.apache.samza.context.Context
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.task.TaskCoordinator.RequestScope
-import org.apache.samza.task.{MessageCollector, TaskContext, TaskCoordinator}
+import org.apache.samza.task.{MessageCollector, TaskCoordinator}
 import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 
@@ -146,8 +146,8 @@ class StateStoreTestTask extends TestTask {
   var store: KeyValueStore[String, String] = null
   var restored = Set[String]()
 
-  override def testInit(config: Config, context: TaskContext): Unit = {
-    store = context.getStore(TestStatefulTask.STORE_NAME).asInstanceOf[KeyValueStore[String, String]]
+  override def testInit(context: Context): Unit = {
+    store = context.getTaskContext.getStore(TestStatefulTask.STORE_NAME).asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     restored ++= iter
       .asScala

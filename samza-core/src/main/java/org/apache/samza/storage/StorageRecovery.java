@@ -35,8 +35,6 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
 import org.apache.samza.context.JobContextImpl;
-import org.apache.samza.context.SamzaContainerContextImpl;
-import org.apache.samza.context.SamzaContainerContextProvider;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.ContainerModel;
@@ -212,9 +210,7 @@ public class StorageRecovery extends CommandLine {
 
     for (ContainerModel containerModel : containers.values()) {
       HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
-      ContainerContext containerContext =
-          new ContainerContextImpl(containerModel.getId(), containerModel.getTasks().keySet(),
-              new MetricsRegistryMap());
+      ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
       for (TaskModel taskModel : containerModel.getTasks().values()) {
         HashMap<String, SystemConsumer> storeConsumers = getStoreConsumers();
@@ -237,7 +233,8 @@ public class StorageRecovery extends CommandLine {
                 null,
                 new MetricsRegistryMap(),
                 changeLogSystemStreamPartition,
-                new SamzaContainerContextProvider(new JobContextImpl(this.jobConfig)).build(containerContext));
+                JobContextImpl.fromConfigWithDefaults(jobConfig),
+                containerContext);
             taskStores.put(storeName, storageEngine);
           }
         }

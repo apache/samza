@@ -22,8 +22,8 @@ package org.apache.samza.test.integration
 import java.util
 import java.util.Properties
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import javax.security.auth.login.Configuration
 
+import javax.security.auth.login.Configuration
 import kafka.admin.AdminUtils
 import kafka.consumer.{Consumer, ConsumerConfig}
 import kafka.message.MessageAndMetadata
@@ -37,6 +37,7 @@ import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
+import org.apache.samza.context.Context
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
@@ -325,9 +326,9 @@ abstract class TestTask extends StreamTask with InitableTask {
   val initFinished = new CountDownLatch(1)
   @volatile var gotMessage = new CountDownLatch(1)
 
-  def init(config: Config, context: TaskContext) {
-    TestTask.register(context.getTaskName, this)
-    testInit(config, context)
+  def init(context: Context) {
+    TestTask.register(context.getTaskContext.getTaskModel.getTaskName, this)
+    testInit(context)
     initFinished.countDown()
   }
 
@@ -350,7 +351,7 @@ abstract class TestTask extends StreamTask with InitableTask {
     gotMessage = new CountDownLatch(1)
   }
 
-  def testInit(config: Config, context: TaskContext)
+  def testInit(context: Context)
 
   def testProcess(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator)
 

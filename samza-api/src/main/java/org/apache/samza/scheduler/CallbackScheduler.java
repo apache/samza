@@ -16,10 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.scheduling;
-
-import org.apache.samza.scheduler.ScheduledCallback;
-
+package org.apache.samza.scheduler;
 
 /**
  * Provides a way for applications to register some logic to be executed at a future time.

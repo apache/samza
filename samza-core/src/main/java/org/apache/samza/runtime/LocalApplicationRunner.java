@@ -168,8 +168,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, null, config)));
     return new StreamProcessor(config, reporters, taskFactory,
-        appDesc.getApplicationDefinedContainerContextFactory().orElse(null),
-        appDesc.getApplicationDefinedTaskContextFactory().orElse(null), listenerFactory, null);
+        appDesc.getApplicationContainerContextFactory().orElse(null),
+        appDesc.getApplicationTaskContextFactory().orElse(null), listenerFactory, null);
   }
 
   /**

@@ -31,15 +31,14 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptor;
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
@@ -49,11 +48,13 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.table.Table;
-import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+;
 
 
 /**
@@ -77,9 +78,10 @@ public class QueryTranslator {
     }
 
     @Override
-    public void init(Config config, TaskContext taskContext) {
-      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
-      this.samzaMsgConverter = context.getMsgConverter(outputTopic);
+    public void init(Context context) {
+      TranslatorContext translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
+      this.samzaMsgConverter = translatorContext.getMsgConverter(outputTopic);
     }
 
     @Override
@@ -101,9 +103,11 @@ public class QueryTranslator {
             sqlConfig.getUdfMetadata());
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
-    final TranslatorContext context = new TranslatorContext(appDesc, relRoot, executionContext, this.converters);
+    final TranslatorContext translatorContext =
+        new TranslatorContext(appDesc, relRoot, executionContext, this.converters);
     final RelNode node = relRoot.project();
-    final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
+    final SqlIOResolver ioResolver =
+        translatorContext.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
 
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
@@ -112,21 +116,21 @@ public class QueryTranslator {
       @Override
       public RelNode visit(TableScan scan) {
         RelNode node = super.visit(scan);
-        scanTranslator.translate(scan, context);
+        scanTranslator.translate(scan, translatorContext);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalFilter filter) {
         RelNode node = visitChild(filter, 0, filter.getInput());
-        new FilterTranslator().translate(filter, context);
+        new FilterTranslator().translate(filter, translatorContext);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
-        new ProjectTranslator().translate(project, context);
+        new ProjectTranslator().translate(project, translatorContext);
         return node;
       }
 
@@ -134,7 +138,7 @@ public class QueryTranslator {
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
         joinId++;
-        new JoinTranslator(joinId, ioResolver).translate(join, context);
+        new JoinTranslator(joinId, ioResolver).translate(join, translatorContext);
         return node;
       }
 
@@ -142,21 +146,23 @@ public class QueryTranslator {
       public RelNode visit(LogicalAggregate aggregate) {
         RelNode node = super.visit(aggregate);
         windowId++;
-        new LogicalAggregateTranslator(windowId).translate(aggregate, context);
+        new LogicalAggregateTranslator(windowId).translate(aggregate, translatorContext);
         return node;
       }
     });
 
     String sink = queryInfo.getSink();
     SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
-    MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
+    MessageStreamImpl<SamzaSqlRelMessage> stream =
+        (MessageStreamImpl<SamzaSqlRelMessage>) translatorContext.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sink));
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
       KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
       String systemName = sinkConfig.getSystemName();
-      DelegatingSystemDescriptor sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
+      DelegatingSystemDescriptor sd =
+          translatorContext.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
       GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamName(), noOpKVSerde);
       outputStream.sendTo(appDesc.getOutputStream(osd));
     } else {
@@ -169,18 +175,16 @@ public class QueryTranslator {
       outputStream.sendTo(outputTable);
     }
 
-    appDesc.withContextManager(new ContextManager() {
-      @Override
-      public void init(Config config, TaskContext taskContext) {
-        taskContext.setUserContext(context.clone());
-      }
-
-      @Override
-      public void close() {
-
-      }
-
-    });
-
+    /*
+     * TODO When serialization of ApplicationDescriptor is actually needed, then something will need to be updated here,
+     * since translatorContext is not Serializable. Currently, a new ApplicationDescriptor instance is created in each
+     * container, so it does not need to be serialized. Therefore, the translatorContext is recreated in each container
+     * and does not need to be serialized.
+     */
+    appDesc.withApplicationTaskContextFactory((jobContext,
+        containerContext,
+        taskContext,
+        applicationContainerContext) ->
+        new SamzaSqlApplicationContext(translatorContext.clone()));
   }
 }

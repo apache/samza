@@ -123,13 +123,13 @@ object SamzaContainer extends Logging {
   def apply(
     containerId: String,
     jobModel: JobModel,
-    config: Config,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: TaskFactory[_],
-    samzaContainerContextProvider: SamzaContainerContextProvider,
-    applicationDefinedContainerContextFactory: Option[ApplicationDefinedContainerContextFactory[ApplicationDefinedContainerContext]],
-    applicationDefinedTaskContextFactory: Option[ApplicationDefinedTaskContextFactory[ApplicationDefinedTaskContext]]
+    jobContext: JobContext,
+    applicationContainerContextFactory: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
+    applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
   ) = {
+    val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
@@ -494,12 +494,9 @@ object SamzaContainer extends Logging {
       .map(_.getTaskName)
       .toSet
 
-    val containerContext = new ContainerContextImpl(containerId, taskNames.asJava, samzaContainerMetrics.registry)
-    val samzaContainerContext = samzaContainerContextProvider.build(containerContext)
-    val applicationDefinedContainerContext = applicationDefinedContainerContextFactory
-      .map(_.create(samzaContainerContext))
-    val samzaContextProvider = new SamzaContextProvider(samzaContainerContext)
-    val contextProvider = new ContextProvider(samzaContainerContext, applicationDefinedContainerContext.orNull)
+    val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
+    val applicationContainerContext = applicationContainerContextFactory
+      .map(_.create(jobContext, containerContext))
 
     val storeWatchPaths = new util.HashSet[Path]()
 
@@ -579,7 +576,8 @@ object SamzaContainer extends Logging {
               collector,
               taskInstanceMetrics.registry,
               changeLogSystemStreamPartition,
-              samzaContainerContext)
+              jobContext,
+              containerContext)
             (storeName, storageEngine)
         }
 
@@ -643,8 +641,7 @@ object SamzaContainer extends Logging {
 
       def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
           task = task,
-          taskName = taskName,
-          config = config,
+          taskModel = taskModel,
           metrics = taskInstanceMetrics,
           systemAdmins = systemAdmins,
           consumerMultiplexer = consumerMultiplexer,
@@ -660,9 +657,10 @@ object SamzaContainer extends Logging {
           timerExecutor = timerExecutor,
           sideInputSSPs = taskSideInputSSPs,
           sideInputStorageManager = sideInputStorageManager,
-          samzaContextProvider = samzaContextProvider,
-          applicationDefinedTaskContextFactory = applicationDefinedTaskContextFactory,
-          contextProvider = contextProvider)
+          jobContext = jobContext,
+          containerContext = containerContext,
+          applicationContainerContext = applicationContainerContext ,
+          applicationTaskContextFactory = applicationTaskContextFactory)
 
       val taskInstance = createTaskInstance(task)
 
@@ -718,7 +716,6 @@ object SamzaContainer extends Logging {
     info("Samza container setup complete.")
 
     new SamzaContainer(
-      containerId = containerId,
       config = config,
       taskInstances = taskInstances,
       runLoop = runLoop,
@@ -734,7 +731,8 @@ object SamzaContainer extends Logging {
       hostStatisticsMonitor = memoryStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor,
-      applicationDefinedContainerContext = applicationDefinedContainerContext)
+      containerContext = containerContext,
+      applicationContainerContext = applicationContainerContext)
   }
 
   /**
@@ -752,7 +750,6 @@ object SamzaContainer extends Logging {
 }
 
 class SamzaContainer(
-  containerId: String,
   config: Config,
   taskInstances: Map[TaskName, TaskInstance],
   runLoop: Runnable,
@@ -769,7 +766,8 @@ class SamzaContainer(
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
-  applicationDefinedContainerContext: Option[ApplicationDefinedContainerContext]) extends Runnable with Logging {
+  containerContext: ContainerContext,
+  applicationContainerContext: Option[ApplicationContainerContext]) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -802,7 +800,7 @@ class SamzaContainer(
       status = SamzaContainerStatus.STARTING
 
       jmxServer = new JmxServer()
-      applicationDefinedContainerContext.foreach(_.start)
+      applicationContainerContext.foreach(_.start)
 
       startMetrics
       startDiagnostics
@@ -855,7 +853,7 @@ class SamzaContainer(
       shutdownSecurityManger
       shutdownAdmins
 
-      applicationDefinedContainerContext.foreach(_.stop)
+      applicationContainerContext.foreach(_.stop)
 
       if (!status.equals(SamzaContainerStatus.FAILED)) {
         status = SamzaContainerStatus.STOPPED
@@ -972,10 +970,11 @@ class SamzaContainer(
   }
 
   def storeContainerLocality {
-    val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(containerContext.config).getHostAffinityEnabled
+    val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(config).getHostAffinityEnabled
     if (isHostAffinityEnabled) {
-      val localityManager: LocalityManager = new LocalityManager(containerContext.config, containerContext.metricsRegistry)
-      val containerName = "SamzaContainer-" + String.valueOf(containerContext.id)
+      val localityManager: LocalityManager = new LocalityManager(config, containerContext.getContainerMetricsRegistry)
+      val containerId = containerContext.getContainerModel.getId
+      val containerName = "SamzaContainer-" + containerId
       info("Registering %s with metadata store" format containerName)
       try {
         val hostInet = Util.getLocalHost
@@ -989,7 +988,7 @@ class SamzaContainer(
             "%s" format (containerId, uhe.getMessage))  //No-op
         case unknownException: Throwable =>
           warn("Received an exception when persisting locality info for container %s: " +
-            "%s" format (containerContext.id, unknownException.getMessage))
+            "%s" format (containerId, unknownException.getMessage))
       } finally {
         info("Shutting down locality manager.")
         localityManager.close()

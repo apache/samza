@@ -19,21 +19,15 @@
 
 package org.apache.samza.test.performance
 
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.InitableTask
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskCoordinator
+import org.apache.samza.context.Context
+import org.apache.samza.system.{IncomingMessageEnvelope, OutgoingMessageEnvelope, SystemStream}
+import org.apache.samza.task.{InitableTask, MessageCollector, StreamTask, TaskCoordinator}
 import org.apache.samza.task.TaskCoordinator.RequestScope
-import org.apache.samza.config.Config
 import org.apache.samza.util.{Logging, StreamUtil}
-import org.apache.samza.system.SystemStream
-import org.apache.samza.system.OutgoingMessageEnvelope
 
 
 object TestPerformanceTask {
-  // No thread safety is needed for these variables because they're mutated in 
+  // No thread safety is needed for these variables because they're mutated in
   // the process method, which is single threaded.
   var messagesProcessed = 0
   var startTime = 0L
@@ -59,7 +53,7 @@ object TestPerformanceTask {
  * <pre>
  *   task.outputs=kafka.MyOutputTopic
  * <pre>
- * 
+ *
  * If undefined, the task simply drops incoming messages, rather than
  * forwarding them to the output stream.
  */
@@ -82,7 +76,8 @@ class TestPerformanceTask extends StreamTask with InitableTask with Logging {
    */
   var outputSystemStream: Option[SystemStream] = None
 
-  def init(config: Config, context: TaskContext) {
+  def init(context: Context) {
+    val config = context.getJobContext.getConfig
     logInterval = config.getInt("task.log.interval", 10000)
     maxMessages = config.getInt("task.max.messages", 10000000)
     outputSystemStream = Option(config.get("task.outputs", null)).map(StreamUtil.getSystemStreamFromNames)

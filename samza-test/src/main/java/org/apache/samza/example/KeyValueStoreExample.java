@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -38,7 +39,6 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.CommandLine;
 
 
@@ -115,8 +115,9 @@ public class KeyValueStoreExample implements StreamApplication {
     }
 
     @Override
-    public void init(Config config, TaskContext context) {
-      this.statsStore = (KeyValueStore<String, StatsWindowState>) context.getStore("my-stats-wnd-store");
+    public void init(Context context) {
+      this.statsStore =
+          (KeyValueStore<String, StatsWindowState>) context.getTaskContext().getStore("my-stats-wnd-store");
     }
   }
 

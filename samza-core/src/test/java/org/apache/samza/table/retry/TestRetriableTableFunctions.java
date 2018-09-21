@@ -29,27 +29,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
-import org.apache.samza.container.SamzaContainerContext;
+import junit.framework.Assert;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.remote.TestRemoteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
-import org.apache.samza.task.TaskContext;
 import org.junit.Test;
-
-import junit.framework.Assert;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 
 public class TestRetriableTableFunctions {
@@ -57,9 +49,8 @@ public class TestRetriableTableFunctions {
 
   public TableMetricsUtil getMetricsUtil(String tableId) {
     Table table = mock(Table.class);
-    SamzaContainerContext cntCtx = mock(SamzaContainerContext.class);
-    TaskContext taskCtx = TestRemoteTable.getMockTaskContext();
-    return new TableMetricsUtil(cntCtx, taskCtx, table, tableId);
+    Context context = TestRemoteTable.getMockContext();
+    return new TableMetricsUtil(context, table, tableId);
   }
 
   @Test

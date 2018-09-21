@@ -23,6 +23,8 @@ package org.apache.samza.container
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.config.Config
+import org.apache.samza.context.{TaskContext => _, _}
+import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStream, _}
@@ -48,7 +50,7 @@ class TestTaskInstance extends MockitoSugar {
   @Mock
   private var task: AllTask = null
   @Mock
-  private var config: Config = null
+  private var taskModel: TaskModel = null
   @Mock
   private var metrics: TaskInstanceMetrics = null
   @Mock
@@ -60,13 +62,21 @@ class TestTaskInstance extends MockitoSugar {
   @Mock
   private var collector: TaskInstanceCollector = null
   @Mock
-  private var containerContext: SamzaContainerContext = null
-  @Mock
   private var offsetManager: OffsetManager = null
   @Mock
   private var taskStorageManager: TaskStorageManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
   private var taskInstanceExceptionHandler: MockTaskInstanceExceptionHandler = null
+  @Mock
+  private var jobContext: JobContext = null
+  @Mock
+  private var containerContext: ContainerContext = null
+  @Mock
+  private var applicationContainerContext: ApplicationContainerContext = null
+  @Mock
+  private var applicationTaskContextFactory: ApplicationTaskContextFactory[ApplicationTaskContext] = null
+  @Mock
+  private var applicationTaskContext: ApplicationTaskContext = null
 
   private var taskInstance: TaskInstance = null
 
@@ -75,18 +85,10 @@ class TestTaskInstance extends MockitoSugar {
     MockitoAnnotations.initMocks(this)
     // not using Mockito mock since Mockito doesn't work well with the call-by-name argument in maybeHandle
     this.taskInstanceExceptionHandler = new MockTaskInstanceExceptionHandler
-    this.taskInstance = new TaskInstance(this.task,
-      TASK_NAME,
-      this.config,
-      this.metrics,
-      this.systemAdmins,
-      this.consumerMultiplexer,
-      this.collector,
-      this.containerContext,
-      this.offsetManager,
-      storageManager = this.taskStorageManager,
-      systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
-      exceptionHandler = this.taskInstanceExceptionHandler)
+    setupTaskInstance(Some(this.applicationContainerContext), Some(this.applicationTaskContextFactory))
+    when(this.applicationTaskContextFactory.create(Matchers.eq(this.jobContext), Matchers.eq(this.containerContext),
+      any(), Matchers.eq(this.applicationContainerContext)))
+      .thenReturn(this.applicationTaskContext)
     when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
   }
 
@@ -133,7 +135,7 @@ class TestTaskInstance extends MockitoSugar {
    */
   @Test
   def testManualOffsetReset() {
-    when(this.task.init(any(), any())).thenAnswer(new Answer[Void] {
+    when(this.task.init(any())).thenAnswer(new Answer[Void] {
       override def answer(invocation: InvocationOnMock): Void = {
         val taskContext = invocation.getArgumentAt(1, classOf[TaskContext])
         taskContext.setStartingOffset(SYSTEM_STREAM_PARTITION, "10")
@@ -198,6 +200,25 @@ class TestTaskInstance extends MockitoSugar {
     verify(commitsCounter).inc()
   }
 
+  @Test
+  def testApplicationContextProvided(): Unit = {
+    assertEquals(this.containerContext, this.taskInstance.context.getContainerContext)
+    this.taskInstance.startContext
+    verify(this.applicationTaskContext).start()
+    verify(this.applicationTaskContext, never()).stop()
+    this.taskInstance.shutdownContext
+    verify(this.applicationTaskContext).stop()
+  }
+
+  @Test
+  def testNoApplicationContextProvided() {
+    setupTaskInstance(None, None)
+    assertNull(this.taskInstance.context.getContainerContext)
+    this.taskInstance.startContext
+    this.taskInstance.shutdownContext
+    verifyZeroInteractions(this.applicationTaskContextFactory, this.applicationTaskContext)
+  }
+
   @Test(expected = classOf[SystemProducerException])
   def testProducerExceptionsIsPropagated() {
     when(this.metrics.commits).thenReturn(mock[Counter])
@@ -208,6 +229,24 @@ class TestTaskInstance extends MockitoSugar {
     } finally {
       verify(offsetManager, never()).writeCheckpoint(any(), any())
     }
+  }
+
+  private def setupTaskInstance(applicationContainerContext: Option[ApplicationContainerContext],
+    applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {
+    this.taskInstance = new TaskInstance(this.task,
+      this.taskModel,
+      this.metrics,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.collector,
+      offsetManager = this.offsetManager,
+      storageManager = this.taskStorageManager,
+      systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
+      exceptionHandler = this.taskInstanceExceptionHandler,
+      jobContext = this.jobContext,
+      containerContext = this.containerContext,
+      applicationContainerContext = applicationContainerContext,
+      applicationTaskContextFactory = applicationTaskContextFactory)
   }
 
   /**

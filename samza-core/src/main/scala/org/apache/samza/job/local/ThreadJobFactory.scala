@@ -24,7 +24,7 @@ import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
-import org.apache.samza.context.{JobContextImpl, SamzaContainerContextProvider}
+import org.apache.samza.context.JobContextImpl
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
@@ -111,12 +111,11 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       val container = SamzaContainer(
         containerId,
         jobModel,
-        config,
         Map[String, MetricsReporter](),
         taskFactory,
-        new SamzaContainerContextProvider(new JobContextImpl(config)),
-        Option(appDesc.getApplicationDefinedContainerContextFactory.orElse(null)),
-        Option(appDesc.getApplicationDefinedTaskContextFactory.orElse(null))
+        JobContextImpl.fromConfigWithDefaults(config),
+        Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
+        Option(appDesc.getApplicationTaskContextFactory.orElse(null))
       )
       container.setContainerListener(containerListener)
 

@@ -18,7 +18,9 @@
  */
 package org.apache.samza.context;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 
 
 public class JobContextImpl implements JobContext {
@@ -26,10 +28,22 @@ public class JobContextImpl implements JobContext {
   private final String jobName;
   private final String jobId;
 
-  public JobContextImpl(Config config, String jobName, String jobId) {
+  /**
+   * @param config config for the job
+   * @param jobName nullable job name (possible if job.name config is not set)
+   * @param jobId id for the job
+   */
+  private JobContextImpl(Config config, String jobName, String jobId) {
     this.config = config;
     this.jobName = jobName;
     this.jobId = jobId;
+  }
+
+  public static JobContextImpl fromConfigWithDefaults(Config config) {
+    JobConfig jobConfig = new JobConfig(config);
+    String jobName = jobConfig.getName().isDefined() ? jobConfig.getName().get() : null;
+    String jobId = jobConfig.getJobId().isDefined() ? jobConfig.getJobId().get() : "1";
+    return new JobContextImpl(config, jobName, jobId);
   }
 
   @Override
@@ -39,6 +53,9 @@ public class JobContextImpl implements JobContext {
 
   @Override
   public String getJobName() {
+    if (this.jobName == null) {
+      throw new SamzaException("Job name was not specified. Check if the job.name configuration is missing.");
+    }
     return this.jobName;
   }
 

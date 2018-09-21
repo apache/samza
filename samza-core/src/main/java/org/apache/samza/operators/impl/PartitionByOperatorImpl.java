@@ -53,7 +53,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
     this.systemStream = systemStream;
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
-    this.taskName = context.getTaskContext().getTaskName().getTaskName();
+    this.taskName = context.getTaskContext().getTaskModel().getTaskName().getTaskName();
     StreamMetadataCache streamMetadataCache = ((TaskContextImpl) context.getTaskContext()).getStreamMetadataCache();
     this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }

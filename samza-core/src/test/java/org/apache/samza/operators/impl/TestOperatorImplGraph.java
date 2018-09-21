@@ -39,9 +39,10 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
+import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -67,24 +68,20 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.TimestampedValue;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class TestOperatorImplGraph {
-
   private void addOperatorRecursively(HashSet<OperatorImpl> s, OperatorImpl op) {
     List<OperatorImpl> operators = new ArrayList<>();
     operators.add(op);
@@ -193,23 +190,35 @@ public class TestOperatorImplGraph {
     }
 
     @Override
-    public void init(Config config, TaskContext context) {
-      if (perTaskFunctionMap.get(context.getTaskName()) == null) {
-        perTaskFunctionMap.put(context.getTaskName(), new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
+    public void init(Context context) {
+      TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
+      if (perTaskFunctionMap.get(taskName) == null) {
+        perTaskFunctionMap.put(taskName, new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
       } else {
-        if (perTaskFunctionMap.get(context.getTaskName()).containsKey(opId)) {
+        if (perTaskFunctionMap.get(taskName).containsKey(opId)) {
           throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
         }
-        perTaskFunctionMap.get(context.getTaskName()).put(opId, this);
+        perTaskFunctionMap.get(taskName).put(opId, this);
       }
-      if (perTaskInitList.get(context.getTaskName()) == null) {
-        perTaskInitList.put(context.getTaskName(), new ArrayList<String>() { { this.add(opId); } });
+      if (perTaskInitList.get(taskName) == null) {
+        perTaskInitList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
       } else {
-        perTaskInitList.get(context.getTaskName()).add(opId);
+        perTaskInitList.get(taskName).add(opId);
       }
-      this.taskName = context.getTaskName();
+      this.taskName = taskName;
       this.numInitCalled++;
     }
+  }
+
+  private Context context;
+
+  @Before
+  public void setup() {
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(new TaskName("task 0"));
+    this.context = new MockContext();
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
   @After
@@ -221,7 +230,7 @@ public class TestOperatorImplGraph {
   public void testEmptyChain() {
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
     OperatorImplGraph opGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Config.class), mock(TaskContextImpl.class), mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Context.class), mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
   }
 
@@ -256,11 +265,8 @@ public class TestOperatorImplGraph {
             .sendTo(outputStream);
       }, config);
 
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    when(mockTaskContext.getTaskName()).thenReturn(new TaskName("task 0"));
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), config, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream(inputSystem, inputPhysicalName));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -312,21 +318,15 @@ public class TestOperatorImplGraph {
             .sendTo(outputStream);
       }, config);
 
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    when(mockTaskContext.getTaskName()).thenReturn(new TaskName("task 0"));
     JobModel jobModel = mock(JobModel.class);
     ContainerModel containerModel = mock(ContainerModel.class);
     TaskModel taskModel = mock(TaskModel.class);
     when(jobModel.getContainers()).thenReturn(Collections.singletonMap("0", containerModel));
     when(containerModel.getTasks()).thenReturn(Collections.singletonMap(new TaskName("task 0"), taskModel));
     when(taskModel.getSystemStreamPartitions()).thenReturn(Collections.emptySet());
-    when(mockTaskContext.getJobModel()).thenReturn(jobModel);
-    SamzaContainerContext containerContext =
-        new SamzaContainerContext("0", config, Collections.singleton(new TaskName("task 0")), new MetricsRegistryMap());
-    when(mockTaskContext.getSamzaContainerContext()).thenReturn(containerContext);
+    when(((TaskContextImpl) this.context.getTaskContext()).getJobModel()).thenReturn(jobModel);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), config, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream(inputSystem, inputPhysicalName));
     assertEquals(1, inputOpImpl.registeredOperators.size());
@@ -360,10 +360,8 @@ public class TestOperatorImplGraph {
         inputStream.map(mock(MapFunction.class));
       }, config);
 
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), config, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream(inputSystem, inputPhysicalName));
     assertEquals(2, inputOpImpl.registeredOperators.size());
@@ -380,7 +378,6 @@ public class TestOperatorImplGraph {
     String inputPhysicalName = "input-stream";
     HashMap<String, String> configs = new HashMap<>();
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
-    Config config = new MapConfig(configs);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
@@ -390,13 +387,14 @@ public class TestOperatorImplGraph {
         stream1.merge(Collections.singleton(stream2))
             .map(new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m));
       }, mock(Config.class));
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
+
     TaskName mockTaskName = mock(TaskName.class);
-    when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(mockTaskName);
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
 
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Config.class), mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     Set<OperatorImpl> opSet = opImplGraph.getAllInputOperators().stream().collect(HashSet::new,
         (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
@@ -441,15 +439,16 @@ public class TestOperatorImplGraph {
       }, config);
 
     TaskName mockTaskName = mock(TaskName.class);
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getTaskName()).thenReturn(mockTaskName);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(mockTaskName);
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+
     KeyValueStore mockLeftStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-L"))).thenReturn(mockLeftStore);
+    when(this.context.getTaskContext().getStore(eq("jobName-jobId-join-j1-L"))).thenReturn(mockLeftStore);
     KeyValueStore mockRightStore = mock(KeyValueStore.class);
-    when(mockTaskContext.getStore(eq("jobName-jobId-join-j1-R"))).thenReturn(mockRightStore);
+    when(this.context.getTaskContext().getStore(eq("jobName-jobId-join-j1-R"))).thenReturn(mockRightStore);
     OperatorImplGraph opImplGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), config, mockTaskContext, mock(Clock.class));
+        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     // verify that join function is initialized once.
     assertEquals(TestJoinFunction.getInstanceByTaskName(mockTaskName, "jobName-jobId-join-j1").numInitCalled, 1);
@@ -491,10 +490,12 @@ public class TestOperatorImplGraph {
     String inputStreamId2 = "input2";
     String inputSystem = "input-system";
     Config mockConfig = mock(Config.class);
+
     TaskName mockTaskName = mock(TaskName.class);
-    TaskContextImpl mockContext = mock(TaskContextImpl.class);
-    when(mockContext.getTaskName()).thenReturn(mockTaskName);
-    when(mockContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(mockTaskName);
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
@@ -510,7 +511,7 @@ public class TestOperatorImplGraph {
             .map(new TestMapFunction<Object, Object>("4", mapFn));
       }, mockConfig);
 
-    OperatorImplGraph opImplGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mockConfig, mockContext, SystemClock.instance());
+    OperatorImplGraph opImplGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, SystemClock.instance());
 
     List<String> initializedOperators = BaseTestFunction.getInitListByTaskName(mockTaskName);
 

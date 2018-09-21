@@ -19,16 +19,17 @@
 package org.apache.samza.application;
 
 import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.operators.BaseTableDescriptor;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
@@ -52,18 +53,10 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit test for {@link StreamApplicationDescriptorImpl}
@@ -529,11 +522,33 @@ public class TestStreamApplicationDescriptorImpl {
   }
 
   @Test
-  public void testContextManager() {
-    ContextManager cntxMan = mock(ContextManager.class);
-    StreamApplication testApp = appDesc -> appDesc.withContextManager(cntxMan);
+  public void testApplicationContainerContextFactory() {
+    ApplicationContainerContextFactory factory = mock(ApplicationContainerContextFactory.class);
+    StreamApplication testApp = appDesc -> appDesc.withApplicationContainerContextFactory(factory);
     StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
-    assertEquals(appSpec.getContextManager(), cntxMan);
+    assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.of(factory));
+  }
+
+  @Test
+  public void testNoApplicationContainerContextFactory() {
+    StreamApplication testApp = appDesc -> {};
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.empty());
+  }
+
+  @Test
+  public void testApplicationTaskContextFactory() {
+    ApplicationTaskContextFactory factory = mock(ApplicationTaskContextFactory.class);
+    StreamApplication testApp = appDesc -> appDesc.withApplicationTaskContextFactory(factory);
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.of(factory));
+  }
+
+  @Test
+  public void testNoApplicationTaskContextFactory() {
+    StreamApplication testApp = appDesc -> {};
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.empty());
   }
 
   @Test

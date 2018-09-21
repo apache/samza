@@ -19,8 +19,8 @@
 
 package org.apache.samza.test.integration.join;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -28,7 +28,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 import org.apache.samza.task.WindowableTask;
@@ -38,9 +37,9 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("unchecked")
 public class Emitter implements StreamTask, InitableTask, WindowableTask {
-  
+
   private static Logger logger = LoggerFactory.getLogger(Emitter.class);
-  
+
   private static final String EPOCH = "the-epoch";
   private static final String COUNT = "the-count";
 
@@ -49,10 +48,10 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
   private TaskName taskName;
 
   @Override
-  public void init(Config config, TaskContext context) {
-    this.state = (KeyValueStore<String, String>) context.getStore("emitter-state");
-    this.taskName = context.getTaskName();
-    this.max = config.getInt("count");
+  public void init(Context context) {
+    this.state = (KeyValueStore<String, String>) context.getTaskContext().getStore("emitter-state");
+    this.taskName = context.getTaskContext().getTaskModel().getTaskName();
+    this.max = context.getJobContext().getConfig().getInt("count");
   }
 
   @Override
@@ -66,7 +65,7 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
         return;
       if (newEpoch < epoch)
         throw new IllegalArgumentException("Got new epoch " + newEpoch + " which is less than current epoch " + epoch);
-      
+
       // it's a new era, reset current epoch and count
       logger.info("Epoch: " + newEpoch);
       this.state.put(EPOCH, Integer.toString(newEpoch));
@@ -74,7 +73,7 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
       coordinator.commit(RequestScope.ALL_TASKS_IN_CONTAINER);
     }
   }
-  
+
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
     Integer epoch = getInt(EPOCH);
     if (epoch == null) {
@@ -89,13 +88,13 @@ public class Emitter implements StreamTask, InitableTask, WindowableTask {
       this.state.put(COUNT, Integer.toString(getInt(COUNT) + 1));
     }
   }
-  
+
   private void resetEpoch() {
     logger.info("Resetting epoch to 0");
     state.put(EPOCH, "0");
     state.put(COUNT, "0");
   }
-  
+
   private Integer getInt(String key) {
     String value = this.state.get(key);
     return value == null ? null : Integer.parseInt(value);

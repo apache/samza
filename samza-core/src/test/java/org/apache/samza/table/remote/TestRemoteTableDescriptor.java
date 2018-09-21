@@ -19,13 +19,11 @@
 
 package org.apache.samza.table.remote;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
-
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
@@ -34,18 +32,14 @@ import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
-import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
+import static org.apache.samza.table.remote.RemoteTableDescriptor.*;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.*;
 
 
 public class TestRemoteTableDescriptor {
@@ -117,16 +111,13 @@ public class TestRemoteTableDescriptor {
     desc.getTableSpec();
   }
 
-  private TaskContext createMockTaskContext() {
+  private Context createMockContext() {
+    Context context = new MockContext();
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
-    TaskContext taskContext = mock(TaskContext.class);
-    doReturn(metricsRegistry).when(taskContext).getMetricsRegistry();
-    SamzaContainerContext containerCtx = new SamzaContainerContext(
-        "1", null, Collections.singleton(new TaskName("MyTask")), null);
-    doReturn(containerCtx).when(taskContext).getSamzaContainerContext();
-    return taskContext;
+    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    return context;
   }
 
   static class CountingCreditFunction<K, V> implements TableRateLimiter.CreditFunction<K, V> {
@@ -172,7 +163,7 @@ public class TestRemoteTableDescriptor {
 
     TableSpec spec = desc.getTableSpec();
     RemoteTableProvider provider = new RemoteTableProvider(spec);
-    provider.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    provider.init(createMockContext());
     Table table = provider.getTable();
     Assert.assertTrue(table instanceof RemoteReadWriteTable);
     RemoteReadWriteTable rwTable = (RemoteReadWriteTable) table;

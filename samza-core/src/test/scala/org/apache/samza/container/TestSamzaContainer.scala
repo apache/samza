@@ -22,7 +22,8 @@ package org.apache.samza.container
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config.{Config, MapConfig}
+import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
@@ -46,7 +47,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")
 
   @Mock
-  private var containerContext: SamzaContainerContext = null
+  private var config: Config = null
   @Mock
   private var taskInstance: TaskInstance = null
   @Mock
@@ -60,6 +61,10 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var metrics: SamzaContainerMetrics = null
   @Mock
+  private var containerContext: ContainerContext = null
+  @Mock
+  private var applicationContainerContext: ApplicationContainerContext = null
+  @Mock
   private var samzaContainerListener: SamzaContainerListener = null
 
   private var samzaContainer: SamzaContainer = null
@@ -67,15 +72,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Before
   def setup(): Unit = {
     MockitoAnnotations.initMocks(this)
-    this.samzaContainer = new SamzaContainer(
-      this.containerContext,
-      Map(TASK_NAME -> this.taskInstance),
-      this.runLoop,
-      this.systemAdmins,
-      this.consumerMultiplexer,
-      this.producerMultiplexer,
-      metrics)
-    this.samzaContainer.setContainerListener(this.samzaContainerListener)
+    setupSamzaContainer(Some(this.applicationContainerContext))
     when(this.metrics.containerStartupTime).thenReturn(mock[Timer])
   }
 
@@ -173,6 +170,24 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
+  def testApplicationContainerContext() {
+    val orderVerifier = inOrder(this.applicationContainerContext, this.runLoop)
+    this.samzaContainer.run
+    orderVerifier.verify(this.applicationContainerContext).start()
+    orderVerifier.verify(this.runLoop).run()
+    orderVerifier.verify(this.applicationContainerContext).stop()
+  }
+
+  @Test
+  def testNullApplicationContainerContextFactory() {
+    setupSamzaContainer(None)
+    this.samzaContainer.run
+    verify(this.runLoop).run()
+    // applicationContainerContext is not even wired into the container anymore, but just double check it is not used
+    verifyZeroInteractions(this.applicationContainerContext)
+  }
+
+  @Test
   def testReadJobModel() {
     val config = new MapConfig(Map("a" -> "b").asJava)
     val offsets = new util.HashMap[SystemStreamPartition, String]()
@@ -256,6 +271,20 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new Partition(11))
     val containerModel = new ContainerModel("processorId", Map(taskName0 -> taskModel0, taskName1 -> taskModel1))
     assertEquals(Set(), SamzaContainer.getChangelogSSPsForContainer(containerModel, Map()))
+  }
+
+  private def setupSamzaContainer(applicationContainerContext: Option[ApplicationContainerContext]) {
+    val samzaContainer = new SamzaContainer(
+      this.config,
+      Map(TASK_NAME -> this.taskInstance),
+      this.runLoop,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.producerMultiplexer,
+      metrics,
+      containerContext = this.containerContext,
+      applicationContainerContext = applicationContainerContext)
+    samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 
   class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[JobModel]) extends JobServlet(jobModelRef) {

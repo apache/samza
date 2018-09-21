@@ -18,7 +18,6 @@
  */
 package org.apache.samza.context;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Objects;
 
 
@@ -36,23 +35,16 @@ public class ContextImpl implements Context {
    * @param applicationContainerContext nullable application-defined container context
    * @param applicationTaskContext nullable application-defined task context
    */
-  public ContextImpl(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
-      ApplicationContainerContext applicationContainerContext, ApplicationTaskContext applicationTaskContext) {
+  public ContextImpl(JobContext jobContext,
+      ContainerContext containerContext,
+      TaskContext taskContext,
+      ApplicationContainerContext applicationContainerContext,
+      ApplicationTaskContext applicationTaskContext) {
     this.jobContext = jobContext;
     this.containerContext = containerContext;
     this.taskContext = taskContext;
     this.applicationContainerContext = applicationContainerContext;
     this.applicationTaskContext = applicationTaskContext;
-  }
-
-  /**
-   * This is built using a {@link ContextProvider}.
-   */
-  ContextImpl(SamzaContainerContext samzaContainerContext, TaskContext taskContext,
-      ApplicationDefinedContainerContext applicationDefinedContainerContext,
-      ApplicationDefinedTaskContext applicationDefinedTaskContext) {
-    this(samzaContainerContext.getJobContext(), samzaContainerContext.getContainerContext(), taskContext,
-        applicationDefinedContainerContext, applicationDefinedTaskContext);
   }
 
   @Override
@@ -96,14 +88,12 @@ public class ContextImpl implements Context {
     }
     ContextImpl context = (ContextImpl) o;
     return Objects.equals(jobContext, context.jobContext) && Objects.equals(containerContext, context.containerContext)
-        && Objects.equals(taskContext, context.taskContext) && Objects.equals(applicationDefinedContainerContext,
-        context.applicationDefinedContainerContext) && Objects.equals(applicationDefinedTaskContext,
-        context.applicationDefinedTaskContext);
+        && Objects.equals(taskContext, context.taskContext) && Objects.equals(applicationContainerContext,
+        context.applicationContainerContext) && Objects.equals(applicationTaskContext, context.applicationTaskContext);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobContext, containerContext, taskContext, applicationDefinedContainerContext,
-        applicationDefinedTaskContext);
+    return Objects.hash(jobContext, containerContext, taskContext, applicationContainerContext, applicationTaskContext);
   }
 }

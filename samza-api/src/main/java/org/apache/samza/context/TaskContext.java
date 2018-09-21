@@ -21,7 +21,7 @@ package org.apache.samza.context;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.scheduling.CallbackScheduler;
+import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;

@@ -107,9 +107,10 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
     this.tagToRateLimiterMap = Collections.unmodifiableMap(tagToTargetRateMap.entrySet().stream()
         .map(e -> {
             String tag = e.getKey();
-            int effectiveRate = e.getValue() / context.getContainerContext().getTaskNames().size();
+            int effectiveRate =
+                e.getValue() / context.getContainerContext().getContainerModel().getTasks().keySet().size();
             LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d",
-                context.getTaskContext().getTaskName(), tag, effectiveRate));
+                context.getTaskContext().getTaskModel().getTaskName(), tag, effectiveRate));
             return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))

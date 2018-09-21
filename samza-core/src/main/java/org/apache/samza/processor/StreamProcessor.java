@@ -35,12 +35,11 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.IllegalContainerStateException;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
-import org.apache.samza.context.ApplicationDefinedContainerContext;
-import org.apache.samza.context.ApplicationDefinedContainerContextFactory;
-import org.apache.samza.context.ApplicationDefinedTaskContext;
-import org.apache.samza.context.ApplicationDefinedTaskContextFactory;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.context.JobContextImpl;
-import org.apache.samza.context.SamzaContainerContextProvider;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -106,17 +105,16 @@ public class StreamProcessor {
   private final ProcessorLifecycleListener processorListener;
   private final TaskFactory taskFactory;
   /**
-   * Type parameter needs to be {@link ApplicationDefinedContainerContext} so that we can eventually call the base
-   * methods of the context object.
-   */
-  private final ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>
-      applicationDefinedContainerContextFactory;
-  /**
-   * Type parameter needs to be {@link ApplicationDefinedTaskContext} so that we can eventually call the base methods of
+   * Type parameter needs to be {@link ApplicationContainerContext} so that we can eventually call the base methods of
    * the context object.
    */
-  private final ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext>
-      applicationDefinedTaskContextFactory;
+  private final ApplicationContainerContextFactory<ApplicationContainerContext>
+      applicationDefinedContainerContextFactory;
+  /**
+   * Type parameter needs to be {@link ApplicationTaskContext} so that we can eventually call the base methods of the
+   * context object.
+   */
+  private final ApplicationTaskContextFactory<ApplicationTaskContext> applicationDefinedTaskContextFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
   private final long taskShutdownMs;
@@ -218,9 +216,8 @@ public class StreamProcessor {
   public StreamProcessor(Config config,
       Map<String, MetricsReporter> customMetricsReporters,
       TaskFactory taskFactory,
-      ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>
-          applicationDefinedContainerContextFactory,
-      ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext> applicationDefinedTaskContextFactory,
+      ApplicationContainerContextFactory<ApplicationContainerContext> applicationDefinedContainerContextFactory,
+      ApplicationTaskContextFactory<ApplicationTaskContext> applicationDefinedTaskContextFactory,
       StreamProcessorLifecycleListenerFactory listenerFactory,
       JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
@@ -321,10 +318,9 @@ public class StreamProcessor {
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
     return SamzaContainer.apply(processorId,
         jobModel,
-        this.config,
         ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
         this.taskFactory,
-        new SamzaContainerContextProvider(new JobContextImpl(this.config)),
+        JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactory),
         Option.apply(this.applicationDefinedTaskContextFactory));
   }

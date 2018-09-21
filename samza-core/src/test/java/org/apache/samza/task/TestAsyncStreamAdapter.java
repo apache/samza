@@ -22,13 +22,13 @@ package org.apache.samza.task;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestAsyncStreamAdapter {
@@ -64,7 +64,7 @@ public class TestAsyncStreamAdapter {
     }
 
     @Override
-    public void init(Config config, TaskContext context) throws Exception {
+    public void init(Context context) throws Exception {
       inited = true;
     }
 
@@ -95,7 +95,7 @@ public class TestAsyncStreamAdapter {
     TestCallbackListener listener = new TestCallbackListener();
     TaskCallback callback = new TaskCallbackImpl(listener, null, envelope, null, 0L, 0L);
 
-    taskAdaptor.init(null, null);
+    taskAdaptor.init(null);
     assertTrue(task.inited);
 
     taskAdaptor.processAsync(null, null, null, callback);

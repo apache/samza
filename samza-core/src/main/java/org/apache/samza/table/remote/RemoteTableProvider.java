@@ -148,7 +148,7 @@ public class RemoteTableProvider extends BaseTableProvider {
           writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
     }
 
-    TableMetricsUtil metricsUtil = new TableMetricsUtil(containerContext, taskContext, table, tableId);
+    TableMetricsUtil metricsUtil = new TableMetricsUtil(this.context, table, tableId);
     if (readRetryPolicy != null) {
       ((RetriableReadFunction) readFn).setMetrics(metricsUtil);
     }
@@ -156,7 +156,7 @@ public class RemoteTableProvider extends BaseTableProvider {
       ((RetriableWriteFunction) writeFn).setMetrics(metricsUtil);
     }
 
-    table.init(context);
+    table.init(this.context);
     tables.add(table);
     return table;
   }

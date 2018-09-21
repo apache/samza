@@ -27,10 +27,9 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.context._
-import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsReporter
-import org.apache.samza.scheduling.SchedulerImpl
-import org.apache.samza.scheduler.ScheduledCallback
+import org.apache.samza.scheduler.{CallbackSchedulerImpl, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{TaskSideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
@@ -44,8 +43,7 @@ import scala.collection.Map
 
 class TaskInstance(
   val task: Any,
-  val taskName: TaskName,
-  config: Config,
+  taskModel: TaskModel,
   val metrics: TaskInstanceMetrics,
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
@@ -61,11 +59,13 @@ class TaskInstance(
   timerExecutor : ScheduledExecutorService = null,
   sideInputSSPs: Set[SystemStreamPartition] = Set(),
   sideInputStorageManager: TaskSideInputStorageManager = null,
-  samzaContextProvider: SamzaContextProvider,
-  applicationDefinedTaskContextFactory: Option[ApplicationDefinedTaskContextFactory[ApplicationDefinedTaskContext]],
-  contextProvider: ContextProvider
+  jobContext: JobContext,
+  containerContext: ContainerContext,
+  applicationContainerContext: Option[ApplicationContainerContext],
+  applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
 ) extends Logging {
 
+  val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
@@ -74,9 +74,13 @@ class TaskInstance(
 
   val systemTimerScheduler: SystemTimerScheduler = SystemTimerScheduler.create(timerExecutor)
   val (taskContext: org.apache.samza.context.TaskContext,
-    applicationDefinedTaskContextOption: Option[ApplicationDefinedTaskContext]) =
+    applicationTaskContextOption: Option[ApplicationTaskContext]) =
     buildTaskContexts(systemTimerScheduler)
-  val context: Context = contextProvider.build(taskContext, applicationDefinedTaskContextOption.orNull)
+  val context: Context = new ContextImpl(jobContext,
+    containerContext,
+    taskContext,
+    applicationContainerContext.orNull,
+    applicationTaskContextOption.orNull)
 
   // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
@@ -84,6 +88,8 @@ class TaskInstance(
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
+
+  private val config: Config = jobContext.getConfig
 
   val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
 
@@ -103,7 +109,7 @@ class TaskInstance(
   }
 
   def startContext: Unit = {
-    this.applicationDefinedTaskContextOption.foreach(applicationDefinedTaskContext => {
+    this.applicationTaskContextOption.foreach(applicationDefinedTaskContext => {
       debug("Starting application-defined task context for taskName: %s" format taskName)
       applicationDefinedTaskContext.start()
     })
@@ -280,7 +286,7 @@ class TaskInstance(
   }
 
   def shutdownContext: Unit = {
-    this.applicationDefinedTaskContextOption.foreach(applicationDefinedTaskContext => {
+    this.applicationTaskContextOption.foreach(applicationDefinedTaskContext => {
       debug("Stopping application-defined task context for taskName: %s" format taskName)
       applicationDefinedTaskContext.stop()
     })
@@ -370,7 +376,7 @@ class TaskInstance(
   }
 
   private def buildTaskContexts(systemTimerScheduler: SystemTimerScheduler):
-    (org.apache.samza.context.TaskContext, Option[ApplicationDefinedTaskContext]) = {
+    (org.apache.samza.context.TaskContext, Option[ApplicationTaskContext]) = {
     val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
       (storeName: String) => {
         if (storageManager != null && storageManager.getStore(storeName).isDefined) {
@@ -381,9 +387,8 @@ class TaskInstance(
           null
         }
       })
-    val scheduler = new SchedulerImpl(systemTimerScheduler)
-    val taskContext = new TaskContextImpl(taskName,
-      systemStreamPartitions.asJava,
+    val scheduler = new CallbackSchedulerImpl(systemTimerScheduler)
+    val taskContext = new TaskContextImpl(taskModel,
       metrics.registry,
       kvStoreSupplier,
       tableManager,
@@ -391,8 +396,8 @@ class TaskInstance(
       offsetManager,
       jobModel,
       streamMetadataCache)
-    val samzaContext = samzaContextProvider.build(taskContext)
-    val applicationDefinedTaskContext = applicationDefinedTaskContextFactory.map(_.create(samzaContext))
+    val applicationDefinedTaskContext = applicationTaskContextFactory.map(_.create(jobContext, containerContext,
+      taskContext, applicationContainerContext.orNull))
     (taskContext, applicationDefinedTaskContext)
   }
 }

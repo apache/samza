@@ -19,9 +19,11 @@
 package org.apache.samza.operators.impl;
 
 import java.util.Collection;
-
+import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
@@ -29,14 +31,10 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
-import junit.framework.Assert;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestStreamTableJoinOperatorImpl {
@@ -79,14 +77,13 @@ public class TestStreamTableJoinOperatorImpl {
     ReadableTable table = mock(ReadableTable.class);
     when(table.get("1")).thenReturn("r1");
     when(table.get("2")).thenReturn(null);
-    TaskContext mockTaskContext = mock(TaskContext.class);
-    when(mockTaskContext.getTable(tableId)).thenReturn(table);
+    Context context = new MockContext();
+    when(context.getTaskContext().getTable(tableId)).thenReturn(table);
 
     MessageCollector mockMessageCollector = mock(MessageCollector.class);
     TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);
 
-    StreamTableJoinOperatorImpl streamTableJoinOperator = new StreamTableJoinOperatorImpl(
-        mockJoinOpSpec, config, mockTaskContext);
+    StreamTableJoinOperatorImpl streamTableJoinOperator = new StreamTableJoinOperatorImpl(mockJoinOpSpec, context);
 
     // Table has the key
     Collection<TestMessageEnvelope> result;

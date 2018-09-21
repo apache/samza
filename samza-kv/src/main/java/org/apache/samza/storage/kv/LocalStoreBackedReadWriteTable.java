@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.task.TaskContext;
@@ -50,9 +51,9 @@ public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadab
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    super.init(containerContext, taskContext);
-    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
+  public void init(Context context) {
+    super.init(context);
+    writeMetrics = new DefaultTableWriteMetrics(context, this, tableId);
   }
 
   @Override

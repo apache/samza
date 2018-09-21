@@ -24,10 +24,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.config.Config;
-import org.apache.samza.context.ApplicationDefinedContainerContext;
-import org.apache.samza.context.ApplicationDefinedContainerContextFactory;
-import org.apache.samza.context.ApplicationDefinedTaskContext;
-import org.apache.samza.context.ApplicationDefinedTaskContextFactory;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.TableDescriptor;
@@ -57,12 +57,12 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   /**
    * Optional factory, so value might be null.
    */
-  private ApplicationDefinedContainerContextFactory<?> applicationDefinedContainerContextFactory;
+  private ApplicationContainerContextFactory<?> applicationContainerContextFactory;
 
   /**
    * Optional factory, so value might be null.
    */
-  private ApplicationDefinedTaskContextFactory<?> applicationDefinedTaskContextFactory;
+  private ApplicationTaskContextFactory<?> applicationTaskContextFactory;
 
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
@@ -78,14 +78,14 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public S withApplicationDefinedContainerContextFactory(ApplicationDefinedContainerContextFactory<?> factory) {
-    this.applicationDefinedContainerContextFactory = factory;
+  public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
+    this.applicationContainerContextFactory = factory;
     return (S) this;
   }
 
   @Override
-  public S withApplicationDefinedTaskContextFactory(ApplicationDefinedTaskContextFactory<?> factory) {
-    this.applicationDefinedTaskContextFactory = factory;
+  public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
+    this.applicationTaskContextFactory = factory;
     return (S) this;
   }
 
@@ -112,21 +112,21 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   /**
-   * @return {@link ApplicationDefinedContainerContextFactory} if application specified it; empty otherwise
+   * @return {@link ApplicationContainerContextFactory} if application specified it; empty otherwise
    */
-  public Optional<ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>> getApplicationDefinedContainerContextFactory() {
-    //noinspection unchecked; ok because all context types are at least ApplicationDefinedContainerContext
+  public Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> getApplicationContainerContextFactory() {
+    //noinspection unchecked; ok because all context types are at least ApplicationContainerContext
     return Optional.ofNullable(
-        (ApplicationDefinedContainerContextFactory<ApplicationDefinedContainerContext>) this.applicationDefinedContainerContextFactory);
+        (ApplicationContainerContextFactory<ApplicationContainerContext>) this.applicationContainerContextFactory);
   }
 
   /**
-   * @return {@link ApplicationDefinedTaskContextFactory} if application specified it; empty otherwise
+   * @return {@link ApplicationTaskContextFactory} if application specified it; empty otherwise
    */
-  public Optional<ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext>> getApplicationDefinedTaskContextFactory() {
-    //noinspection unchecked; ok because all context types are at least ApplicationDefinedTaskContext
+  public Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> getApplicationTaskContextFactory() {
+    //noinspection unchecked; ok because all context types are at least ApplicationTaskContext
     return Optional.ofNullable(
-        (ApplicationDefinedTaskContextFactory<ApplicationDefinedTaskContext>) this.applicationDefinedTaskContextFactory);
+        (ApplicationTaskContextFactory<ApplicationTaskContext>) this.applicationTaskContextFactory);
   }
 
   /**

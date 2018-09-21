@@ -37,7 +37,7 @@ import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.scheduling.CallbackScheduler;
+import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -112,21 +112,12 @@ public abstract class OperatorImpl<M, RM> {
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opId + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
-    this.taskName = taskContext.getTaskName();
+    this.taskName = taskContext.getTaskModel().getTaskName();
 
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
     this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
-
-    if (taskContext.getJobModel() != null) {
-      ContainerModel containerModel =
-          taskContext.getJobModel().getContainers().get(context.getContainerContext().getProcessorId());
-      this.taskModel = containerModel.getTasks().get(taskName);
-    } else {
-      this.taskModel = null;
-      this.usedInCurrentTask = true;
-    }
-
+    this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);
 

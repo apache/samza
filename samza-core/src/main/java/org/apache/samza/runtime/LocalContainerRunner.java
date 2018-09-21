@@ -37,7 +37,6 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.JobContextImpl;
-import org.apache.samza.context.SamzaContainerContextProvider;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactory;
@@ -97,12 +96,11 @@ public class LocalContainerRunner {
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
-        config,
         ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
         taskFactory,
-        new SamzaContainerContextProvider(new JobContextImpl(config)),
-        Option.apply(appDesc.getApplicationDefinedContainerContextFactory().orElse(null)),
-        Option.apply(appDesc.getApplicationDefinedTaskContextFactory().orElse(null)));
+        JobContextImpl.fromConfigWithDefaults(config),
+        Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
+        Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)));
 
     ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
         .createInstance(new ProcessorContext() { }, config);

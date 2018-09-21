@@ -18,21 +18,25 @@
  */
 package org.apache.samza.processor
 
-import java.util.Collections
+import java.util
 
+import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container._
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.context.{ContainerContext, JobContext}
+import org.apache.samza.job.model.TaskModel
 import org.apache.samza.serializers.SerdeManager
-import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.system._
+import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
+import org.mockito.Mockito
 
 
 object StreamProcessorTestUtils {
   def getDummyContainer(mockRunloop: RunLoop, streamTask: StreamTask) = {
-    val config = new MapConfig
+    val config = new MapConfig()
     val taskName = new TaskName("taskName")
+    val taskModel = new TaskModel(taskName, new util.HashSet[SystemStreamPartition](), new Partition(0))
     val adminMultiplexer = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
@@ -41,26 +45,29 @@ object StreamProcessorTestUtils {
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
-    val containerContext = new SamzaContainerContext("0", config, Collections.singleton[TaskName](taskName), new MetricsRegistryMap)
+    val containerContext = Mockito.mock(classOf[ContainerContext])
     val taskInstance: TaskInstance = new TaskInstance(
       streamTask,
-      taskName,
-      config,
+      taskModel,
       new TaskInstanceMetrics,
-      null,
+      adminMultiplexer,
       consumerMultiplexer,
       collector,
-      containerContext
-    )
+      jobContext = Mockito.mock(classOf[JobContext]),
+      containerContext = containerContext,
+      applicationContainerContext = None,
+      applicationTaskContextFactory = None)
 
     val container = new SamzaContainer(
-      containerContext = containerContext,
+      config = config,
       taskInstances = Map(taskName -> taskInstance),
       runLoop = mockRunloop,
       systemAdmins = adminMultiplexer,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
-      metrics = new SamzaContainerMetrics)
+      metrics = new SamzaContainerMetrics,
+      containerContext = containerContext,
+      applicationContainerContext = None)
     container
   }
 }

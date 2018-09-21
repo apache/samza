@@ -18,22 +18,22 @@
  */
 package org.apache.samza.util;
 
-import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.task.TaskContext;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static java.util.concurrent.TimeUnit.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestEmbeddedTaggedRateLimiter {
@@ -206,25 +206,13 @@ public class TestEmbeddedTaggedRateLimiter {
   }
 
   static void initRateLimiter(RateLimiter rateLimiter) {
-    Config config = mock(Config.class);
-    TaskContext taskContext = mock(TaskContext.class);
-    SamzaContainerContext containerContext = mockSamzaContainerContext();
-    when(taskContext.getSamzaContainerContext()).thenReturn(containerContext);
-    rateLimiter.init(config, taskContext);
-  }
-
-  static SamzaContainerContext mockSamzaContainerContext() {
-    try {
-      Collection<String> taskNames = mock(Collection.class);
-      when(taskNames.size()).thenReturn(NUMBER_OF_TASKS);
-      SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
-      Field taskNamesField = SamzaContainerContext.class.getDeclaredField("taskNames");
-      taskNamesField.setAccessible(true);
-      taskNamesField.set(containerContext, taskNames);
-      taskNamesField.setAccessible(false);
-      return containerContext;
-    } catch (Exception ex) {
-      throw new SamzaException(ex);
-    }
+    Context context = new MockContext();
+    ContainerModel containerModel = mock(ContainerModel.class);
+    Map<TaskName, TaskModel> tasks = IntStream.range(0, NUMBER_OF_TASKS)
+        .mapToObj(i -> new TaskName("task-" + i))
+        .collect(Collectors.toMap(Function.identity(), x -> mock(TaskModel.class)));
+    when(containerModel.getTasks()).thenReturn(tasks);
+    when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
+    rateLimiter.init(context);
   }
 }
