@@ -63,16 +63,16 @@ import static org.mockito.Mockito.when;
 
 
 /**
- * Unit test for {@link JobNodeConfigureGenerator}
+ * Unit test for {@link JobNodeConfigurationGenerator}
  */
-public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
+public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase {
 
   @Test
   public void testConfigureSerdesWithRepartitionJoinApplication() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     configureJobNode(mockStreamAppDesc);
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
     // Verify the results
@@ -92,7 +92,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(mockStreamAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
     // Verify the results
@@ -116,7 +116,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
     configureJobNode(taskAppDesc);
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
     // Verify the results
@@ -133,7 +133,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     Map<String, String> originConfig = new HashMap<>(mockConfig);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
     // jobConfig should be exactly the same as original config
     Map<String, String> generatedConfig = new HashMap<>(jobConfig);
@@ -147,7 +147,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(mockStreamAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
@@ -163,7 +163,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(mockStreamAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
@@ -193,6 +193,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
     when(mockTableDescriptor.getTableId()).thenReturn("testTable");
     when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
+    when(mockTableDescriptor.getSerde()).thenReturn(defaultSerde);
     // add side input and terminate at table in the appplication
     mockStreamAppDesc.getInputStream(sideInput1).sendTo(mockStreamAppDesc.getTable(mockTableDescriptor));
     StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
@@ -207,11 +208,11 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(mockStreamAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
-    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 7);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 5);
     validateTableConfigure(jobConfig, deserializedSerdes, mockTableDescriptor);
   }
 
@@ -229,6 +230,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
     when(mockTableDescriptor.getTableId()).thenReturn("testTable");
     when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
+    when(mockTableDescriptor.getSerde()).thenReturn(defaultSerde);
     StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
         inputSystemDescriptor.getSystemName()), false, false, mockConfig);
     // need to put the sideInput related stream configuration to the original config
@@ -247,13 +249,13 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(taskAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
 
     // Verify the results
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
-    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 4);
+    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
     validateStreamConfigures(jobConfig, deserializedSerdes);
     validateTableConfigure(jobConfig, deserializedSerdes, mockTableDescriptor);
   }
@@ -267,7 +269,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(defaultSerde), mockConfig);
     configureJobNode(mockStreamAppDesc);
 
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedConfig, jobConfig);
@@ -282,7 +284,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     configureJobNode(taskAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
     // jobConfig should be exactly the same as original config
     Map<String, String> generatedConfig = new HashMap<>(jobConfig);
@@ -293,13 +295,13 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
   public void testOverrideConfigs() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, getJobNameAndId()) + streamCfgToOverride;
+    String overrideCfgKey = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()) + streamCfgToOverride;
     configs.put(overrideCfgKey, "customized-system");
     mockConfig = spy(new MapConfig(configs));
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     configureJobNode(mockStreamAppDesc);
 
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedConfig, jobConfig);
@@ -310,7 +312,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
   public void testConfigureRewriter() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobNodeConfigureGenerator.CONFIG_JOB_PREFIX, getJobNameAndId()) + streamCfgToOverride;
+    String overrideCfgKey = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()) + streamCfgToOverride;
     configs.put(overrideCfgKey, "customized-system");
     configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS(), "mock"), MockConfigRewriter.class.getName());
     configs.put(JobConfig.CONFIG_REWRITERS(), "mock");
@@ -319,7 +321,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     configureJobNode(mockStreamAppDesc);
 
-    JobNodeConfigureGenerator configureGenerator = new JobNodeConfigureGenerator();
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
     JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
     Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedConfig, jobConfig);
@@ -370,7 +372,7 @@ public class TestJobNodeConfigureGenerator extends ExecutionPlannerTestBase {
   private void validateJobConfig(Config expectedConfig, JobConfig jobConfig) {
     assertEquals(expectedConfig.get(JobConfig.JOB_NAME()), jobConfig.getName().get());
     assertEquals(expectedConfig.get(JobConfig.JOB_ID()), jobConfig.getJobId());
-    assertEquals("testJobGraphJson", jobConfig.get(JobNodeConfigureGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
+    assertEquals("testJobGraphJson", jobConfig.get(JobNodeConfigurationGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
     assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS()), jobConfig.get(TaskConfig.INPUT_STREAMS()));
     assertEquals(expectedConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS));
   }

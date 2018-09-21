@@ -60,7 +60,7 @@ public class TestJobGraph {
    */
   private void createGraph1() {
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    graph1 = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    graph1 = new JobGraph(null, appDesc);
 
     JobNode n2 = graph1.getOrCreateJobNode("2", "1");
     JobNode n3 = graph1.getOrCreateJobNode("3", "1");
@@ -94,7 +94,7 @@ public class TestJobGraph {
    */
   private void createGraph2() {
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    graph2 = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    graph2 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph2.getOrCreateJobNode("1", "1");
     JobNode n2 = graph2.getOrCreateJobNode("2", "1");
@@ -122,7 +122,7 @@ public class TestJobGraph {
    */
   private void createGraph3() {
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    graph3 = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    graph3 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph3.getOrCreateJobNode("1", "1");
     JobNode n2 = graph3.getOrCreateJobNode("2", "1");
@@ -139,7 +139,7 @@ public class TestJobGraph {
    */
   private void createGraph4() {
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    graph4 = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    graph4 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph4.getOrCreateJobNode("1", "1");
 
@@ -158,7 +158,7 @@ public class TestJobGraph {
   @Test
   public void testAddSource() {
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    JobGraph graph = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    JobGraph graph = new JobGraph(null, appDesc);
 
     /**
      * s1 -> 1
@@ -200,7 +200,7 @@ public class TestJobGraph {
      * 2 -> s3
      */
     StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
-    JobGraph graph = new JobGraph(null, appDesc, mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    JobGraph graph = new JobGraph(null, appDesc);
     JobNode n1 = graph.getOrCreateJobNode("1", "1");
     JobNode n2 = graph.getOrCreateJobNode("2", "1");
     StreamSpec s1 = genStream();

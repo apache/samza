@@ -60,8 +60,4 @@ public class ApplicationUtil {
     return new LegacyTaskApplication(taskClassOption.get());
   }
 
-  public static boolean isLegacyTaskApplication(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    return LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass());
-  }
-
 }

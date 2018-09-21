@@ -72,6 +72,15 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
   }
 
   /**
+   * Get the serde assigned to this {@link TableDescriptor}
+   *
+   * @return {@link KVSerde} used by this table
+   */
+  public KVSerde<K, V> getSerde() {
+    return serde;
+  }
+
+  /**
    * Generate config for {@link TableSpec}; this method is used internally.
    * @param tableSpecConfig configuration for the {@link TableSpec}
    */

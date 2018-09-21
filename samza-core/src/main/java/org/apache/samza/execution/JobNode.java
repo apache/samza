@@ -28,9 +28,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.ApplicationUtil;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.serializers.Serde;
@@ -48,30 +49,32 @@ public class JobNode {
 
   private final String jobName;
   private final String jobId;
-  private final String id;
+  private final String jobNameAndId;
   private final Config config;
-  private final JobNodeConfigureGenerator configGenerator;
+  private final JobNodeConfigurationGenerator configGenerator;
+  // The following maps (i.e. inEdges and outEdges) uses the streamId as the key
   private final Map<String, StreamEdge> inEdges = new HashMap<>();
   private final Map<String, StreamEdge> outEdges = new HashMap<>();
+  // Similarly, tables uses tableId as the key
   private final Map<String, TableSpec> tables = new HashMap<>();
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
 
   JobNode(String jobName, String jobId, Config config, ApplicationDescriptorImpl appDesc,
-      JobNodeConfigureGenerator configureGenerator) {
+      JobNodeConfigurationGenerator configureGenerator) {
     this.jobName = jobName;
     this.jobId = jobId;
-    this.id = createId(jobName, jobId);
+    this.jobNameAndId = createJobNameAndId(jobName, jobId);
     this.config = config;
     this.appDesc = appDesc;
     this.configGenerator = configureGenerator;
   }
 
-  static String createId(String jobName, String jobId) {
+  static String createJobNameAndId(String jobName, String jobId) {
     return String.format("%s-%s", jobName, jobId);
   }
 
-  String getId() {
-    return id;
+  String getJobNameAndId() {
+    return jobNameAndId;
   }
 
   String getJobName() {
@@ -119,12 +122,18 @@ public class JobNode {
     return configGenerator.generateJobConfig(this, executionPlanJson);
   }
 
-  Serde getInputSerde(String streamId) {
-    return appDesc.getInputSerde(streamId);
+  KV<Serde, Serde> getInputSerdes(String streamId) {
+    if (!inEdges.containsKey(streamId)) {
+      return null;
+    }
+    return appDesc.getStreamSerdes(streamId);
   }
 
-  Serde getOutputSerde(String streamId) {
-    return appDesc.getOutputSerde(streamId);
+  KV<Serde, Serde> getOutputSerde(String streamId) {
+    if (!outEdges.containsKey(streamId)) {
+      return null;
+    }
+    return appDesc.getStreamSerdes(streamId);
   }
 
   Collection<OperatorSpec> getReachableOperators() {
@@ -133,17 +142,6 @@ public class JobNode {
     Set<OperatorSpec> reachableOperators = new HashSet<>();
     findReachableOperators(inputOperatorsInJobNode, reachableOperators);
     return reachableOperators;
-  }
-
-  private void findReachableOperators(Collection<OperatorSpec> inputOperatorsInJobNode,
-      Set<OperatorSpec> reachableOperators) {
-    inputOperatorsInJobNode.forEach(op -> {
-        if (reachableOperators.contains(op)) {
-          return;
-        }
-        reachableOperators.add(op);
-        findReachableOperators(op.getRegisteredOperatorSpecs(), reachableOperators);
-      });
   }
 
   // get all next operators consuming from the input {@code streamId}
@@ -163,6 +161,22 @@ public class JobNode {
   }
 
   boolean isLegacyTaskApplication() {
-    return ApplicationUtil.isLegacyTaskApplication(appDesc);
+    return LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass());
+  }
+
+  KV<Serde, Serde> getTableSerdes(String tableId) {
+    //TODO: SAMZA-1893: should test whether the table is used in the current JobNode
+    return appDesc.getTableSerdes(tableId);
+  }
+
+  private void findReachableOperators(Collection<OperatorSpec> inputOperatorsInJobNode,
+      Set<OperatorSpec> reachableOperators) {
+    inputOperatorsInJobNode.forEach(op -> {
+        if (reachableOperators.contains(op)) {
+          return;
+        }
+        reachableOperators.add(op);
+        findReachableOperators(op.getRegisteredOperatorSpecs(), reachableOperators);
+      });
   }
 }

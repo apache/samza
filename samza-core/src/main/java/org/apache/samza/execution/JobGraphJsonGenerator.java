@@ -116,9 +116,6 @@ import org.codehaus.jackson.map.ObjectMapper;
     String applicationId;
   }
 
-  JobGraphJsonGenerator() {
-  }
-
   /**
    * Returns the JSON representation of a {@link JobGraph}
    * @param jobGraph {@link JobGraph}

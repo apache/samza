@@ -52,12 +52,17 @@ public class LocalJobPlanner extends JobPlanner {
   }
 
   @Override
-  public List<JobConfig> prepareJobs() throws Exception {
+  public List<JobConfig> prepareJobs() {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
     ExecutionPlan plan = getExecutionPlan();
 
-    String executionPlanJson = plan.getPlanAsJson();
+    String executionPlanJson = "";
+    try {
+      executionPlanJson = plan.getPlanAsJson();
+    } catch (Exception e) {
+      throw new SamzaException("Failed to create plan JSON.", e);
+    }
     writePlanJsonFile(executionPlanJson);
     LOG.info("Execution Plan: \n" + executionPlanJson);
     String planId = String.valueOf(executionPlanJson.hashCode());

@@ -187,7 +187,7 @@ public class TestRunner {
   public TestRunner addOverrideConfig(String key, String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
-    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), getJobNameAndId());
+    String configKeyPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
     configs.put(String.format("%s%s", configKeyPrefix, key), value);
     return this;
   }

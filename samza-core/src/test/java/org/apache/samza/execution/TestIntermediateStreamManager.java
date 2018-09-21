@@ -25,16 +25,16 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 
 /**
- * Unit tests for {@link IntermediateStreamPartitionPlanner}
+ * Unit tests for {@link IntermediateStreamManager}
  */
-public class TestIntermediateStreamPartitionPlanner extends ExecutionPlannerTestBase {
+public class TestIntermediateStreamManager extends ExecutionPlannerTestBase {
 
   @Test
   public void testCalculateRepartitionJoinTopicPartitions() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-    IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mockConfig, mockStreamAppDesc);
-    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
-        mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc);
+    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class))
+        .createJobGraph(mockConfig, mockStreamAppDesc);
     // set the input stream partitions
     mockGraph.getInputStreams().forEach(inEdge -> {
         if (inEdge.getStreamSpec().getId().equals(input1Descriptor.getStreamId())) {
@@ -53,9 +53,9 @@ public class TestIntermediateStreamPartitionPlanner extends ExecutionPlannerTest
   @Test
   public void testCalculateRepartitionIntermediateTopicPartitions() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionOnlyStreamApplication(), mockConfig);
-    IntermediateStreamPartitionPlanner partitionPlanner = new IntermediateStreamPartitionPlanner(mockConfig, mockStreamAppDesc);
-    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class)).createJobGraph(mockConfig, mockStreamAppDesc,
-        mock(JobGraphJsonGenerator.class), mock(JobNodeConfigureGenerator.class));
+    IntermediateStreamManager partitionPlanner = new IntermediateStreamManager(mockConfig, mockStreamAppDesc);
+    JobGraph mockGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class))
+        .createJobGraph(mockConfig, mockStreamAppDesc);
     // set the input stream partitions
     mockGraph.getInputStreams().forEach(inEdge -> inEdge.setPartitionCount(7));
     partitionPlanner.calculatePartitions(mockGraph);

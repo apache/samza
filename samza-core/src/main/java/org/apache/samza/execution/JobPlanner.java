@@ -55,7 +55,7 @@ public abstract class JobPlanner {
     this.config = descriptor.getConfig();
   }
 
-  public abstract List<JobConfig> prepareJobs() throws Exception;
+  public abstract List<JobConfig> prepareJobs();
 
   StreamManager buildAndStartStreamManager(Config config) {
     StreamManager streamManager = new StreamManager(config);
@@ -93,7 +93,7 @@ public abstract class JobPlanner {
 
     // create the physical execution plan and merge with overrides. This works for a single-stage job now
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
-    Config mergedConfig = JobNodeConfigureGenerator.mergeJobConfig(config, new MapConfig(cfg));
+    Config mergedConfig = JobNodeConfigurationGenerator.mergeJobConfig(config, new MapConfig(cfg));
     // creating the StreamManager to get all input/output streams' metadata for planning
     StreamManager streamManager = buildAndStartStreamManager(mergedConfig);
     try {

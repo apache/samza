@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator;
-  private final JobNodeConfigureGenerator configGenerator;
+  private final JobNodeConfigurationGenerator configGenerator;
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
 
   /**
@@ -69,15 +69,12 @@ import org.slf4j.LoggerFactory;
    *
    * @param config configuration for the application
    * @param appDesc {@link ApplicationDescriptorImpl} describing the application
-   * @param jsonGenerator {@link JobGraphJsonGenerator} to create Json graph for the application
-   * @param configureGenerator configuration generator to create configuration for each {@link JobNode}
    */
-  JobGraph(Config config, ApplicationDescriptorImpl appDesc, JobGraphJsonGenerator jsonGenerator,
-      JobNodeConfigureGenerator configureGenerator) {
-    this.jsonGenerator = jsonGenerator;
-    this.configGenerator = configureGenerator;
+  JobGraph(Config config, ApplicationDescriptorImpl appDesc) {
     this.config = config;
     this.appDesc = appDesc;
+    this.jsonGenerator = new JobGraphJsonGenerator();
+    this.configGenerator = new JobNodeConfigurationGenerator();
   }
 
   @Override
@@ -165,7 +162,7 @@ import org.slf4j.LoggerFactory;
    * @return {@link JobNode} created with {@code jobName} and {@code jobId}
    */
   JobNode getOrCreateJobNode(String jobName, String jobId) {
-    String nodeId = JobNode.createId(jobName, jobId);
+    String nodeId = JobNode.createJobNameAndId(jobName, jobId);
     return nodes.computeIfAbsent(nodeId, k -> new JobNode(jobName, jobId, config, appDesc, configGenerator));
   }
 
@@ -306,7 +303,7 @@ import org.slf4j.LoggerFactory;
       Set<JobNode> unreachable = new HashSet<>(nodes.values());
       unreachable.removeAll(reachable);
       throw new IllegalArgumentException(String.format("Jobs %s cannot be reached from Sources.",
-          String.join(", ", unreachable.stream().map(JobNode::getId).collect(Collectors.toList()))));
+          String.join(", ", unreachable.stream().map(JobNode::getJobNameAndId).collect(Collectors.toList()))));
     }
   }
 
@@ -352,7 +349,7 @@ import org.slf4j.LoggerFactory;
     Map<String, Long> indegree = new HashMap<>();
     Set<JobNode> visited = new HashSet<>();
     pnodes.forEach(node -> {
-        String nid = node.getId();
+        String nid = node.getJobNameAndId();
         //only count the degrees of intermediate streams
         long degree = node.getInEdges().values().stream().filter(e -> !inputStreams.contains(e)).count();
         indegree.put(nid, degree);
@@ -380,7 +377,7 @@ import org.slf4j.LoggerFactory;
         JobNode node = q.poll();
         sortedNodes.add(node);
         node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
-            String nid = n.getId();
+            String nid = n.getJobNameAndId();
             Long degree = indegree.get(nid) - 1;
             indegree.put(nid, degree);
             if (degree == 0L && !visited.contains(n)) {
@@ -401,7 +398,7 @@ import org.slf4j.LoggerFactory;
           long min = Long.MAX_VALUE;
           JobNode minNode = null;
           for (JobNode node : reachable) {
-            Long degree = indegree.get(node.getId());
+            Long degree = indegree.get(node.getJobNameAndId());
             if (degree < min) {
               min = degree;
               minNode = node;

@@ -44,11 +44,11 @@ import static org.apache.samza.util.StreamUtil.getStreamSpec;
 
 
 /**
- * {@link IntermediateStreamPartitionPlanner} calculates intermediate stream partitions based on the high-level application graph.
+ * {@link IntermediateStreamManager} calculates intermediate stream partitions based on the high-level application graph.
  */
-class IntermediateStreamPartitionPlanner {
+class IntermediateStreamManager {
 
-  private static final Logger log = LoggerFactory.getLogger(IntermediateStreamPartitionPlanner.class);
+  private static final Logger log = LoggerFactory.getLogger(IntermediateStreamManager.class);
 
   private final Config config;
   private final Map<String, InputOperatorSpec> inputOperators;
@@ -56,7 +56,7 @@ class IntermediateStreamPartitionPlanner {
   @VisibleForTesting
   static final int MAX_INFERRED_PARTITIONS = 256;
 
-  IntermediateStreamPartitionPlanner(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+  IntermediateStreamManager(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     this.config = config;
     this.inputOperators = appDesc.getInputOperators();
   }
@@ -79,6 +79,7 @@ class IntermediateStreamPartitionPlanner {
   /**
    * Calculate the partitions for the input streams of join operators
    */
+  @VisibleForTesting
   /* package private */ void calculateJoinInputPartitions(JobGraph jobGraph) {
     // mapping from a source stream to all join specs reachable from it
     Multimap<OperatorSpec, StreamEdge> joinSpecToStreamEdges = HashMultimap.create();

@@ -25,11 +25,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.task.TaskFactory;
 
 
@@ -66,6 +66,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
         String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
+    getOrCreateStreamSerdes(inputDescriptor.getStreamId(), inputDescriptor.getSerde());
     inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
     addSystemDescriptor(inputDescriptor.getSystemDescriptor());
   }
@@ -74,6 +75,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   public void addOutputStream(OutputDescriptor outputDescriptor) {
     Preconditions.checkState(!outputDescriptors.containsKey(outputDescriptor.getStreamId()),
         String.format("add output descriptors multiple times with the same streamId: %s", outputDescriptor.getStreamId()));
+    getOrCreateStreamSerdes(outputDescriptor.getStreamId(), outputDescriptor.getSerde());
     outputDescriptors.put(outputDescriptor.getStreamId(), outputDescriptor);
     addSystemDescriptor(outputDescriptor.getSystemDescriptor());
   }
@@ -82,6 +84,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   public void addTable(TableDescriptor tableDescriptor) {
     Preconditions.checkState(!tableDescriptors.containsKey(tableDescriptor.getTableId()),
         String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
+    getOrCreateTableSerdes(tableDescriptor.getTableId(), ((BaseTableDescriptor) tableDescriptor).getSerde());
     tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
   }
 
@@ -120,24 +123,6 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   @Override
   public Set<String> getOutputStreamIds() {
     return Collections.unmodifiableSet(new HashSet<>(outputDescriptors.keySet()));
-  }
-
-  @Override
-  public Serde getInputSerde(String inputStreamId) {
-    if (!inputDescriptors.containsKey(inputStreamId)) {
-      return null;
-    }
-    InputDescriptor inputDescriptor = inputDescriptors.get(inputStreamId);
-    return inputDescriptor.getSerde();
-  }
-
-  @Override
-  public Serde getOutputSerde(String outputStreamId) {
-    if (!outputDescriptors.containsKey(outputStreamId)) {
-      return null;
-    }
-    OutputDescriptor outputDescriptor = outputDescriptors.get(outputStreamId);
-    return outputDescriptor.getSerde();
   }
 
   /**

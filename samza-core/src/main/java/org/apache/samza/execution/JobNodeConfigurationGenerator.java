@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
@@ -38,12 +39,13 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.StoreDescriptor;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
@@ -58,21 +60,17 @@ import org.slf4j.LoggerFactory;
 /**
  * This class provides methods to generate configuration for a {@link JobNode}
  */
-/* package private */ class JobNodeConfigureGenerator {
+/* package private */ class JobNodeConfigurationGenerator {
 
-  private static final Logger LOG = LoggerFactory.getLogger(JobNodeConfigureGenerator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(JobNodeConfigurationGenerator.class);
 
-  static final String CONFIG_JOB_PREFIX = "jobs.%s.";
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
-  JobNodeConfigureGenerator() {
-  }
-
-  static Config mergeJobConfig(Config originalConfig, Config generatedConfig) {
+  static JobConfig mergeJobConfig(Config originalConfig, Config generatedConfig) {
     JobConfig jobConfig = new JobConfig(originalConfig);
-    String jobId = JobNode.createId(jobConfig.getName().get(), jobConfig.getJobId());
+    String jobNameAndId = JobNode.createJobNameAndId(jobConfig.getName().get(), jobConfig.getJobId());
     return new JobConfig(Util.rewriteConfig(extractScopedConfig(originalConfig, generatedConfig,
-        String.format(CONFIG_JOB_PREFIX, jobId))));
+        String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), jobNameAndId))));
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
@@ -84,9 +82,8 @@ import org.slf4j.LoggerFactory;
     Map<String, StreamEdge> inEdges = jobNode.getInEdges();
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
     Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
-    boolean hasWindowOrJoin = reachableOperators.stream().anyMatch(op -> op.getOpCode() == OperatorSpec.OpCode.WINDOW
-        || op.getOpCode() == OperatorSpec.OpCode.JOIN);
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
+    Map<String, TableSpec> reachableTables = getReachableTables(reachableOperators, jobNode);
     Config config = jobNode.getConfig();
 
     // check all inputs to the node for broadcast and input streams
@@ -101,14 +98,10 @@ import org.slf4j.LoggerFactory;
       }
     }
 
-    if (!broadcasts.isEmpty()) {
-      configureBroadcastInputs(configs, config, broadcasts);
-    }
+    configureBroadcastInputs(configs, config, broadcasts);
 
     // compute window and join operator intervals in this node
-    if (hasWindowOrJoin) {
-      configureWindowAndJoinInterval(configs, config, reachableOperators);
-    }
+    configureWindowInterval(configs, config, reachableOperators);
 
     // set store configuration for stateful operators.
     stores.forEach(sd -> configs.putAll(sd.getStorageConfigs()));
@@ -119,33 +112,48 @@ import org.slf4j.LoggerFactory;
     // write intermediate input/output streams to configs
     inEdges.values().stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
 
-    // write serialized serde instances and stream /store serdes to configs
-    configureSerdes(configs, inEdges, outEdges, stores, jobNode);
+    // write serialized serde instances and stream, store, and table serdes to configs
+    // serde configuration generation has to happen before table configuration, since the serde configuration
+    // is required when generating configurations for some TableProvider (i.e. local store backed tables)
+    configureSerdes(configs, inEdges, outEdges, stores, reachableTables.keySet(), jobNode);
 
     // generate table configuration and potential side input configuration
-    configureTables(configs, config, jobNode.getTables(), inputs);
+    configureTables(configs, config, reachableTables, inputs);
 
     // finalize the task.inputs configuration
     configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
 
-    LOG.info("Job {} has generated configs {}", jobNode.getId(), configs);
+    LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), configs);
 
     // apply configure rewriters and user configure overrides
     return applyConfigureRewritersAndOverrides(configs, config, jobNode);
   }
 
-  private void configureBroadcastInputs(Map<String, String> configs, Config config, Set<String> broadcasts) {
-    // TODO: remove this once we support defining broadcast input stream in high-level
-    // task.broadcast.input should be generated by the planner in the future.
-    final String taskBroadcasts = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
-    if (StringUtils.isNoneEmpty(taskBroadcasts)) {
-      broadcasts.add(taskBroadcasts);
-    }
-    configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
+  private Map<String, TableSpec> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
+    // TODO: Fix this in SAMZA-1893. For now, returning all tables for single-job execution plan
+    return jobNode.getTables();
   }
 
-  private void configureWindowAndJoinInterval(Map<String, String> configs, Config config,
+  private void configureBroadcastInputs(Map<String, String> configs, Config config, Set<String> broadcastStreams) {
+    // TODO: SAMZA-1841: remove this once we support defining broadcast input stream in high-level
+    // task.broadcast.input should be generated by the planner in the future.
+    if (broadcastStreams.isEmpty()) {
+      return;
+    }
+    final String taskBroadcasts = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
+    if (StringUtils.isNoneEmpty(taskBroadcasts)) {
+      broadcastStreams.add(taskBroadcasts);
+    }
+    configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
+  }
+
+  private void configureWindowInterval(Map<String, String> configs, Config config,
       Collection<OperatorSpec> reachableOperators) {
+    if (!reachableOperators.stream().anyMatch(op -> op.getOpCode() == OperatorSpec.OpCode.WINDOW
+        || op.getOpCode() == OperatorSpec.OpCode.JOIN)) {
+      return;
+    }
+
     // set triggering interval if a window or join is defined. Only applies to high-level applications
     if ("-1".equals(config.get(TaskConfig.WINDOW_MS(), "-1"))) {
       long triggerInterval = computeTriggerInterval(reachableOperators);
@@ -155,21 +163,46 @@ import org.slf4j.LoggerFactory;
     }
   }
 
-  private JobConfig applyConfigureRewritersAndOverrides(Map<String, String> configs, Config config, JobNode jobNode) {
-    String configPrefix = String.format(CONFIG_JOB_PREFIX, jobNode.getId());
+  /**
+   * Computes the triggering interval to use during the execution of this {@link JobNode}
+   */
+  private long computeTriggerInterval(Collection<OperatorSpec> reachableOperators) {
+    List<Long> windowTimerIntervals =  reachableOperators.stream()
+        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW)
+        .map(spec -> ((WindowOperatorSpec) spec).getDefaultTriggerMs())
+        .collect(Collectors.toList());
 
+    // Filter out the join operators, and obtain a list of their ttl values
+    List<Long> joinTtlIntervals = reachableOperators.stream()
+        .filter(spec -> spec instanceof JoinOperatorSpec)
+        .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
+        .collect(Collectors.toList());
+
+    // Combine both the above lists
+    List<Long> candidateTimerIntervals = new ArrayList<>(joinTtlIntervals);
+    candidateTimerIntervals.addAll(windowTimerIntervals);
+
+    if (candidateTimerIntervals.isEmpty()) {
+      return -1;
+    }
+
+    // Compute the gcd of the resultant list
+    return MathUtil.gcd(candidateTimerIntervals);
+  }
+
+  private JobConfig applyConfigureRewritersAndOverrides(Map<String, String> configs, Config config, JobNode jobNode) {
     // Disallow user specified job inputs/outputs. This info comes strictly from the user application.
     Map<String, String> allowedConfigs = new HashMap<>(config);
     if (!jobNode.isLegacyTaskApplication()) {
       if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
-        LOG.warn("Specifying task inputs in configuration is not allowed with Fluent API. " + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
+        LOG.warn("Specifying task inputs in configuration is not allowed for SamzaApplication. "
+            + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
         allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
       }
     }
 
-    LOG.debug("Job {} has allowed configs {}", jobNode.getId(), allowedConfigs);
-    return new JobConfig(Util.rewriteConfig(
-        extractScopedConfig(new MapConfig(allowedConfigs), new MapConfig(configs), configPrefix)));
+    LOG.debug("Job {} has allowed configs {}", jobNode.getJobNameAndId(), allowedConfigs);
+    return mergeJobConfig(new MapConfig(allowedConfigs), new MapConfig(configs));
   }
 
   /**
@@ -239,14 +272,14 @@ import org.slf4j.LoggerFactory;
    * @param configs the configs to add serialized serde instances and stream serde configs to
    */
   private void configureSerdes(Map<String, String> configs, Map<String, StreamEdge> inEdges, Map<String, StreamEdge> outEdges,
-      List<StoreDescriptor> stores, JobNode jobNode) {
+      List<StoreDescriptor> stores, Collection<String> tables, JobNode jobNode) {
     // collect all key and msg serde instances for streams
     Map<String, Serde> streamKeySerdes = new HashMap<>();
     Map<String, Serde> streamMsgSerdes = new HashMap<>();
     inEdges.keySet().forEach(streamId ->
-        addSerde(jobNode.getInputSerde(streamId), streamId, streamKeySerdes, streamMsgSerdes));
+        addSerdes(jobNode.getInputSerdes(streamId), streamId, streamKeySerdes, streamMsgSerdes));
     outEdges.keySet().forEach(streamId ->
-        addSerde(jobNode.getOutputSerde(streamId), streamId, streamKeySerdes, streamMsgSerdes));
+        addSerdes(jobNode.getOutputSerde(streamId), streamId, streamKeySerdes, streamMsgSerdes));
 
     Map<String, Serde> storeKeySerdes = new HashMap<>();
     Map<String, Serde> storeMsgSerdes = new HashMap<>();
@@ -255,11 +288,19 @@ import org.slf4j.LoggerFactory;
         storeMsgSerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getMsgSerde());
       });
 
+    Map<String, Serde> tableKeySerdes = new HashMap<>();
+    Map<String, Serde> tableMsgSerdes = new HashMap<>();
+    tables.forEach(tableId -> {
+        addSerdes(jobNode.getTableSerdes(tableId), tableId, tableKeySerdes, tableMsgSerdes);
+      });
+
     // for each unique stream or store serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(streamKeySerdes.values());
     serdes.addAll(streamMsgSerdes.values());
     serdes.addAll(storeKeySerdes.values());
     serdes.addAll(storeMsgSerdes.values());
+    serdes.addAll(tableKeySerdes.values());
+    serdes.addAll(tableMsgSerdes.values());
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
@@ -293,47 +334,27 @@ import org.slf4j.LoggerFactory;
         String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
+
+    // set key and msg serdes for stores to the serde names generated above
+    tableKeySerdes.forEach((tableId, serde) -> {
+        String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
+        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+      });
+
+    tableMsgSerdes.forEach((tableId, serde) -> {
+        String valueSerdeConfigKey = String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId);
+        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
   }
 
-  /**
-   * Computes the triggering interval to use during the execution of this {@link JobNode}
-   */
-  private long computeTriggerInterval(Collection<OperatorSpec> reachableOperators) {
-    List<Long> windowTimerIntervals =  reachableOperators.stream()
-        .filter(spec -> spec.getOpCode() == OperatorSpec.OpCode.WINDOW)
-        .map(spec -> ((WindowOperatorSpec) spec).getDefaultTriggerMs())
-        .collect(Collectors.toList());
-
-    // Filter out the join operators, and obtain a list of their ttl values
-    List<Long> joinTtlIntervals = reachableOperators.stream()
-        .filter(spec -> spec instanceof JoinOperatorSpec)
-        .map(spec -> ((JoinOperatorSpec) spec).getTtlMs())
-        .collect(Collectors.toList());
-
-    // Combine both the above lists
-    List<Long> candidateTimerIntervals = new ArrayList<>(joinTtlIntervals);
-    candidateTimerIntervals.addAll(windowTimerIntervals);
-
-    if (candidateTimerIntervals.isEmpty()) {
-      return -1;
-    }
-
-    // Compute the gcd of the resultant list
-    return MathUtil.gcd(candidateTimerIntervals);
-  }
-
-  private void addSerde(Serde serde, String streamId, Map<String, Serde> keySerdeMap, Map<String, Serde> msgSerdeMap) {
-    if (serde != null) {
-      if (serde instanceof KVSerde) {
-        KVSerde kvSerde = (KVSerde) serde;
-        if (kvSerde.getKeySerde() != null) {
-          keySerdeMap.put(streamId, ((KVSerde) serde).getKeySerde());
-        }
-        if (kvSerde.getValueSerde() != null) {
-          msgSerdeMap.put(streamId, ((KVSerde) serde).getValueSerde());
-        }
-      } else {
-        msgSerdeMap.put(streamId, serde);
+  private void addSerdes(KV<Serde, Serde> serdes, String streamId, Map<String, Serde> keySerdeMap,
+      Map<String, Serde> msgSerdeMap) {
+    if (serdes != null) {
+      if (serdes.getKey() != null && !(serdes.getKey() instanceof NoOpSerde)) {
+        keySerdeMap.put(streamId, serdes.getKey());
+      }
+      if (serdes.getValue() != null && !(serdes.getValue() instanceof NoOpSerde)) {
+        msgSerdeMap.put(streamId, serdes.getValue());
       }
     }
   }

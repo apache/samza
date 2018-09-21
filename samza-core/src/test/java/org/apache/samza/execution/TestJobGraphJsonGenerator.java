@@ -116,7 +116,7 @@ public class TestJobGraphJsonGenerator {
     when(mockJobNode.getConfig()).thenReturn(mockConfig);
     when(mockJobNode.getJobName()).thenReturn("jobName");
     when(mockJobNode.getJobId()).thenReturn("jobId");
-    when(mockJobNode.getId()).thenReturn(JobNode.createId("jobName", "jobId"));
+    when(mockJobNode.getJobNameAndId()).thenReturn(JobNode.createJobNameAndId("jobName", "jobId"));
   }
 
   @Test

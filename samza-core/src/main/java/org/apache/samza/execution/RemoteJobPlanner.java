@@ -46,7 +46,7 @@ public class RemoteJobPlanner extends JobPlanner {
   }
 
   @Override
-  public List<JobConfig> prepareJobs() throws Exception {
+  public List<JobConfig> prepareJobs() {
     // for high-level DAG, generate the plan and job configs
     // TODO: run.id needs to be set for standalone: SAMZA-1531
     // run.id is based on current system time with the most significant bits in UUID (8 digits) to avoid collision
@@ -55,7 +55,11 @@ public class RemoteJobPlanner extends JobPlanner {
 
     // 1. initialize and plan
     ExecutionPlan plan = getExecutionPlan(runId);
-    writePlanJsonFile(plan.getPlanAsJson());
+    try {
+      writePlanJsonFile(plan.getPlanAsJson());
+    } catch (Exception e) {
+      throw new SamzaException("Failed to create plan JSON.", e);
+    }
 
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     if (jobConfigs.isEmpty()) {
