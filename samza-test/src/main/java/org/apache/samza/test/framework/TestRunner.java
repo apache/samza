@@ -155,6 +155,17 @@ public class TestRunner {
   }
 
   /**
+   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
+   * @param config configs for the application
+   * @return this {@link TestRunner}
+   */
+  public TestRunner addConfigs(Map<String, String> config, String configPrefix) {
+    Preconditions.checkNotNull(config);
+    config.forEach((key, value) -> this.configs.putIfAbsent(String.format("%s%s", configPrefix, key), value));
+    return this;
+  }
+
+  /**
    * Adds a config to {@code configs} if its not already present. Overrides a config value for which key is already
    * exisiting in {@code configs}
    * @param key key of the config
@@ -344,7 +355,7 @@ public class TestRunner {
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
     addConfigs(descriptor.toConfig());
-    addConfigs(descriptor.getSystemDescriptor().toConfig());
+    addConfigs(descriptor.getSystemDescriptor().toConfig(), String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()));
     StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
