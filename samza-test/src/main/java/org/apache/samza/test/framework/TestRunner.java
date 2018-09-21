@@ -31,9 +31,8 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -56,16 +55,10 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
-import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.AsyncStreamTaskFactory;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskFactory;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
-
 
 /**
  * TestRunner provides APIs to set up integration tests for a Samza application.
@@ -87,7 +80,7 @@ public class TestRunner {
 
   private Map<String, String> configs;
   private Class taskClass;
-  private StreamApplication app;
+  private SamzaApplication app;
   /*
    * inMemoryScope is a unique global key per TestRunner, this key when configured with {@link InMemorySystemDescriptor}
    * provides an isolated state to run with in memory system
@@ -106,43 +99,30 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param taskClass represent a class containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param app samza job implementing {@link SamzaApplication}
    */
-  private TestRunner(Class taskClass) {
-    this();
-    Preconditions.checkNotNull(taskClass);
-    configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
-    this.taskClass = taskClass;
-  }
-
-  /**
-   * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link StreamApplication}
-   */
-  private TestRunner(StreamApplication app) {
+  private TestRunner(SamzaApplication app) {
     this();
     Preconditions.checkNotNull(app);
     this.app = app;
   }
 
   /**
-   * Creates an instance of {@link TestRunner} for Low Level Samza Api
-   * @param taskClass samza job extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * Creates an instance of {@link TestRunner} for Legacy Samza Api
+   * @param taskApp legacy samza task application
    * @return this {@link TestRunner}
    */
-  public static TestRunner of(Class taskClass) {
-    Preconditions.checkNotNull(taskClass);
-    Preconditions.checkState(
-        StreamTask.class.isAssignableFrom(taskClass) || AsyncStreamTask.class.isAssignableFrom(taskClass));
-    return new TestRunner(taskClass);
+  public static TestRunner of(LegacyTaskApplication taskApp) {
+    Preconditions.checkNotNull(taskApp);
+    return new TestRunner(taskApp);
   }
 
   /**
    * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app samza job implementing {@link StreamApplication}
+   * @param app samza job implementing {@link SamzaApplication}
    * @return this {@link TestRunner}
    */
-  public static TestRunner of(StreamApplication app) {
+  public static TestRunner of(SamzaApplication app) {
     Preconditions.checkNotNull(app);
     return new TestRunner(app);
   }
@@ -246,8 +226,7 @@ public class TestRunner {
     Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
         "TestRunner should run for Low Level Task api or High Level Application Api");
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
-    SamzaApplication testApp = app == null ? (TaskApplication) appDesc -> appDesc.setTaskFactory(createTaskFactory()) : app;
-    final LocalApplicationRunner runner = new LocalApplicationRunner(testApp, new MapConfig(configs));
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
@@ -324,28 +303,6 @@ public class TestRunner {
         .stream()
         .collect(Collectors.toMap(entry -> entry.getKey().getPartition().getPartitionId(),
             entry -> entry.getValue().stream().map(e -> (StreamMessageType) e.getMessage()).collect(Collectors.toList())));
-  }
-
-  private TaskFactory createTaskFactory() {
-    if (StreamTask.class.isAssignableFrom(taskClass)) {
-      return (StreamTaskFactory) () -> {
-        try {
-          return (StreamTask) taskClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-          throw new SamzaException(String.format("Failed to instantiate StreamTask class %s", taskClass.getName()), e);
-        }
-      };
-    } else if (AsyncStreamTask.class.isAssignableFrom(taskClass)) {
-      return (AsyncStreamTaskFactory) () -> {
-        try {
-          return (AsyncStreamTask) taskClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-          throw new SamzaException(String.format("Failed to instantiate AsyncStreamTask class %s", taskClass.getName()), e);
-        }
-      };
-    }
-    throw new SamzaException(String.format("Not supported task.class %s. task.class has to implement either StreamTask "
-        + "or AsyncStreamTask", taskClass.getName()));
   }
 
   /**
