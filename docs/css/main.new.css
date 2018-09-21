@@ -2183,6 +2183,7 @@ ul.case-studies {
 
 .committer-name {
   font-size: 25px;
+  margin-bottom: 10px;
 }
 
 @media only screen and (min-width: 768px) {
@@ -2212,6 +2213,11 @@ ul.case-studies {
 .committer-roles {
   display: flex;
   flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.committer-roles span::before {
+  content: '» '
 }
 
 .committer-image {
