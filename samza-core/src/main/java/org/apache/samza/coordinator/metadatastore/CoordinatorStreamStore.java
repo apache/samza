@@ -89,7 +89,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   @Override
-  public void init(Config config, MetricsRegistry metricsRegistry) {
+  public void init() {
     if (isInitialized.compareAndSet(false, true)) {
       LOG.info("Starting the coordinator stream system consumer with config: {}.", config);
       registerConsumer();

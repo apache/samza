@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
@@ -44,7 +45,9 @@ import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
-import org.apache.samza.test.framework.stream.CollectionStream;
+import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
@@ -84,25 +87,28 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
     configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), systemName);
 
-    CollectionStream<PageView> pageViewStream =
-        CollectionStream.of(systemName, PAGEVIEW_STREAM, pageViews);
-    CollectionStream<Profile> profileStream =
-        CollectionStream.of(systemName, PROFILE_STREAM, profiles);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);
 
-    CollectionStream<EnrichedPageView> outputStream =
-        CollectionStream.empty(systemName, ENRICHED_PAGEVIEW_STREAM);
+    InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd
+        .getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<PageView>());
+
+    InMemoryInputDescriptor<Profile> profileStreamDesc = isd
+        .getInputDescriptor(PROFILE_STREAM, new NoOpSerde<Profile>());
+
+    InMemoryOutputDescriptor<EnrichedPageView> outputStreamDesc = isd
+        .getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<EnrichedPageView>());
 
     TestRunner
         .of(app)
-        .addInputStream(pageViewStream)
-        .addInputStream(profileStream)
-        .addOutputStream(outputStream)
+        .addInputStream(pageViewStreamDesc, pageViews)
+        .addInputStream(profileStreamDesc, profiles)
+        .addOutputStream(outputStreamDesc, 1)
         .addConfigs(new MapConfig(configs))
         .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
         .run(Duration.ofMillis(100000));
 
     try {
-      Map<Integer, List<EnrichedPageView>> result = TestRunner.consumeStream(outputStream, Duration.ofMillis(1000));
+      Map<Integer, List<EnrichedPageView>> result = TestRunner.consumeStream(outputStreamDesc, Duration.ofMillis(1000));
       List<EnrichedPageView> results = result.values().stream()
           .flatMap(List::stream)
           .collect(Collectors.toList());
@@ -117,7 +123,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
       assertEquals("Mismatch between the expected and actual join count", results.size(),
           expectedEnrichedPageviews.size());
       assertTrue("Pageview profile join did not succeed for all inputs", successfulJoin);
-    } catch (InterruptedException e) {
+    } catch (SamzaException e) {
       e.printStackTrace();
     }
   }
@@ -137,8 +143,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     }
 
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {
-      return new InMemoryTableDescriptor<Integer, Profile>(PROFILE_TABLE)
-          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
+      return new InMemoryTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
               Profile profile = (Profile) msg.getMessage();
@@ -152,8 +157,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   static class DurablePageViewProfileJoin extends PageViewProfileJoin {
     @Override
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {
-      return new RocksDbTableDescriptor<Integer, Profile>(PROFILE_TABLE)
-          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
+      return new RocksDbTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
               TestTableData.Profile profile = (TestTableData.Profile) msg.getMessage();
