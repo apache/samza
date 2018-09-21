@@ -25,14 +25,14 @@ fi
 
 parent_dir="$(dirname "$base_dir")"
 
-CONF_FILE="-conf $parent_dir/config/shell-defaults.conf"
+CONF_FILE="-conf $parent_dir/conf/shell-defaults.conf"
 
 if [ "x$LOG_HOME" = "x" ]; then
     export LOG_HOME=$parent_dir
 fi
 
 if [ "x$LOG4J_OPTS" = "x" ]; then
-    export LOG4J_OPTS="-Dlog4j.configuration=file:$parent_dir/config/samza-sql-shell-log4j.xml"
+    export LOG4J_OPTS="-Dlog4j.configuration=file:$parent_dir/conf/samza-sql-shell-log4j.xml"
 fi
 
 if [ "x$HEAP_OPTS" = "x" ]; then

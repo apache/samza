@@ -356,7 +356,7 @@ project(':samza-sql-shell') {
     into "samza-sql-shell-${version}"
     compression = Compression.GZIP
     from(project.file("./scripts")) { into "scripts/" }
-    from(project.file("./config")) { into "config/" }
+    from(project.file("./conf")) { into "conf/" }
     from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "scripts/" }
     from(configurations.runtime) { into("lib/") }
     from(configurations.archives.artifacts.files) { into("lib/") }
