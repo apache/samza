@@ -40,6 +40,7 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.StringSerdeFactory;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
@@ -62,7 +63,6 @@ import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
-import org.apache.samza.sql.runner.SamzaSqlApplication;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.JsonUtil;
@@ -88,36 +88,10 @@ public class SamzaExecutor implements SqlExecutor {
     private static final String SAMZA_SYSTEM_KAFKA = "kafka";
     private static final String SAMZA_SYSTEM_LOG = "log";
     private static final int RANDOM_ACCESS_QUEUE_CAPACITY = 5000;
-
-    // TODO: do we still use this one?
-    private static class SamzaExecution {
-        SamzaSqlApplicationRunner runner;
-
-        SamzaExecution(SamzaSqlApplicationRunner runner) {
-            this.runner = runner;
-        }
-
-        ExecutionStatus getExecutionStatus() {
-            switch (runner.status().getStatusCode()) {
-                case New:
-                    return ExecutionStatus.New;
-                case Running:
-                    return ExecutionStatus.Running;
-                case SuccessfulFinish:
-                    return ExecutionStatus.SuccessfulFinish;
-                case UnsuccessfulFinish:
-                    return ExecutionStatus.UnsuccessfulFinish;
-                default:
-                    throw new ExecutionException(String.format("Unsupported execution status %s",
-                        runner.status().getStatusCode().toString()));
-            }
-        }
-    }
-
     private static AtomicInteger m_execIdSeq = new AtomicInteger(0);
-    private Map<Integer, SamzaExecution> m_executions = new HashMap<>();
     private static RandomAccessQueue<OutgoingMessageEnvelope> m_outputData =
         new RandomAccessQueue<>(OutgoingMessageEnvelope.class, RANDOM_ACCESS_QUEUE_CAPACITY);
+    private Map<Integer, SamzaSqlApplicationRunner> m_executions = new HashMap<>();
     private String m_lastErrorMsg = "";
 
     // -- implementation of SqlExecutor ------------------------------------------
@@ -193,7 +167,7 @@ public class SamzaExecutor implements SqlExecutor {
             LOG.error(m_lastErrorMsg);
             return new QueryResult(execId, null, false);
         }
-        m_executions.put(execId, new SamzaExecution(runner));
+        m_executions.put(execId, runner);
         LOG.debug("Executing sql. Id ", execId);
 
         return new QueryResult(execId, generateResultSchema(new MapConfig(staticConfigs)), true);
@@ -253,7 +227,6 @@ public class SamzaExecutor implements SqlExecutor {
         staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(formatSqlStmts(statement)));
 
         SamzaSqlApplicationRunner runner;
-        SamzaSqlApplication app;
         try {
             runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
             runner.run();
@@ -262,7 +235,7 @@ public class SamzaExecutor implements SqlExecutor {
             LOG.error(m_lastErrorMsg);
             return new NonQueryResult(execId, false);
         }
-        m_executions.put(execId, new SamzaExecution(runner));
+        m_executions.put(execId, runner);
         LOG.debug("Executing sql. Id ", execId);
 
         return new NonQueryResult(execId, true);
@@ -272,12 +245,12 @@ public class SamzaExecutor implements SqlExecutor {
     public boolean stopExecution(ExecutionContext context, int exeId) {
         m_lastErrorMsg = "";
 
-        SamzaExecution exec = m_executions.get(exeId);
-        if(exec != null) {
+        SamzaSqlApplicationRunner runner = m_executions.get(exeId);
+        if(runner != null) {
             LOG.debug("Stopping execution ", exeId);
 
             try {
-                exec.runner.kill();
+                runner.kill();
             } catch (SamzaException ex) {
                 m_lastErrorMsg = ex.toString();
                 LOG.debug(m_lastErrorMsg);
@@ -302,9 +275,9 @@ public class SamzaExecutor implements SqlExecutor {
     public boolean removeExecution(ExecutionContext context, int exeId) {
         m_lastErrorMsg = "";
 
-        SamzaExecution exec = m_executions.get(exeId);
-        if(exec != null) {
-            if (exec.getExecutionStatus().equals(ExecutionStatus.Running)) {
+        SamzaSqlApplicationRunner runner = m_executions.get(exeId);
+        if(runner != null) {
+            if (runner.status().getStatusCode().equals(ApplicationStatus.StatusCode.Running)) {
                 m_lastErrorMsg = "Trying to remove a ongoing execution " + exeId;
                 LOG.error(m_lastErrorMsg);
                 return false;
@@ -321,10 +294,11 @@ public class SamzaExecutor implements SqlExecutor {
 
     @Override
     public ExecutionStatus queryExecutionStatus(int execId) {
-        if (!m_executions.containsKey(execId)) {
+        SamzaSqlApplicationRunner runner = m_executions.get(execId);
+        if (runner == null) {
             return null;
         }
-        return m_executions.get(execId).getExecutionStatus();
+        return queryExecutionStatus(runner);
     }
 
     @Override
@@ -475,6 +449,24 @@ public class SamzaExecutor implements SqlExecutor {
             formattedRow[0] = getCompressedFormat(row);
         }
         return formattedRow;
+    }
+
+    private ExecutionStatus queryExecutionStatus(SamzaSqlApplicationRunner runner) {
+        m_lastErrorMsg = "";
+        switch (runner.status().getStatusCode()) {
+            case New:
+                return ExecutionStatus.New;
+            case Running:
+                return ExecutionStatus.Running;
+            case SuccessfulFinish:
+                return ExecutionStatus.SuccessfulFinish;
+            case UnsuccessfulFinish:
+                return ExecutionStatus.UnsuccessfulFinish;
+            default:
+                m_lastErrorMsg = String.format("Unsupported execution status %s",
+                    runner.status().getStatusCode().toString());
+                return null;
+        }
     }
 
     private static Map<String, String> fetchSamzaSqlConfig(int execId) {
