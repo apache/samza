@@ -36,6 +36,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -109,6 +110,7 @@ public class TestRunner {
     configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // This is important because Table Api enables host affinity by default for RocksDb
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
+    addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
     putIfAbsentConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).toConfig());
   }
 
@@ -156,7 +158,7 @@ public class TestRunner {
   }
 
   /**
-   * Adds a config to Samza application, this config takes precedence over default configs and descriptor generated configs
+   * Adds a config to Samza application. This config takes precedence over default configs and descriptor generated configs
    *
    * @param key of the config
    * @param value of the config
@@ -171,16 +173,15 @@ public class TestRunner {
   }
 
   /**
-   * Adds {@code config} to Samza application, these configs takes precedence over default configs
+   * Adds {@code config} to Samza application. These configs takes precedence over default configs
    * and descriptor generated configs
    *
    * @param config configuration for samza application
    * @return this {@link TestRunner}
    */
-  public TestRunner addConfig(Config config) {
+  public TestRunner addConfig(Map<String, String> config) {
     Preconditions.checkNotNull(config);
-    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), JOB_NAME);
-    config.forEach((key, value) -> configs.put(String.format("%s%s", configKeyPrefix, key), value));
+    config.forEach((key, value) -> addConfig(key, value));
     return this;
   }
 
