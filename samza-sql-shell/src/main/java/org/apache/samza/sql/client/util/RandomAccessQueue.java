@@ -68,7 +68,7 @@ public class RandomAccessQueue<T> {
         }
     }
 
-    /**
+    /*
      * Remove all element before 'end', and return elements between 'start' and 'end'
      */
      public synchronized List<T> consume(int start, int end) {
