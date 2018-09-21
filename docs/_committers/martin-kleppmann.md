@@ -1,7 +1,14 @@
 ---
-layout: page
-title: Committers
-exclude_from_loop: true
+name: Martin Kleppmann
+website: 
+linkedin: https://www.linkedin.com/in/martinkleppmann
+twitter: martinkl
+image: 
+github: ept
+pmc_member: true
+job_title:
+samza_title: 
+order: 55
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,32 +26,3 @@ exclude_from_loop: true
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-A list of people who have contributed to Samza
-
-<ul class="committers">
-
-  {% for committer in site.committers %}
-    {% if committer.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ committer.name }}">
-      {% if commiter.image %}
-      <span style="background-image: url('{{ committer.image}}');"></span>
-      {% endif %}
-    </span>
-    <div>
-      <a href="{{ committer.website}}" class="external-link" rel="nofollow">
-        {{ committer.name }}
-      </a>
-      <p>
-      {{ committer.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>

@@ -1,7 +1,14 @@
 ---
-name: Bob Sherman
-website: https://google.com
-image: https://placehold.it/100x100
+name: Yan Fang
+website: 
+linkedin: https://www.linkedin.com/in/yanfangus
+twitter: yanfang724
+image: 
+github: 
+pmc_member: true
+job_title:
+samza_title: 
+order: 40
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,5 +26,3 @@ image: https://placehold.it/100x100
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-A potential description of this committer

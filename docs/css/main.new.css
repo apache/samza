@@ -1150,6 +1150,7 @@ ul.case-studies {
 
 .case-studies li div a.btn:hover {
   background: #7a2c68;
+  color: #fff;
 }
 
 .case-studies li div a.btn::after {
@@ -2128,3 +2129,128 @@ ul.case-studies {
   background: #9C4E8A;
 }
 
+/****
+ *
+ * Committers
+ * 
+ ****/
+
+.committers {
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+  display: flex;
+  flex-direction: column;
+}
+
+@media only screen and (min-width: 768px) {
+  .committers {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    flex-direction: row;
+  }
+}
+
+.committers-hr {
+  margin-bottom: 20px;
+}
+
+.committer {
+  /* background: #eee; */
+  padding: 20px;
+  margin: 20px 0;
+  display: flex;
+  border-radius: 4px;
+}
+
+@media only screen and (min-width: 768px) {
+  .committer {
+    width: 40%;
+  }
+}
+
+.committer * {
+  box-sizing: border-box;
+}
+
+.committer:hover {
+  background: #eee;
+}
+
+.committer:hover .committer-image span {
+  background-blend-mode: unset;
+}
+
+.committer-name {
+  font-size: 25px;
+}
+
+@media only screen and (min-width: 768px) {
+  .committer-name {
+    font-size: 30px;
+  }
+}
+
+.committer-icon {
+  font-size: 30px;
+  margin-right: 10px;
+}
+
+.committer-link {
+  color: #999;
+  transition: color .3s ease 0s;
+}
+
+.committer-link:hover {
+  color: #7a2c68;
+}
+
+.committer .committer-link:after {
+  border: none;
+}
+
+.committer-roles {
+  display: flex;
+  flex-direction: column;
+}
+
+.committer-image {
+  margin-right: 30px;
+  box-sizing: content-box;
+  display: block;
+}
+
+.committer-image span {
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-blend-mode: luminosity;
+  display: block;
+  transition: background .3s ease 0s;
+  border-radius: 100%;
+}
+
+@media only screen and (min-width: 768px) {
+  .committer-image span {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+.committer-image a {
+  border: 3px solid #eee;
+  transition: border .3s ease 0s;
+  display: block;
+  border-radius: 100%;
+}
+
+.committer-image a::after {
+  border: none;
+}
+
+.committer-image a:hover {
+  border: 3px solid #fff;
+}
