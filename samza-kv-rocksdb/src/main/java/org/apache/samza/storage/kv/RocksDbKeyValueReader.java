@@ -21,16 +21,19 @@ package org.apache.samza.storage.kv;
 
 import java.util.ArrayList;
 
+import java.util.Base64;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.SerializerConfig$;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
+import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.Util;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
@@ -124,10 +127,10 @@ public class RocksDbKeyValueReader {
    * @return a Serde of this serde name
    */
   private Serde<Object> getSerdeFromName(String name, JavaSerializerConfig serializerConfig) {
-    String serdeClassName = serializerConfig.getSerdeClass(name);
-    if (serdeClassName == null) {
-      serdeClassName = SerializerConfig$.MODULE$.getSerdeFactoryName(name);
-    }
-    return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
+    String SERDE_FACTORY_CLASS = "serializers.registry.%s";
+    String SERIALIZED_INSTANCE_SUFFIX = ".samza.serialized.instance";
+    String serdeClassName = serializerConfig.get(String.format(SERDE_FACTORY_CLASS, name) + SERIALIZED_INSTANCE_SUFFIX);
+    return SerdeUtils.deserialize(name, serdeClassName);
   }
+
 }

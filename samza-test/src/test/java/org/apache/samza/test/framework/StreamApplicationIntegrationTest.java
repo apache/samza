@@ -130,9 +130,8 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofSeconds(2));
-
-    Integer x = 1;
-    // Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).size());
+    
+    Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).size());
     profiles.forEach(p -> StateAssert.contains(tableDescriptor, p.getMemberId()));
   }
 
