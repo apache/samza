@@ -336,6 +336,34 @@ project(':samza-sql') {
   }
 }
 
+project(':samza-sql-shell') {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-sql')
+    compile project(':samza-tools')
+    compile project(":samza-core_$scalaVersion")
+    compile project(':samza-api')
+    compile project(":samza-kafka_$scalaVersion")
+    compile project(':samza-azure')
+    compile "net.java.dev.jna:jna:$jnaVersion"
+    compile "org.jline:jline:$jlineVersion"
+
+    testCompile "junit:junit:$junitVersion"
+  }
+
+  tasks.create(name: "releaseSqlShellTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
+    into "samza-sql-shell-${version}"
+    compression = Compression.GZIP
+    from(project.file("./scripts")) { into "scripts/" }
+    from(project.file("./config")) { into "config/" }
+    from(project(':samza-shell').file("src/main/bash/run-class.sh")) { into "scripts/" }
+    from(configurations.runtime) { into("lib/") }
+    from(configurations.archives.artifacts.files) { into("lib/") }
+    duplicatesStrategy 'exclude'
+  }
+}
+
 project(':samza-tools') {
   apply plugin: 'java'
 
