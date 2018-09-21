@@ -39,4 +39,4 @@ if [ "x$HEAP_OPTS" = "x" ]; then
     export HEAP_OPTS="-Xmx4G -Xms4G"
 fi
 
-exec $base_dir/run-class.sh $LOG4J_OPTS org.apache.samza.sql.client.cli.Main $CONF_FILE "$@"
+exec $base_dir/run-class.sh $LOG4J_OPTS -DLOG_HOME=$LOG_HOME org.apache.samza.sql.client.cli.Main $CONF_FILE "$@"

@@ -34,9 +34,7 @@ under the License.
     <param name="append" value="false" />
     <param name="maxFileSize" value="10MB" />
     <param name="maxBackupIndex" value="10" />
-    <param name="file" value="./logs/samza-sql-shell.log" />
-    <!--param name="file" value="samza-sql-shell/build/distributions/samza-sql-shell-0.15.0-SNAPSHOT/logs/samza-sql-shell.log" /-->
-    <!--param name="file" value="${LOG_HOME}/logs/samza-sql-shell.log" /-->
+    <param name="file" value="${LOG_HOME}/logs/samza-sql-shell.log" />
     <layout class="org.apache.log4j.PatternLayout">
       <param name="ConversionPattern"
              value="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n" />
