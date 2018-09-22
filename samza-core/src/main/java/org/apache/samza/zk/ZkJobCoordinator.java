@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,7 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.task.GrouperContext;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
@@ -47,17 +49,23 @@ import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
+import org.apache.samza.runtime.LocationId;
+import org.apache.samza.runtime.LocationIdProvider;
+import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkUtils.ProcessorNode;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,6 +106,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final SystemAdmins systemAdmins;
   private final int debounceTimeMs;
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
+  private final LocationId locationId;
 
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
@@ -131,14 +140,16 @@ public class ZkJobCoordinator implements JobCoordinator {
     this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
+    LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
+    LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
+    this.locationId = locationIdProvider.getLocationId();
   }
 
   @Override
   public void start() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.validateZkVersion();
-    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
-        .getJobModelPathPrefix()});
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix(), keyBuilder.getTaskLocalityPath()});
 
     startMetrics();
     systemAdmins.start();
@@ -246,7 +257,13 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   void doOnProcessorChange() {
-    List<String> currentProcessorIds = zkUtils.getSortedActiveProcessorsIDs();
+    List<ProcessorNode> processorNodes = zkUtils.getAllProcessorNodes();
+
+    List<String> currentProcessorIds = new ArrayList<>();
+    for (ProcessorNode processorNode : processorNodes) {
+      currentProcessorIds.add(processorNode.getProcessorData().getProcessorId());
+    }
+
     Set<String> uniqueProcessorIds = new HashSet<>(currentProcessorIds);
 
     if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
@@ -256,7 +273,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
     // Generate the JobModel
     LOG.info("Generating new JobModel with processors: {}.", currentProcessorIds);
-    JobModel jobModel = generateNewJobModel(currentProcessorIds);
+    JobModel jobModel = generateNewJobModel(processorNodes);
 
     // Create checkpoint and changelog streams if they don't exist
     if (!hasCreatedStreams) {
@@ -308,7 +325,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   /**
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
-  private JobModel generateNewJobModel(List<String> processors) {
+  private JobModel generateNewJobModel(List<ProcessorNode> processorNodes) {
     String zkJobModelVersion = zkUtils.getJobModelVersion();
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
@@ -318,11 +335,9 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
       cachedJobModelVersion = zkJobModelVersion;
     }
-    /**
-     * Host affinity is not supported in standalone. Hence, LocalityManager(which is responsible for container
-     * to host mapping) is passed in as null when building the jobModel.
-     */
-    JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+
+    GrouperContext grouperContext = getGrouperContext(zkJobModelVersion, processorNodes);
+    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperContext);
     return new JobModel(new MapConfig(), model.getContainers());
   }
 
@@ -341,6 +356,39 @@ public class ZkJobCoordinator implements JobCoordinator {
           debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
         }
       });
+  }
+
+  /**
+   * Builds the {@link GrouperContext} based upon provided {@param jobModelVersion}
+   * and {@param processorNodes}.
+   * @param jobModelVersion the most recent jobModelVersion available in the zookeeper.
+   * @param processorNodes the list of live processors in the zookeeper.
+   * @return the built grouper context.
+   */
+  private GrouperContext getGrouperContext(String jobModelVersion, List<ProcessorNode> processorNodes) {
+    Map<TaskName, String> taskToProcessorId = new HashMap<>();
+    Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
+    if (jobModelVersion != null) {
+      JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+      for (ContainerModel containerModel : jobModel.getContainers().values()) {
+        for (TaskModel taskModel : containerModel.getTasks().values()) {
+          taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
+          for (SystemStreamPartition partition : taskModel.getSystemStreamPartitions()) {
+            taskToSSPs.computeIfAbsent(taskModel.getTaskName(), k -> new ArrayList<>());
+            taskToSSPs.get(taskModel.getTaskName()).add(partition);
+          }
+        }
+      }
+    }
+
+    Map<String, LocationId> processorLocality = new HashMap<>();
+    for (ProcessorNode processorNode : processorNodes) {
+      ProcessorData processorData = processorNode.getProcessorData();
+      processorLocality.put(processorData.getProcessorId(), processorData.getLocationId());
+    }
+
+    Map<TaskName, LocationId> taskLocality = zkUtils.readTaskLocality();
+    return new GrouperContext(processorLocality, taskLocality, taskToSSPs, taskToProcessorId);
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {
@@ -390,6 +438,11 @@ public class ZkJobCoordinator implements JobCoordinator {
             JobModel jobModel = getJobModel();
             // start the container with the new model
             if (coordinatorListener != null) {
+              for (ContainerModel containerModel : jobModel.getContainers().values()) {
+                for (TaskName taskName : containerModel.getTasks().keySet()) {
+                  zkUtils.writeTaskLocality(taskName, locationId);
+                }
+              }
               coordinatorListener.onNewJobModel(processorId, jobModel);
             }
           });

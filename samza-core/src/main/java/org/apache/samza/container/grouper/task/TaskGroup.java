@@ -18,18 +18,38 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import org.apache.samza.config.Config;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
- * Factory for building a {@link TaskNameGrouper}.
+ * A mutable group of tasks and an associated container id.
+ *
+ * Used as a temporary mutable container until the final ContainerModel is known.
  */
-public interface TaskNameGrouperFactory {
-  /**
-   * Builds a {@link TaskNameGrouper}. The config can be used to read the necessary values which are needed int the
-   * process of building the {@link TaskNameGrouper}
-   *
-   * @param config configuration to use for building the {@link TaskNameGrouper}
-   * @return a {@link TaskNameGrouper} implementation
-   */
-  TaskNameGrouper build(Config config);
+class TaskGroup {
+  final List<String> taskNames = new LinkedList<>();
+  final String containerId;
+
+  TaskGroup(String containerId, List<String> taskNames) {
+    this.containerId = containerId;
+    Collections.sort(taskNames); // For consistency because the taskNames came from a Map
+    this.taskNames.addAll(taskNames);
+  }
+
+  public String getContainerId() {
+    return containerId;
+  }
+
+  public void addTaskName(String taskName) {
+    taskNames.add(taskName);
+  }
+
+  public String removeTask() {
+    return taskNames.remove(taskNames.size() - 1);
+  }
+
+  public int size() {
+    return taskNames.size();
+  }
 }

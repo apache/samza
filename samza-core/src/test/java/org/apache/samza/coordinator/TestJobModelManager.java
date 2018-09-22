@@ -19,6 +19,7 @@
 
 package org.apache.samza.coordinator;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -27,6 +28,7 @@ import org.apache.samza.container.grouper.task.GroupByContainerCount;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -60,7 +62,6 @@ import scala.collection.JavaConversions;
 @PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class})
 public class TestJobModelManager {
   private final TaskAssignmentManager mockTaskManager = mock(TaskAssignmentManager.class);
-  private final LocalityManager mockLocalityManager = mock(LocalityManager.class);
   private final Map<String, Map<String, String>> localityMappings = new HashMap<>();
   private final HttpServer server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
   private final SystemStream inputStream = new SystemStream("test-system", "test-stream");
@@ -75,7 +76,6 @@ public class TestJobModelManager {
 
   @Before
   public void setup() throws Exception {
-    when(mockLocalityManager.readContainerLocality()).thenReturn(this.localityMappings);
     when(mockStreamMetadataCache.getStreamMetadata(argThat(new ArgumentMatcher<scala.collection.immutable.Set<SystemStream>>() {
       @Override
       public boolean matches(Object argument) {
@@ -105,11 +105,15 @@ public class TestJobModelManager {
         put("job.host-affinity.enabled", "true");
       }
     });
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
 
-    this.localityMappings.put("0", new HashMap<String, String>() { {
+    localityMappings.put("0", new HashMap<String, String>() { {
         put(SetContainerHostMapping.HOST_KEY, "abc-affinity");
       } });
-    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, 1, mockStreamMetadataCache, mockLocalityManager, server);
+    when(mockLocalityManager.readContainerLocality()).thenReturn(this.localityMappings);
+
+    Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
+    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
 
     assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", "abc-affinity"); } });
   }
@@ -132,10 +136,16 @@ public class TestJobModelManager {
       }
     });
 
-    this.localityMappings.put("0", new HashMap<String, String>() { {
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+
+    localityMappings.put("0", new HashMap<String, String>() { {
         put(SetContainerHostMapping.HOST_KEY, "abc-affinity");
       } });
-    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, 1, mockStreamMetadataCache, mockLocalityManager, server);
+    when(mockLocalityManager.readContainerLocality()).thenReturn(new HashMap<>());
+
+    Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
+
+    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
 
     assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", null); } });
   }

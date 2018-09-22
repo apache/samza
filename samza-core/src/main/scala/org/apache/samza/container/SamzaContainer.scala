@@ -1004,9 +1004,7 @@ class SamzaContainer(
       info("Registering %s with metadata store" format containerName)
       try {
         val hostInet = Util.getLocalHost
-        val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
-        val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
-        info("Writing container locality and JMX address to metadata store")
+        info("Writing container locality to metadata store")
         localityManager.writeContainerToHostMapping(containerId, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>

@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
@@ -37,8 +39,10 @@ import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.zookeeper.data.Stat;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -237,6 +241,23 @@ public class ZkUtils {
       }
     }
     return processorNodes;
+  }
+
+  public void writeTaskLocality(TaskName taskName, LocationId locationId) {
+    String taskLocalityPath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName);
+    validatePaths(new String[] {taskLocalityPath});
+    writeData(taskLocalityPath, locationId.getId());
+  }
+
+  public Map<TaskName, LocationId> readTaskLocality() {
+    Map<TaskName, LocationId> taskLocality = new HashMap<>();
+    List<String> tasks = zkClient.getChildren(keyBuilder.getTaskLocalityPath());
+    for (String taskName : tasks) {
+      String taskPath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName);
+      String locationId = zkClient.readData(taskPath);
+      taskLocality.put(new TaskName(taskName), new LocationId(locationId));
+    }
+    return taskLocality;
   }
 
   /**

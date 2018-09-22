@@ -19,22 +19,28 @@
 
 package org.apache.samza.container.grouper.task;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import org.apache.samza.runtime.LocationId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Simple grouper.
@@ -49,6 +55,9 @@ public class GroupByContainerIds implements TaskNameGrouper {
     this.startContainerCount = count;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
     List<String> containerIds = new ArrayList<>(startContainerCount);
@@ -58,30 +67,34 @@ public class GroupByContainerIds implements TaskNameGrouper {
     return group(tasks, containerIds);
   }
 
-  public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
-    if (containersIds == null)
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containerIds) {
+    if (containerIds == null)
       return this.group(tasks);
 
-    if (containersIds.isEmpty())
+    if (containerIds.isEmpty())
       throw new IllegalArgumentException("Must have at least one container");
 
     if (tasks.isEmpty())
-      throw new IllegalArgumentException("cannot group an empty set. containersIds=" + Arrays
-          .toString(containersIds.toArray()));
+      throw new IllegalArgumentException("cannot group an empty set. containerIds=" + Arrays
+          .toString(containerIds.toArray()));
 
-    if (containersIds.size() > tasks.size()) {
-      LOG.warn("Number of containers: {} is greater than number of tasks: {}.",  containersIds.size(), tasks.size());
+    if (containerIds.size() > tasks.size()) {
+      LOG.warn("Number of containers: {} is greater than number of tasks: {}.",  containerIds.size(), tasks.size());
       /**
        * Choose lexicographically least `x` containerIds(where x = tasks.size()).
        */
-      containersIds = containersIds.stream()
+      containerIds = containerIds.stream()
                                    .sorted()
                                    .limit(tasks.size())
                                    .collect(Collectors.toList());
-      LOG.info("Generating containerModel with containers: {}.", containersIds);
+      LOG.info("Generating containerModel with containers: {}.", containerIds);
     }
 
-    int containerCount = containersIds.size();
+    int containerCount = containerIds.size();
 
     // Sort tasks by taskName.
     List<TaskModel> sortedTasks = new ArrayList<>(tasks);
@@ -100,9 +113,111 @@ public class GroupByContainerIds implements TaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(containersIds.get(i), taskGroups[i]));
+      containerModels.add(new ContainerModel(containerIds.get(i), taskGroups[i]));
     }
 
+    return Collections.unmodifiableSet(containerModels);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperContext grouperContext) {
+    Map<TaskName, LocationId> taskLocality = grouperContext.getTaskLocality();
+
+    Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
+
+    if (MapUtils.isEmpty(grouperContext.getProcessorLocality())) {
+      LOG.info("ProcessorLocality has size: {}. Generating with the default group method.", grouperContext.getProcessorLocality().size());
+      return group(taskModels, new ArrayList<>());
+    }
+
+    Map<String, LocationId> processorLocality;
+    if (grouperContext.getProcessorLocality().size() > taskModels.size()) {
+      processorLocality = grouperContext.getProcessorLocality()
+                                        .entrySet()
+                                        .stream()
+                                        .sorted(Comparator.comparing(Map.Entry::getKey))
+                                        .limit(taskModels.size())
+                                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    } else {
+      processorLocality = grouperContext.getProcessorLocality();
+    }
+
+    Map<LocationId, List<String>> locationIdToProcessors = new HashMap<>();
+    Map<String, TaskGroup> processorIdToTaskGroup = new HashMap<>();
+
+    processorLocality.forEach((processorId, locationId) -> {
+        List<String> processorIds = locationIdToProcessors.getOrDefault(locationId, new ArrayList<>());
+        processorIds.add(processorId);
+        locationIdToProcessors.put(locationId, processorIds);
+        processorIdToTaskGroup.put(processorId, new TaskGroup(processorId, new ArrayList<>()));
+      });
+
+    int numTasksPerProcessor = taskModels.size() / processorLocality.size();
+    Set<TaskName> assignedTasks = new HashSet<>();
+    for (TaskModel taskModel : taskModels) {
+      LocationId taskLocationId = taskLocality.get(taskModel.getTaskName());
+      if (taskLocationId != null) {
+        List<String> processorIds = locationIdToProcessors.getOrDefault(taskLocationId, new ArrayList<>());
+        for (String processorId : processorIds) {
+          TaskGroup taskGroup = processorIdToTaskGroup.get(processorId);
+          if (taskGroup.size() < numTasksPerProcessor) {
+            taskGroup.addTaskName(taskModel.getTaskName().getTaskName());
+            assignedTasks.add(taskModel.getTaskName());
+          }
+        }
+      }
+    }
+
+    Iterator<String> processorIdsCyclicIterator = Iterators.cycle(processorLocality.keySet());
+    Collection<TaskGroup> taskGroups = processorIdToTaskGroup.values();
+    for (TaskModel taskModel : taskModels) {
+      if (!assignedTasks.contains(taskModel.getTaskName())) {
+        Optional<TaskGroup> underAssignedTaskGroup = taskGroups.stream()
+                .filter(taskGroup -> taskGroup.size() < numTasksPerProcessor)
+                .findFirst();
+        if (underAssignedTaskGroup.isPresent()) {
+          underAssignedTaskGroup.get().addTaskName(taskModel.getTaskName().getTaskName());
+        } else {
+          TaskGroup taskGroup = processorIdToTaskGroup.get(processorIdsCyclicIterator.next());
+          taskGroup.addTaskName(taskModel.getTaskName().getTaskName());
+        }
+        assignedTasks.add(taskModel.getTaskName());
+      }
+    }
+
+    return buildContainerModels(taskModels, taskGroups);
+  }
+
+
+  /**
+   * Translates the list of TaskGroup instances to a set of ContainerModel instances, using the
+   * set of TaskModel instances.
+   *
+   * @param tasks             the TaskModels to assign to the ContainerModels.
+   * @param containerTasks    the TaskGroups defining how the tasks should be grouped.
+   * @return                  a mutable set of ContainerModels.
+   */
+  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, Collection<TaskGroup> containerTasks) {
+    // Map task names to models
+    Map<String, TaskModel> taskNameToModel = new HashMap<>();
+    for (TaskModel model : tasks) {
+      taskNameToModel.put(model.getTaskName().getTaskName(), model);
+    }
+
+    // Build container models
+    Set<ContainerModel> containerModels = new HashSet<>();
+    for (TaskGroup container : containerTasks) {
+      Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
+      for (String taskName : container.taskNames) {
+        TaskModel model = taskNameToModel.get(taskName);
+        containerTaskModels.put(model.getTaskName(), model);
+      }
+      containerModels.add(
+              new ContainerModel(container.containerId, containerTaskModels));
+    }
     return Collections.unmodifiableSet(containerModels);
   }
 }
