@@ -38,11 +38,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
+import static org.apache.samza.sql.testutil.SamzaSqlQueryParser.*;
 
 
 public class SamzaSqlDslConverter implements DslConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlDslConverter.class);
+  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private final Config config;
 
@@ -66,6 +68,12 @@ public class SamzaSqlDslConverter implements DslConverter {
 
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
+      // when sql is a query, we only pass the select query to the planner
+      QueryInfo qinfo = parseQuery(sql);
+      if (qinfo.getSink().equals(LOG_OUTPUT_STREAM)) {
+        sql = qinfo.getSelectQuery();
+      }
+
       relRoots.add(planner.plan(sql));
     }
     return relRoots;
