@@ -203,7 +203,7 @@ class TaskStorageManager(
   }
 
   private def restoreStores() {
-    debug("Restoring stores.")
+    debug("Restoring stores for task: %s." format taskName.getTaskName)
 
     for ((storeName, store) <- taskStoresToRestore) {
       if (changeLogSystemStreams.contains(storeName)) {
@@ -211,7 +211,7 @@ class TaskStorageManager(
         val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
         val systemConsumer = storeConsumers(storeName)
         val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition)
-        store.restore(systemConsumerIterator)
+        store.restore(systemConsumerIterator, taskName)
       }
     }
   }

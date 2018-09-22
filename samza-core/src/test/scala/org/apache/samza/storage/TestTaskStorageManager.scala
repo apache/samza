@@ -603,13 +603,13 @@ class TestTaskStorageManager extends MockitoSugar {
     })
     // Restore simply creates the file
     if (storeFile != null) {
-      when(mockStorageEngine.restore(any())).thenAnswer(new Answer[Unit] {
+      when(mockStorageEngine.restore(any(), any())).thenAnswer(new Answer[Unit] {
         override def answer(invocation: InvocationOnMock): Unit = {
           storeFile.createNewFile()
         }
       })
     } else {
-      doNothing().when(mockStorageEngine).restore(any())
+      doNothing().when(mockStorageEngine).restore(any(), any())
     }
     mockStorageEngine
   }

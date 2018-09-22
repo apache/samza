@@ -22,6 +22,7 @@ package org.apache.samza.storage.kv
 import java.util.Arrays
 
 import org.apache.samza.Partition
+import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.junit.Assert._
@@ -139,7 +140,9 @@ class TestKeyValueStorageEngine {
       new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)),
       new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
 
-    engine.restore(changelogEntries.iterator())
+    val taskName = new TaskName("testTask")
+
+    engine.restore(changelogEntries.iterator(), taskName)
 
     assertEquals(3, metrics.restoredMessagesGauge.getValue)
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg

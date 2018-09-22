@@ -23,6 +23,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -46,7 +47,7 @@ public class MockStorageEngine implements StorageEngine {
   }
 
   @Override
-  public void restore(Iterator<IncomingMessageEnvelope> envelopes) {
+  public void restore(Iterator<IncomingMessageEnvelope> envelopes, TaskName taskName) {
     while (envelopes.hasNext()) {
       incomingMessageEnvelopes.add(envelopes.next());
     }
