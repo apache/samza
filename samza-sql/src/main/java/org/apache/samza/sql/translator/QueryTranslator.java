@@ -31,10 +31,15 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
-import org.apache.samza.context.Context;
+import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.TableDescriptor;
+import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -45,12 +50,9 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
-import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
-import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.task.TaskContext;
 
 
 /**
@@ -63,6 +65,7 @@ public class QueryTranslator {
   private final ModifyTranslator modifyTranslator;
   private final SamzaSqlApplicationConfig sqlConfig;
   private final Map<String, SamzaRelConverter> converters;
+  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
     private transient SamzaRelConverter samzaMsgConverter;
@@ -73,10 +76,9 @@ public class QueryTranslator {
     }
 
     @Override
-    public void init(Context context) {
-      TranslatorContext translatorContext =
-          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
-      this.samzaMsgConverter = translatorContext.getMsgConverter(outputTopic);
+    public void init(Config config, TaskContext taskContext) {
+      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
+      this.samzaMsgConverter = context.getMsgConverter(outputTopic);
     }
 
     @Override
@@ -104,8 +106,8 @@ public class QueryTranslator {
 
   public void translate(RelRoot relRoot, StreamApplicationDescriptor appDesc) {
     final SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(this.sqlConfig);
-    final TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext, this.converters);
-    final SqlIOResolver ioResolver = translatorContext.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
+    final TranslatorContext context = new TranslatorContext(appDesc, relRoot, executionContext, this.converters);
+    final SqlIOResolver ioResolver = context.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
     final RelNode node = relRoot.project();
 
     node.accept(new RelShuttleImpl() {
@@ -125,28 +127,28 @@ public class QueryTranslator {
           throw new SamzaException("Not a supported operation: " + modify.toString());
         }
         RelNode node = super.visit(modify);
-        modifyTranslator.translate(modify, translatorContext);
+        modifyTranslator.translate(modify, context);
         return node;
       }
 
       @Override
       public RelNode visit(TableScan scan) {
         RelNode node = super.visit(scan);
-        scanTranslator.translate(scan, translatorContext);
+        scanTranslator.translate(scan, context);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalFilter filter) {
         RelNode node = visitChild(filter, 0, filter.getInput());
-        new FilterTranslator().translate(filter, translatorContext);
+        new FilterTranslator().translate(filter, context);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
-        new ProjectTranslator().translate(project, translatorContext);
+        new ProjectTranslator().translate(project, context);
         return node;
       }
 
@@ -154,7 +156,7 @@ public class QueryTranslator {
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
         joinId++;
-        new JoinTranslator(joinId, ioResolver).translate(join, translatorContext);
+        new JoinTranslator(joinId, ioResolver).translate(join, context);
         return node;
       }
 
@@ -162,37 +164,32 @@ public class QueryTranslator {
       public RelNode visit(LogicalAggregate aggregate) {
         RelNode node = super.visit(aggregate);
         windowId++;
-        new LogicalAggregateTranslator(windowId).translate(aggregate, translatorContext);
+        new LogicalAggregateTranslator(windowId).translate(aggregate, context);
         return node;
       }
     });
 
     // the snippet below will be performed only when sql is a query statement
-    sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
-        key -> {
-          if (key.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            sendToOutputStream(appDesc, translatorContext, node, key);
-          }
-        }
-    );
+    if (sqlConfig.getOutputSystemStreamConfigsBySource().containsKey(LOG_OUTPUT_STREAM)) {
+      sendToOutputStream(appDesc, context, node);
+    }
 
-    /*
-     * TODO When serialization of ApplicationDescriptor is actually needed, then something will need to be updated here,
-     * since translatorContext is not Serializable. Currently, a new ApplicationDescriptor instance is created in each
-     * container, so it does not need to be serialized. Therefore, the translatorContext is recreated in each container
-     * and does not need to be serialized.
-     */
-    appDesc.withApplicationTaskContextFactory((jobContext,
-        containerContext,
-        taskContext,
-        applicationContainerContext) ->
-        new SamzaSqlApplicationContext(translatorContext.clone()));
+    appDesc.withContextManager(new ContextManager() {
+      @Override
+      public void init(Config config, TaskContext taskContext) {
+        taskContext.setUserContext(context.clone());
+      }
+
+      @Override
+      public void close() {
+      }
+    });
   }
 
-  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, String sink) {
-    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
-    MessageStream<SamzaSqlRelMessage> stream = context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sink));
+  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node) {
+    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(LOG_OUTPUT_STREAM);
+    MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(LOG_OUTPUT_STREAM));
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
       KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
