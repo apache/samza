@@ -52,9 +52,12 @@ import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.ReflectionUtils;
+import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 
 
 /**
@@ -81,6 +84,8 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
 
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+
+  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
@@ -130,6 +135,8 @@ public class SamzaSqlApplicationConfig {
     udfMetadata = udfResolver.getUdfs();
 
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
+
+    systemStreamConfigsBySource.remove(LOG_OUTPUT_STREAM);
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -202,9 +209,16 @@ public class SamzaSqlApplicationConfig {
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    for (RelRoot relRoot : relRoots) {
-      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
-    }
+    // the snippet below dose not work when sql is a query
+    // for (RelRoot relRoot : relRoots) {
+    //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    // }
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+          .collect(Collectors.toSet()));
+    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
 
     return relRoots;
   }
