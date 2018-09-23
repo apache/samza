@@ -57,86 +57,112 @@ public interface SqlExecutor {
      *  SqlExecutor shall be ready to accept all other calls after start() is called.
      *  However, it shall NOT store the ExecutionContext for future use, as each
      *  call will be given an ExecutionContext which may differ from this one.
+     * @param context The ExecutionContext at the time of the call.
      */
     public void start(ExecutionContext context);
 
     /**
      * Indicates no further calls will be made thus it's safe for the executor to clean up.
+     * @param context The ExecutionContext at the time of the call.
      */
     public void stop(ExecutionContext context);
 
     /**
+     * @param context The ExecutionContext at the time of the call.
      * @return null if an error occurs. Prepare for subsequent getErrorMsg call.
      *         an empty list indicates no tables found.
      */
     public List<String> listTables(ExecutionContext context);
 
     /**
+     * @param context The ExecutionContext at the time of the call.
+     * @param tableName Name of the table to get the schema for.
      * @return null if an error occurs. Prepare for subsequent getErrorMsg call.
      */
-    public SqlSchema getTableScema(ExecutionContext context, String tableName);
+    public SqlSchema getTableSchema(ExecutionContext context, String tableName);
 
     /**
+     * @param context The ExecutionContext at the time of the call.
+     * @param statement statement to execute
+     * @return The query result.
      */
     public QueryResult executeQuery(ExecutionContext context, String statement);
 
 
 
     /**
-     * @return how many rows for reading.
+     * @return how many rows available for reading.
      */
     public int getRowCount();
 
     /**
      * Row starts at 0. Executor shall keep the data retrieved.
      * For now we get strings for display but we might want strong typed values.
+     * @param context The ExecutionContext at the time of the call.
+     * @param startRow Start row index (inclusive)
+     * @param endRow End row index (inclusive)
+     * @return A list of row data represented by a String array.
      */
     public List<String[]> retrieveQueryResult(ExecutionContext context, int startRow, int endRow);
 
 
     /**
      * Consumes rows from query result. Executor shall drop them, as "consume" indicates.
-     * All the data before endRow (inclusive) will be deleted.
+     * ALL data before endRow (inclusive, including data before startRow) shall be deleted.
+     * @param context The ExecutionContext at the time of the call.
+     * @param startRow Start row index (inclusive)
+     * @param endRow End row index (inclusive)
      * @return available data between startRow and endRow (both are inclusive)
      */
-    // For logging view mode. Still not sure what the interface should be like.
-    // Don't support this method for now.
     public List<String[]> consumeQueryResult(ExecutionContext context, int startRow, int endRow);
 
     /**
      * Executes all the NON-QUERY statements in the sqlFile.
      * Query statements are ignored as it won't make sense.
+     * @param context The ExecutionContext at the time of the call.
+     * @param file A File object to read statements from.
+     * @return Execution result.
      */
     public NonQueryResult executeNonQuery(ExecutionContext context, File file);
 
     /**
+     * @param context The ExecutionContext at the time of the call.
+     * @param statements A list of non-query sql statements.
+     * @return Execution result.
      */
     public NonQueryResult executeNonQuery(ExecutionContext context, List<String> statements);
 
     /**
+     * @param context The ExecutionContext at the time of the call.
+     * @param exeId Execution ID.
+     * @return Whether the operation suceeded or not.
      */
     public boolean stopExecution(ExecutionContext context, int exeId);
 
 
     /**
-     *  Removing an ongoing execution shall result in an error. Stop it first.
+     * Removing an ongoing execution shall result in an error. Stop it first.
+     * @param context The ExecutionContext at the time of the call
+     * @param exeId Execution ID.
+     * @return Whether the operation succeeded or not.
      */
     public boolean removeExecution(ExecutionContext context, int exeId);
 
     /**
-     *
+     * @param execId Execution ID.
+     * @return ExecutionStatus.
      */
     public ExecutionStatus queryExecutionStatus(int execId);
 
     /**
-     *
+     * @return The last error message of last function call.
      */
     public String getErrorMsg();
 
     /**
      *
-     * @param m_exeContext
-     * @return
+     * @param context The ExecutionContext at the time of the call.
+     * @return A list of SqlFunction.
      */
-    List<SqlFunction> listFunctions(ExecutionContext m_exeContext);
+    List<SqlFunction> listFunctions(ExecutionContext context);
 }

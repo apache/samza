@@ -126,7 +126,7 @@ public class SamzaExecutor implements SqlExecutor {
     }
 
     @Override
-    public SqlSchema getTableScema(ExecutionContext context, String tableName) {
+    public SqlSchema getTableSchema(ExecutionContext context, String tableName) {
         m_lastErrorMsg = "";
         int execId = m_execIdSeq.incrementAndGet();
         Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
@@ -308,7 +308,7 @@ public class SamzaExecutor implements SqlExecutor {
     }
 
     @Override
-    public List<SqlFunction> listFunctions(ExecutionContext m_exeContext) {
+    public List<SqlFunction> listFunctions(ExecutionContext context) {
         /**
          * TODO: currently the Shell only shows some UDFs supported by Samza internally. We may need to require UDFs
          *       to provide a function of getting their "SamzaSqlUdfDisplayInfo", then we can get the UDF information from

@@ -43,8 +43,8 @@ public class CliEnvironment {
 
     /**
      *
-     * @param var
-     * @param val
+     * @param var Environment variable
+     * @param val Value of the environment variable
      * @return 0 : succeed
      *         -1: invalid var
      *         -2: invalid val

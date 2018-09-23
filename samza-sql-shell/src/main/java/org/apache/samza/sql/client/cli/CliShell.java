@@ -248,7 +248,7 @@ class CliShell {
             return;
         }
 
-        SqlSchema schema = m_executor.getTableScema(m_exeContext, parameters);
+        SqlSchema schema = m_executor.getTableSchema(m_exeContext, parameters);
 
         if(schema == null) {
             m_writer.println("Failed to get schema. Error: " + m_executor.getErrorMsg());
