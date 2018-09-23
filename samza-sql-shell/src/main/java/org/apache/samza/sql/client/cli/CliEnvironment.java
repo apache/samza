@@ -26,59 +26,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CliEnvironment {
-    private String m_defaultPersistenceLocation;
-    private String m_defaultPersistenceFileName = ".samzasqlshellrc";
     private static PrintStream m_stdout = System.out;
     private static PrintStream m_stderr = System.err;
 
-    private ExecutionContext.MessageFormat m_messageFormat = ExecutionContext.MessageFormat.COMPACT;
-    private static final String m_messageFormatEnvVar = "OUTPUT";
 
     private Boolean m_debug = false;
-    private static final String m_debugEnvVar = "DEBUG";
-
-
-    public CliEnvironment() {
-        m_defaultPersistenceLocation = System.getProperty("user.home");
-        if(m_defaultPersistenceLocation == null || m_defaultPersistenceLocation.isEmpty()) {
-            m_defaultPersistenceLocation = System.getProperty("user.dir");
-        }
-        load();
-        setupEnvironment();
-    }
-
-    private void load() {
-        File file = new File(m_defaultPersistenceLocation, m_defaultPersistenceFileName);
-        if (!file.exists())
-            return;
-
-        try {
-            FileReader fileReader = new FileReader(file);
-            BufferedReader bufferedReader = new BufferedReader(fileReader);
-            String line = null;
-            while ((line = bufferedReader.readLine()) != null) {
-                if (line.startsWith("#"))
-                    continue;
-                String[] strs = line.split("=");
-                if (strs.length != 2)
-                    continue;
-                setEnvironmentVariable(strs[0], strs[1]);
-            }
-            bufferedReader.close();
-        } catch (FileNotFoundException e) {
-            return;
-        } catch (IOException e) {
-            return;
-        }
-    }
-
-    public ExecutionContext.MessageFormat getMessageFormat() {
-        return m_messageFormat;
-    }
-
-    public void setMessageFormat(ExecutionContext.MessageFormat messageFormat) {
-        m_messageFormat = messageFormat;
-    }
+    private static final String m_debugEnvVar = "shell.debug";
 
     public boolean isDebug() {
         return m_debug;
@@ -86,12 +39,6 @@ public class CliEnvironment {
 
     public void setDebug(Boolean debug) {
         m_debug = debug;
-    }
-
-    public ExecutionContext generateExecutionContext() {
-        ExecutionContext exeCtxt = new ExecutionContext();
-        exeCtxt.setMessageFormat(m_messageFormat);
-        return exeCtxt;
     }
 
     /**
@@ -104,17 +51,6 @@ public class CliEnvironment {
      */
     public int setEnvironmentVariable(String var, String val) {
         switch (var.toUpperCase()) {
-            case m_messageFormatEnvVar:
-                ExecutionContext.MessageFormat messageFormat = null;
-                try {
-                    messageFormat = ExecutionContext.MessageFormat.valueOf(val.toUpperCase());
-                } catch(IllegalArgumentException e) {
-                }
-                if(messageFormat == null) {
-                    return -2;
-                }
-                m_messageFormat = messageFormat;
-                break;
             case m_debugEnvVar:
                 val = val.toLowerCase();
                 if(val.equals("true")) {
@@ -137,12 +73,7 @@ public class CliEnvironment {
 
     public List<String> getPossibleValues(String var) {
         List<String> vals = new ArrayList<>();
-        switch (var.toUpperCase()) {
-            case m_messageFormatEnvVar:
-                for(ExecutionContext.MessageFormat fm : ExecutionContext.MessageFormat.values()) {
-                    vals.add(fm.toString());
-                }
-                return vals;
+        switch (var.toLowerCase()) {
             case m_debugEnvVar:
                 vals.add("true");
                 vals.add("false");
@@ -153,11 +84,6 @@ public class CliEnvironment {
     }
 
     public void printAll(Writer writer) throws IOException {
-        writer.write(m_messageFormatEnvVar);
-        writer.write('=');
-        writer.write(m_messageFormat.name());
-        writer.write('\n');
-
         writer.write(m_debugEnvVar);
         writer.write('=');
         writer.write(m_debug.toString());
@@ -183,7 +109,7 @@ public class CliEnvironment {
         public void write(int b) {}
     }
 
-    private void setupEnvironment() {
+    void takeEffect() {
         if(m_debug) {
             enableJavaSystemOutAndErr();
         }

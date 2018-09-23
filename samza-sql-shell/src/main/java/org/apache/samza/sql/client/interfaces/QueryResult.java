@@ -26,7 +26,7 @@ public class QueryResult {
     private SqlSchema m_schema;
 
     public QueryResult(int execId, SqlSchema schema, Boolean success) {
-        if(schema == null)
+        if(success && schema == null)
             throw new IllegalArgumentException();
         m_execId = execId;
         m_schema = schema;

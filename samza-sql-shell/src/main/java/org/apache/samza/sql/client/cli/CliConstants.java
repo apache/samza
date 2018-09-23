@@ -19,6 +19,10 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
 
 class CliConstants {
     public static final String APP_NAME = "Samza SQL Shell";
@@ -27,7 +31,11 @@ class CliConstants {
     public static final String PROMPT_1ST_END = "> ";
     public static final String PROMPT_2ND = "SQL";
     public static final String PROMPT_2ND_END = "> ";
+    public static final String CONFIG_SHELL_PREFIX = "shell.";
+    public static final String CONFIG_EXECUTOR = "shell.executor";
     public static final String VERSION = "0.0.1";
+
+
 
     public static final String WELCOME_MESSAGE;
     static {
@@ -48,4 +56,18 @@ class CliConstants {
     }
 
     public static final char SPACE = '\u0020';
+
+    public static String getVersion() {
+        String propertyVersion = "";
+        Properties properties = new Properties();
+        try {
+            InputStream input = CliConstants.class.getClassLoader().getResourceAsStream("gradle.properties");
+            properties.load(input);
+            propertyVersion = properties.getProperty("version");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            throw new RuntimeException(ex);
+        }
+        return propertyVersion;
+    }
 }

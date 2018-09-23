@@ -63,7 +63,7 @@ public class QueryResultLogView implements CliView {
     public void open(CliShell shell, QueryResult queryResult) {
         m_terminal = shell.getTerminal();
         m_executor = shell.getExecutor();
-        m_exeContext = shell.getEnvironment().generateExecutionContext();
+        m_exeContext = shell.getExeContext();
 
         TerminalStatus prevStatus = setupTerminal();
         try {

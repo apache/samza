@@ -19,19 +19,21 @@
 
 package org.apache.samza.sql.client.interfaces;
 
+import java.util.Map;
+
+
 public class ExecutionContext {
-    private MessageFormat m_messageFormat;
+  private Map<String, String> m_configs;
 
-    public void setMessageFormat(MessageFormat messageFormat) {
-        m_messageFormat = messageFormat;
-    }
+  public ExecutionContext(Map<String, String> config) {
+    m_configs = config;
+  }
 
-    public MessageFormat getMessageFormat() {
-        return m_messageFormat;
-    }
-
-    public static enum MessageFormat {
-        PRETTY,
-        COMPACT
-    }
+  /**
+  * @return The Map storing all configuration pairs. Note that the set map is the same as the one used by
+  * ExecutionContext, so changes to the map are reflected in ExecutionContext, and vice-versa.
+  */
+  public Map<String, String> getConfigMap() {
+    return m_configs;
+  }
 }

@@ -22,7 +22,6 @@ package org.apache.samza.sql.client.cli;
 import java.io.*;
 import java.util.*;
 
-import org.apache.samza.sql.client.impl.SamzaExecutor;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
@@ -46,11 +45,16 @@ class CliShell {
     private final LineReader m_lineReader;
     private final String m_1stPrompt;
     private final SqlExecutor m_executor;
+    private final ExecutionContext m_exeContext;
     private CliEnvironment m_env;
     private boolean m_keepRunning = true;
     private Map<Integer, String> m_executions = new TreeMap<>();
 
-    public CliShell() {
+    public CliShell(SqlExecutor executor, CliEnvironment environment, ExecutionContext execContext) {
+        if(executor == null || environment == null || execContext == null) {
+            throw new IllegalArgumentException();
+        }
+
         // Terminal
         try {
             m_terminal = TerminalBuilder.builder()
@@ -83,21 +87,27 @@ class CliShell {
             .toAnsi();
 
         // Execution context and executor
-        m_env = new CliEnvironment();
-        m_executor = new SamzaExecutor();
-        m_executor.start(m_env.generateExecutionContext());
+        m_env = environment;
+        m_env.takeEffect();
+        m_exeContext = execContext;
+        m_executor = executor;
+        m_executor.start(m_exeContext);
     }
 
-    public Terminal getTerminal() {
+    Terminal getTerminal() {
         return m_terminal;
     }
 
-    public CliEnvironment getEnvironment() {
+    CliEnvironment getEnvironment() {
         return m_env;
     }
 
-    public SqlExecutor getExecutor() {
+    SqlExecutor getExecutor() {
         return m_executor;
+    }
+
+    ExecutionContext getExeContext() {
+        return m_exeContext;
     }
 
     /**
@@ -213,7 +223,7 @@ class CliShell {
 
         m_writer.write("Cleaning up... ");
         m_writer.flush();
-        m_executor.stop(m_env.generateExecutionContext());
+        m_executor.stop(m_exeContext);
 
         m_writer.write("Done.\nBye.\n\n");
         m_writer.flush();
@@ -238,7 +248,7 @@ class CliShell {
             return;
         }
 
-        SqlSchema schema = m_executor.getTableScema(m_env.generateExecutionContext(), parameters);
+        SqlSchema schema = m_executor.getTableScema(m_exeContext, parameters);
 
         if(schema == null) {
             m_writer.println("Failed to get schema. Error: " + m_executor.getErrorMsg());
@@ -321,7 +331,7 @@ class CliShell {
             return;
         }
 
-        NonQueryResult nonQueryResult = m_executor.executeNonQuery(m_env.generateExecutionContext(), file);
+        NonQueryResult nonQueryResult = m_executor.executeNonQuery(m_exeContext, file);
         if(!nonQueryResult.succeeded()) {
             m_writer.println("Execution error: ");
             m_writer.println(m_executor.getErrorMsg());
@@ -362,7 +372,7 @@ class CliShell {
 
     private void commandInsertInto(CliCommand command) {
         String fullCmdStr = command.getFullCommand();
-        NonQueryResult result = m_executor.executeNonQuery(m_env.generateExecutionContext(),
+        NonQueryResult result = m_executor.executeNonQuery(m_exeContext,
             Collections.singletonList(fullCmdStr));
 
         if (result.succeeded()) {
@@ -485,7 +495,7 @@ class CliShell {
             }
         }
 
-        ExecutionContext exeContext = m_env.generateExecutionContext();
+        ExecutionContext exeContext = m_exeContext;
         for(Integer id : execIds) {
             ExecutionStatus status = null;
             try {
@@ -520,7 +530,7 @@ class CliShell {
     }
 
     private void commandSelect(CliCommand command) {
-        ExecutionContext exeContext = m_env.generateExecutionContext();
+        ExecutionContext exeContext = m_exeContext;
         QueryResult queryResult = m_executor.executeQuery(exeContext, command.getFullCommand());
 
         if(queryResult.succeeded()) {
@@ -536,7 +546,7 @@ class CliShell {
     }
 
     private void commandShowTables(CliCommand command) {
-        List<String> tableNames = m_executor.listTables(m_env.generateExecutionContext());
+        List<String> tableNames = m_executor.listTables(m_exeContext);
 
         if(tableNames != null) {
             for(String tableName : tableNames) {
@@ -551,7 +561,7 @@ class CliShell {
     }
 
     private void commandShowFunctions(CliCommand command) {
-        List<SqlFunction> fns = m_executor.listFunctions(m_env.generateExecutionContext());
+        List<SqlFunction> fns = m_executor.listFunctions(m_exeContext);
 
         if(fns != null) {
             for(SqlFunction fn : fns) {
@@ -592,7 +602,7 @@ class CliShell {
             }
         }
 
-        ExecutionContext exeContext = m_env.generateExecutionContext();
+        ExecutionContext exeContext = m_exeContext;
         for(Integer id : execIds) {
             if(m_executor.stopExecution(exeContext, id)) {
                 m_writer.println(String.format("Request to stop execution %d was sent.", id));
@@ -631,7 +641,7 @@ class CliShell {
 
 
     private CliCommand parseLine(String line) {
-        line = CliUtil.trimCommand(line);
+        line = trimCommand(line);
         if(CliUtil.isNullOrEmpty(line))
             return null;
 
@@ -795,5 +805,23 @@ class CliShell {
         CliUtil.appendTo(line, longestLineCharNum - 1, LINE_SEP);
         lines.add(line.toString());
         return lines;
+    }
+
+    // Trims: leading spaces; trailing spaces and ";"s
+    private String trimCommand(String command) {
+        if(CliUtil.isNullOrEmpty(command))
+            return command;
+
+        int len = command.length();
+        int st = 0;
+
+        while ((st < len) && (command.charAt(st) <= ' ')) {
+            st++;
+        }
+        while ((st < len) && ((command.charAt(len - 1) <= ' ')
+            || command.charAt(len - 1) == ';')) {
+            len--;
+        }
+        return ((st > 0) || (len < command.length())) ? command.substring(st, len) : command;
     }
 }

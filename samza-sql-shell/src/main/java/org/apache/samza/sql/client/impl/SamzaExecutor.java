@@ -44,7 +44,6 @@ import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.StringSerdeFactory;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
-import org.apache.samza.sql.client.interfaces.ExecutionException;
 import org.apache.samza.sql.client.interfaces.ExecutionStatus;
 import org.apache.samza.sql.client.interfaces.NonQueryResult;
 import org.apache.samza.sql.client.interfaces.QueryResult;
@@ -73,13 +72,13 @@ import org.apache.samza.tools.avro.AvroSchemaGenRelConverterFactory;
 import org.apache.samza.tools.avro.AvroSerDeFactory;
 import org.apache.samza.tools.json.JsonRelConverterFactory;
 import org.apache.samza.tools.schemas.ProfileChangeEvent;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.jline.utils.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.base.Joiner;
 import scala.collection.JavaConversions;
 
-import static org.apache.samza.sql.client.util.CliUtil.*;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
@@ -102,11 +101,13 @@ public class SamzaExecutor implements SqlExecutor {
 
     @Override
     public void stop(ExecutionContext context) {
-        for (int execId : m_executions.keySet()) {
-            stopExecution(context, execId);
-            removeExecution(context, execId);
+        Iterator<Integer> iter =  m_executions.keySet().iterator();
+        while(iter.hasNext()) {
+            stopExecution(context, iter.next());
+            iter.remove();
         }
         m_outputData.clear();
+
     }
 
     @Override
@@ -438,15 +439,19 @@ public class SamzaExecutor implements SqlExecutor {
             colTypeNames.add(null);
         }
         */
+        // return new SqlSchema(colNames, colTypeNames);
+        colNames.add("colName");
+        colTypeNames.add("colTypeNames");
         return new SqlSchema(colNames, colTypeNames);
     }
 
     private String[] getFormattedRow(ExecutionContext context, OutgoingMessageEnvelope row) {
         String[] formattedRow = new String[1];
-        if (context == null || !context.getMessageFormat().equals(ExecutionContext.MessageFormat.COMPACT)){
-            formattedRow[0] = getPrettyFormat(row);
-        } else {
+        String outputFormat = context.getConfigMap().get("samza.sql.output");
+        if (outputFormat == null || !outputFormat.equalsIgnoreCase("pretty")){
             formattedRow[0] = getCompressedFormat(row);
+        } else {
+            formattedRow[0] = getPrettyFormat(row);
         }
         return formattedRow;
     }
@@ -538,5 +543,23 @@ public class SamzaExecutor implements SqlExecutor {
             "/tmp/schemas/");
 
         return staticConfigs;
+    }
+
+    private String getPrettyFormat(OutgoingMessageEnvelope envelope) {
+        String value = new String((byte[]) envelope.getMessage());
+        ObjectMapper mapper = new ObjectMapper();
+        String formattedValue;
+        try {
+            Object json = mapper.readValue(value, Object.class);
+            formattedValue = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+        } catch (IOException e) {
+            formattedValue = value;
+            LOG.error("Error while formatting json", e);
+        }
+        return formattedValue;
+    }
+
+    private String getCompressedFormat(OutgoingMessageEnvelope envelope) {
+        return new String((byte[]) envelope.getMessage());
     }
 }

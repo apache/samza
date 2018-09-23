@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.util.ArrayList;
 import org.apache.samza.sql.client.util.CliUtil;
 
 import org.jline.reader.Highlighter;
@@ -42,7 +43,7 @@ public class CliHighlighter implements Highlighter {
     //@Override
     public AttributedString highlight(LineReader reader, String buffer) {
         AttributedStringBuilder builder = new AttributedStringBuilder();
-        List<String> tokens = CliUtil.splitWithSpace(buffer);
+        List<String> tokens = splitWithSpace(buffer);
 
         for(String token : tokens) {
             if(isKeyword(token)) {
@@ -64,5 +65,25 @@ public class CliHighlighter implements Highlighter {
         }
         return false;
 
+    }
+
+    private static List<String> splitWithSpace(String buffer) {
+        List<String> list = new ArrayList<String>();
+        if(CliUtil.isNullOrEmpty(buffer))
+            return list;
+
+        boolean prevIsSpace = Character.isSpaceChar(buffer.charAt(0));
+        int prevPos = 0;
+        for(int i = 1; i < buffer.length(); ++i) {
+            char c = buffer.charAt(i);
+            boolean isSpace = Character.isSpaceChar(c);
+            if(isSpace != prevIsSpace) {
+                list.add(buffer.substring(prevPos, i));
+                prevPos = i;
+                prevIsSpace = isSpace;
+            }
+        }
+        list.add(buffer.substring(prevPos));
+        return list;
     }
 }
