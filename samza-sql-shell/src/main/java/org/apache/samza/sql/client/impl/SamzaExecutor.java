@@ -107,7 +107,6 @@ public class SamzaExecutor implements SqlExecutor {
             iter.remove();
         }
         m_outputData.clear();
-
     }
 
     @Override

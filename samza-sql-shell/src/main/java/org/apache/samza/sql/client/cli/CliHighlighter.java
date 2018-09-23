@@ -38,7 +38,7 @@ public class CliHighlighter implements Highlighter {
         keywords.add("FROM");
         keywords.add("WHERE");
     }
-
+    
     public AttributedString highlight(LineReader reader, String buffer) {
         AttributedStringBuilder builder = new AttributedStringBuilder();
         List<String> tokens = splitWithSpace(buffer);
