@@ -31,7 +31,6 @@ import org.apache.samza.sql.client.interfaces.ExecutionContext;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
-import org.jline.utils.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +60,7 @@ public class Main {
       Map<String, String> executorConfig = new HashMap<>();
 
       if(!CliUtil.isNullOrEmpty(configFilePath)) {
-        Log.info("Configuration file path is: {}", configFilePath);
+        LOG.info("Configuration file path is: {}", configFilePath);
         try {
           FileReader fileReader = new FileReader(configFilePath);
           BufferedReader bufferedReader = new BufferedReader(fileReader);
@@ -82,7 +81,7 @@ public class Main {
                   Class<?> clazz = Class.forName(value);
                   Constructor<?> ctor = clazz.getConstructor();
                   executor = (SqlExecutor) ctor.newInstance();
-                  Log.info("Sql executor creation succeed. Executor class is: {}", value);
+                  LOG.info("Sql executor creation succeed. Executor class is: {}", value);
                 } catch (ClassNotFoundException | NoSuchMethodException
                     | IllegalAccessException | InstantiationException | InvocationTargetException e) {
                   throw new CliException(String.format("Failed to create executor %s.", value), e);

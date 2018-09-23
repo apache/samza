@@ -73,7 +73,6 @@ import org.apache.samza.tools.avro.AvroSerDeFactory;
 import org.apache.samza.tools.json.JsonRelConverterFactory;
 import org.apache.samza.tools.schemas.ProfileChangeEvent;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.jline.utils.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.base.Joiner;
@@ -200,7 +199,7 @@ public class SamzaExecutor implements SqlExecutor {
     public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) {
         m_lastErrorMsg = "";
 
-        Log.info("Sql file path: " + sqlFile.getPath());
+        LOG.info("Sql file path: " + sqlFile.getPath());
         List<String> executedStmts = new ArrayList<>();
         try {
             executedStmts = Files.lines(Paths.get(sqlFile.getPath())).collect(Collectors.toList());
@@ -209,11 +208,16 @@ public class SamzaExecutor implements SqlExecutor {
             LOG.error(m_lastErrorMsg);
             return new NonQueryResult(-1, false);
         }
-        Log.info("Sql statements in Sql file: " + executedStmts.toString());
+        LOG.info("Sql statements in Sql file: " + executedStmts.toString());
 
         List<String> submittedStmts = new ArrayList<>();
         List<String> nonSubmittedStmts = new ArrayList<>();
         validateExecutedStmts(executedStmts, submittedStmts, nonSubmittedStmts);
+        if (submittedStmts.isEmpty()) {
+            m_lastErrorMsg = "Nothing to execute";
+            LOG.warn("Nothing to execute. Statements in the Sql file: {}", nonSubmittedStmts);
+            return new NonQueryResult(-1, false);
+        }
         NonQueryResult result =  executeNonQuery(context, submittedStmts);
         return new NonQueryResult(result.getExecutionId(), result.succeeded(), submittedStmts, nonSubmittedStmts);
     }
@@ -413,7 +417,7 @@ public class SamzaExecutor implements SqlExecutor {
     }
 
     private void validateExecutedStmts(List<String> statements, List<String> submittedStmts,
-        List<String> nonSubmittedStmts) { ;
+        List<String> nonSubmittedStmts) {
         for (String sql: statements) {
             if (sql.isEmpty()) {
                 continue;
