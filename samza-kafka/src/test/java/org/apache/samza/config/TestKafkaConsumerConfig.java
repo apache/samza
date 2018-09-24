@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.kafka.clients.consumer;
+package org.apache.samza.config;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,61 +41,52 @@ public class TestKafkaConsumerConfig {
   }
 
   @Test
-  public void testDefaultsAndOverrides() {
+  public void testDefaults() {
 
-    Map<String, String> overrides = new HashMap<>();
-    overrides.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true"); // should be ignored
-    overrides.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "Ignore"); // should be ignored
-    overrides.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "100"); // should NOT be ignored
+    props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true"); // should be ignored
+    props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "Ignore"); // should be ignored
+    props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "100"); // should NOT be ignored
 
     // if KAFKA_CONSUMER_PROPERTY_PREFIX is set, then PRODUCER should be ignored
     props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "ignroeThis:9092");
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + "bootstrap.servers", "useThis:9092");
 
-    // should be overridden
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "true"); //ignore
-    props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "1000"); // ignore
-
-
-    // should be overridden
-    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "200");
-
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-        config, SYSTEM_NAME, CLIENT_ID, overrides);
+        config, SYSTEM_NAME, CLIENT_ID);
 
-    Assert.assertEquals(kafkaConsumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG), false);
-
-    Assert.assertEquals(
-        kafkaConsumerConfig.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG),
-        Integer.valueOf(KafkaConsumerConfig.DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS));
+    Assert.assertEquals("false", kafkaConsumerConfig.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getList(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG).get(0),
-        RangeAssignor.class.getName());
+        KafkaConsumerConfig.DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS,
+        kafkaConsumerConfig.get(ConsumerConfig.MAX_POLL_RECORDS_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getList(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG).get(0),
-        "useThis:9092");
-    Assert.assertEquals(
-        kafkaConsumerConfig.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG).longValue(),
-        100);
+        RangeAssignor.class.getName(),
+        kafkaConsumerConfig.get(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getClass(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG),
-        ByteArrayDeserializer.class);
+        "useThis:9092",
+        kafkaConsumerConfig.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    Assert.assertEquals(
+        "100",
+        kafkaConsumerConfig.get(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getClass(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG),
-        ByteArrayDeserializer.class);
+        ByteArrayDeserializer.class.getName(),
+        kafkaConsumerConfig.get(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG),
-        CLIENT_ID);
+        ByteArrayDeserializer.class.getName(),
+        kafkaConsumerConfig.get(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG) );
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getString(ConsumerConfig.GROUP_ID_CONFIG),
-        KafkaConsumerConfig.getConsumerGroupId(config));
+        CLIENT_ID,
+        kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
+
+    Assert.assertEquals(
+        KafkaConsumerConfig.getConsumerGroupId(config),
+        kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));
   }
 
   @Test
@@ -110,19 +101,43 @@ public class TestKafkaConsumerConfig {
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-        config, SYSTEM_NAME, CLIENT_ID, Collections.emptyMap());
+        config, SYSTEM_NAME, CLIENT_ID);
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getList(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG).get(0),
-        "useThis:9092");
+        "useThis:9092",
+        kafkaConsumerConfig.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getClass(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG),
-        TestKafkaConsumerConfig.class);
+        TestKafkaConsumerConfig.class.getName(),
+        kafkaConsumerConfig.get(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG));
 
     Assert.assertEquals(
-        kafkaConsumerConfig.getClass(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG),
-        TestKafkaConsumerConfig.class);
+        TestKafkaConsumerConfig.class.getName(),
+        kafkaConsumerConfig.get(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG));
+  }
+
+  @Test
+  public void testGetConsumerClientId() {
+    Map<String, String> map = new HashMap<>();
+
+    map.put(JobConfig.JOB_NAME(), "jobName");
+    map.put(JobConfig.JOB_ID(), "jobId");
+    String result =  KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+    Assert.assertEquals("consumer-jobName-jobId", result);
+
+    result =  KafkaConsumerConfig.getConsumerClientId("consumer-", new MapConfig(map));
+    Assert.assertEquals("consumer_-jobName-jobId", result);
+
+    result =  KafkaConsumerConfig.getConsumerClientId("super-duper-consumer", new MapConfig(map));
+    Assert.assertEquals("super_duper_consumer-jobName-jobId", result);
+
+    map.put(JobConfig.JOB_NAME(), " very important!job");
+    result =  KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+    Assert.assertEquals("consumer-_very_important_job-jobId", result);
+
+    map.put(JobConfig.JOB_ID(), "number-#3");
+    result =  KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+    Assert.assertEquals("consumer-_very_important_job-number__3", result);
   }
 
 
@@ -130,7 +145,7 @@ public class TestKafkaConsumerConfig {
   @Test(expected = SamzaException.class)
   public void testNoBootstrapServers() {
     KafkaConsumerConfig kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-        new MapConfig(Collections.emptyMap()), SYSTEM_NAME, "clientId", Collections.emptyMap());
+        new MapConfig(Collections.emptyMap()), SYSTEM_NAME, "clientId");
 
     Assert.fail("didn't get exception for the missing config:" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
   }

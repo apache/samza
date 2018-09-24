@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import javax.print.DocFlavor;
 import kafka.common.KafkaException;
 import kafka.common.TopicAndPartition;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -47,7 +48,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Separate thread that reads messages from kafka and puts them into the BlockingEnvelopeMap.
+ * This class contains a separate thread that reads messages from kafka and puts them  into the BlockingEnvelopeMap
+ * through KafkaSystemConsumer.KafkaConsumerMessageSink object.
  * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
@@ -74,7 +76,8 @@ import org.slf4j.LoggerFactory;
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  /* package private */KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+  // package private constructor
+  KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
@@ -93,6 +96,11 @@ import org.slf4j.LoggerFactory;
         "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
   }
 
+  @Override
+  public String toString() {
+    return String.format("consumerProxy-%s-%s", systemName, clientId);
+  }
+
   public void start() {
     if (!consumerPollThread.isAlive()) {
       LOG.info("Starting KafkaConsumerProxy polling thread for system " + systemName + " " + this.toString());
@@ -108,12 +116,43 @@ import org.slf4j.LoggerFactory;
         }
       }
     } else {
-      LOG.debug("Tried to start an already started KafkaConsumerProxy (%s). Ignoring.", this.toString());
+      LOG.warn("Tried to start an already started KafkaConsumerProxy (%s). Ignoring.", this.toString());
+    }
+
+    if (topicPartitions2SSP.size() == 0) {
+      String msg = String.format("Cannot start empty set of TopicPartitions for system %s, clientid %s",
+          systemName, clientId);
+      LOG.error(msg);
+      throw new SamzaException(msg);
     }
   }
 
-  // add new partition to the list of polled partitions
-  // this method is called only at the beginning, before the thread is started
+  /**
+   * Stop the thread and wait for it to stop.
+   * @param timeoutMs how long to wait in join
+   */
+  public void stop(long timeoutMs) {
+    LOG.info("Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
+
+    isRunning = false;
+    try {
+      consumerPollThread.join(timeoutMs);
+      // join returns event if the thread didn't finish
+      // in this case we should interrupt it and wait again
+      if (consumerPollThread.isAlive()) {
+        consumerPollThread.interrupt();
+        consumerPollThread.join(timeoutMs);
+      }
+    } catch (InterruptedException e) {
+      LOG.warn("Join in KafkaConsumerProxy has failed", e);
+      consumerPollThread.interrupt();
+    }
+  }
+
+  /**
+   * Add new partition to the list of polled partitions.
+   * This method should be called only at the beginning, before the thread is started.
+   */
   public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
     LOG.info(String.format("Adding new topic and partition %s, offset = %s to queue for consumer %s", ssp, nextOffset,
         this));
@@ -124,66 +163,12 @@ import org.slf4j.LoggerFactory;
 
     nextOffsets.put(ssp, nextOffset);
 
-    // we reuse existing metrics. They assume host and port for the broker
-    // for now fake the port with the consumer name
     kafkaConsumerMetrics.setTopicPartitionValue(metricName, nextOffsets.size());
   }
 
-  /**
-   * creates a separate thread for pulling messages
-   */
-  private Runnable createProxyThreadRunnable() {
-    Runnable runnable=  () -> {
-      isRunning = true;
-
-      try {
-        consumerPollThreadStartLatch.countDown();
-        LOG.info("Starting runnable " + consumerPollThread.getName());
-        initializeLags();
-        while (isRunning) {
-          fetchMessages();
-        }
-      } catch (Throwable throwable) {
-        LOG.error(String.format("Error in KafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
-        // SamzaKafkaSystemConsumer uses the failureCause to propagate the throwable to the container
-        failureCause = throwable;
-        isRunning = false;
-      }
-
-      if (!isRunning) {
-        LOG.info("Stopping the KafkaConsumerProxy poll thread for system: {}.", systemName);
-      }
-    };
-
-    return runnable;
-  }
-
-  private void initializeLags() {
-    // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
-    Map<TopicPartition, Long> endOffsets = kafkaConsumer.endOffsets(topicPartitions2SSP.keySet());
-    endOffsets.forEach((tp, offset) -> {
-      SystemStreamPartition ssp = topicPartitions2SSP.get(tp);
-      long startingOffset = nextOffsets.get(ssp);
-      // End offsets are the offset of the newest message + 1
-      // If the message we are about to consume is < end offset, we are starting with a lag.
-      long initialLag = endOffsets.get(tp) - startingOffset;
-
-      LOG.info("Initial lag for SSP {} is {} (end={}, startOffset={})", ssp, initialLag, endOffsets.get(tp), startingOffset);
-      latestLags.put(ssp, initialLag);
-      sink.setIsAtHighWatermark(ssp, initialLag == 0);
-    });
-
-    // initialize lag metrics
-    refreshLatencyMetrics();
-  }
-
   // the actual polling of the messages from kafka
-  public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> pollConsumer(
+  private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> pollConsumer(
       Set<SystemStreamPartition> systemStreamPartitions, long timeout) {
-
-    if (topicPartitions2SSP.size() == 0) {
-      throw new SamzaException("cannot poll empty set of TopicPartitions");
-    }
 
     // Since we need to poll only from some subset of TopicPartitions (passed as the argument),
     // we need to pause the rest.
@@ -201,10 +186,9 @@ import org.slf4j.LoggerFactory;
     }
 
     ConsumerRecords<K, V> records;
-    // make a call on the client
+
     try {
-      // Currently, when doing checkpoint we are making a safeOffset request through this client, thus we need to synchronize
-      // them. In the future we may use this client for the actually checkpointing.
+      // Synchronize, in case the consumer is used in some other thread (metadata or something else)
       synchronized (kafkaConsumer) {
         // Since we are not polling from ALL the subscribed topics, so we need to "change" the subscription temporarily
         kafkaConsumer.pause(topicPartitionsToPause);
@@ -213,12 +197,7 @@ import org.slf4j.LoggerFactory;
         // resume original set of subscription - may be required for checkpointing
         kafkaConsumer.resume(topicPartitionsToPause);
       }
-    } catch (InvalidOffsetException e) {
-      // If the consumer has thrown this exception it means that auto reset is not set for this consumer.
-      // So we just rethrow.
-      LOG.error("Caught InvalidOffsetException in pollConsumer", e);
-      throw e;
-    } catch (KafkaException e) {
+    } catch (Exception e) {
       // we may get InvalidOffsetException | AuthorizationException | KafkaException exceptions,
       // but we still just rethrow, and log it up the stack.
       LOG.error("Caught a Kafka exception in pollConsumer", e);
@@ -230,11 +209,10 @@ import org.slf4j.LoggerFactory;
 
   private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> processResults(ConsumerRecords<K, V> records) {
     if (records == null) {
-      throw new SamzaException("processResults is called with null object for records");
+      throw new SamzaException("ERROR:records is null, after pollConsumer call (in processResults)");
     }
 
-    int capacity = (int) (records.count() / 0.75 + 1); // to avoid rehash, allocate more then 75% of expected capacity.
-    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = new HashMap<>(capacity);
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = new HashMap<>(records.count());
     // Parse the returned records and convert them into the IncomingMessageEnvelope.
     // Note. They have been already de-serialized by the consumer.
     for (ConsumerRecord<K, V> record : records) {
@@ -268,6 +246,52 @@ import org.slf4j.LoggerFactory;
     return results;
   }
 
+   // creates a separate thread for getting the messages.
+  private Runnable createProxyThreadRunnable() {
+    Runnable runnable=  () -> {
+      isRunning = true;
+
+      try {
+        consumerPollThreadStartLatch.countDown();
+        LOG.info("Starting runnable " + consumerPollThread.getName());
+        initializeLags();
+        while (isRunning) {
+          fetchMessages();
+        }
+      } catch (Throwable throwable) {
+        LOG.error(String.format("Error in KafkaConsumerProxy poll thread for system: %s.", systemName), throwable);
+        // KafkaSystemConsumer uses the failureCause to propagate the throwable to the container
+        failureCause = throwable;
+        isRunning = false;
+      }
+
+      if (!isRunning) {
+        LOG.info("KafkaConsumerProxy for system {} has stopped.", systemName);
+      }
+    };
+
+    return runnable;
+  }
+
+  private void initializeLags() {
+    // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
+    Map<TopicPartition, Long> endOffsets = kafkaConsumer.endOffsets(topicPartitions2SSP.keySet());
+    endOffsets.forEach((tp, offset) -> {
+      SystemStreamPartition ssp = topicPartitions2SSP.get(tp);
+      long startingOffset = nextOffsets.get(ssp);
+      // End offsets are the offset of the newest message + 1
+      // If the message we are about to consume is < end offset, we are starting with a lag.
+      long initialLag = endOffsets.get(tp) - startingOffset;
+
+      LOG.info("Initial lag for SSP {} is {} (end={}, startOffset={})", ssp, initialLag, endOffsets.get(tp), startingOffset);
+      latestLags.put(ssp, initialLag);
+      sink.setIsAtHighWatermark(ssp, initialLag == 0);
+    });
+
+    // initialize lag metrics
+    refreshLatencyMetrics();
+  }
+
   private int getRecordSize(ConsumerRecord<K, V> r) {
     int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
     return keySize + r.serializedValueSize();
@@ -291,9 +315,7 @@ import org.slf4j.LoggerFactory;
     kafkaConsumerMetrics.setHighWatermarkValue(tap, highWatermark);
   }
 
-  /*
-   This method put messages into blockingEnvelopeMap.
-   */
+
   private void moveMessagesToTheirQueue(SystemStreamPartition ssp, List<IncomingMessageEnvelope> envelopes) {
     long nextOffset = nextOffsets.get(ssp);
 
@@ -317,11 +339,9 @@ import org.slf4j.LoggerFactory;
     }
   }
 
-  /*
-    The only way to figure out lag for the KafkaConsumer is to look at the metrics after each poll() call.
-    One of the metrics (records-lag) shows how far behind the HighWatermark the consumer is.
-    This method populates the lag information for each SSP into latestLags member variable.
-   */
+  // The only way to figure out lag for the KafkaConsumer is to look at the metrics after each poll() call.
+  // One of the metrics (records-lag) shows how far behind the HighWatermark the consumer is.
+  // This method populates the lag information for each SSP into latestLags member variable.
   private void populateCurrentLags(Set<SystemStreamPartition> ssps) {
 
     Map<MetricName, ? extends Metric> consumerMetrics = kafkaConsumer.metrics();
@@ -339,12 +359,6 @@ import org.slf4j.LoggerFactory;
       // so the lag is now at least 0, which is the same as Samza's definition.
       // If the lag is not 0, then isAtHead is not true, and kafkaClient keeps polling.
       long currentLag = (currentLagM != null) ? (long) currentLagM.value() : -1L;
-      /*
-      Metric averageLagM = consumerMetrics.get(new MetricName(tp + ".records-lag-avg", "consumer-fetch-manager-metrics", "", tags));
-      double averageLag = (averageLagM != null) ? averageLagM.value() : -1.0;
-      Metric maxLagM = consumerMetrics.get(new MetricName(tp + ".records-lag-max", "consumer-fetch-manager-metrics", "", tags));
-      double maxLag = (maxLagM != null) ? maxLagM.value() : -1.0;
-      */
       latestLags.put(ssp, currentLag);
 
       // calls the setIsAtHead for the BlockingEnvelopeMap
@@ -352,10 +366,8 @@ import org.slf4j.LoggerFactory;
     }
   }
 
-  /*
-    Get the latest lag for a specific SSP.
-   */
-  public long getLatestLag(SystemStreamPartition ssp) {
+  // Get the latest lag for a specific SSP.
+  private long getLatestLag(SystemStreamPartition ssp) {
     Long lag = latestLags.get(ssp);
     if (lag == null) {
       throw new SamzaException("Unknown/unregistered ssp in latestLags request: " + ssp);
@@ -363,9 +375,7 @@ import org.slf4j.LoggerFactory;
     return lag;
   }
 
-  /*
-    Using the consumer to poll the messages from the stream.
-   */
+  // Using the consumer to poll the messages from the stream.
   private void fetchMessages() {
     Set<SystemStreamPartition> sspsToFetch = new HashSet<>();
     for (SystemStreamPartition ssp : nextOffsets.keySet()) {
@@ -380,7 +390,7 @@ import org.slf4j.LoggerFactory;
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> response;
       LOG.debug("pollConsumer from following SSPs: {}; total#={}", sspsToFetch, sspsToFetch.size());
 
-      response = pollConsumer(sspsToFetch, 500); // TODO should be default value from ConsumerConfig
+      response = pollConsumer(sspsToFetch, 500L);
 
       // move the responses into the queue
       for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> e : response.entrySet()) {
@@ -429,28 +439,6 @@ import org.slf4j.LoggerFactory;
 
   Throwable getFailureCause() {
     return failureCause;
-  }
-
-  /**
-   * stop the thread and wait for it to stop
-   * @param timeoutMs how long to wait in join
-   */
-  public void stop(long timeoutMs) {
-    LOG.info("Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
-
-    isRunning = false;
-    try {
-      consumerPollThread.join(timeoutMs);
-      // join returns event if the thread didn't finish
-      // in this case we should interrupt it and wait again
-      if (consumerPollThread.isAlive()) {
-        consumerPollThread.interrupt();
-        consumerPollThread.join(timeoutMs);
-      }
-    } catch (InterruptedException e) {
-      LOG.warn("Join in KafkaConsumerProxy has failed", e);
-      consumerPollThread.interrupt();
-    }
   }
 }
 
