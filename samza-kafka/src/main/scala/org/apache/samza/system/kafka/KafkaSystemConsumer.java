@@ -31,11 +31,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import kafka.common.TopicAndPartition;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -69,7 +69,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   // BlockeingEnvelopMap's buffers.
   final private KafkaConsumerProxy proxy;
 
-
   // keep registration data until the start - mapping between registered SSPs and topicPartitions, and the offsets
   final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
   final Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
@@ -102,7 +101,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     // Create the proxy to do the actual message reading.
     String metricName = String.format("%s %s", systemName, clientId);
     proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
-    LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy );
+    LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
 
     LOG.info("{}: Created KafkaSystemConsumer {}", this, kafkaConsumer);
   }
@@ -117,8 +116,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
 
     // extract kafka client configs
-    KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
+    KafkaConsumerConfig consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
 
     LOG.info("{}:{} KafkaClient properties {}", systemName, clientId, consumerConfig);
 
@@ -179,8 +177,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       } catch (Exception e) {
         // all recoverable execptions are handled by the client.
         // if we get here there is nothing left to do but bail out.
-        String msg = String.format("%s: Got Exception while seeking to %s for partition %s",
-            this, startingOffsetString, tp);
+        String msg =
+            String.format("%s: Got Exception while seeking to %s for partition %s", this, startingOffsetString, tp);
         LOG.error(msg, e);
         throw new SamzaException(msg, e);
       }
@@ -217,12 +215,12 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     }
 
     int numTPs = topicPartitionsToSSP.size();
-    if (numTPs == topicPartitionsToOffset.size()) {
+    if (numTPs != topicPartitionsToOffset.size()) {
       throw new SamzaException("topicPartitionsToSSP.size() doesn't match topicPartitionsToOffset.size()");
     }
 
-    LOG.info("{}: fetchThresholdBytes = {}; fetchThreshold={}; partitions num={}",
-        this, fetchThresholdBytes, fetchThreshold, numTPs);
+    LOG.info("{}: fetchThresholdBytes = {}; fetchThreshold={}; partitions num={}", this, fetchThresholdBytes,
+        fetchThreshold, numTPs);
 
     if (numTPs > 0) {
       perPartitionFetchThreshold = fetchThreshold / numTPs;
@@ -231,8 +229,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         // currently this feature cannot be enabled, because we do not have the size of the messages available.
         // messages get double buffered, hence divide by 2
         perPartitionFetchThresholdBytes = (fetchThresholdBytes / 2) / numTPs;
-        LOG.info("{} :perPartitionFetchThresholdBytes is enabled. perPartitionFetchThresholdBytes={}",
-            this, perPartitionFetchThresholdBytes);
+        LOG.info("{} :perPartitionFetchThresholdBytes is enabled. perPartitionFetchThresholdBytes={}", this,
+            perPartitionFetchThresholdBytes);
       }
     }
   }
@@ -268,9 +266,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
     if (started.get()) {
-      String msg =
-          String.format("%s: Trying to register partition after consumer has been started. ssp=%s",
-              this, systemStreamPartition);
+      String msg = String.format("%s: Trying to register partition after consumer has been started. ssp=%s", this,
+          systemStreamPartition);
       throw new SamzaException(msg);
     }
 
@@ -285,7 +282,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     TopicPartition tp = toTopicPartition(systemStreamPartition);
 
     topicPartitionsToSSP.put(tp, systemStreamPartition);
-
 
     String existingOffset = topicPartitionsToOffset.get(tp);
     // register the older (of the two) offset in the consumer, to guarantee we do not miss any messages.
@@ -353,10 +349,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     }
 
     boolean needsMoreMessages(SystemStreamPartition ssp) {
-        LOG.debug("{}: needsMoreMessages from following SSP: {}. fetchLimitByBytes enabled={}; messagesSizeInQueue={};"
-                + "(limit={}); messagesNumInQueue={}(limit={};", this, ssp, fetchThresholdBytesEnabled,
-            getMessagesSizeInQueue(ssp), perPartitionFetchThresholdBytes, getNumMessagesInQueue(ssp),
-            perPartitionFetchThreshold);
+      LOG.debug("{}: needsMoreMessages from following SSP: {}. fetchLimitByBytes enabled={}; messagesSizeInQueue={};"
+              + "(limit={}); messagesNumInQueue={}(limit={};", this, ssp, fetchThresholdBytesEnabled,
+          getMessagesSizeInQueue(ssp), perPartitionFetchThresholdBytes, getNumMessagesInQueue(ssp),
+          perPartitionFetchThreshold);
 
       if (fetchThresholdBytesEnabled) {
         return getMessagesSizeInQueue(ssp) < perPartitionFetchThresholdBytes;
@@ -372,8 +368,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         put(ssp, envelope);
       } catch (InterruptedException e) {
         throw new SamzaException(
-            String.format("%s: Consumer was interrupted while trying to add message with offset %s for ssp %s",
-                this, envelope.getOffset(), ssp));
+            String.format("%s: Consumer was interrupted while trying to add message with offset %s for ssp %s", this,
+                envelope.getOffset(), ssp));
       }
     }
   }

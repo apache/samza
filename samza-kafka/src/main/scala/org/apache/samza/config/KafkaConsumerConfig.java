@@ -23,13 +23,11 @@ package org.apache.samza.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.JobConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -78,7 +76,6 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
 
-
     // These are values we enforce in sazma, and they cannot be overwritten.
 
     // Disable consumer auto-commit because Samza controls commits
@@ -86,7 +83,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
     // Translate samza config value to kafka config value
     consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-        getAutoOffsetResetValue((String)consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG)));
+        getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG)));
 
     // make sure bootstrap configs are in, if not - get them from the producer
     if (!subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
@@ -148,9 +145,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = (config.get(JobConfig.JOB_ID()) != null) ? config.get(JobConfig.JOB_ID()) : "1";
 
-    return String.format("%s-%s-%s", id.replaceAll(
-        "\\W", "_"),
-        jobName.replaceAll("\\W", "_"),
+    return String.format("%s-%s-%s", id.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
         jobId.replaceAll("\\W", "_"));
   }
 
@@ -172,7 +167,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     final String KAFKA_OFFSET_NONE = "none";
 
     if (autoOffsetReset == null) {
-     return KAFKA_OFFSET_LATEST; // return default
+      return KAFKA_OFFSET_LATEST; // return default
     }
 
     // accept kafka values directly
@@ -184,15 +179,15 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     String newAutoOffsetReset;
     switch (autoOffsetReset) {
       case SAMZA_OFFSET_LARGEST:
-        newAutoOffsetReset =  KAFKA_OFFSET_LATEST;
+        newAutoOffsetReset = KAFKA_OFFSET_LATEST;
         break;
       case SAMZA_OFFSET_SMALLEST:
-        newAutoOffsetReset =  KAFKA_OFFSET_EARLIEST;
+        newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
         break;
       default:
-        newAutoOffsetReset =  KAFKA_OFFSET_LATEST;
+        newAutoOffsetReset = KAFKA_OFFSET_LATEST;
     }
-    LOG.info("AutoOffsetReset value converted from {} to {}", autoOffsetReset,  newAutoOffsetReset);
+    LOG.info("AutoOffsetReset value converted from {} to {}", autoOffsetReset, newAutoOffsetReset);
     return newAutoOffsetReset;
   }
 }
