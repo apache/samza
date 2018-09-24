@@ -20,7 +20,6 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableSet;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,22 +99,20 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     admin.validateStream(spec);
   }
 
-  public SamzaKafkaSystemAdmin createSystemAdminJava(
-      java.util.Properties coordinatorStreamProperties,
-      int coordinatorStreamReplicationFactor,
-      java.util.Map<String, ChangelogInfo> topicMetaInformation) {
+  public SamzaKafkaSystemAdmin createSystemAdminJava(java.util.Properties coordinatorStreamProperties,
+      int coordinatorStreamReplicationFactor, java.util.Map<String, ChangelogInfo> topicMetaInformation) {
 
-    Supplier<ZkUtils> zkConnectSupplier = () ->  ZkUtils.apply(TestKafkaSystemAdmin$.MODULE$.zkConnect(), 6000, 6000, false);
+    Supplier<ZkUtils> zkConnectSupplier =
+        () -> ZkUtils.apply(TestKafkaSystemAdmin$.MODULE$.zkConnect(), 6000, 6000, false);
 
     final Properties props = new Properties();
     props.put(KafkaConsumerConfig.ZOOKEEPER_CONNECT, TestKafkaSystemAdmin$.MODULE$.zkConnect());
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
     Supplier<AdminClient> adminClientSupplier = () -> AdminClient.create(props);
 
-
     Map<String, String> map = new HashMap<>();
-    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
-        org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestKafkaSystemAdmin$.MODULE$.brokerList());
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+        TestKafkaSystemAdmin$.MODULE$.brokerList());
     map.put(JobConfig.JOB_NAME(), "job.Name");
 
     final Config config = new MapConfig(map);
@@ -134,7 +131,6 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
         coordinatorStreamReplicationFactor, deleteCommittedMessages);
   }
-
 
   @Test
   public void testCreateChangelogStream() {

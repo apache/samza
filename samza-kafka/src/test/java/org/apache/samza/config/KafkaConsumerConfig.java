@@ -119,7 +119,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public String getClientId() {
-    String clientId = (String)get(ConsumerConfig.CLIENT_ID_CONFIG);
+    String clientId = (String) get(ConsumerConfig.CLIENT_ID_CONFIG);
     if (clientId == null) {
       throw new SamzaException("client Id is not set for consumer for system=" + systemName);
     }
@@ -136,8 +136,9 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public static String createProducerClientId(String prefix, Config config) {
-    return createClientId(prefix , config);
+    return createClientId(prefix, config);
   }
+
   // client id should be unique per job
   static String createClientId(String prefix, Config config) {
     if (config.get(JobConfig.JOB_NAME()) == null) {
@@ -146,9 +147,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = (config.get(JobConfig.JOB_ID()) != null) ? config.get(JobConfig.JOB_ID()) : "1";
 
-    return String.format("%s-%s-%s",
-        prefix.replaceAll("\\W", "_"),
-        jobName.replaceAll("\\W", "_"),
+    return String.format("%s-%s-%s", prefix.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
         jobId.replaceAll("\\W", "_"));
   }
 
