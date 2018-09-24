@@ -20,6 +20,7 @@
 package org.apache.samza.system.kafka
 
 import java.util.Properties
+
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka

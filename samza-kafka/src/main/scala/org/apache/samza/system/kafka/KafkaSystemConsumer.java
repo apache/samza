@@ -35,7 +35,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -113,7 +112,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @return kafka consumer
    */
   public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName,
-      KafkaConsumerConfig kafkaConsumerConfig) {
+      HashMap kafkaConsumerConfig) {
 
     LOG.info("KafkaClient properties for systemName {}: {}", systemName, kafkaConsumerConfig);
 
