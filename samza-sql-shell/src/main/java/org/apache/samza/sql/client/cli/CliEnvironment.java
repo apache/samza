@@ -19,11 +19,11 @@
 
 package org.apache.samza.sql.client.cli;
 
-import org.apache.samza.sql.client.interfaces.ExecutionContext;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class CliEnvironment {
     private static PrintStream m_stdout = System.out;

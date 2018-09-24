@@ -19,84 +19,61 @@
 
 package org.apache.samza.sql.client.impl;
 
-import java.util.List;
-import org.apache.samza.sql.client.interfaces.QueryResult;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.client.interfaces.ExecutionContext;
 import org.apache.samza.sql.client.interfaces.SqlSchema;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
+
+import static org.apache.samza.sql.client.impl.SamzaExecutor.*;
+import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
 public class SamzaExecutorTest {
     private SamzaExecutor m_executor = new SamzaExecutor();
 
-    /**
-     * Need a local Kafka cluster
-     */
-    @Ignore
     @Test
-    public void testQueryResult() {
-        String sql = "select * from kafka.ProfileChangeStream";
-        QueryResult queryResult = m_executor.executeQuery(null, sql);
-        SqlSchema ts = queryResult.getSchema();
+    public void testGetTableSchema() {
+        ExecutionContext context = getExecutionContext();
+        SqlSchema ts = m_executor.getTableSchema(context, "kafka.ProfileChangeStream");
+
+        Assert.assertEquals("Name", ts.getFieldName(0));
+        Assert.assertEquals("NewCompany", ts.getFieldName(1));
+        Assert.assertEquals("OldCompany", ts.getFieldName(2));
+        Assert.assertEquals("ProfileChangeTimestamp", ts.getFieldName(3));
+        Assert.assertEquals("STRING", ts.getFieldTypeName(0));
+        Assert.assertEquals("STRING", ts.getFieldTypeName(1));
+        Assert.assertEquals("STRING", ts.getFieldTypeName(2));
+        Assert.assertEquals("INT64", ts.getFieldTypeName(3));
+    }
+
+    @Test
+    public void testGenerateResultSchema() {
+        ExecutionContext context = getExecutionContext();
+        Map<String, String> mapConf = fetchSamzaSqlConfig(1, context);
+        SqlSchema ts = m_executor.generateResultSchema(new MapConfig(mapConf));
 
         Assert.assertEquals("__key__", ts.getFieldName(0));
         Assert.assertEquals("Name", ts.getFieldName(1));
         Assert.assertEquals("NewCompany", ts.getFieldName(2));
         Assert.assertEquals("OldCompany", ts.getFieldName(3));
         Assert.assertEquals("ProfileChangeTimestamp", ts.getFieldName(4));
-
-        /*Assert.assertEquals("VARCHAR", ts.getFieldTypeName(0));
+        Assert.assertEquals("VARCHAR", ts.getFieldTypeName(0));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(1));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(2));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(3));
-        Assert.assertEquals("BIGINT", ts.getFieldTypeName(4));*/
-
-        try {
-          Thread.sleep(5000); // wait for seconds
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-
-        List<String[]> data = m_executor.retrieveQueryResult(null, 1, 2);
-        Assert.assertEquals(2, data.size());
-
-        m_executor.stop(null);
+        Assert.assertEquals("BIGINT", ts.getFieldTypeName(4));
     }
 
-    // -- TODO: end to end testing. We can use TestAvroSystemFactory
-    /* @Test
-    public void testRetrieveQueryResult() {
-
+    private ExecutionContext getExecutionContext() {
+        ClassLoader classLoader = getClass().getClassLoader();
+        File file = new File(classLoader.getResource("ProfileChangeStream.avsc").getFile());
+        Map<String, String> mapConf = new HashMap<>();
+        mapConf.put("samza.sql.relSchemaProvider.config.schemaDir", file.getParent());
+        mapConf.put(CFG_SQL_STMT, "insert into log.outputStream select * from kafka.ProfileChangeStream");
+        return new ExecutionContext(mapConf);
     }
-
-    @Test
-    public void testConsumeQueryResult() {
-
-    }
-
-    @Test
-    public void testExecuteQuery() {
-
-    }
-
-    @Test
-    public void testGetRowCount() {
-
-    }
-
-    @Test
-    public void testExecuteNonQuery() {
-
-    }
-
-    @Test
-    public void testRemoveExecution() {
-
-    }
-
-    @Test
-    public void queryExecutionStatus() {
-
-    }*/
 }

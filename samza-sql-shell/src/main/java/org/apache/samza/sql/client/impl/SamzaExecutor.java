@@ -33,6 +33,7 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -83,12 +84,17 @@ import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 public class SamzaExecutor implements SqlExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(SamzaExecutor.class);
-    private static final String SAMZA_SYSTEM_KAFKA = "kafka";
+
     private static final String SAMZA_SYSTEM_LOG = "log";
+    private static final String SAMZA_SYSTEM_KAFKA = "kafka";
+    private static final String SAMZA_SQL_OUTPUT = "samza.sql.output";
+    private static final String SAMZA_SQL_SYSTEM_KAFKA_ADDRESS = "samza.sql.system.kafka.address";
+    private static final String DEFAULT_SERVER_ADDRESS = "localhost:2181";
     private static final int RANDOM_ACCESS_QUEUE_CAPACITY = 5000;
-    private static AtomicInteger m_execIdSeq = new AtomicInteger(0);
+
     private static RandomAccessQueue<OutgoingMessageEnvelope> m_outputData =
         new RandomAccessQueue<>(OutgoingMessageEnvelope.class, RANDOM_ACCESS_QUEUE_CAPACITY);
+    private static AtomicInteger m_execIdSeq = new AtomicInteger(0);
     private Map<Integer, SamzaSqlApplicationRunner> m_executions = new HashMap<>();
     private String m_lastErrorMsg = "";
 
@@ -111,10 +117,11 @@ public class SamzaExecutor implements SqlExecutor {
     @Override
     public List<String> listTables(ExecutionContext context) {
         /**
-         * TODO: remove hardcode. Currently the Shell can only talk to Kafka system, but we should use a general way
+         * TODO: currently the Shell can only talk to Kafka system, but we should use a general way
          *       to connect to different systems.
          */
-        String address = "localhost:2181";
+        String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS,
+            DEFAULT_SERVER_ADDRESS);
         ZkUtils zkUtils = new ZkUtils(new ZkClient(address), new ZkConnection(address), false);
         List<String> tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
             .stream()
@@ -127,7 +134,7 @@ public class SamzaExecutor implements SqlExecutor {
     public SqlSchema getTableSchema(ExecutionContext context, String tableName) {
         m_lastErrorMsg = "";
         int execId = m_execIdSeq.incrementAndGet();
-        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
+        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId, context);
         Config samzaSqlConfig = new MapConfig(staticConfigs);
         SqlSchema sqlSchema = null;
         try {
@@ -153,7 +160,7 @@ public class SamzaExecutor implements SqlExecutor {
         m_outputData.clear();
 
         int execId = m_execIdSeq.incrementAndGet();
-        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
+        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId, context);
         List<String> sqlStmts = formatSqlStmts(Collections.singletonList(statement));
         staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
 
@@ -214,7 +221,7 @@ public class SamzaExecutor implements SqlExecutor {
         List<String> nonSubmittedStmts = new ArrayList<>();
         validateExecutedStmts(executedStmts, submittedStmts, nonSubmittedStmts);
         if (submittedStmts.isEmpty()) {
-            m_lastErrorMsg = "Nothing to execute";
+            m_lastErrorMsg = "Nothing to execute. Note: SELECT statements are ignored.";
             LOG.warn("Nothing to execute. Statements in the Sql file: {}", nonSubmittedStmts);
             return new NonQueryResult(-1, false);
         }
@@ -227,7 +234,7 @@ public class SamzaExecutor implements SqlExecutor {
         m_lastErrorMsg = "";
 
         int execId = m_execIdSeq.incrementAndGet();
-        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
+        Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId, context);
         staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(formatSqlStmts(statement)));
 
         SamzaSqlApplicationRunner runner;
@@ -430,28 +437,24 @@ public class SamzaExecutor implements SqlExecutor {
         }
     }
 
-    private SqlSchema generateResultSchema(Config config) {
+    SqlSchema generateResultSchema(Config config) {
         SamzaSqlDslConverter converter = (SamzaSqlDslConverter) new SamzaSqlDslConverterFactory().create(config);
-        Collection<RelRoot> roots = converter.convertDsl("");
+        RelRoot relRoot = converter.convertDsl("").iterator().next();
 
         List<String> colNames = new ArrayList<>();
         List<String> colTypeNames = new ArrayList<>();
-        /*for (RelDataTypeField dataTypeField : relRoot.validatedRowType.getFieldList()) {
+        for (RelDataTypeField dataTypeField : relRoot.validatedRowType.getFieldList()) {
             colNames.add(dataTypeField.getName());
-            // TODO: colTypeNames.add(dataTypeField.getType().toString());
-            colTypeNames.add(null);
+            colTypeNames.add(dataTypeField.getType().toString());
         }
-        */
-        // return new SqlSchema(colNames, colTypeNames);
-        colNames.add("colName");
-        colTypeNames.add("colTypeNames");
+
         return new SqlSchema(colNames, colTypeNames);
     }
 
     private String[] getFormattedRow(ExecutionContext context, OutgoingMessageEnvelope row) {
         String[] formattedRow = new String[1];
-        String outputFormat = context.getConfigMap().get("samza.sql.output");
-        if (outputFormat == null || !outputFormat.equalsIgnoreCase("pretty")){
+        String outputFormat = context.getConfigMap().get(SAMZA_SQL_OUTPUT);
+        if (outputFormat == null || !outputFormat.equalsIgnoreCase(MessageFormat.PRETTY.toString())){
             formattedRow[0] = getCompressedFormat(row);
         } else {
             formattedRow[0] = getPrettyFormat(row);
@@ -477,7 +480,7 @@ public class SamzaExecutor implements SqlExecutor {
         }
     }
 
-    private static Map<String, String> fetchSamzaSqlConfig(int execId) {
+    static Map<String, String> fetchSamzaSqlConfig(int execId, ExecutionContext executionContext) {
         HashMap<String, String> staticConfigs = new HashMap<>();
 
         staticConfigs.put(JobConfig.JOB_NAME(), "sql-job-" + execId);
@@ -545,6 +548,12 @@ public class SamzaExecutor implements SqlExecutor {
                 configAvroRelSchemaProviderDomain + FileSystemAvroRelSchemaProviderFactory.CFG_SCHEMA_DIR,
             "/tmp/schemas/");
 
+        /* TODO: we need to validate and read configurations from shell-defaults.conf (aka. "executionContext"),
+         *       and update their value if they've been included in staticConfigs. We could handle these logic
+         *       Shell level, or in Executor level.
+         */
+        staticConfigs.putAll(executionContext.getConfigMap());
+
         return staticConfigs;
     }
 
@@ -564,5 +573,10 @@ public class SamzaExecutor implements SqlExecutor {
 
     private String getCompressedFormat(OutgoingMessageEnvelope envelope) {
         return new String((byte[]) envelope.getMessage());
+    }
+
+    private enum MessageFormat {
+        PRETTY,
+        COMPACT
     }
 }

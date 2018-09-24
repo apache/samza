@@ -110,10 +110,6 @@ public class Main {
 
       CliShell shell = new CliShell(executor, environment, new ExecutionContext(executorConfig));
       shell.open();
-      // SamzaExecutor executor = new SamzaExecutor();
-      // executor.executeQuery(null, "insert into kafka.ProfileChangeStream_sink select * from kafka.ProfileChangeStream");
-      // executor.executeQuery(null, "insert into log.outputStream select * from kafka.ProfileChangeStream");
-      // executor.executeQuery(null, "select * from kafka.ProfileChangeStream");
     }
 }
 

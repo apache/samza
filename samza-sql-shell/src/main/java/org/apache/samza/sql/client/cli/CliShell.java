@@ -322,7 +322,7 @@ class CliShell {
         try {
             uri = new URI(parameters);
             file = new File(uri.getPath());
-            valid = file.exists();
+            valid = file.exists() && !file.isDirectory();
         } catch (URISyntaxException e) {
         }
         if (!valid) {
@@ -333,7 +333,7 @@ class CliShell {
 
         NonQueryResult nonQueryResult = m_executor.executeNonQuery(m_exeContext, file);
         if(!nonQueryResult.succeeded()) {
-            m_writer.println("Execution error: ");
+            m_writer.print("Execution error: ");
             m_writer.println(m_executor.getErrorMsg());
             m_writer.println();
             m_writer.flush();
