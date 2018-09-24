@@ -370,7 +370,8 @@ public class TestStreamProcessor {
             .thenReturn(SamzaContainerStatus.STARTED)
             .thenReturn(SamzaContainerStatus.STOPPED);
     streamProcessor.container = mockSamzaContainer;
-    streamProcessor.state = State.STARTED;
+    streamProcessor.containerShutdownLatch = new CountDownLatch(1);
+    streamProcessor.state.set(State.STARTED);
 
     streamProcessor.jobCoordinatorListener.onJobModelExpired();
 
@@ -379,15 +380,15 @@ public class TestStreamProcessor {
     Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
 
     // If StreamProcessor is in IN_REBALANCE state, onJobModelExpired should be a NO_OP.
-    streamProcessor.state = State.IN_REBALANCE;
+    streamProcessor.state.set(State.IN_REBALANCE);
 
     streamProcessor.jobCoordinatorListener.onJobModelExpired();
 
-    assertEquals(State.IN_REBALANCE, streamProcessor.state);
+    assertEquals(State.IN_REBALANCE, streamProcessor.getState());
   }
 
   @Test
-  public void testOnNewJobModelShouldResultInValidStateTransitions() throws Exception {
+  public void testOnNewJobModelShouldResultInValidStateTransitions() {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
@@ -395,7 +396,7 @@ public class TestStreamProcessor {
     StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
 
     streamProcessor.container = mockSamzaContainer;
-    streamProcessor.state = State.IN_REBALANCE;
+    streamProcessor.state.set(State.IN_REBALANCE);
     Mockito.doNothing().when(mockSamzaContainer).run();
 
     streamProcessor.jobCoordinatorListener.onNewJobModel("TestProcessorId", new JobModel(new MapConfig(), new HashMap<>()));
@@ -418,11 +419,11 @@ public class TestStreamProcessor {
            .thenReturn(SamzaContainerStatus.STARTED)
            .thenReturn(SamzaContainerStatus.STOPPED);
 
-    streamProcessor.state = State.RUNNING;
+    streamProcessor.state.set(State.RUNNING);
 
     streamProcessor.stop();
 
-    assertEquals(State.STOPPING, streamProcessor.state);
+    assertEquals(State.STOPPING, streamProcessor.getState());
   }
 
   @Test
@@ -436,13 +437,13 @@ public class TestStreamProcessor {
     Exception failureException = new Exception("dummy exception");
 
     streamProcessor.container = mockSamzaContainer;
-    streamProcessor.state = State.RUNNING;
+    streamProcessor.state.set(State.RUNNING);
     streamProcessor.jobCoordinatorListener.onCoordinatorFailure(failureException);
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
     Mockito.when(mockSamzaContainer.hasStopped()).thenReturn(false);
 
 
-    assertEquals(State.STOPPED, streamProcessor.state);
+    assertEquals(State.STOPPED, streamProcessor.state.get());
     Mockito.verify(lifecycleListener).afterFailure(failureException);
     Mockito.verify(mockSamzaContainer).shutdown();
   }
@@ -454,10 +455,10 @@ public class TestStreamProcessor {
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
     StreamProcessor streamProcessor = new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
 
-    streamProcessor.state = State.RUNNING;
+    streamProcessor.state.set(State.RUNNING);
     streamProcessor.jobCoordinatorListener.onCoordinatorStop();
 
-    assertEquals(State.STOPPED, streamProcessor.state);
+    assertEquals(State.STOPPED, streamProcessor.getState());
     Mockito.verify(lifecycleListener).afterStop();
   }
 

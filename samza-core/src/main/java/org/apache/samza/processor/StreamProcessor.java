@@ -20,14 +20,16 @@ package org.apache.samza.processor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -46,6 +48,9 @@ import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.processor.StreamProcessor.State.*;
+import static org.apache.samza.util.StateTransitionUtil.*;
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
@@ -79,7 +84,7 @@ import org.slf4j.LoggerFactory;
  *                                 │                                 │                              │                               │
  *                                 │                                 │                              │                               │
  *                                 V                                 V                              V                               V
- *                                  ───────────────────────────▶ STOPPING D──────────────────────────────────────────────────────────
+ *                                  ───────────────────────────▶ STOPPING ──────────────────────────────────────────────────────────
  *                                                                  │
  *                                                                  │
  *                                            After JobCoordinator and SamzaContainer had shutdown.
@@ -102,17 +107,17 @@ public class StreamProcessor {
   private final long taskShutdownMs;
   private final String processorId;
   private final ExecutorService executorService;
-  private final Object lock = new Object();
 
   private Throwable containerException = null;
 
-  volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
+  volatile CountDownLatch containerShutdownLatch = new CountDownLatch(0);
 
   /**
    * Indicates the current status of a {@link StreamProcessor}.
    */
   public enum State {
-    STARTED("STARTED"), RUNNING("RUNNING"), STOPPING("STOPPING"), STOPPED("STOPPED"), NEW("NEW"), IN_REBALANCE("IN_REBALANCE");
+    STARTING("STARTING"), STARTED("STARTED"), RUNNING("RUNNING"), STOPPING("STOPPING"), STOPPED("STOPPED"), NEW("NEW"),
+    START_REBALANCE("START_REBALANCE"), IN_REBALANCE("IN_REBALANCE");
 
     private String strVal;
 
@@ -130,11 +135,11 @@ public class StreamProcessor {
    * @return the current state of StreamProcessor.
    */
   public State getState() {
-    return state;
+    return state.get();
   }
 
   @VisibleForTesting
-  State state = State.NEW;
+  AtomicReference<State> state = new AtomicReference<>(NEW);
 
   @VisibleForTesting
   SamzaContainer container = null;
@@ -213,14 +218,16 @@ public class StreamProcessor {
    * </p>
    */
   public void start() {
-    synchronized (lock) {
-      if (state == State.NEW) {
-        processorListener.beforeStart();
-        state = State.STARTED;
-        jobCoordinator.start();
-      } else {
-        LOGGER.info("Start is no-op, since the current state is {} and not {}.", state, State.NEW);
-      }
+    if (state.compareAndSet(NEW, STARTING)) {
+      processorListener.beforeStart();
+    } else {
+      LOGGER.info("Stream processor has already been initialized and the current state {}", state.get());
+    }
+
+    if (state.compareAndSet(STARTING, STARTED)) {
+      jobCoordinator.start();
+    } else {
+      LOGGER.info("Stream processor has already started and the current state {}", state.get());
     }
   }
 
@@ -250,24 +257,15 @@ public class StreamProcessor {
    *
    */
   public void stop() {
-    synchronized (lock) {
-      if (state != State.STOPPING && state != State.STOPPED) {
-        state = State.STOPPING;
-        try {
-          LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
-          boolean hasContainerShutdown = stopSamzaContainer();
-          if (!hasContainerShutdown) {
-            LOGGER.info("Interrupting the container: {} thread to die.", container);
-            executorService.shutdownNow();
-          }
-        } catch (Throwable throwable) {
-          LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
-        }
-        LOGGER.info("Shutting down JobCoordinator of stream processor: {}.", processorId);
-        jobCoordinator.stop();
-      } else {
-        LOGGER.info("StreamProcessor state is: {}. Ignoring the stop.", state);
-      }
+    if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED), STOPPING)) {
+      LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
+      stopSamzaContainer();
+
+      LOGGER.info("Shutting down JobCoordinator of stream processor: {}.", processorId);
+      jobCoordinator.stop();
+    } else if (state.get() == STOPPING || state.get() == STOPPED) {
+      // do we need to wait here or can we move on
+      LOGGER.info("Stream processor is shutting down with state {}", state.get());
     }
   }
 
@@ -293,28 +291,19 @@ public class StreamProcessor {
 
   /**
    * Stops the {@link SamzaContainer}.
-   * @return true if {@link SamzaContainer} had shutdown within task.shutdown.ms. false otherwise.
    */
-  private boolean stopSamzaContainer() {
-    boolean hasContainerShutdown = true;
+  private void stopSamzaContainer() {
     if (container != null) {
       if (!container.hasStopped()) {
         try {
           container.shutdown();
-          LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
-          hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
         } catch (IllegalContainerStateException icse) {
           LOGGER.info(String.format("Cannot shutdown container: %s for stream processor: %s. Container is not running.", container, processorId), icse);
-        } catch (Exception e) {
-          LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
-          hasContainerShutdown = false;
         }
-        LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
       } else {
         LOGGER.info("Container is not instantiated for stream processor: {}.", processorId);
       }
     }
-    return hasContainerShutdown;
   }
 
   private JobCoordinatorListener createJobCoordinatorListener() {
@@ -322,63 +311,77 @@ public class StreamProcessor {
 
       @Override
       public void onJobModelExpired() {
-        synchronized (lock) {
-          if (state == State.STARTED || state == State.RUNNING) {
-            state = State.IN_REBALANCE;
-            LOGGER.info("Job model expired. Shutting down the container: {} of stream processor: {}.", container, processorId);
-            boolean hasContainerShutdown = stopSamzaContainer();
-            if (!hasContainerShutdown) {
-              LOGGER.warn("Container: {} shutdown was unsuccessful. Stopping the stream processor: {}.", container, processorId);
-              state = State.STOPPING;
-              jobCoordinator.stop();
-            } else {
-              LOGGER.info("Container: {} shutdown completed for stream processor: {}.", container, processorId);
-            }
-          } else {
-            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state, ImmutableList.of(State.RUNNING, State.STARTED));
+        if (compareAndSet(state, ImmutableSet.of(STARTED, RUNNING), START_REBALANCE)) {
+          LOGGER.info("Job model expired. Shutting down the container: {} of stream processor: {}.", container, processorId);
+
+          // attempt to stop the container
+          stopSamzaContainer();
+
+          // transition to IN_REBALANCE with container shutdown latch as the barrier
+          boolean inRebalance = transitionWithBarrier(state, START_REBALANCE
+              , IN_REBALANCE, containerShutdownLatch, Duration.ofMillis(taskShutdownMs));
+
+          // failed to transition to IN_REBALANCE either container shutdown failed or barrier timed out
+          if (!inRebalance) {
+            LOGGER.warn("Container: {} shutdown was unsuccessful. Stopping the stream processor: {}.",
+                container, processorId);
+            jobCoordinator.stop();
           }
+        } else {
+          LOGGER.info("Ignoring onJobModelExpired since the current state is {} and not in {}.",
+              state.get(), ImmutableSet.of(RUNNING, STARTED));
         }
       }
 
       @Override
       public void onNewJobModel(String processorId, JobModel jobModel) {
-        synchronized (lock) {
-          if (state == State.IN_REBALANCE) {
-            containerShutdownLatch = new CountDownLatch(1);
-            container = createSamzaContainer(processorId, jobModel);
-            container.setContainerListener(new ContainerListener());
-            LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            executorService.submit(container);
-          } else {
-            LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
-          }
+        if (state.get() == IN_REBALANCE) {
+          containerShutdownLatch = new CountDownLatch(1);
+          container = createSamzaContainer(processorId, jobModel);
+          container.setContainerListener(new ContainerListener());
+          LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
+          executorService.submit(container);
+        } else {
+          LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.",
+              state.get(), State.IN_REBALANCE);
         }
       }
 
       @Override
       public void onCoordinatorStop() {
-        synchronized (lock) {
+        if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED), STOPPING)) {
           LOGGER.info("Shutting down the executor service of the stream processor: {}.", processorId);
           stopSamzaContainer();
-          executorService.shutdownNow();
-          state = State.STOPPED;
         }
-        if (containerException != null)
-          processorListener.afterFailure(containerException);
-        else
-          processorListener.afterStop();
 
+        boolean stopped = transitionWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch,
+            Duration.ofMillis(taskShutdownMs));
+
+        if (containerException != null) {
+          processorListener.afterFailure(containerException);
+        } else if (stopped) {
+          processorListener.afterStop();
+        } else {
+          executorService.shutdownNow();
+          processorListener.afterFailure(new SamzaException("Samza container did not shutdown cleanly."));
+        }
       }
 
       @Override
       public void onCoordinatorFailure(Throwable throwable) {
-        synchronized (lock) {
-          LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
+        if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED), STOPPING)) {
+          LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s."
+              + " Original exception:", jobCoordinator, processorId), throwable);
           stopSamzaContainer();
-          executorService.shutdownNow();
-          state = State.STOPPED;
+
+          if (!transitionWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch
+              , Duration.ofMillis(taskShutdownMs))) {
+            executorService.shutdownNow();
+            LOGGER.warn("Failed to transition from {} to {}.", STOPPING, STOPPED);
+          }
+
+          processorListener.afterFailure(throwable);
         }
-        processorListener.afterFailure(throwable);
       }
     };
   }
@@ -402,36 +405,43 @@ public class StreamProcessor {
 
     @Override
     public void afterStart() {
-      LOGGER.warn("Received container start notification for container: {} in stream processor: {}.", container, processorId);
+      LOGGER.warn("Received container start notification for container: {} in stream processor: {}.",
+          container, processorId);
       if (!processorOnStartCalled) {
         processorListener.afterStart();
         processorOnStartCalled = true;
       }
-      state = State.RUNNING;
+
+      if (compareAndSet(state, ImmutableSet.of(STARTED, IN_REBALANCE), RUNNING)) {
+        LOGGER.info("Stream processor started!");
+      } else {
+        LOGGER.info("Invalid state transition from {} to {}", state.get(), RUNNING);
+      }
     }
 
     @Override
     public void afterStop() {
       containerShutdownLatch.countDown();
-      synchronized (lock) {
-        if (state == State.IN_REBALANCE) {
-          LOGGER.info("Container: {} of the stream processor: {} was stopped by the JobCoordinator.", container, processorId);
-        } else {
-          LOGGER.info("Container: {} stopped. Stopping the stream processor: {}.", container, processorId);
-          state = State.STOPPING;
-          jobCoordinator.stop();
-        }
+
+      if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED, START_REBALANCE), STOPPING)) {
+        LOGGER.info("Container: {} stopped. Stopping the stream processor: {}.", container, processorId);
+        jobCoordinator.stop();
+      } else {
+        LOGGER.info("Container: {} stopped.", container);
       }
     }
 
     @Override
     public void afterFailure(Throwable t) {
+      containerException = t;
       containerShutdownLatch.countDown();
-      synchronized (lock) {
-        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), t);
-        state = State.STOPPING;
-        containerException = t;
+
+      if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED), STOPPING)) {
+        LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s."
+            + " Original exception:", container, processorId), t);
         jobCoordinator.stop();
+      } else {
+        LOGGER.error("Container: %s failed with an exception {}.", container, t);
       }
     }
   }
