@@ -18,6 +18,12 @@
  */
 package org.apache.samza.container.grouper.task;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.job.model.ContainerModel;
@@ -25,26 +31,9 @@ import org.apache.samza.job.model.TaskModel;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.apache.samza.container.mock.ContainerMocks.generateTaskContainerMapping;
-import static org.apache.samza.container.mock.ContainerMocks.generateTaskModels;
-import static org.apache.samza.container.mock.ContainerMocks.getTaskModel;
-import static org.apache.samza.container.mock.ContainerMocks.getTaskName;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.anyCollection;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.apache.samza.container.mock.ContainerMocks.*;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 public class TestGroupByContainerCount {
   private TaskAssignmentManager taskAssignmentManager;
@@ -83,7 +72,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -91,8 +80,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertTrue(container0.getTasks().containsKey(getTaskName(0)));
@@ -110,7 +99,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -118,8 +107,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(11, container0.getTasks().size());
     assertEquals(10, container1.getTasks().size());
 
@@ -182,7 +171,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(4, containers.size());
@@ -194,8 +183,8 @@ public class TestGroupByContainerCount {
     assertNotNull(container1);
     assertNotNull(container2);
     assertNotNull(container3);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertEquals(2, container2.getTasks().size());
@@ -264,7 +253,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -272,8 +261,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -343,7 +332,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -351,8 +340,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -397,7 +386,7 @@ public class TestGroupByContainerCount {
 
     containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(3, containers.size());
@@ -407,9 +396,9 @@ public class TestGroupByContainerCount {
     assertNotNull(container0);
     assertNotNull(container1);
     assertNotNull(container2);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
-    assertEquals("2", container2.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
+    assertEquals("2", container2.getId());
     assertEquals(3, container0.getTasks().size());
     assertEquals(3, container1.getTasks().size());
     assertEquals(3, container2.getTasks().size());
@@ -474,7 +463,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -482,8 +471,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(5, container0.getTasks().size());
     assertEquals(4, container1.getTasks().size());
 
@@ -544,7 +533,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(2, containers.size());
@@ -552,8 +541,8 @@ public class TestGroupByContainerCount {
     ContainerModel container1 = containersMap.get("1");
     assertNotNull(container0);
     assertNotNull(container1);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
     assertEquals(6, container0.getTasks().size());
     assertEquals(3, container1.getTasks().size());
 
@@ -610,7 +599,7 @@ public class TestGroupByContainerCount {
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
-      containersMap.put(container.getProcessorId(), container);
+      containersMap.put(container.getId(), container);
     }
 
     assertEquals(3, containers.size());
@@ -620,9 +609,9 @@ public class TestGroupByContainerCount {
     assertNotNull(container0);
     assertNotNull(container1);
     assertNotNull(container2);
-    assertEquals("0", container0.getProcessorId());
-    assertEquals("1", container1.getProcessorId());
-    assertEquals("2", container2.getProcessorId());
+    assertEquals("0", container0.getId());
+    assertEquals("1", container1.getId());
+    assertEquals("2", container2.getId());
     assertEquals(2, container0.getTasks().size());
     assertEquals(2, container1.getTasks().size());
     assertEquals(2, container1.getTasks().size());
@@ -782,7 +771,7 @@ public class TestGroupByContainerCount {
     Set<ContainerModel> prevContainers = new HashSet<>();
     taskModels.forEach(model -> {
         prevContainers.add(
-          new ContainerModel(UUID.randomUUID().toString(), -1, Collections.singletonMap(model.getTaskName(), model)));
+          new ContainerModel(UUID.randomUUID().toString(), Collections.singletonMap(model.getTaskName(), model)));
       });
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);

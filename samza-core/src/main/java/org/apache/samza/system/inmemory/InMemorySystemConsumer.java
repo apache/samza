@@ -30,10 +30,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-/**
- * Initial draft of in-memory {@link SystemConsumer}. It is test only and not meant for production use right now.
- */
 public class InMemorySystemConsumer implements SystemConsumer {
   private static final Logger LOG = LoggerFactory.getLogger(InMemorySystemConsumer.class);
 

@@ -37,10 +37,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-/**
- * Initial draft of in-memory manager. It is test only and not meant for production use right now.
- */
 class InMemoryManager {
   private static final Logger LOG = LoggerFactory.getLogger(InMemoryManager.class);
   private static final int DEFAULT_PARTITION_COUNT = 1;
@@ -125,7 +121,7 @@ class InMemoryManager {
     Map<String, Map<SystemStreamPartition, List<IncomingMessageEnvelope>>> result =
         bufferedMessages.entrySet()
             .stream()
-            .filter(entry -> systemName.equals(entry.getKey().getSystem()) 
+            .filter(entry -> systemName.equals(entry.getKey().getSystem())
                 && streamNames.contains(entry.getKey().getStream()))
             .collect(Collectors.groupingBy(entry -> entry.getKey().getStream(),
                 Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));

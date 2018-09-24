@@ -74,9 +74,9 @@ public class TestJobGraph {
     JobNode n10 = graph1.getOrCreateJobNode("10", "1");
     JobNode n11 = graph1.getOrCreateJobNode("11", "1");
 
-    graph1.addSource(genStream(), n5);
-    graph1.addSource(genStream(), n7);
-    graph1.addSource(genStream(), n3);
+    graph1.addInputStream(genStream(), n5);
+    graph1.addInputStream(genStream(), n7);
+    graph1.addInputStream(genStream(), n3);
     graph1.addIntermediateStream(genStream(), n5, n11);
     graph1.addIntermediateStream(genStream(), n7, n11);
     graph1.addIntermediateStream(genStream(), n7, n8);
@@ -85,9 +85,9 @@ public class TestJobGraph {
     graph1.addIntermediateStream(genStream(), n11, n9);
     graph1.addIntermediateStream(genStream(), n8, n9);
     graph1.addIntermediateStream(genStream(), n11, n10);
-    graph1.addSink(genStream(), n2);
-    graph1.addSink(genStream(), n9);
-    graph1.addSink(genStream(), n10);
+    graph1.addOutputStream(genStream(), n2);
+    graph1.addOutputStream(genStream(), n9);
+    graph1.addOutputStream(genStream(), n10);
   }
 
   /**
@@ -108,7 +108,7 @@ public class TestJobGraph {
     JobNode n6 = graph2.getOrCreateJobNode("6", "1");
     JobNode n7 = graph2.getOrCreateJobNode("7", "1");
 
-    graph2.addSource(genStream(), n1);
+    graph2.addInputStream(genStream(), n1);
     graph2.addIntermediateStream(genStream(), n1, n2);
     graph2.addIntermediateStream(genStream(), n2, n3);
     graph2.addIntermediateStream(genStream(), n3, n4);
@@ -117,7 +117,7 @@ public class TestJobGraph {
     graph2.addIntermediateStream(genStream(), n6, n2);
     graph2.addIntermediateStream(genStream(), n5, n5);
     graph2.addIntermediateStream(genStream(), n5, n7);
-    graph2.addSink(genStream(), n7);
+    graph2.addOutputStream(genStream(), n7);
   }
 
   /**
@@ -132,7 +132,7 @@ public class TestJobGraph {
     JobNode n1 = graph3.getOrCreateJobNode("1", "1");
     JobNode n2 = graph3.getOrCreateJobNode("2", "1");
 
-    graph3.addSource(genStream(), n1);
+    graph3.addInputStream(genStream(), n1);
     graph3.addIntermediateStream(genStream(), n1, n1);
     graph3.addIntermediateStream(genStream(), n1, n2);
     graph3.addIntermediateStream(genStream(), n2, n2);
@@ -149,7 +149,7 @@ public class TestJobGraph {
 
     JobNode n1 = graph4.getOrCreateJobNode("1", "1");
 
-    graph4.addSource(genStream(), n1);
+    graph4.addInputStream(genStream(), n1);
     graph4.addIntermediateStream(genStream(), n1, n1);
   }
 
@@ -180,12 +180,12 @@ public class TestJobGraph {
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
-    graph.addSource(s1, n1);
-    graph.addSource(s2, n1);
-    graph.addSource(s3, n2);
-    graph.addSource(s3, n3);
+    graph.addInputStream(s1, n1);
+    graph.addInputStream(s2, n1);
+    graph.addInputStream(s3, n2);
+    graph.addInputStream(s3, n3);
 
-    assertTrue(graph.getSources().size() == 3);
+    assertTrue(graph.getInputStreams().size() == 3);
 
     assertTrue(graph.getOrCreateJobNode("1", "1").getInEdges().size() == 2);
     assertTrue(graph.getOrCreateJobNode("2", "1").getInEdges().size() == 1);
@@ -214,11 +214,11 @@ public class TestJobGraph {
     StreamSpec s1 = genStream();
     StreamSpec s2 = genStream();
     StreamSpec s3 = genStream();
-    graph.addSink(s1, n1);
-    graph.addSink(s2, n2);
-    graph.addSink(s3, n2);
+    graph.addOutputStream(s1, n1);
+    graph.addOutputStream(s2, n2);
+    graph.addOutputStream(s3, n2);
 
-    assertTrue(graph.getSinks().size() == 3);
+    assertTrue(graph.getOutputStreams().size() == 3);
     assertTrue(graph.getOrCreateJobNode("1", "1").getOutEdges().size() == 1);
     assertTrue(graph.getOrCreateJobNode("2", "1").getOutEdges().size() == 2);
 

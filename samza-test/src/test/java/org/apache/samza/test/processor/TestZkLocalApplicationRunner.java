@@ -87,9 +87,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   private static final String TEST_TASK_GROUPER_FACTORY = "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory";
   private static final String TEST_JOB_COORDINATOR_FACTORY = "org.apache.samza.zk.ZkJobCoordinatorFactory";
   private static final String TEST_SYSTEM_FACTORY = "org.apache.samza.system.kafka.KafkaSystemFactory";
-  private static final String TASK_SHUTDOWN_MS = "2000";
-  private static final String JOB_DEBOUNCE_TIME_MS = "2000";
-  private static final String BARRIER_TIMEOUT_MS = "2000";
+  private static final String TASK_SHUTDOWN_MS = "10000";
+  private static final String JOB_DEBOUNCE_TIME_MS = "10000";
+  private static final String BARRIER_TIMEOUT_MS = "10000";
   private static final String[] PROCESSOR_IDS = new String[] {"0000000000", "0000000001", "0000000002"};
 
   private String inputKafkaTopic;

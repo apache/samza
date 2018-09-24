@@ -30,11 +30,11 @@ import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
@@ -121,7 +121,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     final Config config = new MapConfig(map);
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM(), "clientPrefix", Collections.emptyMap());
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM(), "clientPrefix");
 
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =

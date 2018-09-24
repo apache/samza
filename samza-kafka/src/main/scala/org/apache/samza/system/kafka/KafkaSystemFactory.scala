@@ -21,14 +21,12 @@ package org.apache.samza.system.kafka
 
 import java.util
 import java.util.Properties
-
-import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
+import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer}
 import org.apache.samza.util._
@@ -48,8 +46,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val idPrefix = KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX;
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
-    val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config,
-          systemName, idPrefix, util.Collections.emptyMap())
+    val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix);
 
     val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, kafkaConsumerConfig)
     info("Created kafka consumer for system %s, clientId %s: %s" format(systemName, idPrefix, kafkaConsumer))
@@ -57,7 +54,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val clientId = kafkaConsumerConfig.getClientId
     val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
       new SystemClock)
-    info("Created samza system consumer %s" format  (kafkaSystemConsumer.toString))
+    info("Created samza system consumer %s" format (kafkaSystemConsumer.toString))
 
     kafkaSystemConsumer
   }
