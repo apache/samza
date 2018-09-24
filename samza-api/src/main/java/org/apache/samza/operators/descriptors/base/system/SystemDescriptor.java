@@ -163,15 +163,25 @@ public abstract class SystemDescriptor<SubClass extends SystemDescriptor<SubClas
     return StringUtils.isNotBlank(id) && SYSTEM_NAME_PATTERN.matcher(id).matches();
   }
 
-  public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>();
-    this.factoryClassNameOptional.ifPresent(name -> configs.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
+  /**
+   * For Samza Framework internal usage only.
+   * <p>
+   * Generates the configuration for this system based on this descriptor and provided {@code currentConfig}.
+   * Implementations of this method must not mutate the passed in {@code currentConfig}. Return a new value
+   * for the config key in the results instead.
+   *
+   * @param currentConfig other (immutable) configs necessary to generate configuration for this system
+   * @return the configuration for this system
+   */
+  public Map<String, String> toConfig(Map<String, String> currentConfig) {
+    HashMap<String, String> generatedConfig = new HashMap<>();
+    this.factoryClassNameOptional.ifPresent(name -> generatedConfig.put(String.format(FACTORY_CONFIG_KEY, systemName), name));
     this.defaultStreamOffsetDefaultOptional.ifPresent(dsod ->
-        configs.put(String.format(DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, systemName), dsod.name().toLowerCase()));
+        generatedConfig.put(String.format(DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, systemName), dsod.name().toLowerCase()));
     this.defaultStreamConfigs.forEach((key, value) ->
-        configs.put(String.format(DEFAULT_STREAM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+        generatedConfig.put(String.format(DEFAULT_STREAM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
     this.systemConfigs.forEach((key, value) ->
-        configs.put(String.format(SYSTEM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
-    return configs;
+        generatedConfig.put(String.format(SYSTEM_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+    return generatedConfig;
   }
 }

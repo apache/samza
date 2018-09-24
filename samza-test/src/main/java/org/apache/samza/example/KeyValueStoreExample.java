@@ -68,7 +68,7 @@ public class KeyValueStoreExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(StatsOutput.class)));
 
-    appDesc.withDefaultSystem(trackingSystem);
+    appDesc.withDefaultSystem(trackingSystem, null); // serde must be specified explicitly for intermediate streams
     MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
     OutputStream<KV<String, StatsOutput>> pageViewEventPerMember = appDesc.getOutputStream(outputStreamDescriptor);
 

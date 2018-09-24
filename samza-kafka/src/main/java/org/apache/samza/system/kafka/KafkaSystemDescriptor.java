@@ -228,24 +228,24 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
   }
 
   @Override
-  public Map<String, String> toConfig() {
-    Map<String, String> configs = new HashMap<>(super.toConfig());
+  public Map<String, String> toConfig(Map<String, String> currentConfig) {
+    Map<String, String> generatedConfig = new HashMap<>(super.toConfig(currentConfig));
     if(!consumerZkConnect.isEmpty()) {
-      configs.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, getSystemName()), String.join(",", consumerZkConnect));
+      generatedConfig.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, getSystemName()), String.join(",", consumerZkConnect));
     }
     consumerAutoOffsetResetOptional.ifPresent(consumerAutoOffsetReset ->
-        configs.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, getSystemName()), consumerAutoOffsetReset));
+        generatedConfig.put(String.format(CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY, getSystemName()), consumerAutoOffsetReset));
     consumerFetchThresholdOptional.ifPresent(consumerFetchThreshold ->
-        configs.put(String.format(CONSUMER_FETCH_THRESHOLD_CONFIG_KEY, getSystemName()), Integer.toString(consumerFetchThreshold)));
+        generatedConfig.put(String.format(CONSUMER_FETCH_THRESHOLD_CONFIG_KEY, getSystemName()), Integer.toString(consumerFetchThreshold)));
     consumerFetchThresholdBytesOptional.ifPresent(consumerFetchThresholdBytes ->
-        configs.put(String.format(CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY, getSystemName()), Long.toString(consumerFetchThresholdBytes)));
+        generatedConfig.put(String.format(CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY, getSystemName()), Long.toString(consumerFetchThresholdBytes)));
     consumerFetchMessageMaxBytesOptional.ifPresent(consumerFetchMessageMaxBytes ->
-        configs.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_KEY, getSystemName()), Long.toString(consumerFetchMessageMaxBytes)));
-    consumerConfigs.forEach((key, value) -> configs.put(String.format(CONSUMER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+        generatedConfig.put(String.format(CONSUMER_FETCH_MESSAGE_MAX_BYTES_KEY, getSystemName()), Long.toString(consumerFetchMessageMaxBytes)));
+    consumerConfigs.forEach((key, value) -> generatedConfig.put(String.format(CONSUMER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
     if (!producerBootstrapServers.isEmpty()) {
-      configs.put(String.format(PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY, getSystemName()), String.join(",", producerBootstrapServers));
+      generatedConfig.put(String.format(PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY, getSystemName()), String.join(",", producerBootstrapServers));
     }
-    producerConfigs.forEach((key, value) -> configs.put(String.format(PRODUCER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
-    return configs;
+    producerConfigs.forEach((key, value) -> generatedConfig.put(String.format(PRODUCER_CONFIGS_CONFIG_KEY, getSystemName(), key), value));
+    return generatedConfig;
   }
 }

@@ -124,13 +124,23 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
     return StringUtils.isNotBlank(id) && STREAM_ID_PATTERN.matcher(id).matches();
   }
 
-  public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>();
-    configs.put(String.format(SYSTEM_CONFIG_KEY, streamId), getSystemName());
+  /**
+   * For Samza Framework internal usage only.
+   * <p>
+   * Generates the configuration for this stream based on this descriptor and provided {@code currentConfig}.
+   * Implementations of this method must not mutate the passed in {@code currentConfig}. Return a new value
+   * for the config key in the results instead.
+   *
+   * @param currentConfig other (immutable) configs necessary to generate configuration for this stream
+   * @return the configuration for this stream
+   */
+  public Map<String, String> toConfig(Map<String, String> currentConfig) {
+    HashMap<String, String> generatedConfig = new HashMap<>();
+    generatedConfig.put(String.format(SYSTEM_CONFIG_KEY, streamId), getSystemName());
     this.physicalNameOptional.ifPresent(physicalName ->
-        configs.put(String.format(PHYSICAL_NAME_CONFIG_KEY, streamId), physicalName));
+        generatedConfig.put(String.format(PHYSICAL_NAME_CONFIG_KEY, streamId), physicalName));
     this.streamConfigs.forEach((key, value) ->
-        configs.put(String.format(STREAM_CONFIGS_CONFIG_KEY, streamId, key), value));
-    return Collections.unmodifiableMap(configs);
+        generatedConfig.put(String.format(STREAM_CONFIGS_CONFIG_KEY, streamId, key), value));
+    return Collections.unmodifiableMap(generatedConfig);
   }
 }

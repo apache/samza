@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -250,7 +251,7 @@ public class TestStreamApplicationDescriptorImpl {
       }, mock(Config.class));
 
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.withDefaultSystem(sd2);
+        appDesc.withDefaultSystem(sd2, mock(Serde.class));
         try {
           appDesc.getInputStream(isd1);
           fail("Adding input stream with the same system name as the default system but different SystemDescriptor should have failed");
@@ -316,7 +317,7 @@ public class TestStreamApplicationDescriptorImpl {
 
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-        appDesc.withDefaultSystem(sd); // should throw exception
+        appDesc.withDefaultSystem(sd, mock(Serde.class)); // should throw exception
       }, mock(Config.class));
   }
 
@@ -327,7 +328,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, mock(Serde.class));
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
-        appDesc.withDefaultSystem(sd); // should throw exception
+        appDesc.withDefaultSystem(sd, mock(Serde.class)); // should throw exception
       }, mock(Config.class));
   }
 
@@ -336,7 +337,7 @@ public class TestStreamApplicationDescriptorImpl {
     String streamId = "test-stream-1";
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
     streamAppDesc.getIntermediateStream(streamId, mock(Serde.class), false);
-    streamAppDesc.withDefaultSystem(mock(SystemDescriptor.class)); // should throw exception
+    streamAppDesc.withDefaultSystem(mock(SystemDescriptor.class), mock(Serde.class)); // should throw exception
   }
 
   @Test(expected = IllegalStateException.class)
@@ -398,7 +399,7 @@ public class TestStreamApplicationDescriptorImpl {
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mock-system", "mock-system-factory");
-    streamAppDesc.withDefaultSystem(sd);
+    streamAppDesc.withDefaultSystem(sd, mock(Serde.class));
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
         streamAppDesc.getIntermediateStream(streamId, mock(Serde.class), false);
 
@@ -408,7 +409,7 @@ public class TestStreamApplicationDescriptorImpl {
   }
 
   @Test
-  public void testGetIntermediateStreamWithNoSerde() {
+  public void testGetIntermediateStreamWithNoExplicitOrDefaultSystemSerde() {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
 
@@ -423,6 +424,30 @@ public class TestStreamApplicationDescriptorImpl {
     assertNull(intermediateStreamImpl.getOutputStream().getValueSerde());
     assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
     assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+  }
+
+  @Test
+  public void testGetIntermediateStreamWithDefaultSystemSerde() {
+    Config mockConfig = mock(Config.class);
+    String streamId = "streamId";
+    SystemDescriptor mockSystemDescriptor = mock(SystemDescriptor.class);
+    Serde mockKeySerde = mock(Serde.class);
+    Serde mockValueSerde = mock(Serde.class);
+    when(mockSystemDescriptor.getTransformer()).thenReturn(Optional.empty());
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
+
+      appDesc.withDefaultSystem(mockSystemDescriptor, KVSerde.of(mockKeySerde, mockValueSerde));
+      }, mockConfig);
+    IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
+        streamAppDesc.getIntermediateStream(streamId, null, false);
+
+    assertEquals(streamAppDesc.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
+    assertEquals(streamAppDesc.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
+    assertEquals(streamId, intermediateStreamImpl.getStreamId());
+    assertEquals(mockKeySerde, intermediateStreamImpl.getOutputStream().getKeySerde());
+    assertEquals(mockValueSerde, intermediateStreamImpl.getOutputStream().getValueSerde());
+    assertEquals(mockKeySerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
+    assertEquals(mockValueSerde, ((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
   }
 
   @Test(expected = IllegalStateException.class)

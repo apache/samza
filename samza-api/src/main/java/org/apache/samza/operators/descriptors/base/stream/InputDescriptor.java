@@ -18,10 +18,14 @@
  */
 package org.apache.samza.operators.descriptors.base.stream;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
@@ -43,6 +47,7 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   private static final String BOOTSTRAP_CONFIG_KEY = "streams.%s.samza.bootstrap";
   private static final String BOUNDED_CONFIG_KEY = "streams.%s.samza.bounded";
   private static final String DELETE_COMMITTED_MESSAGES_CONFIG_KEY = "streams.%s.samza.delete.committed.messages";
+  private static final String TASK_BROADCAST_INPUTS_KEY = "task.broadcast.inputs";
 
   private final Optional<InputTransformer> transformerOptional;
 
@@ -52,6 +57,7 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   private Optional<Boolean> isBootstrapOptional = Optional.empty();
   private Optional<Boolean> isBoundedOptional = Optional.empty();
   private Optional<Boolean> deleteCommittedMessagesOptional = Optional.empty();
+  private Optional<String> broadcastPartitionsOptional = Optional.empty();
 
   /**
    * Constructs an {@link InputDescriptor} instance.
@@ -150,6 +156,17 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   }
 
   /**
+   * Specifies partitions of this stream that all tasks should consume.
+   *
+   * @param broadcastPartitions partitionId or [startingPartitionId-endingPartitionId]. E.g., "0" or "[0-2]"
+   * @return this input descriptor
+   */
+  public SubClass withBroadcastPartitions(String broadcastPartitions) {
+    this.broadcastPartitionsOptional = Optional.ofNullable(StringUtils.trimToNull(broadcastPartitions));
+    return (SubClass) this;
+  }
+
+  /**
    * If set to true, and supported by the system implementation, messages older than the latest checkpointed offset
    * for this stream may be deleted after the commit.
    *
@@ -166,22 +183,31 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   }
 
   @Override
-  public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>(super.toConfig());
+  public Map<String, String> toConfig(Map<String, String> currentConfig) {
+    HashMap<String, String> generatedConfig = new HashMap<>(super.toConfig(currentConfig));
     String streamId = getStreamId();
     this.offsetDefaultOptional.ifPresent(od ->
-        configs.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
+        generatedConfig.put(String.format(OFFSET_DEFAULT_CONFIG_KEY, streamId), od.name().toLowerCase()));
     this.resetOffsetOptional.ifPresent(resetOffset ->
-        configs.put(String.format(RESET_OFFSET_CONFIG_KEY, streamId), Boolean.toString(resetOffset)));
+        generatedConfig.put(String.format(RESET_OFFSET_CONFIG_KEY, streamId), Boolean.toString(resetOffset)));
     this.priorityOptional.ifPresent(priority ->
-        configs.put(String.format(PRIORITY_CONFIG_KEY, streamId), Integer.toString(priority)));
+        generatedConfig.put(String.format(PRIORITY_CONFIG_KEY, streamId), Integer.toString(priority)));
     this.isBootstrapOptional.ifPresent(bootstrap ->
-        configs.put(String.format(BOOTSTRAP_CONFIG_KEY, streamId), Boolean.toString(bootstrap)));
+        generatedConfig.put(String.format(BOOTSTRAP_CONFIG_KEY, streamId), Boolean.toString(bootstrap)));
     this.isBoundedOptional.ifPresent(bounded ->
-        configs.put(String.format(BOUNDED_CONFIG_KEY, streamId), Boolean.toString(bounded)));
+        generatedConfig.put(String.format(BOUNDED_CONFIG_KEY, streamId), Boolean.toString(bounded)));
     this.deleteCommittedMessagesOptional.ifPresent(deleteCommittedMessages ->
-        configs.put(String.format(DELETE_COMMITTED_MESSAGES_CONFIG_KEY, streamId),
+        generatedConfig.put(String.format(DELETE_COMMITTED_MESSAGES_CONFIG_KEY, streamId),
             Boolean.toString(deleteCommittedMessages)));
-    return Collections.unmodifiableMap(configs);
+    this.broadcastPartitionsOptional.ifPresent(broadcastPartitions -> {
+        List<String> broadcastInputs = new ArrayList<>(
+            new MapConfig(currentConfig).getList(TASK_BROADCAST_INPUTS_KEY, new ArrayList<>()));
+        String streamName = getPhysicalName().orElse(getStreamId());
+        String systemName = getSystemName();
+        String broadcastInput = systemName + "." + streamName + "#" + broadcastPartitions;
+        broadcastInputs.add(broadcastInput);
+        generatedConfig.put(TASK_BROADCAST_INPUTS_KEY, String.join(",", broadcastInputs));
+      });
+    return Collections.unmodifiableMap(generatedConfig);
   }
 }

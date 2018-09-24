@@ -218,7 +218,8 @@ public interface MessageStream<M> {
    * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the key and message serde configured for the job's default system.
+   * uses the {@link Serde} provided for the default system. If no default system serde was provided, uses the
+   * key and msg serde specified in configuration for job.default.system.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -250,7 +251,8 @@ public interface MessageStream<M> {
   /**
    * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
    * <p>
-   * Uses the key and message serde configured for the job's default system.
+   * Uses the {@link Serde} provided for the default system. If no default system serde was provided, uses the
+   * key and msg serde specified in configuration for job.default.system.
    *
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message
@@ -274,6 +276,11 @@ public interface MessageStream<M> {
 
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
+   * <p>
+   * Uses the provided {@link Serde} for serialization of keys and values. If the provided {@code serde} is null,
+   * uses the {@link Serde} provided for the default system. If no default system serde was provided, uses the
+   * key and msg serde specified in configuration for job.default.system.
+   *
    * @param serde the {@link Serde} to use for (de)serializing the message.
    * @param id id the unique id of this operator in this application
    * @return the broadcast {@link MessageStream}
@@ -282,6 +289,10 @@ public interface MessageStream<M> {
 
   /**
    * Same as calling {@link MessageStream#broadcast(Serde, String)} with a null Serde.
+   *
+   * Uses the {@link Serde} provided for the default system. If no default system serde was provided, uses the
+   * key and msg serde specified in configuration for job.default.system.
+   *
    * @param id id the unique id of this operator in this application
    * @return the broadcast {@link MessageStream}
    */
