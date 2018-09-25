@@ -35,13 +35,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.ExtendedSystemAdmin;
 import org.apache.samza.system.StreamSpec;
@@ -62,12 +62,20 @@ import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 
-import static org.apache.kafka.clients.consumer.KafkaConsumerConfig.*;
+import static org.apache.samza.config.KafkaConsumerConfig.*;
 
 
 public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaKafkaSystemAdmin.class);
+
+  // The same default exponential sleep strategy values as in open source
+  private static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
+  private static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
+  private static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
+  private static final int MAX_RETRIES_ON_EXCEPTION = 5;
+
   private final String systemName;
-  private Consumer<K, V> metadataConsumer = null;
+  private Consumer<K, V> metadataConsumer;
 
   private final Supplier<ZkUtils> connectZk;
   private final Supplier<AdminClient> connectAdminClient;
@@ -87,22 +95,15 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   // Kafka properties to be used during the intermediate topic creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaKafkaSystemAdmin.class);
 
   private final KafkaSystemAdminUtilsScala kafkaAdminUtils;
 
-  volatile private AdminClient adminClient = null;
+  private volatile AdminClient adminClient;
 
   private final boolean deleteCommittedMessages;
 
   @VisibleForTesting
   public static volatile boolean deleteMessageCalled = false;
-
-  // The same default exponential sleep strategy values as in open source
-  private static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
-  private static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
-  private static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
-  private static final int MAX_RETRIES_ON_EXCEPTION = 5;
 
   @Override
   public void start() {
@@ -145,8 +146,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   SamzaKafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
       Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
       Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
-      Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor,
-      boolean deleteCommittedMessages) {
+      Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor, boolean deleteCommittedMessages) {
     this.systemName = systemName;
     this.metadataConsumer = metadataConsumerSupplier.get();
     this.adminClient = connectAdminClient.get();
@@ -177,9 +177,10 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
           config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
     if (brokerListString == null) {
-      throw new SamzaException("" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName );
+      throw new SamzaException(
+          "" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
     }
-    props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerListString);
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerListString);
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient
@@ -198,8 +199,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     };
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix, Collections.emptyMap());
-
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix);
 
     // KafkaConsumer for metadata access
     Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
@@ -472,7 +472,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       // But for the big message, it is not the case. Seeking on the newest offset gives nothing for the newest big message.
       // For now, we keep it as is for newest offsets the same as historical metadata structure.
       if (offset <= 0) {
-        LOG.debug(
+        LOG.warn(
             "Empty Kafka topic partition {} with upcoming offset {}. Skipping newest offset and setting oldest offset to 0 to consume from beginning",
             topicPartition, offset);
         oldestOffsets.put(createSystemStreamPartition(topicPartition), "0");
@@ -623,15 +623,14 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
    * @param topics set of topics to query
    */
   Map<String, List<PartitionInfo>> getTopicMetadata(Set<String> topics) {
-    // me
-    final Map<String, List<PartitionInfo>> listPartitionsInfo = new HashMap();
-    List<PartitionInfo> l;
+    Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap();
+    List<PartitionInfo> partitionInfoList;
     for (String topic : topics) {
-      l = metadataConsumer.partitionsFor(topic);
-      listPartitionsInfo.put(topic, l);
+      partitionInfoList = metadataConsumer.partitionsFor(topic);
+      streamToPartitionsInfo.put(topic, partitionInfoList);
     }
 
-    return listPartitionsInfo;
+    return streamToPartitionsInfo;
   }
 
   /**

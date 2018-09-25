@@ -29,11 +29,10 @@ import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, ZkUtils}
-import org.apache.kafka.clients.consumer.KafkaConsumerConfig
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.{Config, JobConfig, KafkaProducerConfig, MapConfig}
+import org.apache.samza.config._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.kafka.TestKafkaSystemAdmin.KAFKA_PRODUCER_PROPERTY_PREFIX
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
@@ -174,8 +173,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     val config: Config = new MapConfig(map)
 
     // extract kafka client configs
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(
-      config, SYSTEM, "clientPrefix", Collections.emptyMap())
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM, "clientPrefix")
 
     // KafkaConsumer for metadata access
     val metadataConsumerSupplier: Supplier[org.apache.kafka.clients.consumer.Consumer[Array[Byte], Array[Byte]]] =

@@ -22,8 +22,7 @@ import java.util.Properties
 
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
-import org.apache.kafka.clients.consumer.KafkaConsumerConfig
-import org.apache.samza.config.{JobConfig, MapConfig}
+import org.apache.samza.config.{JobConfig, KafkaConsumerConfig, MapConfig}
 import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
 
 /**

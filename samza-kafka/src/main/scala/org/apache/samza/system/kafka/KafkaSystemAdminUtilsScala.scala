@@ -37,12 +37,14 @@ import scala.collection.JavaConverters._
 
 class KafkaSystemAdminUtilsScala(systemName: String) {
   val CLEAR_STREAM_RETRIES = 3
+  val CREATE_STREAM_RETRIES = 10
 
   val LOG: Logger = LoggerFactory.getLogger("KafkaSystemAdminUtils")
 
   def createStream(kSpec: KafkaStreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Boolean = {
-    LOG.info("Create topic %s in system %s" format(kSpec.getPhysicalName, systemName))
+    LOG.info("Creating topic %s for system %s" format(kSpec.getPhysicalName, systemName))
     var streamCreated = false
+    var retries = CREATE_STREAM_RETRIES
 
     new ExponentialSleepStrategy(initialDelayMs = 500).run(
       loop => {
@@ -68,8 +70,13 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
             streamCreated = false
             loop.done
           case e: Exception =>
-            LOG.warn("Failed to create topic %s: %s. Retrying." format(kSpec.getPhysicalName, e))
-            LOG.debug("Exception detail:", e)
+            if (retries > 0) {
+              LOG.warn("Failed to create topic %s. Retrying." format(kSpec.getPhysicalName), exception)
+              retries -= 1
+            } else {
+              LOG.error("Failed to create topic %s. Bailing out." format(kSpec.getPhysicalName), exception)
+              throw exception
+            }
         }
       })
 
@@ -84,7 +91,7 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
     * Otherwise it's a no-op.
     */
    def clearStream(spec: StreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Unit = {
-    LOG.info("Delete topic %s in system %s" format (spec.getPhysicalName, systemName))
+    LOG.info("Deleting topic %s for system %s" format (spec.getPhysicalName, systemName))
     val kSpec = KafkaStreamSpec.fromSpec(spec)
     var retries = CLEAR_STREAM_RETRIES
     new ExponentialSleepStrategy().run(
@@ -103,10 +110,10 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
 
       (exception, loop) => {
         if (retries > 0) {
-          LOG.warn("Exception while trying to delete topic %s: %s. Retrying." format (spec.getPhysicalName, exception))
+          LOG.warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
           retries -= 1
         } else {
-          LOG.warn("Fail to delete topic %s: %s" format (spec.getPhysicalName, exception))
+          LOG.warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
           loop.done
           throw exception
         }

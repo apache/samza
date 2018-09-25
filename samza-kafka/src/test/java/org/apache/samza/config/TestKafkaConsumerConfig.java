@@ -24,15 +24,24 @@ import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 
 public class TestKafkaConsumerConfig {
   private final Map<String, String> props = new HashMap<>();
   public final static String SYSTEM_NAME = "testSystem";
+  public final static String JOB_NAME = "jobName";
+  public final static String JOB_ID = "jobId";
   public final static String KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer.";
   public final static String KAFKA_CONSUMER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".consumer.";
   private final static String CLIENT_ID = "clientId";
+
+  @Before
+  public void setUp() {
+    props.put(JobConfig.JOB_NAME(), JOB_NAME);
+    props.put(JobConfig.JOB_ID(), JOB_ID);
+  }
 
   @Test
   public void testDefaults() {
@@ -68,10 +77,11 @@ public class TestKafkaConsumerConfig {
     Assert.assertEquals(ByteArrayDeserializer.class.getName(),
         kafkaConsumerConfig.get(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG));
 
-    Assert.assertEquals(CLIENT_ID, kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
+    Assert.assertEquals(CLIENT_ID + "-" + JOB_NAME + "-" + JOB_ID,
+        kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
 
-    Assert.assertEquals(KafkaConsumerConfig.getConsumerGroupId(config),
-        kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));
+    Assert.assertEquals(KafkaConsumerConfig.createConsumerGroupId(config),
+        kafkaConsumerConfig.getGroupId());
   }
 
   // test stuff that should not be overridden
@@ -104,21 +114,22 @@ public class TestKafkaConsumerConfig {
 
     map.put(JobConfig.JOB_NAME(), "jobName");
     map.put(JobConfig.JOB_ID(), "jobId");
-    String result = KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+
+    String result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-jobName-jobId", result);
 
-    result = KafkaConsumerConfig.getConsumerClientId("consumer-", new MapConfig(map));
+    result = KafkaConsumerConfig.createClientId("consumer-", new MapConfig(map));
     Assert.assertEquals("consumer_-jobName-jobId", result);
 
-    result = KafkaConsumerConfig.getConsumerClientId("super-duper-consumer", new MapConfig(map));
+    result = KafkaConsumerConfig.createClientId("super-duper-consumer", new MapConfig(map));
     Assert.assertEquals("super_duper_consumer-jobName-jobId", result);
 
     map.put(JobConfig.JOB_NAME(), " very important!job");
-    result = KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+    result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-_very_important_job-jobId", result);
 
     map.put(JobConfig.JOB_ID(), "number-#3");
-    result = KafkaConsumerConfig.getConsumerClientId("consumer", new MapConfig(map));
+    result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-_very_important_job-number__3", result);
   }
 

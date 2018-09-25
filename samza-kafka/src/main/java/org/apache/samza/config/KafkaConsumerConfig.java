@@ -118,6 +118,14 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     return new KafkaConsumerConfig(consumerProps, systemName);
   }
 
+  public String getGroupId() {
+    String groupId = (String) get(ConsumerConfig.GROUP_ID_CONFIG);
+    if (groupId == null) {
+      throw new SamzaException("group Id is not set for consumer for system=" + systemName);
+    }
+    return groupId;
+  }
+
   public String getClientId() {
     String clientId = (String) get(ConsumerConfig.CLIENT_ID_CONFIG);
     if (clientId == null) {
