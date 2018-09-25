@@ -29,6 +29,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.MapConfig;
@@ -57,6 +58,7 @@ public class TestKafkaSystemConsumer {
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES(), TEST_SYSTEM), fetchBytes);
     map.put(String.format("systems.%s.consumer.%s", TEST_SYSTEM, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG),
         BOOTSTRAP_SERVER);
+    map.put(JobConfig.JOB_NAME(), "jobName");
 
     Config config = new MapConfig(map);
     KafkaConsumerConfig consumerConfig =
