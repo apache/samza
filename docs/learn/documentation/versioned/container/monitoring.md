@@ -28,23 +28,6 @@ This section provides details on monitoring of Samza jobs, not to be confused wi
 Like any other production software, it is critical to monitor the health of our Samza jobs. Samza relies on metrics for monitoring and includes an extensible metrics library. While a few standard metrics are provided out-of-the-box, it is easy to define metrics specific to your application.
 
 
-* [A. Metrics Reporters](#a-metrics-reporters)
-  + [A.1 Reporting Metrics to JMX (JMX Reporter)](#a1-reporting-metrics-to-jmx--jmx-reporter-)
-    - [Enabling the JMX Reporter](#enabling-the-jmx-reporter)
-    - [Using the JMX Reporter](#using-the-jmx-reporter)
-  + [A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)](#a2-reporting-metrics-to-kafka--metricssnapshot-reporter-)
-    - [Enabling the MetricsSnapshot Reporter](#enabling-the-metricssnapshot-reporter)
-  + [A.3 Creating a Custom MetricsReporter](#a3-creating-a-custom-metricsreporter)
-* [B. Metric Types in Samza](#b-metric-types-in-samza)
-* [C. Adding User-Defined Metrics](#c-adding-user-defined-metrics)
-  + [Low-level API](#low-level-api)
-  + [High-Level API](#high-level-api)
-* [D. Key Internal Samza Metrics](#d-key-internal-samza-metrics)
-  + [1. Vital Metrics](#1-vital-metrics)
-  + [2. Store Metrics](#2-store-metrics)
-  + [3. Operator Metrics](#3-operator-metrics)
-* [E. Metrics Reference Sheet](#e-metrics-reference-sheet)
-
 ## A. Metrics Reporters
 
 Samza&#39;s metrics library encapsulates the metrics collection and sampling logic. Metrics Reporters in Samza are responsible for emitting metrics to external services which may archive, process, visualize the metrics&#39; values, or trigger alerts based on them.
@@ -92,8 +75,7 @@ If using the **JConsole** JMX client, launch it with the service URL as:
 jconsole service:jmx:rmi://localhost:54662/jndi/rmi://localhost:54661/jmxrmi
 ```
 
-
-![JConsole example image](jconsole.png "JConsole")
+<img src="/img/versioned/learn/documentation/container/jconsole.png" alt="JConsole" class="diagram-large">
 
  
 
@@ -106,7 +88,7 @@ jvisualvm
 After **VisualVM** starts, click the &quot;Add JMX Connection&quot; button and paste in your JMX server URL (obtained from the logs).
 Install the VisualVM-MBeans plugin (Tools->Plugin) to view the metrics MBeans.
 
-![VisualVM example image](visualvm.png "VisualVM")
+<img src="/img/versioned/learn/documentation/container/visualvm.png" alt="VisualVM" class="diagram-small">
 
  
 ### A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)
