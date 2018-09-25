@@ -111,7 +111,7 @@ public class TestRunner {
     // This is important because Table Api enables host affinity by default for RocksDb
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
-    putIfAbsentConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).toConfig());
+    new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).toConfig().forEach(this.configs::putIfAbsent);
   }
 
   /**
@@ -205,7 +205,8 @@ public class TestRunner {
   }
 
   /**
-   * Adds the provided input stream with mock data to the test application.
+   * Adds the provided input stream with mock data to the test application. Default configs and user added configs have
+   * a higher precedence over system and stream descriptor generated configs.
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages map whose key is partitionId and value is messages in the partition
    * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
@@ -223,12 +224,13 @@ public class TestRunner {
   }
 
   /**
-   * Adds the provided output stream to the test application.
+   * Adds the provided output stream to the test application. Default configs and user added configs have a higher
+   * precedence over system and stream descriptor generated configs.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @param partitionCount partition count of output stream
    * @return this {@link TestRunner}
    */
-  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor, int partitionCount) {
+  public TestRunner addOutputStream(InMemoryOutputDescriptor<?> streamDescriptor, int partitionCount) {
     Preconditions.checkNotNull(streamDescriptor);
     Preconditions.checkState(partitionCount >= 1);
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) streamDescriptor.getSystemDescriptor();
@@ -241,8 +243,8 @@ public class TestRunner {
     factory
         .getAdmin(streamDescriptor.getSystemName(), config)
         .createStream(spec);
-    putIfAbsentConfig(streamDescriptor.toConfig());
-    putIfAbsentConfig(streamDescriptor.getSystemDescriptor().toConfig());
+    streamDescriptor.toConfig().forEach(this.configs::putIfAbsent);
+    ((Map<String, String>) streamDescriptor.getSystemDescriptor().toConfig()).forEach(this.configs::putIfAbsent);
     return this;
   }
 
@@ -366,7 +368,7 @@ public class TestRunner {
    *                 messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system
    */
-  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor,
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor<?> descriptor,
       Map<Integer, Iterable<StreamMessageType>> partitonData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
@@ -378,8 +380,8 @@ public class TestRunner {
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
-    putIfAbsentConfig(descriptor.toConfig());
-    putIfAbsentConfig(descriptor.getSystemDescriptor().toConfig());
+    descriptor.toConfig().forEach(this.configs::putIfAbsent);
+    ((Map<String, String>) descriptor.getSystemDescriptor().toConfig()).forEach(this.configs::putIfAbsent);
     StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
@@ -395,16 +397,5 @@ public class TestRunner {
         producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
           new EndOfStreamMessage(null)));
       });
-  }
-
-  /**
-   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
-   * @param config for the application
-   * @return this {@link TestRunner}
-   */
-  private TestRunner putIfAbsentConfig(Map<String, String> config) {
-    Preconditions.checkNotNull(config);
-    config.forEach(this.configs::putIfAbsent);
-    return this;
   }
 }
