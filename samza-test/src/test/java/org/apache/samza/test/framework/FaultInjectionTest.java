@@ -25,32 +25,19 @@ import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.kafka.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.KafkaSystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.samza.test.framework.TestTimerApp.*;
+import static org.junit.Assert.*;
 
 
 public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness {
-
-  @Before
-  public void setup() {
-    // create topics
-    createTopic(PAGE_VIEWS, 2);
-
-    // create events for the following user activity.
-    // userId: (viewId, pageId, (adIds))
-    // u1: (v1, p1, (a1)), (v2, p2, (a3))
-    // u2: (v3, p1, (a1)), (v4, p3, (a5))
-    produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
-    produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
-  }
-
   @Test
   public void testRaceCondition() throws InterruptedException {
     Map<String, String> configs = new HashMap<>();
@@ -59,15 +46,23 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory");
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
     configs.put(FaultInjectionStreamApp.INPUT_TOPIC_NAME_PROP, "page-views");
-    configs.put("task.shutdown.ms", "10000");
+    configs.put("task.shutdown.ms", "1000");
     configs.put(JobConfig.PROCESSOR_ID(), "0");
+
+    createTopic(PAGE_VIEWS, 2);
+
+    // create events for the following user activity.
+    // userId: (viewId, pageId, (adIds))
+    // u1: (v1, p1, (a1)), (v2, p2, (a3))
+    // u2: (v3, p1, (a1)), (v4, p3, (a5))
+    produceMessage(PAGE_VIEWS, 0, "p1", "{\"viewId\":\"v1\",\"pageId\":\"p1\",\"userId\":\"u1\"}");
+    produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
 
     RunApplicationContext context =
         runApplication(new FaultInjectionStreamApp(), "fault-injection-app", configs);
-    Thread.sleep(1000);
     context.getRunner().kill();
     context.getRunner().waitForFinish();
-    System.out.println("Application status: " + context.getRunner().status());
+    assertEquals(context.getRunner().status(), ApplicationStatus.UnsuccessfulFinish);
   }
 
   private static class FaultInjectionStreamApp implements StreamApplication {

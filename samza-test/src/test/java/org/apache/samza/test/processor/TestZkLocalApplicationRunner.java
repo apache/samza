@@ -617,6 +617,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Trigger re-balancing phase, by manually adding a new processor.
 
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+
+    // Reset the task shutdown ms for 3rd application to give it ample time to shutdown cleanly
+    configMap.put(TaskConfig.SHUTDOWN_MS(), TASK_SHUTDOWN_MS);
     Config applicationConfig3 = new MapConfig(configMap);
 
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
@@ -638,7 +641,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     appRunner3.kill();
     appRunner3.waitForFinish();
-    assertEquals(ApplicationStatus.UnsuccessfulFinish, appRunner3.status());
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
   }
 
 }
