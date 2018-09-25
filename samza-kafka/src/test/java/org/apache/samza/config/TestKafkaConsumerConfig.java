@@ -28,7 +28,7 @@ import org.junit.Test;
 
 
 public class TestKafkaConsumerConfig {
-  private final Map<String, String> props = new HashMap<>();
+
   public final static String SYSTEM_NAME = "testSystem";
   public final static String KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer.";
   public final static String KAFKA_CONSUMER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".consumer.";
@@ -36,12 +36,15 @@ public class TestKafkaConsumerConfig {
 
   @Test
   public void testDefaults() {
+    Map<String, String> props = new HashMap<>();
 
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true"); // should be ignored
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
         "Ignore"); // should be ignored
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
         "100"); // should NOT be ignored
+
+    props.put(JobConfig.JOB_NAME(), "jobName");
 
     // if KAFKA_CONSUMER_PROPERTY_PREFIX is set, then PRODUCER should be ignored
     props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "ignroeThis:9092");
@@ -72,11 +75,23 @@ public class TestKafkaConsumerConfig {
 
     Assert.assertEquals(KafkaConsumerConfig.getConsumerGroupId(config),
         kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));
+
+    Assert.assertEquals(KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-1",
+        KafkaConsumerConfig.getConsumerClientId(config));
+    Assert.assertEquals("jobName-1", KafkaConsumerConfig.getConsumerGroupId(config));
+
+    props.put(JobConfig.JOB_ID(), "jobId");
+    config = new MapConfig(props);
+
+    Assert.assertEquals(KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-jobId",
+        KafkaConsumerConfig.getConsumerClientId(config));
+    Assert.assertEquals("jobName-jobId", KafkaConsumerConfig.getConsumerGroupId(config));
   }
 
   // test stuff that should not be overridden
   @Test
   public void testNotOverride() {
+    Map<String, String> props = new HashMap<>();
 
     // if KAFKA_CONSUMER_PROPERTY_PREFIX is not set, then PRODUCER should be used
     props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "useThis:9092");
@@ -84,6 +99,8 @@ public class TestKafkaConsumerConfig {
         TestKafkaConsumerConfig.class.getName());
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         TestKafkaConsumerConfig.class.getName());
+
+    props.put(JobConfig.JOB_NAME(), "jobName");
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig =

@@ -30,13 +30,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import javax.print.DocFlavor;
-import kafka.common.KafkaException;
 import kafka.common.TopicAndPartition;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.InvalidOffsetException;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
@@ -53,21 +50,21 @@ import org.slf4j.LoggerFactory;
  * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
-/*package private */class KafkaConsumerProxy<K, V> {
+class KafkaConsumerProxy<K, V> {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerProxy.class);
 
   private static final int SLEEP_MS_WHILE_NO_TOPIC_PARTITION = 100;
 
-  /* package private */ final Thread consumerPollThread;
+  final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
   private final String metricName;
   private final String systemName;
   private final String clientId;
-  private final Map<TopicPartition, SystemStreamPartition> topicPartitions2SSP = new HashMap<>();
+  private final Map<TopicPartition, SystemStreamPartition> topicPartitionToSSP = new HashMap<>();
   private final Map<SystemStreamPartition, MetricName> perPartitionMetrics = new HashMap<>();
-  // list of all the SSPs we poll from, with their next offsets correspondingly.
+  // list of all the SSPs we poll from, with their next(most recently read + 1) offsets correspondingly.
   private final Map<SystemStreamPartition, Long> nextOffsets = new ConcurrentHashMap<>();
   // lags behind the high water mark, as reported by the Kafka consumer.
   private final Map<SystemStreamPartition, Long> latestLags = new HashMap<>();
@@ -76,7 +73,6 @@ import org.slf4j.LoggerFactory;
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  // package private constructor
   KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
@@ -96,14 +92,46 @@ import org.slf4j.LoggerFactory;
         "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
   }
 
-  @Override
-  public String toString() {
-    return String.format("consumerProxy-%s-%s", systemName, clientId);
+  /**
+   * Add new partition to the list of polled partitions.
+   * Bust only be called before {@link KafkaConsumerProxy#start} is called..
+   */
+  public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
+    LOG.info(String.format("Adding new topicPartition %s with offset %s to queue for consumer %s", ssp, nextOffset,
+        this));
+    topicPartitionToSSP.put(KafkaSystemConsumer.toTopicPartition(ssp), ssp); //registered SSPs
+
+    // this is already vetted offset so there is no need to validate it
+    nextOffsets.put(ssp, nextOffset);
+
+    kafkaConsumerMetrics.setNumTopicPartitions(metricName, nextOffsets.size());
+  }
+
+  /**
+   * Stop this KafkaConsumerProxy and wait for at most {@code timeoutMs}.
+   * @param timeoutMs maximum time to wait to stop this KafkaConsumerProxy
+   */
+  public void stop(long timeoutMs) {
+    LOG.info("Shutting down KafkaConsumerProxy poll thread {} for {}", consumerPollThread.getName(), this);
+
+    isRunning = false;
+    try {
+      consumerPollThread.join(timeoutMs/2);
+      // join() may timeout
+      // in this case we should interrupt it and wait again
+      if (consumerPollThread.isAlive()) {
+        consumerPollThread.interrupt();
+        consumerPollThread.join(timeoutMs/2);
+      }
+    } catch (InterruptedException e) {
+      LOG.warn("Join in KafkaConsumerProxy has failed", e);
+      consumerPollThread.interrupt();
+    }
   }
 
   public void start() {
     if (!consumerPollThread.isAlive()) {
-      LOG.info("Starting KafkaConsumerProxy polling thread for system " + systemName + " " + this.toString());
+      LOG.info("Starting KafkaConsumerProxy polling thread for " + this.toString());
 
       consumerPollThread.start();
 
@@ -112,148 +140,55 @@ import org.slf4j.LoggerFactory;
         try {
           consumerPollThreadStartLatch.await(3000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
-          LOG.info("Got InterruptedException", e);
+          LOG.info("Ignoring InterruptedException while waiting for consumer poll thread to start.", e);
         }
       }
     } else {
       LOG.warn("Tried to start an already started KafkaConsumerProxy (%s). Ignoring.", this.toString());
     }
 
-    if (topicPartitions2SSP.size() == 0) {
-      String msg = String.format("Cannot start empty set of TopicPartitions for system %s, clientid %s",
-          systemName, clientId);
+    if (topicPartitionToSSP.size() == 0) {
+      String msg = String.format("Cannot start KafkaConsumerProxy without any registered TopicPartitions for %s", systemName);
       LOG.error(msg);
       throw new SamzaException(msg);
     }
   }
 
-  /**
-   * Stop the thread and wait for it to stop.
-   * @param timeoutMs how long to wait in join
-   */
-  public void stop(long timeoutMs) {
-    LOG.info("Shutting down KafkaConsumerProxy poll thread:" + consumerPollThread.getName());
-
-    isRunning = false;
-    try {
-      consumerPollThread.join(timeoutMs);
-      // join returns event if the thread didn't finish
-      // in this case we should interrupt it and wait again
-      if (consumerPollThread.isAlive()) {
-        consumerPollThread.interrupt();
-        consumerPollThread.join(timeoutMs);
-      }
-    } catch (InterruptedException e) {
-      LOG.warn("Join in KafkaConsumerProxy has failed", e);
-      consumerPollThread.interrupt();
-    }
+  boolean isRunning() {
+    return isRunning;
   }
 
-  /**
-   * Add new partition to the list of polled partitions.
-   * This method should be called only at the beginning, before the thread is started.
-   */
-  public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
-    LOG.info(String.format("Adding new topic and partition %s, offset = %s to queue for consumer %s", ssp, nextOffset,
-        this));
-    topicPartitions2SSP.put(KafkaSystemConsumer.toTopicPartition(ssp), ssp); //registered SSPs
-
-    // this is already vetted offset so there is no need to validate it
-    LOG.info(String.format("Got offset %s for new topic and partition %s.", nextOffset, ssp));
-
-    nextOffsets.put(ssp, nextOffset);
-
-    kafkaConsumerMetrics.setTopicPartitionValue(metricName, nextOffsets.size());
+  Throwable getFailureCause() {
+    return failureCause;
   }
 
-  // the actual polling of the messages from kafka
-  private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> pollConsumer(
-      Set<SystemStreamPartition> systemStreamPartitions, long timeout) {
+  private void initializeLags() {
+    // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
+    Map<TopicPartition, Long> endOffsets = kafkaConsumer.endOffsets(topicPartitionToSSP.keySet());
+    endOffsets.forEach((tp, offset) -> {
+      SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
+      long startingOffset = nextOffsets.get(ssp);
+      // End offsets are the offset of the newest message + 1
+      // If the message we are about to consume is < end offset, we are starting with a lag.
+      long initialLag = endOffsets.get(tp) - startingOffset;
 
-    // Since we need to poll only from some subset of TopicPartitions (passed as the argument),
-    // we need to pause the rest.
-    List<TopicPartition> topicPartitionsToPause = new ArrayList<>();
-    List<TopicPartition> topicPartitionsToPoll = new ArrayList<>();
+      LOG.info("Initial lag for SSP {} is {} (end={}, startOffset={})", ssp, initialLag, endOffsets.get(tp), startingOffset);
+      latestLags.put(ssp, initialLag);
+      sink.setIsAtHighWatermark(ssp, initialLag == 0);
+    });
 
-    for (Map.Entry<TopicPartition, SystemStreamPartition> e : topicPartitions2SSP.entrySet()) {
-      TopicPartition tp = e.getKey();
-      SystemStreamPartition ssp = e.getValue();
-      if (systemStreamPartitions.contains(ssp)) {
-        topicPartitionsToPoll.add(tp);  // consume
-      } else {
-        topicPartitionsToPause.add(tp); // ignore
-      }
-    }
-
-    ConsumerRecords<K, V> records;
-
-    try {
-      // Synchronize, in case the consumer is used in some other thread (metadata or something else)
-      synchronized (kafkaConsumer) {
-        // Since we are not polling from ALL the subscribed topics, so we need to "change" the subscription temporarily
-        kafkaConsumer.pause(topicPartitionsToPause);
-        kafkaConsumer.resume(topicPartitionsToPoll);
-        records = kafkaConsumer.poll(timeout);
-        // resume original set of subscription - may be required for checkpointing
-        kafkaConsumer.resume(topicPartitionsToPause);
-      }
-    } catch (Exception e) {
-      // we may get InvalidOffsetException | AuthorizationException | KafkaException exceptions,
-      // but we still just rethrow, and log it up the stack.
-      LOG.error("Caught a Kafka exception in pollConsumer", e);
-      throw e;
-    }
-
-    return processResults(records);
+    // initialize lag metrics
+    refreshLagMetrics();
   }
 
-  private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> processResults(ConsumerRecords<K, V> records) {
-    if (records == null) {
-      throw new SamzaException("ERROR:records is null, after pollConsumer call (in processResults)");
-    }
-
-    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = new HashMap<>(records.count());
-    // Parse the returned records and convert them into the IncomingMessageEnvelope.
-    // Note. They have been already de-serialized by the consumer.
-    for (ConsumerRecord<K, V> record : records) {
-      int partition = record.partition();
-      String topic = record.topic();
-      TopicPartition tp = new TopicPartition(topic, partition);
-
-      updateMetrics(record, tp);
-
-      SystemStreamPartition ssp = topicPartitions2SSP.get(tp);
-      List<IncomingMessageEnvelope> listMsgs = results.get(ssp);
-      if (listMsgs == null) {
-        listMsgs = new ArrayList<>();
-        results.put(ssp, listMsgs);
-      }
-
-      final K key = record.key();
-      final Object value = record.value();
-      final IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record));
-      listMsgs.add(imEnvelope);
-    }
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("# records per SSP:");
-      for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> e : results.entrySet()) {
-        List<IncomingMessageEnvelope> list = e.getValue();
-        LOG.debug(e.getKey() + " = " + ((list == null) ? 0 : list.size()));
-      }
-    }
-
-    return results;
-  }
-
-   // creates a separate thread for getting the messages.
+  // creates a separate thread for getting the messages.
   private Runnable createProxyThreadRunnable() {
-    Runnable runnable=  () -> {
+    Runnable runnable = () -> {
       isRunning = true;
 
       try {
         consumerPollThreadStartLatch.countDown();
-        LOG.info("Starting runnable " + consumerPollThread.getName());
+        LOG.info("Starting consumer poll thread {} for system {}", consumerPollThread.getName(), systemName);
         initializeLags();
         while (isRunning) {
           fetchMessages();
@@ -273,109 +208,6 @@ import org.slf4j.LoggerFactory;
     return runnable;
   }
 
-  private void initializeLags() {
-    // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
-    Map<TopicPartition, Long> endOffsets = kafkaConsumer.endOffsets(topicPartitions2SSP.keySet());
-    endOffsets.forEach((tp, offset) -> {
-      SystemStreamPartition ssp = topicPartitions2SSP.get(tp);
-      long startingOffset = nextOffsets.get(ssp);
-      // End offsets are the offset of the newest message + 1
-      // If the message we are about to consume is < end offset, we are starting with a lag.
-      long initialLag = endOffsets.get(tp) - startingOffset;
-
-      LOG.info("Initial lag for SSP {} is {} (end={}, startOffset={})", ssp, initialLag, endOffsets.get(tp), startingOffset);
-      latestLags.put(ssp, initialLag);
-      sink.setIsAtHighWatermark(ssp, initialLag == 0);
-    });
-
-    // initialize lag metrics
-    refreshLatencyMetrics();
-  }
-
-  private int getRecordSize(ConsumerRecord<K, V> r) {
-    int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
-    return keySize + r.serializedValueSize();
-  }
-
-  private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
-    TopicAndPartition tap = KafkaSystemConsumer.toTopicAndPartition(tp);
-    SystemStreamPartition ssp = new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
-    long currentSSPLag = getLatestLag(ssp); // lag between the current offset and the highwatermark
-    if (currentSSPLag < 0) {
-      return;
-    }
-    long recordOffset = r.offset();
-    long highWatermark = recordOffset + currentSSPLag; // derived value for the highwatermark
-
-    int size = getRecordSize(r);
-    kafkaConsumerMetrics.incReads(tap);
-    kafkaConsumerMetrics.incBytesReads(tap, size);
-    kafkaConsumerMetrics.setOffsets(tap, recordOffset);
-    kafkaConsumerMetrics.incClientBytesReads(metricName, size);
-    kafkaConsumerMetrics.setHighWatermarkValue(tap, highWatermark);
-  }
-
-
-  private void moveMessagesToTheirQueue(SystemStreamPartition ssp, List<IncomingMessageEnvelope> envelopes) {
-    long nextOffset = nextOffsets.get(ssp);
-
-    for (IncomingMessageEnvelope env : envelopes) {
-      sink.addMessage(ssp, env);  // move message to the BlockingEnvelopeMap's queue
-
-      LOG.trace("IncomingMessageEnvelope. got envelope with offset:{} for ssp={}", env.getOffset(), ssp);
-      nextOffset = Long.valueOf(env.getOffset()) + 1;
-    }
-
-    nextOffsets.put(ssp, nextOffset);
-  }
-
-  private void populateMetricNames(Set<SystemStreamPartition> ssps) {
-    HashMap<String, String> tags = new HashMap<>();
-    tags.put("client-id", clientId);// this is required by the KafkaConsumer to get the metrics
-
-    for (SystemStreamPartition ssp : ssps) {
-      TopicPartition tp = KafkaSystemConsumer.toTopicPartition(ssp);
-      perPartitionMetrics.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
-    }
-  }
-
-  // The only way to figure out lag for the KafkaConsumer is to look at the metrics after each poll() call.
-  // One of the metrics (records-lag) shows how far behind the HighWatermark the consumer is.
-  // This method populates the lag information for each SSP into latestLags member variable.
-  private void populateCurrentLags(Set<SystemStreamPartition> ssps) {
-
-    Map<MetricName, ? extends Metric> consumerMetrics = kafkaConsumer.metrics();
-
-    // populate the MetricNames first time
-    if (perPartitionMetrics.isEmpty()) {
-      populateMetricNames(ssps);
-    }
-
-    for (SystemStreamPartition ssp : ssps) {
-      MetricName mn = perPartitionMetrics.get(ssp);
-      Metric currentLagM = consumerMetrics.get(mn);
-
-      // High watermark is fixed to be the offset of last available message,
-      // so the lag is now at least 0, which is the same as Samza's definition.
-      // If the lag is not 0, then isAtHead is not true, and kafkaClient keeps polling.
-      long currentLag = (currentLagM != null) ? (long) currentLagM.value() : -1L;
-      latestLags.put(ssp, currentLag);
-
-      // calls the setIsAtHead for the BlockingEnvelopeMap
-      sink.setIsAtHighWatermark(ssp, currentLag == 0);
-    }
-  }
-
-  // Get the latest lag for a specific SSP.
-  private long getLatestLag(SystemStreamPartition ssp) {
-    Long lag = latestLags.get(ssp);
-    if (lag == null) {
-      throw new SamzaException("Unknown/unregistered ssp in latestLags request: " + ssp);
-    }
-    return lag;
-  }
-
-  // Using the consumer to poll the messages from the stream.
   private void fetchMessages() {
     Set<SystemStreamPartition> sspsToFetch = new HashSet<>();
     for (SystemStreamPartition ssp : nextOffsets.keySet()) {
@@ -383,12 +215,11 @@ import org.slf4j.LoggerFactory;
         sspsToFetch.add(ssp);
       }
     }
-    LOG.debug("pollConsumer {}", sspsToFetch.size());
+    LOG.debug("pollConsumer for {} SSPs: {}", sspsToFetch.size(), sspsToFetch);
     if (!sspsToFetch.isEmpty()) {
       kafkaConsumerMetrics.incClientReads(metricName);
 
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> response;
-      LOG.debug("pollConsumer from following SSPs: {}; total#={}", sspsToFetch, sspsToFetch.size());
 
       response = pollConsumer(sspsToFetch, 500L);
 
@@ -403,7 +234,7 @@ import org.slf4j.LoggerFactory;
       populateCurrentLags(sspsToFetch); // find current lags for for each SSP
     } else { // nothing to read
 
-      LOG.debug("No topic/partitions need to be fetched for consumer {} right now. Sleeping {}ms.", kafkaConsumer,
+      LOG.debug("No topic/partitions need to be fetched for system {} right now. Sleeping {}ms.", systemName,
           SLEEP_MS_WHILE_NO_TOPIC_PARTITION);
 
       kafkaConsumerMetrics.incClientSkippedFetchRequests(metricName);
@@ -414,10 +245,161 @@ import org.slf4j.LoggerFactory;
         LOG.warn("Sleep in fetchMessages was interrupted");
       }
     }
-    refreshLatencyMetrics();
+    refreshLagMetrics();
   }
 
-  private void refreshLatencyMetrics() {
+  // the actual polling of the messages from kafka
+  private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> pollConsumer(
+      Set<SystemStreamPartition> systemStreamPartitions, long timeoutMs) {
+
+    // Since we need to poll only from some subset of TopicPartitions (passed as the argument),
+    // we need to pause the rest.
+    List<TopicPartition> topicPartitionsToPause = new ArrayList<>();
+    List<TopicPartition> topicPartitionsToPoll = new ArrayList<>();
+
+    for (Map.Entry<TopicPartition, SystemStreamPartition> e : topicPartitionToSSP.entrySet()) {
+      TopicPartition tp = e.getKey();
+      SystemStreamPartition ssp = e.getValue();
+      if (systemStreamPartitions.contains(ssp)) {
+        topicPartitionsToPoll.add(tp);  // consume
+      } else {
+        topicPartitionsToPause.add(tp); // ignore
+      }
+    }
+
+    ConsumerRecords<K, V> records;
+    try {
+      // Synchronize, in case the consumer is used in some other thread (metadata or something else)
+      synchronized (kafkaConsumer) {
+        // Since we are not polling from ALL the subscribed topics, so we need to "change" the subscription temporarily
+        kafkaConsumer.pause(topicPartitionsToPause);
+        kafkaConsumer.resume(topicPartitionsToPoll);
+        records = kafkaConsumer.poll(timeoutMs);
+      }
+    } catch (Exception e) {
+      // we may get InvalidOffsetException | AuthorizationException | KafkaException exceptions,
+      // but we still just rethrow, and log it up the stack.
+      LOG.error("Caught a Kafka exception in pollConsumer for system " + systemName, e);
+      throw e;
+    }
+
+    return processResults(records);
+  }
+
+  private Map<SystemStreamPartition, List<IncomingMessageEnvelope>> processResults(ConsumerRecords<K, V> records) {
+    if (records == null) {
+      throw new SamzaException("Received null 'records' after polling consumer in KafkaConsumerProxy " + this);
+    }
+
+    Map<SystemStreamPartition, List<IncomingMessageEnvelope>> results = new HashMap<>(records.count());
+    // Parse the returned records and convert them into the IncomingMessageEnvelope.
+    for (ConsumerRecord<K, V> record : records) {
+      int partition = record.partition();
+      String topic = record.topic();
+      TopicPartition tp = new TopicPartition(topic, partition);
+
+      updateMetrics(record, tp);
+
+      SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
+      List<IncomingMessageEnvelope> messages = results.get(ssp);
+      if (messages == null) {
+        messages = new ArrayList<>();
+        results.put(ssp, messages);
+      }
+
+      K key = record.key();
+      Object value = record.value();
+      IncomingMessageEnvelope imEnvelope =
+          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record));
+      messages.add(imEnvelope);
+    }
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("# records per SSP:");
+      for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> e : results.entrySet()) {
+        List<IncomingMessageEnvelope> list = e.getValue();
+        LOG.debug(e.getKey() + " = " + ((list == null) ? 0 : list.size()));
+      }
+    }
+
+    return results;
+  }
+
+  private int getRecordSize(ConsumerRecord<K, V> r) {
+    int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
+    return keySize + r.serializedValueSize();
+  }
+
+  private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
+    TopicAndPartition tap = KafkaSystemConsumer.toTopicAndPartition(tp);
+    SystemStreamPartition ssp = new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
+
+    Long lag = latestLags.get(ssp);
+    if (lag == null) {
+      throw new SamzaException("Unknown/unregistered ssp in latestLags. ssp=" + ssp + "; system=" + systemName);
+    }
+    long currentSSPLag = lag.longValue(); // lag between the current offset and the highwatermark
+    if (currentSSPLag < 0) {
+      return;
+    }
+
+    long recordOffset = r.offset();
+    long highWatermark = recordOffset + currentSSPLag; // derived value for the highwatermark
+
+    int size = getRecordSize(r);
+    kafkaConsumerMetrics.incReads(tap);
+    kafkaConsumerMetrics.incBytesReads(tap, size);
+    kafkaConsumerMetrics.setOffsets(tap, recordOffset);
+    kafkaConsumerMetrics.incClientBytesReads(metricName, size);
+    kafkaConsumerMetrics.setHighWatermarkValue(tap, highWatermark);
+  }
+
+  private void moveMessagesToTheirQueue(SystemStreamPartition ssp, List<IncomingMessageEnvelope> envelopes) {
+    long nextOffset = nextOffsets.get(ssp);
+
+    for (IncomingMessageEnvelope env : envelopes) {
+      sink.addMessage(ssp, env);  // move message to the BlockingEnvelopeMap's queue
+
+      LOG.trace("IncomingMessageEnvelope. got envelope with offset:{} for ssp={}", env.getOffset(), ssp);
+      nextOffset = Long.valueOf(env.getOffset()) + 1;
+    }
+
+    nextOffsets.put(ssp, nextOffset);
+  }
+
+  // The only way to figure out lag for the KafkaConsumer is to look at the metrics after each poll() call.
+  // One of the metrics (records-lag) shows how far behind the HighWatermark the consumer is.
+  // This method populates the lag information for each SSP into latestLags member variable.
+  private void populateCurrentLags(Set<SystemStreamPartition> ssps) {
+
+    Map<MetricName, ? extends Metric> consumerMetrics = kafkaConsumer.metrics();
+
+    // populate the MetricNames first time
+    if (perPartitionMetrics.isEmpty()) {
+      HashMap<String, String> tags = new HashMap<>();
+      tags.put("client-id", clientId); // this is required by the KafkaConsumer to get the metrics
+
+      for (SystemStreamPartition ssp : ssps) {
+        TopicPartition tp = KafkaSystemConsumer.toTopicPartition(ssp);
+        perPartitionMetrics.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
+      }
+    }
+
+    for (SystemStreamPartition ssp : ssps) {
+      MetricName mn = perPartitionMetrics.get(ssp);
+      Metric currentLagMetric = consumerMetrics.get(mn);
+
+      // High watermark is fixed to be the offset of last available message,
+      // so the lag is now at least 0, which is the same as Samza's definition.
+      // If the lag is not 0, then isAtHead is not true, and kafkaClient keeps polling.
+      long currentLag = (currentLagMetric != null) ? (long) currentLagMetric.value() : -1L;
+      latestLags.put(ssp, currentLag);
+
+      // calls the setIsAtHead for the BlockingEnvelopeMap
+      sink.setIsAtHighWatermark(ssp, currentLag == 0);
+    }
+  }
+
+  private void refreshLagMetrics() {
     for (Map.Entry<SystemStreamPartition, Long> e : nextOffsets.entrySet()) {
       SystemStreamPartition ssp = e.getKey();
       Long offset = e.getValue();
@@ -433,12 +415,9 @@ import org.slf4j.LoggerFactory;
     }
   }
 
-  boolean isRunning() {
-    return isRunning;
-  }
-
-  Throwable getFailureCause() {
-    return failureCause;
+   @Override
+  public String toString() {
+    return String.format("consumerProxy-%s-%s", systemName, clientId);
   }
 }
 

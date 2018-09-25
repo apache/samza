@@ -66,10 +66,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   final KafkaConsumerMessageSink messageSink;
 
   // This proxy contains a separate thread, which reads kafka messages (with consumer.poll()) and populates
-  // BlockeingEnvelopMap's buffers.
+  // BlockingEnvelopMap's buffers.
   final private KafkaConsumerProxy proxy;
 
-  // keep registration data until the start - mapping between registered SSPs and topicPartitions, and the offsets
+  // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
   final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
   final Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
 
@@ -77,10 +77,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   long perPartitionFetchThresholdBytes;
 
   /**
+   * Create a KafkaSystemConsumer for the provided {@code systemName}
    * @param systemName system name for which we create the consumer
-   * @param config config passed into the the app
-   * @param metrics metrics collecting object
-   * @param clock - system clock, allows to override internal clock (System.currentTimeMillis())
+   * @param config application config
+   * @param metrics metrics for this KafkaSystemConsumer
+   * @param clock system clock
    */
   public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
       KafkaSystemConsumerMetrics metrics, Clock clock) {
@@ -99,11 +100,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    String metricName = String.format("%s %s", systemName, clientId);
+    String metricName = String.format("%s", systemName);
     proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
     LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
-
-    LOG.info("{}: Created KafkaSystemConsumer {}", this, kafkaConsumer);
   }
 
   /**
@@ -118,7 +117,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
 
-    LOG.info("{}:{} KafkaClient properties {}", systemName, clientId, consumerConfig);
+    LOG.info("{}: KafkaClient properties {}", systemName, consumerConfig);
 
     return new KafkaConsumer(consumerConfig);
   }
@@ -130,7 +129,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       return;
     }
     if (stopped.get()) {
-      LOG.warn("{}: Attempting to start a stopped consumer", this);
+      LOG.error("{}: Attempting to start a stopped consumer", this);
       return;
     }
     // initialize the subscriptions for all the registered TopicPartitions
@@ -151,8 +150,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         kafkaConsumer.assign(topicPartitionsToSSP.keySet());
       }
     } catch (Exception e) {
-      LOG.warn("{}: Start subscription failed", this);
-      throw new SamzaException(e);
+      throw new SamzaException("Consumer subscription failed for " + this, e);
     }
   }
 
@@ -164,7 +162,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   void startConsumer() {
     // set the offset for each TopicPartition
     if (topicPartitionsToOffset.size() <= 0) {
-      LOG.warn("{}: Consumer is not subscribed to any SSPs", this);
+      LOG.error ("{}: Consumer is not subscribed to any SSPs", this);
     }
 
     topicPartitionsToOffset.forEach((tp, startingOffsetString) -> {
@@ -204,35 +202,30 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     long fetchThreshold = FETCH_THRESHOLD;
     if (fetchThresholdOption.isDefined()) {
       fetchThreshold = Long.valueOf(fetchThresholdOption.get());
-      LOG.info("{}: fetchThresholdOption is configured. fetchThreshold={}", this, fetchThreshold);
     }
 
     Option<String> fetchThresholdBytesOption = kafkaConfig.getConsumerFetchThresholdBytes(systemName);
     long fetchThresholdBytes = FETCH_THRESHOLD_BYTES;
     if (fetchThresholdBytesOption.isDefined()) {
       fetchThresholdBytes = Long.valueOf(fetchThresholdBytesOption.get());
-      LOG.info("{}: fetchThresholdBytesOption is configured. fetchThresholdBytes={}", this, fetchThresholdBytes);
     }
 
-    int numTPs = topicPartitionsToSSP.size();
-    if (numTPs != topicPartitionsToOffset.size()) {
+    int numPartitions = topicPartitionsToSSP.size();
+    if (numPartitions != topicPartitionsToOffset.size()) {
       throw new SamzaException("topicPartitionsToSSP.size() doesn't match topicPartitionsToOffset.size()");
     }
 
-    LOG.info("{}: fetchThresholdBytes = {}; fetchThreshold={}; partitions num={}", this, fetchThresholdBytes,
-        fetchThreshold, numTPs);
 
-    if (numTPs > 0) {
-      perPartitionFetchThreshold = fetchThreshold / numTPs;
-      LOG.info("{}: perPartitionFetchThreshold={}", this, perPartitionFetchThreshold);
+    if (numPartitions > 0) {
+      perPartitionFetchThreshold = fetchThreshold / numPartitions;
       if (fetchThresholdBytesEnabled) {
         // currently this feature cannot be enabled, because we do not have the size of the messages available.
         // messages get double buffered, hence divide by 2
-        perPartitionFetchThresholdBytes = (fetchThresholdBytes / 2) / numTPs;
-        LOG.info("{} :perPartitionFetchThresholdBytes is enabled. perPartitionFetchThresholdBytes={}", this,
-            perPartitionFetchThresholdBytes);
+        perPartitionFetchThresholdBytes = (fetchThresholdBytes / 2) / numPartitions;
       }
     }
+    LOG.info("{}: fetchThresholdBytes = {}; fetchThreshold={}; numPartitions={}, perPartitionFetchThreshold={}, perPartitionFetchThresholdBytes(0 if disabled)={}",
+        this, fetchThresholdBytes, fetchThreshold, numPartitions, perPartitionFetchThreshold, perPartitionFetchThresholdBytes);
   }
 
   @Override
@@ -260,8 +253,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     }
   }
 
-  /*
-   record the ssp and the offset. Do not submit it to the consumer yet.
+  /**
+   * record the ssp and the offset. Do not submit it to the consumer yet.
+   * @param systemStreamPartition ssp to register
+   * @param offset offset to register with
    */
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {

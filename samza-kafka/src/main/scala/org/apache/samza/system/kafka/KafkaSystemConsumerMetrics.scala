@@ -55,7 +55,7 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
 
   // java friendlier interfaces
   // Gauges
-  def setTopicPartitionValue(clientName: String, value: Int) {
+  def setNumTopicPartitions(clientName: String, value: Int) {
     topicPartitions.get(clientName).set(value)
   }
 

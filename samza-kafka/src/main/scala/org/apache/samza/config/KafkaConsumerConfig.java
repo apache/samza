@@ -31,6 +31,7 @@ import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
+import scala.runtime.AbstractFunction0;
 
 
 /**
@@ -40,9 +41,9 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
-  private static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
-  private static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
-  private static final String ADMIN_CLIENT_ID_PREFIX = "samza-admin";
+  static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
+  static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
+  static final String ADMIN_CLIENT_ID_PREFIX = "samza-admin";
 
   /*
    * By default, KafkaConsumer will fetch some big number of available messages for all the partitions.
@@ -55,12 +56,12 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   /**
-   * This is a help method to create the configs for use in Kafka consumer.
+   * Helper method to create configs for use in Kafka consumer.
    * The values are based on the "consumer" subset of the configs provided by the app and Samza overrides.
    *
-   * @param config - config provided by the app.
-   * @param systemName - system name for which the consumer is configured.
-   * @param clientId - client id to be used in the Kafka consumer.
+   * @param config config provided by the app.
+   * @param systemName system name to get the consumer configuration for.
+   * @param clientId client id to be used in the Kafka consumer.
    * @return KafkaConsumerConfig
    */
   public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId) {
@@ -85,7 +86,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
         getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG)));
 
-    // make sure bootstrap configs are in, if not - get them from the producer
+    // if consumer bootstrap servers are not configured, get them from the producer configs
     if (!subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       String bootstrapServers =
           config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
@@ -119,10 +120,19 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   // group id should be unique per job
   static String getConsumerGroupId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    Option<String> jobIdOption = jobConfig.getJobId();
-    Option<String> jobNameOption = jobConfig.getName();
-    return (jobNameOption.isDefined() ? jobNameOption.get() : "undefined_job_name") + "-" + (jobIdOption.isDefined()
-        ? jobIdOption.get() : "undefined_job_id");
+    Option jobNameOption = jobConfig.getName();
+    if (jobNameOption.isEmpty()) {
+      throw new ConfigException("Missing job name");
+    }
+    String jobName = (String) jobNameOption.get();
+
+    Option jobIdOption = jobConfig.getJobId();
+    String jobId = "1";
+    if (! jobIdOption.isEmpty()) {
+      jobId = (String) jobIdOption.get();
+    }
+
+    return String.format("%s-%s", jobName, jobId);
   }
 
   // client id should be unique per job
@@ -139,11 +149,18 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   static String getConsumerClientId(String id, Config config) {
-    if (config.get(JobConfig.JOB_NAME()) == null) {
+    JobConfig jobConfig = new JobConfig(config);
+    Option jobNameOption = jobConfig.getName();
+    if (jobNameOption.isEmpty()) {
       throw new ConfigException("Missing job name");
     }
-    String jobName = config.get(JobConfig.JOB_NAME());
-    String jobId = (config.get(JobConfig.JOB_ID()) != null) ? config.get(JobConfig.JOB_ID()) : "1";
+    String jobName = (String) jobNameOption.get();
+
+    Option jobIdOption = jobConfig.getJobId();
+    String jobId = "1";
+    if (! jobIdOption.isEmpty()) {
+      jobId = (String) jobIdOption.get();
+    }
 
     return String.format("%s-%s-%s", id.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
         jobId.replaceAll("\\W", "_"));
