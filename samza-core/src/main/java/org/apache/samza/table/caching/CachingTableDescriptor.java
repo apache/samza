@@ -20,28 +20,30 @@
 package org.apache.samza.table.caching;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.operators.BaseTableDescriptor;
-import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TableImpl;
-import org.apache.samza.table.Table;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.hybrid.BaseHybridTableDescriptor;
 
 import com.google.common.base.Preconditions;
+
 
 /**
  * Table descriptor for {@link CachingTable}.
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
+public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
   private Duration readTtl;
   private Duration writeTtl;
   private long cacheSize;
-  private Table<KV<K, V>> cache;
-  private Table<KV<K, V>> table;
+  private TableDescriptor<K, V, ?> cache;
+  private TableDescriptor<K, V, ?> table;
   private boolean isWriteAround;
 
   /**
@@ -52,6 +54,13 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
   }
 
   @Override
+  public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors() {
+    return cache != null
+        ? Arrays.asList(cache, table)
+        : Arrays.asList(table);
+  }
+
+  @Override
   public TableSpec getTableSpec() {
     validate();
 
@@ -59,7 +68,7 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
     generateTableSpecConfig(tableSpecConfig);
 
     if (cache != null) {
-      tableSpecConfig.put(CachingTableProvider.CACHE_TABLE_ID, ((TableImpl) cache).getTableSpec().getId());
+      tableSpecConfig.put(CachingTableProvider.CACHE_TABLE_ID, ((BaseTableDescriptor) cache).getTableSpec().getId());
     } else {
       if (readTtl != null) {
         tableSpecConfig.put(CachingTableProvider.READ_TTL_MS, String.valueOf(readTtl.toMillis()));
@@ -72,31 +81,31 @@ public class CachingTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Cach
       }
     }
 
-    tableSpecConfig.put(CachingTableProvider.REAL_TABLE_ID, ((TableImpl) table).getTableSpec().getId());
+    tableSpecConfig.put(CachingTableProvider.REAL_TABLE_ID, ((BaseTableDescriptor) table).getTableSpec().getId());
     tableSpecConfig.put(CachingTableProvider.WRITE_AROUND, String.valueOf(isWriteAround));
 
     return new TableSpec(tableId, serde, CachingTableProviderFactory.class.getName(), tableSpecConfig);
   }
 
   /**
-   * Specify a cache instance (as Table abstraction) to be used for caching.
+   * Specify a cache (as Table descriptor) to be used for caching.
    * Cache get is not synchronized with put for better parallelism in the read path
    * of {@link CachingTable}. As such, cache table implementation is expected to be
    * thread-safe for concurrent accesses.
-   * @param cache cache instance
+   * @param cache cache table descriptor
    * @return this descriptor
    */
-  public CachingTableDescriptor withCache(Table<KV<K, V>> cache) {
+  public CachingTableDescriptor withCache(TableDescriptor<K, V, ?> cache) {
     this.cache = cache;
     return this;
   }
 
   /**
-   * Specify the table instance for the actual table input/output.
-   * @param table table instance
+   * Specify the target table descriptor for the actual table input/output.
+   * @param table the target table descriptor
    * @return this descriptor
    */
-  public CachingTableDescriptor withTable(Table<KV<K, V>> table) {
+  public CachingTableDescriptor withTable(TableDescriptor<K, V, ?> table) {
     this.table = table;
     return this;
   }
