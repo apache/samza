@@ -405,7 +405,7 @@ public class StreamProcessor {
 
     @Override
     public void afterStart() {
-      LOGGER.warn("Received container start notification for container: {} in stream processor: {}.",
+      LOGGER.info("Received container start notification for container: {} in stream processor: {}.",
           container, processorId);
       if (!processorOnStartCalled) {
         processorListener.afterStart();
@@ -423,7 +423,7 @@ public class StreamProcessor {
     public void afterStop() {
       containerShutdownLatch.countDown();
 
-      if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED, START_REBALANCE), STOPPING)) {
+      if (compareNotInAndSet(state, ImmutableSet.of(STOPPING, STOPPED, START_REBALANCE, IN_REBALANCE), STOPPING)) {
         LOGGER.info("Container: {} stopped. Stopping the stream processor: {}.", container, processorId);
         jobCoordinator.stop();
       } else {

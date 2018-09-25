@@ -45,11 +45,15 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.core.classloader.annotations.PrepareOnlyThisForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -363,7 +367,10 @@ public class TestStreamProcessor {
      * state and should shutdown JobCoordinator.
      */
     Mockito.doNothing().when(mockJobCoordinator).start();
-    Mockito.doNothing().when(mockJobCoordinator).stop();
+    Mockito.doAnswer(ans -> {
+      streamProcessor.state.set(State.STOPPING);
+      return null;
+    }).when(mockJobCoordinator).stop();
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
     Mockito.when(mockSamzaContainer.hasStopped()).thenReturn(false);
     Mockito.when(mockSamzaContainer.getStatus())
@@ -393,15 +400,16 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
+    StreamProcessor streamProcessor = new TestableStreamProcessor(config, new HashMap<>(), null,
+        lifecycleListener, mockJobCoordinator, mockSamzaContainer);
 
-    streamProcessor.container = mockSamzaContainer;
     streamProcessor.state.set(State.IN_REBALANCE);
     Mockito.doNothing().when(mockSamzaContainer).run();
 
     streamProcessor.jobCoordinatorListener.onNewJobModel("TestProcessorId", new JobModel(new MapConfig(), new HashMap<>()));
 
-    Mockito.verify(mockSamzaContainer, Mockito.atMost(1)).run();
+    Mockito.verify(mockSamzaContainer, Mockito.times(1)).setContainerListener(any());
+    Mockito.verify(mockSamzaContainer, Mockito.atLeast(1)).run();
   }
 
   @Test

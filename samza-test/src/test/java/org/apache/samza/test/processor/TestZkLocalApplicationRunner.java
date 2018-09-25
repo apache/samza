@@ -633,13 +633,12 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     /**
      * If the processing has started in the third stream processor, then other two stream processors should be stopped.
      */
-    // TODO: This is a bug! Status should be unsuccessful finish.
-    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
-    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
+    assertEquals(ApplicationStatus.UnsuccessfulFinish, appRunner1.status());
+    assertEquals(ApplicationStatus.UnsuccessfulFinish, appRunner2.status());
 
     appRunner3.kill();
     appRunner3.waitForFinish();
-    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
+    assertEquals(ApplicationStatus.UnsuccessfulFinish, appRunner3.status());
   }
 
 }

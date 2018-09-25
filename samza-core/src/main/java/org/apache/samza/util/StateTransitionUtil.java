@@ -83,12 +83,13 @@ public class StateTransitionUtil {
     }
 
     try {
-      if (timeout == Duration.ZERO) {
+      if (timeout.isNegative()) {
         barrier.await();
       } else {
         boolean completed = barrier.await(timeout.toMillis(), TimeUnit.MILLISECONDS);
         if (!completed) {
           LOG.error("Failed to transition from {} to {} due to barrier timeout.", currentState, desiredState);
+          return false;
         }
       }
     } catch (InterruptedException e) {
