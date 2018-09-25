@@ -211,7 +211,7 @@ class TaskStorageManager(
         val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
         val systemConsumer = storeConsumers(storeName)
         val systemConsumerIterator = new SystemStreamPartitionIterator(systemConsumer, systemStreamPartition)
-        store.restore(systemConsumerIterator, taskName)
+        store.restore(systemConsumerIterator)
       }
     }
   }

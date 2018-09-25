@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage.kv
 
+import java.io.File
 import java.util.Arrays
 
 import org.apache.samza.Partition
@@ -39,8 +40,9 @@ class TestKeyValueStorageEngine {
     val wrapperKv = new MockKeyValueStore()
     val rawKv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
     val properties = mock(classOf[StoreProperties])
+    val storeName = mock(classOf[File])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, storeName, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After
@@ -142,7 +144,7 @@ class TestKeyValueStorageEngine {
 
     val taskName = new TaskName("testTask")
 
-    engine.restore(changelogEntries.iterator(), taskName)
+    engine.restore(changelogEntries.iterator())
 
     assertEquals(3, metrics.restoredMessagesGauge.getValue)
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg

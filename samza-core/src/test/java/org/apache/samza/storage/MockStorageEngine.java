@@ -47,7 +47,7 @@ public class MockStorageEngine implements StorageEngine {
   }
 
   @Override
-  public void restore(Iterator<IncomingMessageEnvelope> envelopes, TaskName taskName) {
+  public void restore(Iterator<IncomingMessageEnvelope> envelopes) {
     while (envelopes.hasNext()) {
       incomingMessageEnvelopes.add(envelopes.next());
     }

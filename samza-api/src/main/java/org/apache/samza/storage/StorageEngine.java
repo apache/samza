@@ -44,10 +44,8 @@ public interface StorageEngine {
    * @param envelopes
    *          An iterator of envelopes that the storage engine can read from to
    *          restore its state on startup.
-   * @param taskName
-   *          The name of the task that initiated the restore process
    */
-  void restore(Iterator<IncomingMessageEnvelope> envelopes, TaskName taskName);
+  void restore(Iterator<IncomingMessageEnvelope> envelopes);
 
   /**
    * Flush any cached messages

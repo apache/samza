@@ -19,6 +19,8 @@
 
 package org.apache.samza.storage.kv
 
+import java.io.File
+
 import org.apache.samza.container.TaskName
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
@@ -36,6 +38,7 @@ class KeyValueStorageEngine[K, V](
   storeProperties: StoreProperties,
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
+  storeDir: File,
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500,
   val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtil with Logging {
@@ -52,7 +55,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = { 
     updateTimer(metrics.getAllNs) {
       metrics.getAlls.inc()
       metrics.gets.inc(keys.size)
@@ -104,8 +107,8 @@ class KeyValueStorageEngine[K, V](
    * Restore the contents of this key/value store from the change log,
    * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
    */
-  def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope], taskName: TaskName) {
-    info("Restoring entries for store: " + metrics.storeName + " for task: " + taskName)
+  def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
+    info("Restoring entries for store: " + metrics.storeName + " in directory: " + storeDir.toString)
 
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
 
@@ -133,11 +136,11 @@ class KeyValueStorageEngine[K, V](
       count += 1
 
       if (count % 1000000 == 0) {
-        info(count + " entries restored for store: " + metrics.storeName + " for task: " + taskName + "...")
+        info(count + " entries restored for store: " + metrics.storeName + " in directory: " + storeDir.toString + "...")
       }
     }
 
-    info(count + " total entries restored for store: " + metrics.storeName + " for task: " + taskName + ".")
+    info(count + " total entries restored for store: " + metrics.storeName + " in directory: " + storeDir.toString + ".")
 
     if (batch.size > 0) {
       doPutAll(rawStore, batch)
