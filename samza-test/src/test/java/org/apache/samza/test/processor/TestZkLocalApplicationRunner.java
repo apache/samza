@@ -29,14 +29,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import kafka.admin.AdminUtils;
+import kafka.admin.RackAwareMode;
 import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -51,6 +53,8 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.SamzaException;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -642,4 +646,73 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(ApplicationStatus.SuccessfulFinish, appRunner3.status());
   }
 
+  /**
+   * A. Create a kafka topic with partition count set to 5.
+   * B. Create and launch a samza application which consumes events from the kafka topic.
+   * C. Validate that the {@link JobModel} contains 5 {@link SystemStreamPartition}'s.
+   * D. Increase the partition count of the input kafka topic to 100.
+   * E. Validate that the new {@link JobModel} contains 100 {@link SystemStreamPartition}'s.
+   */
+  @Test
+  public void testShouldGenerateJobModelOnPartitionCountChange() throws Exception {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    // Create StreamApplication from configuration.
+    CountDownLatch kafkaEventsConsumedLatch1 = new CountDownLatch(NUM_KAFKA_EVENTS);
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+            TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
+            applicationConfig1), applicationConfig1);
+
+    appRunner1.run();
+
+    processedMessagesLatch1.await();
+
+    // Processor-1 has finished consuming all the messages.
+    kafkaEventsConsumedLatch1.await();
+
+    String jobModelVersion = zkUtils.getJobModelVersion();
+    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    Set<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+
+    // Validate that the input partition count is 5 in the JobModel.
+    Assert.assertEquals(5, ssps.size());
+
+    // Increase the partition count of input kafka topic to 100.
+    AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
+
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    CountDownLatch kafkaEventsConsumedLatch2 = new CountDownLatch(NUM_KAFKA_EVENTS);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+            TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch2,
+            applicationConfig2), applicationConfig2);
+
+    appRunner2.run();
+    processedMessagesLatch2.await();
+
+    String newJobModelVersion = zkUtils.getJobModelVersion();
+    JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
+    ssps = getSystemStreamPartitions(newJobModel);
+
+    // Validate that the input partition count is 100 in the new JobModel.
+    Assert.assertEquals(100, ssps.size());
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
+    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
+  }
+
+  private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
+    Set<SystemStreamPartition> ssps = new HashSet<>();
+    jobModel.getContainers().forEach((containerName, containerModel) -> {
+        containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));
+      });
+    return ssps;
+  }
 }
