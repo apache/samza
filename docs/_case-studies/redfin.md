@@ -1,7 +1,7 @@
 ---
 layout: case-study # the layout to use
 hide_title: true # so we have control in case-study layout, but can still use page
-title: Totally awesome use-case of samza by Redfin # title of case study page
+title: Realtime Notifications at Redfin
 study_domain: redfin.com # just the domain, not the protocol
 menu_title: Redfin # what shows up in the menu
 excerpt_separator: <!--more-->
@@ -23,8 +23,40 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Testing the excerpt
+Realtime Notifications
 
 <!--more-->
 
-Markdown content goes here
+Redfin is a leading full-service real estate brokerage that uses modern technology 
+to help people buy and sell homes. Notification is the critical feature to 
+communicate with Redfin’s customers, notification includes recommendations, instant 
+emails, scheduled digests and push notifications. Thousands of emails are delivered 
+to customers every minute at peak. 
+
+The notification system used to be a monolithic system, which served the company 
+well. However, as business grew and requirements evolved, it became harder and 
+harder to maintain and scale. The engineering team at Redfin decided to replace 
+the existing system with Samza primarily for Samza’s performance, scalability, 
+support for stateful processing and Kafka-integration. A multi-stage stream 
+processing pipeline was developed. Listings are first matched with customers and 
+group by customer at the end of each time window; at the next stage adjunct data 
+necessary to appear in each notification is retrieved by joining with data from 
+various data sources and stored/merged in local RocksDB state store; then 
+notifications are formatted and sent out. With the new notification system
+
+-   The system is more performant and horizontally scalable
+-   It is now easier to add support for new use cases
+-   Reduced pressure on other system due to the use of local RocksDB state store
+-   Processing stages can be scaled individually
+
+Other engineering teams at Redfin are also using Samza for business metrics 
+calculation, document processing, event scheduling.
+
+Key Samza Features: *Stateful processing*, *Windowing*, *Kafka-integration*
+
+More information
+
+-   [https://www.youtube.com/watch?v=cfy0xjJJf7Y](https://www.youtube.com/watch?v=cfy0xjJJf7Y)
+    
+-   [https://www.redfin.com/](https://www.redfin.com/)
+
