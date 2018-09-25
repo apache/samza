@@ -45,12 +45,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.core.classloader.annotations.PrepareOnlyThisForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.*;
@@ -368,9 +364,9 @@ public class TestStreamProcessor {
      */
     Mockito.doNothing().when(mockJobCoordinator).start();
     Mockito.doAnswer(ans -> {
-      streamProcessor.state.set(State.STOPPING);
-      return null;
-    }).when(mockJobCoordinator).stop();
+        streamProcessor.state.set(State.STOPPING);
+        return null;
+      }).when(mockJobCoordinator).stop();
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
     Mockito.when(mockSamzaContainer.hasStopped()).thenReturn(false);
     Mockito.when(mockSamzaContainer.getStatus())

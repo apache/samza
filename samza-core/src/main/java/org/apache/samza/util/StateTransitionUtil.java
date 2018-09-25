@@ -44,7 +44,7 @@ public class StateTransitionUtil {
    * @return true if current state is one of the expected value and transition was successful; false otherwise
    */
   public static <T> boolean compareAndSet(AtomicReference<T> reference, Set<T> expectedValues, T update) {
-    while(true) {
+    while (true) {
       T currentValue = reference.get();
       if (expectedValues.contains(currentValue)) {
         if (reference.compareAndSet(currentValue, update)) {
@@ -67,13 +67,13 @@ public class StateTransitionUtil {
    * @return true if current state is not in the blacklisted values and transition was successful; false otherwise
    */
   public static <T> boolean compareNotInAndSet(AtomicReference<T> reference, Set<T> blacklistedValues, T update) {
-    while(true) {
+    while (true) {
       T currentValue = reference.get();
       if (blacklistedValues.contains(currentValue)) {
         return false;
       }
 
-      if(reference.compareAndSet(currentValue, update)) {
+      if (reference.compareAndSet(currentValue, update)) {
         return true;
       }
     }
