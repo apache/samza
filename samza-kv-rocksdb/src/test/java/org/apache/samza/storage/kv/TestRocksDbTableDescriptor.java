@@ -37,8 +37,8 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testSerde() {
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
+    TableSpec tableSpec = new RocksDbTableDescriptor("1",
+            KVSerde.of(new IntegerSerde(), new StringSerde()))
         .getTableSpec();
     Assert.assertNotNull(tableSpec.getSerde());
     Assert.assertEquals(tableSpec.getSerde().getKeySerde().getClass(), IntegerSerde.class);
@@ -48,8 +48,8 @@ public class TestRocksDbTableDescriptor {
   @Test
   public void testTableSpec() {
 
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
+    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1",
+            KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withBlockSize(1)
         .withCacheSize(2)
         .withCompactionStyle("fifo")
@@ -85,8 +85,7 @@ public class TestRocksDbTableDescriptor {
   @Test
   public void testTableSpecWithChangelogEnabled() {
 
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1")
-        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
+    TableSpec tableSpec = new RocksDbTableDescriptor("1", KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withChangelogStream("changelog-$tream")
         .withChangelogReplicationFactor(10)
         .getTableSpec();

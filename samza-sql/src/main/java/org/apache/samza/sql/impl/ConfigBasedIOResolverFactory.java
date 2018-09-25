@@ -100,10 +100,9 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
       TableDescriptor tableDescriptor = null;
       if (isTable) {
-        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + name)
-            .withSerde(KVSerde.of(
-                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
-                new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + name, KVSerde.of(
+            new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
+            new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
       }
 
       return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<html lang="en">
+
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta charset="utf-8">
+  <title>Samza {% if page.title %}- {{page.title}}{% endif %}</title>
+  <link rel="apple-touch-icon-precomposed" sizes="57x57" href="/img/favicon/apple-touch-icon-57x57.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="114x114" href="/img/favicon/apple-touch-icon-114x114.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="72x72" href="/img/favicon/apple-touch-icon-72x72.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/img/favicon/apple-touch-icon-144x144.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="60x60" href="/img/favicon/apple-touch-icon-60x60.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="120x120" href="/img/favicon/apple-touch-icon-120x120.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="76x76" href="/img/favicon/apple-touch-icon-76x76.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="152x152" href="/img/favicon/apple-touch-icon-152x152.png" />
+  <link rel="icon" type="image/png" href="/img/favicon/favicon-196x196.png" sizes="196x196" />
+  <link rel="icon" type="image/png" href="/img/favicon/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/png" href="/img/favicon/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="/img/favicon/favicon-16x16.png" sizes="16x16" />
+  <link rel="icon" type="image/png" href="/img/favicon/favicon-128.png" sizes="128x128" />
+  <meta name="application-name" content="https://samza.apache.org" />
+  <meta name="msapplication-TileColor" content="#FFFFFF" />
+  <meta name="msapplication-TileImage" content="/img/favicon/mstile-144x144.png" />
+  <meta name="msapplication-square70x70logo" content="/img/favicon/mstile-70x70.png" />
+  <meta name="msapplication-square150x150logo" content="/img/favicon/mstile-150x150.png" />
+  <meta name="msapplication-wide310x150logo" content="/img/favicon/mstile-310x150.png" />
+  <meta name="msapplication-square310x310logo" content="/img/favicon/mstile-310x310.png" />
+  <link href="/css/ionicons.min.css" rel="stylesheet">
+  <link href="/css/google-fonts.css" rel="stylesheet">
+  <link href="/css/syntax.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/main.new.css" />
+</head>
+
+<body class="page page--case-study">
+  {% include main-navigation.html %}
+
+  <div class="section section--bottom-flare section--hero">
+      <div class="case-study-hero">
+          <img src="https://logo.clearbit.com/{{ page.study_domain }}?size=256"/>
+          <h2>{{ page.title }}</h2>
+      </div>
+  </div>
+
+  <div class="container">
+      <div class="container__toggle">
+        <i class="icon ion-md-arrow-dropleft-circle container__toggle-icon"></i>
+        <i class="icon ion-md-arrow-dropright-circle container__toggle-icon container__toggle-icon--opened"></i>
+      </div>
+      
+      <!-- There is only one menu, but made it as a no-output collection to grab data only -->
+      {% for menu in site.menu %}
+        {{ menu.content }}
+      {% endfor %}
+      
+      <div class="section">
+        <div class="content">
+          {% if page.hide_title != true %}
+          <h2>{{ page.title }}</h2>
+          {% endif %}
+
+          {% if page.url contains "/learn/documentation" or page.url contains "/releases/" %}
+
+          <div class="releases-list-container">
+
+            <span>Releases</span>
+
+            <ul class="releases-list" data-releases-list>
+              <li class="hide"><a href="{{ page.url | replace:"versioned","latest"}}">latest</a></li>
+              
+              {% assign releases_sorted = site.releases | sort: 'order' | reverse %}
+              {% for release in releases_sorted %}
+
+              <li class="hide"><a href="{{ page.url | replace:"versioned", release.version }}">{{ release.version }}</a></li>
+
+              {% endfor %}
+
+            </ul>
+
+          </div>
+
+          <hr class="releases-list-divider">
+
+          {% endif %}
+          
+          <h3>
+            <a href="https://{{ page.study_domain }}" rel="nofollow" target="_blank">
+              {{ page.study_domain }}
+            </a>
+          </h3>
+          
+          {{ page.content | remove: page.excerpt }}
+          
+          <hr/>
+          
+          <h3>
+            More Case Studies...
+          </h3>
+
+          <div class="case-studies">
+          
+              <div class="case-studies-list">
+          
+              {% for study in site.case-studies %}
+          
+                  {% if study.exclude_from_loop or study.url == page.url %}
+                      {% continue %}
+                  {% endif %}
+          
+                  <div class="case-studies-list__item">
+                      <a class="case-studies-list__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+                        <div class="case-studies-list__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=512');"></div>
+                      </a>
+                  </div>
+          
+              {% endfor %}
+          
+              </div>
+          
+          </div>
+           
+        </div>
+      </div>
+
+  </div>
+  
+
+  <!-- footer starts here -->
+
+  {% include footer.html %}
+
+</body>
+
+</html>
