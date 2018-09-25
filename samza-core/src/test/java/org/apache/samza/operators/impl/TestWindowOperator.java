@@ -26,7 +26,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
@@ -77,8 +79,14 @@ public class TestWindowOperator {
 
   @Before
   public void setup() {
-    this.config = new MapConfig();
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("job.default.system", "kafka");
+    configMap.put("job.name", "jobName");
+    configMap.put("job.id", "jobId");
+    this.config = new MapConfig(configMap);
+
     this.context = new MockContext();
+    when(this.context.getJobContext().getConfig()).thenReturn(this.config);
     Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
     Serde storeValSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
 

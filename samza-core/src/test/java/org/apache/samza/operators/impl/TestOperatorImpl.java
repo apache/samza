@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Set;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
@@ -48,6 +49,7 @@ public class TestOperatorImpl {
   public void setup() {
     this.context = new MockContext();
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
   }
 
   @Test(expected = IllegalStateException.class)

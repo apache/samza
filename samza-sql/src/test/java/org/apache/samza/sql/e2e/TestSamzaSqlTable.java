@@ -22,7 +22,6 @@ package org.apache.samza.sql.e2e;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;

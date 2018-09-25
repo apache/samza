@@ -33,7 +33,6 @@ import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.MockContext;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.MapFunction;
@@ -107,7 +106,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
     // Verify that the bootstrap() method will establish the context for the map function
-    Context context = new MockContext();
+    Context context = mock(Context.class);
     when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
     projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
@@ -240,7 +239,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
     // Verify that the describe() method will establish the context for the map function
-    Context context = new MockContext();
+    Context context = mock(Context.class);
     when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
     projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
@@ -274,5 +273,4 @@ public class TestProjectTranslator extends TranslatorTestBase {
     }});
 
   }
-
 }

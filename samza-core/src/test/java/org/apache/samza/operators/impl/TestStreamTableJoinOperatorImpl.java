@@ -21,7 +21,6 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
 import org.apache.samza.operators.KV;
@@ -73,7 +72,6 @@ public class TestStreamTableJoinOperatorImpl {
             return record.getKey();
           }
         });
-    Config config = mock(Config.class);
     ReadableTable table = mock(ReadableTable.class);
     when(table.get("1")).thenReturn("r1");
     when(table.get("2")).thenReturn(null);

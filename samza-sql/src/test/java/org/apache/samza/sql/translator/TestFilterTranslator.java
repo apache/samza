@@ -26,7 +26,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.MockContext;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -88,7 +87,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
     // Verify that the describe() method will establish the context for the filter function
-    Context context = new MockContext();
+    Context context = mock(Context.class);
     when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
     filterSpec.getTransformFn().init(context);
     FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "filterFn");

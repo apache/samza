@@ -20,7 +20,6 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,12 +27,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
@@ -52,8 +51,7 @@ import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
 import static org.apache.samza.test.table.TestTableData.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness {

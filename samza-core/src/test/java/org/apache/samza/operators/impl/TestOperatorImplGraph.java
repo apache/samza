@@ -214,9 +214,11 @@ public class TestOperatorImplGraph {
 
   @Before
   public void setup() {
+    this.context = new MockContext();
+    // individual tests can override this config if necessary
+    when(this.context.getJobContext().getConfig()).thenReturn(mock(Config.class));
     TaskModel taskModel = mock(TaskModel.class);
     when(taskModel.getTaskName()).thenReturn(new TaskName("task 0"));
-    this.context = new MockContext();
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
@@ -229,8 +231,7 @@ public class TestOperatorImplGraph {
   @Test
   public void testEmptyChain() {
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
-    OperatorImplGraph opGraph =
-        new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), mock(Context.class), mock(Clock.class));
+    OperatorImplGraph opGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), context, mock(Clock.class));
     assertEquals(0, opGraph.getAllInputOperators().size());
   }
 
@@ -251,6 +252,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
@@ -302,6 +304,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
@@ -352,6 +355,7 @@ public class TestOperatorImplGraph {
     HashMap<String, String> configMap = new HashMap<>();
     StreamTestUtils.addStreamConfigs(configMap, inputStreamId, inputSystem, inputPhysicalName);
     Config config = new MapConfig(configMap);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
@@ -375,9 +379,6 @@ public class TestOperatorImplGraph {
   public void testMergeChain() {
     String inputStreamId = "input";
     String inputSystem = "input-system";
-    String inputPhysicalName = "input-stream";
-    HashMap<String, String> configs = new HashMap<>();
-    StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
         GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
@@ -421,6 +422,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, inputStreamId1, inputSystem, inputPhysicalName1);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId2, inputSystem, inputPhysicalName2);
     Config config = new MapConfig(configs);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     Integer joinKey = new Integer(1);
     Function<Object, Integer> keyFn = (Function & Serializable) m -> joinKey;
@@ -542,6 +544,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, streamId0, system, streamId0);
     StreamTestUtils.addStreamConfigs(configs, streamId1, system, streamId1);
     Config config = new MapConfig(configs);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     SystemStreamPartition ssp0 = new SystemStreamPartition(system, streamId0, new Partition(0));
     SystemStreamPartition ssp1 = new SystemStreamPartition(system, streamId0, new Partition(1));
@@ -591,6 +594,7 @@ public class TestOperatorImplGraph {
     StreamTestUtils.addStreamConfigs(configs, outputStreamId1, outputSystem, outputStreamId1);
     StreamTestUtils.addStreamConfigs(configs, outputStreamId2, outputSystem, outputStreamId2);
     Config config = new MapConfig(configs);
+    when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
@@ -640,14 +644,6 @@ public class TestOperatorImplGraph {
     String inputStreamId3 = "input3";
     String inputSystem1 = "system1";
     String inputSystem2 = "system2";
-
-    HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "test-app");
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), inputSystem1);
-    StreamTestUtils.addStreamConfigs(configs, inputStreamId1, inputSystem1, inputStreamId1);
-    StreamTestUtils.addStreamConfigs(configs, inputStreamId2, inputSystem2, inputStreamId2);
-    StreamTestUtils.addStreamConfigs(configs, inputStreamId3, inputSystem2, inputStreamId3);
-    Config config = new MapConfig(configs);
 
     SystemStream input1 = new SystemStream("system1", "intput1");
     SystemStream input2 = new SystemStream("system2", "intput2");

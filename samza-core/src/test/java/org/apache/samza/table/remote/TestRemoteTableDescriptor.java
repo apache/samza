@@ -19,11 +19,15 @@
 
 package org.apache.samza.table.remote;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
@@ -113,10 +117,21 @@ public class TestRemoteTableDescriptor {
 
   private Context createMockContext() {
     Context context = new MockContext();
+
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+
+    TaskName taskName = new TaskName("MyTask");
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(taskName);
+    when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+
+    ContainerModel containerModel = mock(ContainerModel.class);
+    when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
+    when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
+
     return context;
   }
 

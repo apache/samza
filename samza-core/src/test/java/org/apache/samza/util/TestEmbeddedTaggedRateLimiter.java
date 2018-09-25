@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
@@ -206,7 +207,8 @@ public class TestEmbeddedTaggedRateLimiter {
   }
 
   static void initRateLimiter(RateLimiter rateLimiter) {
-    Context context = new MockContext();
+    Context context = new MockContext(mock(Config.class));
+    when(context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
     ContainerModel containerModel = mock(ContainerModel.class);
     Map<TaskName, TaskModel> tasks = IntStream.range(0, NUMBER_OF_TASKS)
         .mapToObj(i -> new TaskName("task-" + i))

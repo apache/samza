@@ -21,8 +21,8 @@ package org.apache.samza.test.performance
 
 import org.apache.samza.context.Context
 import org.apache.samza.system.{IncomingMessageEnvelope, OutgoingMessageEnvelope, SystemStream}
-import org.apache.samza.task.{InitableTask, MessageCollector, StreamTask, TaskCoordinator}
 import org.apache.samza.task.TaskCoordinator.RequestScope
+import org.apache.samza.task.{InitableTask, MessageCollector, StreamTask, TaskCoordinator}
 import org.apache.samza.util.{Logging, StreamUtil}
 
 

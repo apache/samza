@@ -1,5 +1,8 @@
 package org.apache.samza.context;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+
 import static org.mockito.Mockito.*;
 
 
@@ -12,6 +15,17 @@ public class MockContext implements Context {
   private final TaskContextImpl taskContext = mock(TaskContextImpl.class);
   private final ApplicationContainerContext applicationContainerContext = mock(ApplicationContainerContext.class);
   private final ApplicationTaskContext applicationTaskContext = mock(ApplicationTaskContext.class);
+
+  public MockContext() {
+    this(new MapConfig());
+  }
+
+  /**
+   * @param config config is widely used, so help wire it in here
+   */
+  public MockContext(Config config) {
+    when(this.jobContext.getConfig()).thenReturn(config);
+  }
 
   @Override
   public JobContext getJobContext() {

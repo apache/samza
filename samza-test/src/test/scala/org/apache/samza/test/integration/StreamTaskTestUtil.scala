@@ -31,10 +31,10 @@ import kafka.server.{KafkaConfig, KafkaServer}
 import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import kafka.zk.EmbeddedZookeeper
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
-import org.apache.samza.Partition
-import org.apache.samza.checkpoint.Checkpoint
 import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
+import org.apache.samza.Partition
+import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.context.Context
@@ -46,7 +46,7 @@ import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task._
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore, Util}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 
 import scala.collection.JavaConverters._

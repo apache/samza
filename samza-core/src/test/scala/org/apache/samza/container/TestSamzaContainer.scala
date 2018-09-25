@@ -274,7 +274,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   private def setupSamzaContainer(applicationContainerContext: Option[ApplicationContainerContext]) {
-    val samzaContainer = new SamzaContainer(
+    this.samzaContainer = new SamzaContainer(
       this.config,
       Map(TASK_NAME -> this.taskInstance),
       this.runLoop,
@@ -284,7 +284,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics,
       containerContext = this.containerContext,
       applicationContainerContext = applicationContainerContext)
-    samzaContainer.setContainerListener(this.samzaContainerListener)
+    this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 
   class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[JobModel]) extends JobServlet(jobModelRef) {

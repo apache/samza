@@ -22,7 +22,6 @@ package org.apache.samza.container
 
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
-import org.apache.samza.config.Config
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
@@ -36,11 +35,12 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.{Matchers, Mock, MockitoAnnotations}
+import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
 
-class TestTaskInstance extends MockitoSugar {
+class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private val SYSTEM_NAME = "test-system"
   private val TASK_NAME = new TaskName("taskName")
   private val SYSTEM_STREAM_PARTITION =
@@ -85,11 +85,12 @@ class TestTaskInstance extends MockitoSugar {
     MockitoAnnotations.initMocks(this)
     // not using Mockito mock since Mockito doesn't work well with the call-by-name argument in maybeHandle
     this.taskInstanceExceptionHandler = new MockTaskInstanceExceptionHandler
-    setupTaskInstance(Some(this.applicationContainerContext), Some(this.applicationTaskContextFactory))
+    when(this.taskModel.getTaskName).thenReturn(TASK_NAME)
     when(this.applicationTaskContextFactory.create(Matchers.eq(this.jobContext), Matchers.eq(this.containerContext),
       any(), Matchers.eq(this.applicationContainerContext)))
       .thenReturn(this.applicationTaskContext)
     when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
+    setupTaskInstance(Some(this.applicationTaskContextFactory))
   }
 
   @Test
@@ -137,8 +138,8 @@ class TestTaskInstance extends MockitoSugar {
   def testManualOffsetReset() {
     when(this.task.init(any())).thenAnswer(new Answer[Void] {
       override def answer(invocation: InvocationOnMock): Void = {
-        val taskContext = invocation.getArgumentAt(1, classOf[TaskContext])
-        taskContext.setStartingOffset(SYSTEM_STREAM_PARTITION, "10")
+        val context = invocation.getArgumentAt(0, classOf[Context])
+        context.getTaskContext.setStartingOffset(SYSTEM_STREAM_PARTITION, "10")
         null
       }
     })
@@ -200,9 +201,13 @@ class TestTaskInstance extends MockitoSugar {
     verify(commitsCounter).inc()
   }
 
+  /**
+    * Given that an application task context factory is provided, then lifecycle calls should be made and the context
+    * should be accessible.
+    */
   @Test
-  def testApplicationContextProvided(): Unit = {
-    assertEquals(this.containerContext, this.taskInstance.context.getContainerContext)
+  def testApplicationTaskContextFactoryProvided(): Unit = {
+    assertEquals(this.applicationTaskContext, this.taskInstance.context.getApplicationTaskContext)
     this.taskInstance.startContext
     verify(this.applicationTaskContext).start()
     verify(this.applicationTaskContext, never()).stop()
@@ -210,13 +215,19 @@ class TestTaskInstance extends MockitoSugar {
     verify(this.applicationTaskContext).stop()
   }
 
+  /**
+    * Given that no application task context factory is provided, then no lifecycle calls should be made. Also, an
+    * exception should be thrown if the application task context is accessed.
+    */
   @Test
-  def testNoApplicationContextProvided() {
-    setupTaskInstance(None, None)
-    assertNull(this.taskInstance.context.getContainerContext)
+  def testNoApplicationTaskContextFactoryProvided() {
+    setupTaskInstance(None)
     this.taskInstance.startContext
     this.taskInstance.shutdownContext
-    verifyZeroInteractions(this.applicationTaskContextFactory, this.applicationTaskContext)
+    verifyZeroInteractions(this.applicationTaskContext)
+    intercept[IllegalStateException] {
+      this.taskInstance.context.getApplicationTaskContext
+    }
   }
 
   @Test(expected = classOf[SystemProducerException])
@@ -231,7 +242,7 @@ class TestTaskInstance extends MockitoSugar {
     }
   }
 
-  private def setupTaskInstance(applicationContainerContext: Option[ApplicationContainerContext],
+  private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {
     this.taskInstance = new TaskInstance(this.task,
       this.taskModel,
@@ -245,7 +256,7 @@ class TestTaskInstance extends MockitoSugar {
       exceptionHandler = this.taskInstanceExceptionHandler,
       jobContext = this.jobContext,
       containerContext = this.containerContext,
-      applicationContainerContext = applicationContainerContext,
+      applicationContainerContext = Some(this.applicationContainerContext),
       applicationTaskContextFactory = applicationTaskContextFactory)
   }
 

@@ -299,7 +299,7 @@ public class TestJoinOperator {
     mapConfig.put("job.id", "jobId");
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream2", "insystem", "instream2");
-    Context context = new MockContext();
+    Context context = new MockContext(new MapConfig(mapConfig));
     TaskModel taskModel = mock(TaskModel.class);
     when(taskModel.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
