@@ -405,7 +405,7 @@ public class TestStreamProcessor {
     streamProcessor.jobCoordinatorListener.onNewJobModel("TestProcessorId", new JobModel(new MapConfig(), new HashMap<>()));
 
     Mockito.verify(mockSamzaContainer, Mockito.times(1)).setContainerListener(any());
-    Mockito.verify(mockSamzaContainer, Mockito.atLeast(1)).run();
+    Mockito.verify(mockSamzaContainer, Mockito.atMost(1)).run();
   }
 
   @Test
