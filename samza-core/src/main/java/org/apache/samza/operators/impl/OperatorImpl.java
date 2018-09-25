@@ -338,6 +338,9 @@ public abstract class OperatorImpl<M, RM> {
       }
       // populate the watermark through the dag
       onWatermark(watermark, collector, coordinator);
+
+      // update metrics
+      watermarkStates.updateAggregateMetric(ssp, watermark);
     }
   }
 
