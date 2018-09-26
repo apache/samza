@@ -21,7 +21,6 @@ package org.apache.samza.storage;
 
 import java.util.Iterator;
 
-import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**

@@ -21,7 +21,6 @@ package org.apache.samza.storage.kv
 
 import java.io.File
 
-import org.apache.samza.container.TaskName
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.IncomingMessageEnvelope
@@ -55,7 +54,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = { 
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     updateTimer(metrics.getAllNs) {
       metrics.getAlls.inc()
       metrics.gets.inc(keys.size)
