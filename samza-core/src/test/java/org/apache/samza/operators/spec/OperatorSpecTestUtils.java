@@ -53,7 +53,6 @@ public class OperatorSpecTestUtils {
   public static void assertClonedGraph(OperatorSpecGraph originalGraph, OperatorSpecGraph clonedGraph) {
     assertClonedInputs(originalGraph.getInputOperators(), clonedGraph.getInputOperators());
     assertClonedOutputs(originalGraph.getOutputStreams(), clonedGraph.getOutputStreams());
-    assertClonedTables(originalGraph.getTables(), clonedGraph.getTables());
     assertAllOperators(originalGraph.getAllOperatorSpecs(), clonedGraph.getAllOperatorSpecs());
   }
 

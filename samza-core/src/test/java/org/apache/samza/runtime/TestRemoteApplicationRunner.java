@@ -124,7 +124,7 @@ public class TestRemoteApplicationRunner {
 
         @Override
         public ApplicationStatus getStatus() {
-          String jobId = c.getJobId().get();
+          String jobId = c.getJobId();
           switch (jobId) {
             case "newJob":
               return ApplicationStatus.New;
