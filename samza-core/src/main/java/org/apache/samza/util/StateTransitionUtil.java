@@ -19,7 +19,7 @@
 package org.apache.samza.util;
 
 import java.time.Duration;
-import java.util.Set;
+import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,7 +43,7 @@ public class StateTransitionUtil {
    *
    * @return true if current state is one of the expected value and transition was successful; false otherwise
    */
-  public static <T> boolean compareAndSet(AtomicReference<T> reference, Set<T> expectedValues, T update) {
+  public static <T> boolean compareAndSet(AtomicReference<T> reference, Collection<T> expectedValues, T update) {
     while (true) {
       T currentValue = reference.get();
       if (expectedValues.contains(currentValue)) {
@@ -66,7 +66,7 @@ public class StateTransitionUtil {
    *
    * @return true if current state is not in the blacklisted values and transition was successful; false otherwise
    */
-  public static <T> boolean compareNotInAndSet(AtomicReference<T> reference, Set<T> blacklistedValues, T update) {
+  public static <T> boolean compareNotInAndSet(AtomicReference<T> reference, Collection<T> blacklistedValues, T update) {
     while (true) {
       T currentValue = reference.get();
       if (blacklistedValues.contains(currentValue)) {
@@ -93,7 +93,7 @@ public class StateTransitionUtil {
    *
    * @return true if current state == expected value and the barrier completed and transition was successful; false otherwise
    */
-  public static <T> boolean transitionWithBarrier(AtomicReference<T> reference, T expect, T update,
+  public static <T> boolean compareAndSetWithBarrier(AtomicReference<T> reference, T expect, T update,
       CountDownLatch barrier, Duration timeout) {
     if (reference.get() != expect) {
       LOG.error("Failed to transition from {} to {}", expect, update);

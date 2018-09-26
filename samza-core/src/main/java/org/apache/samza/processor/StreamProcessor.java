@@ -317,7 +317,7 @@ public class StreamProcessor {
           stopSamzaContainer();
 
           LOGGER.info("Entering re-balance phase with a barrier on container shutdown for the stream processor: {}", processorId);
-          boolean inRebalance = transitionWithBarrier(state, START_REBALANCE
+          boolean inRebalance = compareAndSetWithBarrier(state, START_REBALANCE
               , IN_REBALANCE, containerShutdownLatch, Duration.ofMillis(taskShutdownMs));
 
           // failed to transition to IN_REBALANCE either container shutdown failed or barrier timed out
@@ -360,7 +360,7 @@ public class StreamProcessor {
 
         if (state.get() == STOPPING) {
           LOGGER.info("Attempting to shutdown stream processor: {} with a barrier on container shutdown.", processorId);
-          boolean stopped = transitionWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch, Duration.ofMillis(taskShutdownMs));
+          boolean stopped = compareAndSetWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch, Duration.ofMillis(taskShutdownMs));
 
           if (containerException != null) {
             processorListener.afterFailure(containerException);
@@ -390,7 +390,7 @@ public class StreamProcessor {
 
         if (state.get() == STOPPING) {
           LOGGER.info("Attempting to shutdown stream processor: {} with a barrier on container shutdown.", processorId);
-          if (!transitionWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch, Duration.ofMillis(taskShutdownMs))) {
+          if (!compareAndSetWithBarrier(state, STOPPING, STOPPED, containerShutdownLatch, Duration.ofMillis(taskShutdownMs))) {
             executorService.shutdownNow();
           }
 
