@@ -1,11 +1,5 @@
 ---
 items:
-  - menu_title: Case Studies
-    get_items: case-studies
-    items:
-      - menu_title: View All
-        url: /case-studies/
-      - divider: true
   - menu_title: Getting Started
     items:
       - menu_title: QuickStart
@@ -16,21 +10,13 @@ items:
     has_sub: true
     has_sub_subs: true
     items_attributes: 'data-documentation="/learn/documentation/version/"'
-    items: 
-      - menu_title: Release Notes
-        url: /startup/releases/version/release-notes.html
-      - divider: true
-  - menu_title: Talks
-    url: '/talks/'
-  - menu_title: Meetups
-    url: '/meetups/'
   - menu_title: Releases
     get_items: releases
     map_title: version
     map_url: link
     sort: 'order'
     reverse: true
-  - menu_title: News
+  - menu_title: Blog
     url: '/news/'
   - menu_title: Community
     items:
@@ -40,8 +26,15 @@ items:
         url: '/contribute/contributors-corner.html'
       - menu_title: PMC members and committers
         url: '/community/committers.html'
-      - menu_title: Powered By
-        url: '/powered-by/'
+      - menu_title: Talks and Meetups 
+        url: '/meetups/'
+
+  - menu_title: Case Studies
+    get_items: case-studies
+    items:
+      - menu_title: View All
+        url: /case-studies/
+      - divider: true        
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

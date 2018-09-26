@@ -106,7 +106,9 @@ class TestSamzaYarnAppMasterService {
     coordinatorStreamManager.start
     coordinatorStreamManager.bootstrap
     val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
-    JobModelManager(coordinatorStreamManager, changelogPartitionManager.readPartitionMapping())
+    val jobModelManager = JobModelManager(coordinatorStreamManager.getConfig, changelogPartitionManager.readPartitionMapping())
+    coordinatorStreamManager.stop()
+    jobModelManager
   }
 
   private def getDummyConfig: Config = new MapConfig(Map[String, String](
