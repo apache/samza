@@ -223,7 +223,7 @@ public class StreamProcessor {
       jobCoordinator.start();
 
       if (!state.compareAndSet(NEW, STARTED)) {
-        LOGGER.info("Failed to transition to {} from {}Stream processor has already started and the current state {}", state.get());
+        LOGGER.info("Failed to transition to STARTED since the current state is {} and not {}", state.get(), NEW);
         // todo: Should stop be invoked or do we throw exception?
         // todo: We ideally want to call stop to make sure resources spun by jobcoordinator.start() are cleaned up
       }
@@ -345,7 +345,7 @@ public class StreamProcessor {
           executorService.submit(container);
         } else {
           LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.",
-              state.get(), State.IN_REBALANCE);
+              state.get(), IN_REBALANCE);
         }
       }
 
