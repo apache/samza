@@ -19,27 +19,27 @@
 package org.apache.samza.scheduling;
 
 import org.apache.samza.scheduler.ScheduledCallback;
-import org.apache.samza.task.SystemTimerScheduler;
+import org.apache.samza.task.EpochTimeScheduler;
 
 
 /**
- * Delegates to {@link SystemTimerScheduler}. This is useful because it provides a write-only interface for user-facing
+ * Delegates to {@link EpochTimeScheduler}. This is useful because it provides a write-only interface for user-facing
  * purposes.
  */
 public class CallbackSchedulerImpl implements CallbackScheduler {
-  private final SystemTimerScheduler systemTimerScheduler;
+  private final EpochTimeScheduler epochTimeScheduler;
 
-  public CallbackSchedulerImpl(SystemTimerScheduler systemTimerScheduler) {
-    this.systemTimerScheduler = systemTimerScheduler;
+  public CallbackSchedulerImpl(EpochTimeScheduler epochTimeScheduler) {
+    this.epochTimeScheduler = epochTimeScheduler;
   }
 
   @Override
   public <K> void scheduleCallback(K key, long timestamp, ScheduledCallback<K> callback) {
-    this.systemTimerScheduler.setTimer(key, timestamp, callback);
+    this.epochTimeScheduler.setTimer(key, timestamp, callback);
   }
 
   @Override
   public <K> void deleteCallback(K key) {
-    this.systemTimerScheduler.deleteTimer(key);
+    this.epochTimeScheduler.deleteTimer(key);
   }
 }

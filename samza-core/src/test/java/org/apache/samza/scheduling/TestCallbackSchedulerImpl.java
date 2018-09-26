@@ -19,25 +19,26 @@
 package org.apache.samza.scheduling;
 
 import org.apache.samza.scheduler.ScheduledCallback;
-import org.apache.samza.task.SystemTimerScheduler;
+import org.apache.samza.task.EpochTimeScheduler;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 
 public class TestCallbackSchedulerImpl {
   @Mock
-  private SystemTimerScheduler systemTimerScheduler;
+  private EpochTimeScheduler epochTimeScheduler;
 
   private CallbackSchedulerImpl scheduler;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    scheduler = new CallbackSchedulerImpl(systemTimerScheduler);
+    scheduler = new CallbackSchedulerImpl(epochTimeScheduler);
   }
 
   /**
@@ -48,13 +49,13 @@ public class TestCallbackSchedulerImpl {
     @SuppressWarnings("unchecked")
     ScheduledCallback<String> stringCallback = mock(ScheduledCallback.class);
     scheduler.scheduleCallback("string_key", 123, stringCallback);
-    verify(systemTimerScheduler).setTimer("string_key", 123, stringCallback);
+    verify(epochTimeScheduler).setTimer("string_key", 123, stringCallback);
 
     // check some other type of key
     @SuppressWarnings("unchecked")
     ScheduledCallback<Integer> intCallback = mock(ScheduledCallback.class);
     scheduler.scheduleCallback(777, 456, intCallback);
-    verify(systemTimerScheduler).setTimer(777, 456, intCallback);
+    verify(epochTimeScheduler).setTimer(777, 456, intCallback);
   }
 
   /**
@@ -63,10 +64,10 @@ public class TestCallbackSchedulerImpl {
   @Test
   public void testDeleteCallback() {
     scheduler.deleteCallback("string_key");
-    verify(systemTimerScheduler).deleteTimer("string_key");
+    verify(epochTimeScheduler).deleteTimer("string_key");
 
     // check some other type of key
     scheduler.deleteCallback(777);
-    verify(systemTimerScheduler).deleteTimer(777);
+    verify(epochTimeScheduler).deleteTimer(777);
   }
 }

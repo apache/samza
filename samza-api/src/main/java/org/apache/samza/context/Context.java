@@ -31,8 +31,8 @@ public interface Context {
   /**
    * Returns the framework-provided context for the container that this is in.
    * <p>
-   * Note that this is not the application-defined container context. Use {@link #getApplicationContainerContext)}
-   * to get the application-defined container context.
+   * Note that this is not the application-defined container context. Use
+   * {@link Context#getApplicationContainerContext()} to get the application-defined container context.
    * @return framework-provided container context
    */
   ContainerContext getContainerContext();
@@ -40,7 +40,7 @@ public interface Context {
   /**
    * Returns the framework-provided context for the task that that this is in.
    * <p>
-   * Note that this is not the application-defined task context. Use {@link #getApplicationTaskContext}
+   * Note that this is not the application-defined task context. Use {@link Context#getApplicationTaskContext()}
    * to get the application-defined task context.
    * @return framework-provided task context
    */
@@ -54,8 +54,8 @@ public interface Context {
    * In order to use this in application code, it should be casted to the concrete type that corresponds to the
    * {@link ApplicationContainerContextFactory}.
    * <p>
-   * Note that this is not the framework-provided container context. Use {@link #getContainerContext()} to get the
-   * framework-provided container context.
+   * Note that this is not the framework-provided container context. Use {@link Context#getContainerContext()} to get
+   * the framework-provided container context.
    * @return application-defined container context
    * @throws IllegalStateException if no context could be built (e.g. no factory provided)
    */
@@ -68,7 +68,7 @@ public interface Context {
    * In order to use this in application code, it should be casted to the concrete type that corresponds to the
    * {@link ApplicationTaskContextFactory}.
    * <p>
-   * Note that this is not the framework-provided task context. Use {@link #getTaskContext()} to get the
+   * Note that this is not the framework-provided task context. Use {@link Context#getTaskContext()} to get the
    * framework-provided task context.
    * @return application-defined task context
    * @throws IllegalStateException if no context could be built (e.g. no factory provided)
