@@ -28,24 +28,41 @@ This section provides details on monitoring of Samza jobs, not to be confused wi
 Like any other production software, it is critical to monitor the health of our Samza jobs. Samza relies on metrics for monitoring and includes an extensible metrics library. While a few standard metrics are provided out-of-the-box, it is easy to define metrics specific to your application.
 
 
+* [A. Metrics Reporters](#a-metrics-reporters)
+  + [A.1 Reporting Metrics to JMX (JMX Reporter)](#jmxreporter)
+    + [Enabling the JMX Reporter](#enablejmxreporter)
+    - [Using the JMX Reporter](#jmxreporter)
+  + [A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)](#snapshotreporter)
+    - [Enabling the MetricsSnapshot Reporter](#enablesnapshotreporter)
+  + [A.3 Creating a Custom MetricsReporter](#customreporter)
+* [B. Metric Types in Samza](#metrictypes)
+* [C. Adding User-Defined Metrics](#userdefinedmetrics)
+  + [Low-level API](#lowlevelapi)
+  + [High-Level API](#highlevelapi)
+* [D. Key Internal Samza Metrics](#keyinternalsamzametrics)
+  + [D.1 Vital Metrics](#vitalmetrics)
+  + [D.2 Store Metrics](#storemetrics)
+  + [D.3 Operator Metrics](#operatormetrics)
+* [E. Metrics Reference Sheet](#metricssheet)
+
 ## A. Metrics Reporters
 
 Samza&#39;s metrics library encapsulates the metrics collection and sampling logic. Metrics Reporters in Samza are responsible for emitting metrics to external services which may archive, process, visualize the metrics&#39; values, or trigger alerts based on them.
 
 Samza includes default implementations for two such Metrics Reporters:
 
-1. a) A _JMXReporter_ (detailed [below](http://below)) which allows using standard JMX clients for probing containers to retrieve metrics encoded as JMX MBeans. Visualization tools such as [Grafana](https://grafana.com/dashboards/3457) could also be used to visualize this JMX data.
+1. a) A _JMXReporter_ (detailed [below](#jmxreporter)) which allows using standard JMX clients for probing containers to retrieve metrics encoded as JMX MBeans. Visualization tools such as [Grafana](https://grafana.com/dashboards/3457) could also be used to visualize this JMX data.
 
-1. b) A _MetricsSnapshot_ reporter (detailed [below](http://below)) which allows periodically publishing all metrics to Kafka. A downstream Samza job could then consume and publish these metrics to other metrics management systems such as [Prometheus](https://prometheus.io/) and [Graphite](https://graphiteapp.org/).
+1. b) A _MetricsSnapshot_ reporter (detailed [below](#snapshotreporter)) which allows periodically publishing all metrics to Kafka. A downstream Samza job could then consume and publish these metrics to other metrics management systems such as [Prometheus](https://prometheus.io/) and [Graphite](https://graphiteapp.org/).
 
 Note that Samza allows multiple Metrics Reporters to be used simultaneously.
 
 
-### A.1 Reporting Metrics to JMX (JMX Reporter)
+### <a name="jmxreporter"></a> A.1 Reporting Metrics to JMX (JMX Reporter)
 
 This reporter encodes all its internal and user-defined metrics as JMX MBeans and hosts a JMX MBean server. Standard JMX clients (such as JConsole, VisualVM) can thus be used to probe Samza&#39;s containers and YARN-ApplicationMaster to retrieve these metrics&#39; values. JMX also provides additional profiling capabilities (e.g., for CPU and memory utilization), which are also enabled by this reporter.
 
-#### Enabling the JMX Reporter
+#### <a name="enablejmxreporter"></a> Enabling the JMX Reporter
 JMXReporter can be enabled by adding the following configuration.
 
 ```
@@ -57,7 +74,7 @@ metrics.reporters=jmx
 
 ```
 
-#### Using the JMX Reporter
+#### <a name="usejmxreporter"></a> Using the JMX Reporter
 
 To connect to the JMX MBean server, first obtain the JMX Server URL and port, published in the container logs:
 
@@ -91,11 +108,11 @@ Install the VisualVM-MBeans plugin (Tools->Plugin) to view the metrics MBeans.
 <img src="/img/versioned/learn/documentation/container/visualvm.png" alt="VisualVM" class="diagram-small">
 
  
-### A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)
+###  <a name="snapshotreporter"></a> A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)
 
 This reporter publishes metrics to Kafka.
 
-#### Enabling the MetricsSnapshot Reporter
+#### <a name="enablesnapshotreporter"></a> Enabling the MetricsSnapshot Reporter
 To enable this reporter, simply append the following to your job&#39;s configuration.
 
 ```
@@ -158,7 +175,7 @@ The following is an example of such a metrics message:
 
 
 Each message contains a header which includes information about the job, time, and container from which the metrics were obtained. 
-The remainder of the message contains the metric values, grouped by their types, such as TaskInstanceMetrics, SamzaContainerMetrics,  KeyValueStoreMetrics, JVMMetrics, etc. Detailed descriptions of the various metric categories and  metrics are available [here](http://link-to-reference-sheet).
+The remainder of the message contains the metric values, grouped by their types, such as TaskInstanceMetrics, SamzaContainerMetrics,  KeyValueStoreMetrics, JVMMetrics, etc. Detailed descriptions of the various metric categories and metrics are available [here](#metricssheet).
 
 It is possible to configure the MetricsSnapshot reporter to use a different serializer using this configuration
 
@@ -181,7 +198,7 @@ metrics.reporter.snapshot.blacklist=^(?!.\*?(?:SamzaContainerMetrics)).\*$
 ```
 
 
-### A.3 Creating a Custom MetricsReporter
+### <a name="customreporter"></a> A.3 Creating a Custom MetricsReporter
 
 Creating a custom MetricsReporter entails implementing the MetricsReporter interface. The lifecycle of Metrics Reporters is managed by Samza and is aligned with the Samza container lifecycle. Metrics Reporters can poll metric values and can receive callbacks when new metrics are added at runtime, e.g., user-defined metrics. Metrics Reporters are responsible for maintaining executor pools, IO connections, and any in-memory state that they require in order to export metrics to the desired external system, and managing the lifecycles of such components.
 
@@ -198,7 +215,7 @@ metrics.reporters=<my-custom-reporter-name>
 
 
 
-## B. Metric Types in Samza 
+## <a name="metrictypes"></a> B. Metric Types in Samza 
 
 Metrics in Samza are divided into three types -- _Gauges_, _Counters_, and _Timers_.
 
@@ -208,14 +225,14 @@ _Counters_ are useful in measuring metrics that are cumulative values, e.g., the
 
 _Timers_ are useful for storing and reporting a sliding-window of timing values. Samza also supports a ListGauge type metric, which can be used to store and report a list of any primitive-type such as strings.
 
-## C. Adding User-Defined Metrics
+## <a name="userdefinedmetrics"></a> C. Adding User-Defined Metrics
 
 
 To add a new metric, you can simply use the _MetricsRegistry_ in the provided TaskContext of 
 the init() method to register new metrics. The code snippets below show examples of registering and updating a user-defined
  Counter metric. Timers and gauges can similarly be used from within your task class.
 
-### Low-level API
+### <a name="lowlevelapi"></a> Low-level API
 
 Simply have your task implement the InitableTask interface and access the MetricsRegistry from the TaskContext.
 
@@ -235,7 +252,7 @@ public class MyJavaStreamTask implements StreamTask, InitableTask {
 }
 ```
 
-### High-Level API
+### <a name="highlevelapi"></a> High-Level API
 
 In the high-level API, you can define a ContextManager and access the MetricsRegistry from the TaskContext, using which you can add and update your metrics.
 
@@ -272,7 +289,7 @@ public class MyJavaStreamApp implements StreamApplication {
   }
 ```
 
-## D. Key Internal Samza Metrics
+## <a name="keyinternalsamzametrics"></a> D. Key Internal Samza Metrics
 
 Samza&#39;s internal metrics allow for detailed monitoring of a Samza job and all its components. Detailed descriptions 
 of all internal metrics are listed in a reference sheet [here](#e-metrics-reference-sheet). 
@@ -281,7 +298,7 @@ However, a small subset of internal metrics facilitates easy high-level monitori
 These key metrics can be grouped into three categories: _Vital metrics_, _Store__metrics_, and _Operator metrics_. 
 We explain each of these categories in detail below.
 
-### 1. Vital Metrics
+### <a name="vitalmetrics"></a> D.1. Vital Metrics
 
 These metrics indicate the vital signs of a Samza job&#39;s health. Note that these metrics are categorized into different groups based on the Samza component they are emitted by, (e.g. SamzaContainerMetrics, TaskInstanceMetrics, ApplicationMaster metrics, etc).
 
@@ -304,7 +321,7 @@ KafkaSystemConsumerMetrics | Number of input messages waiting to be processed on
 The frequency of this function is configured using _task.commit.ms_ |
 | window-ns | SamzaContainerMetrics | In case of WindowableTasks being used, amount of time the job is spending in its window() operations |
 
-### 2. Store Metrics
+### <a name="storemetrics"></a>  D.2. Store Metrics
 
 Stateful Samza jobs typically use RocksDB backed KV stores for storing state. Therefore, timing metrics associated with 
 KV stores can be useful for monitoring input lag. These are some key metrics for KV stores. 
@@ -318,7 +335,7 @@ The metrics reference sheet [here](#e-metrics-reference-sheet) details all metri
 
 
 
-### 3. Operator Metrics
+### <a name="operatormetrics"></a>  D.3. Operator Metrics
 
 If your Samza job uses Samza&#39;s Fluent API or Samza-SQL, Samza creates a DAG (directed acyclic graph) of 
 _operators_ to form the required data processing pipeline. In such cases, operator metrics allow fine-grained 
@@ -331,7 +348,7 @@ in the metrics reference sheet.
 
 
 
-## E. Metrics Reference Sheet
+## <a name="metricssheet"></a>  E. Metrics Reference Sheet
 Suffixes &quot;-ms&quot; and &quot;-ns&quot; to metric names indicated milliseconds and nanoseconds respectively. All &quot;average time&quot; metrics are calculated over a sliding time window of 300 seconds.
 
 All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are populated with the corresponding actual values at runtime.
