@@ -24,6 +24,8 @@ package org.apache.samza.config;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -136,20 +138,9 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   // group id should be unique per job
   static String createConsumerGroupId(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
-    Option jobNameOption = jobConfig.getName();
-    if (jobNameOption.isEmpty()) {
-      throw new ConfigException("Missing job name");
-    }
-    String jobName = (String) jobNameOption.get();
-
-    Option jobIdOption = jobConfig.getJobId();
-    String jobId = "1";
-    if (! jobIdOption.isEmpty()) {
-      jobId = (String) jobIdOption.get();
-    }
-
-    return String.format("%s-%s", jobName, jobId);
+    Pair<String, String> jobNameId = getJobNameAndId(config);
+   
+    return String.format("%s-%s", jobNameId.getLeft(), jobNameId.getRight());
   }
 
   public static String createProducerClientId(String prefix, Config config) {
@@ -158,6 +149,15 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   // client id should be unique per job
   static String createClientId(String prefix, Config config) {
+
+    Pair<String, String> jobNameId = getJobNameAndId(config);
+    String jobName = jobNameId.getLeft();
+    String jobId = jobNameId.getRight();
+    return String.format("%s-%s-%s", prefix.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
+        jobId.replaceAll("\\W", "_"));
+  }
+
+  public static Pair<String, String> getJobNameAndId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     Option jobNameOption = jobConfig.getName();
     if (jobNameOption.isEmpty()) {
@@ -170,9 +170,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     if (! jobIdOption.isEmpty()) {
       jobId = (String) jobIdOption.get();
     }
-
-    return String.format("%s-%s-%s", prefix.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
-        jobId.replaceAll("\\W", "_"));
+    return new ImmutablePair<>(jobName, jobId);
   }
 
   /**
