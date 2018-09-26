@@ -124,11 +124,16 @@ a.side-navigation__group-title:hover::after {
   font-size: 18px;
   margin: 20px auto;
   display: inline-block;
+  border-radius:15px;
   transition: background .3s ease 0s;
 }
 
 .button::after, .section .button::after {
   border: none;
+}
+
+.button + .button {
+  margin-left: 35px;
 }
 
 .button:hover {
@@ -499,15 +504,13 @@ footer .side-by-side > * {
 }
 
 .section__item-feature {
-  font-size: 18px;
+  font-size: 16.5px;
   position: relative;
   margin-left: 30px;
 }
 
 .section__item-feature::before {
-  content: '»';
   position: absolute;
-  left: -30px;
 }
 
 .section__item-logo {
@@ -523,7 +526,6 @@ footer .side-by-side > * {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  background-blend-mode: luminosity;
 }
 
 .section__item-logo-bg:hover {
@@ -2260,3 +2262,4 @@ ul.case-studies {
 .committer-image a:hover {
   border: 3px solid #fff;
 }
+
