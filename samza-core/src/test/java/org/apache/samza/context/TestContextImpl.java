@@ -21,6 +21,7 @@ package org.apache.samza.context;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestContextImpl {
@@ -63,11 +64,20 @@ public class TestContextImpl {
   }
 
   private static Context buildWithApplicationContainerContext(ApplicationContainerContext applicationContainerContext) {
-    return new ContextImpl(null, null, null, applicationContainerContext, null);
+    return buildWithApplicationContext(applicationContainerContext, mock(ApplicationTaskContext.class));
   }
 
   private static Context buildWithApplicationTaskContext(ApplicationTaskContext applicationTaskContext) {
-    return new ContextImpl(null, null, null, null, applicationTaskContext);
+    return buildWithApplicationContext(mock(ApplicationContainerContext.class), applicationTaskContext);
+  }
+
+  private static Context buildWithApplicationContext(ApplicationContainerContext applicationContainerContext,
+      ApplicationTaskContext applicationTaskContext) {
+    return new ContextImpl(mock(JobContext.class),
+        mock(ContainerContext.class),
+        mock(TaskContext.class),
+        applicationContainerContext,
+        applicationTaskContext);
   }
 
   /**

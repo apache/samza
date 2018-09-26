@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import com.google.common.base.Preconditions;
 import java.util.Objects;
 
 
@@ -40,9 +41,9 @@ public class ContextImpl implements Context {
       TaskContext taskContext,
       ApplicationContainerContext applicationContainerContext,
       ApplicationTaskContext applicationTaskContext) {
-    this.jobContext = jobContext;
-    this.containerContext = containerContext;
-    this.taskContext = taskContext;
+    this.jobContext = Preconditions.checkNotNull(jobContext, "Job context can not be null");
+    this.containerContext = Preconditions.checkNotNull(containerContext, "Container context can not be null");
+    this.taskContext = Preconditions.checkNotNull(taskContext, "Task context can not be null");
     this.applicationContainerContext = applicationContainerContext;
     this.applicationTaskContext = applicationTaskContext;
   }
