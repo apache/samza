@@ -77,7 +77,6 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     val (job, task) = startJob
 
     // Validate that restored is empty.
-    assertEquals(0, task.initFinished.getCount)
     assertEquals(0, task.asInstanceOf[ShutdownStateStoreTask].restored.size)
     assertEquals(0, task.received.size)
 
@@ -88,7 +87,6 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     send(task, "2")
     send(task, "99")
     send(task, "99")
-
     stopJob(job)
 
   }
@@ -120,7 +118,7 @@ class ShutdownStateStoreTask extends TestTask {
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     iter.asScala.foreach( p => restored += (p.getKey -> p.getValue))
-    System.err.println("ShutdownStateStoreTask.createStream(): %s" format restored)
+    System.out.println("ShutdownStateStoreTask.createStream(): %s" format restored)
     iter.close
   }
 
