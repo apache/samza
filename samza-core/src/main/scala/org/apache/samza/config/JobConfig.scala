@@ -39,7 +39,7 @@ object JobConfig {
    */
   val CONFIG_REWRITERS = "job.config.rewriters" // streaming.job_config_rewriters
   val CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class" // streaming.job_config_rewriter_class - regex, system, config
-  val CONFIG_JOB_PREFIX = "jobs.%s."
+  val CONFIG_OVERRIDE_JOBS_PREFIX = "jobs.%s."
   val JOB_NAME = "job.name" // streaming.job_name
   val JOB_ID = "job.id" // streaming.job_id
   val SAMZA_FWK_PATH = "samza.fwk.path"
@@ -164,7 +164,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
-  def getJobId = getOption(JobConfig.JOB_ID)
+  def getJobId = getOption(JobConfig.JOB_ID).getOrElse("1")
 
   def failOnCheckpointValidation = { getBoolean(JobConfig.JOB_FAIL_CHECKPOINT_VALIDATION, true) }
 

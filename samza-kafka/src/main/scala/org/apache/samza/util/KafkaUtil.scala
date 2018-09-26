@@ -40,7 +40,7 @@ object KafkaUtil extends Logging {
   def getClientId(id: String, config: Config): String = getClientId(
     id,
     config.getName.getOrElse(throw new ConfigException("Missing job name.")),
-    config.getJobId.getOrElse("1"))
+    config.getJobId)
 
   def getClientId(id: String, jobName: String, jobId: String): String =
     "%s-%s-%s" format

@@ -101,7 +101,7 @@ object SamzaContainer extends Logging {
     if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
       val jobNameAndId = (
         config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-        config.getJobId.getOrElse("1")
+        config.getJobId
       )
 
       loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
