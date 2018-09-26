@@ -27,15 +27,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 
 
 /**
- * A utility class that encapsulates the logic for traversing an {@link OperatorSpecGraph} and building
- * associations between related {@link OperatorSpec}s.
+ * A utility class that encapsulates the logic for traversing operators in the graph from the set of {@link InputOperatorSpec}
+ * and building associations between related {@link OperatorSpec}s.
  */
 /* package private */ class OperatorSpecGraphAnalyzer {
 
@@ -43,14 +42,13 @@ import org.apache.samza.operators.spec.OperatorSpec;
    * Returns a grouping of {@link InputOperatorSpec}s by the joins, i.e. {@link JoinOperatorSpec}s, they participate in.
    */
   public static Multimap<JoinOperatorSpec, InputOperatorSpec> getJoinToInputOperatorSpecs(
-      OperatorSpecGraph operatorSpecGraph) {
+      Collection<InputOperatorSpec> inputOperatorSpecs) {
 
     Multimap<JoinOperatorSpec, InputOperatorSpec> joinOpSpecToInputOpSpecs = HashMultimap.create();
 
     // Traverse graph starting from every input operator spec, observing connectivity between input operator specs
     // and Join operator specs.
-    Iterable<InputOperatorSpec> inputOpSpecs = operatorSpecGraph.getInputOperators().values();
-    for (InputOperatorSpec inputOpSpec : inputOpSpecs) {
+    for (InputOperatorSpec inputOpSpec : inputOperatorSpecs) {
       // Observe all join operator specs reachable from this input operator spec.
       JoinOperatorSpecVisitor joinOperatorSpecVisitor = new JoinOperatorSpecVisitor();
       traverse(inputOpSpec, joinOperatorSpecVisitor, opSpec -> opSpec.getRegisteredOperatorSpecs());
@@ -77,7 +75,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
   }
 
   /**
-   * An {@link OperatorSpecGraph} visitor that records all {@link JoinOperatorSpec}s encountered in the graph.
+   * An visitor that records all {@link JoinOperatorSpec}s encountered in the graph of {@link OperatorSpec}s
    */
   private static class JoinOperatorSpecVisitor implements Consumer<OperatorSpec> {
     private Set<JoinOperatorSpec> joinOpSpecs = new HashSet<>();

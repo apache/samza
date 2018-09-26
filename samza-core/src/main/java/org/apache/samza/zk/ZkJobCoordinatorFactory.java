@@ -35,7 +35,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
   private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
-  private static final String DEFAULT_JOB_ID = "1";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
 
   /**
@@ -68,9 +67,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     String jobName = jobConfig.getName().isDefined()
         ? jobConfig.getName().get()
         : DEFAULT_JOB_NAME;
-    String jobId = jobConfig.getJobId().isDefined()
-        ? jobConfig.getJobId().get()
-        : DEFAULT_JOB_ID;
+    String jobId = jobConfig.getJobId();
 
     return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
   }

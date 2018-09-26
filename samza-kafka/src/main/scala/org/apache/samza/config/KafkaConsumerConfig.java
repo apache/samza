@@ -31,7 +31,6 @@ import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-import scala.runtime.AbstractFunction0;
 
 
 /**
@@ -126,11 +125,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
     String jobName = (String) jobNameOption.get();
 
-    Option jobIdOption = jobConfig.getJobId();
-    String jobId = "1";
-    if (! jobIdOption.isEmpty()) {
-      jobId = (String) jobIdOption.get();
-    }
+    String jobId = jobConfig.getJobId();
 
     return String.format("%s-%s", jobName, jobId);
   }
@@ -156,11 +151,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
     String jobName = (String) jobNameOption.get();
 
-    Option jobIdOption = jobConfig.getJobId();
-    String jobId = "1";
-    if (! jobIdOption.isEmpty()) {
-      jobId = (String) jobIdOption.get();
-    }
+    String jobId = jobConfig.getJobId();
 
     return String.format("%s-%s-%s", id.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
         jobId.replaceAll("\\W", "_"));
