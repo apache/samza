@@ -35,7 +35,7 @@ class HdfsSystemFactory extends SystemFactory with Logging {
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val jobConfig = new JobConfig(config)
     val jobName = jobConfig.getName.getOrElse(throw new ConfigException("Missing job name."))
-    val jobId = jobConfig.getJobId.getOrElse("1")
+    val jobId = jobConfig.getJobId
 
     val clientId = getClientId("samza-producer", jobName, jobId)
     val metrics = new HdfsSystemProducerMetrics(systemName, registry)
