@@ -827,6 +827,11 @@ a.side-navigation__group-title::after {
 
 table {
   font-size: 15px;
+  border-collapse: collapse;
+}
+
+table, td, th{
+    border:1px solid #000000;
 }
 
 pre {

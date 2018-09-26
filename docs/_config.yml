@@ -20,7 +20,7 @@ highlighter: pygments
 markdown: redcarpet
 exclude: ['_notes']
 redcarpet:
-  extensions: ['with_toc_data', 'smart', 'strikethrough']
+  extensions: ['with_toc_data', 'smart', 'strikethrough', 'tables']
 exclude: [_docs]
 baseurl: http://samza.apache.org
 version: latest
