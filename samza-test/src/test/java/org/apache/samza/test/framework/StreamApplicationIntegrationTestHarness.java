@@ -42,7 +42,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
-import org.apache.samza.system.kafka.KafkaSystemAdmin;
+import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option;
 import scala.Option$;
@@ -99,7 +99,7 @@ import scala.Option$;
 public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
   private KafkaProducer producer;
   private KafkaConsumer consumer;
-  protected KafkaSystemAdmin systemAdmin;
+  protected SamzaKafkaSystemAdmin systemAdmin;
 
   private int numEmptyPolls = 3;
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);

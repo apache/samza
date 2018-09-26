@@ -21,13 +21,10 @@ package org.apache.samza.system.kafka
 
 import java.util.Properties
 
-import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
@@ -46,21 +43,25 @@ object KafkaSystemFactory extends Logging {
 class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
-    val clientId = KafkaConsumerConfig.getConsumerClientId( config)
+    val clientIdPrefix = KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX;
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
-    val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, clientId, config)
-    info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, clientId, kafkaConsumer))
+    val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientIdPrefix);
 
-    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics, new SystemClock)
-    info("Created samza system consumer %s" format  (kafkaSystemConsumer.toString))
+    val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, kafkaConsumerConfig)
+    info("Created kafka consumer for system %s, clientId %s: %s" format(systemName, clientIdPrefix, kafkaConsumer))
+
+    val clientId = kafkaConsumerConfig.getClientId
+    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
+      new SystemClock)
+    info("Created samza system consumer %s" format (kafkaSystemConsumer.toString))
 
     kafkaSystemConsumer
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
-    val clientId = KafkaConsumerConfig.getProducerClientId(config)
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
+    val clientId = KafkaConsumerConfig.createProducerClientId(KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX, config);
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
@@ -70,6 +71,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     // Unlike consumer, no need to use encoders here, since they come for free
     // inside the producer configs. Kafka's producer will handle all of this
     // for us.
+    info("Creating kafka producer for system %s, producerClientId %s" format(systemName, clientId))
 
     new KafkaSystemProducer(
       systemName,
@@ -80,43 +82,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
-    val clientId = KafkaConsumerConfig.getAdminClientId(config)
-    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
-    val bootstrapServers = producerConfig.bootsrapServers
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
-    val timeout = consumerConfig.socketTimeoutMs
-    val bufferSize = consumerConfig.socketReceiveBufferBytes
-    val zkConnect = Option(consumerConfig.zkConnect)
-      .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
-    val connectZk = () => {
-      ZkUtils(zkConnect, 6000, 6000, false)
-    }
-    val coordinatorStreamProperties = getCoordinatorTopicProperties(config)
-    val coordinatorStreamReplicationFactor = config.getCoordinatorReplicationFactor.toInt
-    val storeToChangelog = config.getKafkaChangelogEnabledStores()
-    // Construct the meta information for each topic, if the replication factor is not defined, we use 2 as the number of replicas for the change log stream.
-    val topicMetaInformation = storeToChangelog.map { case (storeName, topicName) => {
-      val replicationFactor = config.getChangelogStreamReplicationFactor(storeName).toInt
-      val changelogInfo = ChangelogInfo(replicationFactor, config.getChangelogKafkaProperties(storeName))
-      info("Creating topic meta information for topic: %s with replication factor: %s" format(topicName, replicationFactor))
-      (topicName, changelogInfo)
-    }
-    }
 
-    val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
-    val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
-    new KafkaSystemAdmin(
+    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
       systemName,
-      bootstrapServers,
-      connectZk,
-      coordinatorStreamProperties,
-      coordinatorStreamReplicationFactor,
-      timeout,
-      bufferSize,
-      clientId,
-      topicMetaInformation,
-      intermediateStreamProperties,
-      deleteCommittedMessages)
+      config,
+      KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX);
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

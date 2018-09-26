@@ -35,7 +35,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -108,18 +107,15 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   /**
    * Create internal kafka consumer object, which will be used in the Proxy.
    * @param systemName system name for which we create the consumer
-   * @param clientId client id to use int the kafka client
-   * @param config config
-   * @return kafka consumer object
+   * @param kafkaConsumerConfig
+   * @return kafka consumer
    */
-  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName,
+      HashMap kafkaConsumerConfig) {
 
-    // extract kafka client configs
-    KafkaConsumerConfig consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
+    LOG.info("KafkaClient properties for systemName {}: {}", systemName, kafkaConsumerConfig);
 
-    LOG.info("{}: KafkaClient properties {}", systemName, consumerConfig);
-
-    return new KafkaConsumer(consumerConfig);
+    return new KafkaConsumer<>(kafkaConsumerConfig);
   }
 
   @Override

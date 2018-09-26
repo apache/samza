@@ -46,13 +46,16 @@ import static org.junit.Assert.*;
 public class TestKafkaSystemConsumer {
   public final String TEST_SYSTEM = "test-system";
   public final String TEST_STREAM = "test-stream";
-  public final String TEST_CLIENT_ID = "testClientId";
+  public final String TEST_JOB = "test-job";
+  public final String TEST_PREFIX_ID = "testClientId";
   public final String BOOTSTRAP_SERVER = "127.0.0.1:8888";
   public final String FETCH_THRESHOLD_MSGS = "50000";
   public final String FETCH_THRESHOLD_BYTES = "100000";
 
   private KafkaSystemConsumer createConsumer(String fetchMsg, String fetchBytes) {
     final Map<String, String> map = new HashMap<>();
+
+    map.put(JobConfig.JOB_NAME(), TEST_JOB);
 
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD(), TEST_SYSTEM), fetchMsg);
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES(), TEST_SYSTEM), fetchBytes);
@@ -62,11 +65,12 @@ public class TestKafkaSystemConsumer {
 
     Config config = new MapConfig(map);
     KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, TEST_CLIENT_ID);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, TEST_PREFIX_ID);
+
     final KafkaConsumer<byte[], byte[]> kafkaConsumer = new MockKafkaConsumer(consumerConfig);
 
     MockKafkaSystemConsumer newKafkaSystemConsumer =
-        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, config, TEST_CLIENT_ID,
+        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, config, TEST_PREFIX_ID,
             new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry()), System::currentTimeMillis);
 
     return newKafkaSystemConsumer;
