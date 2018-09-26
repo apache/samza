@@ -201,10 +201,9 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
             String tableId = "InputTable-" + ioName.replace(".", "-").replace("$", "-");
-            tableDescriptor = new RocksDbTableDescriptor(tableId)
-                .withSerde(KVSerde.of(
-                    new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
-                    new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+            tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(
+                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
+                new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
           }
           tableDescMap.put(ioName, tableDescriptor);
         }

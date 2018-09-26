@@ -141,8 +141,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     }
 
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {
-      return new InMemoryTableDescriptor<Integer, Profile>(PROFILE_TABLE)
-          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
+      return new InMemoryTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
               Profile profile = (Profile) msg.getMessage();
@@ -156,8 +155,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   static class DurablePageViewProfileJoin extends PageViewProfileJoin {
     @Override
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {
-      return new RocksDbTableDescriptor<Integer, Profile>(PROFILE_TABLE)
-          .withSerde(KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
+      return new RocksDbTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
               TestTableData.Profile profile = (TestTableData.Profile) msg.getMessage();

@@ -20,7 +20,6 @@
 package org.apache.samza.sql.runner;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,12 +29,18 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.BiRel;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.core.TableModify;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
+import org.apache.samza.sql.interfaces.DslConverter;
+import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -47,9 +52,6 @@ import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.ReflectionUtils;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser.QueryInfo;
-import org.apache.samza.sql.testutil.SqlFileParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,37 +94,25 @@ public class SamzaSqlApplicationConfig {
 
   private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
-
-  private final List<String> sql;
-
-  private final List<QueryInfo> queryInfo;
+  private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
 
   private final long windowDurationMs;
 
-  public SamzaSqlApplicationConfig(Config staticConfig) {
-
-    sql = fetchSqlFromConfig(staticConfig);
-
-    queryInfo = fetchQueryInfo(sql);
+  public SamzaSqlApplicationConfig(Config staticConfig, Set<String> inputSystemStreams,
+      Set<String> outputSystemStreams) {
 
     ioResolver = createIOResolver(staticConfig);
 
-    udfResolver = createUdfResolver(staticConfig);
-    udfMetadata = udfResolver.getUdfs();
+    inputSystemStreamConfigBySource = inputSystemStreams.stream()
+         .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
 
-    inputSystemStreamConfigBySource = queryInfo.stream()
-        .map(QueryInfo::getSources)
-        .flatMap(Collection::stream)
-        .distinct()
-        .collect(Collectors.toMap(Function.identity(), ioResolver::fetchSourceInfo));
+    outputSystemStreamConfigsBySource = outputSystemStreams.stream()
+         .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
 
-    Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(inputSystemStreamConfigBySource.values());
+    systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
+    systemStreamConfigsBySource.putAll(outputSystemStreamConfigsBySource);
 
-    outputSystemStreamConfigsBySource = queryInfo.stream()
-        .map(QueryInfo::getSink)
-        .distinct()
-        .collect(Collectors.toMap(Function.identity(), ioResolver::fetchSinkInfo));
-    systemStreamConfigs.addAll(outputSystemStreamConfigsBySource.values());
+    Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(systemStreamConfigsBySource.values());
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
@@ -135,6 +125,9 @@ public class SamzaSqlApplicationConfig {
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
+
+    udfResolver = createUdfResolver(staticConfig);
+    udfMetadata = udfResolver.getUdfs();
 
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
@@ -151,30 +144,7 @@ public class SamzaSqlApplicationConfig {
     return factoryInvoker.apply(factory, pluginConfig);
   }
 
-  public static List<QueryInfo> fetchQueryInfo(List<String> sqlStmts) {
-    return sqlStmts.stream().map(SamzaSqlQueryParser::parseQuery).collect(Collectors.toList());
-  }
-
-  public static List<String> fetchSqlFromConfig(Map<String, String> config) {
-    List<String> sql;
-    if (config.containsKey(CFG_SQL_STMT) && StringUtils.isNotBlank(config.get(CFG_SQL_STMT))) {
-      String sqlValue = config.get(CFG_SQL_STMT);
-      sql = Collections.singletonList(sqlValue);
-    } else if (config.containsKey(CFG_SQL_STMTS_JSON) && StringUtils.isNotBlank(config.get(CFG_SQL_STMTS_JSON))) {
-      sql = deserializeSqlStmts(config.get(CFG_SQL_STMTS_JSON));
-    } else if (config.containsKey(CFG_SQL_FILE)) {
-      String sqlFile = config.get(CFG_SQL_FILE);
-      sql = SqlFileParser.parseSqlFile(sqlFile);
-    } else {
-      String msg = "Config doesn't contain the SQL that needs to be executed.";
-      LOG.error(msg);
-      throw new SamzaException(msg);
-    }
-
-    return sql;
-  }
-
-  private static List<String> deserializeSqlStmts(String value) {
+  public static List<String> deserializeSqlStmts(String value) {
     Validate.notEmpty(value, "json Value is not set or empty");
     return JsonUtil.fromJson(value, new TypeReference<List<String>>() {
     });
@@ -224,12 +194,45 @@ public class SamzaSqlApplicationConfig {
     return ret;
   }
 
-  public List<String> getSql() {
-    return sql;
+  public static Collection<RelRoot> populateSystemStreamsAndGetRelRoots(List<String> dslStmts, Config config,
+      Set<String> inputSystemStreams, Set<String> outputSystemStreams) {
+    // TODO: Get the converter factory based on the file type. Create abstraction around this.
+    DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
+    DslConverter dslConverter = dslConverterFactory.create(config);
+
+    Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
+
+    for (RelRoot relRoot : relRoots) {
+      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    }
+
+    return relRoots;
   }
 
-  public List<QueryInfo> getQueryInfo() {
-    return queryInfo;
+  private static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
+      Set<String> outputSystemStreams) {
+    if (relNode instanceof TableModify) {
+      outputSystemStreams.add(getSystemStreamName(relNode));
+    } else {
+      if (relNode instanceof BiRel) {
+        BiRel biRelNode = (BiRel) relNode;
+        populateSystemStreams(biRelNode.getLeft(), inputSystemStreams, outputSystemStreams);
+        populateSystemStreams(biRelNode.getRight(), inputSystemStreams, outputSystemStreams);
+      } else {
+        if (relNode.getTable() != null) {
+          inputSystemStreams.add(getSystemStreamName(relNode));
+        }
+      }
+    }
+     List<RelNode> relNodes = relNode.getInputs();
+    if (relNodes == null || relNodes.isEmpty()) {
+      return;
+    }
+    relNodes.forEach(node -> populateSystemStreams(node, inputSystemStreams, outputSystemStreams));
+  }
+
+  private static String getSystemStreamName(RelNode relNode) {
+    return relNode.getTable().getQualifiedName().stream().map(Object::toString).collect(Collectors.joining("."));
   }
 
   public Collection<UdfMetadata> getUdfMetadata() {
@@ -242,6 +245,10 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, SqlIOConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
+  }
+
+  public Map<String, SqlIOConfig> getSystemStreamConfigsBySource() {
+    return systemStreamConfigsBySource;
   }
 
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {

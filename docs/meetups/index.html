@@ -1,0 +1,106 @@
+---
+layout: page
+exclude_from_loop: true
+title: Samza Meetups
+---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+<div class="meetups" data-plugin="paginate" data-max-posts="2" data-previous=".paginate-previous--meetup" data-next=".paginate-next--meetup" data-pagination=".pagination--meetup">
+    {% assign sorted = (site.meetups | sort: 'date') | reverse %}
+    {% for meetup in sorted %}
+        {% if meetup.exclude_from_loop %}
+            {% continue %}
+        {% endif %}
+    <div class="meetup" data-plugin="event" data-date="{{ meetup.date | date: '%-d %B %Y' }}" data-upcoming-class="meetup--upcoming">
+        <i class="meetup-icon ion-md-calendar"></i>
+        <div class="meetup-info">
+            <div class="meetup-date-group">{{ meetup.display_date }}</div>
+            
+            {% for meet in meetup.meetups %}
+
+            <div class="meet" data-plugin="event" data-date="{{ meet.date | date: '%-d %B %Y' }}" data-upcoming-class="meet--upcoming">
+                <div class="meet-upcoming-section">
+                    <div class="meet-upcoming-tag">
+                        <i class="ion-md-alarm"></i>
+                        Upcoming Event!
+                    </div>
+                </div>
+                <div>
+                    <div class="meet-name">{{ meet.name}}</div>
+                    <div class="meet-date"><strong>&raquo; Date &HorizontalLine;</strong> {{ meet.date }}</div>
+                    <div class="meet-host"><strong>&raquo; Presented At &HorizontalLine;</strong> {{ meet.host }}</div>
+
+                    {% if meet.presenters %}
+                    <div class="meet-presenter">
+
+                        <strong>&raquo; Presented By &HorizontalLine;</strong>
+
+                        <span>
+                        {% for presenter in meet.presenters %}
+
+                            <span>{{ presenter.name }}</span>
+
+                        {% endfor %}
+                        </span>
+
+                    </div>
+                    {% endif %}
+
+                    {% if meet.image %}
+                    <div class="meet-image" style="background-image:url('{{ meet.image }}')"></div>
+                    {% endif %}
+                </div>
+                {% if meet.video and meet.video.image %}
+                <a class="meet-video" href="{{ meet.video.url }}" style="background-image:url('{{ meet.video.image}}')">
+                    <i class="meet-video-icon ion-md-arrow-dropright-circle"></i>
+                </a>
+                {% endif %}
+
+                {% if meet.abstract %}
+                <div class="meet-description">
+                    {{ meet.abstract }}
+                </div>
+                {% endif %}
+                <div class="meet-actions">    
+                    {% if meet.slides %}
+                    <a class="meet-action" href="{{ meet.slides.url }}">View Slides</a>
+                    {% endif %}
+                    <a class="meet-action" href="{{ meet.url }}">Meetup Details
+                    </a>
+                </div>
+            </div>
+
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+    
+<div class="pagination pagination--meetup">
+    <hr/>
+    <div class="pagination-inner">
+        <div class="paginate-previous paginate-previous--meetup paginate-action hide">
+            <i class="icon ion-md-arrow-dropleft-circle"></i>
+            Previous
+        </div>
+        <div class="paginate-next paginate-next--meetup paginate-action hide">
+            Next
+            <i class="icon ion-md-arrow-dropright-circle"></i>
+        </div>
+    </div>
+</div>

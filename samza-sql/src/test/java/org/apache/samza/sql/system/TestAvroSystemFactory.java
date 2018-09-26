@@ -70,6 +70,7 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final byte[] DEFAULT_TRACKING_ID_BYTES =
       {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
 
+
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
 
   public static List<String> getPageKeyProfileNameJoin(int numMessages) {

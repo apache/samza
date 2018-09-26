@@ -38,11 +38,11 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.TableImpl;
+import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
@@ -73,12 +73,12 @@ public class TestCachingTable {
     guavaTableDesc.withCache(CacheBuilder.newBuilder().build());
     TableSpec spec = guavaTableDesc.getTableSpec();
     Assert.assertTrue(spec.getConfig().containsKey(GuavaCacheTableProvider.GUAVA_CACHE));
-    doTestSerialize(new TableImpl(guavaTableDesc.getTableSpec()));
+    doTestSerialize(guavaTableDesc);
   }
 
-  private void doTestSerialize(Table cache) {
+  private void doTestSerialize(TableDescriptor cache) {
     CachingTableDescriptor desc = new CachingTableDescriptor("1");
-    desc.withTable(new TableImpl(new TableSpec("2", null, null, new HashMap<>())));
+    desc.withTable(createDummyTableDescriptor("2"));
     if (cache == null) {
       desc.withReadTtl(Duration.ofMinutes(3));
       desc.withWriteTtl(Duration.ofMinutes(3));
@@ -147,8 +147,8 @@ public class TestCachingTable {
 
   private void doTestCacheOps(boolean isWriteAround) {
     CachingTableDescriptor desc = new CachingTableDescriptor("1");
-    desc.withTable(new TableImpl(new TableSpec("realTable", null, null, new HashMap<>())));
-    desc.withCache(new TableImpl(new TableSpec("cacheTable", null, null, new HashMap<>())));
+    desc.withTable(createDummyTableDescriptor("realTable"));
+    desc.withCache(createDummyTableDescriptor("cacheTable"));
     if (isWriteAround) {
       desc.withWriteAround();
     }
@@ -354,5 +354,13 @@ public class TestCachingTable {
     // Ensure foo1 and foo3 are gone
     Assert.assertNull(guavaCache.getIfPresent("foo1"));
     Assert.assertNull(guavaCache.getIfPresent("foo3"));
+  }
+
+  private TableDescriptor createDummyTableDescriptor(String tableId) {
+    BaseTableDescriptor tableDescriptor = mock(BaseTableDescriptor.class);
+    when(tableDescriptor.getTableId()).thenReturn(tableId);
+    when(tableDescriptor.getTableSpec()).thenReturn(
+        new TableSpec(tableId, null, null, new HashMap<>()));
+    return tableDescriptor;
   }
 }

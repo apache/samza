@@ -50,7 +50,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinatorStreamManager.bootstrap
     val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
@@ -61,6 +61,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
 
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
+    coordinatorStreamManager.stop()
 
     //create necessary checkpoint and changelog streams
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)

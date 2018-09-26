@@ -373,9 +373,9 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         }, commitMs, commitMs, TimeUnit.MILLISECONDS);
       }
 
-      final SystemTimerScheduler timerScheduler = task.systemTimerScheduler();
-      if (timerScheduler != null) {
-        timerScheduler.registerListener(() -> {
+      final EpochTimeScheduler epochTimeScheduler = task.context().getTimerScheduler();
+      if (epochTimeScheduler != null) {
+        epochTimeScheduler.registerListener(() -> {
             state.needScheduler();
           });
       }

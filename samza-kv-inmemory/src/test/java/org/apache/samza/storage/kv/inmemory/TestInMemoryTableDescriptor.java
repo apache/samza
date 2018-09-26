@@ -31,8 +31,8 @@ public class TestInMemoryTableDescriptor {
   @Test
   public void testTableSpec() {
 
-    TableSpec tableSpec = new InMemoryTableDescriptor<Integer, String>("1")
-        .withSerde(KVSerde.of(new IntegerSerde(), new StringSerde()))
+    TableSpec tableSpec = new InMemoryTableDescriptor("1",
+            KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withConfig("inmemory.abc", "xyz")
         .getTableSpec();
 

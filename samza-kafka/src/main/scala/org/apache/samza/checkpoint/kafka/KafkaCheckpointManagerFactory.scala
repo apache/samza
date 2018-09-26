@@ -32,7 +32,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
 
   def getCheckpointManager(config: Config, registry: MetricsRegistry): CheckpointManager = {
     val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
-    val jobId = config.getJobId.getOrElse("1")
+    val jobId = config.getJobId
 
     val kafkaConfig = new KafkaConfig(config)
     val checkpointSystemName = kafkaConfig.getCheckpointSystem.getOrElse(

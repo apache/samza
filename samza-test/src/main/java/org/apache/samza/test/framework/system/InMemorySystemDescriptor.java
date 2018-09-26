@@ -29,7 +29,6 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.test.framework.TestRunner;
 
 
 /**
@@ -60,9 +59,6 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
    * </ol>
    *
    **/
-  private static final String CONFIG_OVERRIDE_PREFIX = "jobs.%s.";
-  private static final String DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY = "systems.%s.default.stream.samza.offset.default";
-
   private String inMemoryScope;
 
   /**
@@ -106,11 +102,7 @@ public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDes
   public Map<String, String> toConfig() {
     HashMap<String, String> configs = new HashMap<>(super.toConfig());
     configs.put(InMemorySystemConfig.INMEMORY_SCOPE, this.inMemoryScope);
-    configs.put(String.format(CONFIG_OVERRIDE_PREFIX + JavaSystemConfig.SYSTEM_FACTORY_FORMAT, TestRunner.JOB_NAME, getSystemName()),
-        FACTORY_CLASS_NAME);
-    configs.put(
-        String.format(CONFIG_OVERRIDE_PREFIX + DEFAULT_STREAM_OFFSET_DEFAULT_CONFIG_KEY, TestRunner.JOB_NAME,
-            getSystemName()), SystemStreamMetadata.OffsetType.OLDEST.toString());
+    configs.put(String.format(JavaSystemConfig.SYSTEM_FACTORY_FORMAT, getSystemName()), FACTORY_CLASS_NAME);
     return configs;
   }
 

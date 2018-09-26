@@ -26,11 +26,13 @@ import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ApplicationContainerContextFactory;
 import org.apache.samza.context.ApplicationTaskContextFactory;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.task.TaskFactory;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,10 +66,12 @@ public class TestTaskApplicationDescriptorImpl {
       this.add(mock2);
     } };
   private Set<TableDescriptor> mockTables = new HashSet<TableDescriptor>() { {
-      TableDescriptor mock1 = mock(TableDescriptor.class);
-      TableDescriptor mock2 = mock(TableDescriptor.class);
+      BaseTableDescriptor mock1 = mock(BaseTableDescriptor.class);
+      BaseTableDescriptor mock2 = mock(BaseTableDescriptor.class);
       when(mock1.getTableId()).thenReturn("test-table1");
       when(mock2.getTableId()).thenReturn("test-table2");
+      when(mock1.getSerde()).thenReturn(mock(KVSerde.class));
+      when(mock2.getSerde()).thenReturn(mock(KVSerde.class));
       this.add(mock1);
       this.add(mock2);
     } };

@@ -224,6 +224,13 @@ class StreamTaskTestUtil {
    * interrupt, which is forwarded on to ThreadJob, and marked as a failure).
    */
   def stopJob(job: StreamJob) {
+    // make sure we don't kill the job before it was started.
+    // eventProcesses guarantees all the consumers have been initialized
+    val tasks = TestTask.tasks
+    val task = tasks.values.toList.head
+    task.eventProcessed.await(60, TimeUnit.SECONDS)
+    assertEquals(0, task.eventProcessed.getCount)
+
     // Shutdown task.
     job.kill
     val status = job.waitForFinish(60000)
@@ -280,7 +287,10 @@ class StreamTaskTestUtil {
     val taskConfig = new TaskConfig(jobModel.getConfig)
     val checkpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap())
     checkpointManager match {
-      case Some(checkpointManager) => checkpointManager.createResources
+      case Some(checkpointManager) => {
+        checkpointManager.createResources
+        checkpointManager.stop
+      }
       case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
     }
 
@@ -324,6 +334,7 @@ object TestTask {
 abstract class TestTask extends StreamTask with InitableTask {
   var received = ArrayBuffer[String]()
   val initFinished = new CountDownLatch(1)
+  val eventProcessed = new CountDownLatch(1)
   @volatile var gotMessage = new CountDownLatch(1)
 
   def init(context: Context) {
@@ -334,6 +345,8 @@ abstract class TestTask extends StreamTask with InitableTask {
 
   def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
     val msg = envelope.getMessage.asInstanceOf[String]
+
+    eventProcessed.countDown()
 
     System.err.println("TestTask.process(): %s" format msg)
 

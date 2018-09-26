@@ -95,8 +95,6 @@ public class TestTableDescriptorsProvider {
     Assert.assertEquals(storageConfig.getStoreNames().get(0), localTableId);
     Assert.assertEquals(storageConfig.getStorageFactoryClassName(localTableId),
         RocksDbKeyValueStorageEngineFactory.class.getName());
-    Assert.assertTrue(storageConfig.getStorageKeySerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(storageConfig.getStorageMsgSerde(localTableId).startsWith("StringSerde"));
     Config storeConfig = resultConfig.subset("stores." + localTableId + ".", true);
     Assert.assertEquals(4, storeConfig.size());
     Assert.assertEquals(4096, storeConfig.getInt("rocksdb.block.size.bytes"));
@@ -106,10 +104,6 @@ public class TestTableDescriptorsProvider {
         RocksDbTableProviderFactory.class.getName());
     Assert.assertEquals(tableConfig.getTableProviderFactory(remoteTableId),
         RemoteTableProviderFactory.class.getName());
-    Assert.assertTrue(tableConfig.getKeySerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getValueSerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getKeySerde(remoteTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getValueSerde(remoteTableId).startsWith("LongSerde"));
     Assert.assertEquals(tableConfig.getTableProviderFactory(localTableId), RocksDbTableProviderFactory.class.getName());
     Assert.assertEquals(tableConfig.getTableProviderFactory(remoteTableId), RemoteTableProviderFactory.class.getName());
   }
@@ -136,13 +130,11 @@ public class TestTableDescriptorsProvider {
       final RateLimiter readRateLimiter = mock(RateLimiter.class);
       final MyReadFunction readFn = new MyReadFunction();
 
-      tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1")
+      tableDescriptors.add(new RemoteTableDescriptor<>("remote-table-1", KVSerde.of(new StringSerde(), new LongSerde()))
           .withReadFunction(readFn)
-          .withRateLimiter(readRateLimiter, null, null)
-          .withSerde(KVSerde.of(new StringSerde(), new LongSerde())));
-      tableDescriptors.add(new RocksDbTableDescriptor("local-table-1")
-          .withBlockSize(4096)
-          .withSerde(KVSerde.of(new StringSerde(), new StringSerde())));
+          .withRateLimiter(readRateLimiter, null, null));
+      tableDescriptors.add(new RocksDbTableDescriptor("local-table-1", KVSerde.of(new StringSerde(), new StringSerde()))
+          .withBlockSize(4096));
       return tableDescriptors;
     }
   }

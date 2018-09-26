@@ -515,10 +515,11 @@ public class TestStreamApplicationDescriptorImpl {
     TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
     when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
     when(mockTableDescriptor.getTableId()).thenReturn(testTableSpec.getId());
+    when(mockTableDescriptor.getSerde()).thenReturn(testTableSpec.getSerde());
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getTable(mockTableDescriptor);
       }, mockConfig);
-    assertNotNull(streamAppDesc.getTables().get(testTableSpec));
+    assertNotNull(streamAppDesc.getTables().get(testTableSpec.getId()));
   }
 
   @Test

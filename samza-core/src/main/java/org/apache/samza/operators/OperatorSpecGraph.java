@@ -30,7 +30,6 @@ import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.serializers.SerializableSerde;
-import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -45,7 +44,6 @@ public class OperatorSpecGraph implements Serializable {
   private final Map<String, InputOperatorSpec> inputOperators;
   private final Map<String, OutputStreamImpl> outputStreams;
   private final Set<String> broadcastStreams;
-  private final Map<TableSpec, TableImpl> tables;
   private final Set<OperatorSpec> allOpSpecs;
   private final boolean hasWindowOrJoins;
 
@@ -57,7 +55,6 @@ public class OperatorSpecGraph implements Serializable {
     this.inputOperators = streamAppDesc.getInputOperators();
     this.outputStreams = streamAppDesc.getOutputStreams();
     this.broadcastStreams = streamAppDesc.getBroadcastStreams();
-    this.tables = streamAppDesc.getTables();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     this.hasWindowOrJoins = checkWindowOrJoins();
     this.serializedOpSpecGraph = opSpecGraphSerde.toBytes(this);
@@ -73,10 +70,6 @@ public class OperatorSpecGraph implements Serializable {
 
   public Set<String> getBroadcastStreams() {
     return broadcastStreams;
-  }
-
-  public Map<TableSpec, TableImpl> getTables() {
-    return tables;
   }
 
   /**

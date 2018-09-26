@@ -53,6 +53,9 @@ class ScanTranslator {
   }
 
   private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
+    // All the user-supplied functions are expected to be serializable in order to enable full serialization of user
+    // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
+    // initialization.
     private transient SamzaRelConverter msgConverter;
     private final String streamName;
 
@@ -84,7 +87,8 @@ class ScanTranslator {
     final String streamName = sqlIOConfig.getStreamName();
 
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
-    DelegatingSystemDescriptor sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
+    DelegatingSystemDescriptor
+        sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
     GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamName, noOpKVSerde);
     MessageStream<KV<Object, Object>> inputStream = streamAppDesc.getInputStream(isd);
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));

@@ -21,7 +21,10 @@ package org.apache.samza.sql.translator;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -43,6 +46,7 @@ import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
 import static org.junit.Assert.*;
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 
 
 public class TestQueryTranslator {
@@ -81,14 +85,20 @@ public class TestQueryTranslator {
   public void testTranslate() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic select MyTest(id) from testavro.level1.level2.SIMPLE1 as s where s.id = 10");
+        "Insert into testavro.outputTopic(id) select MyTest(id) from testavro.level1.level2.SIMPLE1 as s where s.id = 10");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(descriptor -> { },samzaConfig);
 
-    translator.translate(queryInfo, appDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { },samzaConfig);
+
+    translator.translate(queryInfo.get(0), appDesc);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -126,17 +136,20 @@ public class TestQueryTranslator {
   public void testTranslateComplex() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic select Flatten(array_values) from testavro.COMPLEX1");
-//    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-//        "Insert into testavro.foo2 select string_value, SUM(id) from testavro.COMPLEX1 "
-//            + "GROUP BY TumbleWindow(CURRENT_TIME, INTERVAL '1' HOUR), string_value");
+        "Insert into testavro.outputTopic(string_value) select Flatten(array_values) from testavro.COMPLEX1");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -161,14 +174,21 @@ public class TestQueryTranslator {
   public void testTranslateSubQuery() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic select Flatten(a), id from (select id, array_values a, string_value s from testavro.COMPLEX1)");
+        "Insert into testavro.outputTopic(string_value, id) select Flatten(a), id "
+            + " from (select id, array_values a, string_value s from testavro.COMPLEX1)");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -193,115 +213,151 @@ public class TestQueryTranslator {
   public void testTranslateStreamTableJoinWithoutJoinOperator() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p"
             + " where p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableJoinWithFullJoinOperator() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " full join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = IllegalStateException.class)
   public void testTranslateStreamTableJoinWithSelfJoinOperator() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName)"
             + " select p1.name as profileName"
             + " from testavro.PROFILE.`$table` as p1"
             + " join testavro.PROFILE.`$table` as p2"
             + " on p1.id = p2.id";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableJoinWithThetaCondition() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id <> pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableCrossJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv, testavro.PROFILE.`$table` as p";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableJoinWithAndLiteralCondition() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId and p.name = 'John'";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableJoinWithSubQuery() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " where exists "
@@ -309,83 +365,113 @@ public class TestQueryTranslator {
             + " where p.id = pv.profileId)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateTableTableJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW.`$table` as pv"
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamStreamJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.PROFILE as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateJoinWithIncorrectLeftJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW.`$table` as pv"
             + " left join testavro.PROFILE as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateJoinWithIncorrectRightJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " right join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
@@ -396,55 +482,73 @@ public class TestQueryTranslator {
     config.put(configIOResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
         ConfigBasedIOResolverFactory.class.getName());
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test (expected = SamzaException.class)
   public void testTranslateStreamTableInnerJoinWithUdf() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.PROFILE.`$table` as p"
             + " on MyTest(p.id) = MyTest(pv.profileId)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 
   @Test
   public void testTranslateStreamTableInnerJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     StreamConfig streamConfig = new StreamConfig(samzaConfig);
@@ -485,19 +589,25 @@ public class TestQueryTranslator {
   public void testTranslateStreamTableLeftJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PAGEVIEW as pv"
             + " left join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
 
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
@@ -539,18 +649,24 @@ public class TestQueryTranslator {
   public void testTranslateStreamTableRightJoin() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.enrichedPageViewTopic"
+        "Insert into testavro.enrichedPageViewTopic(profileName, pageKey)"
             + " select p.name as profileName, pv.pageKey"
             + " from testavro.PROFILE.`$table` as p"
             + " right join testavro.PAGEVIEW as pv"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
 
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
@@ -592,19 +708,25 @@ public class TestQueryTranslator {
   public void testTranslateGroupBy() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.pageViewCountTopic"
+        "Insert into testavro.pageViewCountTopic(jobName, pageKey, `count`)"
             + " select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`"
             + " from testavro.PAGEVIEW as pv"
             + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
             + " group by (pv.pageKey)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
-    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
 
-    translator.translate(queryInfo, streamAppDesc);
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
+    QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+
+    translator.translate(queryInfo.get(0), streamAppDesc);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
     Assert.assertEquals(1, specGraph.getInputOperators().size());
@@ -617,16 +739,22 @@ public class TestQueryTranslator {
   public void testTranslateGroupByWithSumAggregator() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 10);
     String sql =
-        "Insert into testavro.pageViewCountTopic"
+        "Insert into testavro.pageViewCountTopic(jobName, pageKey, `sum`)"
             + " select 'SampleJob' as jobName, pv.pageKey, sum(pv.profileId) as `sum`"
             + " from testavro.PAGEVIEW as pv" + " where pv.pageKey = 'job' or pv.pageKey = 'inbox'"
             + " group by (pv.pageKey)";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
-    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toSet()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+
     QueryTranslator translator = new QueryTranslator(samzaSqlApplicationConfig);
-    SamzaSqlQueryParser.QueryInfo queryInfo = samzaSqlApplicationConfig.getQueryInfo().get(0);
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, samzaConfig);
-    translator.translate(queryInfo, streamAppDesc);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
+    translator.translate(queryInfo.get(0), streamAppDesc);
   }
 }
