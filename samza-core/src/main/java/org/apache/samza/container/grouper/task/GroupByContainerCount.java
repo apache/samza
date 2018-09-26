@@ -78,7 +78,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     // Convert to a Set of ContainerModel
     Set<ContainerModel> containerModels = new HashSet<>();
     for (int i = 0; i < containerCount; i++) {
-      containerModels.add(new ContainerModel(String.valueOf(i), i, taskGroups[i]));
+      containerModels.add(new ContainerModel(String.valueOf(i), taskGroups[i]));
     }
 
     return Collections.unmodifiableSet(containerModels);
@@ -194,7 +194,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private void saveTaskAssignments(Set<ContainerModel> containers, TaskAssignmentManager taskAssignmentManager) {
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getProcessorId());
+        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getId());
       }
     }
   }
@@ -301,7 +301,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
         containerTaskModels.put(model.getTaskName(), model);
       }
       containerModels.add(
-          new ContainerModel(container.containerId, Integer.valueOf(container.containerId), containerTaskModels));
+          new ContainerModel(container.containerId, containerTaskModels));
     }
     return Collections.unmodifiableSet(containerModels);
   }

@@ -53,7 +53,6 @@ public class PageViewCounterExample implements StreamApplication {
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     PageViewCounterExample app = new PageViewCounterExample();
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
-
     runner.run();
     runner.waitForFinish();
   }

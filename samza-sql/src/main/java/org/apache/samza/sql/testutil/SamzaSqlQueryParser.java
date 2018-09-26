@@ -24,9 +24,11 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.config.Lex;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.plan.Contexts;
@@ -49,6 +51,8 @@ import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
+import org.apache.samza.sql.interfaces.SamzaSqlDriver;
+import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 
 
 /**
@@ -63,11 +67,13 @@ public class SamzaSqlQueryParser {
     private final List<String> sources;
     private String selectQuery;
     private String sink;
+    private String sql;
 
-    public QueryInfo(String selectQuery, List<String> sources, String sink) {
+    public QueryInfo(String selectQuery, List<String> sources, String sink, String sql) {
       this.selectQuery = selectQuery;
       this.sink = sink;
       this.sources = sources;
+      this.sql = sql;
     }
 
     public List<String> getSources() {
@@ -80,6 +86,10 @@ public class SamzaSqlQueryParser {
 
     public String getSink() {
       return sink;
+    }
+
+    public String getSql() {
+      return sql;
     }
   }
 
@@ -116,14 +126,18 @@ public class SamzaSqlQueryParser {
       throw new SamzaException("Sql query is not of the expected format");
     }
 
-    return new QueryInfo(selectQuery, sources, sink);
+    return new QueryInfo(selectQuery, sources, sink, sql);
   }
 
   private static Planner createPlanner() {
     Connection connection;
     SchemaPlus rootSchema;
     try {
-      connection = DriverManager.getConnection("jdbc:calcite:");
+      JavaTypeFactory typeFactory = new SamzaSqlJavaTypeFactoryImpl();
+      SamzaSqlDriver driver = new SamzaSqlDriver(typeFactory);
+      DriverManager.deregisterDriver(DriverManager.getDriver("jdbc:calcite:"));
+      DriverManager.registerDriver(driver);
+      connection = driver.connect("jdbc:calcite:", new Properties());
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       rootSchema = calciteConnection.getRootSchema();
     } catch (SQLException e) {
@@ -174,7 +188,6 @@ public class SamzaSqlQueryParser {
         getSource(basicCall.operand(0), sourceList);
       } else if (basicCall.getOperator() instanceof SqlUnnestOperator && basicCall.operand(0) instanceof SqlSelect) {
         sourceList.addAll(getSourcesFromSelectQuery(basicCall.operand(0)));
-        return;
       }
     } else if (node instanceof SqlSelect) {
       getSource(((SqlSelect) node).getFrom(), sourceList);

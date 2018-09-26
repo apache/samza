@@ -57,7 +57,7 @@ public class TestCoordinatorStreamStore {
     when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
     when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
     coordinatorStreamStore = new CoordinatorStreamStore(SetTaskContainerMapping.TYPE, new MapConfig(configMap), new MetricsRegistryMap());
-    coordinatorStreamStore.init(new MapConfig(), new MetricsRegistryMap());
+    coordinatorStreamStore.init();
   }
 
   @Test

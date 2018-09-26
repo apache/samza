@@ -1,0 +1,81 @@
+---
+layout: page
+---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+<div class="breadcrumbs-list-container">
+
+    <span>{{ page.date | date: "%B %-d, %Y"}}</span>
+
+    <ul class="breadcrumbs-list">
+        <li class=""><a href="/news/">News</a></li>
+        <li class="divider"></li>
+        {% if page.previous and page.previous.exclude_from_loop != true %}
+        <li class="">
+            <i class="icon ion-md-arrow-dropleft"></i>
+            <a href="{{ page.previous.url }}">Previous</a>
+        </li>
+        {% endif %}
+        {% if page.next and page.next.exclude_from_loop != true %}
+        <li class="" style="float: right;">
+            <a href="{{ page.next.url}}">Next</a>
+            <i class="icon ion-md-arrow-dropright"></i>
+        </li>
+        {% endif %}
+    </ul>
+
+</div>
+
+<hr class="breadcrumbs-list-divider">
+
+{{ page.content | remove: page.excerpt }}
+
+{% assign show_continue = false %}
+
+{% if page.previous and page.previous.exclude_from_loop != true %}
+    {% assign show_continue = true %}
+{% endif %}
+
+{% if page.next and page.next.exclude_from_loop != true %}
+    {% assign show_continue = true %}
+{% endif %}
+
+{% if show_continue %}
+<hr/>
+<h5>Continue Reading</h5>
+
+<div class="news-end">
+    {% if page.previous and page.previous.exclude_from_loop != true %}
+    <a class="news-previous news-end-action" href="{{ page.previous.url }}">
+        <div class="news-end-action-title">
+            <i class="icon ion-md-arrow-dropleft-circle"></i>
+            {{ page.previous.title }}
+        </div>
+    </a>
+    {% endif %}
+
+    {% if page.next and page.next.exclude_from_loop != true %}
+    <a class="news-next news-end-action" href="{{ page.next.url }}">
+        <div class="news-end-action-title">
+            {{ page.next.title }}
+            <i class="icon ion-md-arrow-dropright-circle"></i>
+        </div>
+    </a>
+    {% endif %}
+</div>
+{% endif %}

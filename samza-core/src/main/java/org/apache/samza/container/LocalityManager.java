@@ -78,7 +78,7 @@ public class LocalityManager {
     this.config = config;
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
-    this.metadataStore.init(config, metricsRegistry);
+    this.metadataStore.init();
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
     this.taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry, keySerde, valueSerde);

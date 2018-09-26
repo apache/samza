@@ -50,12 +50,12 @@ class KafkaSystemConsumerMetrics(val systemName: String = "unknown", val registr
     clientBytesRead.put(clientName, newCounter("%s-bytes-read" format clientName))
     clientReads.put((clientName), newCounter("%s-messages-read" format clientName))
     clientSkippedFetchRequests.put((clientName), newCounter("%s-skipped-fetch-requests" format clientName))
-    topicPartitions.put(clientName, newGauge("%s-topic-partitions" format clientName, 0))
+    topicPartitions.put(clientName, newGauge("%s-registered-topic-partitions" format clientName, 0))
   }
 
   // java friendlier interfaces
   // Gauges
-  def setTopicPartitionValue(clientName: String, value: Int) {
+  def setNumTopicPartitions(clientName: String, value: Int) {
     topicPartitions.get(clientName).set(value)
   }
 
