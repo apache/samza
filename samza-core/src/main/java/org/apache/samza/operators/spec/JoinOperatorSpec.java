@@ -20,7 +20,7 @@ package org.apache.samza.operators.spec;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.operators.functions.JoinFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.util.TimestampedValue;
@@ -105,8 +105,8 @@ public class JoinOperatorSpec<K, M, OM, JM> extends OperatorSpec<Object, JM> imp
   }
 
   @Override
-  public TimerFunction getTimerFn() {
-    return joinFn instanceof TimerFunction ? (TimerFunction) joinFn : null;
+  public ScheduledFunction getScheduledFn() {
+    return joinFn instanceof ScheduledFunction ? (ScheduledFunction) joinFn : null;
   }
 
   public OperatorSpec getLeftInputOpSpec() {
