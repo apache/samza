@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.SideInputsProcessor;
 
 
@@ -49,11 +50,19 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   /**
    * Constructs a table descriptor instance
-   *
-   * @param tableId Id of the table
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
     super(tableId);
+  }
+
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
+   */
+  public BaseLocalStoreBackedTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    super(tableId, serde);
   }
 
   public D withSideInputs(List<String> sideInputs) {

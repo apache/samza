@@ -29,7 +29,7 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
-import org.apache.samza.task.SystemTimerScheduler;
+import org.apache.samza.task.EpochTimeScheduler;
 import org.apache.samza.task.TaskContext;
 import org.apache.samza.scheduler.ScheduledCallback;
 import org.slf4j.Logger;
@@ -57,7 +57,7 @@ public class TaskContextImpl implements TaskContext {
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, Object> objectRegistry = new HashMap<>();
-  private final SystemTimerScheduler timerScheduler;
+  private final EpochTimeScheduler timerScheduler;
 
   private Object userContext = null;
 
@@ -80,7 +80,7 @@ public class TaskContextImpl implements TaskContext {
     this.tableManager = tableManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
-    this.timerScheduler = SystemTimerScheduler.create(timerExecutor);
+    this.timerScheduler = EpochTimeScheduler.create(timerExecutor);
   }
 
   @Override
@@ -163,7 +163,7 @@ public class TaskContextImpl implements TaskContext {
     return streamMetadataCache;
   }
 
-  public SystemTimerScheduler getTimerScheduler() {
+  public EpochTimeScheduler getTimerScheduler() {
     return timerScheduler;
   }
 }

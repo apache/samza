@@ -67,7 +67,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
           }
           envMapWithJavaHome
         }),
-        Some("%s_%s" format(config.getName.get, config.getJobId.getOrElse(1)))
+        Some("%s_%s" format(config.getName.get, config.getJobId))
       )
     } catch {
       case e: Throwable =>
@@ -169,7 +169,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
         // Get by name
         config.getName match {
           case Some(jobName) =>
-            val applicationName = "%s_%s" format(jobName, config.getJobId.getOrElse(1))
+            val applicationName = "%s_%s" format(jobName, config.getJobId)
             logger.info("Fetching status from YARN for application name %s" format applicationName)
             val applicationIds = client.getActiveApplicationIds(applicationName)
 

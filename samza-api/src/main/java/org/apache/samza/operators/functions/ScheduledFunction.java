@@ -25,7 +25,7 @@ import java.util.Collection;
 
 
 /**
- * Allows scheduling with key(s) and is invoked when the specified time(s) occurs.
+ * Allows scheduling a callback for a specific epoch-time.
  * Key must be a unique identifier for its corresponding logic to execute, and is provided in the callback when the
  * corresponding schedule time occurs.
  *
@@ -33,16 +33,23 @@ import java.util.Collection;
  * Example of a {@link FlatMapFunction} with {@link ScheduledFunction}:
  * <pre>{@code
  *    public class ExampleScheduledFn implements FlatMapFunction<String, String>, ScheduledFunction<String, String> {
+ *      // for recurring callbacks, keep track of the scheduler from "schedule"
+ *      private Scheduler scheduler;
+ *
  *      public void schedule(Scheduler scheduler) {
+ *        // save the scheduler for recurring callbacks
+ *        this.scheduler = scheduler;
  *        long time = System.currentTimeMillis() + 5000; // fire after 5 sec
- *        scheduler.schedule("example-scheduler-logic", time);
+ *        scheduler.schedule("do-delayed-logic", time);
  *      }
  *      public Collection<String> apply(String s) {
  *        ...
  *      }
  *      public Collection<String> onCallback(String key, long timestamp) {
- *        // fired with key as "example-scheduler-logic"
+ *        // do some logic for key "do-delayed-logic"
  *        ...
+ *        // for recurring callbacks, call the saved scheduler again
+ *        this.scheduler.schedule("example-process", System.currentTimeMillis() + 5000);
  *      }
  *    }
  * }</pre>
@@ -50,18 +57,16 @@ import java.util.Collection;
  * @param <OM> type of the output
  */
 public interface ScheduledFunction<K, OM> {
-
   /**
-   * Initialize the function for scheduling, such as setting some initial scheduling logic or saving the
-   * {@code scheduler} for later use.
+   * Allows scheduling the initial callback(s) and saving the {@code scheduler} for later use for recurring callbacks.
    * @param scheduler used to specify the schedule time(s) and key(s)
    */
   void schedule(Scheduler<K> scheduler);
 
   /**
    * Returns the output from the scheduling logic corresponding to the key that was triggered.
-   * @param key key corresponding to the scheduling logic that got triggered
-   * @param timestamp schedule time that was set for the key, in milliseconds since epoch
+   * @param key key corresponding to the callback that got invoked
+   * @param timestamp schedule time that was set for the callback for the key, in milliseconds since epoch
    * @return {@link Collection} of output elements
    */
   Collection<OM> onCallback(K key, long timestamp);

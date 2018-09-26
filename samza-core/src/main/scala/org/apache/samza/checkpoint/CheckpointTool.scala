@@ -170,7 +170,7 @@ class CheckpointTool(config: Config, newOffsets: TaskNameToCheckpointMap, manage
     coordinatorStreamManager.start
     coordinatorStreamManager.bootstrap
     val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
-    val jobModelManager = JobModelManager(coordinatorStreamManager, changelogManager.readPartitionMapping())
+    val jobModelManager = JobModelManager(coordinatorStreamManager.getConfig, changelogManager.readPartitionMapping())
     val taskNames = jobModelManager
       .jobModel
       .getContainers
