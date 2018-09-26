@@ -89,10 +89,15 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
 
     Map<String, String> storeConfig = new HashMap<>();
 
-    // We assume the configuration for serde are already generated for this table,
-    // so we simply carry them over to store configuration.
-    //
-    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(generatedConfig));
+    // serde configurations for tables are generated at top level by JobNodeConfigurationGenerator and are included
+    // in the global jobConfig. generatedConfig has all table specific configuration generated from TableSpec, such
+    // as TableProviderFactory, sideInputs, etc.
+    // Merge the global jobConfig and generatedConfig to get full access to configuration needed to create local
+    // store configuration
+    Map<String, String> mergedConfigMap = new HashMap<>(jobConfig);
+    mergedConfigMap.putAll(generatedConfig);
+    JobConfig mergedJobConfig = new JobConfig(new MapConfig(mergedConfigMap));
+    JavaTableConfig tableConfig = new JavaTableConfig(mergedJobConfig);
 
     String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
@@ -116,9 +121,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
     if (enableChangelog) {
       String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
       if (StringUtils.isEmpty(changelogStream)) {
-        changelogStream = String.format("%s-%s-table-%s",
-            jobConfig.get(JobConfig.JOB_NAME()),
-            jobConfig.get(JobConfig.JOB_ID(), "1"),
+        changelogStream = String.format("%s-%s-table-%s", mergedJobConfig.getName().get(), mergedJobConfig.getJobId(),
             tableSpec.getId());
       }
 

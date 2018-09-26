@@ -31,10 +31,11 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
@@ -59,16 +60,21 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
-  private final JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
-  private final OperatorSpecGraph specGraph;
+  private final JobGraphJsonGenerator jsonGenerator;
+  private final JobNodeConfigurationGenerator configGenerator;
+  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
 
   /**
    * The JobGraph is only constructed by the {@link ExecutionPlanner}.
-   * @param config Config
+   *
+   * @param config configuration for the application
+   * @param appDesc {@link ApplicationDescriptorImpl} describing the application
    */
-  JobGraph(Config config, OperatorSpecGraph specGraph) {
+  JobGraph(Config config, ApplicationDescriptorImpl appDesc) {
     this.config = config;
-    this.specGraph = specGraph;
+    this.appDesc = appDesc;
+    this.jsonGenerator = new JobGraphJsonGenerator();
+    this.configGenerator = new JobNodeConfigurationGenerator();
   }
 
   @Override
@@ -91,11 +97,6 @@ import org.slf4j.LoggerFactory;
         .collect(Collectors.toList());
   }
 
-  void addTable(TableSpec tableSpec, JobNode node) {
-    tables.add(tableSpec);
-    node.addTable(tableSpec);
-  }
-
   @Override
   public String getPlanAsJson() throws Exception {
     return jsonGenerator.toJson(this);
@@ -105,12 +106,9 @@ import org.slf4j.LoggerFactory;
    * Returns the config for this application
    * @return {@link ApplicationConfig}
    */
+  @Override
   public ApplicationConfig getApplicationConfig() {
     return new ApplicationConfig(config);
-  }
-
-  public OperatorSpecGraph getSpecGraph() {
-    return specGraph;
   }
 
   /**
@@ -152,20 +150,20 @@ import org.slf4j.LoggerFactory;
     intermediateStreams.add(edge);
   }
 
+  void addTable(TableSpec tableSpec, JobNode node) {
+    tables.add(tableSpec);
+    node.addTable(tableSpec);
+  }
+
   /**
    * Get the {@link JobNode}. Create one if it does not exist.
    * @param jobName name of the job
    * @param jobId id of the job
-   * @return
+   * @return {@link JobNode} created with {@code jobName} and {@code jobId}
    */
   JobNode getOrCreateJobNode(String jobName, String jobId) {
-    String nodeId = JobNode.createId(jobName, jobId);
-    JobNode node = nodes.get(nodeId);
-    if (node == null) {
-      node = new JobNode(jobName, jobId, specGraph, config);
-      nodes.put(nodeId, node);
-    }
-    return node;
+    String nodeId = JobNode.createJobNameAndId(jobName, jobId);
+    return nodes.computeIfAbsent(nodeId, k -> new JobNode(jobName, jobId, config, appDesc, configGenerator));
   }
 
   /**
@@ -178,20 +176,13 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
-   * @param streamSpec  spec of the StreamEdge
-   * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
+   * Get the {@link StreamEdge} for {@code streamId}.
+   *
+   * @param streamId the streamId for the {@link StreamEdge}
    * @return stream edge
    */
-  StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
-    String streamId = streamSpec.getId();
-    StreamEdge edge = edges.get(streamId);
-    if (edge == null) {
-      boolean isBroadcast = specGraph.getBroadcastStreams().contains(streamId);
-      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
-      edges.put(streamId, edge);
-    }
-    return edge;
+  StreamEdge getStreamEdge(String streamId) {
+    return edges.get(streamId);
   }
 
   /**
@@ -245,6 +236,23 @@ import org.slf4j.LoggerFactory;
     validateOutputStreams();
     validateInternalStreams();
     validateReachability();
+  }
+
+  /**
+   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
+   * @param streamSpec  spec of the StreamEdge
+   * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
+   * @return stream edge
+   */
+  private StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
+    String streamId = streamSpec.getId();
+    StreamEdge edge = edges.get(streamId);
+    if (edge == null) {
+      boolean isBroadcast = appDesc.getBroadcastStreams().contains(streamId);
+      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
+      edges.put(streamId, edge);
+    }
+    return edge;
   }
 
   /**
@@ -305,7 +313,7 @@ import org.slf4j.LoggerFactory;
       Set<JobNode> unreachable = new HashSet<>(nodes.values());
       unreachable.removeAll(reachable);
       throw new IllegalArgumentException(String.format("Jobs %s cannot be reached from Sources.",
-          String.join(", ", unreachable.stream().map(JobNode::getId).collect(Collectors.toList()))));
+          String.join(", ", unreachable.stream().map(JobNode::getJobNameAndId).collect(Collectors.toList()))));
     }
   }
 
@@ -325,7 +333,7 @@ import org.slf4j.LoggerFactory;
 
     while (!queue.isEmpty()) {
       JobNode node = queue.poll();
-      node.getOutEdges().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(target -> {
+      node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(target -> {
           if (!visited.contains(target)) {
             visited.add(target);
             queue.offer(target);
@@ -351,9 +359,9 @@ import org.slf4j.LoggerFactory;
     Map<String, Long> indegree = new HashMap<>();
     Set<JobNode> visited = new HashSet<>();
     pnodes.forEach(node -> {
-        String nid = node.getId();
+        String nid = node.getJobNameAndId();
         //only count the degrees of intermediate streams
-        long degree = node.getInEdges().stream().filter(e -> !inputStreams.contains(e)).count();
+        long degree = node.getInEdges().values().stream().filter(e -> !inputStreams.contains(e)).count();
         indegree.put(nid, degree);
 
         if (degree == 0L) {
@@ -378,8 +386,8 @@ import org.slf4j.LoggerFactory;
       while (!q.isEmpty()) {
         JobNode node = q.poll();
         sortedNodes.add(node);
-        node.getOutEdges().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
-            String nid = n.getId();
+        node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
+            String nid = n.getJobNameAndId();
             Long degree = indegree.get(nid) - 1;
             indegree.put(nid, degree);
             if (degree == 0L && !visited.contains(n)) {
@@ -400,7 +408,7 @@ import org.slf4j.LoggerFactory;
           long min = Long.MAX_VALUE;
           JobNode minNode = null;
           for (JobNode node : reachable) {
-            Long degree = indegree.get(node.getId());
+            Long degree = indegree.get(node.getJobNameAndId());
             if (degree < min) {
               min = degree;
               minNode = node;

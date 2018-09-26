@@ -117,7 +117,6 @@ public class TestOperatorSpecGraph {
     OperatorSpecGraph specGraph = new OperatorSpecGraph(mockAppDesc);
     assertEquals(specGraph.getInputOperators(), inputOpSpecMap);
     assertEquals(specGraph.getOutputStreams(), outputStrmMap);
-    assertTrue(specGraph.getTables().isEmpty());
     assertTrue(!specGraph.hasWindowOrJoins());
     assertEquals(specGraph.getAllOperatorSpecs(), this.allOpSpecs);
   }

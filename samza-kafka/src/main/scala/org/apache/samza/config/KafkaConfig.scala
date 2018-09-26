@@ -289,7 +289,10 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     properties
   }
 
-  // kafka config
+  /**
+    * @deprecated Use KafkaConsumerConfig
+    */
+  @Deprecated
   def getKafkaSystemConsumerConfig( systemName: String,
                                     clientId: String,
                                     groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
