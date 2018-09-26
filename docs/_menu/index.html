@@ -1,0 +1,153 @@
+---
+items:
+  - menu_title: Getting Started
+    items:
+      - menu_title: QuickStart
+        url: /startup/hello-samza/version/
+      - menu_title: Code Examples
+        url: /learn/tutorials/version/
+  - menu_title: Documentation
+    has_sub: true
+    has_sub_subs: true
+    items_attributes: 'data-documentation="/learn/documentation/version/"'
+  - menu_title: Releases
+    get_items: releases
+    map_title: version
+    map_url: link
+    sort: 'order'
+    reverse: true
+  - menu_title: Blog
+    url: '/news/'
+  - menu_title: Community
+    items:
+      - menu_title: Contact Us
+        url: '/community/mailing-lists.html'
+      - menu_title: Contributor's Corner 
+        url: '/contribute/contributors-corner.html'
+      - menu_title: PMC members and committers
+        url: '/community/committers.html'
+      - menu_title: Talks and Meetups 
+        url: '/meetups/'
+
+  - menu_title: Case Studies
+    get_items: case-studies
+    items:
+      - menu_title: View All
+        url: /case-studies/
+      - divider: true        
+---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+
+<div class="side-navigation">
+
+  {% for item in page.items %}
+
+    {% if item.has_sub_subs %}
+      {% assign sub_class = 'side-navigation__group-has-submenus' %}
+    {% else %}
+      {% assign sub_class = '' %}
+    {% endif %}
+
+    {% if item.get_items or item.items or item.has_sub %}
+      {% assign has_sub = true  %}
+    {% else %}
+      {% assign has_sub = false %}
+    {% endif %}
+    
+    <!-- Start Group -->
+    {% if has_sub %}
+    <div class="side-navigation__group side-navigation__group--has-nested" data-plugin="sub-menu" data-sub-menu-show-class="side-navigation__group--has-nested-visible">
+    {% else %}
+    <div class="side-navigation__group">
+    {% endif %}
+
+    <!-- Make menu_title, and start items group if needed -->
+    {% if has_sub %}
+      <div class="side-navigation__group-title">
+        <i class="side-navigation__group-title-icon icon ion-md-arrow-dropdown"></i>
+        {{ item.menu_title }}
+      </div>
+      <div class="side-navigation__group-items {{ sub_class }}" data-sub-menu {{ item.items_attributes | replace: 'version', site.version }}>
+    {% else %}
+      <a class="side-navigation__group-title" href="{{ item.url | replace: 'version', site.version }}">
+        {{ item.menu_title }}
+      </a>
+    {% endif %}
+
+    <!-- Handle sub navigation items from data -->
+    {% if item.items %}
+      {% for subitem in item.items %}
+        {% if subitem.divider %}
+          <hr>
+          {% continue %}
+        {% endif %}
+      <a class="side-navigation__group-item" href="{{ subitem.url | replace: 'version', site.version }}">{{ subitem.menu_title }}</a>
+      {% endfor %}
+
+    {% endif %}
+
+    <!-- Handle sub nagivation from site collections -->
+    {% if item.get_items %}
+
+      {% assign subnav = site[item.get_items] %}
+
+      {% if item.sort %}
+
+      {% assign subnav = subnav | sort: item.sort %}
+
+      {% endif %}
+
+      {% if item.reverse %}
+
+      {% assign subnav = subnav | reverse %}
+
+      {% endif %}
+
+      {% for subitem in subnav %}
+        {% if subitem.exclude_from_loop %}
+          {% continue %}
+        {% endif %}
+
+        {% assign url = subitem.url %}
+        {% assign menu_title = subitem.menu_title %}
+
+        {% if item.map_title %}
+          {% assign menu_title = subitem[item.map_title] %}
+        {% endif %}
+
+        {% if item.map_url %}
+          {% assign url = subitem[item.map_url] %}
+        {% endif %}
+
+      <a class="side-navigation__group-item" href="{{ url }}">{{ menu_title }}</a>
+      {% endfor %}
+
+    {% endif %}
+
+    <!-- Close sub nav group -->
+    {% if has_sub %}
+      </div>
+    {% endif %}
+
+    <!-- Close menu group -->
+    </div>
+
+  {% endfor %}
+
+</div>

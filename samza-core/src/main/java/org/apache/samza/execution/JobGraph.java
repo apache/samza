@@ -176,20 +176,13 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
-   * @param streamSpec  spec of the StreamEdge
-   * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
+   * Get the {@link StreamEdge} for {@code streamId}.
+   *
+   * @param streamId the streamId for the {@link StreamEdge}
    * @return stream edge
    */
-  private StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
-    String streamId = streamSpec.getId();
-    StreamEdge edge = edges.get(streamId);
-    if (edge == null) {
-      boolean isBroadcast = appDesc.getBroadcastStreams().contains(streamId);
-      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
-      edges.put(streamId, edge);
-    }
-    return edge;
+  StreamEdge getStreamEdge(String streamId) {
+    return edges.get(streamId);
   }
 
   /**
@@ -243,6 +236,23 @@ import org.slf4j.LoggerFactory;
     validateOutputStreams();
     validateInternalStreams();
     validateReachability();
+  }
+
+  /**
+   * Get the {@link StreamEdge} for a {@link StreamSpec}. Create one if it does not exist.
+   * @param streamSpec  spec of the StreamEdge
+   * @param isIntermediate  boolean flag indicating whether it's an intermediate stream
+   * @return stream edge
+   */
+  private StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec, boolean isIntermediate) {
+    String streamId = streamSpec.getId();
+    StreamEdge edge = edges.get(streamId);
+    if (edge == null) {
+      boolean isBroadcast = appDesc.getBroadcastStreams().contains(streamId);
+      edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
+      edges.put(streamId, edge);
+    }
+    return edge;
   }
 
   /**

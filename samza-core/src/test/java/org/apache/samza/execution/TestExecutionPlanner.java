@@ -335,7 +335,7 @@ public class TestExecutionPlanner {
     JobGraph jobGraph = planner.createJobGraph(graphSpec.getConfig(), graphSpec);
 
     ExecutionPlanner.setInputAndOutputStreamPartitionCount(jobGraph, streamManager);
-    new IntermediateStreamManager(config, graphSpec).calculateJoinInputPartitions(jobGraph);
+    new IntermediateStreamManager(config, graphSpec).calculatePartitions(jobGraph);
 
     // the partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
@@ -469,10 +469,10 @@ public class TestExecutionPlanner {
     edge.setPartitionCount(16);
     edges.add(edge);
 
-    assertEquals(32, IntermediateStreamManager.maxPartition(edges));
+    assertEquals(32, IntermediateStreamManager.maxPartitions(edges));
 
     edges = Collections.emptyList();
-    assertEquals(StreamEdge.PARTITIONS_UNKNOWN, IntermediateStreamManager.maxPartition(edges));
+    assertEquals(StreamEdge.PARTITIONS_UNKNOWN, IntermediateStreamManager.maxPartitions(edges));
   }
 
   @Test

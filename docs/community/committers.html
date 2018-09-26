@@ -1,0 +1,97 @@
+---
+layout: page
+title: Committers
+exclude_from_loop: true
+---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+A list of people who have contributed to Samza
+
+<hr class="committers-hr"/>
+
+<ul class="committers">
+
+  {% assign committers = site.committers | sort: 'order' %}
+
+  {% for committer in committers %}
+    {% if committer.exclude_from_loop %}
+        {% continue %}
+    {% endif %}
+
+  <li class="committer">
+
+    <span class="committer-image" title="{{ committer.name }}">
+
+      {% if committer.image %}
+      <span style="background-image: url('{{ committer.image }}');"></span>
+      {% elsif committer.github %}
+      <a href="https://github.com/{{ committer.github }}" target="_blank" rel="nofollow"><span style="background-image: url('https://github.com/{{ committer.github}}.png?size=256');"></span></a>
+      {% else %}
+      <span style="background-image: url('https://api.adorable.io/avatars/256/{{ committer.name }}');"></span>
+      {% endif %}
+      
+    </span>
+    <div class="committer-info">
+      <div class="committer-name">
+          {{ committer.name }}
+      </div>
+      <div class="committer-roles">
+          {% if committer.samza_title %}
+          <span>{{ committer.samza_title }}</span>
+          {% endif %}
+
+          {% if committer.apache_member %}
+          <span>Apache Member</span>
+          {% endif %}
+
+          {% if committer.pmc_member %}
+          <span>PMC Member</span>
+          {% endif %}
+
+          <span>Committer</span>
+      </div>
+      <div class="committer-links">
+
+          {% if committer.website %}
+          <a href="{{ committer.website}}" class="committer-link" rel="nofollow" target="_blank">
+            <i class="committer-icon icon ion-md-globe"></i>
+          </a>
+          {% endif %}
+
+          {% if committer.linkedin %}
+          <a href="{{ committer.linkedin}}" class="committer-link" rel="nofollow" target="_blank">
+            <i class="committer-icon icon ion-logo-linkedin"></i>
+          </a>
+          {% endif %}
+
+          {% if committer.twitter %}
+          <a href="https://twitter.com/{{ committer.twitter}}" class="committer-link" rel="nofollow" target="_blank">
+            <i class="committer-icon icon ion-logo-twitter"></i>
+          </a>
+          {% endif %}
+
+      </div>
+      
+
+     
+    </div>
+  </li>
+
+  {% endfor %}
+
+</ul>

@@ -94,8 +94,11 @@ public class ExecutionPlanner {
   JobGraph createJobGraph(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     JobGraph jobGraph = new JobGraph(config, appDesc);
     StreamConfig streamConfig = new StreamConfig(config);
+    // Source streams contain both input and intermediate streams.
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
+    // Sink streams contain both output and intermediate streams.
     Set<StreamSpec> sinkStreams = getStreamSpecs(appDesc.getOutputStreamIds(), streamConfig);
+
     Set<StreamSpec> intermediateStreams = Sets.intersection(sourceStreams, sinkStreams);
     Set<StreamSpec> inputStreams = Sets.difference(sourceStreams, intermediateStreams);
     Set<StreamSpec> outputStreams = Sets.difference(sinkStreams, intermediateStreams);
@@ -170,4 +173,5 @@ public class ExecutionPlanner {
       }
     }
   }
+
 }

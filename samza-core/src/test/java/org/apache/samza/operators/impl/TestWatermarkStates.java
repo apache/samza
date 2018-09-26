@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -53,7 +54,7 @@ public class TestWatermarkStates {
     producerCounts.put(intermediate, 2);
 
     // advance watermark on input to 5
-    WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts);
+    WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap());
     IncomingMessageEnvelope envelope = IncomingMessageEnvelope.buildWatermarkEnvelope(inputPartition0, 5L);
     watermarkStates.update((WatermarkMessage) envelope.getMessage(),
         envelope.getSystemStreamPartition());
