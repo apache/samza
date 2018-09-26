@@ -67,7 +67,7 @@ The StreamApplication interface provides an API method named describe() for you 
 
 ### Input data source using Kafka
 
-In this example, we are going to use Kafka as the input data source and consume the text for word count line by line. We start by defining a KafkaSystemDescriptor, which specifies the properties to establishing the connection to the local Kafka cluster. Then we create a  [KafkaInputDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/kafka/KafkaInputDescriptor.html)/[KafkaOutputDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/system/kafka/KafkaOutputDescriptor.html) to set up the topic, Serializer and Deserializer. Finally we use this input in the [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html) so we can consume from this topic. The code is in the following:
+In this example, we are going to use Kafka as the input data source and consume the text for word count line by line. We start by defining a KafkaSystemDescriptor, which specifies the properties to establishing the connection to the local Kafka cluster. Then we create a  `KafkaInputDescriptor`/`KafkaOutputDescriptor` to set up the topic, Serializer and Deserializer. Finally we use this input in the [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html) so we can consume from this topic. The code is in the following:
 
 {% highlight java %}
 public class WordCount implements StreamApplication {
