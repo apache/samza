@@ -17,18 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.task;
+package org.apache.samza.operators;
 
 /**
- * The callback that is invoked when its corresponding timer registered via {@link TaskContext} fires.
- * @param <K> type of the timer key
+ * Allows scheduling {@link org.apache.samza.operators.functions.ScheduledFunction} callbacks to be invoked later.
+ * @param <K> type of the key to schedule
  */
-public interface TimerCallback<K> {
+public interface Scheduler<K> {
   /**
-   * Invoked when the timer of key fires.
-   * @param key timer key
-   * @param collector contains the means of sending message envelopes to the output stream.
-   * @param coordinator manages execution of tasks.
+   * Schedule a callback for the {@code key} to be invoked at {@code timestamp}.
+   * @param key unique key associated with the callback to schedule
+   * @param timestamp epoch time when the callback for the key will be invoked, in milliseconds
    */
-  void onTimer(K key, MessageCollector collector, TaskCoordinator coordinator);
+  void schedule(K key, long timestamp);
+
+  /**
+   * Delete the scheduled callback for the provided {@code key}.
+   * @param key key to delete
+   */
+  void delete(K key);
 }
