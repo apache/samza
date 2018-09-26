@@ -22,7 +22,6 @@ package org.apache.samza.system.eventhub.admin;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
 import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
@@ -31,7 +30,6 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -51,23 +49,6 @@ public class TestEventHubSystemAdmin {
     Assert.assertNull(eventHubSystemAdmin.offsetComparator("1", "a"));
     Assert.assertNull(eventHubSystemAdmin.offsetComparator("100", EventHubSystemConsumer.END_OF_STREAM));
     Assert.assertNull(eventHubSystemAdmin.offsetComparator(EventHubSystemConsumer.END_OF_STREAM, EventHubSystemConsumer.END_OF_STREAM));
-  }
-
-  @Test
-  public void testGetNextOffset() {
-    EventHubSystemFactory eventHubSystemFactory = new EventHubSystemFactory();
-    SystemAdmin eventHubSystemAdmin = eventHubSystemFactory.getAdmin(SYSTEM_NAME,
-            MockEventHubConfigFactory.getEventHubConfig(EventHubSystemProducer.PartitioningMethod.EVENT_HUB_HASHING));
-    Map<SystemStreamPartition, String> offsets = new HashMap<>();
-    SystemStreamPartition ssp0 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(0));
-    SystemStreamPartition ssp2 = new SystemStreamPartition(SYSTEM_NAME, STREAM_NAME1, new Partition(2));
-    offsets.put(ssp0, Integer.toString(0));
-    offsets.put(ssp2, EventHubSystemConsumer.START_OF_STREAM);
-
-    Map<SystemStreamPartition, String> updatedOffsets = eventHubSystemAdmin.getOffsetsAfter(offsets);
-    Assert.assertEquals(offsets.size(), updatedOffsets.size());
-    Assert.assertEquals("1", updatedOffsets.get(ssp0));
-    Assert.assertEquals("0", updatedOffsets.get(ssp2));
   }
 
   @Ignore("Integration Test")
