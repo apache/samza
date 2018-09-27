@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import kafka.admin.AdminClient;
@@ -75,74 +76,59 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   private static final int MAX_RETRIES_ON_EXCEPTION = 5;
 
   private final String systemName;
-  private Consumer<K, V> metadataConsumer;
+  private final Consumer<K, V> metadataConsumer;
 
   private final Supplier<ZkUtils> connectZk;
   private final Supplier<AdminClient> connectAdminClient;
 
-  //Custom properties to use when the system admin tries to create a new
-  //coordinator stream.
+  // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
 
-  //The replication factor to use when the system admin creates a new
-  // coordinator stream.
+  // Replication factor for a new coordinator stream.
   private final int coordinatorStreamReplicationFactor;
 
-  // Replication factor for the Changelog topic in kafka
-  //Kafka properties to be used during the Changelog topic creation
+  // Replication factor and kafka properties for changelog topic creation
   private final Map<String, ChangelogInfo> changelogTopicMetaInformation;
 
-  // Kafka properties to be used during the intermediate topic creation
+  // Kafka properties for intermediate topics creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-
+  // admin utils for some kafka related operations
+  // TODO refactor them out after we move to the new(broker based) AdminClient
   private final KafkaSystemAdminUtilsScala kafkaAdminUtils;
 
-  private volatile AdminClient adminClient;
+  // adminClient is required for deleteBeforeMessages operation
+  private final AdminClient adminClient;
 
   private final boolean deleteCommittedMessages;
 
+  // used in TestRepartitionJoinWindowApp
   @VisibleForTesting
   public static volatile boolean deleteMessageCalled = false;
+
+  private final AtomicBoolean stoped = new AtomicBoolean(false);
 
   @Override
   public void start() {
     // Plese note. There is slight inconsistency in the use of this class.
     // Some of the functinality of this class may actually be used BEFORE start() is called.
     // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
-    // Also we assume that start is called only once.
-    if (metadataConsumer == null) {
-      throw new SamzaException("Cannot start SamzaKafkaSystemAdmin with null metadataConsumer");
-    }
 
-    if (adminClient == null) {
-      throw new SamzaException("Cannot start SamzaKafkaSystemAdmin with null adminClient");
+    // Throw exception if start is called after stop
+    if (stoped.get()) {
+      throw new SamzaException("SamzaKafkaAdmin.start() is called after stop()");
     }
   }
 
   @Override
   public void stop() {
-    if (metadataConsumer != null) {
+    if (stoped.compareAndSet(false, true)) {
       metadataConsumer.close();
-    } else {
-      LOG.warn("In Stop KafkaSystemAdmin: metadataConsumer is null");
-    }
-    metadataConsumer = null;
-    if (adminClient != null) {
       adminClient.close();
-    } else {
-      LOG.warn("In Stop KafkaSystemAdmin: adminClient is null");
     }
-    adminClient = null;
   }
 
   @VisibleForTesting
-  /**
-   *
-   * Replication factor for the Changelog topic in kafka
-   * Kafka properties to be used during the Changelog topic creation
-   *
-   */
   SamzaKafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
       Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
       Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
@@ -163,12 +149,19 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     kafkaAdminUtils = new KafkaSystemAdminUtilsScala(systemName);
   }
 
+  /**
+   * Helper method to create SamzaKafkaSystemAdmin
+   * @param systemName system name
+   * @param config application config
+   * @param idPrefix will be used to generate clientId for the metadata consumer
+   * @return new SamzaKafkaSystemAdmin object
+   */
   public static SamzaKafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
       final String idPrefix) {
 
     boolean zkSecure = false; // needs to be added to the argument if ever true is possible
 
-    // admin requires adminClient for deleteBeforeMessages
+    // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
     String brokerListString =
         config.get(String.format("systems.%s.consumer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
@@ -197,6 +190,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     Supplier<ZkUtils> zkConnectSupplier = () -> {
       return ZkUtils.apply(zkConnectStr, 6000, 6000, zkSecure);
     };
+
     // extract kafka client configs
     KafkaConsumerConfig consumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix);
@@ -236,7 +230,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
             .asJava();
 
-    LOG.info(String.format("Creating kafka Admin for system %s, idPrefix %s", systemName, idPrefix));
+    LOG.info(String.format("Creating SamzaKafkaSystemAdmin for system %s, idPrefix %s", systemName, idPrefix));
 
     return new SamzaKafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
@@ -293,6 +287,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
           }
         }).get();
 
+    LOG.info("SystemStream partition counts for system {}: {}", systemName, result);
     return result;
   }
 
@@ -431,11 +426,6 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     return offset;
   }
 
-  /**
-   * convert TopicPartition to SystemStreamPartition
-   * @param topicPartition the topic partition to be created
-   * @return an instance of SystemStreamPartition
-   */
   private SystemStreamPartition createSystemStreamPartition(TopicPartition topicPartition) {
     String topic = topicPartition.topic();
     Partition partition = new Partition(topicPartition.partition());
@@ -498,6 +488,11 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     topics.forEach(topic -> {
       List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
 
+      if (partitionInfos == null) {
+        String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
+        throw new SamzaException(msg);
+      }
+
       List<TopicPartition> topicPartitions = partitionInfos.stream()
           .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
           .collect(Collectors.toList());
@@ -512,7 +507,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
         KafkaSystemAdminUtilsScala.assembleMetadata(ScalaJavaUtil.toScalaMap(allOldestOffsets),
             ScalaJavaUtil.toScalaMap(allNewestOffsets), ScalaJavaUtil.toScalaMap(allUpcomingOffsets));
 
-    LOG.info("assembled SystemStreamMetadata is: {}", result);
+    LOG.debug("assembled SystemStreamMetadata is: {}", result);
     return JavaConverters.mapAsJavaMapConverter(result).asJava();
   }
 
@@ -520,15 +515,13 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     LOG.debug("Fetching newest offset for {}", ssp);
     String newestOffset;
 
-    // create a kafka consumer for fetching meta data
     TopicPartition topicPartition = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
-    List<TopicPartition> topicPartitions = Collections.singletonList(topicPartition);
 
     // the offsets returned from the consumer is the Long type
-    Long upcomingOffset = (Long) metadataConsumer.endOffsets(topicPartitions).get(topicPartition);
+    Long upcomingOffset = metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
 
     // Kafka's "latest" offset is always last message in stream's offset + 1,
-    // so get newest message in stream by subtracting one. this is safe
+    // so get newest message in stream by subtracting one. This is safe
     // even for key-deduplicated streams, since the last message will
     // never be deduplicated.
     if (upcomingOffset <= 0) {
@@ -538,7 +531,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       newestOffset = String.valueOf(upcomingOffset - 1);
     }
 
-    LOG.debug("Newest offset for ssp {} is: {}", ssp, newestOffset);
+    LOG.info("Newest offset for ssp {} is: {}", ssp, newestOffset);
     return newestOffset;
   }
 
@@ -618,10 +611,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     }
   }
 
-  /**
-   * get partition info for topic
-   * @param topics set of topics to query
-   */
+  // get partition info for topic
   Map<String, List<PartitionInfo>> getTopicMetadata(Set<String> topics) {
     Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap();
     List<PartitionInfo> partitionInfoList;
@@ -634,15 +624,13 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   }
 
   /**
-   *
-   * Delete records up to (and including) the provided ssp offsets for all system stream partitions specified in the map
+   * Delete records up to (and including) the provided ssp offsets for
+   * all system stream partitions specified in the map.
    * This only works with Kafka cluster 0.11 or later. Otherwise it's a no-op.
+   * @param offsets specifies up to what offsets the messages should be deleted
    */
   @Override
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
-    if (adminClient == null) {
-      throw new SamzaException("KafkaSystemAdmin has not started yet for system " + systemName);
-    }
     if (deleteCommittedMessages) {
       KafkaSystemAdminUtilsScala.deleteMessages(adminClient, offsets);
       deleteMessageCalled = true;
