@@ -35,14 +35,25 @@ to customers every minute at peak.
 
 The notification system used to be a monolithic system, which served the company 
 well. However, as business grew and requirements evolved, it became harder and 
-harder to maintain and scale. The engineering team at Redfin decided to replace 
+harder to maintain and scale. 
+
+![Samza pipeline at Redfin](/img/case-studies/redfin.svg)
+
+The engineering team at Redfin decided to replace 
 the existing system with Samza primarily for Samza’s performance, scalability, 
 support for stateful processing and Kafka-integration. A multi-stage stream 
-processing pipeline was developed. Listings are first matched with customers and 
-group by customer at the end of each time window; at the next stage adjunct data 
-necessary to appear in each notification is retrieved by joining with data from 
-various data sources and stored/merged in local RocksDB state store; then 
-notifications are formatted and sent out. With the new notification system
+processing pipeline was developed. At the Identify stage, external events 
+such as new Listings are identified as candidates for new notification;
+then potential recipients of notifications are determined by analyzing data in 
+events and customer profiles, results are grouped by customer at the end of 
+each time window at the Match Stage; once recipients and notification outlines are 
+identified, the Organize stage retrieves adjunct data necessary to appear in each 
+notification from various data sources by joining them with notification and 
+customer profiles, results are stored/merged in local RocksDB state store; finally 
+notifications are formatted at the Format stage and sent to notification
+ delivery system at the Notify stage. 
+
+With the new notification system
 
 -   The system is more performant and horizontally scalable
 -   It is now easier to add support for new use cases
@@ -57,6 +68,5 @@ Key Samza Features: *Stateful processing*, *Windowing*, *Kafka-integration*
 More information
 
 -   [https://www.youtube.com/watch?v=cfy0xjJJf7Y](https://www.youtube.com/watch?v=cfy0xjJJf7Y)
-    
 -   [https://www.redfin.com/](https://www.redfin.com/)
 

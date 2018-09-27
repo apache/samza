@@ -70,6 +70,5 @@ Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*
 More information
 
 -   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3)
-    
 -   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820)
     
