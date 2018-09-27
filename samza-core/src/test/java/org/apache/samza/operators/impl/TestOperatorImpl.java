@@ -28,7 +28,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
@@ -220,7 +220,7 @@ public class TestOperatorImpl {
     }
 
     @Override
-    public TimerFunction getTimerFn() {
+    public ScheduledFunction getScheduledFn() {
       return null;
     }
   }

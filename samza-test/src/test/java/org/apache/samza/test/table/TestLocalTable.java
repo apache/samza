@@ -26,6 +26,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.TaskApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -39,8 +41,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
@@ -52,9 +54,16 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
 import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
+import org.apache.samza.task.InitableTask;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskContext;
+import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
@@ -72,7 +81,6 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-
 
 /**
  * This test class tests sendTo() and join() for local tables
@@ -387,5 +395,46 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     // DELETE-ALL
     table.deleteAllAsync(Arrays.asList("foo1", "foo2")).get();
     verify(kvStore, times(1)).deleteAll(anyList());
+  }
+
+  @Test
+  public void testWithLowLevelApi() throws Exception {
+
+    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
+    configs.put("streams.PageView.samza.system", "test");
+    configs.put("streams.PageView.source", Base64Serializer.serialize(TestTableData.generatePageViews(10)));
+    configs.put("streams.PageView.partitionCount", String.valueOf(4));
+    configs.put("task.inputs", "test.PageView");
+
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), new MapConfig(configs));
+    runner.run();
+    runner.waitForFinish();
+  }
+
+  static public class MyTaskApplication implements TaskApplication {
+    @Override
+    public void describe(TaskApplicationDescriptor appDesc) {
+      appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+      appDesc.addTable(new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())));
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      appDesc.addInputStream(pageViewISD);
+    }
+  }
+
+  static public class MyStreamTask implements StreamTask, InitableTask {
+    private ReadWriteTable<Integer, PageView> pageViewTable;
+    @Override
+    public void init(Config config, TaskContext context) throws Exception {
+      pageViewTable = (ReadWriteTable<Integer, PageView>) context.getTable("t1");
+    }
+    @Override
+    public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
+      PageView pv = (PageView) message.getMessage();
+      pageViewTable.put(pv.getMemberId(), pv);
+      PageView pv2 = pageViewTable.get(pv.getMemberId());
+      Assert.assertEquals(pv.getMemberId(), pv2.getMemberId());
+      Assert.assertEquals(pv.getPageKey(), pv2.getPageKey());
+    }
   }
 }

@@ -75,7 +75,7 @@ public class LocalContainerRunner {
       throw new SamzaException("can not find the job name");
     }
     String jobName = jobConfig.getName().get();
-    String jobId = jobConfig.getJobId().getOrElse(ScalaJavaUtil.defaultValue("1"));
+    String jobId = jobConfig.getJobId();
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);

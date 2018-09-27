@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.TableImpl;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableSpec;
@@ -53,7 +53,6 @@ public class OperatorSpecTestUtils {
   public static void assertClonedGraph(OperatorSpecGraph originalGraph, OperatorSpecGraph clonedGraph) {
     assertClonedInputs(originalGraph.getInputOperators(), clonedGraph.getInputOperators());
     assertClonedOutputs(originalGraph.getOutputStreams(), clonedGraph.getOutputStreams());
-    assertClonedTables(originalGraph.getTables(), clonedGraph.getTables());
     assertAllOperators(originalGraph.getAllOperatorSpecs(), clonedGraph.getAllOperatorSpecs());
   }
 
@@ -72,7 +71,7 @@ public class OperatorSpecTestUtils {
     assertNotEquals(oOpSpec, nOpSpec);
     assertEquals(oOpSpec.getOpId(), nOpSpec.getOpId());
     assertEquals(oOpSpec.getOpCode(), nOpSpec.getOpCode());
-    assertTimerFnsNotEqual(oOpSpec.getTimerFn(), nOpSpec.getTimerFn());
+    assertScheduledFnsNotEqual(oOpSpec.getScheduledFn(), nOpSpec.getScheduledFn());
     assertWatermarkFnNotEqual(nOpSpec.getWatermarkFn(), nOpSpec.getWatermarkFn());
     assertAllOperators(oOpSpec.getRegisteredOperatorSpecs(), nOpSpec.getRegisteredOperatorSpecs());
   }
@@ -84,11 +83,11 @@ public class OperatorSpecTestUtils {
     assertNotEquals(watermarkFn, watermarkFn1);
   }
 
-  private static void assertTimerFnsNotEqual(TimerFunction timerFn, TimerFunction timerFn1) {
-    if (timerFn == timerFn1 && timerFn == null) {
+  private static void assertScheduledFnsNotEqual(ScheduledFunction scheduledFn, ScheduledFunction scheduledFn1) {
+    if (scheduledFn == scheduledFn1 && scheduledFn == null) {
       return;
     }
-    assertNotEquals(timerFn, timerFn1);
+    assertNotEquals(scheduledFn, scheduledFn1);
   }
 
   private static void assertClonedTables(Map<TableSpec, TableImpl> originalTables, Map<TableSpec, TableImpl> clonedTables) {
