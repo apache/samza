@@ -826,6 +826,8 @@ a.side-navigation__group-title::after {
 }
 
 table {
+  border-collapse: collapse;
+  margin: 1em 0;
   font-size: 15px;
   border-collapse: collapse;
 }
@@ -834,6 +836,15 @@ table, td, th{
     border:1px solid #000000;
 }
 
+table th, table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px;
+  border-bottom: 1px solid #ccc;
+  border-top: 1px solid #ccc;
+  border-left: 0;
+  border-right: 0;
+}
 pre {
   padding: 20px;
   font-size: 15px;
