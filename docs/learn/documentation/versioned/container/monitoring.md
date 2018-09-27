@@ -308,7 +308,7 @@ These metrics indicate the vital signs of a Samza job&#39;s health. Note that th
 | job-healthy | ContainerProcessManagerMetrics | A binary value, where 1 indicates that all the required containers configured for a job are running, 0 otherwise. |
 | failed-containers | ContainerProcessManagerMetrics  | Number of containers that have failed in the job&#39;s lifetime |
 | **Input Processing Lag -- Is my job lagging ?** |
-| <TOPIC\>-<PARTITION\>-messages-behind-high-watermark |
+| \<Topic\>-\<Partition\>-messages-behind-high-watermark |
 KafkaSystemConsumerMetrics | Number of input messages waiting to be processed on an input topic-partition |
 | consumptionLagMs | EventHubSystemConsumer | Time difference between the processing and enqueuing (into EventHub)  of input events |
 | millisBehindLatest | KinesisSystemConsumerMetrics | Current processing lag measured from the tip of the stream, expressed in milliseconds. |
@@ -356,7 +356,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| ContainerProcessManagerMetrics | running-containers | Total number of running containers. |
+| **ContainerProcessManagerMetrics** | running-containers | Total number of running containers. |
 | | needed-containers | Number of containers needed for the job to be declared healthy. |
 | | completed-containers | Number of containers that have completed their execution and exited. |
 | | failed-containers | Number of containers that have failed in the job&#39;s lifetime. |
@@ -372,7 +372,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| SamzaContainerMetrics (Timer metrics) | choose-ns | Average time spent by a task instance for choosing the input to process; this includes time spent waiting for input, selecting one in case of multiple inputs, and deserializing input. |
+| **SamzaContainerMetrics (Timer metrics)** | choose-ns | Average time spent by a task instance for choosing the input to process; this includes time spent waiting for input, selecting one in case of multiple inputs, and deserializing input. |
 | | window-ns | In case of WindowableTasks being used, average time a task instance is spending in its window() operations. |
 | | timer-ns | Average time spent in the timer-callback when a timer registered with TaskContext fires. |
 | | process-ns | Average time the job is spending in processing each input. |
@@ -382,7 +382,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| SamzaContainerMetrics (Counters and Gauges) | commit-calls | Number of commits. Each commit includes input checkpointing, flushing producers, checkpointing KV stores, flushing side input stores, etc. |
+| **SamzaContainerMetrics (Counters and Gauges)** | commit-calls | Number of commits. Each commit includes input checkpointing, flushing producers, checkpointing KV stores, flushing side input stores, etc. |
 | | window-calls | In case of WindowableTask, this measures the number of window invocations. |
 | | timer-calls | Number of timer callbacks. |
 | | process-calls | Number of process method invocations. |
@@ -398,11 +398,11 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| Job-Coordinator Metrics (Gauge) | <system\>-<stream\>-partitionCount | The current number of partitions detected by the Stream Partition Count Monitor. This can be enabled by configuring _job.coordinator.monitor-partition-change_ to true. |
+| **Job-Coordinator Metrics (Gauge)** | \<system\>-\<stream\>-partitionCount | The current number of partitions detected by the Stream Partition Count Monitor. This can be enabled by configuring _job.coordinator.monitor-partition-change_ to true. |
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| TaskInstance Metrics (Counters and Gauges) | <system\>-<stream\>-<partition\>-offset | The offset of the last processed message on the given system-stream-partition input. |
+| **TaskInstance Metrics (Counters and Gauges)** | \<system\>-\<stream\>-\<partition\>-offset | The offset of the last processed message on the given system-stream-partition input. |
 |   | commit-calls | Number of commit calls for the task. Each commit call involves checkpointing inputs (and flushing producers, checkpointing KV stores, flushing side input stores). |
 |   | window-calls | In case of WIndowableTask, the number of window() invocations on the task. |
 |   | process-calls | Number of process method calls. |
@@ -415,18 +415,18 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| OffsetManagerMetrics (Gauge) | <system\>-<stream\>-<partition\>-checkpointed-offset | Latest checkpointed offsets for each input system-stream-partition. |
+| OffsetManagerMetrics (Gauge) | \<system\>-\<stream\>-\<partition\>-checkpointed-offset | Latest checkpointed offsets for each input system-stream-partition. |
 
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| JvmMetrics (Timers) | gc-time-millis | Total time spent in GC. |
+| **JvmMetrics (Timers)** | gc-time-millis | Total time spent in GC. |
 |   | <gc-name\>-time-millis | Total time spent in garbage collection (for each garbage collector) (in milliseconds) |
 
 
-
-| **JvmMetrics**** (Counters and Gauges)** | gc-count | Number of GC invocations. |
+| **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
+| **JvmMetrics (Counters and Gauges)** | gc-count | Number of GC invocations. |
 |   | mem-heap-committed-mb | Size of committed heap memory (in MBs) Because the guest allocates memory lazily to the JVM heap and because the difference between Free and Used memory is opaque to the guest, the guest commits memory to the JVM heap as it is required. The Committed memory, therefore, is a measure of how much memory the JVM heap is really consuming in the guest.[https://pubs.vmware.com/vfabric52/index.jsp?topic=/com.vmware.vfabric.em4j.1.2/em4j/conf-heap-management.html](https://pubs.vmware.com/vfabric52/index.jsp?topic=/com.vmware.vfabric.em4j.1.2/em4j/conf-heap-management.html) |
 |   | mem-heap-used-mb | Used memory from the perspective of the JVM is (Working set + Garbage) and Free memory is (Current heap size – Used memory). |
 |   | mem-heap-max-mb | Size of maximum heap memory (in MBs). This is defined by the –Xmx option. |
@@ -439,7 +439,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 |   | threads-waiting | Current number of waiting threads. |
 |   | threads-blocked | Current number of blocked threads. |
 |   | threads-terminated | Current number of terminated threads. |
-|   | \&lt;gc-name\&gt;-gc-count | Number of garbage collection calls (for each garbage collector). |
+|   | \<gc-name\>-gc-count | Number of garbage collection calls (for each garbage collector). |
 | **(Emitted only if the OS supports it)** | process-cpu-usage | Returns the &quot;recent cpu usage&quot; for the Java Virtual Machine process. |
 | **(Emitted only if the OS supports it)** | system-cpu-usage | Returns the &quot;recent cpu usage&quot; for the whole system. |
 | **(Emitted only if the OS supports it)** | open-file-descriptor-count | Count of open file descriptors. |
@@ -453,10 +453,10 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 |   | ssps-needed-by-chooser | Number of systems for which no buffered message exists, and hence these systems need to be polled (to obtain a message). |
 |   | poll-timeout | The timeout for polling at that instant. |
 |   | unprocessed-messages | Number of unprocessed messages buffered in SystemConsumers. |
-|   | <system\>-polls | Number of times the given system was polled |
-|   | <system\>-ssp-fetches-per-poll | Number of partitions of the given system polled at that instant. |
-|   | <system\>-messages-per-poll | Number of times the SystemConsumer for the underlying system was polled to get new messages. |
-|   | <system\>-<stream\>-<partition\>-messages-chosen | Number of messages that were chosen by the MessageChooser for particular system stream partition. |
+|   | \<system\>-polls | Number of times the given system was polled |
+|   | \<system\>-ssp-fetches-per-poll | Number of partitions of the given system polled at that instant. |
+|   | \<system\>-messages-per-poll | Number of times the SystemConsumer for the underlying system was polled to get new messages. |
+|   | \<system\>-\<stream\>-\<partition\>-messages-chosen | Number of messages that were chosen by the MessageChooser for particular system stream partition. |
 
 
 | **Group** | **Metric name** | **Meaning** |
@@ -467,24 +467,24 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| **KafkaSystemConsumersMetrics (Timers)** | <system\>-<topic\>-<partition\>-offset-change | The next offset to be read for this topic and partition. |
-|   | <system\>-<topic\>-<partition\>-bytes-read | Total size of all messages read for a topic partition (payload + key size). |
-|   | <system\>-<topic\>-<partition\>-messages-read | Number of messages read for a topic partition. |
-|   | <system\>-<topic\>-<partition\>-high-watermark | Offset of the last committed message in Kafka&#39;s topic partition. |
-|   | <system\>-<topic\>-<partition\>-messages-behind-high-watermark | Number of input messages waiting to be processed on an input topic-partition. That is, the difference between high watermark and next offset. |
-|   | <system\>-<host\>-<port\>-reconnects | Number of reconnects to a broker on a particular host and port. |
-|   | <system\>-<host\>-<port\>-bytes-read | Total size of all messages read from a broker on a particular host and port. |
-|   | <system\>-<host\>-<port\>-messages-read | Number of times the consumer used a broker on a particular host and port to get new messages. |
-|   | <system\>-<host\>-<port\>-skipped-fetch-requests | Number of times the fetchMessage method is called but no topic/partitions needed new messages. |
-|   | <system\>-<host\>-<port\>-topic-partitions | Number of broker&#39;s topic partitions which are being consumed. |
+| **KafkaSystemConsumersMetrics (Timers)** | \<system\>-\<topic\>-\<partition\>-offset-change | The next offset to be read for this topic and partition. |
+|   | \<system\>-\<topic\>-\<partition\>-bytes-read | Total size of all messages read for a topic partition (payload + key size). |
+|   | \<system\>-\<topic\>-\<partition\>-messages-read | Number of messages read for a topic partition. |
+|   | \<system\>-\<topic\>-\<partition\>-high-watermark | Offset of the last committed message in Kafka&#39;s topic partition. |
+|   | \<system\>-\<topic\>-\<partition\>-messages-behind-high-watermark | Number of input messages waiting to be processed on an input topic-partition. That is, the difference between high watermark and next offset. |
+|   | \<system\>-<host\>-<port\>-reconnects | Number of reconnects to a broker on a particular host and port. |
+|   | \<system\>-<host\>-<port\>-bytes-read | Total size of all messages read from a broker on a particular host and port. |
+|   | \<system\>-<host\>-<port\>-messages-read | Number of times the consumer used a broker on a particular host and port to get new messages. |
+|   | \<system\>-<host\>-<port\>-skipped-fetch-requests | Number of times the fetchMessage method is called but no topic/partitions needed new messages. |
+|   | \<system\>-<host\>-<port\>-topic-partitions | Number of broker&#39;s topic partitions which are being consumed. |
 |   | poll-count | Number of polls the KafkaSystemConsumer performed to get new messages. |
-|   | no-more-messages-SystemStreamPartition [<system\>, <stream\>, <partition\>] | Indicates if the Kafka consumer is at the head for particular partition. |
-|   | blocking-poll-count-SystemStreamPartition [<system\>, <stream\>, <partition\>] | Number of times a blocking poll is executed (polling until we get at least one message, or until we catch up to the head of the stream) (per partition). |
-|   | blocking-poll-timeout-count-SystemStreamPartition [<system\>, <stream\>, <partition\>] | Number of times a blocking poll has timed out (polling until we get at least one message within a timeout period) (per partition). |
-|   | buffered-message-count-SystemStreamPartition [<system\>, <stream\>, <partition\>] | Current number of messages in queue (per partition). |
-|   | buffered-message-size-SystemStreamPartition [<system\>, <stream\>, <partition\>] | Current size of messages in queue (if systems.system.samza.fetch.threshold.bytes is defined) (per partition). |
-|   | <system\>-<topic\>-<partition\>-offset-change | The next offset to be read for a topic partition. |
-|   | <system\>-<topic\>-<partition\>-bytes-read | Total size of all messages read for a topic partition (payload + key size). |
+|   | no-more-messages-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Indicates if the Kafka consumer is at the head for particular partition. |
+|   | blocking-poll-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Number of times a blocking poll is executed (polling until we get at least one message, or until we catch up to the head of the stream) (per partition). |
+|   | blocking-poll-timeout-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Number of times a blocking poll has timed out (polling until we get at least one message within a timeout period) (per partition). |
+|   | buffered-message-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Current number of messages in queue (per partition). |
+|   | buffered-message-size-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Current size of messages in queue (if systems.system.samza.fetch.threshold.bytes is defined) (per partition). |
+|   | \<system\>-\<topic\>-\<partition\>-offset-change | The next offset to be read for a topic partition. |
+|   | \<system\>-\<topic\>-\<partition\>-bytes-read | Total size of all messages read for a topic partition (payload + key size). |
 
 
 
@@ -499,16 +499,16 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| **KafkaSystemProducersMetrics (Counters)** | <system\>-producer-sends | Number of send invocations to the KafkaSystemProducer. |
-|   | <system\>-producer-send-success | Number of send requests that were successfully completed by the KafkaSystemProducer. |
-|   | <system\>-producer-send-failed | Number of send requests to Kafka (e.g., output topics) that failed due to unrecoverable errors |
-|   | <system\>-flushes | Number of calls made to flush in the KafkaSystemProducer. |
-|   | <system\>-flush-failed | Number of times flush operation failed. |
+| **KafkaSystemProducersMetrics (Counters)** | \<system\>-producer-sends | Number of send invocations to the KafkaSystemProducer. |
+|   | \<system\>-producer-send-success | Number of send requests that were successfully completed by the KafkaSystemProducer. |
+|   | \<system\>-producer-send-failed | Number of send requests to Kafka (e.g., output topics) that failed due to unrecoverable errors |
+|   | \<system\>-flushes | Number of calls made to flush in the KafkaSystemProducer. |
+|   | \<system\>-flush-failed | Number of times flush operation failed. |
 
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
-| **KafkaSystemProducersMetrics (Timers)** | <system\>-flush-ns | Represents average time the flush call takes to complete (in nanoseconds). |
+| **KafkaSystemProducersMetrics (Timers)** | \<system\>-flush-ns | Represents average time the flush call takes to complete (in nanoseconds). |
 
 
 | **Group** | **Metric name** | **Meaning** |
@@ -585,7 +585,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |
 | **BootstrappingChooserMetrics (Gauges)** | lagging-batch-streams | Number of bootstrapping streams that are lagging. |
-|   | <system\>-<stream\>-lagging-partitions | Number of lagging partitions in the stream (for each stream marked as bootstrapping stream). |
+|   | \<system\>-\<stream\>-lagging-partitions | Number of lagging partitions in the stream (for each stream marked as bootstrapping stream). |
 
 
 

@@ -826,14 +826,20 @@ a.side-navigation__group-title::after {
 }
 
 table {
+  border-collapse: collapse;
+  margin: 1em 0;
   font-size: 15px;
-    border-bottom: 1px solid #dddddd;
-    border-top: 1px solid #dddddd;
-    border-left: 1px solid #dddddd;
-    border-right: 1px solid #dddddd;
-    border-collapse: collapse;
 }
 
+table th, table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px;
+  border-bottom: 1px solid #ccc;
+  border-top: 1px solid #ccc;
+  border-left: 0;
+  border-right: 0;
+}
 pre {
   padding: 20px;
   font-size: 15px;
