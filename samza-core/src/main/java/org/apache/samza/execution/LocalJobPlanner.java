@@ -25,7 +25,6 @@ import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -37,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Temporarily helper class with specific implementation of {@link JobPlanner#prepareStreamJobs(StreamApplicationDescriptorImpl)}
+ * Temporarily helper class with specific implementation of {@link JobPlanner#prepareJobs()}
  * for standalone Samza processors.
  *
  * TODO: we need to consolidate this with {@link ExecutionPlanner} after SAMZA-1811.
@@ -53,17 +52,23 @@ public class LocalJobPlanner extends JobPlanner {
   }
 
   @Override
-  List<JobConfig> prepareStreamJobs(StreamApplicationDescriptorImpl streamAppDesc) throws Exception {
+  public List<JobConfig> prepareJobs() {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan(streamAppDesc.getOperatorSpecGraph());
+    ExecutionPlan plan = getExecutionPlan();
 
-    String executionPlanJson = plan.getPlanAsJson();
+    String executionPlanJson = "";
+    try {
+      executionPlanJson = plan.getPlanAsJson();
+    } catch (Exception e) {
+      throw new SamzaException("Failed to create plan JSON.", e);
+    }
     writePlanJsonFile(executionPlanJson);
     LOG.info("Execution Plan: \n" + executionPlanJson);
     String planId = String.valueOf(executionPlanJson.hashCode());
 
-    if (plan.getJobConfigs().isEmpty()) {
+    List<JobConfig> jobConfigs = plan.getJobConfigs();
+    if (jobConfigs.isEmpty()) {
       throw new SamzaException("No jobs in the plan.");
     }
 
@@ -71,7 +76,7 @@ public class LocalJobPlanner extends JobPlanner {
     // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
-    JobConfig jobConfig = plan.getJobConfigs().get(0);
+    JobConfig jobConfig = jobConfigs.get(0);
     StreamManager streamManager = null;
     try {
       // create the StreamManager to create intermediate streams in the plan
@@ -82,7 +87,7 @@ public class LocalJobPlanner extends JobPlanner {
         streamManager.stop();
       }
     }
-    return plan.getJobConfigs();
+    return jobConfigs;
   }
 
   /**

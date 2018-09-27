@@ -26,7 +26,7 @@ title: Feature Preview
 
 ---
 
-# Overview
+## Overview
 Samza 0.13.0 introduces a new programming model and a new deployment model. They're being released as a preview because they represent major enhancements to how developers work with Samza, so it is beneficial for both early adopters and the Samza development community to experiment with the release and provide feedback. The following sections introduce the new features and link to tutorials which demonstrate how to use them. Please try them and send feedback to the [dev mailing list](mailto:dev@samza.apache.org)
 
 ---

@@ -20,9 +20,26 @@ highlighter: pygments
 markdown: redcarpet
 exclude: ['_notes']
 redcarpet:
-  extensions: ['with_toc_data', 'smart', 'strikethrough']
+  extensions: ['with_toc_data', 'smart', 'strikethrough', 'tables']
 exclude: [_docs]
 baseurl: http://samza.apache.org
 version: latest
 # this is the version you will go if you click 'switch version' in "latest" pages.
 latest-release: '0.14'
+collections:
+  menu:
+    output: false
+  news:
+    output: true
+  case-studies:
+    output: true
+  talks:
+    output: false
+  meetups:
+    output: false
+  committers:
+    output: false
+  releases:
+    output: false
+  powered-by:
+    output: false

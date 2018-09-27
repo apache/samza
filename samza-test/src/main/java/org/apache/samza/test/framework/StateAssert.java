@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.kv.RocksDbKeyValueReader;
@@ -38,16 +39,22 @@ import org.apache.samza.table.TableSpec;
 import static org.junit.Assert.*;
 
 
+/**
+ *  Assertion utils on the content of a Table described by
+ *  {@link org.apache.samza.operators.TableDescriptor}.
+ */
 public class StateAssert {
 
-  public static void contains(RocksDbTableDescriptor descriptor, Object key) {
+  /**
+   * Verifies that the {@code key} is present in the table described by {@code RocksDbTableDescriptor}
+   * @param key expected key in the table
+   * @param tableDescriptor describes the RocksDb table
+   */
+  public static void contains(Object key, RocksDbTableDescriptor tableDescriptor) {
     boolean contains = false;
-
-    for(File partition: getPartitionDirectories(descriptor.getTableId())) {
-      List<TableSpec> tables = new ArrayList<>(Arrays.asList(descriptor.getTableSpec()));
-      Config config = new MapConfig(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(),tables));
+    for(File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
       RocksDbKeyValueReader
-          reader = new RocksDbKeyValueReader(descriptor.getTableId(), partition.getAbsolutePath(), config);
+          reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
       if(reader.get(key) != null) {
         contains = true;
         reader.stop();
@@ -58,12 +65,18 @@ public class StateAssert {
     assertTrue(contains);
   }
 
-  public static <M> List get(String storeName, Config config, M key) {
-    config.put(String.format(StorageConfig.FACTORY(), storeName), RocksDbKeyValueStorageEngineFactory.class.getName());
+  /**
+   * Fetches the list of values associated with a {@code key} in all the partitions of the table
+   * described by {@code tableDescriptor}
+   * @param tableDescriptor describes the RocksDb table
+   * @param key expected key in the table
+   * @return list of values associated with the {@code key}
+   */
+  public static List get(RocksDbTableDescriptor tableDescriptor, Object key) {
     List values = new ArrayList<>();
-    for(File partition: getPartitionDirectories(storeName)) {
+    for(File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
       RocksDbKeyValueReader
-          reader = new RocksDbKeyValueReader(storeName, partition.getAbsolutePath(), config);
+          reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
       if(reader.get(key) != null)
         values.add(reader.get(key));
       reader.stop();

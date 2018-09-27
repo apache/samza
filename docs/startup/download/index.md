@@ -59,18 +59,18 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 
 {% highlight xml %}
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-api</artifactId>
   <version>0.14.1</version>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-core_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-shell</artifactId>
   <classifier>dist</classifier>
   <type>tgz</type>
@@ -78,31 +78,31 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-yarn_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-kv_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-kv-rocksdb_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-kv-inmemory_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-kafka_2.11</artifactId>
   <version>0.14.1</version>
   <scope>runtime</scope>
@@ -113,7 +113,7 @@ Samza versions less than 0.12 should use artifacts with scala version 2.10 as su
 
 {% highlight xml %}
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-yarn_2.10</artifactId>
   <version>0.11.0</version>
 </dependency>
@@ -123,7 +123,7 @@ Samza versions less than 0.9 should include this additional dependency.
 
 {% highlight xml %}
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-serializers_2.10</artifactId>
   <version>0.8.1</version>
 </dependency>

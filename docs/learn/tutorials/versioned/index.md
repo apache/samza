@@ -53,5 +53,4 @@ title: Tutorials
 <a href="group-by-count.html">Group-by and Counting</a><br/>
 <a href="initialize-close.html">Initializing and Closing</a><br/>
 <a href="windowing.html">Windowing</a><br/>
-<a href="committing.html">Committing</a><br/>
--->
+<a href="committing.html">Committing</a><br/> \-->

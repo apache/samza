@@ -27,7 +27,7 @@ The [hello-samza](/startup/hello-samza/{{site.version}}) project shows how to us
 
 {% highlight xml %}
 <dependency>
-  <groupId>org.slf4j</groupId>
+  <setId>org.slf4j</setId>
   <artifactId>slf4j-log4j12</artifactId>
   <scope>runtime</scope>
   <version>1.6.2</version>
@@ -101,7 +101,7 @@ Sometimes it's desirable to change the Log4J log level from `INFO` to `DEBUG` at
 
 {% highlight xml %}
 <dependency>
-  <groupId>org.apache.samza</groupId>
+  <setId>org.apache.samza</setId>
   <artifactId>samza-log4j</artifactId>
   <scope>runtime</scope>
   <version>${samza.version}</version>

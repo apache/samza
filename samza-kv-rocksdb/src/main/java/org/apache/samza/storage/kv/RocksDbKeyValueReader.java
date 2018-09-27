@@ -26,6 +26,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.SerializerConfig$;
 import org.apache.samza.container.SamzaContainerContext;
@@ -84,6 +85,33 @@ public class RocksDbKeyValueReader {
   }
 
   /**
+   * Construct the <code>RocksDbKeyValueReader</code> with store's descriptor,
+   * database's path and Samza's config
+   *
+   * @param descriptor describes rocksdb
+   * @param dbPath path to the db directory
+   */
+  public RocksDbKeyValueReader(RocksDbTableDescriptor descriptor, String dbPath) {
+    keySerde = descriptor.getSerde().getKeySerde();
+    valueSerde = descriptor.getSerde().getValueSerde();
+
+    // get db options
+    ArrayList<TaskName> taskNameList = new ArrayList<TaskName>();
+    taskNameList.add(new TaskName("read-rocks-db"));
+    SamzaContainerContext samzaContainerContext =
+        new SamzaContainerContext("0", new MapConfig(), taskNameList, new MetricsRegistryMap());
+    Options options = RocksDbOptionsHelper.options(new MapConfig(), samzaContainerContext);
+
+    // open the db
+    RocksDB.loadLibrary();
+    try {
+      db = RocksDB.openReadOnly(options, dbPath);
+    } catch (RocksDBException e) {
+      throw new SamzaException("can not open the rocksDb in " + dbPath, e);
+    }
+  }
+
+  /**
    * get the value from the key. This key will be serialized to bytes using the
    * serde defined in <i>systems.system-name.samza.key.serde</i>. The result
    * will be deserialized back to the object using the serde in
@@ -127,10 +155,10 @@ public class RocksDbKeyValueReader {
    * @return a Serde of this serde name
    */
   private Serde<Object> getSerdeFromName(String name, JavaSerializerConfig serializerConfig) {
-    String SERDE_FACTORY_CLASS = "serializers.registry.%s";
-    String SERIALIZED_INSTANCE_SUFFIX = ".samza.serialized.instance";
-    String serdeClassName = serializerConfig.get(String.format(SERDE_FACTORY_CLASS, name) + SERIALIZED_INSTANCE_SUFFIX);
-    return SerdeUtils.deserialize(name, serdeClassName);
+    String serdeClassName = serializerConfig.getSerdeClass(name);
+    if (serdeClassName == null) {
+      serdeClassName = SerializerConfig$.MODULE$.getSerdeFactoryName(name);
+    }
+    return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
-
 }
