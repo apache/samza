@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
@@ -53,7 +52,7 @@ public class AsyncStreamTaskIntegrationTest {
         .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyAsyncStreamTask.class.getName()))
+        .of(MyAsyncStreamTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
@@ -76,7 +75,7 @@ public class AsyncStreamTaskIntegrationTest {
         .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyAsyncStreamTask.class.getName()))
+        .of(MyAsyncStreamTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(2));
@@ -98,7 +97,7 @@ public class AsyncStreamTaskIntegrationTest {
         .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyAsyncStreamTask.class.getName()))
+        .of(MyAsyncStreamTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .run(Duration.ofSeconds(2));
@@ -121,7 +120,7 @@ public class AsyncStreamTaskIntegrationTest {
         .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyAsyncStreamTask.class.getName()))
+        .of(MyAsyncStreamTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .addOverrideConfig("task.max.concurrency", "4")
@@ -157,11 +156,9 @@ public class AsyncStreamTaskIntegrationTest {
         .getOutputDescriptor("ints-out", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyAsyncStreamTask.class.getName()))
+        .of(MyAsyncStreamTask.class)
         .addInputStream(imid, Arrays.asList(1, 2, 3, 4))
         .addOutputStream(imod, 1)
         .run(Duration.ofMillis(1));
   }
-
-
 }

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
@@ -54,7 +53,7 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyStreamTestTask.class.getName()))
+        .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(1));
@@ -80,7 +79,7 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyStreamTestTask.class.getName()))
+        .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .run(Duration.ofSeconds(1));
@@ -100,7 +99,7 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyStreamTestTask.class.getName()))
+        .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .addOverrideConfig("job.container.thread.pool.size", "4")
@@ -124,7 +123,7 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyStreamTestTask.class.getName()))
+        .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .run(Duration.ofSeconds(2));
@@ -147,7 +146,7 @@ public class StreamTaskIntegrationTest {
         .getOutputDescriptor("output", new NoOpSerde<Integer>());
 
     TestRunner
-        .of(new LegacyTaskApplication(MyStreamTestTask.class.getName()))
+        .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .addOverrideConfig("job.container.thread.pool.size", "4")
