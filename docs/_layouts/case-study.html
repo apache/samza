@@ -116,8 +116,8 @@
           <div class="case-studies">
           
               <div class="case-studies-list">
-          
-              {% for study in site.case-studies %}
+                  {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
+                  {% for study in case-studies_sorted %}
           
                   {% if study.exclude_from_loop or study.url == page.url %}
                       {% continue %}
@@ -128,9 +128,9 @@
                         <div class="case-studies-list__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=512');"></div>
                       </a>
                   </div>
-          
-              {% endfor %}
-          
+                  
+                  {% endfor %}
+
               </div>
           
           </div>
