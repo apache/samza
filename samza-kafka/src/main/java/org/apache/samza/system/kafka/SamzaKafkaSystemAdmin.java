@@ -249,28 +249,51 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     final SystemStreamMetadata.SystemStreamPartitionMetadata dummySspm =
         new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null);
 
-    try {
-      Map<String, SystemStreamMetadata> allMetadata = new HashMap<>();
+    ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
+        DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
 
-      streamNames.forEach(streamName -> {
-        Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
+    Function1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>> fetchMetadataOperation =
+        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
+          @Override
+          public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
+            Map<String, SystemStreamMetadata> allMetadata = new HashMap<>();
 
-        List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
-        LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
+            streamNames.forEach(streamName -> {
+              Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
-        partitionInfos.forEach(partitionInfo -> {
-          partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm);
-        });
+              List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
+              LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
 
-        allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
-      });
+              partitionInfos.forEach(partitionInfo -> {
+                partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm);
+              });
 
-      return allMetadata;
+              allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
+            });
 
-    } catch (Exception e) {
-        String msg = String.format("Fetching systemstreampartition counts for: %s threw an exception.", streamNames);
-        throw new SamzaException(msg, e);
-    }
+            loop.done();
+            return allMetadata;
+          }
+        };
+
+    Map<String, SystemStreamMetadata> result = strategy.run(fetchMetadataOperation,
+        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+          @Override
+          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+            if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
+              LOG.warn(String.format("Fetching systemstreampartition counts for: %s threw an exception. Retrying.",
+                  streamNames), exception);
+            } else {
+              LOG.error(String.format("Fetching systemstreampartition counts for: %s threw an exception.", streamNames),
+                  exception);
+              loop.done();
+              throw new SamzaException(exception);
+            }
+            return null;
+          }
+        }).get();
+
+    return result;
   }
 
   @Override
@@ -281,6 +304,13 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     return offsets.entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, (entry) -> String.valueOf(Long.valueOf(entry.getValue()) + 1)));
+  }
+
+  @Override
+  public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+    return getSystemStreamMetadata(streamNames,
+        new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
+            DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS));
   }
 
   @Override
@@ -312,34 +342,93 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
    * Given a set of stream names (topics), fetch metadata from Kafka for each
    * stream, and return a map from stream name to SystemStreamMetadata for
    * each stream. This method will return null for oldest and newest offsets
-   * if a given SystemStreamPartition is empty.
-   * This call relies on kafka consumer timeout {@link CommonClientConfigs#REQUEST_TIMEOUT_MS_CONFIG} et. al.
+   * if a given SystemStreamPartition is empty. This method will block and
+   * retry indefinitely until it gets a successful response from Kafka.
    *
    * @param streamNames a set of strings of stream names/topics
+   * @param retryBackoff retry backoff strategy
    * @return a map from topic to SystemStreamMetadata which has offsets for each partition
    */
-  @Override
-  public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+  public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames,
+      ExponentialSleepStrategy retryBackoff) {
 
     LOG.info("Fetching system stream metadata for {} from system {}", streamNames, systemName);
-    try {
-      return fetchSystemStreamMetadata(streamNames);
-    } catch (Exception e) {
-      String msg = String.format("Fetching system stream metadata for: %s threw an exception.", streamNames);
-      throw new SamzaException(msg, e);
-    }
+
+    Function1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>> fetchMetadataOperation =
+        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
+          @Override
+          public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
+            Map<String, SystemStreamMetadata> metadata = fetchSystemStreamMetadata(streamNames);
+            loop.done();
+            return metadata;
+          }
+        };
+
+    Function2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit> onExceptionRetryOperation =
+        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+          @Override
+          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+            if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
+              LOG.warn(
+                  String.format("Fetching system stream metadata for: %s threw an exception. Retrying.", streamNames),
+                  exception);
+            } else {
+              LOG.error(String.format("Fetching system stream metadata for: %s threw an exception.", streamNames),
+                  exception);
+              loop.done();
+              throw new SamzaException(exception);
+            }
+
+            return null;
+          }
+        };
+
+    Function0<Map<String, SystemStreamMetadata>> fallbackOperation =
+        new AbstractFunction0<Map<String, SystemStreamMetadata>>() {
+          @Override
+          public Map<String, SystemStreamMetadata> apply() {
+            throw new SamzaException("Failed to get system stream metadata");
+          }
+        };
+
+    Map<String, SystemStreamMetadata> result =
+        retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
+    return result;
   }
 
   @Override
   public String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries) {
     LOG.info("Fetching newest offset for: {}", ssp);
 
-    try {
-      return fetchNewestOffset(ssp);
-    } catch (Exception e) {
-      String msg = String.format("Fetching newest offset for: %s threw an exception.", ssp);
-      throw new SamzaException(msg, e);
-    }
+    ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
+        DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
+
+    Function1<ExponentialSleepStrategy.RetryLoop, String> fetchNewestOffset =
+        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, String>() {
+          @Override
+          public String apply(ExponentialSleepStrategy.RetryLoop loop) {
+            String result = fetchNewestOffset(ssp);
+            loop.done();
+            return result;
+          }
+        };
+
+    String offset = strategy.run(fetchNewestOffset,
+        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+          @Override
+          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+            if (loop.sleepCount() < maxRetries) {
+              LOG.warn(String.format("Fetching newest offset for: %s threw an exception. Retrying.", ssp), exception);
+            } else {
+              LOG.error(String.format("Fetching newest offset for: %s threw an exception.", ssp), exception);
+              loop.done();
+              throw new SamzaException("Exception while trying to get newest offset", exception);
+            }
+            return null;
+          }
+        }).get();
+
+    return offset;
   }
 
   /**
