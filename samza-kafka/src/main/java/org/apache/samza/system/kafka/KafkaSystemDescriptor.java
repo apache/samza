@@ -40,7 +40,7 @@ import org.apache.samza.serializers.Serde;
 @SuppressWarnings("unchecked")
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
-  private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
+  private static final String DEFAULT_FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
   private static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.consumer.auto.offset.reset";
   private static final String CONSUMER_FETCH_THRESHOLD_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD();
@@ -64,11 +64,21 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
    * Serdes must be provided explicitly at stream level when getting input or output descriptors.
    *
    * @param systemName name of this system
+   * @param factoryClassName factory class of this system
    */
-  public KafkaSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME, null, null);
+  public KafkaSystemDescriptor(String systemName, String factoryClassName) {
+    super(systemName, factoryClassName, null, null);
   }
 
+  /**
+   * Constructs a {@link KafkaSystemDescriptor} instance with no system level serde.
+   * Serdes must be provided explicitly at stream level when getting input or output descriptors.
+   *
+   * @param systemName name of this system
+   */
+  public KafkaSystemDescriptor(String systemName) {
+    this(systemName, DEFAULT_FACTORY_CLASS_NAME);
+  }
   /**
    * {@inheritDoc}
    */
