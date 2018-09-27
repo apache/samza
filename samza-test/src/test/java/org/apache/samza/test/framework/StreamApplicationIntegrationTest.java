@@ -28,7 +28,6 @@ import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ClusterManagerConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -48,11 +47,10 @@ import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.apache.samza.test.table.PageViewToProfileJoinFunction;
-import static org.apache.samza.test.controlmessages.TestData.*;
 import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
-
+import static org.apache.samza.test.controlmessages.TestData.*;
 
 public class StreamApplicationIntegrationTest {
 
@@ -81,7 +79,7 @@ public class StreamApplicationIntegrationTest {
 
   final StreamApplication pageViewProfileViewTableJoin = appDesc -> {
     Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(
-        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store").withSerde(
+        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
             KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
     KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
@@ -107,8 +105,8 @@ public class StreamApplicationIntegrationTest {
     List<TestTableData.Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
 
     RocksDbTableDescriptor tableDescriptor =
-        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store")
-            .withSerde(KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()));
+        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
+            KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()));
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
@@ -130,7 +128,7 @@ public class StreamApplicationIntegrationTest {
         .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
         .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofSeconds(2));
-    
+
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).size());
     profiles.forEach(p -> StateAssert.contains(tableDescriptor, p.getMemberId()));
   }

@@ -51,6 +51,16 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     this.tableId = tableId;
   }
 
+  /**
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param serde the serde for key and value
+   */
+  protected BaseTableDescriptor(String tableId, KVSerde<K, V> serde) {
+    this.tableId = tableId;
+    this.serde = serde;
+  }
+
   @Override
   public D withConfig(String key, String value) {
     config.put(key, value);
@@ -58,17 +68,17 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
   }
 
   @Override
-  public D withSerde(KVSerde<K, V> serde) {
-    if (serde == null) {
-      throw new IllegalArgumentException("Serde cannot be null");
-    }
-    this.serde = serde;
-    return (D) this;
-  }
-
-  @Override
   public String getTableId() {
     return tableId;
+  }
+
+  /**
+   * Get the serde assigned to this {@link TableDescriptor}
+   *
+   * @return {@link KVSerde} used by this table
+   */
+  public KVSerde<K, V> getSerde() {
+    return serde;
   }
 
   /**

@@ -41,8 +41,8 @@ public class TestJobModel {
         new TaskName("t3"), new TaskModel(new TaskName("t3"), ImmutableSet.of(), new Partition(2)),
         new TaskName("t4"), new TaskModel(new TaskName("t4"), ImmutableSet.of(), new Partition(3)),
         new TaskName("t5"), new TaskModel(new TaskName("t5"), ImmutableSet.of(), new Partition(4)));
-    ContainerModel containerModel1 = new ContainerModel("0", 0, tasksForContainer1);
-    ContainerModel containerModel2 = new ContainerModel("1", 1, tasksForContainer2);
+    ContainerModel containerModel1 = new ContainerModel("0", tasksForContainer1);
+    ContainerModel containerModel2 = new ContainerModel("1", tasksForContainer2);
     Map<String, ContainerModel> containers = ImmutableMap.of("0", containerModel1, "1", containerModel2);
     JobModel jobModel = new JobModel(config, containers);
     assertEquals(jobModel.maxChangeLogStreamPartitions, 5);

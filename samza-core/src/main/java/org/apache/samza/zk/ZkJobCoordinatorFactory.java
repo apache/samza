@@ -31,31 +31,31 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
   private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
-  private static final String DEFAULT_JOB_ID = "1";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
 
   /**
-   * Method to instantiate an implementation of JobCoordinator
+   * Instantiates an {@link ZkJobCoordinator} using the {@link Config}.
    *
-   * @param config - configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @return An instance of IJobCoordinator
+   * @param config zookeeper configurations required for instantiating {@link ZkJobCoordinator}
+   * @return An instance of {@link ZkJobCoordinator}
    */
   @Override
   public JobCoordinator getJobCoordinator(Config config) {
+    // TODO: Separate JC related configs into a "ZkJobCoordinatorConfig"
     MetricsRegistry metricsRegistry = new MetricsRegistryMap();
-    ZkUtils zkUtils = getZkUtils(config, metricsRegistry);
-    LOG.debug("Creating ZkJobCoordinator instance with config: {}.", config);
+    String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
+    ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
+    LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
     return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
   }
 
-  private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry) {
+  private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {
     ZkConfig zkConfig = new ZkConfig(config);
-    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(getJobCoordinationZkPath(config));
+    ZkKeyBuilder keyBuilder = new ZkKeyBuilder(coordinatorZkBasePath);
     ZkClient zkClient = ZkCoordinationUtilsFactory
         .createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());
     return new ZkUtils(keyBuilder, zkClient, zkConfig.getZkConnectionTimeoutMs(), zkConfig.getZkSessionTimeoutMs(), metricsRegistry);
@@ -67,9 +67,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     String jobName = jobConfig.getName().isDefined()
         ? jobConfig.getName().get()
         : DEFAULT_JOB_NAME;
-    String jobId = jobConfig.getJobId().isDefined()
-        ? jobConfig.getJobId().get()
-        : DEFAULT_JOB_ID;
+    String jobId = jobConfig.getJobId();
 
     return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
   }

@@ -59,7 +59,8 @@ public class IncomingMessageEnvelope {
    * @param message A deserialized message received from the partition offset.
    * @param size size of the message and key in bytes.
    */
-  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key, Object message, int size) {
+  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset,
+      Object key, Object message, int size) {
     this.systemStreamPartition = systemStreamPartition;
     this.offset = offset;
     this.key = key;

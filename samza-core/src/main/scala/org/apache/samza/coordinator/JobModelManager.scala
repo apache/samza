@@ -35,7 +35,6 @@ import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -64,12 +63,11 @@ object JobModelManager extends Logging {
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param coordinatorStreamManager Coordinator stream manager.
+   * @param config Config from the coordinator stream.
    * @param changelogPartitionMapping The changelog partition-to-task mapping.
    * @return JobModelManager
    */
-  def apply(coordinatorStreamManager: CoordinatorStreamManager, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
-    val config = coordinatorStreamManager.getConfig
+  def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer]) = {
     val localityManager = new LocalityManager(config, new MetricsRegistryMap())
 
     // Map the name of each system to the corresponding SystemAdmin
@@ -208,7 +206,7 @@ object JobModelManager extends Logging {
         case _ => containerGrouper.group(taskModels.asJava, containerIds)
       }
     }
-    val containerMap = containerModels.asScala.map { case (containerModel) => containerModel.getProcessorId -> containerModel }.toMap
+    val containerMap = containerModels.asScala.map { case (containerModel) => containerModel.getId -> containerModel }.toMap
 
     if (isHostAffinityEnabled) {
       new JobModel(config, containerMap.asJava, localityManager)

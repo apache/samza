@@ -21,20 +21,21 @@ package org.apache.samza.sql.runner;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,25 +64,31 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
     Map<String, String> newConfig = new HashMap<>();
 
-    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
-    // Parse the sql and find the input stream streams
-    List<String> sqlStmts = SamzaSqlApplicationConfig.fetchSqlFromConfig(config);
+    // TODO: Introduce an API to return a dsl string containing one or more sql statements
+    List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
 
     // This is needed because the SQL file may not be available in all the node managers.
-    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(sqlStmts);
+    String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlApplicationConfig.fetchQueryInfo(sqlStmts);
-    for (SamzaSqlQueryParser.QueryInfo query : queryInfo) {
-      // Populate stream to system mapping config for input and output system streams
-      for (String inputSource : query.getSources()) {
-        SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(inputSource);
-        newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
-            inputSystemStreamConfig.getSystemName());
-        newConfig.putAll(inputSystemStreamConfig.getConfig());
-      }
+    Set<String> inputSystemStreams = new HashSet<>();
+    Set<String> outputSystemStreams = new HashSet<>();
 
-      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(query.getSink());
+    SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config,
+        inputSystemStreams, outputSystemStreams);
+
+    SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
+
+    // Populate stream to system mapping config for input and output system streams
+    for (String source : inputSystemStreams) {
+      SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(source);
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
+          inputSystemStreamConfig.getSystemName());
+      newConfig.putAll(inputSystemStreamConfig.getConfig());
+    }
+
+    for (String sink : outputSystemStreams) {
+      SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(sink);
       newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());

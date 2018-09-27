@@ -25,7 +25,6 @@ import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 
 /**
  * <p>
@@ -39,7 +38,6 @@ import org.codehaus.jackson.annotate.JsonIgnoreProperties;
  * an id, partition information, etc.
  * </p>
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class JobModel {
   private static final String EMPTY_STRING = "";
   private final Config config;
