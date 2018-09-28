@@ -84,8 +84,8 @@ import org.junit.Assert;
  *
  */
 public class TestRunner {
-  public static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
-  public static final String JOB_NAME = "samza-test";
+  private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
+  private static final String JOB_NAME = "samza-test";
 
   private Map<String, String> configs;
   private SamzaApplication app;
