@@ -22,8 +22,11 @@ package org.apache.samza.execution;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,12 +41,17 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.util.StreamUtil.*;
+import static org.apache.samza.execution.ExecutionPlanner.StreamSet.StreamSetCategory;
+import static org.apache.samza.util.StreamUtil.getStreamSpec;
+import static org.apache.samza.util.StreamUtil.getStreamSpecs;
 
 
 /**
@@ -67,15 +75,22 @@ public class ExecutionPlanner {
   public ExecutionPlan plan(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     validateConfig();
 
-    // create physical job graph based on stream graph
+    // Create physical job graph based on stream graph
     JobGraph jobGraph = createJobGraph(appDesc);
 
-    // fetch the external streams partition info
+    // Fetch the external streams partition info
     setInputAndOutputStreamPartitionCount(jobGraph);
 
-    // figure out the partitions for internal streams
-    new IntermediateStreamManager(config, appDesc.getInputOperators().values())
-        .calculatePartitions(jobGraph);
+    // Group streams participating in joins together into sets
+    List<StreamSet> joinedStreamSets = groupJoinedStreams(jobGraph);
+
+    // Set partitions of intermediate streams if any
+    if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
+      new IntermediateStreamManager(config).calculatePartitions(jobGraph, joinedStreamSets);
+    }
+
+    // Verify every group of joined streams has the same partition count
+    joinedStreamSets.forEach(ExecutionPlanner::validatePartitions);
 
     return jobGraph;
   }
@@ -91,7 +106,7 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Create the physical graph from {@link ApplicationDescriptorImpl}
+   * Creates the physical graph from {@link ApplicationDescriptorImpl}
    */
   /* package private */
   JobGraph createJobGraph(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
@@ -141,8 +156,7 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Fetch the partitions of source/sink streams and update the StreamEdges.
-   * @param jobGraph {@link JobGraph}
+   * Fetches the partitions of input, side-input, and output streams and updates their corresponding StreamEdges.
    */
   /* package private */ void setInputAndOutputStreamPartitionCount(JobGraph jobGraph) {
     Set<StreamEdge> existingStreams = new HashSet<>();
@@ -180,6 +194,147 @@ public class ExecutionPlanner {
         streamToStreamEdge.get(stream).setPartitionCount(partitionCount);
         log.info("Fetched partition count value {} for stream {}", partitionCount, stream);
       }
+    }
+  }
+
+  /**
+   * Groups streams participating in joins together.
+   */
+  private static List<StreamSet> groupJoinedStreams(JobGraph jobGraph) {
+    // Group input operator specs (input/intermediate streams) by the joins they participate in.
+    Multimap<OperatorSpec, InputOperatorSpec> joinOpSpecToInputOpSpecs =
+        OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(
+            jobGraph.getApplicationDescriptorImpl().getInputOperators().values());
+
+    // Convert every group of input operator specs into a group of corresponding stream edges.
+    List<StreamSet> streamSets = new ArrayList<>();
+    for (OperatorSpec joinOpSpec : joinOpSpecToInputOpSpecs.keySet()) {
+      Collection<InputOperatorSpec> joinedInputOpSpecs = joinOpSpecToInputOpSpecs.get(joinOpSpec);
+      StreamSet streamSet = getStreamSet(joinOpSpec.getOpId(), joinedInputOpSpecs, jobGraph);
+
+      // If current join is a stream-table join, add the stream edges corresponding to side-input
+      // streams associated with the joined table (if any).
+      if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
+        StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
+        Iterable<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
+        for (String sideInput : sideInputs) {
+          StreamEdge sideInputStreamEdge = jobGraph.getStreamEdge(sideInput);
+          streamSet.getStreamEdges().add(sideInputStreamEdge);
+        }
+      }
+
+      streamSets.add(streamSet);
+    }
+
+    return streamSets;
+  }
+
+  /**
+   * Creates a {@link StreamSet} whose Id is {@code setId}, and {@link StreamEdge}s
+   * correspond to the provided {@code inputOpSpecs}.
+   */
+  private static StreamSet getStreamSet(String setId, Iterable<InputOperatorSpec> inputOpSpecs,
+      JobGraph jobGraph) {
+
+    int countStreamEdgeWithSetPartitions = 0;
+    Set<StreamEdge> streamEdges = new HashSet<>();
+
+    for (InputOperatorSpec inputOpSpec : inputOpSpecs) {
+      StreamEdge streamEdge = jobGraph.getStreamEdge(inputOpSpec.getStreamId());
+      if (streamEdge.getPartitionCount() != StreamEdge.PARTITIONS_UNKNOWN) {
+        ++countStreamEdgeWithSetPartitions;
+      }
+      streamEdges.add(streamEdge);
+    }
+
+    // Determine category of stream group based on stream partition counts.
+    StreamSetCategory category;
+    if (countStreamEdgeWithSetPartitions == 0) {
+      category = StreamSetCategory.NO_PARTITION_COUNT_SET;
+    } else if (countStreamEdgeWithSetPartitions == streamEdges.size()) {
+      category = StreamSetCategory.ALL_PARTITION_COUNT_SET;
+    } else {
+      category = StreamSetCategory.SOME_PARTITION_COUNT_SET;
+    }
+
+    return new StreamSet(setId, streamEdges, category);
+  }
+
+  /**
+   * Verifies all {@link StreamEdge}s in the supplied {@code streamSet} agree in
+   * partition count, or throws.
+   */
+  private static void validatePartitions(StreamSet streamSet) {
+    Collection<StreamEdge> streamEdges = streamSet.getStreamEdges();
+    StreamEdge referenceStreamEdge = streamEdges.stream().findFirst().get();
+    int referencePartitions = referenceStreamEdge.getPartitionCount();
+
+    for (StreamEdge streamEdge : streamEdges) {
+      int partitions = streamEdge.getPartitionCount();
+      if (partitions != referencePartitions) {
+        throw  new SamzaException(String.format(
+            "Unable to resolve input partitions of stream %s for the join %s. Expected: %d, Actual: %d",
+            referenceStreamEdge.getName(), streamSet.getSetId(), referencePartitions, partitions));
+      }
+    }
+  }
+
+  /**
+   * Represents a set of {@link StreamEdge}s.
+   */
+  /* package private */ static class StreamSet {
+
+    /**
+     * Indicates whether all stream edges in this group have their partition counts assigned.
+     */
+    public enum StreamSetCategory {
+      /**
+       * All stream edges in this group have their partition counts assigned.
+       */
+      ALL_PARTITION_COUNT_SET(0),
+
+      /**
+       * Only some stream edges in this group have their partition counts assigned.
+       */
+      SOME_PARTITION_COUNT_SET(1),
+
+      /**
+       * No stream edge in this group is assigned a partition count.
+       */
+      NO_PARTITION_COUNT_SET(2);
+
+
+      private final int sortOrder;
+
+      StreamSetCategory(int sortOrder) {
+        this.sortOrder = sortOrder;
+      }
+
+      public int getSortOrder() {
+        return sortOrder;
+      }
+    }
+
+    private final String setId;
+    private final Set<StreamEdge> streamEdges;
+    private final StreamSetCategory category;
+
+    StreamSet(String setId, Set<StreamEdge> streamEdges, StreamSetCategory category) {
+      this.setId = setId;
+      this.streamEdges = streamEdges;
+      this.category = category;
+    }
+
+    Set<StreamEdge> getStreamEdges() {
+      return streamEdges;
+    }
+
+    String getSetId() {
+      return setId;
+    }
+
+    StreamSetCategory getCategory() {
+      return category;
     }
   }
 }
