@@ -20,7 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -55,10 +55,10 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
       MapFunction<? super M, ? extends K> keyFunction,
       MapFunction<? super M, ? extends V> valueFunction, String opId) {
     super(OpCode.PARTITION_BY, opId);
-    checkArgument(!(keyFunction instanceof TimerFunction || keyFunction instanceof WatermarkFunction),
-        "keyFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
-    checkArgument(!(valueFunction instanceof TimerFunction || valueFunction instanceof WatermarkFunction),
-        "valueFunction for partitionBy should not implement TimerFunction or WatermarkFunction.");
+    checkArgument(!(keyFunction instanceof ScheduledFunction || keyFunction instanceof WatermarkFunction),
+        "keyFunction for partitionBy should not implement ScheduledFunction or WatermarkFunction.");
+    checkArgument(!(valueFunction instanceof ScheduledFunction || valueFunction instanceof WatermarkFunction),
+        "valueFunction for partitionBy should not implement ScheduledFunction or WatermarkFunction.");
     this.outputStream = outputStream;
     this.keyFunction = keyFunction;
     this.valueFunction = valueFunction;
@@ -86,7 +86,7 @@ public class PartitionByOperatorSpec<M, K, V> extends OperatorSpec<M, Void> {
   }
 
   @Override
-  public TimerFunction getTimerFn() {
+  public ScheduledFunction getScheduledFn() {
     return null;
   }
 }

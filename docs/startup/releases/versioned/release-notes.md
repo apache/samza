@@ -30,18 +30,21 @@ title: Release Notes
 {% endif %}
 
 {% if site.version != "latest" %}
-## Download
+### Download
 All Samza JARs are published through [Apache's Maven repository](https://repository.apache.org/content/groups/public/org/apache/samza/). See [here](../download/index.html) for more details.
 
-## Source Release
+### Source Release
 [samza-sources-{{site.version}}.tgz](http://www.apache.org/dyn/closer.lua/samza/{{site.version}}.*)
 
 
 {% endif %}
 
 
-
-## Release Notes
+{% if site.version != "latest" %}
+### Release Notes {{site.version}}
+{% else %}
+### Release Notes
+{% endif %}
 <!-- Add notes on new features, modified behavior of existing features, operational/performance improvements, new tools etc -->
 * [SAMZA-1510](https://issues.apache.org/jira/browse/SAMZA-1510) - Samza SQL
 * [SAMZA-1438](https://issues.apache.org/jira/browse/SAMZA-1438) - Producer and consumer for Azure EventHubs
@@ -52,18 +55,18 @@ All Samza JARs are published through [Apache's Maven repository](https://reposit
 * [SAMZA-1406](https://issues.apache.org/jira/browse/SAMZA-1406) - Enhancements to the ZooKeeper-based deployment model
 * [SAMZA-1321](https://issues.apache.org/jira/browse/SAMZA-1321) - Support for multi-stage batch processing
 
-## Upgrade Notes
+### Upgrade Notes
 <!-- Add detailed notes on how someone using an older version of samza (typically, currentVersion - 1) can upgrade to the latest -->
 <!-- Notes typically include config changes, public-api changes, new user guides/tutorials etc -->
 
-### Configuration Changes
+#### Configuration Changes
 
 <!-- PR 290 -->
 * Introduced a new **mandatory** configuration - `job.coordination.utils.factory`. Read more about it
 [here](/learn/documentation/{{site.version}}/jobs/configuration-table.html). <br />This config is applicable to all Samza
 applications deployed using the `LocalApplicationRunner` (that is, non-yarn deployments).
 
-### API Changes
+#### API Changes
 
 <!-- PR 292 -->
 * The following APIs in `SystemAdmin` have been deprecated in the previous versions and hence, replaced with newer APIs.

@@ -19,21 +19,17 @@ title: Documentation
    limitations under the License.
 -->
 
-<h4>Introduction</h4>
+<h4><a href="comparisons/introduction.html">Core concepts</a></h4>
+<h4>Architecture</h4>
+
+
+<h4>API</h4>
 
 <ul class="documentation-list">
-  <li><a href="introduction/background.html">Background</a></li>
-  <li><a href="introduction/concepts.html">Concepts</a></li>
-  <li><a href="introduction/architecture.html">Architecture</a></li>
-</ul>
-
-<h4>Comparisons</h4>
-
-<ul class="documentation-list">
-  <li><a href="comparisons/introduction.html">Introduction</a></li>
-  <li><a href="comparisons/mupd8.html">MUPD8</a></li>
-  <li><a href="comparisons/storm.html">Storm</a></li>
-  <li><a href="comparisons/spark-streaming.html">Spark Streaming</a></li>
+  <li><a href="comparisons/introduction.html">Low-level API</a></li>
+  <li><a href="comparisons/mupd8.html">Streams DSL</a></li>
+  <li><a href="comparisons/storm.html">Samza SQL</a></li>
+  <li><a href="comparisons/spark-streaming.html">Apache BEAM</a></li>
 <!-- TODO comparisons pages
   <li><a href="comparisons/aurora.html">Aurora</a></li>
   <li><a href="comparisons/jms.html">JMS</a></li>
@@ -41,84 +37,31 @@ title: Documentation
 -->
 </ul>
 
-<h4>API</h4>
+<h4>Deployment</h4>
 
 <ul class="documentation-list">
-  <li><a href="api/overview.html">Overview</a></li>
+  <li><a href="api/overview.html">Deployment overview</a></li>
+  <li><a href="deployment/deployment-model.html">Deployment model</a></li>
+  <li><a href="api/overview.html">Run on YARN</a></li>
+  <li><a href="api/overview.html">Run as an embedded library</a></li>
 </ul>
 
-<h4>Core</h4>
+<h4>Connectors</h4>
 
 <ul class="documentation-list">
-  <li><a href="container/samza-container.html">SamzaContainer</a></li>
-  <li><a href="container/streams.html">Streams</a></li>
-  <li><a href="container/serialization.html">Serialization</a></li>
-  <li><a href="container/checkpointing.html">Checkpointing</a></li>
-  <li><a href="container/state-management.html">State Management</a></li>
-  <li><a href="container/windowing.html">Windowing</a></li>
-  <li><a href="container/coordinator-stream.html">Coordinator Stream</a></li>
-  <li><a href="container/event-loop.html">Event Loop</a></li>
-  <li><a href="container/metrics.html">Metrics</a></li>
-  <li><a href="container/jmx.html">JMX</a></li>
-</ul>
-
-<h4>Job Deployment</h4>
-
-<ul class="documentation-list">
-  <li><a href="jobs/job-runner.html">JobRunner</a></li>
-  <li><a href="jobs/configuration.html">Configuration</a></li>
-  <li><a href="jobs/packaging.html">Packaging</a></li>
-  <li><a href="jobs/yarn-jobs.html">YARN Jobs</a></li>
-  <li><a href="jobs/logging.html">Logging</a></li>
-  <li><a href="jobs/reprocessing.html">Reprocessing</a></li>
-  <li><a href="jobs/web-ui-rest-api.html">Web UI and REST API</a></li>
-  <li><a href="jobs/split-deployment.html">Separating Samza Framework and Jobs Deployment</a></li>
-</ul>
-
-<h4>YARN</h4>
-
-<ul class="documentation-list">
-  <li><a href="yarn/application-master.html">Application Master</a></li>
-  <li><a href="yarn/isolation.html">Isolation</a></li>
-  <li><a href="yarn/yarn-host-affinity.html">Host Affinity & Yarn</a></li>
-  <li><a href="yarn/yarn-resource-localization.html">Resource Localization</a></li>
-  <li><a href="yarn/yarn-security.html">Yarn Security</a></li>
-
-</ul>
-
-<h4>Hadoop</h4>
-
-<ul class="documentation-list">
-  <li><a href="hadoop/overview.html">Batch Processing Overview</a></li>
-  <li><a href="hadoop/consumer.html">Reading from HDFS</a></li>
-  <li><a href="hadoop/producer.html">Writing to HDFS</a></li>
-</ul>
-
-<h4>Azure</h4>
-
-<ul class="documentation-list">
-  <li><a href="azure/eventhubs.html">Eventhubs Consumer/Producer</a></li>
-</ul>
-
-<h4>AWS</h4>
-
-<ul class="documentation-list">
-  <li><a href="aws/kinesis.html">Kinesis Consumer/Producer</a></li>
+  <li><a href="jobs/job-runner.html">Connectors overview</a></li>
+  <li><a href="jobs/configuration.html">Apache Kafka</a></li>
+  <li><a href="jobs/packaging.html">Apache Hadoop</a></li>
+  <li><a href="jobs/yarn-jobs.html">Azure EventHubs</a></li>
+  <li><a href="jobs/logging.html">AWS Kinesis</a></li>
 </ul>
 
 <h4>Operations</h4>
 
 <ul class="documentation-list">
-  <li><a href="operations/security.html">Security</a></li>
-  <li><a href="operations/kafka.html">Kafka</a></li>
+  <li><a href="yarn/application-master.html">Debugging</a></li>
+  <li><a href="yarn/isolation.html">Monitoring & metrics</a></li>
+  <li><a href="yarn/isolation.html">Samza REST service</a></li>
 </ul>
 
-<h4>REST Service</h4>
-
-<ul class="documentation-list">
-  <li><a href="rest/overview.html">Overview</a></li>
-  <li><a href="rest/resources.html">Resources</a></li>
-  <li><a href="rest/monitors.html">Monitors</a></li>
-  <li><a href="rest/resource-directory.html">Resource Directory</a></li>
-</ul>
 </div>

@@ -1,0 +1,85 @@
+---
+layout: page
+exclude_from_loop: true
+title: Samza Talks
+---
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+<div class="talks" data-plugin="paginate" data-max-posts="2" data-previous=".paginate-previous--talk" data-next=".paginate-next--talk" data-pagination=".pagination--talk">
+    {% assign sorted = (site.talks | sort: 'date') | reverse %}
+    {% for talk in sorted %}
+        {% if talk.exclude_from_loop %}
+            {% continue %}
+        {% endif %}
+    <div class="talk" data-plugin="event" data-date="{{ talk.date | date: '%-d %B %Y' }}" data-upcoming-class="talk--upcoming">
+        <div class="talk-upcoming-section">
+            <div class="talk-upcoming-tag">
+                <i class="ion-md-alarm"></i>
+                Upcoming Event!
+            </div>
+        </div>
+        <i class="talk-icon ion-md-quote"></i>
+        <div class="talk-info">
+            <div class="talk-date">{{ talk.display_date }}</div>
+            <div class="talk-event" href="{{ talk.event.url }}">
+                <a class="talk-event-link" href="{{ talk.event.url }}">
+                    <div class="talk-event-name">{{ talk.event.name}}</div>
+                    <div class="talk-event-host"><strong>&raquo; Presented At &HorizontalLine;</strong> {{ talk.event.host }}</div>
+                    {% if talk.event.by %}
+                    <div class="talk-event-by"><strong>&raquo; Presented By &HorizontalLine;</strong> {{ talk.event.by }}</div>
+                    {% endif %}
+                    {% if talk.event.image %}
+                    <div class="talk-event-image" style="background-image:url('{{ talk.event.image }}')"></div>
+                    {% endif %}
+                </a>
+                {% if talk.video and talk.video.image %}
+                <a class="talk-video" href="{{ talk.video.url }}" style="background-image:url('{{ talk.video.image}}')">
+                    <i class="talk-video-icon ion-md-arrow-dropright-circle"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% if talk.content %}
+        <div class="talk-description">
+            {{ talk.content }}
+        </div>
+        {% endif %}
+        <div class="talk-actions">    
+            {% if talk.slides and talk.slides.url %}
+            <a class="talk-action" href="{{ talk.slides.url }}">View Slides</a>
+            {% endif %}
+            <a class="talk-action" href="{{ talk.event.url }}">Event Details
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<div class="pagination pagination--talk">
+    <hr/>
+    <div class="pagination-inner">
+        <div class="paginate-previous paginate-previous--talk paginate-action hide">
+            <i class="icon ion-md-arrow-dropleft-circle"></i>
+            Previous
+        </div>
+        <div class="paginate-next paginate-next--talk paginate-action hide">
+            Next
+            <i class="icon ion-md-arrow-dropright-circle"></i>
+        </div>
+    </div>
+</div>
+    

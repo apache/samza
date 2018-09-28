@@ -19,12 +19,15 @@
 
 package org.apache.samza.operators.impl;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
@@ -80,13 +83,26 @@ class WatermarkStates {
   }
 
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
+  private final List<SystemStreamPartition> intermediateSsps;
+  private final WatermarkMetrics watermarkMetrics;
 
-  WatermarkStates(Set<SystemStreamPartition> ssps, Map<SystemStream, Integer> producerTaskCounts) {
-    Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
+  WatermarkStates(
+      Set<SystemStreamPartition> ssps,
+      Map<SystemStream, Integer> producerTaskCounts,
+      MetricsRegistry metricsRegistry) {
+    final Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
+    final List<SystemStreamPartition> intSsps = new ArrayList<>();
+
     ssps.forEach(ssp -> {
-        states.put(ssp, new WatermarkState(producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0)));
+        final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
+        states.put(ssp, new WatermarkState(producerCount));
+        if (producerCount != 0) {
+          intSsps.add(ssp);
+        }
       });
     this.watermarkStates = Collections.unmodifiableMap(states);
+    this.watermarkMetrics = new WatermarkMetrics(metricsRegistry);
+    this.intermediateSsps = Collections.unmodifiableList(intSsps);
   }
 
   /**
@@ -115,5 +131,13 @@ class WatermarkStates {
   /* package private for testing */
   long getWatermarkPerSSP(SystemStreamPartition ssp) {
     return watermarkStates.get(ssp).getWatermarkTime();
+  }
+
+  void updateAggregateMetric(SystemStreamPartition ssp, long time) {
+    if (intermediateSsps.contains(ssp)) {
+      // Only report the aggregates watermarks for intermediate streams
+      // to reduce the amount of metrics
+      watermarkMetrics.setAggregateTime(ssp, time);
+    }
   }
 }

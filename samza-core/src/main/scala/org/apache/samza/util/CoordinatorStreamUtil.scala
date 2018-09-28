@@ -89,6 +89,6 @@ object CoordinatorStreamUtil {
     */
   private def getJobNameAndId(config: Config) = {
     (config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-      config.getJobId.getOrElse("1"))
+      config.getJobId)
   }
 }

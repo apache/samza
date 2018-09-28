@@ -19,12 +19,11 @@
 
 package org.apache.samza.execution;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.operators.OperatorSpecGraph;
+import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,7 +31,6 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 
 public class TestJobGraph {
@@ -61,9 +59,8 @@ public class TestJobGraph {
    * 2 9 10
    */
   private void createGraph1() {
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    graph1 = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    graph1 = new JobGraph(null, appDesc);
 
     JobNode n2 = graph1.getOrCreateJobNode("2", "1");
     JobNode n3 = graph1.getOrCreateJobNode("3", "1");
@@ -96,9 +93,8 @@ public class TestJobGraph {
    *      |<---6 <--|    <>
    */
   private void createGraph2() {
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    graph2 = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    graph2 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph2.getOrCreateJobNode("1", "1");
     JobNode n2 = graph2.getOrCreateJobNode("2", "1");
@@ -125,9 +121,8 @@ public class TestJobGraph {
    * 1<->1 -> 2<->2
    */
   private void createGraph3() {
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    graph3 = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    graph3 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph3.getOrCreateJobNode("1", "1");
     JobNode n2 = graph3.getOrCreateJobNode("2", "1");
@@ -143,9 +138,8 @@ public class TestJobGraph {
    * 1<->1
    */
   private void createGraph4() {
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    graph4 = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    graph4 = new JobGraph(null, appDesc);
 
     JobNode n1 = graph4.getOrCreateJobNode("1", "1");
 
@@ -163,9 +157,8 @@ public class TestJobGraph {
 
   @Test
   public void testAddSource() {
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    JobGraph graph = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    JobGraph graph = new JobGraph(null, appDesc);
 
     /**
      * s1 -> 1
@@ -206,9 +199,8 @@ public class TestJobGraph {
      * 2 -> s2
      * 2 -> s3
      */
-    OperatorSpecGraph specGraph = mock(OperatorSpecGraph.class);
-    when(specGraph.getBroadcastStreams()).thenReturn(Collections.emptySet());
-    JobGraph graph = new JobGraph(null, specGraph);
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    JobGraph graph = new JobGraph(null, appDesc);
     JobNode n1 = graph.getOrCreateJobNode("1", "1");
     JobNode n2 = graph.getOrCreateJobNode("2", "1");
     StreamSpec s1 = genStream();
