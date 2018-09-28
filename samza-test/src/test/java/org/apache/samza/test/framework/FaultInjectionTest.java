@@ -47,6 +47,8 @@ import static org.junit.Assert.*;
 public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness {
   @Test
   public void testRaceCondition() throws InterruptedException {
+    int taskShutdownInMs = (int) (Math.random() * 10000);
+
     CountDownLatch containerShutdownLatch = new CountDownLatch(1);
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
@@ -55,7 +57,10 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(FaultInjectionStreamApp.INPUT_TOPIC_NAME_PROP, "page-views");
     configs.put(TaskConfig.INPUT_STREAMS(), "kafka.page-views");
-    configs.put("task.shutdown.ms", "10");
+
+    // we purposefully randomize the task.shutdown.ms to make sure we can consistently verify if status is unsuccessfulFinish
+    // even though the reason for failure can either be container exception or container shutdown timing out.
+    configs.put("task.shutdown.ms", Integer.toString(taskShutdownInMs));
     configs.put(JobConfig.PROCESSOR_ID(), "0");
 
     createTopic(PAGE_VIEWS, 2);
