@@ -37,7 +37,13 @@ Slack is a cloud based company that offers collaboration tools and services to i
 
 <img src="/img/{{site.version}}/case-studies/slack-samza-pipeline.png" alt="architecture" style="max-width: 80%; height: auto;" onclick="window.open(this.src)"/>
 
-The engineering team built a data platform using Apache Samza. The clients and backend servers channels the logs and exceptions through Kafka to content routers a.k.a samza partitioners. The partitioned data then flows through processors where it is stored in RocksDb before being joined with other metrics data. The enriched data is stored in druid which powers analytics queries and also acts as a trigger to alert slackbot notifications.
+The engineering team built a data platform using Apache Samza. It has three main components,
+
+- **Router**: Deserialize Kafka events and add instrumentation
+- **Processor**: Registers with the routers to process subset of message types and performs aggregation
+- **Converter**: Enrich the processed data before piping the data to analytics store.  
+
+The clients and backend servers channels the logs and exceptions through Kafka to content routers a.k.a samza partitioners. The partitioned data then flows through processors where it is stored in RocksDb before being joined with other metrics data. The enriched data is stored in druid which powers analytics queries and also acts as a trigger to alert slackbot notifications.
 
 Other notable use case includes experimentation framework that leverage the data pipeline to track the results of A/B testing in near realtime. The metrics data is joined with the exposure table (members part of the experiment) to derive insights on the experiment. The periodic snapshots of RocksDb is also used to perform data quality check with the batch pipeline.
 
