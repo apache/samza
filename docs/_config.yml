@@ -40,6 +40,6 @@ collections:
   committers:
     output: false
   releases:
-    output: true
+    output: false
   powered-by:
     output: false

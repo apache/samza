@@ -42,8 +42,8 @@ It has a three main components,
 
 ATC, leverages Samza extensively and uses a lot of features including but not limited to:
 
-- **Stateful processing**: The ML models in the relevance module are stored locally in RocksDb which are updated realtime time based on user feedback.  
-- **Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allows ATC to perform remote calls with high-throughput. This helps bring down the 90th percentile (P90) end-to-end latency for end to end latency for push notifications from about 12 seconds to about 1.5 seconds. 
+- **Stateful processing**: The ML models in the relevance module are stored locally in RocksDb which are updated realtime time based on user feedback.
+- **Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allows ATC to perform remote calls with high-throughput. This helps bring down the 90th percentile (P90) end-to-end latency for end to end latency for push notifications from about 12 seconds to about 1.5 seconds.
 - **Host affinity**: Co-location of local state stores along with host awareness helps ATC to achieve zero downtime and instant recovery.
 
 Key Samza Features: *Stateful processing*, *Async API*, *Host affinity*
