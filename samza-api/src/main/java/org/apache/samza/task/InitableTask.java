@@ -19,7 +19,6 @@
 
 package org.apache.samza.task;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 
 

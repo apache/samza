@@ -49,7 +49,7 @@ import org.apache.samza.util.Util;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 
 /**

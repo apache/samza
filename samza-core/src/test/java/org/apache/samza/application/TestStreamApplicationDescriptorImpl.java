@@ -53,10 +53,18 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit test for {@link StreamApplicationDescriptorImpl}
@@ -532,7 +540,8 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testNoApplicationContainerContextFactory() {
-    StreamApplication testApp = appDesc -> {};
+    StreamApplication testApp = appDesc -> {
+    };
     StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
     assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.empty());
   }
@@ -547,7 +556,8 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testNoApplicationTaskContextFactory() {
-    StreamApplication testApp = appDesc -> {};
+    StreamApplication testApp = appDesc -> {
+    };
     StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
     assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.empty());
   }

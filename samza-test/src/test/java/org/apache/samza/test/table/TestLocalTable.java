@@ -28,14 +28,13 @@ import java.util.Map;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationDescriptor;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.MockContext;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -63,7 +62,6 @@ import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
@@ -71,12 +69,23 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestTableData.*;
-import static org.junit.Assert.*;
+import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import static org.apache.samza.test.table.TestTableData.PageView;
+import static org.apache.samza.test.table.TestTableData.PageViewJsonSerde;
+import static org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
+import static org.apache.samza.test.table.TestTableData.Profile;
+import static org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 
 /**
  * This test class tests sendTo() and join() for local tables
@@ -353,12 +362,14 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   public void testAsyncOperation() throws Exception {
     KeyValueStore kvStore = mock(KeyValueStore.class);
     LocalStoreBackedReadWriteTable<String, String> table = new LocalStoreBackedReadWriteTable<>("table1", kvStore);
-    Context context = new MockContext();
+    Context context = mock(Context.class);
+    TaskContext taskContext = mock(TaskContext.class);
+    when(context.getTaskContext()).thenReturn(taskContext);
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
-    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    doReturn(metricsRegistry).when(taskContext).getTaskMetricsRegistry();
 
     table.init(context);
 
@@ -419,8 +430,8 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   static public class MyStreamTask implements StreamTask, InitableTask {
     private ReadWriteTable<Integer, PageView> pageViewTable;
     @Override
-    public void init(Config config, TaskContext context) throws Exception {
-      pageViewTable = (ReadWriteTable<Integer, PageView>) context.getTable("t1");
+    public void init(Context context) throws Exception {
+      pageViewTable = (ReadWriteTable<Integer, PageView>) context.getTaskContext().getTable("t1");
     }
     @Override
     public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {

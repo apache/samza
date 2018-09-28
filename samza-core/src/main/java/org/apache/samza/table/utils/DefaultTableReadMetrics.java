@@ -18,12 +18,10 @@
  */
 package org.apache.samza.table.utils;
 
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
-import org.apache.samza.task.TaskContext;
 
 
 /**

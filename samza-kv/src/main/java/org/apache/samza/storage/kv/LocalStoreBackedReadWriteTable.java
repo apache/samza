@@ -20,12 +20,9 @@ package org.apache.samza.storage.kv;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.DefaultTableWriteMetrics;
-import org.apache.samza.task.TaskContext;
 
 
 /**

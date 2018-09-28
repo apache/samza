@@ -33,8 +33,9 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import static java.util.concurrent.TimeUnit.*;
-import static org.mockito.Mockito.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestEmbeddedTaggedRateLimiter {

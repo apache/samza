@@ -1638,9 +1638,9 @@
                         store any <span class="store">store-name</span> except <em>default</em> (the <span class="store">store-name</span>
                         <em>default</em> is reserved for defining default store parameters), and use that name to get a
                         reference to the store in your stream task (call
-                        <a href="../api/javadocs/org/apache/samza/task/TaskContext.html#getStore(java.lang.String)">TaskContext.getStore()</a>
+                        <a href="../api/javadocs/org/apache/samza/context/TaskContext.html#getStore(java.lang.String)">TaskContext.getStore()</a>
                         in your task's
-                        <a href="../api/javadocs/org/apache/samza/task/InitableTask.html#init(org.apache.samza.config.Config, org.apache.samza.task.TaskContext)">init()</a>
+                        <a href="../api/javadocs/org/apache/samza/task/InitableTask.html#init(org.apache.samza.context.Context)">init()</a>
                         method). The value of this property is the fully-qualified name of a Java class that implements
                         <a href="../api/javadocs/org/apache/samza/storage/StorageEngineFactory.html">StorageEngineFactory</a>.
                         Samza currently ships with one storage engine implementation:

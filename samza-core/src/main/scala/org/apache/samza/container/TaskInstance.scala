@@ -72,10 +72,10 @@ class TaskInstance(
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val systemTimerScheduler: SystemTimerScheduler = SystemTimerScheduler.create(timerExecutor)
-  val (taskContext: org.apache.samza.context.TaskContext,
+  val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
+  val (taskContext: org.apache.samza.context.TaskContextImpl,
     applicationTaskContextOption: Option[ApplicationTaskContext]) =
-    buildTaskContexts(systemTimerScheduler)
+    buildTaskContexts(epochTimeScheduler)
   val context: Context = new ContextImpl(jobContext,
     containerContext,
     taskContext,
@@ -236,7 +236,7 @@ class TaskInstance(
     trace("Scheduler for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
-      systemTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
+      epochTimeScheduler.removeReadyTimers().entrySet().foreach { entry =>
         entry.getValue.asInstanceOf[ScheduledCallback[Any]].onCallback(entry.getKey.getKey, collector, coordinator)
       }
     }
@@ -375,8 +375,8 @@ class TaskInstance(
     startingOffset
   }
 
-  private def buildTaskContexts(systemTimerScheduler: SystemTimerScheduler):
-    (org.apache.samza.context.TaskContext, Option[ApplicationTaskContext]) = {
+  private def buildTaskContexts(epochTimeScheduler: EpochTimeScheduler):
+    (org.apache.samza.context.TaskContextImpl, Option[ApplicationTaskContext]) = {
     val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
       (storeName: String) => {
         if (storageManager != null && storageManager.getStore(storeName).isDefined) {
@@ -387,7 +387,7 @@ class TaskInstance(
           null
         }
       })
-    val scheduler = new CallbackSchedulerImpl(systemTimerScheduler)
+    val scheduler = new CallbackSchedulerImpl(epochTimeScheduler)
     val taskContext = new TaskContextImpl(taskModel,
       metrics.registry,
       kvStoreSupplier,

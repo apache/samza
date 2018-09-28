@@ -42,7 +42,7 @@ public class JobContextImpl implements JobContext {
   public static JobContextImpl fromConfigWithDefaults(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String jobName = jobConfig.getName().isDefined() ? jobConfig.getName().get() : null;
-    String jobId = jobConfig.getJobId().isDefined() ? jobConfig.getJobId().get() : "1";
+    String jobId = jobConfig.getJobId();
     return new JobContextImpl(config, jobName, jobId);
   }
 

@@ -33,9 +33,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContextImpl;
-import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.Scheduler;
@@ -54,7 +52,6 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.TimestampedValue;
 import org.slf4j.Logger;
@@ -93,7 +90,7 @@ public class OperatorImplGraph {
    * in the {@code specGraph}.
    *
    * @param specGraph  the {@link OperatorSpecGraph} containing the logical {@link OperatorSpec} DAG
-   * @param context  the {@link TaskContext} required to instantiate operators
+   * @param context  the {@link Context} required to instantiate operators
    * @param clock  the {@link Clock} to get current time
    */
   public OperatorImplGraph(OperatorSpecGraph specGraph, Context context, Clock clock) {
@@ -117,7 +114,7 @@ public class OperatorImplGraph {
     // set states for watermark
     taskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(taskContext.getTaskModel().getSystemStreamPartitions(), producerTaskCounts,
-            getMetricsRegistry(context)));
+            context.getContainerContext().getContainerMetricsRegistry()));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
         SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
@@ -401,10 +398,5 @@ public class OperatorImplGraph {
 
   private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
     return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
-  }
-
-  private static MetricsRegistry getMetricsRegistry(TaskContext context) {
-    final SamzaContainerContext containerContext = context.getSamzaContainerContext();
-    return containerContext != null ? containerContext.metricsRegistry : context.getMetricsRegistry();
   }
 }

@@ -20,13 +20,11 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
-import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 

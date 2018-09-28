@@ -37,8 +37,10 @@ import org.apache.samza.task.TaskFactory;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -136,7 +138,8 @@ public class TestTaskApplicationDescriptorImpl {
 
   @Test
   public void testNoApplicationContainerContextFactory() {
-    TaskApplication testApp = appDesc -> {};
+    TaskApplication testApp = appDesc -> {
+    };
     TaskApplicationDescriptorImpl appSpec = new TaskApplicationDescriptorImpl(testApp, mock(Config.class));
     assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.empty());
   }
@@ -151,7 +154,8 @@ public class TestTaskApplicationDescriptorImpl {
 
   @Test
   public void testNoApplicationTaskContextFactory() {
-    TaskApplication testApp = appDesc -> {};
+    TaskApplication testApp = appDesc -> {
+    };
     TaskApplicationDescriptorImpl appSpec = new TaskApplicationDescriptorImpl(testApp, mock(Config.class));
     assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.empty());
   }

@@ -21,7 +21,6 @@ package org.apache.samza.sql.translator;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,8 +44,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.junit.Assert.*;
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchQueryInfo;
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchSqlFromConfig;
+import static org.junit.Assert.assertTrue;
 
 
 public class TestQueryTranslator {
