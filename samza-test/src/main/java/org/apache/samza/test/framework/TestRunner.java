@@ -100,7 +100,7 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param taskClass represent a class containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param taskClass containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
    */
   private TestRunner(Class taskClass) {
     this();
@@ -111,7 +111,7 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    */
   private TestRunner(SamzaApplication app) {
     this();
