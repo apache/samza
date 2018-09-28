@@ -23,7 +23,11 @@ import java.io.Serializable;
 
 /**
  * An application should implement this if it has a {@link ApplicationContainerContext} that is needed for
- * initialization. This will be used to create instance(s) of that {@link ApplicationContainerContext}.
+ * initialization.
+ * <p>
+ * This will be called to create an instance of {@link ApplicationContainerContext} during the container initialization
+ * stage. At that stage, the framework-provided job-level and container-level contexts are available for creating the
+ * {@link ApplicationContainerContext}.
  * <p>
  * This is {@link Serializable} because it is specified in {@link org.apache.samza.application.ApplicationDescriptor}.
  * @param <T> concrete type of {@link ApplicationContainerContext} returned by this factory
