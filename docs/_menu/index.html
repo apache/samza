@@ -12,8 +12,6 @@ items:
     items_attributes: 'data-documentation="/learn/documentation/version/"'
   - menu_title: Releases
     get_items: releases
-    map_title: version
-    map_url: link
     sort: 'order'
     reverse: true
   - menu_title: Blog
@@ -22,19 +20,20 @@ items:
     items:
       - menu_title: Contact Us
         url: '/community/mailing-lists.html'
-      - menu_title: Contributor's Corner 
+      - menu_title: Contributor's Corner
         url: '/contribute/contributors-corner.html'
       - menu_title: PMC members and committers
         url: '/community/committers.html'
-      - menu_title: Talks and Meetups 
+      - menu_title: Talks and Meetups
         url: '/meetups/'
 
   - menu_title: Case Studies
     get_items: case-studies
+    sort: 'priority'
     items:
       - menu_title: View All
         url: /case-studies/
-      - divider: true        
+      - divider: true
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -69,7 +68,6 @@ items:
     {% else %}
       {% assign has_sub = false %}
     {% endif %}
-    
     <!-- Start Group -->
     {% if has_sub %}
     <div class="side-navigation__group side-navigation__group--has-nested" data-plugin="sub-menu" data-sub-menu-show-class="side-navigation__group--has-nested-visible">
