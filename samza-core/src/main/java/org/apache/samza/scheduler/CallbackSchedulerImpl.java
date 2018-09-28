@@ -16,9 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.scheduling;
+package org.apache.samza.scheduler;
 
-import org.apache.samza.scheduler.ScheduledCallback;
 import org.apache.samza.task.EpochTimeScheduler;
 
 
