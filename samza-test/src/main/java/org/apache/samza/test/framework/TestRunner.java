@@ -33,7 +33,6 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -64,7 +63,6 @@ import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
-
 
 /**
  * TestRunner provides APIs to set up integration tests for a Samza application.
@@ -112,7 +110,7 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param taskClass class containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param taskClass containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
    */
   private TestRunner(Class taskClass) {
     this();
@@ -123,9 +121,9 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link StreamApplication}
+   * @param app a {@link SamzaApplication}
    */
-  private TestRunner(StreamApplication app) {
+  private TestRunner(SamzaApplication app) {
     this();
     Preconditions.checkNotNull(app);
     this.app = app;
@@ -144,11 +142,11 @@ public class TestRunner {
   }
 
   /**
-   * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app samza job implementing {@link StreamApplication}
+   * Creates an instance of {@link TestRunner} for a {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    * @return this {@link TestRunner}
    */
-  public static TestRunner of(StreamApplication app) {
+  public static TestRunner of(SamzaApplication app) {
     Preconditions.checkNotNull(app);
     return new TestRunner(app);
   }

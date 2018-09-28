@@ -161,6 +161,4 @@ public class AsyncStreamTaskIntegrationTest {
         .addOutputStream(imod, 1)
         .run(Duration.ofMillis(1));
   }
-
-
 }
