@@ -18,9 +18,6 @@
  */
 package org.apache.samza.scheduler;
 
-import org.apache.samza.scheduler.ScheduledCallback;
-
-
 /**
  * Provides a way for applications to register some logic to be executed at a future time.
  */
