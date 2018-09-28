@@ -47,7 +47,7 @@ import static org.junit.Assert.*;
 public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness {
   @Test
   public void testRaceCondition() throws InterruptedException {
-    CountDownLatch startUpLatch = new CountDownLatch(1);
+    CountDownLatch containerShutdownLatch = new CountDownLatch(1);
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
@@ -68,11 +68,11 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     produceMessage(PAGE_VIEWS, 1, "p2", "{\"viewId\":\"v2\",\"pageId\":\"p2\",\"userId\":\"u1\"}");
 
     FaultInjectionStreamApp app = new FaultInjectionStreamApp();
-    FaultInjectionStreamApp.shutdownLatch = startUpLatch;
+    FaultInjectionStreamApp.containerShutdownLatch = containerShutdownLatch;
     RunApplicationContext context =
         runApplication(app, "fault-injection-app", configs);
 
-    startUpLatch.await();
+    containerShutdownLatch.await();
     context.getRunner().kill();
     context.getRunner().waitForFinish();
     assertEquals(context.getRunner().status(), ApplicationStatus.UnsuccessfulFinish);
@@ -81,7 +81,7 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
   private static class FaultInjectionStreamApp implements TaskApplication {
     public static final String SYSTEM = "kafka";
     public static final String INPUT_TOPIC_NAME_PROP = "inputTopicName";
-    private static transient CountDownLatch shutdownLatch;
+    private static transient CountDownLatch containerShutdownLatch;
 
     @Override
     public void describe(TaskApplicationDescriptor appDesc) {
@@ -92,19 +92,19 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
       KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(inputTopic, serde);
       appDesc.addInputStream(isd);
-      appDesc.setTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(shutdownLatch));
+      appDesc.setTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(containerShutdownLatch));
     }
 
     private static class FaultInjectionTask implements StreamTask, ClosableTask {
-      private final transient CountDownLatch shutdownLatch;
+      private final transient CountDownLatch containerShutdownLatch;
 
-      public FaultInjectionTask(CountDownLatch shutdownLatch) {
-        this.shutdownLatch = shutdownLatch;
+      public FaultInjectionTask(CountDownLatch containerShutdownLatch) {
+        this.containerShutdownLatch = containerShutdownLatch;
       }
 
       @Override
       public void close() throws Exception {
-        shutdownLatch.countDown();
+        containerShutdownLatch.countDown();
       }
 
       @Override
