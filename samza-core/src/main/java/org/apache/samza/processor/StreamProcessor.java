@@ -309,8 +309,10 @@ public class StreamProcessor {
       LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
     }
 
-    // We want to propagate when container shutdown times out. It is possible that the timeout exception we propagate to the
-    // local application runner maybe overwritten with the actual container failure cause in case of interleaved execution
+    // We want to propagate TimeoutException when container shutdown times out. It is possible that the timeout exception
+    // we propagate to the local application runner maybe overwritten by container failure cause in case of interleaved execution.
+    // It is acceptable since container exception is much more useful compared to timeout exception.
+    // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
     if (!hasContainerShutdown && containerException == null) {
       containerException = new TimeoutException("Container shutdown timed out.");
     }
