@@ -448,9 +448,12 @@
                 </tr>
                  <tr>
                     <td class="property" id="job.coordinator.factory">job.coordinator.factory</td>
-                    <td class="default"></td>
+                    <td class="default">org.apache.samza.zk.ZkJobCoordinatorFactory</td>
                     <td class="description">
-			Class to use for job coordination. Currently available values are:
+                        The fully-qualified name of the Java class which determines the factory class which will build the JobCoordinator.
+                        The default configuration value if the property is not present is <code>job.coordinator.factory=org.apache.samza.zk.ZkJobCoordinatorFactory</code>.<br>
+                        The user can specify a custom implementation of the JobCoordinatorFactory where a custom logic is implemented for distributed coordination of stream processors. <br>
+                        Samza supports the following coordination modes out of the box.
                        <dl>
                             <dt><code>org.apache.samza.standalone.PassthroughJobCoordinatorFactory</code></dt>
                             <dd>Fixed partition mapping. No Zoookeeper. </dd>
@@ -459,20 +462,6 @@
                            <dt><code>org.apache.samza.AzureJobCoordinatorFactory</code></dt>
                            <dd>Azure-based coordination</dl>
                         Required only for non-cluster-managed applications. Please see the required value for <a href=#task-name-grouper-factory>task-name-grouper-factory </a>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="property" id="job.coordination.utils.factory">job.coordination.utils.factory</td>
-                    <td class="default">org.apache.samza.zk.ZkCoordinationUtilsFactory</td>
-                    <td class="description">
-                        Class to use to create CoordinationUtils. Currently available values are:
-                        <dl>
-                            <dt><code>org.apache.samza.zk.ZkCoordinationUtilsFactory</code></dt>
-                            <dd>ZooKeeper based coordination utils.</dd>
-                            <dt><code>org.apache.samza.coordinator.AzureCoordinationUtilsFactory</code></dt>
-                            <dd>Azure based coordination utils.</dd>
-                        These coordination utils are currently used for intermediate stream creation.
-                        </dl>
                     </td>
                 </tr>
 
@@ -539,7 +528,7 @@
                 </tr>
                 <tr>
                     <td class="property" id="job.debounce.time.ms">job.debounce.time.ms</td>
-                    <td class="default"> 2000 </td>
+                    <td class="default"> 20000 </td>
                     <td class="description">
                         How long the Leader processor will wait before recalculating the JobModel on change of registered processors.
                     </td>

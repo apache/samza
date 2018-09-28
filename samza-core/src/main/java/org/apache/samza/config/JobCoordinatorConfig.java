@@ -22,33 +22,44 @@ package org.apache.samza.config;
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
+import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
+
+import java.util.Objects;
 
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
-  public static final String JOB_COORDINATION_UTILS_FACTORY = "job.coordination.utils.factory";
-  public final static String DEFAULT_COORDINATION_UTILS_FACTORY = ZkCoordinationUtilsFactory.class.getName();
+  public final static String DEFAULT_COORDINATOR_UTILS_FACTORY = ZkJobCoordinatorFactory.class.getName();
+  private static final String AZURE_COORDINATION_UTILS_FACTORY = "org.apache.samza.coordinator.AzureCoordinationUtilsFactory";
+  private static final String AZURE_COORDINATOR_FACTORY = "org.apache.samza.coordinator.AzureJobCoordinatorFactory";
 
   public JobCoordinatorConfig(Config config) {
     super(config);
   }
 
   public String getJobCoordinationUtilsFactoryClassName() {
-    String className = get(JOB_COORDINATION_UTILS_FACTORY, DEFAULT_COORDINATION_UTILS_FACTORY);
+    String coordinatorFactory = get(JOB_COORDINATOR_FACTORY, DEFAULT_COORDINATOR_UTILS_FACTORY);
 
-    if (Strings.isNullOrEmpty(className)) {
-      throw new SamzaException("Empty config for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className);
+    String coordinationUtilsFactory;
+    if (Objects.equals(coordinatorFactory, AZURE_COORDINATOR_FACTORY)) {
+      coordinationUtilsFactory = AZURE_COORDINATION_UTILS_FACTORY;
+    } else if (Objects.equals(coordinatorFactory, PassthroughJobCoordinatorFactory.class.getName())) {
+      coordinationUtilsFactory = PassthroughCoordinationUtilsFactory.class.getName();
+    } else {
+      coordinationUtilsFactory = ZkCoordinationUtilsFactory.class.getName();
     }
 
     try {
-      Class.forName(className);
+      Class.forName(coordinationUtilsFactory);
     } catch (ClassNotFoundException e) {
       throw new SamzaException(
-          "Failed to validate config value for " + JOB_COORDINATION_UTILS_FACTORY + " = " + className, e);
+          "Failed to validate config value for " + JOB_COORDINATOR_FACTORY + " = " + coordinationUtilsFactory, e);
     }
 
-    return className;
+    return coordinationUtilsFactory;
   }
 
   public CoordinationUtilsFactory getCoordinationUtilsFactory() {
@@ -61,10 +72,9 @@ public class JobCoordinatorConfig extends MapConfig {
   public String getJobCoordinatorFactoryClassName() {
     String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
     if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
-      throw new ConfigException(
-          String.format("Missing config - %s. Cannot start StreamProcessor!", JOB_COORDINATOR_FACTORY));
+      return ZkJobCoordinatorFactory.class.getName();
+    } else {
+      return jobCoordinatorFactoryClassName;
     }
-
-    return jobCoordinatorFactoryClassName;
   }
 }
