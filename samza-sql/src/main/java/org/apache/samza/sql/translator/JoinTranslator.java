@@ -288,8 +288,18 @@ class JoinTranslator {
     Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
         context.getStreamAppDescriptor().getTable(sourceConfig.getTableDescriptor().get());
 
+    Serde<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
+    SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
+        (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
+
+    // Let's always repartition by the join keys before sending the key and value to the table.
+    // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
+    // have the same partitioning scheme and partition key.
     relOutputStream
-        .map(m -> new KV(createSamzaSqlCompositeKey(m, tableKeyIds), m))
+        .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds),
+            m -> m,
+            KVSerde.of(keySerde, valueSerde),
+            "table_" + joinId)
         .sendTo(table);
 
     return table;
