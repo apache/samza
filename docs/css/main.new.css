@@ -828,6 +828,7 @@ a.side-navigation__group-title::after {
 table {
   border-collapse: collapse;
   margin: 1em 0;
+  border:1px solid #000000;
   font-size : 12px;
   font-family : "Myriad Web",Verdana,Helvetica,Arial,sans-serif;
 }
