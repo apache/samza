@@ -25,8 +25,8 @@ import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.operators.TimerRegistry;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.Scheduler;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
@@ -338,6 +338,9 @@ public abstract class OperatorImpl<M, RM> {
       }
       // populate the watermark through the dag
       onWatermark(watermark, collector, coordinator);
+
+      // update metrics
+      watermarkStates.updateAggregateMetric(ssp, watermark);
     }
   }
 
@@ -436,19 +439,19 @@ public abstract class OperatorImpl<M, RM> {
 
   /**
    * Returns a registry which allows registering arbitrary system-clock timer with K-typed key.
-   * The user-defined function in the operator spec needs to implement {@link TimerFunction#onTimer(Object, long)}
+   * The user-defined function in the operator spec needs to implement {@link ScheduledFunction#onCallback(Object, long)}
    * for timer notifications.
    * @param <K> key type for the timer.
-   * @return an instance of {@link TimerRegistry}
+   * @return an instance of {@link Scheduler}
    */
-  <K> TimerRegistry<K> createOperatorTimerRegistry() {
-    return new TimerRegistry<K>() {
+  <K> Scheduler<K> createOperatorScheduler() {
+    return new Scheduler<K>() {
       @Override
-      public void register(K key, long time) {
-        taskContext.registerTimer(key, time, (k, collector, coordinator) -> {
-            final TimerFunction<K, RM> timerFn = getOperatorSpec().getTimerFn();
-            if (timerFn != null) {
-              final Collection<RM> output = timerFn.onTimer(key, time);
+      public void schedule(K key, long time) {
+        taskContext.scheduleCallback(key, time, (k, collector, coordinator) -> {
+            final ScheduledFunction<K, RM> scheduledFn = getOperatorSpec().getScheduledFn();
+            if (scheduledFn != null) {
+              final Collection<RM> output = scheduledFn.onCallback(key, time);
 
               if (!output.isEmpty()) {
                 output.forEach(rm ->
@@ -457,7 +460,7 @@ public abstract class OperatorImpl<M, RM> {
               }
             } else {
               throw new SamzaException(
-                  String.format("Operator %s id %s (created at %s) must implement TimerFunction to use system timer.",
+                  String.format("Operator %s id %s (created at %s) must implement ScheduledFunction to use system timer.",
                       getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
             }
           });
@@ -465,7 +468,7 @@ public abstract class OperatorImpl<M, RM> {
 
       @Override
       public void delete(K key) {
-        taskContext.deleteTimer(key);
+        taskContext.deleteScheduledCallback(key);
       }
     };
   }

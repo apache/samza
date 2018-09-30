@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.operators.BaseTableDescriptor;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
@@ -65,6 +66,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
         String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
+    getOrCreateStreamSerdes(inputDescriptor.getStreamId(), inputDescriptor.getSerde());
     inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
     addSystemDescriptor(inputDescriptor.getSystemDescriptor());
   }
@@ -73,6 +75,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   public void addOutputStream(OutputDescriptor outputDescriptor) {
     Preconditions.checkState(!outputDescriptors.containsKey(outputDescriptor.getStreamId()),
         String.format("add output descriptors multiple times with the same streamId: %s", outputDescriptor.getStreamId()));
+    getOrCreateStreamSerdes(outputDescriptor.getStreamId(), outputDescriptor.getSerde());
     outputDescriptors.put(outputDescriptor.getStreamId(), outputDescriptor);
     addSystemDescriptor(outputDescriptor.getSystemDescriptor());
   }
@@ -81,6 +84,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   public void addTable(TableDescriptor tableDescriptor) {
     Preconditions.checkState(!tableDescriptors.containsKey(tableDescriptor.getTableId()),
         String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
+    getOrCreateTableSerdes(tableDescriptor.getTableId(), ((BaseTableDescriptor) tableDescriptor).getSerde());
     tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
   }
 
@@ -109,6 +113,16 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     // We enforce that users must not use different system descriptor instances for the same system name
     // when getting an input/output stream or setting the default system descriptor
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+  }
+
+  @Override
+  public Set<String> getInputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(inputDescriptors.keySet()));
+  }
+
+  @Override
+  public Set<String> getOutputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(outputDescriptors.keySet()));
   }
 
   /**

@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.data.TestOutputMessageEnvelope;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -33,7 +33,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -74,7 +74,8 @@ public class TestOperatorSpec {
     }
   }
 
-  private static class MapWithTimerFn implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>, TimerFunction<String, TestOutputMessageEnvelope> {
+  private static class MapWithScheduledFn implements MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope>,
+                                                     ScheduledFunction<String, TestOutputMessageEnvelope> {
 
     @Override
     public TestOutputMessageEnvelope apply(TestMessageEnvelope m) {
@@ -82,12 +83,12 @@ public class TestOperatorSpec {
     }
 
     @Override
-    public void registerTimer(TimerRegistry<String> timerRegistry) {
+    public void schedule(Scheduler<String> scheduler) {
 
     }
 
     @Override
-    public Collection<TestOutputMessageEnvelope> onTimer(String key, long timestamp) {
+    public Collection<TestOutputMessageEnvelope> onCallback(String key, long timestamp) {
       return null;
     }
   }
@@ -164,8 +165,8 @@ public class TestOperatorSpec {
     assertTrue(cloneOperatorSpec.getTransformFn() instanceof FlatMapFunction);
     assertNull(streamOperatorSpec.getWatermarkFn());
     assertNull(cloneOperatorSpec.getWatermarkFn());
-    assertNull(streamOperatorSpec.getTimerFn());
-    assertNull(cloneOperatorSpec.getTimerFn());
+    assertNull(streamOperatorSpec.getScheduledFn());
+    assertNull(cloneOperatorSpec.getScheduledFn());
   }
 
   @Test
@@ -187,8 +188,8 @@ public class TestOperatorSpec {
     assertNotEquals(userFn, clonedUserFn);
     assertNull(streamOperatorSpec.getWatermarkFn());
     assertNull(cloneOperatorSpec.getWatermarkFn());
-    assertNull(streamOperatorSpec.getTimerFn());
-    assertNull(cloneOperatorSpec.getTimerFn());
+    assertNull(streamOperatorSpec.getScheduledFn());
+    assertNull(cloneOperatorSpec.getScheduledFn());
   }
 
   @Test
@@ -209,8 +210,8 @@ public class TestOperatorSpec {
     assertNotEquals(userFn, clonedUserFn);
     assertNull(streamOperatorSpec.getWatermarkFn());
     assertNull(cloneOperatorSpec.getWatermarkFn());
-    assertNull(streamOperatorSpec.getTimerFn());
-    assertNull(cloneOperatorSpec.getTimerFn());
+    assertNull(streamOperatorSpec.getScheduledFn());
+    assertNull(cloneOperatorSpec.getScheduledFn());
   }
 
   @Test
@@ -360,13 +361,13 @@ public class TestOperatorSpec {
     assertEquals(streamOperatorSpec.getWatermarkFn(), testMapFn);
     assertNotNull(cloneOperatorSpec.getWatermarkFn());
     assertNotEquals(cloneOperatorSpec.getTransformFn(), cloneOperatorSpec.getWatermarkFn());
-    assertNull(streamOperatorSpec.getTimerFn());
-    assertNull(cloneOperatorSpec.getTimerFn());
+    assertNull(streamOperatorSpec.getScheduledFn());
+    assertNull(cloneOperatorSpec.getScheduledFn());
   }
 
   @Test
-  public void testMapStreamOperatorSpecWithTimer() {
-    MapWithTimerFn testMapFn = new MapWithTimerFn();
+  public void testMapStreamOperatorSpecWithScheduledFunction() {
+    MapWithScheduledFn testMapFn = new MapWithScheduledFn();
 
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(testMapFn, "op0");
@@ -378,9 +379,9 @@ public class TestOperatorSpec {
     assertNull(streamOperatorSpec.getWatermarkFn());
     assertNull(cloneOperatorSpec.getWatermarkFn());
     assertNotEquals(cloneOperatorSpec.getTransformFn(), cloneOperatorSpec.getWatermarkFn());
-    assertEquals(streamOperatorSpec.getTimerFn(), testMapFn);
-    assertNotNull(cloneOperatorSpec.getTimerFn());
-    assertNotEquals(streamOperatorSpec.getTimerFn(), cloneOperatorSpec.getTimerFn());
+    assertEquals(streamOperatorSpec.getScheduledFn(), testMapFn);
+    assertNotNull(cloneOperatorSpec.getScheduledFn());
+    assertNotEquals(streamOperatorSpec.getScheduledFn(), cloneOperatorSpec.getScheduledFn());
   }
 
   @Test

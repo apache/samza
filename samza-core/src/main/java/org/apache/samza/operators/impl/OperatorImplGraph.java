@@ -23,10 +23,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TimerRegistry;
+import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
 import org.apache.samza.util.TimestampedValue;
@@ -114,7 +116,7 @@ public class OperatorImplGraph {
         new EndOfStreamStates(context.getSystemStreamPartitions(), producerTaskCounts));
     // set states for watermark
     taskContext.registerObject(WatermarkStates.class.getName(),
-        new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts));
+        new WatermarkStates(context.getSystemStreamPartitions(), producerTaskCounts, getMetricsRegistry(context)));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
         SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
@@ -170,9 +172,9 @@ public class OperatorImplGraph {
       operatorImpl.init(config, context);
       operatorImpl.registerInputStream(inputStream);
 
-      if (operatorSpec.getTimerFn() != null) {
-        final TimerRegistry timerRegistry = operatorImpl.createOperatorTimerRegistry();
-        operatorSpec.getTimerFn().registerTimer(timerRegistry);
+      if (operatorSpec.getScheduledFn() != null) {
+        final Scheduler scheduler = operatorImpl.createOperatorScheduler();
+        operatorSpec.getScheduledFn().schedule(scheduler);
       }
 
       // Note: The key here is opImplId, which may not equal opId for some impls (e.g. PartialJoinOperatorImpl).
@@ -402,5 +404,10 @@ public class OperatorImplGraph {
 
   private boolean hasIntermediateStreams(OperatorSpecGraph specGraph) {
     return !Collections.disjoint(specGraph.getInputOperators().keySet(), specGraph.getOutputStreams().keySet());
+  }
+
+  private static MetricsRegistry getMetricsRegistry(TaskContext context) {
+    final SamzaContainerContext containerContext = context.getSamzaContainerContext();
+    return containerContext != null ? containerContext.metricsRegistry : context.getMetricsRegistry();
   }
 }

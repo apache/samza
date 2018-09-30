@@ -54,15 +54,17 @@
     <canvas id="canvas"></canvas>
     <div>
       <h1 class="section__title">
-        Build powerful tools with samza stream processing
+        Apache Samza
       </h1>
       <h2 class="section__title section__title--sub">
-        View our
-        <a href="somewhere">case studies</a> to see examples from leading brands
+        Build scalable, fault-tolerant applications that process your data in real-time
       </h2>
       <div class="content">
         <a class="button" href="/startup/hello-samza/{{site.version}}">
           Quick Start
+        </a>
+        <a class="button" href="/startup/hello-samza/{{site.version}}">
+          Case studies
         </a>
       </div>
     </div>
@@ -83,44 +85,37 @@
 
   <div class="section section--highlight section--bottom-flare section--features">
     <div class="section__title section__title--center">
-      Features of the Samza Framework
+      Samza features
     </div>
     <div class="section__items">
       <div class="section__item">
         <i class="section__item-icon icon ion-md-flash"></i>
         <div class="section__item-title">
-          Performance
+          High performance
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Extremely high throughput</div>
-          <div class="section__item-feature">Low latency streaming</div>
-          <div class="section__item-feature">Async i/O support</div>
-          <div class="section__item-feature">Configurable Parallelism</div>
+          <div class="section__item-feature">Samza provides extremely low latencies and high throughput to analyze your data instantly</div>
         </div>
       </div>
 
       <div class="section__item">
         <i class="section__item-icon icon ion-md-trending-up"></i>
         <div class="section__item-title">
-          Massive scale
+
+          Horizontally scalable
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Incremental checkpointing</div>
-          <div class="section__item-feature">Host affinity</div>
-          <div class="section__item-feature">Terabytes of state</div>
-          <div class="section__item-feature">Fault tolerance</div>
+          <div class="section__item-feature">Scales to several terabytes of state with features like incremental checkpoints and host-affinity</div>
         </div>
       </div>
 
       <div class="section__item">
         <i class="section__item-icon icon ion-md-build"></i>
         <div class="section__item-title">
-          Operability
+          Easy to Operate
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Backpressure handling</div>
-          <div class="section__item-feature">High availability</div>
-          <div class="section__item-feature">Rolling upgrades</div>
+          <div class="section__item-feature">Samza is easy to operate with flexible deployment options - YARN, Kubernetes or standalone</div>
         </div>
       </div>
 
@@ -130,10 +125,7 @@
           Powerful APIs
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Per-message low-level</div>
-          <div class="section__item-feature">Stream based high-level DSL</div>
-          <div class="section__item-feature">Declarative SQL</div>
-          <div class="section__item-feature">Apache BEAM</div>
+          <div class="section__item-feature">Rich APIs to build your applications: Choose from low-level, Streams DSL, Samza SQL and Apache BEAM APIs</div>
         </div>
       </div>
 
@@ -143,9 +135,7 @@
           Write once, Run Anywhere
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Batch vs streaming</div>
-          <div class="section__item-feature">Standalone vs YARN</div>
-          <div class="section__item-feature">Embedded library vs service</div>
+          <div class="section__item-feature"> Ability to run the same code to process both batch and streaming data</div>
         </div>
       </div>
 
@@ -155,8 +145,7 @@
           Pluggable architecture
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Integrate with Kubernetes, Mesos, Yarn</div>
-          <div class="section__item-feature">Consume from EventHubs, Kafka, Kinesis</div>
+          <div class="section__item-feature">Integrates with several sources including Kafka, HDFS, AWS Kinesis, Azure Eventhubs, K-V stores and ElasticSearch</div>
         </div>
       </div>
 
@@ -170,8 +159,8 @@
     </div>
 
     <div class="section__items">
-
-      {% for study in site.case-studies %}
+    {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
+    {% for study in case-studies_sorted %}
 
       {% if study.exclude_from_loop %}
         {% continue %}
@@ -182,8 +171,8 @@
           <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
         </a>
       </div>
-      
-      {% endfor %}
+
+    {% endfor %}
 
     </div>
 
