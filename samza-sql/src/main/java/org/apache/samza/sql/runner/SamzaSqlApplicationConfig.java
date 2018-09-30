@@ -82,10 +82,12 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_UDF_RESOLVER = "samza.sql.udfResolver";
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
 
+  public static final String CFG_CHANGE_LOG_STREAM_NAME_PREFIX = "samza.sql.changeLogStreamNamePrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
+  private static final String DEFAULT_CHANGE_LOG_STREAM_NAME_PREFIX = "";
   private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
   private final Map<String, RelSchemaProvider> relSchemaProvidersBySource;
@@ -100,6 +102,7 @@ public class SamzaSqlApplicationConfig {
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
   private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
 
+  private final String changeLogStreamNamePrefix;
   private final long windowDurationMs;
 
   public SamzaSqlApplicationConfig(Config staticConfig, Set<String> inputSystemStreams,
@@ -133,6 +136,8 @@ public class SamzaSqlApplicationConfig {
     udfResolver = createUdfResolver(staticConfig);
     udfMetadata = udfResolver.getUdfs();
 
+    changeLogStreamNamePrefix =
+        staticConfig.get(CFG_CHANGE_LOG_STREAM_NAME_PREFIX, DEFAULT_CHANGE_LOG_STREAM_NAME_PREFIX);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
 
     // remove the SqlIOConfigs of outputs whose system is "log" out of systemStreamConfigsBySource
@@ -281,6 +286,10 @@ public class SamzaSqlApplicationConfig {
 
   public SqlIOResolver getIoResolver() {
     return ioResolver;
+  }
+
+  public String getChangeLogStreamNamePrefix() {
+    return changeLogStreamNamePrefix;
   }
 
   public long getWindowDurationMs() {

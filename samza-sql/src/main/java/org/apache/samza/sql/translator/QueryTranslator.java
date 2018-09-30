@@ -177,7 +177,8 @@ public class QueryTranslator {
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
         joinId++;
-        new JoinTranslator(joinId, ioResolver).translate(join, translatorContext);
+        new JoinTranslator(joinId, ioResolver, sqlConfig.getChangeLogStreamNamePrefix())
+            .translate(join, translatorContext);
         return node;
       }
 
@@ -185,7 +186,8 @@ public class QueryTranslator {
       public RelNode visit(LogicalAggregate aggregate) {
         RelNode node = super.visit(aggregate);
         windowId++;
-        new LogicalAggregateTranslator(windowId).translate(aggregate, translatorContext);
+        new LogicalAggregateTranslator(windowId, sqlConfig.getChangeLogStreamNamePrefix())
+            .translate(aggregate, translatorContext);
         return node;
       }
     });

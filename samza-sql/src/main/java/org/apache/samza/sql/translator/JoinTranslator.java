@@ -76,10 +76,12 @@ class JoinTranslator {
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
   private int joinId;
   private SqlIOResolver ioResolver;
+  private final String changeLogStreamNamePrefix;
 
-  JoinTranslator(int joinId, SqlIOResolver ioResolver) {
+  JoinTranslator(int joinId, SqlIOResolver ioResolver, String changeLogStreamNamePrefix) {
     this.joinId = joinId;
     this.ioResolver = ioResolver;
+    this.changeLogStreamNamePrefix = changeLogStreamNamePrefix + (changeLogStreamNamePrefix.isEmpty() ? "" : "_");
   }
 
   void translate(final LogicalJoin join, final TranslatorContext context) {
@@ -124,7 +126,7 @@ class JoinTranslator {
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds),
                 m -> m,
                 KVSerde.of(keySerde, valueSerde),
-                "stream_" + joinId)
+                changeLogStreamNamePrefix + "stream_" + joinId)
             .map(KV::getValue)
             .join(table, joinFn);
     // MessageStream<SamzaSqlRelMessage> outputStream = inputStream.join(table, joinFn);
@@ -299,7 +301,7 @@ class JoinTranslator {
         .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds),
             m -> m,
             KVSerde.of(keySerde, valueSerde),
-            "table_" + joinId)
+            changeLogStreamNamePrefix + "table_" + joinId)
         .sendTo(table);
 
     return table;

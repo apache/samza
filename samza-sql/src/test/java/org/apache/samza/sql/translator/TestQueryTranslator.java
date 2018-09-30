@@ -550,8 +550,6 @@ public class TestQueryTranslator {
     Assert.assertEquals("sql-job-1-partition_by-table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input4PhysicalName);
-
-    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -620,8 +618,6 @@ public class TestQueryTranslator {
     Assert.assertEquals("sql-job-1-partition_by-table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input4PhysicalName);
-
-    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test
@@ -689,8 +685,6 @@ public class TestQueryTranslator {
     Assert.assertEquals("sql-job-1-partition_by-table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", input4PhysicalName);
-
-    validatePerTaskContextInit(streamAppDesc, samzaConfig);
   }
 
   @Test

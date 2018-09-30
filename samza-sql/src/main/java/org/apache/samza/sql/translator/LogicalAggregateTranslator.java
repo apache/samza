@@ -45,9 +45,11 @@ class LogicalAggregateTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
   private int windowId;
+  private String changeLogStreamNamePrefix;
 
-  LogicalAggregateTranslator(int windowId) {
+  LogicalAggregateTranslator(int windowId, String changeLogStreamNamePrefix) {
     this.windowId = windowId;
+    this.changeLogStreamNamePrefix = changeLogStreamNamePrefix + (changeLogStreamNamePrefix.isEmpty() ? "" : "_");
   }
 
   void translate(final LogicalAggregate aggregate, final TranslatorContext context) {
@@ -69,7 +71,8 @@ class LogicalAggregateTranslator {
                 foldCountFn,
                 new SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde(),
                 new LongSerde())
-                .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow_" + windowId)
+                .setAccumulationMode(
+                    AccumulationMode.DISCARDING), changeLogStreamNamePrefix + "_tumblingWindow_" + windowId)
             .map(windowPane -> {
                 List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
                 List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
