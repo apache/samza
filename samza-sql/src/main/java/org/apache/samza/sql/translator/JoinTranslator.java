@@ -76,12 +76,12 @@ class JoinTranslator {
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
   private int joinId;
   private SqlIOResolver ioResolver;
-  private final String changeLogStreamNamePrefix;
+  private final String intermediateStreamPrefix;
 
-  JoinTranslator(int joinId, SqlIOResolver ioResolver, String changeLogStreamNamePrefix) {
+  JoinTranslator(int joinId, SqlIOResolver ioResolver, String intermediateStreamPrefix) {
     this.joinId = joinId;
     this.ioResolver = ioResolver;
-    this.changeLogStreamNamePrefix = changeLogStreamNamePrefix + (changeLogStreamNamePrefix.isEmpty() ? "" : "_");
+    this.intermediateStreamPrefix = intermediateStreamPrefix + (intermediateStreamPrefix.isEmpty() ? "" : "_");
   }
 
   void translate(final LogicalJoin join, final TranslatorContext context) {
@@ -126,7 +126,7 @@ class JoinTranslator {
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds),
                 m -> m,
                 KVSerde.of(keySerde, valueSerde),
-                changeLogStreamNamePrefix + "stream_" + joinId)
+                intermediateStreamPrefix + "stream_" + joinId)
             .map(KV::getValue)
             .join(table, joinFn);
     // MessageStream<SamzaSqlRelMessage> outputStream = inputStream.join(table, joinFn);
@@ -294,14 +294,14 @@ class JoinTranslator {
     SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
         (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
 
-    // Let's always repartition by the join keys before sending the key and value to the table.
+    // Let's always repartition by the join fields as key before sending the key and value to the table.
     // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
     // have the same partitioning scheme and partition key.
     relOutputStream
         .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds),
             m -> m,
             KVSerde.of(keySerde, valueSerde),
-            changeLogStreamNamePrefix + "table_" + joinId)
+            intermediateStreamPrefix + "table_" + joinId)
         .sendTo(table);
 
     return table;

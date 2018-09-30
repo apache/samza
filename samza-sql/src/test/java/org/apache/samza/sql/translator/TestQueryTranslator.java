@@ -495,6 +495,10 @@ public class TestQueryTranslator {
             + " join testavro.PROFILE.`$table` as p"
             + " on p.id = pv.profileId";
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+<<<<<<< HEAD
+=======
+    config.put(SamzaSqlApplicationConfig.CFG_METADATA_TOPIC_PREFIX, "sampleAppv1");
+>>>>>>> Adding metadatastream prefix config. This will be used to reset both the intermediate streams and changelogstore streams by changing the prefix name.
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
