@@ -35,14 +35,62 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
-class KafkaSystemAdminUtilsScala(systemName: String) {
+/**
+  * A helper class that is used to construct the changelog stream specific information
+  *
+  * @param replicationFactor The number of replicas for the changelog stream
+  * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
+  */
+case class ChangelogInfo(var replicationFactor: Int, var kafkaProps: Properties)
+
+
+// TODO move to org.apache.kafka.clients.admin.AdminClien from the kafka.admin.AdminClient
+object KafkaSystemAdminUtilsScala extends Logging {
+
   val CLEAR_STREAM_RETRIES = 3
   val CREATE_STREAM_RETRIES = 10
 
   val LOG: Logger = LoggerFactory.getLogger("KafkaSystemAdminUtils")
 
+  /**
+    * @inheritdoc
+    *
+    * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
+    * Otherwise it's a no-op.
+    */
+  def clearStream(spec: StreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Unit = {
+    LOG.info("Deleting topic %s for system %s" format(spec.getPhysicalName, spec.getSystemName))
+    val kSpec = KafkaStreamSpec.fromSpec(spec)
+    var retries = CLEAR_STREAM_RETRIES
+    new ExponentialSleepStrategy().run(
+      loop => {
+        val zkClient = connectZk.get()
+        try {
+          AdminUtils.deleteTopic(
+            zkClient,
+            kSpec.getPhysicalName)
+        } finally {
+          zkClient.close
+        }
+
+        loop.done
+      },
+
+      (exception, loop) => {
+        if (retries > 0) {
+          LOG.warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
+          retries -= 1
+        } else {
+          LOG.warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
+          loop.done
+          throw exception
+        }
+      })
+  }
+
+
   def createStream(kSpec: KafkaStreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Boolean = {
-    LOG.info("Creating topic %s for system %s" format(kSpec.getPhysicalName, systemName))
+    LOG.info("Creating topic %s for system %s" format(kSpec.getPhysicalName, kSpec.getSystemName))
     var streamCreated = false
     var retries = CREATE_STREAM_RETRIES
 
@@ -71,10 +119,10 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
             loop.done
           case e: Exception =>
             if (retries > 0) {
-              LOG.warn("Failed to create topic %s. Retrying." format(kSpec.getPhysicalName), exception)
+              LOG.warn("Failed to create topic %s. Retrying." format (kSpec.getPhysicalName), exception)
               retries -= 1
             } else {
-              LOG.error("Failed to create topic %s. Bailing out." format(kSpec.getPhysicalName), exception)
+              LOG.error("Failed to create topic %s. Bailing out." format (kSpec.getPhysicalName), exception)
               throw exception
             }
         }
@@ -83,54 +131,6 @@ class KafkaSystemAdminUtilsScala(systemName: String) {
     streamCreated
   }
 
-
-  /**
-    * @inheritdoc
-    *
-    * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
-    * Otherwise it's a no-op.
-    */
-   def clearStream(spec: StreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Unit = {
-    LOG.info("Deleting topic %s for system %s" format (spec.getPhysicalName, systemName))
-    val kSpec = KafkaStreamSpec.fromSpec(spec)
-    var retries = CLEAR_STREAM_RETRIES
-    new ExponentialSleepStrategy().run(
-      loop => {
-        val zkClient = connectZk.get()
-        try {
-          AdminUtils.deleteTopic(
-            zkClient,
-            kSpec.getPhysicalName)
-        } finally {
-          zkClient.close
-        }
-
-        loop.done
-      },
-
-      (exception, loop) => {
-        if (retries > 0) {
-          LOG.warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
-          retries -= 1
-        } else {
-          LOG.warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
-          loop.done
-          throw exception
-        }
-      })
-  }
-}
-
-/**
-  * A helper class that is used to construct the changelog stream specific information
-  *
-  * @param replicationFactor The number of replicas for the changelog stream
-  * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
-  */
-case class ChangelogInfo(var replicationFactor: Int, var kafkaProps: Properties)
-
-
-object  KafkaSystemAdminUtilsScala extends Logging {
   /**
     * A helper method that takes oldest, newest, and upcoming offsets for each
     * system stream partition, and creates a single map from stream name to

@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
@@ -64,6 +63,7 @@ import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 
 import static org.apache.samza.config.KafkaConsumerConfig.*;
+import static org.apache.samza.system.kafka.KafkaSystemDescriptor.*;
 
 
 public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
@@ -93,10 +93,6 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   // Kafka properties for intermediate topics creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-  // admin utils for some kafka related operations
-  // TODO refactor them out after we move to the new(broker based) AdminClient
-  private final KafkaSystemAdminUtilsScala kafkaAdminUtils;
-
   // adminClient is required for deleteBeforeMessages operation
   private final AdminClient adminClient;
 
@@ -106,7 +102,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   @VisibleForTesting
   public static volatile boolean deleteMessageCalled = false;
 
-  private final AtomicBoolean stoped = new AtomicBoolean(false);
+  private final AtomicBoolean stopped = new AtomicBoolean(false);
 
   @Override
   public void start() {
@@ -115,16 +111,24 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
 
     // Throw exception if start is called after stop
-    if (stoped.get()) {
+    if (stopped.get()) {
       throw new SamzaException("SamzaKafkaAdmin.start() is called after stop()");
     }
   }
 
   @Override
   public void stop() {
-    if (stoped.compareAndSet(false, true)) {
-      metadataConsumer.close();
-      adminClient.close();
+    if (stopped.compareAndSet(false, true)) {
+      try {
+        metadataConsumer.close();
+      } catch (Exception e) {
+        LOG.warn("metadataConsumer.close for system " + systemName  + " failed with exception.", e);
+      }
+      try {
+        adminClient.close();
+      } catch (Exception e) {
+        LOG.warn("adminClient.close for system " + systemName  + " failed with exception.", e);
+      }
     }
   }
 
@@ -143,10 +147,6 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     this.connectZk = connectZk;
     this.connectAdminClient = connectAdminClient;
     this.deleteCommittedMessages = deleteCommittedMessages;
-
-    // TODO move to org.apache.kafka.clients.admin.AdminClien from the kafka.admin.AdminClient
-    // when deleteMessagesBefore is available there. Then we can get rid of this KafkaSystemAdminUtilScala
-    kafkaAdminUtils = new KafkaSystemAdminUtilsScala(systemName);
   }
 
   /**
@@ -164,10 +164,10 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
     String brokerListString =
-        config.get(String.format("systems.%s.consumer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+        config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     if (brokerListString == null) {
       brokerListString =
-          config.get(String.format("systems.%s.producer.%s", systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+          config.get(String.format(PRODUCER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
     if (brokerListString == null) {
       throw new SamzaException(
@@ -177,7 +177,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient
-    String zkConnectStr = config.get(String.format("systems.%s.consumer.%s", systemName, ZOOKEEPER_CONNECT));
+    String zkConnectStr = config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ZOOKEEPER_CONNECT));
     if (zkConnectStr == null) {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
@@ -325,10 +325,9 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       String oldestOffset = topicPartitionsMetadata.getOldestOffsets().get(ssp);
       String newestOffset = topicPartitionsMetadata.getNewestOffsets().get(ssp);
       String upcomingOffset = topicPartitionsMetadata.getUpcomingOffsets().get(ssp);
-      if (oldestOffset != null || newestOffset != null || upcomingOffset != null) {
-        sspToSSPMetadata.put(ssp,
-            new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
-      }
+
+      sspToSSPMetadata.put(ssp,
+          new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
     }
     return sspToSSPMetadata;
   }
@@ -548,14 +547,14 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    return kafkaAdminUtils.createStream(toKafkaSpec(streamSpec), connectZk);
+    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), connectZk);
   }
 
   @Override
   public boolean clearStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    kafkaAdminUtils.clearStream(streamSpec, connectZk);
+    KafkaSystemAdminUtilsScala.clearStream(streamSpec, connectZk);
 
     Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
     return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();

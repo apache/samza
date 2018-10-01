@@ -46,9 +46,9 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
   private static final String CONSUMER_FETCH_THRESHOLD_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD();
   private static final String CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES();
   private static final String CONSUMER_FETCH_MESSAGE_MAX_BYTES_KEY = "systems.%s.consumer.fetch.message.max.bytes";
-  private static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
-  private static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
-  private static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
+  public static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
+  public static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
+  public static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
 
   private List<String> consumerZkConnect = Collections.emptyList();
   private Optional<String> consumerAutoOffsetResetOptional = Optional.empty();
