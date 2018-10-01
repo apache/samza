@@ -70,4 +70,3 @@ More information
 
 -   [https://www.youtube.com/watch?v=cfy0xjJJf7Y](https://www.youtube.com/watch?v=cfy0xjJJf7Y)
 -   [https://www.redfin.com/](https://www.redfin.com/)
-

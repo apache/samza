@@ -1,11 +1,9 @@
 ---
-exclude_from_loop: true # useful for drafts
 layout: case-study # the layout to use
 hide_title: true # so we have control in case-study layout, but can still use page
-title: Totally awesome use-case of samza by Company # title of case study page
-study_domain: company.com # just the domain, not the protocol
-priority: # order
-menu_title: Company # what shows up in the menu
+title: Totally awesome use-case of samza by Uber # title of case study page
+study_domain: uber.com # just the domain, not the protocol
+menu_title: Uber # what shows up in the menu
 excerpt_separator: <!--more-->
 ---
 <!--
@@ -28,6 +26,5 @@ excerpt_separator: <!--more-->
 Testing the excerpt
 
 <!--more-->
-
 
 Markdown content goes here
