@@ -92,7 +92,7 @@ If using the **JConsole** JMX client, launch it with the service URL as:
 jconsole service:jmx:rmi://localhost:54662/jndi/rmi://localhost:54661/jmxrmi
 ```
 
-<img src="/img/versioned/learn/documentation/container/jconsole.png" alt="JConsole" class="diagram-large">
+<img src="/img/{{site.version}}/learn/documentation/operations/jconsole.png" alt="JConsole" class="diagram-large">
 
  
 
@@ -105,7 +105,7 @@ jvisualvm
 After **VisualVM** starts, click the &quot;Add JMX Connection&quot; button and paste in your JMX server URL (obtained from the logs).
 Install the VisualVM-MBeans plugin (Tools->Plugin) to view the metrics MBeans.
 
-<img src="/img/versioned/learn/documentation/container/visualvm.png" alt="VisualVM" class="diagram-small">
+<img src="/img/{{site.version}}/learn/documentation/operations/visualvm.png" alt="VisualVM" class="diagram-small">
 
  
 ###  <a name="snapshotreporter"></a> A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)
