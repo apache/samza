@@ -1,12 +1,9 @@
 ---
-exclude_from_loop: true # useful for drafts
-layout: case-study # the layout to use
-hide_title: true # so we have control in case-study layout, but can still use page
-title: Totally awesome use-case of samza by Company # title of case study page
-study_domain: company.com # just the domain, not the protocol
-priority: # order
-menu_title: Company # what shows up in the menu
-excerpt_separator: <!--more-->
+version: '-1000'
+order: -1000
+layout: page
+menu_title: 'View Older'
+title: Older Releases
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -25,9 +22,11 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Testing the excerpt
 
-<!--more-->
+### 0.8
+
+### 0.9
+
+### 0.7.0
 
 
-Markdown content goes here

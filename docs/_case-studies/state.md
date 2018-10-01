@@ -1,15 +1,9 @@
 ---
-exclude_from_loop: true # useful for drafts 
-layout: news
-title: Your title with dashes for spaces and special chars # name the file with YYYY-DD-MM-your-title-with-dashes-for-spaces-and-special-chars.md
-icon: git-pull-request # iconic icons https://ionicons.com/
-authors: #optional
-    - name: 
-      website: #optional
-      image: #optional
-    - name: 
-      website: 
-      image: 
+layout: case-study # the layout to use
+hide_title: true # so we have control in case-study layout, but can still use page
+title: Totally awesome use-case of samza by State # title of case study page
+study_domain: state.com # just the domain, not the protocol
+menu_title: State # what shows up in the menu
 excerpt_separator: <!--more-->
 ---
 <!--
@@ -29,10 +23,9 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-
-An excerpt which should be brief to provide the jist of what the article will be about.
+Testing the excerpt
 
 <!--more-->
 
 
-All the content of the news article, which can be both html and markdown.
+Markdown content goes here

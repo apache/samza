@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Samza News
+title: Samza Blog
 exclude_from_loop: true
 ---
 <!--
@@ -22,7 +22,7 @@ exclude_from_loop: true
 
 <div class="news_cards">
 
-  {% assign sorted = (site.news | sort: 'date') | reverse %}
+  {% assign sorted = (site.blog | sort: 'date') | reverse %}
 
   {% for post in sorted %}
 
