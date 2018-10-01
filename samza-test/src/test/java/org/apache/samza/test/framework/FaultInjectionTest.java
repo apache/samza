@@ -41,11 +41,12 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.operator.data.PageView;
 import org.junit.Test;
 
-import static org.apache.samza.test.framework.TestTimerApp.*;
 import static org.junit.Assert.*;
 
 
 public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness {
+  private static final String PAGE_VIEWS = "page-views";
+
   @Test
   public void testRaceCondition() throws InterruptedException {
     int taskShutdownInMs = (int) (Math.random() * 10000);
