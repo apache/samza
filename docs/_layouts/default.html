@@ -52,21 +52,55 @@
 
   <div class="section section--bottom-flare section--hero" id="hero">
     <canvas id="canvas"></canvas>
-    <div>
-      <h1 class="section__title">
-        Apache Samza
-      </h1>
-      <h2 class="section__title section__title--sub">
-        Build scalable, fault-tolerant applications that process your data in real-time
-      </h2>
-      <div class="content">
-        <a class="button" href="/startup/hello-samza/{{site.version}}">
-          Quick Start
-        </a>
-        <a class="button" href="/startup/hello-samza/{{site.version}}">
-          Case studies
-        </a>
+    <div class="hero-inner">
+      <div class="hero-info">
+        <h1 class="section__title">
+          Apache Samza
+        </h1>
+        <h2 class="section__title section__title--sub">
+          Build scalable, fault-tolerant applications that process your data in real-time
+        </h2>
+        <div class="content">
+          <a class="button" href="/startup/hello-samza/{{site.version}}">
+            Quick Start
+          </a>
+          <a class="button" href="/startup/hello-samza/{{site.version}}">
+            Case studies
+          </a>
+        </div>
       </div>
+
+      <div class="hero-blog-posts">
+        <h3>Latest from our blog</h3>
+        <div class="blog-posts">
+        
+            {% assign sortedBlogPost = site.blog | sort: 'date' | reverse %}
+            {% assign maxCount = 3 %}
+            {% assign latestCount = 1 %}
+
+            {% for post in sortedBlogPost %}
+
+              {% if latestCount > maxCount %}
+                {% break %}
+              {% endif %}
+
+              {% if post.exclude_from_loop %}
+                {% continue %}
+              {% endif %}
+
+              {% assign latestCount = latestCount | plus: 1 %}
+
+              <a class="blog-post" href="{{ post.url }}">
+                  <div class="blog-post__title">{{ post.title }}</div>
+                  <div class="blog-post__date">{{ post.date | date: "%B %-d, %Y" }}</div>
+              </a>
+        
+            {% endfor %}
+
+        </div>
+      </div>
+
+
     </div>
   </div>
 
@@ -101,6 +135,7 @@
       <div class="section__item">
         <i class="section__item-icon icon ion-md-trending-up"></i>
         <div class="section__item-title">
+
           Horizontally scalable
         </div>
         <div class="section__item-features">
@@ -157,10 +192,9 @@
       Case Studies
     </div>
 
-    <div class="section__items">
-
-      {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
-      {% for study in case-studies_sorted %}
+    <div class="section__items js-flickity" data-flickity-options='{ "wrapAround": true, "autoPlay": 1500 }'>
+    {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
+    {% for study in case-studies_sorted %}
 
       {% if study.exclude_from_loop %}
         {% continue %}
@@ -171,7 +205,8 @@
           <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
         </a>
       </div>
-      {% endfor %}
+
+    {% endfor %}
 
     </div>
 
@@ -180,6 +215,9 @@
   <!-- footer starts here -->
 
   {% include footer.html %}
+
+  <script type="text/javascript" src="/js/flickity.js"></script>
+  
 </body>
 
 </html>
