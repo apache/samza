@@ -1,5 +1,5 @@
 ---
-layout: news
+layout: blog
 title: Announcing the release of Apache Samza 0.14.1
 icon: git-pull-request
 authors:

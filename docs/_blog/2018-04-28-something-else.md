@@ -1,5 +1,5 @@
 ---
-layout: news
+layout: blog
 title: Totally Something Else Besides Release Notes
 icon: analytics
 authors:
