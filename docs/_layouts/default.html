@@ -74,14 +74,22 @@
         <h3>Latest from our blog</h3>
         <div class="blog-posts">
         
-            {% assign sortedBlogPost = (site.blog | sort: 'date') | reverse %}
+            {% assign sortedBlogPost = site.blog | sort: 'date' | reverse %}
+            {% assign maxCount = 3 %}
+            {% assign latestCount = 1 %}
 
             {% for post in sortedBlogPost %}
+
+              {% if latestCount > maxCount %}
+                {% break %}
+              {% endif %}
 
               {% if post.exclude_from_loop %}
                 {% continue %}
               {% endif %}
-        
+
+              {% assign latestCount = latestCount | plus: 1 %}
+
               <a class="blog-post" href="{{ post.url }}">
                   <div class="blog-post__title">{{ post.title }}</div>
                   <div class="blog-post__date">{{ post.date | date: "%B %-d, %Y" }}</div>

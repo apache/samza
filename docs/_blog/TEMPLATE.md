@@ -1,6 +1,6 @@
 ---
 exclude_from_loop: true # useful for drafts 
-layout: news
+layout: blog
 title: Your title with dashes for spaces and special chars # name the file with YYYY-DD-MM-your-title-with-dashes-for-spaces-and-special-chars.md
 icon: git-pull-request # iconic icons https://ionicons.com/
 authors: #optional
