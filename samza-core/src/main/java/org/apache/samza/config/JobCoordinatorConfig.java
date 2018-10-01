@@ -28,8 +28,6 @@ import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 
-import java.util.Objects;
-
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public final static String DEFAULT_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
@@ -44,9 +42,9 @@ public class JobCoordinatorConfig extends MapConfig {
     String coordinatorFactory = get(JOB_COORDINATOR_FACTORY, DEFAULT_COORDINATOR_FACTORY);
 
     String coordinationUtilsFactory;
-    if (Objects.equals(coordinatorFactory, AZURE_COORDINATOR_FACTORY)) {
+    if (AZURE_COORDINATOR_FACTORY.equals(coordinatorFactory)) {
       coordinationUtilsFactory = AZURE_COORDINATION_UTILS_FACTORY;
-    } else if (Objects.equals(coordinatorFactory, PassthroughJobCoordinatorFactory.class.getName())) {
+    } else if (PassthroughJobCoordinatorFactory.class.getName().equals(coordinatorFactory)) {
       coordinationUtilsFactory = PassthroughCoordinationUtilsFactory.class.getName();
     } else {
       coordinationUtilsFactory = ZkCoordinationUtilsFactory.class.getName();
