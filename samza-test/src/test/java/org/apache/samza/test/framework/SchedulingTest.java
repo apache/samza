@@ -26,9 +26,9 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.samza.test.framework.TestTimerApp.*;
+import static org.apache.samza.test.framework.TestSchedulingApp.*;
 
-public class TimerTest extends StreamApplicationIntegrationTestHarness {
+public class SchedulingTest extends StreamApplicationIntegrationTestHarness {
 
   @Before
   public void setup() {
@@ -55,6 +55,6 @@ public class TimerTest extends StreamApplicationIntegrationTestHarness {
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, "org.apache.samza.standalone.PassthroughCoordinationUtilsFactory");
     configs.put(JobConfig.PROCESSOR_ID(), "0");
 
-    runApplication(new TestTimerApp(), "TimerTest", configs);
+    runApplication(new TestSchedulingApp(), "SchedulingTest", configs);
   }
 }

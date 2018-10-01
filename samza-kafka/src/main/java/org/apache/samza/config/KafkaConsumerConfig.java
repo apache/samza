@@ -33,7 +33,6 @@ import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-import scala.runtime.AbstractFunction0;
 
 
 /**
@@ -139,7 +138,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   // group id should be unique per job
   static String createConsumerGroupId(Config config) {
     Pair<String, String> jobNameId = getJobNameAndId(config);
-   
+
     return String.format("%s-%s", jobNameId.getLeft(), jobNameId.getRight());
   }
 
@@ -164,13 +163,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
       throw new ConfigException("Missing job name");
     }
     String jobName = (String) jobNameOption.get();
-
-    Option jobIdOption = jobConfig.getJobId();
-    String jobId = "1";
-    if (! jobIdOption.isEmpty()) {
-      jobId = (String) jobIdOption.get();
-    }
-    return new ImmutablePair<>(jobName, jobId);
+    return new ImmutablePair<>(jobName, jobConfig.getJobId());
   }
 
   /**

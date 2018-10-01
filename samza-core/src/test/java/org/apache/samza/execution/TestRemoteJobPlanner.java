@@ -69,7 +69,7 @@ public class TestRemoteJobPlanner {
     ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
     when(mockAppConfig.getAppMode()).thenReturn(ApplicationConfig.ApplicationMode.STREAM);
     when(plan.getApplicationConfig()).thenReturn(mockAppConfig);
-    doReturn(plan).when(remotePlanner).getExecutionPlan(any(), any());
+    doReturn(plan).when(remotePlanner).getExecutionPlan(any());
 
     remotePlanner.prepareJobs();
 

@@ -36,7 +36,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class TestSystemTimerScheduler {
+public class TestEpochTimeScheduler {
 
   private ScheduledExecutorService createExecutorService() {
     ScheduledExecutorService service = mock(ScheduledExecutorService.class);
@@ -49,15 +49,15 @@ public class TestSystemTimerScheduler {
     return service;
   }
 
-  private void fireTimers(SystemTimerScheduler factory) {
+  private void fireTimers(EpochTimeScheduler factory) {
     factory.removeReadyTimers().entrySet().forEach(entry -> {
-        entry.getValue().onTimer(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
+        entry.getValue().onCallback(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
       });
   }
 
   @Test
   public void testSingleTimer() {
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
     scheduler.setTimer("single-timer", 1, (key, collector, coordinator) -> {
         results.add(key);
@@ -71,7 +71,7 @@ public class TestSystemTimerScheduler {
 
   @Test
   public void testMultipleTimers() {
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
     scheduler.setTimer("multiple-timer-3", 3, (key, collector, coordinator) -> {
         results.add(key + ":3");
@@ -97,7 +97,7 @@ public class TestSystemTimerScheduler {
     Object key2 = new Object();
     List<String> results = new ArrayList<>();
 
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(createExecutorService());
     scheduler.setTimer(key1, 2, (key, collector, coordinator) -> {
         assertEquals(key, key1);
         results.add("key1:2");
@@ -120,7 +120,7 @@ public class TestSystemTimerScheduler {
     Long key2 = Long.MAX_VALUE;
     List<String> results = new ArrayList<>();
 
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(createExecutorService());
     scheduler.setTimer(key1, 1, (key, collector, coordinator) -> {
         assertEquals(key, key1);
         results.add("key:1");
@@ -144,7 +144,7 @@ public class TestSystemTimerScheduler {
     when(future.cancel(anyBoolean())).thenReturn(true);
     when(service.schedule((Runnable) anyObject(), anyLong(), anyObject())).thenAnswer(invocation -> future);
 
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(service);
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(service);
     List<String> results = new ArrayList<>();
     scheduler.setTimer("timer", 1, (key, collector, coordinator) -> {
         results.add(key);
@@ -160,7 +160,7 @@ public class TestSystemTimerScheduler {
 
   @Test
   public void testTimerListener() {
-    SystemTimerScheduler scheduler = SystemTimerScheduler.create(createExecutorService());
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(createExecutorService());
     List<String> results = new ArrayList<>();
     scheduler.registerListener(() -> {
         results.add("timer-listener");

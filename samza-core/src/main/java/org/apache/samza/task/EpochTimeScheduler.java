@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.scheduler.ScheduledCallback;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -35,7 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
  * 2) keeps track of the timers created and timers that are ready.
  * 3) triggers listener whenever a timer fires.
  */
-public class SystemTimerScheduler {
+public class EpochTimeScheduler {
 
   /**
    * For run loop to listen to timer firing so it can schedule the callbacks.
@@ -46,18 +47,18 @@ public class SystemTimerScheduler {
 
   private final ScheduledExecutorService executor;
   private final Map<Object, ScheduledFuture> scheduledFutures = new ConcurrentHashMap<>();
-  private final Map<TimerKey<?>, TimerCallback> readyTimers = new ConcurrentHashMap<>();
+  private final Map<TimerKey<?>, ScheduledCallback> readyTimers = new ConcurrentHashMap<>();
   private TimerListener timerListener;
 
-  public static SystemTimerScheduler create(ScheduledExecutorService executor) {
-    return new SystemTimerScheduler(executor);
+  public static EpochTimeScheduler create(ScheduledExecutorService executor) {
+    return new EpochTimeScheduler(executor);
   }
 
-  private SystemTimerScheduler(ScheduledExecutorService executor) {
+  private EpochTimeScheduler(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
-  public <K> void setTimer(K key, long timestamp, TimerCallback<K> callback) {
+  public <K> void setTimer(K key, long timestamp, ScheduledCallback<K> callback) {
     checkState(!scheduledFutures.containsKey(key),
         String.format("Duplicate key %s registration for the same timer", key));
 
@@ -84,8 +85,8 @@ public class SystemTimerScheduler {
     timerListener = listener;
   }
 
-  public Map<TimerKey<?>, TimerCallback> removeReadyTimers() {
-    final Map<TimerKey<?>, TimerCallback> timers = new TreeMap<>(readyTimers);
+  public Map<TimerKey<?>, ScheduledCallback> removeReadyTimers() {
+    final Map<TimerKey<?>, ScheduledCallback> timers = new TreeMap<>(readyTimers);
     readyTimers.keySet().removeAll(timers.keySet());
     return timers;
   }
