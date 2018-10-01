@@ -62,7 +62,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   @Test
   public void testJoinWithSideInputsTable() {
     runTest(
-        "side-input-join",
+        "test",
         new PageViewProfileJoin(),
         Arrays.asList(TestTableData.generatePageViews(10)),
         Arrays.asList(TestTableData.generateProfiles(10)));
@@ -71,7 +71,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   @Test
   public void testJoinWithDurableSideInputTable() {
     runTest(
-        "durable-side-input",
+        "test",
         new DurablePageViewProfileJoin(),
         Arrays.asList(TestTableData.generatePageViews(5)),
         Arrays.asList(TestTableData.generateProfiles(5)));
@@ -131,7 +131,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     public void describe(StreamApplicationDescriptor appDesc) {
       Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
       KafkaSystemDescriptor sd =
-          new KafkaSystemDescriptor(appDesc.getConfig().get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM)));
+          new KafkaSystemDescriptor("test");
       appDesc.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
           .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
           .join(table, new PageViewToProfileJoinFunction())
