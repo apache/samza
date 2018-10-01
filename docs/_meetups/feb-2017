@@ -1,9 +1,8 @@
 ---
-date: July 2018
-display_date: July 2018
+date: February 2017
+display_date: February 2017
 meetups:
-    - name: 'Beam me up Samza: How we built a Samza Runner for Apache Beam'
-      date: July 19, 2018
+    - name: 'Asynchronous Processing and Multithreading in Apache Samza'
       url: https://google.com
       host: LinkedIn
       image: 
@@ -12,27 +11,23 @@ meetups:
           website: 
           image:
           affiliation: LinkedIn
-      abstract: Apache Beam is an open source unified programming model to define and execute data processing pipelines
       video:
-          url: https://www.youtube.com/watch?v=o5GaifLoZho&list=PLZDyxA22zzGx34wdHESUux2_V1qfkQ8zx&index=44&t=0s
-          image: https://img.youtube.com/vi/o5GaifLoZho/maxresdefault.jpg
-    - name: Concourse - Near real-time notifications platform at LinkedIn
-      date: July 19, 2018
+          url: https://youtu.be/aQrpxvcE3uI
+          image: https://img.youtube.com/vi/aQrpxvcE3uI/0.jpg
+      slides:
+          url: https://www.slideshare.net/SamarthShetty2/stream-processing-using-samza-sql
+    - name: 'Batching to Streaming Analytics at Optimizely'
       url: https://google.com
       host: LinkedIn
       image: 
       presenters:
-        - name: Ajith Muralidharan
+        - name: Vignesh Sukumar, Mike Davis, Hao Xia
           website: 
           image:
-          affiliation: LinkedIn
-        - name: Vivek Nelamangala
-          website:
-          image: 
-          affiliation: LinkedIn
+          affiliation: Optimizely
       video:
-          url: https://www.youtube.com/watch?v=Fszo6jThq0I&list=PLZDyxA22zzGx34wdHESUux2_V1qfkQ8zx&index=2&t=0s
-          image: https://img.youtube.com/vi/Fszo6jThq0I/maxresdefault.jpg
+          url: https://youtu.be/p7hjrKyfQkc
+          image: https://img.youtube.com/vi/p7hjrKyfQkc/0.jpg
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

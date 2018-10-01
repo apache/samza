@@ -1,38 +1,45 @@
 ---
-date: July 2018
-display_date: July 2018
+date: September 2017
+display_date: September 2017
 meetups:
-    - name: 'Beam me up Samza: How we built a Samza Runner for Apache Beam'
-      date: July 19, 2018
+    - name: 'Samza at Redfin: Using Streaming to Help Home Buyers and Sellers'
       url: https://google.com
       host: LinkedIn
       image: 
       presenters:
-        - name: Xinyu Liu
+        - name: Srinivasulu Punuru
           website: 
           image:
           affiliation: LinkedIn
-      abstract: Apache Beam is an open source unified programming model to define and execute data processing pipelines
       video:
-          url: https://www.youtube.com/watch?v=o5GaifLoZho&list=PLZDyxA22zzGx34wdHESUux2_V1qfkQ8zx&index=44&t=0s
-          image: https://img.youtube.com/vi/o5GaifLoZho/maxresdefault.jpg
-    - name: Concourse - Near real-time notifications platform at LinkedIn
-      date: July 19, 2018
+          url: https://youtu.be/YDGIDO29Dqk
+          image: https://img.youtube.com/vi/YDGIDO29Dqk/0.jpg
+      slides:
+          url: https://www.slideshare.net/SamarthShetty2/stream-processing-using-samza-sql
+    - name: Real-time Indexing of LinkedIn’s Economic Graph
       url: https://google.com
       host: LinkedIn
       image: 
       presenters:
-        - name: Ajith Muralidharan
+        - name: Almog Gavra
           website: 
           image:
           affiliation: LinkedIn
-        - name: Vivek Nelamangala
-          website:
+      video:
+          url: https://www.youtube.com/watch?v=J8ONfE5o_oQ&list=PLZDyxA22zzGx34wdHESUux2_V1qfkQ8zx&index=10&t=0s
+          image: https://img.youtube.com/vi/J8ONfE5o_oQ/0.jpg
+    - name: 'Unified Batch & Stream Processing with Apache Samza'
+          url: https://google.com
+          host: Dataworks Summit Sydney 2017
           image: 
-          affiliation: LinkedIn
-      video:
-          url: https://www.youtube.com/watch?v=Fszo6jThq0I&list=PLZDyxA22zzGx34wdHESUux2_V1qfkQ8zx&index=2&t=0s
-          image: https://img.youtube.com/vi/Fszo6jThq0I/maxresdefault.jpg
+          presenters:
+            - name: Navina Ramesh
+              website: 
+              image:
+              affiliation: Linkedin
+          slides:
+              url: https://www.slideshare.net/Hadoop_Summit/unified-batch-stream-processing-with-apache-samza
+
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

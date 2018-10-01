@@ -30,7 +30,7 @@ title: Samza Meetups
         <i class="meetup-icon ion-md-calendar"></i>
         <div class="meetup-info">
             <div class="meetup-date-group">{{ meetup.display_date }}</div>
-            
+
             {% for meet in meetup.meetups %}
 
             <div class="meet" data-plugin="event" data-date="{{ meet.date | date: '%-d %B %Y' }}" data-upcoming-class="meet--upcoming">
@@ -42,8 +42,10 @@ title: Samza Meetups
                 </div>
                 <div>
                     <div class="meet-name">{{ meet.name}}</div>
+                    {% if meet.date %}
                     <div class="meet-date"><strong>&raquo; Date &HorizontalLine;</strong> {{ meet.date }}</div>
-                    <div class="meet-host"><strong>&raquo; Presented At &HorizontalLine;</strong> {{ meet.host }}</div>
+                    {% endif %}
+                    <div class="meet-host"><strong>&raquo; Company &HorizontalLine;</strong> {{ meet.host }}</div>
 
                     {% if meet.presenters %}
                     <div class="meet-presenter">
@@ -76,12 +78,10 @@ title: Samza Meetups
                     {{ meet.abstract }}
                 </div>
                 {% endif %}
-                <div class="meet-actions">    
+                <div class="meet-actions">
                     {% if meet.slides %}
                     <a class="meet-action" href="{{ meet.slides.url }}">View Slides</a>
                     {% endif %}
-                    <a class="meet-action" href="{{ meet.url }}">Meetup Details
-                    </a>
                 </div>
             </div>
 
@@ -90,7 +90,7 @@ title: Samza Meetups
     </div>
     {% endfor %}
 </div>
-    
+
 <div class="pagination pagination--meetup">
     <hr/>
     <div class="pagination-inner">
