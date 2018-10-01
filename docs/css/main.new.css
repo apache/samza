@@ -19,23 +19,23 @@
 
 /********************************************************************
  *
- * REFERENCE 
+ * REFERENCE
  *
  *******************************************************************/
- 
- /* 
- 
+
+ /*
+
  font-family: 'Barlow', sans-serif;
- 
+
  logo color red: #eb1c23
  logo color grey: #4f4f4f
  apache logo feather purple: #7a2c68
- 
+
  */
 
 /********************************************************************
  *
- * GLOBAL 
+ * GLOBAL
  *
  *******************************************************************/
 
@@ -142,7 +142,7 @@ a.side-navigation__group-title:hover::after {
 
 /********************************************************************
  *
- * NAVIGATION - MAIN 
+ * NAVIGATION - MAIN
  *
  *******************************************************************/
 
@@ -320,7 +320,7 @@ footer p {
 }
 
 .footer__items {
-  
+
 }
 
 .footer__item {
@@ -339,7 +339,7 @@ footer p {
   left: -30px;
 }
 
-footer .side-by-side { 
+footer .side-by-side {
   flex-direction: column;
 }
 
@@ -364,7 +364,7 @@ footer .side-by-side > * {
 
 /********************************************************************
  *
- * SECTION - HOME PAGE 
+ * SECTION - HOME PAGE
  *
  *******************************************************************/
 
@@ -396,7 +396,7 @@ footer .side-by-side > * {
   z-index: 20;
 }
 
-.section--highlight.section--bottom-flare::after { 
+.section--highlight.section--bottom-flare::after {
   border-top-color: #111;
 }
 
@@ -805,7 +805,7 @@ a.side-navigation__group-title::after {
 /****
  *
  * Markdown stuff
- * 
+ *
  ****/
 
 .page > .container {
@@ -828,18 +828,21 @@ a.side-navigation__group-title::after {
 table {
   border-collapse: collapse;
   margin: 1em 0;
-  font-size: 15px;
+  border:1px solid #000000;
+  font-size : 12px;
+  font-family : "Myriad Web",Verdana,Helvetica,Arial,sans-serif;
 }
 
 table th, table td {
   text-align: left;
   vertical-align: top;
-  padding: 12px;
+  padding: 5px;
   border-bottom: 1px solid #ccc;
   border-top: 1px solid #ccc;
-  border-left: 0;
-  border-right: 0;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #ccc;
 }
+
 pre {
   padding: 20px;
   font-size: 15px;
@@ -903,7 +906,7 @@ figure, .page .content div.highlight {
 /****
  *
  * Releases List on Docs
- * 
+ *
  ****/
 
 .releases-list-divider {
@@ -967,7 +970,7 @@ figure, .page .content div.highlight {
 /****
  *
  * Breadcrumbs List, same as releases
- * 
+ *
  ****/
 
 .breadcrumbs-list-divider {
@@ -1044,7 +1047,7 @@ figure, .page .content div.highlight {
 /****
  *
  * CASE STUDIES
- * 
+ *
  ****/
 
 ul.case-studies {
@@ -1257,7 +1260,7 @@ ul.case-studies {
 /****
  *
  * POWERED BY
- * 
+ *
  ****/
 
  ul.powered-by {
@@ -1353,7 +1356,7 @@ ul.case-studies {
  **/
 
 .news__cards {
-  display: flex;  
+  display: flex;
 }
 
 .news__card {
@@ -1614,14 +1617,14 @@ ul.case-studies {
 }
 
 
-.talk-upcoming-tag i { 
+.talk-upcoming-tag i {
   margin-right: 20px;
   font-size: 20px;
 }
 
 .talk-upcoming-section {
   display: none;
-  
+
 }
 
 @media only screen and (min-width: 900px) {
@@ -1881,14 +1884,14 @@ ul.case-studies {
 }
 
 
-.meet-upcoming-tag i { 
+.meet-upcoming-tag i {
   margin-right: 20px;
   font-size: 20px;
 }
 
 .meet-upcoming-section {
   display: none;
-  
+
 }
 
 .meet--upcoming .meet-upcoming-section {
@@ -2098,7 +2101,7 @@ ul.case-studies {
  **/
 
 .pagination {
-  
+
 }
 
 .pagination.hide {
@@ -2145,7 +2148,7 @@ ul.case-studies {
 /****
  *
  * Committers
- * 
+ *
  ****/
 
 .committers {
