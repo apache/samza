@@ -32,7 +32,7 @@ import java.util.Objects;
 
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
-  public final static String DEFAULT_COORDINATOR_UTILS_FACTORY = ZkJobCoordinatorFactory.class.getName();
+  public final static String DEFAULT_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
   private static final String AZURE_COORDINATION_UTILS_FACTORY = "org.apache.samza.coordinator.AzureCoordinationUtilsFactory";
   private static final String AZURE_COORDINATOR_FACTORY = "org.apache.samza.coordinator.AzureJobCoordinatorFactory";
 
@@ -41,7 +41,7 @@ public class JobCoordinatorConfig extends MapConfig {
   }
 
   public String getJobCoordinationUtilsFactoryClassName() {
-    String coordinatorFactory = get(JOB_COORDINATOR_FACTORY, DEFAULT_COORDINATOR_UTILS_FACTORY);
+    String coordinatorFactory = get(JOB_COORDINATOR_FACTORY, DEFAULT_COORDINATOR_FACTORY);
 
     String coordinationUtilsFactory;
     if (Objects.equals(coordinatorFactory, AZURE_COORDINATOR_FACTORY)) {
