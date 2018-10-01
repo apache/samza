@@ -878,6 +878,11 @@ class SamzaContainer(
    * @throws SamzaException, Thrown when the container has already been stopped or failed
    */
   def shutdown(): Unit = {
+    if (status == SamzaContainerStatus.FAILED || status == SamzaContainerStatus.STOPPED) {
+      warn("Shutdown is no-op since the container is already in state: " + status)
+      return
+    }
+
     shutdownRunLoop()
   }
 

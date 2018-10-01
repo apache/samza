@@ -101,7 +101,7 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
-  private final ExecutorService executorService;
+  private final ExecutorService containerExcecutorService;
   private final Object lock = new Object();
 
   private volatile Throwable containerException = null;
@@ -198,7 +198,7 @@ public class StreamProcessor {
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
     // TODO: remove the dependency on jobCoordinator for processorId after fixing SAMZA-1835
     this.processorId = this.jobCoordinator.getProcessorId();
     this.processorListener = listenerFactory.createInstance(this);
@@ -258,7 +258,7 @@ public class StreamProcessor {
           boolean hasContainerShutdown = stopSamzaContainer();
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
-            executorService.shutdownNow();
+            containerExcecutorService.shutdownNow();
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
@@ -314,7 +314,7 @@ public class StreamProcessor {
     // It is acceptable since container exception is much more useful compared to timeout exception.
     // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
     if (!hasContainerShutdown && containerException == null) {
-      containerException = new TimeoutException("Container shutdown timed out.");
+      containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
     }
 
     return hasContainerShutdown;
@@ -351,7 +351,7 @@ public class StreamProcessor {
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            executorService.submit(container);
+            containerExcecutorService.submit(container);
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -366,7 +366,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            executorService.shutdownNow();
+            containerExcecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }
@@ -385,7 +385,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            executorService.shutdownNow();
+            containerExcecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }
