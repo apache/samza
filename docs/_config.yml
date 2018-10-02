@@ -29,7 +29,7 @@ latest-release: '0.14'
 collections:
   menu:
     output: false
-  news:
+  blog:
     output: true
   case-studies:
     output: true
@@ -40,6 +40,6 @@ collections:
   committers:
     output: false
   releases:
-    output: false
+    output: true
   powered-by:
     output: false

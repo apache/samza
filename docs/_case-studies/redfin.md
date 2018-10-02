@@ -3,6 +3,7 @@ layout: case-study # the layout to use
 hide_title: true # so we have control in case-study layout, but can still use page
 title: Realtime Notifications at Redfin
 study_domain: redfin.com # just the domain, not the protocol
+priority: 3
 menu_title: Redfin # what shows up in the menu
 excerpt_separator: <!--more-->
 ---
@@ -69,4 +70,3 @@ More information
 
 -   [https://www.youtube.com/watch?v=cfy0xjJJf7Y](https://www.youtube.com/watch?v=cfy0xjJJf7Y)
 -   [https://www.redfin.com/](https://www.redfin.com/)
-

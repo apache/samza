@@ -44,7 +44,6 @@ public class TaskContextImpl implements TaskContext {
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, Object> objectRegistry = new HashMap<>();
 
-
   public TaskContextImpl(TaskModel taskModel,
       MetricsRegistry taskMetricsRegistry,
       Function<String, KeyValueStore> keyValueStoreProvider,

@@ -33,8 +33,9 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -63,7 +64,6 @@ import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
 
-
 /**
  * TestRunner provides APIs to set up integration tests for a Samza application.
  * Running mode for test is Single container mode
@@ -76,11 +76,14 @@ import org.junit.Assert;
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
  *    <li>"job.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
+ *    <li>"job.default.system" = {@code JOB_DEFAULT_SYSTEM}</li>
+ *    <li>"job.host-affinity.enabled" = "false"</li>
  *  </ol>
  *
  */
 public class TestRunner {
-  public static final String JOB_NAME = "samza-test";
+  private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
+  private static final String JOB_NAME = "samza-test";
 
   private Map<String, String> configs;
   private SamzaApplication app;
@@ -98,11 +101,16 @@ public class TestRunner {
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
+    // This is important because Table Api enables host affinity by default for RocksDb
+    addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
+    addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
+    addConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).withInMemoryScope(inMemoryScope).toConfig());
   }
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param taskClass represent a class containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param taskClass containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
    */
   private TestRunner(Class taskClass) {
     this();
@@ -113,9 +121,9 @@ public class TestRunner {
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link StreamApplication}
+   * @param app a {@link SamzaApplication}
    */
-  private TestRunner(StreamApplication app) {
+  private TestRunner(SamzaApplication app) {
     this();
     Preconditions.checkNotNull(app);
     this.app = app;
@@ -134,49 +142,39 @@ public class TestRunner {
   }
 
   /**
-   * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app samza job implementing {@link StreamApplication}
+   * Creates an instance of {@link TestRunner} for a {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    * @return this {@link TestRunner}
    */
-  public static TestRunner of(StreamApplication app) {
+  public static TestRunner of(SamzaApplication app) {
     Preconditions.checkNotNull(app);
     return new TestRunner(app);
   }
 
   /**
-   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
-   * @param config configs for the application
+   * Adds a config to Samza application. This config takes precedence over default configs and descriptor generated configs
+   *
+   * @param key of the config
+   * @param value of the config
    * @return this {@link TestRunner}
    */
-  public TestRunner addConfigs(Map<String, String> config) {
-    Preconditions.checkNotNull(config);
-    config.forEach(this.configs::putIfAbsent);
-    return this;
-  }
-
-  /**
-   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
-   * @param config configs for the application
-   * @return this {@link TestRunner}
-   */
-  public TestRunner addConfigs(Map<String, String> config, String configPrefix) {
-    Preconditions.checkNotNull(config);
-    config.forEach((key, value) -> this.configs.putIfAbsent(String.format("%s%s", configPrefix, key), value));
-    return this;
-  }
-
-  /**
-   * Adds a config to {@code configs} if its not already present. Overrides a config value for which key is already
-   * exisiting in {@code configs}
-   * @param key key of the config
-   * @param value value of the config
-   * @return this {@link TestRunner}
-   */
-  public TestRunner addOverrideConfig(String key, String value) {
+  public TestRunner addConfig(String key, String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
-    String configKeyPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
-    configs.put(String.format("%s%s", configKeyPrefix, key), value);
+    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
+    configs.put(String.format("%s%s", configPrefix, key), value);
+    return this;
+  }
+
+  /**
+   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
+   * @param config configs for the application
+   * @return this {@link TestRunner}
+   */
+  public TestRunner addConfig(Map<String, String> config) {
+    Preconditions.checkNotNull(config);
+    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
+    config.forEach((key, value) -> this.configs.put(String.format("%s%s", configPrefix, key), value));
     return this;
   }
 
@@ -204,7 +202,8 @@ public class TestRunner {
   }
 
   /**
-   * Adds the provided input stream with mock data to the test application.
+   * Adds the provided input stream with mock data to the test application. Default configs and user added configs have
+   * a higher precedence over system and stream descriptor generated configs.
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages map whose key is partitionId and value is messages in the partition
    * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
@@ -222,12 +221,13 @@ public class TestRunner {
   }
 
   /**
-   * Adds the provided output stream to the test application.
+   * Adds the provided output stream to the test application. Default configs and user added configs have a higher
+   * precedence over system and stream descriptor generated configs.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @param partitionCount partition count of output stream
    * @return this {@link TestRunner}
    */
-  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor, int partitionCount) {
+  public TestRunner addOutputStream(InMemoryOutputDescriptor<?> streamDescriptor, int partitionCount) {
     Preconditions.checkNotNull(streamDescriptor);
     Preconditions.checkState(partitionCount >= 1);
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) streamDescriptor.getSystemDescriptor();
@@ -240,8 +240,8 @@ public class TestRunner {
     factory
         .getAdmin(streamDescriptor.getSystemName(), config)
         .createStream(spec);
-    addConfigs(streamDescriptor.toConfig());
-    addConfigs(streamDescriptor.getSystemDescriptor().toConfig());
+    addConfig(streamDescriptor.toConfig());
+    addConfig(streamDescriptor.getSystemDescriptor().toConfig());
     return this;
   }
 
@@ -342,7 +342,7 @@ public class TestRunner {
    *                 messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system
    */
-  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor,
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor<?> descriptor,
       Map<Integer, Iterable<StreamMessageType>> partitonData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
@@ -354,8 +354,8 @@ public class TestRunner {
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
-    addConfigs(descriptor.toConfig());
-    addConfigs(descriptor.getSystemDescriptor().toConfig(), String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()));
+    addConfig(descriptor.toConfig());
+    addConfig(descriptor.getSystemDescriptor().toConfig());
     StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());

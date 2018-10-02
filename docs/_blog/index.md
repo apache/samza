@@ -1,16 +1,7 @@
 ---
-exclude_from_loop: true # useful for drafts 
-layout: news
-title: Your title with dashes for spaces and special chars # name the file with YYYY-DD-MM-your-title-with-dashes-for-spaces-and-special-chars.md
-icon: git-pull-request # iconic icons https://ionicons.com/
-authors: #optional
-    - name: 
-      website: #optional
-      image: #optional
-    - name: 
-      website: 
-      image: 
-excerpt_separator: <!--more-->
+layout: page
+title: Samza Blog
+exclude_from_loop: true
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -29,10 +20,35 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
+<div class="news_cards">
 
-An excerpt which should be brief to provide the jist of what the article will be about.
+  {% assign sorted = (site.blog | sort: 'date') | reverse %}
 
-<!--more-->
+  {% for post in sorted %}
 
+    {% if post.exclude_from_loop %}
+      {% continue %}
+    {% endif %}
 
-All the content of the news article, which can be both html and markdown.
+    {% assign icon = "ion-md-paper" %}
+
+    {% if post.icon %}
+
+    {% assign icon = "ion-md-" | append: post.icon %}
+
+    {% endif %}
+
+  <a class="news__card" href="{{ post.url }}">
+    <i class="news__card-icon icon {{ icon }}"></i>
+    <div class="news__card-date">{{ post.date | date: "%B %-d, %Y" }}</div>
+    <div class="news__card-title">{{ post.title }}</div>
+    {% if post.excerpt %}
+    <div class="news__card-description">
+      {{ post.excerpt }}
+    </div>
+    {% endif %}
+    <span class="news__card-button">Read more</span>
+  </a>
+  {% endfor %}
+
+</div>
