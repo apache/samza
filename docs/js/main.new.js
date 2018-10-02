@@ -148,6 +148,7 @@ var getDocumentationMenu = (url, cb, docMenu) => {
 var doMenu = () => {
 	const subMenuSelector = '[data-plugin="sub-menu"]';
 	const subMenus = document.querySelectorAll(subMenuSelector);
+	const topMenus = document.querySelectorAll('[data-plugin="top-menu"]');
 	const curLoc = window.location.pathname;
 
 	subMenus.forEach( (subMenu) => {
@@ -165,8 +166,15 @@ var doMenu = () => {
 
 			Array.from(curSubMenuItems).forEach( (child) => {
 				var childLoc = child.getAttribute('href');
-	
-				if (curLoc.includes(childLoc)) {
+				var matchType = child.getAttribute('data-match-active');
+
+				if (curLoc == childLoc && matchType == 'exact') {
+					child.classList.add('active');
+					openSubMenu = true;
+					curSubSubMenu.classList.add(showClass);
+				}
+
+				if (curLoc.includes(childLoc) && matchType != 'exact') {
 					child.classList.add('active');
 					openSubMenu = true;
 					curSubSubMenu.classList.add(showClass);
@@ -205,12 +213,42 @@ var doMenu = () => {
 			
 		}, true);
 	});
+
+	topMenus.forEach( (topMenu) => {
+
+		var loc = topMenu.getAttribute('href');
+		var matchType = topMenu.getAttribute('data-match-active');
+
+		if (curLoc == loc && matchType == 'exact') {
+			topMenu.classList.add('active');
+		}
+
+		if (curLoc.includes(loc) && matchType != 'exact') {
+			topMenu.classList.add('active');
+		}
+
+	});
 };
 
 // This takes the response of the documentation and builds the menu in right format
 var buildDocMenu = (status, body, docMenu) => {
 	if (status == 404) {
-		doMenu();
+		// doMenu();
+		// MONKEY
+
+		var fallback = '/learn/documentation/versioned/';
+		const docMenuSelector = '[data-documentation]';
+		const docMenu = document.querySelector(docMenuSelector);
+
+		// Already tried the fallback...
+		if (docMenu && docMenu.getAttribute('data-documentation') == fallback) {
+			doMenu();
+			return;
+		}
+
+		// Trying the fallback
+		docMenu.setAttribute('data-documentation', '/learn/documentation/versioned/');
+		doSideMenu();
 		return;
 	}
 
@@ -222,37 +260,82 @@ var buildDocMenu = (status, body, docMenu) => {
 
 		var listItems = h4.nextElementSibling.children;
 
-		var group = document.createElement('div');
-		var itemsDiv = document.createElement('div');
-		var icon = document.createElement('i');
-		icon.classList.add('side-navigation__group-title-icon', 'icon', 'ion-md-arrow-dropdown');
-		group.classList.add('side-navigation__group', 'side-navigation__group--has-nested');
-		group.setAttribute('data-sub-menu-show-class', 'side-navigation__group--has-nested-visible');
-		group.setAttribute('data-plugin', 'sub-menu');
-		itemsDiv.classList.add('side-navigation__group-items');
-		itemsDiv.setAttribute('data-sub-menu', true);
 
-		h4.classList.add('side-navigation__group-title');
-		h4.prepend(icon);
+		var h4Link = h4.querySelector('a');
 
-		Array.from(listItems).forEach( listItem => {
-			var link = listItem.querySelector('a');
-			linkDestination = docMenuLinkBase + '/' + link.getAttribute('href');
+		if ((!listItems || !listItems.length) && !h4Link) {
+			
+			if (h4.textContent && h4.textContent.trim().length) {
+				var h4Title = document.createElement('h4');
+				h4Title.classList.add('side-navigation__group-item', 'title-no-link');
+				h4Title.textContent = h4.textContent.trim();
 
-			linkText = link.text.trim();
+				docMenu.appendChild(h4Title);
+			} else {
+			}
 
-			var newLink = document.createElement('a');
-			newLink.classList.add('side-navigation__group-item');
-			newLink.setAttribute('href', linkDestination);
-			newLink.text = linkText;
+		} else if (h4Link) {
+			var h4LinkEl = document.createElement('a');
+			var h4href =h4Link.getAttribute('href');
+			var linkDestination = h4href.match(/^http/) ? h4href : docMenuLinkBase + h4href;
+			var linkText = h4Link.text.trim();
 
-			itemsDiv.appendChild(newLink);
-		})
+			h4LinkEl.classList.add('side-navigation__group-item');
+			h4LinkEl.setAttribute('href', linkDestination);
+			h4LinkEl.setAttribute('data-match-active', h4Link.getAttribute('data-match-active'));
 
-		group.appendChild(h4);
-		group.appendChild(itemsDiv);
+			if (h4href.match(/^http/)) {
+				h4LinkEl.setAttribute('target', '_blank');
+				h4LinkEl.setAttribute('rel', 'nofollow');
+			}
 
-		docMenu.appendChild(group);
+			h4LinkEl.text = linkText;
+			
+			docMenu.appendChild(h4LinkEl);
+
+		} else {
+			var group = document.createElement('div');
+			var itemsDiv = document.createElement('div');
+			var icon = document.createElement('i');
+			icon.classList.add('side-navigation__group-title-icon', 'icon', 'ion-md-arrow-dropdown');
+			group.classList.add('side-navigation__group', 'side-navigation__group--has-nested');
+			group.setAttribute('data-sub-menu-show-class', 'side-navigation__group--has-nested-visible');
+			group.setAttribute('data-plugin', 'sub-menu');
+			itemsDiv.classList.add('side-navigation__group-items');
+			itemsDiv.setAttribute('data-sub-menu', true);
+
+			h4.classList.add('side-navigation__group-title');
+			h4.prepend(icon);
+
+			Array.from(listItems).forEach( listItem => {
+				var link = listItem.querySelector('a');
+				var linkhref = link.getAttribute('href');
+				linkDestination = linkhref.match(/^http/) ? linkhref : docMenuLinkBase + linkhref;
+
+				linkText = link.text.trim();
+
+				var newLink = document.createElement('a');
+				newLink.classList.add('side-navigation__group-item');
+				newLink.setAttribute('href', linkDestination);
+				newLink.text = linkText;
+
+				if (linkhref.match(/^http/)) {
+					newLink.setAttribute('target', '_blank');
+					newLink.setAttribute('rel', 'nofollow');
+				}
+
+				itemsDiv.appendChild(newLink);
+			})
+
+			group.appendChild(h4);
+			group.appendChild(itemsDiv);
+
+			docMenu.appendChild(group);
+		}
+
+		if (h4.nextElementSibling && h4.nextElementSibling.tagName == 'HR') {
+			docMenu.appendChild(document.createElement('hr'));
+		}
 	});
 
 	// this needs to be called here bc this is the callback passed to asynchonous function getDocumentation..
@@ -345,9 +428,6 @@ var doReleasesList = () => {
 
 	if (releasesList) {
 
-		// console.log(releasesList);
-		// console.log(curLoc);
-
 		var items = releasesList.children;
 
 		Array.from(items).forEach( item => {
@@ -355,9 +435,6 @@ var doReleasesList = () => {
 			var link = anchor.getAttribute('href');
 
 			tryFile(link, (status) => {
-				console.log(link);
-				console.log(status);
-				console.log('---');
 
 				if (status) {
 					item.classList.remove('hide');
