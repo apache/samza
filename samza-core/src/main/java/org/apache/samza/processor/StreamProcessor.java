@@ -302,15 +302,18 @@ public class StreamProcessor {
         container.shutdown();
         LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
         hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-      } catch (Exception e) {
+      } catch (InterruptedException e) {
         LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
         hasContainerShutdown = false;
+        if (containerException != null) {
+          containerException = e;
+        }
       }
       LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
     }
 
     // We want to propagate TimeoutException when container shutdown times out. It is possible that the timeout exception
-    // we propagate to the local application runner maybe overwritten by container failure cause in case of interleaved execution.
+    // we propagate to the application runner maybe overwritten by container failure cause in case of interleaved execution.
     // It is acceptable since container exception is much more useful compared to timeout exception.
     // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
     if (!hasContainerShutdown && containerException == null) {
