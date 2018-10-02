@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -48,7 +47,6 @@ public class LocalityManager {
   private final Serde<String> keySerde;
   private final Serde<String> valueSerde;
   private final MetadataStore metadataStore;
-  private final TaskAssignmentManager taskAssignmentManager;
 
   /**
    * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
@@ -81,7 +79,6 @@ public class LocalityManager {
     this.metadataStore.init();
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
-    this.taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry, keySerde, valueSerde);
   }
 
   /**
@@ -128,10 +125,9 @@ public class LocalityManager {
 
   public void close() {
     metadataStore.close();
-    taskAssignmentManager.close();
   }
 
-  public TaskAssignmentManager getTaskAssignmentManager() {
-    return taskAssignmentManager;
+  public Config getConfig() {
+    return config;
   }
 }

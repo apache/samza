@@ -30,19 +30,27 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mockito;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.apache.samza.container.mock.ContainerMocks.*;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class})
 public class TestGroupByContainerCount {
   private TaskAssignmentManager taskAssignmentManager;
   private LocalityManager localityManager;
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     taskAssignmentManager = mock(TaskAssignmentManager.class);
     localityManager = mock(LocalityManager.class);
-    when(localityManager.getTaskAssignmentManager()).thenReturn(taskAssignmentManager);
+    PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(taskAssignmentManager);
+    Mockito.doNothing().when(taskAssignmentManager).init();
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -320,7 +328,7 @@ public class TestGroupByContainerCount {
    *  T8  T7  T3
    */
   @Test
-  public void testBalancerMultipleReblances() {
+  public void testBalancerMultipleReblances() throws Exception {
     // Before
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
@@ -380,7 +388,7 @@ public class TestGroupByContainerCount {
     TaskAssignmentManager taskAssignmentManager2 = mock(TaskAssignmentManager.class);
     when(taskAssignmentManager2.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
     LocalityManager localityManager2 = mock(LocalityManager.class);
-    when(localityManager2.getTaskAssignmentManager()).thenReturn(taskAssignmentManager2);
+    PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(taskAssignmentManager2);
 
     containers = new GroupByContainerCount(3).balance(taskModels, localityManager2);
 
