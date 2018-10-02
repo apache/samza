@@ -31,10 +31,11 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -57,15 +58,11 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
-import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskFactory;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.junit.Assert;
-
 
 /**
  * TestRunner provides APIs to set up integration tests for a Samza application.
@@ -79,15 +76,17 @@ import org.junit.Assert;
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
  *    <li>"job.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
+ *    <li>"job.default.system" = {@code JOB_DEFAULT_SYSTEM}</li>
+ *    <li>"job.host-affinity.enabled" = "false"</li>
  *  </ol>
  *
  */
 public class TestRunner {
-  public static final String JOB_NAME = "samza-test";
+  private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
+  private static final String JOB_NAME = "samza-test";
 
   private Map<String, String> configs;
-  private Class taskClass;
-  private StreamApplication app;
+  private SamzaApplication app;
   /*
    * inMemoryScope is a unique global key per TestRunner, this key when configured with {@link InMemorySystemDescriptor}
    * provides an isolated state to run with in memory system
@@ -102,24 +101,29 @@ public class TestRunner {
     configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
+    // This is important because Table Api enables host affinity by default for RocksDb
+    addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
+    addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
+    addConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).withInMemoryScope(inMemoryScope).toConfig());
   }
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param taskClass represent a class containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
+   * @param taskClass containing Samza job logic extending either {@link StreamTask} or {@link AsyncStreamTask}
    */
   private TestRunner(Class taskClass) {
     this();
     Preconditions.checkNotNull(taskClass);
     configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
-    this.taskClass = taskClass;
+    this.app = new LegacyTaskApplication(taskClass.getName());
   }
 
   /**
    * Constructs a new {@link TestRunner} from following components
-   * @param app samza job implementing {@link StreamApplication}
+   * @param app a {@link SamzaApplication}
    */
-  private TestRunner(StreamApplication app) {
+  private TestRunner(SamzaApplication app) {
     this();
     Preconditions.checkNotNull(app);
     this.app = app;
@@ -138,13 +142,28 @@ public class TestRunner {
   }
 
   /**
-   * Creates an instance of {@link TestRunner} for High Level/Fluent Samza Api
-   * @param app samza job implementing {@link StreamApplication}
+   * Creates an instance of {@link TestRunner} for a {@link SamzaApplication}
+   * @param app a {@link SamzaApplication}
    * @return this {@link TestRunner}
    */
-  public static TestRunner of(StreamApplication app) {
+  public static TestRunner of(SamzaApplication app) {
     Preconditions.checkNotNull(app);
     return new TestRunner(app);
+  }
+
+  /**
+   * Adds a config to Samza application. This config takes precedence over default configs and descriptor generated configs
+   *
+   * @param key of the config
+   * @param value of the config
+   * @return this {@link TestRunner}
+   */
+  public TestRunner addConfig(String key, String value) {
+    Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(value);
+    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
+    configs.put(String.format("%s%s", configPrefix, key), value);
+    return this;
   }
 
   /**
@@ -152,24 +171,10 @@ public class TestRunner {
    * @param config configs for the application
    * @return this {@link TestRunner}
    */
-  public TestRunner addConfigs(Map<String, String> config) {
+  public TestRunner addConfig(Map<String, String> config) {
     Preconditions.checkNotNull(config);
-    config.forEach(this.configs::putIfAbsent);
-    return this;
-  }
-
-  /**
-   * Adds a config to {@code configs} if its not already present. Overrides a config value for which key is already
-   * exisiting in {@code configs}
-   * @param key key of the config
-   * @param value value of the config
-   * @return this {@link TestRunner}
-   */
-  public TestRunner addOverrideConfig(String key, String value) {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(value);
-    String configKeyPrefix = String.format(JobConfig.CONFIG_JOB_PREFIX(), JOB_NAME);
-    configs.put(String.format("%s%s", configKeyPrefix, key), value);
+    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
+    config.forEach((key, value) -> this.configs.put(String.format("%s%s", configPrefix, key), value));
     return this;
   }
 
@@ -192,8 +197,13 @@ public class TestRunner {
     return this;
   }
 
+  private String getJobNameAndId() {
+    return String.format("%s-%s", JOB_NAME, configs.getOrDefault(JobConfig.JOB_ID(), "1"));
+  }
+
   /**
-   * Adds the provided input stream with mock data to the test application.
+   * Adds the provided input stream with mock data to the test application. Default configs and user added configs have
+   * a higher precedence over system and stream descriptor generated configs.
    * @param descriptor describes the stream that is supposed to be input to Samza application
    * @param messages map whose key is partitionId and value is messages in the partition
    * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
@@ -211,12 +221,13 @@ public class TestRunner {
   }
 
   /**
-   * Adds the provided output stream to the test application.
+   * Adds the provided output stream to the test application. Default configs and user added configs have a higher
+   * precedence over system and stream descriptor generated configs.
    * @param streamDescriptor describes the stream that is supposed to be output for the Samza application
    * @param partitionCount partition count of output stream
    * @return this {@link TestRunner}
    */
-  public TestRunner addOutputStream(InMemoryOutputDescriptor streamDescriptor, int partitionCount) {
+  public TestRunner addOutputStream(InMemoryOutputDescriptor<?> streamDescriptor, int partitionCount) {
     Preconditions.checkNotNull(streamDescriptor);
     Preconditions.checkState(partitionCount >= 1);
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) streamDescriptor.getSystemDescriptor();
@@ -229,8 +240,8 @@ public class TestRunner {
     factory
         .getAdmin(streamDescriptor.getSystemName(), config)
         .createStream(spec);
-    addConfigs(streamDescriptor.toConfig());
-    addConfigs(streamDescriptor.getSystemDescriptor().toConfig());
+    addConfig(streamDescriptor.toConfig());
+    addConfig(streamDescriptor.getSystemDescriptor().toConfig());
     return this;
   }
 
@@ -243,11 +254,10 @@ public class TestRunner {
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
   public void run(Duration timeout) {
-    Preconditions.checkState((app == null && taskClass != null) || (app != null && taskClass == null),
+    Preconditions.checkState(app != null,
         "TestRunner should run for Low Level Task api or High Level Application Api");
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
-    SamzaApplication testApp = app == null ? (TaskApplication) appDesc -> appDesc.setTaskFactory(createTaskFactory()) : app;
-    final LocalApplicationRunner runner = new LocalApplicationRunner(testApp, new MapConfig(configs));
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
@@ -326,35 +336,13 @@ public class TestRunner {
             entry -> entry.getValue().stream().map(e -> (StreamMessageType) e.getMessage()).collect(Collectors.toList())));
   }
 
-  private TaskFactory createTaskFactory() {
-    if (StreamTask.class.isAssignableFrom(taskClass)) {
-      return (StreamTaskFactory) () -> {
-        try {
-          return (StreamTask) taskClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-          throw new SamzaException(String.format("Failed to instantiate StreamTask class %s", taskClass.getName()), e);
-        }
-      };
-    } else if (AsyncStreamTask.class.isAssignableFrom(taskClass)) {
-      return (AsyncStreamTaskFactory) () -> {
-        try {
-          return (AsyncStreamTask) taskClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-          throw new SamzaException(String.format("Failed to instantiate AsyncStreamTask class %s", taskClass.getName()), e);
-        }
-      };
-    }
-    throw new SamzaException(String.format("Not supported task.class %s. task.class has to implement either StreamTask "
-        + "or AsyncStreamTask", taskClass.getName()));
-  }
-
   /**
    * Creates an in memory stream with {@link InMemorySystemFactory} and feeds its partition with stream of messages
    * @param partitonData key of the map represents partitionId and value represents
    *                 messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system
    */
-  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor descriptor,
+  private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor<?> descriptor,
       Map<Integer, Iterable<StreamMessageType>> partitonData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
@@ -366,8 +354,8 @@ public class TestRunner {
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
-    addConfigs(descriptor.toConfig());
-    addConfigs(descriptor.getSystemDescriptor().toConfig());
+    addConfig(descriptor.toConfig());
+    addConfig(descriptor.getSystemDescriptor().toConfig());
     StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
@@ -381,7 +369,7 @@ public class TestRunner {
             producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
           });
         producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
-          new EndOfStreamMessage(null)));
+            new EndOfStreamMessage(null)));
       });
   }
 }

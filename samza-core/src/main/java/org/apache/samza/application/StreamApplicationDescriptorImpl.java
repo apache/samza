@@ -51,7 +51,6 @@ import org.apache.samza.operators.spec.OperatorSpecs;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
@@ -78,7 +77,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<String, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
-  private final Map<TableSpec, TableImpl> tables = new LinkedHashMap<>();
+  private final Map<String, TableImpl> tables = new LinkedHashMap<>();
   private final Set<String> operatorIds = new HashSet<>();
 
   private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
@@ -125,7 +124,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
         "getInputStream must not be called multiple times with the same streamId: " + streamId);
 
     Serde serde = inputDescriptor.getSerde();
-    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    KV<Serde, Serde> kvSerdes = getOrCreateStreamSerdes(streamId, serde);
     if (outputStreams.containsKey(streamId)) {
       OutputStreamImpl outputStream = outputStreams.get(streamId);
       Serde keySerde = outputStream.getKeySerde();
@@ -156,7 +155,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
         "getOutputStream must not be called multiple times with the same streamId: " + streamId);
 
     Serde serde = outputDescriptor.getSerde();
-    KV<Serde, Serde> kvSerdes = getKVSerdes(streamId, serde);
+    KV<Serde, Serde> kvSerdes = getOrCreateStreamSerdes(streamId, serde);
     if (inputOperators.containsKey(streamId)) {
       InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
       Serde keySerde = inputOperatorSpec.getKeySerde();
@@ -186,13 +185,15 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
         String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
     tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
 
-    TableSpec tableSpec = ((BaseTableDescriptor) tableDescriptor).getTableSpec();
-    if (tables.containsKey(tableSpec)) {
+    BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
+    TableSpec tableSpec = baseTableDescriptor.getTableSpec();
+    if (tables.containsKey(tableSpec.getId())) {
       throw new IllegalStateException(
           String.format("getTable() invoked multiple times with the same tableId: %s", tableId));
     }
-    tables.put(tableSpec, new TableImpl(tableSpec));
-    return tables.get(tableSpec);
+    tables.put(tableSpec.getId(), new TableImpl(tableSpec));
+    getOrCreateTableSerdes(tableSpec.getId(), baseTableDescriptor.getSerde());
+    return tables.get(tableSpec.getId());
   }
 
   /**
@@ -245,6 +246,16 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     // We enforce that users must not use different system descriptor instances for the same system name
     // when getting an input/output stream or setting the default system descriptor
     return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+  }
+
+  @Override
+  public Set<String> getInputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(inputOperators.keySet()));
+  }
+
+  @Override
+  public Set<String> getOutputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(outputStreams.keySet()));
   }
 
   /**
@@ -306,7 +317,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     return Collections.unmodifiableMap(outputStreams);
   }
 
-  public Map<TableSpec, TableImpl> getTables() {
+  public Map<String, TableImpl> getTables() {
     return Collections.unmodifiableMap(tables);
   }
 
@@ -342,7 +353,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       kvSerdes = new KV<>(null, null); // and that key and msg serdes are provided for job.default.system in configs
     } else {
       isKeyed = serde instanceof KVSerde;
-      kvSerdes = getKVSerdes(streamId, serde);
+      kvSerdes = getOrCreateStreamSerdes(streamId, serde);
     }
 
     InputTransformer transformer = (InputTransformer) getDefaultSystemDescriptor()
@@ -354,29 +365,6 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     inputOperators.put(streamId, inputOperatorSpec);
     outputStreams.put(streamId, new OutputStreamImpl(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamId), outputStreams.get(streamId));
-  }
-
-  private KV<Serde, Serde> getKVSerdes(String streamId, Serde serde) {
-    Serde keySerde, valueSerde;
-
-    if (serde instanceof KVSerde) {
-      keySerde = ((KVSerde) serde).getKeySerde();
-      valueSerde = ((KVSerde) serde).getValueSerde();
-    } else {
-      keySerde = new NoOpSerde();
-      valueSerde = serde;
-    }
-
-    if (keySerde instanceof NoOpSerde) {
-      LOGGER.info("Using NoOpSerde as the key serde for stream " + streamId +
-          ". Keys will not be (de)serialized");
-    }
-    if (valueSerde instanceof NoOpSerde) {
-      LOGGER.info("Using NoOpSerde as the value serde for stream " + streamId +
-          ". Values will not be (de)serialized");
-    }
-
-    return KV.of(keySerde, valueSerde);
   }
 
   // check uniqueness of the {@code systemDescriptor} and add if it is unique

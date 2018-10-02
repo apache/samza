@@ -72,6 +72,7 @@ rat {
     '**/font-awesome.min.css',
     '**/jquery-1.11.1.min.js',
     '**/jquery.tablesorter.min.js',
+    '**/flickity.js',
     '**/non-responsive.less',
     '**/ropa-sans.css',
     '**/syntax.css',
@@ -194,6 +195,7 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
   }
 
   checkstyle {

@@ -51,13 +51,6 @@
 <body class="page page--case-study">
   {% include main-navigation.html %}
 
-  <div class="section section--bottom-flare section--hero">
-      <div class="case-study-hero">
-          <img src="https://logo.clearbit.com/{{ page.study_domain }}?size=256"/>
-          <h2>{{ page.title }}</h2>
-      </div>
-  </div>
-
   <div class="container">
       <div class="container__toggle">
         <i class="icon ion-md-arrow-dropleft-circle container__toggle-icon"></i>
@@ -75,35 +68,20 @@
           <h2>{{ page.title }}</h2>
           {% endif %}
 
-          {% if page.url contains "/learn/documentation" or page.url contains "/releases/" %}
 
-          <div class="releases-list-container">
-
-            <span>Releases</span>
-
-            <ul class="releases-list" data-releases-list>
-              <li class="hide"><a href="{{ page.url | replace:"versioned","latest"}}">latest</a></li>
-              
-              {% assign releases_sorted = site.releases | sort: 'order' | reverse %}
-              {% for release in releases_sorted %}
-
-              <li class="hide"><a href="{{ page.url | replace:"versioned", release.version }}">{{ release.version }}</a></li>
-
-              {% endfor %}
-
-            </ul>
-
+          <div class="case-study-header">
+            <div class="case-study-header__img" style="background-image: url('https://logo.clearbit.com/{{ page.study_domain }}?size=256');"></div>
+            <div class="case-study-header__headings">
+              <h3>
+                <a href="https://{{ page.study_domain }}" rel="nofollow" target="_blank">
+                  {{ page.study_domain }}
+                </a>
+              </h3>
+              <h2>{{ page.title }}</h2>
+            </div>
           </div>
 
-          <hr class="releases-list-divider">
-
-          {% endif %}
           
-          <h3>
-            <a href="https://{{ page.study_domain }}" rel="nofollow" target="_blank">
-              {{ page.study_domain }}
-            </a>
-          </h3>
           
           {{ page.content | remove: page.excerpt }}
           
@@ -115,22 +93,23 @@
 
           <div class="case-studies">
           
-              <div class="case-studies-list">
-          
-              {% for study in site.case-studies %}
-          
-                  {% if study.exclude_from_loop or study.url == page.url %}
-                      {% continue %}
-                  {% endif %}
-          
-                  <div class="case-studies-list__item">
-                      <a class="case-studies-list__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
-                        <div class="case-studies-list__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=512');"></div>
-                      </a>
-                  </div>
-          
+              <div class="case-studies-list js-flickity" data-flickity-options='{ "wrapAround": true, "autoPlay": 1500 }'>
+
+              {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
+              {% for study in case-studies_sorted %}
+        
+                {% if study.exclude_from_loop or study.url == page.url %}
+                    {% continue %}
+                {% endif %}
+        
+                <div class="case-studies-list__item">
+                    <a class="case-studies-list__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+                      <div class="case-studies-list__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
+                    </a>
+                </div>
+
               {% endfor %}
-          
+
               </div>
           
           </div>
@@ -144,6 +123,8 @@
   <!-- footer starts here -->
 
   {% include footer.html %}
+
+  <script type="text/javascript" src="/js/flickity.js"></script>
 
 </body>
 

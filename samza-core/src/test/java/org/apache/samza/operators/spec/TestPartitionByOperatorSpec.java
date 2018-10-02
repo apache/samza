@@ -23,13 +23,13 @@ import java.util.Map;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.operators.TimerRegistry;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -58,7 +58,7 @@ public class TestPartitionByOperatorSpec {
   private final String testJobId = "1";
   private final String testRepartitionedStreamName = "parByKey";
 
-  class TimerMapFn implements MapFunction<Object, String>, TimerFunction<String, Object> {
+  class ScheduledMapFn implements MapFunction<Object, String>, ScheduledFunction<String, Object> {
 
     @Override
     public String apply(Object message) {
@@ -66,12 +66,12 @@ public class TestPartitionByOperatorSpec {
     }
 
     @Override
-    public void registerTimer(TimerRegistry<String> timerRegistry) {
+    public void schedule(Scheduler<String> scheduler) {
 
     }
 
     @Override
-    public Collection<Object> onTimer(String key, long timestamp) {
+    public Collection<Object> onCallback(String key, long timestamp) {
       return null;
     }
   }
@@ -117,7 +117,7 @@ public class TestPartitionByOperatorSpec {
     assertTrue(inputOpSpec.getKeySerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.getValueSerde() instanceof NoOpSerde);
     assertTrue(inputOpSpec.isKeyed());
-    assertNull(inputOpSpec.getTimerFn());
+    assertNull(inputOpSpec.getScheduledFn());
     assertNull(inputOpSpec.getWatermarkFn());
     InputOperatorSpec originInputSpec = inputOpSpecs.get(testinputDescriptor.getStreamId());
     assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
@@ -126,7 +126,7 @@ public class TestPartitionByOperatorSpec {
     assertEquals(reparOpSpec.getKeyFunction(), keyFn);
     assertEquals(reparOpSpec.getValueFunction(), valueFn);
     assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
-    assertNull(reparOpSpec.getTimerFn());
+    assertNull(reparOpSpec.getScheduledFn());
     assertNull(reparOpSpec.getWatermarkFn());
   }
 
@@ -144,7 +144,7 @@ public class TestPartitionByOperatorSpec {
     assertNull(inputOpSpec.getKeySerde());
     assertNull(inputOpSpec.getValueSerde());
     assertTrue(inputOpSpec.isKeyed());
-    assertNull(inputOpSpec.getTimerFn());
+    assertNull(inputOpSpec.getScheduledFn());
     assertNull(inputOpSpec.getWatermarkFn());
     InputOperatorSpec originInputSpec = streamAppDesc.getInputOperators().get(testinputDescriptor.getStreamId());
     assertTrue(originInputSpec.getRegisteredOperatorSpecs().toArray()[0] instanceof PartitionByOperatorSpec);
@@ -153,7 +153,7 @@ public class TestPartitionByOperatorSpec {
     assertEquals(reparOpSpec.getKeyFunction(), keyFn);
     assertEquals(reparOpSpec.getValueFunction(), valueFn);
     assertEquals(reparOpSpec.getOutputStream().getStreamId(), reparOpSpec.getOpId());
-    assertNull(reparOpSpec.getTimerFn());
+    assertNull(reparOpSpec.getScheduledFn());
     assertNull(reparOpSpec.getWatermarkFn());
   }
 
@@ -169,8 +169,8 @@ public class TestPartitionByOperatorSpec {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testTimerFunctionAsKeyFn() {
-    TimerMapFn keyFn = new TimerMapFn();
+  public void testScheduledFunctionAsKeyFn() {
+    ScheduledMapFn keyFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(keyFn, m -> m, "parByKey");
@@ -187,8 +187,8 @@ public class TestPartitionByOperatorSpec {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testTimerFunctionAsValueFn() {
-    TimerMapFn valueFn = new TimerMapFn();
+  public void testScheduledFunctionAsValueFn() {
+    ScheduledMapFn valueFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
         inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");

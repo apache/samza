@@ -276,13 +276,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
           receiver = eventHubClientManager.getEventHubClient()
               .createReceiverSync(consumerGroup, partitionId.toString(), EventPosition.fromEnqueuedTime(Instant.now()));
         } else {
-          // If the offset is less or equal to the newest offset in the system, it can be
-          // used as the starting offset to receive from. EventHub will return the first
-          // message AFTER the offset that was specified in the fetch request.
+          // EventHub will return the first message AFTER the offset that was specified in the fetch request.
           // If no such offset exists Eventhub will return an error.
           receiver = eventHubClientManager.getEventHubClient()
               .createReceiverSync(consumerGroup, partitionId.toString(),
-                  EventPosition.fromOffset(offset, !offset.equals(EventHubSystemConsumer.START_OF_STREAM)));
+                  EventPosition.fromOffset(offset, /* inclusiveFlag */false));
         }
 
         receiver.setPrefetchCount(prefetchCount);
