@@ -46,8 +46,10 @@ public class JobCoordinatorConfig extends MapConfig {
       coordinationUtilsFactory = AZURE_COORDINATION_UTILS_FACTORY;
     } else if (PassthroughJobCoordinatorFactory.class.getName().equals(coordinatorFactory)) {
       coordinationUtilsFactory = PassthroughCoordinationUtilsFactory.class.getName();
-    } else {
+    } else if (ZkJobCoordinatorFactory.class.getName().equals(coordinatorFactory)) {
       coordinationUtilsFactory = ZkCoordinationUtilsFactory.class.getName();
+    } else {
+      throw new SamzaException(String.format("Coordination factory: %s defined by the config: %s is invalid.", coordinatorFactory, JOB_COORDINATOR_FACTORY));
     }
 
     try {
