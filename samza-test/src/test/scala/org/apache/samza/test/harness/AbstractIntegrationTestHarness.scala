@@ -23,7 +23,7 @@ import java.util.Properties
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
 import org.apache.samza.config.{JobConfig, KafkaConsumerConfig, MapConfig}
-import org.apache.samza.system.kafka.SamzaKafkaSystemAdmin
+import org.apache.samza.system.kafka.KafkaSystemAdmin
 
 /**
   * LinkedIn integration test harness for Kafka
@@ -63,7 +63,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  def createSystemAdmin(system: String): SamzaKafkaSystemAdmin[_, _] = {
+  def createSystemAdmin(system: String): KafkaSystemAdmin[_, _] = {
 
     val map: java.util.Map[String, String] = new java.util.HashMap();
 
@@ -77,7 +77,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
-    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
+    KafkaSystemAdmin.getKafkaSystemAdmin(
       system,
       new MapConfig(map),
       "idPrefix"

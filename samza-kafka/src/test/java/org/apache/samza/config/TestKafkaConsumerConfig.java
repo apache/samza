@@ -85,7 +85,7 @@ public class TestKafkaConsumerConfig {
 
     // validate setting of group and client id
     Assert.assertEquals(KafkaConsumerConfig.createConsumerGroupId(config),
-        kafkaConsumerConfig.getGroupId());
+        config.get(ConsumerConfig.GROUP_ID_CONFIG));
 
     Assert.assertEquals(KafkaConsumerConfig.createConsumerGroupId(config),
         kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));

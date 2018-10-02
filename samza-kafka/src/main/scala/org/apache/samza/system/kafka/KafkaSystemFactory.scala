@@ -54,14 +54,14 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val clientId = kafkaConsumerConfig.getClientId
     val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
       new SystemClock)
-    info("Created samza system consumer %s" format (kafkaSystemConsumer.toString))
+    info("Created samza system consumer %s with config %s" format (kafkaSystemConsumer, config))
 
     kafkaSystemConsumer
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
-    val clientId = KafkaConsumerConfig.createProducerClientId(KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX, config);
+    val clientId = KafkaConsumerConfig.createClientId(KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX, config);
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
@@ -83,7 +83,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
 
-    SamzaKafkaSystemAdmin.getKafkaSystemAdmin(
+    KafkaSystemAdmin.getKafkaSystemAdmin(
       systemName,
       config,
       KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX);

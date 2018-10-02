@@ -119,14 +119,6 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     return new KafkaConsumerConfig(consumerProps, systemName);
   }
 
-  public String getGroupId() {
-    String groupId = (String) get(ConsumerConfig.GROUP_ID_CONFIG);
-    if (groupId == null) {
-      throw new SamzaException("group Id is not set for consumer for system=" + systemName);
-    }
-    return groupId;
-  }
-
   public String getClientId() {
     String clientId = (String) get(ConsumerConfig.CLIENT_ID_CONFIG);
     if (clientId == null) {
@@ -142,12 +134,8 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     return String.format("%s-%s", jobNameId.getLeft(), jobNameId.getRight());
   }
 
-  public static String createProducerClientId(String prefix, Config config) {
-    return createClientId(prefix, config);
-  }
-
   // client id should be unique per job
-  static String createClientId(String prefix, Config config) {
+  public static String createClientId(String prefix, Config config) {
 
     Pair<String, String> jobNameId = getJobNameAndId(config);
     String jobName = jobNameId.getLeft();

@@ -52,7 +52,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   private static final long FETCH_THRESHOLD = 50000;
   private static final long FETCH_THRESHOLD_BYTES = -1L;
 
-  private final Consumer<K, V> kafkaConsumer;
+  protected final Consumer<K, V> kafkaConsumer;
   private final String systemName;
   private final String clientId;
   private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -111,10 +111,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @return kafka consumer
    */
   public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName,
-      HashMap kafkaConsumerConfig) {
+      HashMap<String, Object> kafkaConsumerConfig) {
 
-    LOG.info("KafkaClient properties for systemName {}: {}", systemName, kafkaConsumerConfig);
-
+    LOG.info("Instantiating KafkaConsumer for systemName {} with properties {}", systemName, kafkaConsumerConfig);
     return new KafkaConsumer<>(kafkaConsumerConfig);
   }
 

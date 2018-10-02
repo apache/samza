@@ -62,7 +62,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
   var metadataStore: TopicMetadataStore = null
   var producerConfig: KafkaProducerConfig = null
-  var systemAdmin: SamzaKafkaSystemAdmin[_, _] = null
+  var systemAdmin: KafkaSystemAdmin[_, _] = null
 
   override def generateConfigs(): Seq[KafkaConfig] = {
     val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
@@ -186,7 +186,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     val intermediateStreamProperties: java.util.Map[String, java.util.Properties] = new java.util.HashMap[String, java.util.Properties]
     val deleteCommittedMessages: Boolean = false
 
-    new SamzaKafkaSystemAdmin[Array[Byte], Array[Byte]](
+    new KafkaSystemAdmin[Array[Byte], Array[Byte]](
       SYSTEM,
       metadataConsumerSupplier,
       zkConnectSupplier,

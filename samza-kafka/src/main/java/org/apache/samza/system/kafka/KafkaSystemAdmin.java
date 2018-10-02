@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -66,8 +67,8 @@ import static org.apache.samza.config.KafkaConsumerConfig.*;
 import static org.apache.samza.system.kafka.KafkaSystemDescriptor.*;
 
 
-public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
-  private static final Logger LOG = LoggerFactory.getLogger(SamzaKafkaSystemAdmin.class);
+public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemAdmin.class);
 
   // The same default exponential sleep strategy values as in open source
   private static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
@@ -133,7 +134,7 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   }
 
   @VisibleForTesting
-  SamzaKafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
+  KafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
       Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
       Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
       Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor, boolean deleteCommittedMessages) {
@@ -150,13 +151,13 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   }
 
   /**
-   * Helper method to create SamzaKafkaSystemAdmin
+   * Helper method to create KafkaSystemAdmin
    * @param systemName system name
    * @param config application config
    * @param idPrefix will be used to generate clientId for the metadata consumer
-   * @return new SamzaKafkaSystemAdmin object
+   * @return new KafkaSystemAdmin object
    */
-  public static SamzaKafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
+  public static KafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
       final String idPrefix) {
 
     boolean zkSecure = false; // needs to be added to the argument if ever true is possible
@@ -230,18 +231,31 @@ public class SamzaKafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
             .asJava();
 
-    LOG.info(String.format("Creating SamzaKafkaSystemAdmin for system %s, idPrefix %s", systemName, idPrefix));
+    LOG.info(String.format("Creating KafkaSystemAdmin for system %s, idPrefix %s", systemName, idPrefix));
 
-    return new SamzaKafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
+    return new KafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
         topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
         coordinatorStreamReplicationFactor, deleteCommittedMessages);
   }
 
+  /**
+   * Note! This method does not populate SystemStreamMetadata for each stream with real data.
+   * Thus, this method should ONLY be used to get number of partitions for each stream.
+   * It will throw NotImplementedException if anyone tries to access the actual metadata.
+   * @param streamNames set of streams for which get the partitions counts
+   * @param cacheTTL cache TTL if caching the data
+   * @return
+   */
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
     // This optimization omits actual metadata for performance. Instead, we inject a dummy for all partitions.
     final SystemStreamMetadata.SystemStreamPartitionMetadata dummySspm =
-        new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null);
+    new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null) {
+      String msg = "getSystemStreamPartitionCounts does not populate SystemStreaMetadata info. Only number of partitions";
+      @Override public String getOldestOffset() {throw new NotImplementedException(msg);}
+      @Override public String getNewestOffset() {throw new NotImplementedException(msg);}
+      @Override public String getUpcomingOffset() {throw new NotImplementedException(msg);}
+    };
 
     ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
         DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
