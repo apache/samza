@@ -22,7 +22,12 @@ package org.apache.samza.execution;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -50,7 +55,7 @@ class IntermediateStreamManager {
   }
 
   /**
-   * Calculate the number of partitions of all intermediate streams
+   * Calculates the number of partitions of all intermediate streams
    */
   /* package private */ void calculatePartitions(JobGraph jobGraph, Collection<StreamSet> joinedStreamSets) {
 
@@ -64,19 +69,53 @@ class IntermediateStreamManager {
     // stream edge groups. For instance, if we have the following groups of stream
     // edges (partition counts in parentheses, question marks for intermediate streams):
     //
-    //    a. e1 (16), e2 (16)
-    //    b. e2 (16), e3 (?)
+    //    a. e1 (8), e2 (8)
+    //    b. e2 (8), e3 (?)
     //    c. e3 (?), e4 (?)
     //
     // processing them in the above order (most constrained first) is guaranteed to yield
-    // correct assignment of partition counts of e3 and e4, i.e. 16, in a single scan.
-    //
-    // Second, set partition counts for intermediate streams, disregarding groups composed entirely
-    // of input streams, i.e. whose streams all have set partitions.
+    // correct assignment of partition counts of e3 and e4, i.e. 8, in a single scan.
 
-    joinedStreamSets.stream()
-        .sorted(Comparator.comparingInt(e -> e.getCategory().getSortOrder()))
+    List<StreamSet> orderedStreamSets =
+      joinedStreamSets.stream()
+          .sorted(Comparator.comparingInt(e -> e.getCategory().getSortOrder()))
+          .collect(Collectors.toList());
+
+    // A function that, given a collection of streams, returns the index of the earliest
+    // stream set (among all orderedStreamSets) that contains any of these streams . For
+    // instance, if orderedStreamSets is:
+    //
+    //    0. e1, e3
+    //    1. e2, e1
+    //    2. e4, e2
+    //
+    // then:
+    //    * minStreamSetIndex(e2, e3) = min(first-occurrence(e2), first-occurrence(e3))
+    //                                = min(@1, @0) = 0
+    //
+    //    * minStreamSetIndex(e4, e2) = min(first-occurrence(e4), first-occurrence(e2))
+    //                                = min(@2, @1) = 1
+
+    Function<Collection<StreamEdge>, Integer> minStreamSetIndex = getMinStreamSetIndex(orderedStreamSets);
+
+    // Second, filter out stream edge groups that have not intermediate streams, i.e. groups that have
+    // all stream edges with set partitions.
+    //
+    // Third, sort the remaining stream edge groups such that every group appears as early as its earliest
+    // occurring stream edge. For instance, if we have the following groups of stream edges:
+    //
+    //    a. e1 (8), e2 (?)                                     a. e1 (8), e2 (?)
+    //    b. e3 (?), e4 (?)     they will be reordered to:      c. e2 (?), e3 (?)
+    //    c. e2 (?), e3 (?)                                     b. e3 (?), e4 (?)
+    //
+    // i.e. group (c) was placed before group (b) because the former contains an edge e2 whose first
+    // occurrence happened in group (a), i.e. before all edges in group (b). This way, we guarantee
+    // that we can assign all partitions in a single scan. Processing the stream groups in the original
+    // order would have left edges in group (b) unassigned.
+
+    orderedStreamSets.stream()
         .filter(streamSet -> streamSet.getCategory() != StreamSetCategory.ALL_PARTITION_COUNT_SET)
+        .sorted(Comparator.comparingInt(streamSet -> minStreamSetIndex.apply(streamSet.getStreamEdges())))
         .forEach(IntermediateStreamManager::setJoinedStreamPartitions);
 
     // Set partition count of intermediate streams not participating in joins
@@ -162,6 +201,21 @@ class IntermediateStreamManager {
             new Object[] {partitions, streamSet.getSetId(), firstStreamWithSetPartitions.getName()});
       }
     }
+  }
+
+  /**
+   * Returns a function that, given a collection of streams, returns the index of the earliest
+   * stream set (among all supplied {@code streamSets}) that contains any of these streams.
+   */
+  private static Function<Collection<StreamEdge>, Integer> getMinStreamSetIndex(List<StreamSet> streamSets) {
+    Map<StreamEdge, Integer> smallestStreamPositions = new HashMap<>();
+    for (int iStreamSet = 0; iStreamSet < streamSets.size(); ++iStreamSet) {
+      for (StreamEdge streamEdge : streamSets.get(iStreamSet).getStreamEdges()) {
+        smallestStreamPositions.putIfAbsent(streamEdge, iStreamSet);
+      }
+    }
+
+    return streamEdges -> streamEdges.stream().map(smallestStreamPositions::get).min(Integer::compare).get();
   }
 
   /* package private */ static int maxPartitions(Collection<StreamEdge> edges) {

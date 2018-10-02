@@ -275,6 +275,61 @@ public class TestExecutionPlanner {
       }, config);
   }
 
+  private StreamApplicationDescriptorImpl createStreamGraphWithComplexStreamStreamJoin() {
+    /**
+     * Example stream-table join app. Expected partition counts of intermediate streams introduced
+     * by partitionBy operations are enclosed in quotes.
+     *
+     *    input1 (64)  ________________________
+     *                                         |
+     *                                       join ————— output1 (8)
+     *                                         |
+     *    input2 (16) -> partitionBy ("64")  --|
+     *                                         |
+     *                                       join ————— output1 (8)
+     *                                         |
+     *    input3 (32) -> partitionBy ("64")  --|
+     *                                         |
+     *                                       join ————— output1 (8)
+     *                                         |
+     *    input4 (512) -> partitionBy ("64") __|
+     *
+     *
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+
+        MessageStream<KV<Object, Object>> messageStream2 =
+            appDesc.getInputStream(input2Descriptor)
+                .partitionBy(m -> m.key, m -> m.value, "p2");
+
+        MessageStream<KV<Object, Object>> messageStream3 =
+            appDesc.getInputStream(input3Descriptor)
+                .partitionBy(m -> m.key, m -> m.value, "p3");
+
+        MessageStream<KV<Object, Object>> messageStream4 =
+            appDesc.getInputStream(input4Descriptor)
+                .partitionBy(m -> m.key, m -> m.value, "p4");
+
+        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+
+        messageStream1
+            .join(messageStream2,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1")
+            .sendTo(output1);
+
+        messageStream3
+            .join(messageStream4,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+            .sendTo(output1);
+
+        messageStream2
+            .join(messageStream3,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j3")
+            .sendTo(output1);
+      }, config);
+  }
+
   private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamTableJoin() {
     /**
      * Example stream-table join that is invalid due to disagreement in partition count
@@ -451,6 +506,28 @@ public class TestExecutionPlanner {
   public void testCalculateJoinInputPartitions() {
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamStreamJoin();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    // Partitions should be the same as input1
+    jobGraph.getIntermediateStreams().forEach(edge -> {
+        assertEquals(64, edge.getPartitionCount());
+      });
+  }
+
+  @Test
+  public void testCalculateOrderSensitiveJoinInputPartitions() {
+    // This test ensures that the ExecutionPlanner can handle groups of joined stream edges
+    // in the correct order. It creates an example stream-stream join application that has
+    // the following sets of joined streams (notice the order):
+    //
+    //    a. e1 (16), e2` (?)
+    //    b. e3` (?), e4` (?)
+    //    c. e2` (?), e3` (?)
+    //
+    // If processed in the above order, the ExecutionPlanner will fail to assign the partitions
+    // correctly.
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithComplexStreamStreamJoin();
     JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
 
     // Partitions should be the same as input1
