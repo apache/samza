@@ -22,22 +22,11 @@ package org.apache.samza.test.framework;
 import java.io.File;
 import java.io.FileFilter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.storage.kv.RocksDbKeyValueReader;
-import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
 import org.apache.samza.storage.kv.RocksDbTableDescriptor;
-import org.apache.samza.table.TableConfigGenerator;
-import org.apache.samza.table.TableSpec;
 
 import static org.junit.Assert.*;
-
 
 /**
  *  Assertion utils on the content of a Table described by
@@ -52,10 +41,9 @@ public class StateAssert {
    */
   public static void contains(Object key, RocksDbTableDescriptor tableDescriptor) {
     boolean contains = false;
-    for(File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
-      RocksDbKeyValueReader
-          reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
-      if(reader.get(key) != null) {
+    for (File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
+      RocksDbKeyValueReader reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
+      if (reader.get(key) != null) {
         contains = true;
         reader.stop();
         break;
@@ -74,10 +62,9 @@ public class StateAssert {
    */
   public static List get(RocksDbTableDescriptor tableDescriptor, Object key) {
     List values = new ArrayList<>();
-    for(File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
-      RocksDbKeyValueReader
-          reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
-      if(reader.get(key) != null)
+    for (File partition: getPartitionDirectories(tableDescriptor.getTableId())) {
+      RocksDbKeyValueReader reader = new RocksDbKeyValueReader(tableDescriptor, partition.getAbsolutePath());
+      if (reader.get(key) != null)
         values.add(reader.get(key));
       reader.stop();
     }
@@ -86,7 +73,7 @@ public class StateAssert {
 
   private static File[] getPartitionDirectories(String store) {
     File currentDirFile = new File(".");
-    File storeDir = new File(currentDirFile.getAbsolutePath().replace(".", "state/"+ store +"/"));
+    File storeDir = new File(currentDirFile.getAbsolutePath().replace(".", "state/" + store + "/"));
     File[] files = storeDir.listFiles(new FileFilter() {
       @Override
       public boolean accept(File f) {

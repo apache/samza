@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationDescriptor;
-import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
@@ -81,24 +80,24 @@ public class StreamTaskIntegrationTest {
 
   static public class StatefulStreamTask implements StreamTask, InitableTask {
     private ReadWriteTable<Integer, Profile> profileViewTable;
+
     @Override
     public void init(Config config, TaskContext context) throws Exception {
       profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTable("profile-view-store");
     }
+
     @Override
     public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
-      if(message.getMessage() instanceof Profile) {
+      if (message.getMessage() instanceof Profile) {
         Profile profile = (Profile) message.getMessage();
         profileViewTable.put(profile.getMemberId(), profile);
-      }
-      else if(message.getMessage() instanceof PageView) {
+      } else if (message.getMessage() instanceof PageView) {
         PageView pageView = (PageView) message.getMessage();
         Profile profile = profileViewTable.get(pageView.getMemberId());
-        if(profile != null) {
-          System.out.println("Joining Page View ArticleView by "+profile.getMemberId());
-          collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "EnrichedPageView"),
-              null, null,  new TestTableData.EnrichedPageView(
-                  pageView.getPageKey(), pageView.getMemberId(), profile.getCompany())));
+        if (profile != null) {
+          System.out.println("Joining Page View ArticleView by " + profile.getMemberId());
+          collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "EnrichedPageView"), null, null,
+              new TestTableData.EnrichedPageView(pageView.getPageKey(), pageView.getMemberId(), profile.getCompany())));
         }
       }
     }
@@ -130,8 +129,6 @@ public class StreamTaskIntegrationTest {
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
-        .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
-        .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofSeconds(2));
 
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
