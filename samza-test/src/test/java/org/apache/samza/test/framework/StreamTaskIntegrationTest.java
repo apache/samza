@@ -201,7 +201,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
-        .addOverrideConfig("job.container.thread.pool.size", "4")
+        .addConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(1));
 
     StreamAssert.containsInOrder(outputList, imod, Duration.ofMillis(1000));
@@ -248,7 +248,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
-        .addOverrideConfig("job.container.thread.pool.size", "4")
+        .addConfig("job.container.thread.pool.size", "4")
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));

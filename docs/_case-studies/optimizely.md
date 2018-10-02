@@ -3,6 +3,7 @@ layout: case-study
 hide_title: true # so we have control in case-study layout, but can still use page
 title: Real Time Session Aggregation
 study_domain: optimizely.com
+priority: 2
 menu_title: Optimizely
 excerpt_separator: <!--more-->
 ---
@@ -70,5 +71,6 @@ Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*
 More information
 
 -   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3)
+c9715fbc85f973907807cccc26c9d7d3ed983df
 -   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820)
     

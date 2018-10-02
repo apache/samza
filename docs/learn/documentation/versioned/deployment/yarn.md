@@ -1,7 +1,6 @@
 ---
 layout: page
-title: Samza News
-exclude_from_loop: true
+title: Run on YARN
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,35 +19,9 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-<div class="news_cards">
 
-  {% assign sorted = (site.news | sort: 'date') | reverse %}
-
-  {% for post in sorted %}
-
-    {% if post.exclude_from_loop %}
-      {% continue %}
-    {% endif %}
-
-    {% assign icon = "ion-md-paper" %}
-
-    {% if post.icon %}
-
-    {% assign icon = "ion-md-" | append: post.icon %}
-
-    {% endif %}
-
-  <a class="news__card" href="{{ post.url }}">
-    <i class="news__card-icon icon {{ icon }}"></i>
-    <div class="news__card-date">{{ post.date | date: "%B %-d, %Y" }}</div>
-    <div class="news__card-title">{{ post.title }}</div>
-    {% if post.excerpt %}
-    <div class="news__card-description">
-      {{ post.excerpt }}
-    </div>
-    {% endif %}
-    <span class="news__card-button">Read more</span>
-  </a>
-  {% endfor %}
-
-</div>
+# YARN section 1
+# YARN section 2
+# YARN section 3
+# YARN section 4
+# YARN section 5

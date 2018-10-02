@@ -56,6 +56,8 @@ Configuration keys that absolutely must be defined for a Samza job are:
 * `task.class`
 * `task.inputs`
 
+See the [Basic Configurations](basic-configurations.html) page to get started.
+
 ### Configuration Keys
 
 A complete list of configuration keys can be found on the [Configuration Table](configuration-table.html) page.  Note

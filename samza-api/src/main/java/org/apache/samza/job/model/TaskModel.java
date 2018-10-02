@@ -27,16 +27,9 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
+ * This contains metadata about a Samza task, such as the stream partitions that it is consuming.
  * <p>
- * The data model used to represent a task. The model is used in the job
- * coordinator and SamzaContainer to determine how to execute Samza jobs.
- * </p>
- *
- * <p>
- * The hierarchy for a Samza's job data model is that jobs have containers, and
- * containers have tasks. Each data model contains relevant information, such as
- * an id, partition information, etc.
- * </p>
+ * The hierarchy for a Samza's job data model is that jobs have containers, and containers have tasks.
  */
 public class TaskModel implements Comparable<TaskModel> {
   private final TaskName taskName;
@@ -49,14 +42,26 @@ public class TaskModel implements Comparable<TaskModel> {
     this.changelogPartition = changelogPartition;
   }
 
+  /**
+   * Returns the name of the task.
+   * @return name of the task
+   */
   public TaskName getTaskName() {
     return taskName;
   }
 
+  /**
+   * Returns the {@link SystemStreamPartition}s that this task is responsible for consuming.
+   * @return {@link SystemStreamPartition}s for this task
+   */
   public Set<SystemStreamPartition> getSystemStreamPartitions() {
     return systemStreamPartitions;
   }
 
+  /**
+   * Returns the {@link Partition} used for all changelogs for this task.
+   * @return changelog partition for this task
+   */
   public Partition getChangelogPartition() {
     return changelogPartition;
   }
