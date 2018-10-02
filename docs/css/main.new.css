@@ -455,7 +455,7 @@ footer .side-by-side > * {
 }
 
 .section--highlight {
-  color: #9a9a9a;
+  color: #fbfbfb;
   background: #111;
   background-color: #111;
   background-image:  linear-gradient(to bottom, #3f3f3f, transparent 50%);
@@ -632,11 +632,11 @@ footer .side-by-side > * {
 }
 
 .section--highlight .section__item {
-  color: #7d7d7d;
+  color: #fbfbfb;
 }
 
 .section--highlight .section__item-title {
-  color: #848484;
+  color: #ec1c23;
 }
 
 .section__item-title {
