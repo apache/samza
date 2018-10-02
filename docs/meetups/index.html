@@ -34,54 +34,65 @@ title: Samza Meetups
             {% for meet in meetup.meetups %}
 
             <div class="meet" data-plugin="event" data-date="{{ meet.date | date: '%-d %B %Y' }}" data-upcoming-class="meet--upcoming">
-                <div class="meet-upcoming-section">
-                    <div class="meet-upcoming-tag">
-                        <i class="ion-md-alarm"></i>
-                        Upcoming Event!
+                <div class="meet-smoosh-content">
+
+                    <div class="meet-name-date-host-info">
+                        <div class="meet-name">{{ meet.name}}</div>
+                        <div class="meet-date"><strong>&raquo; Date &HorizontalLine;</strong> {{ meet.date }}</div>
+                        <div class="meet-host"><strong>&raquo; Presented At &HorizontalLine;</strong> {{ meet.host }}</div>
+
+                        {% if meet.presenters %}
+                        <div class="meet-presenter">
+
+                            <strong>&raquo; Presented By &HorizontalLine;</strong>
+
+                            <span>
+                            {% for presenter in meet.presenters %}
+
+                                <span>{{ presenter.name }}</span>
+
+                            {% endfor %}
+                            </span>
+
+                        </div>
+                        {% endif %}
+
+                        
                     </div>
-                </div>
-                <div>
-                    <div class="meet-name">{{ meet.name}}</div>
-                    <div class="meet-date"><strong>&raquo; Date &HorizontalLine;</strong> {{ meet.date }}</div>
-                    <div class="meet-host"><strong>&raquo; Presented At &HorizontalLine;</strong> {{ meet.host }}</div>
+                    
 
-                    {% if meet.presenters %}
-                    <div class="meet-presenter">
+                    <div class="meet-description-and-actions">
+                        <div class="meet-upcoming-section">
+                            <div class="meet-upcoming-tag">
+                                <i class="ion-md-alarm"></i>
+                                Upcoming Event!
+                            </div>
+                        </div>
 
-                        <strong>&raquo; Presented By &HorizontalLine;</strong>
+                        {% if meet.image %}
+                        <div class="meet-image" style="background-image:url('{{ meet.image }}')"></div>
+                        {% endif %}
 
-                        <span>
-                        {% for presenter in meet.presenters %}
+                        {% if meet.video and meet.video.image %}
+                        <a class="meet-video" href="{{ meet.video.url }}" style="background-image:url('{{ meet.video.image}}')">
+                            <i class="meet-video-icon ion-md-arrow-dropright-circle"></i>
+                        </a>
+                        {% endif %}
 
-                            <span>{{ presenter.name }}</span>
-
-                        {% endfor %}
-                        </span>
+                        {% if meet.abstract %}
+                        <div class="meet-description">
+                            {{ meet.abstract }}
+                        </div>
+                        {% endif %}
+                        <div class="meet-actions">    
+                            {% if meet.slides %}
+                            <a class="meet-action" href="{{ meet.slides.url }}">View Slides</a>
+                            {% endif %}
+                            <a class="meet-action" href="{{ meet.url }}">Meetup Details
+                            </a>
+                        </div>
 
                     </div>
-                    {% endif %}
-
-                    {% if meet.image %}
-                    <div class="meet-image" style="background-image:url('{{ meet.image }}')"></div>
-                    {% endif %}
-                </div>
-                {% if meet.video and meet.video.image %}
-                <a class="meet-video" href="{{ meet.video.url }}" style="background-image:url('{{ meet.video.image}}')">
-                    <i class="meet-video-icon ion-md-arrow-dropright-circle"></i>
-                </a>
-                {% endif %}
-
-                {% if meet.abstract %}
-                <div class="meet-description">
-                    {{ meet.abstract }}
-                </div>
-                {% endif %}
-                <div class="meet-actions">    
-                    {% if meet.slides %}
-                    <a class="meet-action" href="{{ meet.slides.url }}">View Slides</a>
-                    {% endif %}
-                    <a class="meet-action" href="{{ meet.url }}">Meetup Details
-                    </a>
                 </div>
             </div>
 

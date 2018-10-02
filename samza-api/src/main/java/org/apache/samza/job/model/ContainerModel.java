@@ -24,20 +24,9 @@ import java.util.Map;
 import org.apache.samza.container.TaskName;
 
 /**
+ * This contains metadata about a Samza container, such as which tasks a Samza container should process.
  * <p>
- * The data model is used to define which TaskModels a SamzaContainer should
- * process. The model is used in the job coordinator and SamzaContainer to
- * determine how to execute Samza jobs.
- * </p>
- *
- * <p>
- * The hierarchy for a Samza's job data model is that jobs have containers, and
- * containers have tasks. Each data model contains relevant information, such as
- * an id, partition information, etc.
- * </p>
- * <p>
- * <b>Note</b>: This class has a natural ordering that is inconsistent with equals.
- * </p>
+ * The hierarchy for a Samza's job data model is that jobs have containers, and containers have tasks.
  */
 public class ContainerModel {
   private final String id;
@@ -48,10 +37,19 @@ public class ContainerModel {
     this.tasks = Collections.unmodifiableMap(tasks);
   }
 
+  /**
+   * Returns the id for the container associated with this model.
+   * @return id for the container
+   */
   public String getId() {
     return id;
   }
 
+  /**
+   * Returns a map for all tasks in this container. The keys are the names of the tasks in the container and the values
+   * are the corresponding {@link TaskModel}s.
+   * @return map from {@link TaskName} to {@link TaskModel}
+   */
   public Map<TaskName, TaskModel> getTasks() {
     return tasks;
   }

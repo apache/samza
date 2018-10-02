@@ -96,7 +96,6 @@ public class StreamApplicationIntegrationTest {
         .of(pageViewRepartition)
         .addInputStream(imid, pageviews)
         .addOutputStream(imod, 10)
-        .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1500));
 
     Assert.assertEquals(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
@@ -106,27 +105,6 @@ public class StreamApplicationIntegrationTest {
     public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {
       return (M m) -> m.getValue();
     }
-  }
-
-  /**
-   * Job should fail since it is missing config "job.default.system" for partitionBy Operator
-   */
-  @Test(expected = SamzaException.class)
-  public void testSamzaJobStartMissingConfigFailureForStreamApplication() {
-
-    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
-
-    InMemoryInputDescriptor<PageView> imid = isd
-        .getInputDescriptor("PageView", new NoOpSerde<PageView>());
-
-    InMemoryOutputDescriptor<PageView> imod = isd
-        .getOutputDescriptor("Output", new NoOpSerde<PageView>());
-
-    TestRunner
-        .of(pageViewRepartition)
-        .addInputStream(imid, new ArrayList<>())
-        .addOutputStream(imod, 10)
-        .run(Duration.ofMillis(1000));
   }
 
   /**
@@ -154,7 +132,6 @@ public class StreamApplicationIntegrationTest {
     TestRunner.of(pageViewFilter)
         .addInputStream(imid, pageviews)
         .addOutputStream(imod, 10)
-        .addOverrideConfig("job.default.system", "test")
         .run(Duration.ofMillis(1000));
   }
 

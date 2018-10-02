@@ -1,12 +1,6 @@
 ---
-layout: news
-title: Totally Something Else Besides Release Notes
-icon: analytics
-authors:
-    - name: Xinyu
-      website: 
-      image: 
-excerpt_separator: <!--more-->
+layout: page
+title: Streams DSL
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -26,11 +20,5 @@ excerpt_separator: <!--more-->
 -->
 
 
-Totally something else to read about other than release notes...
-
-<!--more-->
-
-
-Super excited to write something else here.
-
+# High level API section 1
 

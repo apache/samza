@@ -72,6 +72,7 @@ rat {
     '**/font-awesome.min.css',
     '**/jquery-1.11.1.min.js',
     '**/jquery.tablesorter.min.js',
+    '**/flickity.js',
     '**/non-responsive.less',
     '**/ropa-sans.css',
     '**/syntax.css',
