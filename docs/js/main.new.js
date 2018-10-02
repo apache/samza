@@ -276,12 +276,19 @@ var buildDocMenu = (status, body, docMenu) => {
 
 		} else if (h4Link) {
 			var h4LinkEl = document.createElement('a');
-			var linkDestination = docMenuLinkBase + h4Link.getAttribute('href');
+			var h4href =h4Link.getAttribute('href');
+			var linkDestination = h4href.match(/^http/) ? h4href : docMenuLinkBase + h4href;
 			var linkText = h4Link.text.trim();
 
 			h4LinkEl.classList.add('side-navigation__group-item');
 			h4LinkEl.setAttribute('href', linkDestination);
 			h4LinkEl.setAttribute('data-match-active', h4Link.getAttribute('data-match-active'));
+
+			if (h4href.match(/^http/)) {
+				h4LinkEl.setAttribute('target', '_blank');
+				h4LinkEl.setAttribute('rel', 'nofollow');
+			}
+
 			h4LinkEl.text = linkText;
 			
 			docMenu.appendChild(h4LinkEl);
@@ -302,7 +309,8 @@ var buildDocMenu = (status, body, docMenu) => {
 
 			Array.from(listItems).forEach( listItem => {
 				var link = listItem.querySelector('a');
-				linkDestination = docMenuLinkBase + link.getAttribute('href');
+				var linkhref = link.getAttribute('href');
+				linkDestination = linkhref.match(/^http/) ? linkhref : docMenuLinkBase + linkhref;
 
 				linkText = link.text.trim();
 
@@ -310,6 +318,11 @@ var buildDocMenu = (status, body, docMenu) => {
 				newLink.classList.add('side-navigation__group-item');
 				newLink.setAttribute('href', linkDestination);
 				newLink.text = linkText;
+
+				if (linkhref.match(/^http/)) {
+					newLink.setAttribute('target', '_blank');
+					newLink.setAttribute('rel', 'nofollow');
+				}
 
 				itemsDiv.appendChild(newLink);
 			})

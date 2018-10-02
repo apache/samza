@@ -32,6 +32,7 @@ import org.apache.samza.table.Table;
 /**
  * A TaskContext provides resources about the {@link org.apache.samza.task.StreamTask}, particularly during
  * initialization in an {@link org.apache.samza.task.InitableTask}.
+ * TODO this will be replaced by {@link org.apache.samza.context.TaskContext} in the near future by SAMZA-1714
  */
 public interface TaskContext {
   MetricsRegistry getMetricsRegistry();
