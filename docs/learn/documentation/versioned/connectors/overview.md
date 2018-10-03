@@ -23,15 +23,14 @@ Stream processing applications often read data from external sources like Kafka 
 results to be written to external system or data stores. As of the 1.0 release, Samza integrates with the following systems
 out-of-the-box:
 
-- Apache Kafka (consumer/producer)
-- Microsoft Azure Eventhubs (consumer/producer)
-- Amazon AWS Kinesis Streams (consumer)
-- Hadoop Filesystem (consumer/producer)
+- [Apache Kafka](kafka) (consumer/producer)
+- [Microsoft Azure Eventhubs](eventhubs) (consumer/producer)
+- [Amazon AWS Kinesis Streams](kinesis) (consumer)
+- [Hadoop Filesystem](hdfs) (consumer/producer)
 - Elasticsearch (producer)
 
 Instructions on how to use these connectors can be found in the corresponding subsections. Please note that these are
-different from Table APIs, where the data could be read from and written to data stores. Please check the available
-Table providers (link) bundled with Samza.
+different from [Samza Table API](../api/table-api), where the data could be read from and written to data stores.
 
 Samza is pluggable and designed to support a variety of producers and consumers. You can provide your own producer or
 consumer by implementing the SystemFactory interface.
