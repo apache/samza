@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
@@ -51,10 +53,12 @@ import org.slf4j.LoggerFactory;
 public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private static final Logger log = LoggerFactory.getLogger(GroupByContainerCount.class);
   private final int containerCount;
+  private final Config config;
 
-  public GroupByContainerCount(int containerCount) {
+  public GroupByContainerCount(Config config) {
+    this.containerCount = new JobConfig(config).getContainerCount();
+    this.config = config;
     if (containerCount <= 0) throw new IllegalArgumentException("Must have at least one container");
-    this.containerCount = containerCount;
   }
 
   @Override
@@ -95,7 +99,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
       return group(tasks);
     }
 
-    TaskAssignmentManager taskAssignmentManager =  new TaskAssignmentManager(localityManager.getConfig(), new MetricsRegistryMap());
+    TaskAssignmentManager taskAssignmentManager =  new TaskAssignmentManager(config, new MetricsRegistryMap());
     taskAssignmentManager.init();
     try {
       List<TaskGroup> containers = getPreviousContainers(taskAssignmentManager, tasks.size());

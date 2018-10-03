@@ -25,6 +25,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
@@ -53,22 +56,28 @@ public class TestGroupByContainerCount {
     Mockito.doNothing().when(taskAssignmentManager).init();
   }
 
+  Config getConfig(int containerCount) {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_CONTAINER_COUNT(), String.valueOf(containerCount));
+    return new MapConfig(config);
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void testGroupEmptyTasks() {
-    new GroupByContainerCount(1).group(new HashSet());
+    new GroupByContainerCount(getConfig(1)).group(new HashSet());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGroupFewerTasksThanContainers() {
     Set<TaskModel> taskModels = new HashSet<>();
     taskModels.add(getTaskModel(1));
-    new GroupByContainerCount(2).group(taskModels);
+    new GroupByContainerCount(getConfig(2)).group(taskModels);
   }
 
   @Test(expected = UnsupportedOperationException.class)
   public void testGrouperResultImmutable() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> containers = new GroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(3)).group(taskModels);
     containers.remove(containers.iterator().next());
   }
 
@@ -76,7 +85,7 @@ public class TestGroupByContainerCount {
   public void testGroupHappyPath() {
     Set<TaskModel> taskModels = generateTaskModels(5);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).group(taskModels);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -103,7 +112,7 @@ public class TestGroupByContainerCount {
   public void testGroupManyTasks() {
     Set<TaskModel> taskModels = generateTaskModels(21);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).group(taskModels);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -171,11 +180,11 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerAfterContainerIncrease() {
     Set<TaskModel> taskModels = generateTaskModels(9);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(2)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(4).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(4)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -253,11 +262,11 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerAfterContainerDecrease() {
     Set<TaskModel> taskModels = generateTaskModels(9);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(4)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -331,12 +340,12 @@ public class TestGroupByContainerCount {
   public void testBalancerMultipleReblances() throws Exception {
     // Before
     Set<TaskModel> taskModels = generateTaskModels(9);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(4)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
     // First balance
-    Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -390,7 +399,7 @@ public class TestGroupByContainerCount {
     LocalityManager localityManager2 = mock(LocalityManager.class);
     PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(taskAssignmentManager2);
 
-    containers = new GroupByContainerCount(3).balance(taskModels, localityManager2);
+    containers = new GroupByContainerCount(getConfig(3)).balance(taskModels, localityManager2);
 
     containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -463,11 +472,11 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerAfterContainerSame() {
     Set<TaskModel> taskModels = generateTaskModels(9);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(2)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -537,7 +546,7 @@ public class TestGroupByContainerCount {
     prevTaskToContainerMapping.put(getTaskName(8).getTaskName(), "1");
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -603,7 +612,7 @@ public class TestGroupByContainerCount {
     prevTaskToContainerMapping.put(getTaskName(5).getTaskName(), "1");
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(3).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(3)).balance(taskModels, localityManager);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -644,12 +653,12 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerOldContainerCountOne() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(1).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(1)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(3).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(3).balance(taskModels, localityManager);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(3)).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -665,12 +674,12 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerNewContainerCountOne() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).balance(taskModels, localityManager);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(1)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(1)).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -685,10 +694,10 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerEmptyTaskMapping() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    when(taskAssignmentManager.readTaskAssignment()).thenReturn(new HashMap<String, String>());
+    when(taskAssignmentManager.readTaskAssignment()).thenReturn(new HashMap<>());
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).balance(taskModels, localityManager);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(1)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(1)).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -704,12 +713,12 @@ public class TestGroupByContainerCount {
   public void testGroupTaskCountIncrease() {
     int taskCount = 3;
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(generateTaskModels(taskCount - 1)); // Here's the key step
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(2)).group(generateTaskModels(taskCount - 1)); // Here's the key step
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).balance(taskModels, localityManager);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(1)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(1)).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -725,12 +734,12 @@ public class TestGroupByContainerCount {
   public void testGroupTaskCountDecrease() {
     int taskCount = 3;
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(generateTaskModels(taskCount + 1)); // Here's the key step
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(3)).group(generateTaskModels(taskCount + 1)); // Here's the key step
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).balance(taskModels, localityManager);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(1)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(1)).balance(taskModels, localityManager);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -745,31 +754,31 @@ public class TestGroupByContainerCount {
   @Test(expected = IllegalArgumentException.class)
   public void testBalancerNewContainerCountGreaterThanTasks() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    new GroupByContainerCount(5).balance(taskModels, localityManager);     // Should throw
+    new GroupByContainerCount(getConfig(5)).balance(taskModels, localityManager);     // Should throw
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testBalancerEmptyTasks() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    new GroupByContainerCount(5).balance(new HashSet<TaskModel>(), localityManager);     // Should throw
+    new GroupByContainerCount(getConfig(5)).balance(new HashSet<>(), localityManager);     // Should throw
   }
 
   @Test(expected = UnsupportedOperationException.class)
   public void testBalancerResultImmutable() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
+    Set<ContainerModel> prevContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).balance(taskModels, localityManager);
+    Set<ContainerModel> containers = new GroupByContainerCount(getConfig(2)).balance(taskModels, localityManager);
     containers.remove(containers.iterator().next());
   }
 
@@ -784,7 +793,7 @@ public class TestGroupByContainerCount {
     Map<String, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
     when(taskAssignmentManager.readTaskAssignment()).thenReturn(prevTaskToContainerMapping);
 
-    new GroupByContainerCount(3).balance(taskModels, localityManager); //Should throw
+    new GroupByContainerCount(getConfig(3)).balance(taskModels, localityManager); //Should throw
 
   }
 
@@ -792,8 +801,8 @@ public class TestGroupByContainerCount {
   public void testBalancerWithNullLocalityManager() {
     Set<TaskModel> taskModels = generateTaskModels(3);
 
-    Set<ContainerModel> groupContainers = new GroupByContainerCount(3).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(3).balance(taskModels, null);
+    Set<ContainerModel> groupContainers = new GroupByContainerCount(getConfig(3)).group(taskModels);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(getConfig(3)).balance(taskModels, null);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);

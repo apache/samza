@@ -126,8 +126,4 @@ public class LocalityManager {
   public void close() {
     metadataStore.close();
   }
-
-  public Config getConfig() {
-    return config;
-  }
 }
