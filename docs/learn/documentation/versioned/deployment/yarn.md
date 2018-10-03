@@ -311,7 +311,8 @@ The `ClusterBasedJobCoordinator` is used as the control hub for a running Samza 
 
 The `ClusterBasedJobCoordinator` contains a component called the `ContainerProcessManager` to handle metadata regarding container allocations. It uses the information (eg: host affinity) obtained from configs and the `CoordinatorStream` in order to make container allocation requests to the cluster manager (RM). In the case of YARN the config for `samza.cluster-manager.factory` which encapsulates the Application Master, is configured to `org.apache.samza.job.yarn.YarnResourceManagerFactory` and the `ContainerProcessManager` uses `YarnResourceManager` to interact with the RM.
 
-<img src="/img/versioned/learn/documentation/yarn/coordinator-internals.png" alt="yarn-coordinator-internals" class="diagram-small">
+![diagram-small](/img/{{site.version}}/learn/documentation/yarn/coordinator-internals.png)
+
 
 The following is a walkthrough of the different actions taken when the `run-job.sh` script is run:
 - When the job is submitted using `run-app.sh` the JobRunner invoked as part of this script first writes all the configs to the coordinator stream.
