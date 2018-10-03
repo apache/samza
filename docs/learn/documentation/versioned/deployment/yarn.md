@@ -116,26 +116,23 @@ yarn.package.path=https://url/to/artifact/artifact-version-dist.tar.gz
 The AM implementation in Samza exposes metadata about the job via both a JSON REST interface and a Web UI.
 This Web UI can be accessed by clicking the Tracking UI (*ApplicationMaster*) link on the YARN RM dashboard.
 
-<img src="/img/versioned/learn/documentation/yarn/yarn-am-ui.png" alt="yarn-ui" class="diagram-small">
-
+![diagram-medium](/img/{{site.version}}/learn/documentation/yarn/yarn-am-ui.png)
 
 The Application Master UI provides you the ability to view:
 
  - Job level runtime metadata
+![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-runtime-metadata.png)
 
-<img src="/img/versioned/learn/documentation/yarn/am-runtime-metadata.png" alt="yarn-runtime-metadata" class="diagram-small">
 
  - Container information
-
-<img src="/img/versioned/learn/documentation/yarn/am-container-info.png" alt="yam-container-info" class="diagram-small">
+![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-container-info.png)
 
  - Job model (SystemStreamPartition to Task and Container mapping)
+![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-job-model.png)
 
-<img src="/img/versioned/learn/documentation/yarn/am-job-model.png" alt="am-job-model" class="diagram-small">
 
 - Runtime configs
-
- <img src="/img/versioned/learn/documentation/yarn/am-runtime-configs.png" alt="am-runtime-configs" class="diagram-small">
+![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-runtime-configs.png)
 
 
 # Viewing logs
