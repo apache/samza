@@ -73,7 +73,7 @@
       <div class="hero-blog-posts">
         <h3>Latest from our blog</h3>
         <div class="blog-posts">
-        
+
             {% assign sortedBlogPost = site.blog | sort: 'date' | reverse %}
             {% assign maxCount = 3 %}
             {% assign latestCount = 1 %}
@@ -94,7 +94,7 @@
                   <div class="blog-post__title">{{ post.title }}</div>
                   <div class="blog-post__date">{{ post.date | date: "%B %-d, %Y" }}</div>
               </a>
-        
+
             {% endfor %}
 
         </div>
@@ -220,7 +220,7 @@
   {% include footer.html %}
 
   <script type="text/javascript" src="/js/flickity.js"></script>
-  
+
 </body>
 
 </html>
