@@ -19,6 +19,34 @@ title: Connectors overview
    limitations under the License.
 -->
 
-# Section 1
-# Section 2
+Stream processing applications often read data from external sources like Kafka or HDFS. Likewise, they require processed
+results to be written to external system or data stores. As of the 1.0 release, Samza integrates with the following systems
+out-of-the-box:
+
+- Apache Kafka (consumer/producer)
+- Microsoft Azure Eventhubs (consumer/producer)
+- Amazon AWS Kinesis Streams (consumer)
+- Hadoop Filesystem (consumer/producer)
+- Elasticsearch (producer)
+
+Instructions on how to use these connectors can be found in the corresponding subsections. Please note that these are
+different from Table APIs, where the data could be read from and written to data stores. Please check the available
+Table providers (link) bundled with Samza.
+
+Samza is pluggable and designed to support a variety of producers and consumers. You can provide your own producer or
+consumer by implementing the SystemFactory interface.
+
+To associate a system with a Samza Connector, the user needs to set the following config:
+
+{% highlight jproperties %}
+systems.<system-name>.samza.factory=org.apache.samza.system.kafka.KafkaSystemFactory
+{% endhighlight %}
+
+Any system specific configs, could be defined as below:
+
+{% highlight jproperties %}
+systems.<system-name>.param1=value1
+systems.<system-name>.consumer.param2=value2
+systems.<system-name>.producer.param3=value3
+{% endhighlight %}
 
