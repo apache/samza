@@ -24,7 +24,6 @@ import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 
@@ -35,7 +34,7 @@ public class TestKafkaConsumerConfig {
   public final static String JOB_ID = "jobId";
   public final static String KAFKA_PRODUCER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".producer.";
   public final static String KAFKA_CONSUMER_PROPERTY_PREFIX = "systems." + SYSTEM_NAME + ".consumer.";
-  private final static String CLIENT_ID = "consumer-client";
+  private final static String CLIENT_ID_PREFIX = "consumer-client";
 
   @Test
   public void testDefaults() {
@@ -55,7 +54,7 @@ public class TestKafkaConsumerConfig {
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID_PREFIX);
 
     Assert.assertEquals("false", kafkaConsumerConfig.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
 
@@ -75,7 +74,7 @@ public class TestKafkaConsumerConfig {
         kafkaConsumerConfig.get(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG));
 
     // validate group and client id generation
-    Assert.assertEquals(CLIENT_ID.replace("-", "_") + "-" + JOB_NAME + "-" + "1",
+    Assert.assertEquals(CLIENT_ID_PREFIX.replace("-", "_") + "-" + JOB_NAME + "-" + "1",
         kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
 
     Assert.assertEquals(KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-1",
@@ -85,20 +84,20 @@ public class TestKafkaConsumerConfig {
 
     // validate setting of group and client id
     Assert.assertEquals(KafkaConsumerConfig.createConsumerGroupId(config),
-        config.get(ConsumerConfig.GROUP_ID_CONFIG));
+        kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));
 
     Assert.assertEquals(KafkaConsumerConfig.createConsumerGroupId(config),
         kafkaConsumerConfig.get(ConsumerConfig.GROUP_ID_CONFIG));
 
 
-    Assert.assertEquals(KafkaConsumerConfig.createClientId(CLIENT_ID, config),
+    Assert.assertEquals(KafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config),
         kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
 
     // with non-default job id
     props.put(JobConfig.JOB_ID(), JOB_ID);
     config = new MapConfig(props);
-    Assert.assertEquals(CLIENT_ID.replace("-", "_") + "-jobName-jobId",
-        kafkaConsumerConfig.createClientId(CLIENT_ID, config));
+    Assert.assertEquals(CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-jobId",
+        kafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config));
 
     Assert.assertEquals("jobName-jobId", KafkaConsumerConfig.createConsumerGroupId(config));
 
@@ -120,7 +119,7 @@ public class TestKafkaConsumerConfig {
 
     Config config = new MapConfig(props);
     KafkaConsumerConfig kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID_PREFIX);
 
     Assert.assertEquals("useThis:9092", kafkaConsumerConfig.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
 
