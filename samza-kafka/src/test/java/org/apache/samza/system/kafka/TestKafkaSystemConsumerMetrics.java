@@ -12,7 +12,7 @@ import org.junit.Test;
 
 public class TestKafkaSystemConsumerMetrics {
   @Test
-  public void testLiKafkaSystemConsumerMetrics() {
+  public void testKafkaSystemConsumerMetrics() {
     String systemName = "system";
     TopicAndPartition tp1 = new TopicAndPartition("topic1", 1);
     TopicAndPartition tp2 = new TopicAndPartition("topic2", 2);
@@ -70,7 +70,10 @@ public class TestKafkaSystemConsumerMetrics {
     Assert.assertEquals(metrics.systemName(), systemName);
 
     Map<String, Metric> metricMap = registry.getGroup(groupName);
+    validate(metricMap, expectedValues);
+  }
 
+  protected static void validate(Map<String, Metric> metricMap, Map<String, String> expectedValues) {
     // match the expected value, set in the test above, and the value in the metrics
     for(Map.Entry<String, String> e: expectedValues.entrySet()) {
       String metricName = e.getKey();
@@ -81,6 +84,5 @@ public class TestKafkaSystemConsumerMetrics {
       //System.out.println("name=" + metricName + " expVal="  + expectedValue + " actVal=" + actualValue);
       Assert.assertEquals("failed for metricName=" + metricName, actualValue, expectedValue);
     }
-
   }
 }
