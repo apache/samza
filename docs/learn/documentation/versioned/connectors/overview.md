@@ -27,10 +27,10 @@ out-of-the-box:
 - [Microsoft Azure Eventhubs](eventhubs) (consumer/producer)
 - [Amazon AWS Kinesis Streams](kinesis) (consumer)
 - [Hadoop Filesystem](hdfs) (consumer/producer)
-- Elasticsearch (producer)
 
-Instructions on how to use these connectors can be found in the corresponding subsections. Please note that these are
-different from [Samza Table API](../api/table-api), where the data could be read from and written to data stores.
+Instructions on how to use these connectors can be found in the corresponding subsections. Please note that the
+connector API is different from [Samza Table API](../api/table-api), where the data could be read from and written to
+data stores.
 
 Samza is pluggable and designed to support a variety of producers and consumers. You can provide your own producer or
 consumer by implementing the SystemFactory interface.
