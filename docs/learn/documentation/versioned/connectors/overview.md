@@ -27,6 +27,7 @@ out-of-the-box:
 - [Microsoft Azure Eventhubs](eventhubs) (consumer/producer)
 - [Amazon AWS Kinesis Streams](kinesis) (consumer)
 - [Hadoop Filesystem](hdfs) (consumer/producer)
+- [Elasticsearch](https://github.com/apache/samza/blob/master/samza-elasticsearch/src/main/java/org/apache/samza/system/elasticsearch/ElasticsearchSystemProducer.java) (producer)
 
 Instructions on how to use these connectors can be found in the corresponding subsections. Please note that the
 connector API is different from [Samza Table API](../api/table-api), where the data could be read from and written to
