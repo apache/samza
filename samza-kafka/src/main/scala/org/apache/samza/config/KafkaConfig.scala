@@ -259,7 +259,22 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     //  kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
     //  kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
     // }
-    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+
+    // Adjust changelog topic setting, when TTL is set on a RocksDB store
+    //  - Disable log compaction on Kafka changelog topic
+    //  - Set topic TTL to be the same as RocksDB TTL
+    Option(config.get("stores.%s.rocksdb.ttl.ms" format name)) match {
+      case Some(rocksDbTtl) =>
+        if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
+          kafkaChangeLogProperties.setProperty("cleanup.policy", "delete")
+          if (!config.containsKey("stores.%s.changelog.kafka.retention.ms" format name)) {
+            kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(rocksDbTtl))
+          }
+        }
+      case _ =>
+        kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    }
+
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
