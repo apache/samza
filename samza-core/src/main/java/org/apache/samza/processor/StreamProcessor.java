@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -108,13 +109,12 @@ public class StreamProcessor {
    * Type parameter needs to be {@link ApplicationContainerContext} so that we can eventually call the base methods of
    * the context object.
    */
-  private final ApplicationContainerContextFactory<ApplicationContainerContext>
-      applicationDefinedContainerContextFactory;
+  private final Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationDefinedContainerContextFactory;
   /**
    * Type parameter needs to be {@link ApplicationTaskContext} so that we can eventually call the base methods of the
    * context object.
    */
-  private final ApplicationTaskContextFactory<ApplicationTaskContext> applicationDefinedTaskContextFactory;
+  private final Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationDefinedTaskContextFactory;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
   private final long taskShutdownMs;
@@ -161,71 +161,60 @@ public class StreamProcessor {
   JobCoordinatorListener jobCoordinatorListener = null;
 
   /**
-   * StreamProcessor encapsulates and manages the lifecycle of {@link JobCoordinator} and {@link SamzaContainer}.
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
+   * it creates a {@link JobCoordinator} instead of accepting it as an argument.
    *
-   * <p>
-   * On startup, StreamProcessor starts the JobCoordinator. Schedules the SamzaContainer to run in a ExecutorService
-   * when it receives new {@link JobModel} from JobCoordinator.
-   * <p>
-   *
-   * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor.
-   *
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
-   * @param customMetricsReporters metricReporter instances that will be used by SamzaContainer and JobCoordinator to report metrics.
-   * @param taskFactory the {@link TaskFactory} to be used for creating task instances.
-   * @param processorListener listener to the StreamProcessor life cycle.
+   * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, ApplicationContainerContextFactory,
+   * ApplicationTaskContextFactory, StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
+  @Deprecated
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener) {
     this(config, customMetricsReporters, taskFactory, processorListener, null);
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener)}, except the
-   * {@link JobCoordinator} is given for this {@link StreamProcessor}.
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
-   * @param customMetricsReporters metric Reporter
-   * @param taskFactory task factory to instantiate the Task
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ApplicationContainerContextFactory,
+   * ApplicationTaskContextFactory, StreamProcessorLifecycleListenerFactory, JobCoordinator)}, with the following
+   * differences:
+   * <ol>
+   *   <li>Passes null for application-defined context factories</li>
+   *   <li>Accepts a {@link ProcessorLifecycleListener} directly instead of a
+   *   {@link StreamProcessorLifecycleListenerFactory}</li>
+   * </ol>
+   *
+   * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, ApplicationContainerContextFactory,
+   * ApplicationTaskContextFactory, StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
+   *
    * @param processorListener listener to the StreamProcessor life cycle
-   * @param jobCoordinator the instance of {@link JobCoordinator}
    */
+  @Deprecated
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
     this(config, customMetricsReporters, taskFactory, null, null, sp -> processorListener, jobCoordinator);
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, with the
-   * following additional components:
-   * <ol>
-   * <li>There is a {@link StreamProcessorLifecycleListenerFactory} as input instead of
-   * {@link ProcessorLifecycleListener}. This is useful to create a {@link ProcessorLifecycleListener} with a reference
-   * to this {@link StreamProcessor}.</li>
-   * <li>Accepts application-defined context factories which are used to create runtime context objects that are used in
-   * container/task initialization</li>
-   * </ol>
+   * Builds a {@link StreamProcessor} with full specification of processing components.
    *
    * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
-   * @param customMetricsReporters metric Reporter
+   * @param customMetricsReporters registered with the metrics system to report metrics
    * @param taskFactory task factory to instantiate the Task
    * @param applicationDefinedContainerContextFactory nullable factory for application-defined container context
    * @param applicationDefinedTaskContextFactory nullable factory for application-defined task context
-   * @param listenerFactory listener to the StreamProcessor life cycle
+   * @param listenerFactory factory for creating a listener to the StreamProcessor life cycle
    * @param jobCoordinator the instance of {@link JobCoordinator}
    */
-  public StreamProcessor(Config config,
-      Map<String, MetricsReporter> customMetricsReporters,
-      TaskFactory taskFactory,
+  public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ApplicationContainerContextFactory<ApplicationContainerContext> applicationDefinedContainerContextFactory,
       ApplicationTaskContextFactory<ApplicationTaskContext> applicationDefinedTaskContextFactory,
-      StreamProcessorLifecycleListenerFactory listenerFactory,
-      JobCoordinator jobCoordinator) {
+      StreamProcessorLifecycleListenerFactory listenerFactory, JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
     this.config = config;
     this.customMetricsReporter = customMetricsReporters;
     this.taskFactory = taskFactory;
-    this.applicationDefinedContainerContextFactory = applicationDefinedContainerContextFactory;
-    this.applicationDefinedTaskContextFactory = applicationDefinedTaskContextFactory;
+    this.applicationDefinedContainerContextFactory = Optional.ofNullable(applicationDefinedContainerContextFactory);
+    this.applicationDefinedTaskContextFactory = Optional.ofNullable(applicationDefinedTaskContextFactory);
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
@@ -316,13 +305,10 @@ public class StreamProcessor {
 
   @VisibleForTesting
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
-    return SamzaContainer.apply(processorId,
-        jobModel,
-        ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
-        this.taskFactory,
-        JobContextImpl.fromConfigWithDefaults(this.config),
-        Option.apply(this.applicationDefinedContainerContextFactory),
-        Option.apply(this.applicationDefinedTaskContextFactory));
+    return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
+        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
+        Option.apply(this.applicationDefinedContainerContextFactory.orElse(null)),
+        Option.apply(this.applicationDefinedTaskContextFactory.orElse(null)));
   }
 
   private JobCoordinator createJobCoordinator() {

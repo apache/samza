@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,10 +108,11 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
     this.tagToRateLimiterMap = Collections.unmodifiableMap(tagToTargetRateMap.entrySet().stream()
         .map(e -> {
             String tag = e.getKey();
-            int effectiveRate =
-                e.getValue() / context.getContainerContext().getContainerModel().getTasks().keySet().size();
-            LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d",
-                context.getTaskContext().getTaskModel().getTaskName(), tag, effectiveRate));
+            int numTasksInContainer = context.getContainerContext().getContainerModel().getTasks().keySet().size();
+            int effectiveRate = e.getValue() / numTasksInContainer;
+            TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
+            LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d", taskName, tag,
+                effectiveRate));
             return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))

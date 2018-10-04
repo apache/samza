@@ -104,7 +104,7 @@ public abstract class OperatorImpl<M, RM> {
     registeredOperators = new HashSet<>();
     prevOperators = new HashSet<>();
     inputStreams = new HashSet<>();
-    // TODO don't use client Context API for internal framework code
+    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
     TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
     MetricsRegistry metricsRegistry = taskContext.getTaskMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opId + "-messages");

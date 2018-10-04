@@ -18,9 +18,9 @@
  */
 package org.apache.samza.context;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import scala.Option;
 
 
 public class JobContextImpl implements JobContext {
@@ -28,22 +28,28 @@ public class JobContextImpl implements JobContext {
   private final String jobName;
   private final String jobId;
 
-  /**
-   * @param config config for the job
-   * @param jobName nullable job name (possible if job.name config is not set)
-   * @param jobId id for the job
-   */
   private JobContextImpl(Config config, String jobName, String jobId) {
     this.config = config;
     this.jobName = jobName;
     this.jobId = jobId;
   }
 
+  /**
+   * Build a {@link JobContextImpl} from a {@link Config} object.
+   * This extracts some information like job name and job id.
+   *
+   * @param config used to extract job information
+   * @return {@link JobContextImpl} corresponding to the {@code config}
+   * @throws IllegalArgumentException if job name is not defined in the {@code config}
+   */
   public static JobContextImpl fromConfigWithDefaults(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String jobName = jobConfig.getName().isDefined() ? jobConfig.getName().get() : null;
+    Option<String> jobName = jobConfig.getName();
+    if (jobName.isEmpty()) {
+      throw new IllegalArgumentException("Job name is not defined in configuration");
+    }
     String jobId = jobConfig.getJobId();
-    return new JobContextImpl(config, jobName, jobId);
+    return new JobContextImpl(config, jobName.get(), jobId);
   }
 
   @Override
@@ -53,9 +59,6 @@ public class JobContextImpl implements JobContext {
 
   @Override
   public String getJobName() {
-    if (this.jobName == null) {
-      throw new SamzaException("Job name was not specified. Check if the job.name configuration is missing.");
-    }
     return this.jobName;
   }
 

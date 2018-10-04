@@ -61,8 +61,8 @@ class TaskInstance(
   sideInputStorageManager: TaskSideInputStorageManager = null,
   jobContext: JobContext,
   containerContext: ContainerContext,
-  applicationContainerContext: Option[ApplicationContainerContext],
-  applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
+  applicationContainerContextOption: Option[ApplicationContainerContext],
+  applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
 ) extends Logging {
 
   val taskName: TaskName = taskModel.getTaskName
@@ -73,14 +73,24 @@ class TaskInstance(
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
   val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
-  val (taskContext: org.apache.samza.context.TaskContextImpl,
-    applicationTaskContextOption: Option[ApplicationTaskContext]) =
-    buildTaskContexts(epochTimeScheduler)
-  val context: Context = new ContextImpl(jobContext,
-    containerContext,
-    taskContext,
-    applicationContainerContext.orNull,
-    applicationTaskContextOption.orNull)
+
+  private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
+    (storeName: String) => {
+      if (storageManager != null && storageManager.getStore(storeName).isDefined) {
+        storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
+      } else if (sideInputStorageManager != null && sideInputStorageManager.getStore(storeName) != null) {
+        sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[_, _]]
+      } else {
+        null
+      }
+    })
+  private val taskContext = new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
+    new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache)
+  // need separate field for this instead of using it through Context, since Context throws an exception if it is null
+  private val applicationTaskContextOption = applicationTaskContextFactoryOption.map(_.create(jobContext,
+    containerContext, taskContext, applicationContainerContextOption.orNull))
+  val context: Context = new ContextImpl(jobContext, containerContext, taskContext,
+    applicationContainerContextOption.orNull, applicationTaskContextOption.orNull)
 
   // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
@@ -106,13 +116,6 @@ class TaskInstance(
 
     val sspsToRegister = systemStreamPartitions -- sideInputSSPs
     offsetManager.register(taskName, sspsToRegister)
-  }
-
-  def startContext: Unit = {
-    this.applicationTaskContextOption.foreach(applicationDefinedTaskContext => {
-      debug("Starting application-defined task context for taskName: %s" format taskName)
-      applicationDefinedTaskContext.start()
-    })
   }
 
   def startStores {
@@ -150,6 +153,10 @@ class TaskInstance(
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
     }
+    this.applicationTaskContextOption.foreach(applicationTaskContext => {
+      debug("Starting application-defined task context for taskName: %s" format taskName)
+      applicationTaskContext.start()
+    })
   }
 
   def registerProducers {
@@ -276,6 +283,10 @@ class TaskInstance(
   }
 
   def shutdownTask {
+    this.applicationTaskContextOption.foreach(applicationTaskContext => {
+      debug("Stopping application-defined task context for taskName: %s" format taskName)
+      applicationTaskContext.stop()
+    })
     if (task.isInstanceOf[ClosableTask]) {
       debug("Shutting down stream task for taskName: %s" format taskName)
 
@@ -283,13 +294,6 @@ class TaskInstance(
     } else {
       debug("Skipping stream task shutdown for taskName: %s" format taskName)
     }
-  }
-
-  def shutdownContext: Unit = {
-    this.applicationTaskContextOption.foreach(applicationDefinedTaskContext => {
-      debug("Stopping application-defined task context for taskName: %s" format taskName)
-      applicationDefinedTaskContext.stop()
-    })
   }
 
   def shutdownStores {
@@ -373,31 +377,5 @@ class TaskInstance(
       throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
 
     startingOffset
-  }
-
-  private def buildTaskContexts(epochTimeScheduler: EpochTimeScheduler):
-    (org.apache.samza.context.TaskContextImpl, Option[ApplicationTaskContext]) = {
-    val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
-      (storeName: String) => {
-        if (storageManager != null && storageManager.getStore(storeName).isDefined) {
-          storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
-        } else if (sideInputStorageManager != null && sideInputStorageManager.getStore(storeName) != null) {
-          sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[_, _]]
-        } else {
-          null
-        }
-      })
-    val scheduler = new CallbackSchedulerImpl(epochTimeScheduler)
-    val taskContext = new TaskContextImpl(taskModel,
-      metrics.registry,
-      kvStoreSupplier,
-      tableManager,
-      scheduler,
-      offsetManager,
-      jobModel,
-      streamMetadataCache)
-    val applicationDefinedTaskContext = applicationTaskContextFactory.map(_.create(jobContext, containerContext,
-      taskContext, applicationContainerContext.orNull))
-    (taskContext, applicationDefinedTaskContext)
   }
 }

@@ -208,10 +208,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testApplicationTaskContextFactoryProvided(): Unit = {
     assertEquals(this.applicationTaskContext, this.taskInstance.context.getApplicationTaskContext)
-    this.taskInstance.startContext
+    this.taskInstance.initTask
     verify(this.applicationTaskContext).start()
     verify(this.applicationTaskContext, never()).stop()
-    this.taskInstance.shutdownContext
+    this.taskInstance.shutdownTask
     verify(this.applicationTaskContext).stop()
   }
 
@@ -222,8 +222,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testNoApplicationTaskContextFactoryProvided() {
     setupTaskInstance(None)
-    this.taskInstance.startContext
-    this.taskInstance.shutdownContext
+    this.taskInstance.initTask
+    this.taskInstance.shutdownTask
     verifyZeroInteractions(this.applicationTaskContext)
     intercept[IllegalStateException] {
       this.taskInstance.context.getApplicationTaskContext
@@ -256,8 +256,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       exceptionHandler = this.taskInstanceExceptionHandler,
       jobContext = this.jobContext,
       containerContext = this.containerContext,
-      applicationContainerContext = Some(this.applicationContainerContext),
-      applicationTaskContextFactory = applicationTaskContextFactory)
+      applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = applicationTaskContextFactory)
   }
 
   /**

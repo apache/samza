@@ -21,10 +21,7 @@ package org.apache.samza.context;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-<<<<<<< HEAD
 import static org.mockito.Mockito.mock;
-=======
->>>>>>> master
 
 
 public class TestContextImpl {
@@ -67,7 +64,6 @@ public class TestContextImpl {
   }
 
   private static Context buildWithApplicationContainerContext(ApplicationContainerContext applicationContainerContext) {
-<<<<<<< HEAD
     return buildWithApplicationContext(applicationContainerContext, mock(ApplicationTaskContext.class));
   }
 
@@ -77,18 +73,8 @@ public class TestContextImpl {
 
   private static Context buildWithApplicationContext(ApplicationContainerContext applicationContainerContext,
       ApplicationTaskContext applicationTaskContext) {
-    return new ContextImpl(mock(JobContext.class),
-        mock(ContainerContext.class),
-        mock(TaskContext.class),
-        applicationContainerContext,
-        applicationTaskContext);
-=======
-    return new ContextImpl(null, null, null, applicationContainerContext, null);
-  }
-
-  private static Context buildWithApplicationTaskContext(ApplicationTaskContext applicationTaskContext) {
-    return new ContextImpl(null, null, null, null, applicationTaskContext);
->>>>>>> master
+    return new ContextImpl(mock(JobContext.class), mock(ContainerContext.class), mock(TaskContext.class),
+        applicationContainerContext, applicationTaskContext);
   }
 
   /**

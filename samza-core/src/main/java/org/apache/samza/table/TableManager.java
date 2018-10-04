@@ -97,7 +97,6 @@ public class TableManager {
    * @param context context for the task
    */
   public void init(Context context) {
-    Preconditions.checkNotNull(context, "Cannot pass null context");
     tableContexts.values().forEach(ctx -> ctx.tableProvider.init(context));
     initialized = true;
   }

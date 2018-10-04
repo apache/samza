@@ -96,7 +96,7 @@ public class OperatorImplGraph {
   public OperatorImplGraph(OperatorSpecGraph specGraph, Context context, Clock clock) {
     this.clock = clock;
     StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
-    // TODO don't use client Context API for internal framework code
+    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
     TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)

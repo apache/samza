@@ -55,8 +55,8 @@ object StreamProcessorTestUtils {
       collector,
       jobContext = Mockito.mock(classOf[JobContext]),
       containerContext = containerContext,
-      applicationContainerContext = None,
-      applicationTaskContextFactory = None)
+      applicationContainerContextOption = None,
+      applicationTaskContextFactoryOption = None)
 
     val container = new SamzaContainer(
       config = config,

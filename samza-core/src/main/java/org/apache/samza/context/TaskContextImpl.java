@@ -96,7 +96,7 @@ public class TaskContextImpl implements TaskContext {
     this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
   }
 
-  // TODO below methods are used by operator code; they should be moved out of this client API to a framework API layer
+  // TODO SAMZA-1935: below methods are used by operator code; they should be decoupled from this client API
 
   public void registerObject(String name, Object value) {
     this.objectRegistry.put(name, value);

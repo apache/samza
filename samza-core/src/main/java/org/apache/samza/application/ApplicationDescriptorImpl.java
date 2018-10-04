@@ -68,14 +68,14 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   final Config config;
 
   /**
-   * Optional factory, so value might be null.
+   * Applications are not required to define a factory.
    */
-  private ApplicationContainerContextFactory<?> applicationContainerContextFactory;
+  private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactory = Optional.empty();
 
   /**
-   * Optional factory, so value might be null.
+   * Applications are not required to define a factory.
    */
-  private ApplicationTaskContextFactory<?> applicationTaskContextFactory;
+  private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactory = Optional.empty();
 
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
@@ -92,13 +92,13 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
 
   @Override
   public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
-    this.applicationContainerContextFactory = factory;
+    this.applicationContainerContextFactory = Optional.of(factory);
     return (S) this;
   }
 
   @Override
   public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
-    this.applicationTaskContextFactory = factory;
+    this.applicationTaskContextFactory = Optional.of(factory);
     return (S) this;
   }
 
@@ -125,21 +125,27 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   /**
+   * Get the {@link ApplicationContainerContextFactory} specified by the application.
+   *
    * @return {@link ApplicationContainerContextFactory} if application specified it; empty otherwise
    */
   public Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> getApplicationContainerContextFactory() {
-    //noinspection unchecked; ok because all context types are at least ApplicationContainerContext
-    return Optional.ofNullable(
-        (ApplicationContainerContextFactory<ApplicationContainerContext>) this.applicationContainerContextFactory);
+    @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationContainerContext
+    Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationContainerContextFactory =
+        (Optional) this.applicationContainerContextFactory;
+    return applicationContainerContextFactory;
   }
 
   /**
+   * Get the {@link ApplicationTaskContextFactory} specified by the application.
+   *
    * @return {@link ApplicationTaskContextFactory} if application specified it; empty otherwise
    */
   public Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> getApplicationTaskContextFactory() {
-    //noinspection unchecked; ok because all context types are at least ApplicationTaskContext
-    return Optional.ofNullable(
-        (ApplicationTaskContextFactory<ApplicationTaskContext>) this.applicationTaskContextFactory);
+    @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationTaskContext
+    Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationTaskContextFactory =
+        (Optional) this.applicationTaskContextFactory;
+    return applicationTaskContextFactory;
   }
 
   /**

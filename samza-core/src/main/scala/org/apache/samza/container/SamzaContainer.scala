@@ -659,8 +659,8 @@ object SamzaContainer extends Logging {
           sideInputStorageManager = sideInputStorageManager,
           jobContext = jobContext,
           containerContext = containerContext,
-          applicationContainerContext = applicationContainerContext ,
-          applicationTaskContextFactory = applicationTaskContextFactory)
+          applicationContainerContextOption = applicationContainerContext ,
+          applicationTaskContextFactoryOption = applicationTaskContextFactory)
 
       val taskInstance = createTaskInstance(task)
 
@@ -1021,7 +1021,6 @@ class SamzaContainer(
     info("Initializing stream tasks.")
 
     taskInstances.values.foreach(_.initTask)
-    taskInstances.values.foreach(_.startContext)
   }
 
   def startAdmins {
@@ -1029,7 +1028,6 @@ class SamzaContainer(
 
     systemAdmins.start
   }
-
 
   def startProducers {
     info("Registering task instances with producers.")
@@ -1145,7 +1143,6 @@ class SamzaContainer(
     }
 
     taskInstances.values.foreach(_.shutdownTask)
-    taskInstances.values.foreach(_.shutdownContext)
   }
 
   def shutdownStores {
