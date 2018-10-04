@@ -56,12 +56,6 @@ public class TestGroupByContainerCount {
     Mockito.doNothing().when(taskAssignmentManager).init();
   }
 
-  Config getConfig(int containerCount) {
-    Map<String, String> config = new HashMap<>();
-    config.put(JobConfig.JOB_CONTAINER_COUNT(), String.valueOf(containerCount));
-    return new MapConfig(config);
-  }
-
   @Test(expected = IllegalArgumentException.class)
   public void testGroupEmptyTasks() {
     new GroupByContainerCount(getConfig(1)).group(new HashSet());
@@ -806,5 +800,12 @@ public class TestGroupByContainerCount {
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
+  }
+
+
+  Config getConfig(int containerCount) {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_CONTAINER_COUNT(), String.valueOf(containerCount));
+    return new MapConfig(config);
   }
 }
