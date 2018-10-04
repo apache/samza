@@ -35,7 +35,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
@@ -48,7 +48,7 @@ import scala.Option;
 import scala.Option$;
 
 /**
- * Harness for writing integration tests for {@link StreamApplication}s.
+ * Harness for writing integration tests for {@link SamzaApplication}s.
  *
  * <p> This provides the following features for its sub-classes:
  * <ul>
@@ -74,7 +74,7 @@ import scala.Option$;
  * State persistence: {@link #tearDown()} clears all associated state (including topics and metadata) in Kafka and
  * Zookeeper. Hence, the state is not durable across invocations of {@link #tearDown()} <br/>
  *
- * Execution model: {@link StreamApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
+ * Execution model: {@link SamzaApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
  * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
  *
@@ -217,7 +217,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @return RunApplicationContext which contains objects created within runApplication, to be used for verification
    * if necessary
    */
-  protected RunApplicationContext runApplication(StreamApplication streamApplication,
+  protected RunApplicationContext runApplication(SamzaApplication streamApplication,
       String appName,
       Map<String, String> overriddenConfigs) {
     Map<String, String> configMap = new HashMap<>();
