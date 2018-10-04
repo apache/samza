@@ -86,6 +86,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     systemAdmin = createSystemAdmin(
       new java.util.Properties(),
       1,
+      java.util.Collections.emptyMap(),
       java.util.Collections.emptyMap())
 
     systemAdmin.start()
@@ -145,7 +146,8 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
   def createSystemAdmin(coordinatorStreamProperties: java.util.Properties,
                         coordinatorStreamReplicationFactor: Int,
-                        topicMetaInformation: java.util.Map[String, ChangelogInfo]) = {
+                        topicMetaInformation: java.util.Map[String, ChangelogInfo],
+                        intermediateStreamProperties: java.util.Map[String, java.util.Properties]) = {
 
 
     val zkConnectSupplier: Supplier[ZkUtils] = new Supplier[ZkUtils]() {
@@ -183,7 +185,6 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
         }
       }
 
-    val intermediateStreamProperties: java.util.Map[String, java.util.Properties] = new java.util.HashMap[String, java.util.Properties]
     val deleteCommittedMessages: Boolean = false
 
     new KafkaSystemAdmin[Array[Byte], Array[Byte]](
@@ -335,6 +336,7 @@ class TestKafkaSystemAdmin {
     val systemAdmin = createSystemAdmin(
       new java.util.Properties(),
       3,
+      java.util.Collections.emptyMap(),
       java.util.Collections.emptyMap())
 
     //val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure),

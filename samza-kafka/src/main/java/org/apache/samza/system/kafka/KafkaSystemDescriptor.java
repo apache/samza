@@ -41,7 +41,7 @@ import org.apache.samza.serializers.Serde;
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
-  private static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
+  public static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.consumer.auto.offset.reset";
   private static final String CONSUMER_FETCH_THRESHOLD_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD();
   private static final String CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES();

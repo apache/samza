@@ -20,6 +20,7 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,67 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   @Test
+  public void testToKafkaSpec() {
+    String topicName = "testStream";
+    String systemName = "testSystem";
+    int changeLogReplicationFactor = 3;
+    int coordReplicatonFactor = 4;
+    int defaultPartitionCount = 2;
+    int changeLogPartitionFactor = 5;
+    Map<String, String> map = new HashMap<>();
+    Config config = new MapConfig(map);
+    StreamSpec spec = new StreamSpec("id", topicName, systemName, defaultPartitionCount, config);
+
+    KafkaSystemAdmin kafkaAdmin = systemAdmin();
+    KafkaStreamSpec kafkaSpec = kafkaAdmin.toKafkaSpec(spec);
+
+    Assert.assertEquals("id", kafkaSpec.getId());
+    Assert.assertEquals(topicName, kafkaSpec.getPhysicalName());
+    Assert.assertEquals("testSystem", kafkaSpec.getSystemName());
+    Assert.assertEquals(defaultPartitionCount, kafkaSpec.getPartitionCount());
+
+    // validate that conversion is using changeLog metadata
+    Properties coordProps = new Properties();
+    Map<String, ChangelogInfo> changeLogInfoMap = new HashMap<>();
+    ChangelogInfo changelogInfo = new ChangelogInfo(changeLogReplicationFactor, new Properties());
+    changeLogInfoMap.put(topicName, changelogInfo);
+    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogInfoMap, Collections.emptyMap()));
+    spec = StreamSpec.createChangeLogStreamSpec(topicName, systemName, changeLogPartitionFactor);
+    kafkaSpec = admin.toKafkaSpec(spec);
+    Assert.assertEquals(changeLogReplicationFactor, kafkaSpec.getReplicationFactor());
+
+    // same, but with missing topic info
+    try {
+      changeLogInfoMap.remove(topicName);
+      kafkaSpec = admin.toKafkaSpec(spec);
+      Assert.fail("toKafkaSpec should've failed for missing topic");
+    } catch (StreamValidationException e) {
+      // expected
+    }
+
+    // validate that conversion is using coordination metadata
+    coordProps.setProperty("A", "B");
+    admin = Mockito.spy(createSystemAdmin(coordProps, coordReplicatonFactor, changeLogInfoMap, Collections.emptyMap()));
+    spec = StreamSpec.createCoordinatorStreamSpec(topicName, systemName);
+    kafkaSpec = admin.toKafkaSpec(spec);
+    Assert.assertEquals(coordReplicatonFactor, kafkaSpec.getReplicationFactor());
+    Assert.assertEquals(coordProps, kafkaSpec.getProperties());
+
+    // validate that conversion is using intermediate streams properties
+    Properties isProps = new Properties();
+    String isId = "isId";
+    isProps.put("A", "C");
+    Map<String, Properties> intermediateStreams = new HashMap<>();
+    intermediateStreams.put(isId, isProps);
+    admin = Mockito.spy(createSystemAdmin(coordProps, coordReplicatonFactor, changeLogInfoMap, intermediateStreams));
+    spec = new StreamSpec(isId, topicName, systemName, defaultPartitionCount, config);
+    kafkaSpec = admin.toKafkaSpec(spec);
+    Assert.assertEquals(isProps, kafkaSpec.getProperties());
+    Assert.assertEquals(defaultPartitionCount, kafkaSpec.getPartitionCount());
+
+  }
+
+  @Test
   public void testCreateCoordinatorStream() {
     SystemAdmin admin = Mockito.spy(systemAdmin());
     StreamSpec spec = StreamSpec.createCoordinatorStreamSpec("testCoordinatorStream", "testSystem");
@@ -81,7 +143,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     Properties coordProps = new Properties();
     Map<String, ChangelogInfo> changeLogMap = new HashMap<>();
 
-    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap));
+    KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(coordProps, 1, changeLogMap, Collections.emptyMap()));
     StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(STREAM, SYSTEM());
 
     Mockito.doAnswer(invocationOnMock -> {

@@ -39,16 +39,16 @@ public class StreamSpec implements Serializable {
   private static final int DEFAULT_PARTITION_COUNT = 1;
 
   // Internal changelog stream id. It is used for creating changelog StreamSpec.
-  private static final String CHANGELOG_STREAM_ID = "samza-internal-changelog-stream-id";
+  public static final String CHANGELOG_STREAM_ID = "samza-internal-changelog-stream-id";
 
   // Internal coordinator stream id. It is used for creating coordinator StreamSpec.
-  private static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
+  public static final String COORDINATOR_STREAM_ID = "samza-internal-coordinator-stream-id";
 
   // Internal checkpoint stream id. It is used for creating checkpoint StreamSpec.
-  private static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
+  public static final String CHECKPOINT_STREAM_ID = "samza-internal-checkpoint-stream-id";
 
   // Internal stream appender stream id. It is used for creating stream appender StreamSpec.
-  private static final String STREAM_APPENDER_ID = "samza-internal-stream-appender-stream-id";
+  public static final String STREAM_APPENDER_ID = "samza-internal-stream-appender-stream-id";
 
   /**
    * Unique identifier for the stream in a Samza application.
