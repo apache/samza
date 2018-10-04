@@ -158,8 +158,8 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
         appDesc.getInputStream(isd)
-            .map(EndOfStreamIntegrationTest.Values.create())
-            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .map(KV::getValue)
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .sink((m, collector, coordinator) -> {
                 received.add(m.getValue());
               });

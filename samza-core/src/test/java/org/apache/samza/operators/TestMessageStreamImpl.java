@@ -231,36 +231,6 @@ public class TestMessageStreamImpl {
   }
 
   @Test
-  public void testRepartitionWithoutSerde() {
-    StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
-    OperatorSpec mockOpSpec = mock(OperatorSpec.class);
-    String mockOpName = "mockName";
-    when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
-    OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
-    IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
-    when(mockGraph.getIntermediateStream(eq(mockOpName), eq(null), eq(false)))
-        .thenReturn(mockIntermediateStream);
-    when(mockIntermediateStream.getOutputStream())
-        .thenReturn(mockOutputStreamImpl);
-    when(mockIntermediateStream.isKeyed()).thenReturn(true);
-
-    MessageStreamImpl<TestMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
-    MapFunction mockKeyFunction = mock(MapFunction.class);
-    MapFunction mockValueFunction = mock(MapFunction.class);
-    inputStream.partitionBy(mockKeyFunction, mockValueFunction, "p1");
-
-    ArgumentCaptor<OperatorSpec> registeredOpCaptor = ArgumentCaptor.forClass(OperatorSpec.class);
-    verify(mockOpSpec).registerNextOperatorSpec(registeredOpCaptor.capture());
-    OperatorSpec<?, TestMessageEnvelope> registeredOpSpec = registeredOpCaptor.getValue();
-
-    assertTrue(registeredOpSpec instanceof PartitionByOperatorSpec);
-    assertEquals(OpCode.PARTITION_BY, registeredOpSpec.getOpCode());
-    assertEquals(mockOutputStreamImpl, ((PartitionByOperatorSpec) registeredOpSpec).getOutputStream());
-    assertEquals(mockKeyFunction, ((PartitionByOperatorSpec) registeredOpSpec).getKeyFunction());
-    assertEquals(mockValueFunction, ((PartitionByOperatorSpec) registeredOpSpec).getValueFunction());
-  }
-
-  @Test
   public void testWindowWithRelaxedTypes() throws Exception {
     StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);

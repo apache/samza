@@ -34,7 +34,6 @@ import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
-import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.serializers.KVSerde;
@@ -104,8 +103,8 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
         appDesc.getInputStream(isd)
-            .map(Values.create())
-            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .map(KV::getValue)
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .sink((m, collector, coordinator) -> {
                 received.add(m.getValue());
               });
@@ -118,11 +117,5 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);
-  }
-
-  public static final class Values {
-    public static <K, V, M extends KV<K, V>> MapFunction<M, V> create() {
-      return (M m) -> m.getValue();
-    }
   }
 }
