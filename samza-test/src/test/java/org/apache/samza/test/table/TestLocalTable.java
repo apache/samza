@@ -155,7 +155,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
                 received.add(pv);
                 return pv;
               })
-            .partitionBy(PageView::getMemberId, v -> v, "p1")
+            .partitionBy(PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .join(table, new PageViewToProfileJoinFunction())
             .sink((m, collector, coordinator) -> joined.add(m));
       };
