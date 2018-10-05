@@ -126,8 +126,8 @@ object SamzaContainer extends Logging {
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
     taskFactory: TaskFactory[_],
     jobContext: JobContext,
-    applicationContainerContextFactory: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
-    applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
+    applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
+    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
   ) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
@@ -495,7 +495,7 @@ object SamzaContainer extends Logging {
       .toSet
 
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
-    val applicationContainerContext = applicationContainerContextFactory
+    val applicationContainerContextOption = applicationContainerContextFactoryOption
       .map(_.create(jobContext, containerContext))
 
     val storeWatchPaths = new util.HashSet[Path]()
@@ -659,8 +659,8 @@ object SamzaContainer extends Logging {
           sideInputStorageManager = sideInputStorageManager,
           jobContext = jobContext,
           containerContext = containerContext,
-          applicationContainerContextOption = applicationContainerContext ,
-          applicationTaskContextFactoryOption = applicationTaskContextFactory)
+          applicationContainerContextOption = applicationContainerContextOption,
+          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption)
 
       val taskInstance = createTaskInstance(task)
 
@@ -732,7 +732,7 @@ object SamzaContainer extends Logging {
       taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,
-      applicationContainerContext = applicationContainerContext)
+      applicationContainerContextOption = applicationContainerContextOption)
   }
 
   /**
@@ -767,7 +767,7 @@ class SamzaContainer(
   taskThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
-  applicationContainerContext: Option[ApplicationContainerContext]) extends Runnable with Logging {
+  applicationContainerContextOption: Option[ApplicationContainerContext]) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -800,7 +800,7 @@ class SamzaContainer(
       status = SamzaContainerStatus.STARTING
 
       jmxServer = new JmxServer()
-      applicationContainerContext.foreach(_.start)
+      applicationContainerContextOption.foreach(_.start)
 
       startMetrics
       startDiagnostics
@@ -853,7 +853,7 @@ class SamzaContainer(
       shutdownSecurityManger
       shutdownAdmins
 
-      applicationContainerContext.foreach(_.stop)
+      applicationContainerContextOption.foreach(_.stop)
 
       if (!status.equals(SamzaContainerStatus.FAILED)) {
         status = SamzaContainerStatus.STOPPED

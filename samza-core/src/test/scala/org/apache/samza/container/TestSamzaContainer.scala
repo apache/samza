@@ -283,7 +283,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       this.producerMultiplexer,
       metrics,
       containerContext = this.containerContext,
-      applicationContainerContext = applicationContainerContext)
+      applicationContainerContextOption = applicationContainerContext)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 

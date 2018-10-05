@@ -70,12 +70,12 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   /**
    * Applications are not required to define a factory.
    */
-  private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactory = Optional.empty();
+  private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactoryOptional = Optional.empty();
 
   /**
    * Applications are not required to define a factory.
    */
-  private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactory = Optional.empty();
+  private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactoryOptional = Optional.empty();
 
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
@@ -92,13 +92,13 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
 
   @Override
   public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
-    this.applicationContainerContextFactory = Optional.of(factory);
+    this.applicationContainerContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
   @Override
   public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
-    this.applicationTaskContextFactory = Optional.of(factory);
+    this.applicationTaskContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
@@ -131,9 +131,9 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
    */
   public Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> getApplicationContainerContextFactory() {
     @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationContainerContext
-    Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationContainerContextFactory =
-        (Optional) this.applicationContainerContextFactory;
-    return applicationContainerContextFactory;
+    Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> factoryOptional =
+        (Optional) this.applicationContainerContextFactoryOptional;
+    return factoryOptional;
   }
 
   /**
@@ -143,9 +143,9 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
    */
   public Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> getApplicationTaskContextFactory() {
     @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationTaskContext
-    Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationTaskContextFactory =
-        (Optional) this.applicationTaskContextFactory;
-    return applicationTaskContextFactory;
+    Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> factoryOptional =
+        (Optional) this.applicationTaskContextFactoryOptional;
+    return factoryOptional;
   }
 
   /**

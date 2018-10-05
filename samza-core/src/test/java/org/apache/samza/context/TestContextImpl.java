@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import java.util.Optional;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -74,7 +75,7 @@ public class TestContextImpl {
   private static Context buildWithApplicationContext(ApplicationContainerContext applicationContainerContext,
       ApplicationTaskContext applicationTaskContext) {
     return new ContextImpl(mock(JobContext.class), mock(ContainerContext.class), mock(TaskContext.class),
-        applicationContainerContext, applicationTaskContext);
+        Optional.ofNullable(applicationContainerContext), Optional.ofNullable(applicationTaskContext));
   }
 
   /**

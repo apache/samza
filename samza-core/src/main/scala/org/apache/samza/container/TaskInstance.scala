@@ -20,6 +20,7 @@
 package org.apache.samza.container
 
 
+import java.util.Optional
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
@@ -90,7 +91,8 @@ class TaskInstance(
   private val applicationTaskContextOption = applicationTaskContextFactoryOption.map(_.create(jobContext,
     containerContext, taskContext, applicationContainerContextOption.orNull))
   val context: Context = new ContextImpl(jobContext, containerContext, taskContext,
-    applicationContainerContextOption.orNull, applicationTaskContextOption.orNull)
+    Optional.ofNullable(applicationContainerContextOption.orNull),
+    Optional.ofNullable(applicationTaskContextOption.orNull))
 
   // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
