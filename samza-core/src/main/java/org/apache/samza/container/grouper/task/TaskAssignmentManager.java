@@ -83,7 +83,7 @@ public class TaskAssignmentManager {
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
   }
 
-  public void init(Config config, MetricsRegistry metricsRegistry) {
+  public void init() {
     this.metadataStore.init();
   }
 

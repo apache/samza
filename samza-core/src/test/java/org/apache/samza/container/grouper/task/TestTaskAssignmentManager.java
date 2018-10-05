@@ -68,7 +68,7 @@ public class TestTaskAssignmentManager {
   @Test
   public void testTaskAssignmentManager() {
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-    taskAssignmentManager.init(config, new MetricsRegistryMap());
+    taskAssignmentManager.init();
 
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1", "Task2", "2", "Task3", "0", "Task4", "1");
 
@@ -83,9 +83,10 @@ public class TestTaskAssignmentManager {
     taskAssignmentManager.close();
   }
 
-  @Test public void testDeleteMappings() {
+  @Test
+  public void testDeleteMappings() {
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-    taskAssignmentManager.init(config, new MetricsRegistryMap());
+    taskAssignmentManager.init();
 
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1");
 
@@ -104,9 +105,10 @@ public class TestTaskAssignmentManager {
     taskAssignmentManager.close();
   }
 
-  @Test public void testTaskAssignmentManagerEmptyCoordinatorStream() {
+  @Test
+  public void testTaskAssignmentManagerEmptyCoordinatorStream() {
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-    taskAssignmentManager.init(config, new MetricsRegistryMap());
+    taskAssignmentManager.init();
 
     Map<String, String> expectedMap = new HashMap<>();
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
