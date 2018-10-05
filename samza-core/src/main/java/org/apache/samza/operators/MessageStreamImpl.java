@@ -180,12 +180,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, String userDefinedId) {
-    return partitionBy(keyExtractor, valueExtractor, null, userDefinedId);
-  }
-
-  @Override
   public <K, V> void sendTo(Table<KV<K, V>> table) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     SendToTableOperatorSpec<K, V> op =
@@ -201,11 +195,6 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
         OperatorSpecs.createBroadCastOperatorSpec(intermediateStream.getOutputStream(), opId);
     this.operatorSpec.registerNextOperatorSpec(broadcastOperatorSpec);
     return intermediateStream;
-  }
-
-  @Override
-  public MessageStream<M> broadcast(String userDefinedId) {
-    return broadcast(null, userDefinedId);
   }
 
   /**

@@ -217,8 +217,7 @@ public interface MessageStream<M> {
    * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamApplicationDescriptor#withDefaultSystem}.
    * This intermediate stream is both an output and input to the job.
    * <p>
-   * Uses the provided {@link KVSerde} for serialization of keys and values. If the provided {@code serde} is null,
-   * uses the key and message serde configured for the job's default system.
+   * Uses the provided {@link KVSerde} for serialization of keys and values.
    * <p>
    * The number of partitions for this intermediate stream is determined as follows:
    * If the stream is an eventual input to a {@link #join}, and the number of partitions for the other stream is known,
@@ -248,21 +247,6 @@ public interface MessageStream<M> {
       MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
   /**
-   * Same as calling {@link #partitionBy(MapFunction, MapFunction, KVSerde, String)} with a null KVSerde.
-   * <p>
-   * Uses the key and message serde configured for the job's default system.
-   *
-   * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message
-   * @param valueExtractor the {@link MapFunction} to extract the value from the input message
-   * @param id the unique id of this operator in this application
-   * @param <K> the type of output key
-   * @param <V> the type of output value
-   * @return the repartitioned {@link MessageStream}
-   */
-  <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, String id);
-
-  /**
    * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
    * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
    *
@@ -279,12 +263,5 @@ public interface MessageStream<M> {
    * @return the broadcast {@link MessageStream}
    */
   MessageStream<M> broadcast(Serde<M> serde, String id);
-
-  /**
-   * Same as calling {@link MessageStream#broadcast(Serde, String)} with a null Serde.
-   * @param id id the unique id of this operator in this application
-   * @return the broadcast {@link MessageStream}
-   */
-  MessageStream<M> broadcast(String id);
 
 }
