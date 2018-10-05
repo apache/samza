@@ -40,12 +40,6 @@ public interface StreamApplicationDescriptor extends ApplicationDescriptor<Strea
    * {@code job.default.system} and its properties in configuration.
    * <p>
    * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
-   * <p>
-   * If an input/output stream is created with a stream-level Serde, they will be used, else the serde specified
-   * for the {@code job.default.system} in configuration will be used.
-   * <p>
-   * Providing an incompatible message type for the intermediate streams that use the default serde will result in
-   * {@link ClassCastException}s at runtime.
    *
    * @param defaultSystemDescriptor the default system descriptor to use
    * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
