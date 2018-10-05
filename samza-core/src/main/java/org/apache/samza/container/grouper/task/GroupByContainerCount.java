@@ -29,10 +29,13 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +53,12 @@ import org.slf4j.LoggerFactory;
 public class GroupByContainerCount implements BalancingTaskNameGrouper {
   private static final Logger log = LoggerFactory.getLogger(GroupByContainerCount.class);
   private final int containerCount;
+  private final Config config;
 
-  public GroupByContainerCount(int containerCount) {
+  public GroupByContainerCount(Config config) {
+    this.containerCount = new JobConfig(config).getContainerCount();
+    this.config = config;
     if (containerCount <= 0) throw new IllegalArgumentException("Must have at least one container");
-    this.containerCount = containerCount;
   }
 
   @Override
@@ -94,51 +99,56 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
       return group(tasks);
     }
 
-    TaskAssignmentManager taskAssignmentManager = localityManager.getTaskAssignmentManager();
-    List<TaskGroup> containers = getPreviousContainers(taskAssignmentManager, tasks.size());
-    if (containers == null || containers.size() == 1 || containerCount == 1) {
-      log.info("Balancing does not apply. Invoking grouper.");
-      Set<ContainerModel> models = group(tasks);
-      saveTaskAssignments(models, taskAssignmentManager);
-      return models;
-    }
-
-    int prevContainerCount = containers.size();
-    int containerDelta = containerCount - prevContainerCount;
-    if (containerDelta == 0) {
-      log.info("Container count has not changed. Reusing previous container models.");
-      return buildContainerModels(tasks, containers);
-    }
-    log.info("Container count changed from {} to {}. Balancing tasks.", prevContainerCount, containerCount);
-
-    // Calculate the expected task count per container
-    int[] expectedTaskCountPerContainer = calculateTaskCountPerContainer(tasks.size(), prevContainerCount, containerCount);
-
-    // Collect excess tasks from over-assigned containers
-    List<String> taskNamesToReassign = new LinkedList<>();
-    for (int i = 0; i < prevContainerCount; i++) {
-      TaskGroup taskGroup = containers.get(i);
-      while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
-        taskNamesToReassign.add(taskGroup.removeTask());
+    TaskAssignmentManager taskAssignmentManager =  new TaskAssignmentManager(config, new MetricsRegistryMap());
+    taskAssignmentManager.init();
+    try {
+      List<TaskGroup> containers = getPreviousContainers(taskAssignmentManager, tasks.size());
+      if (containers == null || containers.size() == 1 || containerCount == 1) {
+        log.info("Balancing does not apply. Invoking grouper.");
+        Set<ContainerModel> models = group(tasks);
+        saveTaskAssignments(models, taskAssignmentManager);
+        return models;
       }
+
+      int prevContainerCount = containers.size();
+      int containerDelta = containerCount - prevContainerCount;
+      if (containerDelta == 0) {
+        log.info("Container count has not changed. Reusing previous container models.");
+        return buildContainerModels(tasks, containers);
+      }
+      log.info("Container count changed from {} to {}. Balancing tasks.", prevContainerCount, containerCount);
+
+      // Calculate the expected task count per container
+      int[] expectedTaskCountPerContainer = calculateTaskCountPerContainer(tasks.size(), prevContainerCount, containerCount);
+
+      // Collect excess tasks from over-assigned containers
+      List<String> taskNamesToReassign = new LinkedList<>();
+      for (int i = 0; i < prevContainerCount; i++) {
+        TaskGroup taskGroup = containers.get(i);
+        while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
+          taskNamesToReassign.add(taskGroup.removeTask());
+        }
+      }
+
+      // Assign tasks to the under-assigned containers
+      if (containerDelta > 0) {
+        List<TaskGroup> newContainers = createContainers(prevContainerCount, containerCount);
+        containers.addAll(newContainers);
+      } else {
+        containers = containers.subList(0, containerCount);
+      }
+      assignTasksToContainers(expectedTaskCountPerContainer, taskNamesToReassign, containers);
+
+      // Transform containers to containerModel
+      Set<ContainerModel> models = buildContainerModels(tasks, containers);
+
+      // Save the results
+      saveTaskAssignments(models, taskAssignmentManager);
+
+      return models;
+    } finally {
+      taskAssignmentManager.close();
     }
-
-    // Assign tasks to the under-assigned containers
-    if (containerDelta > 0) {
-      List<TaskGroup> newContainers = createContainers(prevContainerCount, containerCount);
-      containers.addAll(newContainers);
-    } else {
-      containers = containers.subList(0, containerCount);
-    }
-    assignTasksToContainers(expectedTaskCountPerContainer, taskNamesToReassign, containers);
-
-    // Transform containers to containerModel
-    Set<ContainerModel> models = buildContainerModels(tasks, containers);
-
-    // Save the results
-    saveTaskAssignments(models, taskAssignmentManager);
-
-    return models;
   }
 
   /**
