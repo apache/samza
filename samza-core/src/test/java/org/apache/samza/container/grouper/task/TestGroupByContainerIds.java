@@ -37,21 +37,25 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.apache.samza.container.mock.ContainerMocks.*;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({TaskAssignmentManager.class, GroupByContainerIds.class})
 public class TestGroupByContainerIds {
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     TaskAssignmentManager taskAssignmentManager = mock(TaskAssignmentManager.class);
     LocalityManager localityManager = mock(LocalityManager.class);
-    when(localityManager.getTaskAssignmentManager()).thenReturn(taskAssignmentManager);
-
-
+    PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(taskAssignmentManager);
   }
 
   private Config buildConfigForContainerCount(int count) {
