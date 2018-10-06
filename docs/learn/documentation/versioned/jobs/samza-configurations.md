@@ -194,7 +194,7 @@ Documentation and samples found [here](../azure/eventhubs.html)
 |streams.**_stream-id_**.eventhubs.namespace| |Namespace of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
 |streams.**_stream-id_**.eventhubs.entitypath| |Entity of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
 |sensitive.streams.**_stream-id_**.eventhubs.sas.keyname| |SAS Keyname of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
-|sensitive.streams.**_stream-id_**.eventhubs.sas.token| |SAS Token the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
+|sensitive.streams.**_stream-id_**.eventhubs.sas.token| |SAS Token of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
 
 ##### <a name="advanced-eventhubs-configurations"></a>[Advanced EventHubs Configurations](#advanced-eventhubs-configurations)
 |Name|Default|Description|
