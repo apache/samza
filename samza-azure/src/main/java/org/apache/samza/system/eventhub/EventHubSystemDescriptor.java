@@ -18,7 +18,6 @@
  */
 package org.apache.samza.system.eventhub;
 
-import com.microsoft.azure.eventhubs.EventHubClient;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -92,7 +91,7 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
    * Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.
    *
    * @param timeout the value in milliseconds for the timeout for the completion of
-   *                {@link EventHubClient#getRuntimeInformation()}
+   *                getting runtime information from the Eventhub system
    * @return this system descriptor
    */
   public EventHubSystemDescriptor withRuntimeInfoTimeout(int timeout) {
@@ -181,7 +180,7 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
    * @param sendKeys Set to true if the message key should be send in the EventData properties, false otherwise
    * @return this system descriptor
    */
-  public EventHubSystemDescriptor withSendKeys(Boolean sendKeys){
+  public EventHubSystemDescriptor withSendKeys(Boolean sendKeys) {
     this.producerEventhubsSendKey = Optional.of(sendKeys);
     return this;
   }
@@ -191,7 +190,7 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
     Map<String, String> ehConfigs = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    if(!this.streamIdList.isEmpty()) {
+    if (!this.streamIdList.isEmpty()) {
       ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), String.join(",", this.streamIdList));
     }
     this.fetchRuntimeInfoTimeout.ifPresent(timeout ->
