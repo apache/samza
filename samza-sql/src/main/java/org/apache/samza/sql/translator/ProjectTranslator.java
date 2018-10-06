@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataType;
@@ -48,21 +49,28 @@ import org.slf4j.LoggerFactory;
 class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
+  private final int queryId;
+
+  ProjectTranslator(int queryId) {
+    this.queryId = queryId;
+  }
 
   private static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private transient Project project;
     private transient Expression expr;
     private transient TranslatorContext context;
 
+    private final int queryId;
     private final int projectId;
 
-    ProjectMapFunction(int projectId) {
+    ProjectMapFunction(int projectId, int queryId) {
       this.projectId = projectId;
+      this.queryId = queryId;
     }
 
     @Override
     public void init(Config config, TaskContext taskContext) {
-      this.context = (TranslatorContext) taskContext.getUserContext();
+      this.context = ((Map<Integer, TranslatorContext>) taskContext.getUserContext()).get(queryId);
       this.project = (Project) this.context.getRelNode(projectId);
       this.expr = this.context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
     }
@@ -126,7 +134,7 @@ class ProjectTranslator {
 
     final int projectId = project.getId();
 
-    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId));
+    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId, queryId));
 
     context.registerMessageStream(project.getId(), outputStream);
     context.registerRelNode(project.getId(), project);

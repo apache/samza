@@ -30,6 +30,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
@@ -51,10 +52,12 @@ class ModifyTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
   private final Map<String, SqlIOConfig> systemStreamConfig;
+  private final int queryId;
 
-  ModifyTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc) {
-    relMsgConverters = converters;
+  ModifyTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc, int queryId) {
+    this.relMsgConverters = converters;
     this.systemStreamConfig = ssc;
+    this.queryId = queryId;
   }
 
   // OutputMapFunction converts SamzaSqlRelMessage to SamzaMessage in KV format
@@ -64,14 +67,16 @@ class ModifyTranslator {
     // initialization.
     private transient SamzaRelConverter samzaMsgConverter;
     private final String outputTopic;
+    private final int queryId;
 
-    OutputMapFunction(String outputTopic) {
+    OutputMapFunction(String outputTopic, int queryId) {
       this.outputTopic = outputTopic;
+      this.queryId = queryId;
     }
 
     @Override
     public void init(Config config, TaskContext taskContext) {
-      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
+      TranslatorContext context = ((Map<Integer, TranslatorContext>) taskContext.getUserContext()).get(queryId);
       this.samzaMsgConverter = context.getMsgConverter(outputTopic);
     }
 
@@ -81,7 +86,10 @@ class ModifyTranslator {
     }
   }
 
-  void translate(final TableModify tableModify, final TranslatorContext context) {
+  void translate(final TableModify tableModify, final TranslatorContext context,
+      Map<String, DelegatingSystemDescriptor> systemDescriptors,
+      Map<String, OutputStream> outputMsgStreams) {
+
     StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
     List<String> tableNameParts = tableModify.getTable().getQualifiedName();
     String targetName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
@@ -92,19 +100,21 @@ class ModifyTranslator {
 
     final String systemName = sinkConfig.getSystemName();
     final String streamName = sinkConfig.getStreamName();
+    final String source = sinkConfig.getSource();
 
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     DelegatingSystemDescriptor
-        sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
+        sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
     GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(streamName, noOpKVSerde);
 
     MessageStreamImpl<SamzaSqlRelMessage> stream =
         (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(tableModify.getInput().getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(targetName));
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(targetName, queryId));
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
-      outputStream.sendTo(streamAppDesc.getOutputStream(osd));
+      OutputStream stm = outputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getOutputStream(osd));
+      outputStream.sendTo(stm);
     } else {
       Table outputTable = streamAppDesc.getTable(tableDescriptor.get());
       if (outputTable == null) {

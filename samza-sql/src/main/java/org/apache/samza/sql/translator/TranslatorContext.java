@@ -34,7 +34,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -52,7 +51,6 @@ public class TranslatorContext implements Cloneable {
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<Integer, MessageStream> messageStreams;
   private final Map<Integer, RelNode> relNodes;
-  private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
 
   /**
    * The internal variables that are not shared among all cloned {@link TranslatorContext}
@@ -128,25 +126,23 @@ public class TranslatorContext implements Cloneable {
     this.relNodes = other.relNodes;
     this.executionContext = other.executionContext.clone();
     this.dataContext = new DataContextImpl();
-    this.systemDescriptors = other.systemDescriptors;
   }
 
   /**
    * Create the instance of TranslatorContext
-   * @param stramAppDesc Samza's streamAppDesc that is populated during the translation.
+   * @param streamAppDesc Samza's streamAppDesc that is populated during the translation.
    * @param relRoot Root of the relational graph from calcite.
    * @param executionContext the execution context
    * @param converters the map of schema to RelData converters
    */
-  TranslatorContext(StreamApplicationDescriptor stramAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
-    this.streamAppDesc = stramAppDesc;
+  public TranslatorContext(StreamApplicationDescriptor streamAppDesc, RelRoot relRoot, SamzaSqlExecutionContext executionContext, Map<String, SamzaRelConverter> converters) {
+    this.streamAppDesc = streamAppDesc;
     this.compiler = createExpressionCompiler(relRoot);
     this.executionContext = executionContext;
-    this.dataContext = new DataContextImpl();
     this.relSamzaConverters = converters;
-    this.messageStreams = new HashMap<>();
     this.relNodes = new HashMap<>();
-    this.systemDescriptors = new HashMap<>();
+    this.dataContext = new DataContextImpl();
+    this.messageStreams = new HashMap<>();
   }
 
   /**
@@ -210,10 +206,6 @@ public class TranslatorContext implements Cloneable {
 
   SamzaRelConverter getMsgConverter(String source) {
     return this.relSamzaConverters.get(source);
-  }
-
-  Map<String, DelegatingSystemDescriptor> getSystemDescriptors() {
-    return this.systemDescriptors;
   }
 
   /**

@@ -46,10 +46,12 @@ class ScanTranslator {
 
   private final Map<String, SamzaRelConverter> relMsgConverters;
   private final Map<String, SqlIOConfig> systemStreamConfig;
+  private final int queryId;
 
-  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc) {
-    relMsgConverters = converters;
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc, int queryId) {
+    this.relMsgConverters = converters;
     this.systemStreamConfig = ssc;
+    this.queryId = queryId;
   }
 
   private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
@@ -58,14 +60,16 @@ class ScanTranslator {
     // initialization.
     private transient SamzaRelConverter msgConverter;
     private final String streamName;
+    private final int queryId;
 
-    ScanMapFunction(String sourceStreamName) {
+    ScanMapFunction(String sourceStreamName, int queryId) {
       this.streamName = sourceStreamName;
+      this.queryId = queryId;
     }
 
     @Override
     public void init(Config config, TaskContext taskContext) {
-      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
+      TranslatorContext context = ((Map<Integer, TranslatorContext>) taskContext.getUserContext()).get(queryId);
       this.msgConverter = context.getMsgConverter(streamName);
     }
 
@@ -75,8 +79,8 @@ class ScanTranslator {
     }
   }
 
-  void translate(final TableScan tableScan, final TranslatorContext context) {
-    StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
+  void translate(final TableScan tableScan, final TranslatorContext context,
+      Map<String, DelegatingSystemDescriptor> systemDescriptors, Map<String, MessageStream<KV<Object, Object>>> inputMsgStreams) {
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
     String sourceName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
 
@@ -84,13 +88,16 @@ class ScanTranslator {
     SqlIOConfig sqlIOConfig = systemStreamConfig.get(sourceName);
     final String systemName = sqlIOConfig.getSystemName();
     final String streamName = sqlIOConfig.getStreamName();
+    final String source = sqlIOConfig.getSource();
 
+    StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     DelegatingSystemDescriptor
-        sd = context.getSystemDescriptors().computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
+        sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
     GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamName, noOpKVSerde);
-    MessageStream<KV<Object, Object>> inputStream = streamAppDesc.getInputStream(isd);
-    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName));
+
+    MessageStream<KV<Object, Object>> inputStream = inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
+    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName, queryId));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
   }
