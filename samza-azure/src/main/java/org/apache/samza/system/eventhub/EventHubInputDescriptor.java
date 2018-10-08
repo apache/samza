@@ -22,14 +22,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
-import org.apache.samza.operators.functions.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
 
 /**
- * A descriptor for the EventHubs output stream
+ * A descriptor for the Event Hubss output stream
  *<p>
  *   An instance of this descriptor may be obtained from an {@link EventHubSystemDescriptor}
  *</p>
@@ -40,8 +40,8 @@ import org.apache.samza.serializers.Serde;
  */
 public class EventHubInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, EventHubInputDescriptor<StreamMessageType>> {
-  private Optional<String> namespace = Optional.empty();
-  private Optional<String> entityPath = Optional.empty();
+  private String namespace;
+  private String entityPath;
   private Optional<String> sasKeyName = Optional.empty();
   private Optional<String> sasToken = Optional.empty();
   private Optional<String> consumerGroup = Optional.empty();
@@ -52,60 +52,45 @@ public class EventHubInputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param serde serde for messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
-   * @param transformer stream level input stream transform function if available, else null
+   * @param namespace namespace for the Event Hubs entity to consume from, not null
+   * @param entityPath entity path for the Event Hubs entity to consume from, not null
    */
-  public EventHubInputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor,
-      InputTransformer transformer) {
-    super(streamId, serde, systemDescriptor, transformer);
+  EventHubInputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor, String namespace,
+      String entityPath) {
+    super(streamId, serde, systemDescriptor, null);
+    this.namespace = StringUtils.stripToNull(namespace);
+    this.entityPath = StringUtils.stripToNull(entityPath);
+    if (this.namespace == null || this.entityPath == null) {
+      throw new ConfigException(String.format("Missing namespace and entity path Event Hubs input descriptor in " //
+          + "system: {%s}, stream: {%s}", getSystemName(), streamId));
+    }
   }
 
   /**
-   * Namespace associated with the input stream. Required to access the input Eventhubs entity per stream.
+   * SAS Key name of the associated input stream. Required to access the input Event Hubs entity per stream.
    *
-   * @param namespace namespace of the Eventhub entity to consume from
-   * @return this input descriptor
-   */
-  public EventHubInputDescriptor<StreamMessageType> withNamespace(String namespace) {
-    this.namespace = Optional.of(namespace);
-    return this;
-  }
-
-  /**
-   * Entity path associated with the input stream. Required to access the input Eventhub entity per stream.
-   *
-   * @param path Entity path of the Eventhub entity to consume from
-   * @return this input descriptor
-   */
-  public EventHubInputDescriptor<StreamMessageType> withEntityPath(String path) {
-    this.entityPath = Optional.of(path);
-    return this;
-  }
-
-  /**
-   * SAS Key name of the associated input stream. Required to access the input Eventhub entity per stream.
-   *
-   * @param sasKeyName the name of the SAS key required to access the Eventhub entity
+   * @param sasKeyName the name of the SAS key required to access the Event Hubs entity
    * @return this input descriptor
    */
   public EventHubInputDescriptor<StreamMessageType> withSasKeyName(String sasKeyName) {
-    this.sasKeyName = Optional.of(sasKeyName);
+    this.sasKeyName = Optional.of(StringUtils.stripToNull(sasKeyName));
     return this;
   }
 
   /**
-   * SAS Token of the associated input stream. Required to access the input Eventhub per stream.
+   * SAS Token of the associated input stream. Required to access the input Event Hubs per stream.
    *
-   * @param sasToken the SAS token required to access the Eventhub entity
+   * @param sasToken the SAS token required to access the Event Hubs entity
    * @return this input descriptor
    */
   public EventHubInputDescriptor<StreamMessageType> withSasKey(String sasToken) {
-    this.sasToken = Optional.of(sasToken);
+    this.sasToken = Optional.of(StringUtils.stripToNull(sasToken));
     return this;
   }
 
   /**
-   * Set the consumer group from the upstream Eventhub that the consumer is part of. Defaults to the
-   * <code>$Default</code> group that is initially present in all Eventhub entities (unless removed)
+   * Set the consumer group from the upstream Event Hubs entity that the consumer is part of. Defaults to the
+   * <code>$Default</code> group that is initially present in all Event Hubs entities (unless removed)
    *
    * @param consumerGroup the name of the consumer group upstream
    * @return this input descriptor
@@ -120,12 +105,10 @@ public class EventHubInputDescriptor<StreamMessageType>
     HashMap<String, String> ehConfigs = new HashMap<>(super.toConfig());
 
     String streamId = getStreamId();
-    String systemName = getSystemName();
 
-    namespace.ifPresent(namespace ->
-        ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId), namespace));
-    entityPath.ifPresent(path ->
-        ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId), path));
+    ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId), namespace);
+    ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId), entityPath);
+
     sasKeyName.ifPresent(keyName ->
         ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamId), keyName));
     sasToken.ifPresent(key ->

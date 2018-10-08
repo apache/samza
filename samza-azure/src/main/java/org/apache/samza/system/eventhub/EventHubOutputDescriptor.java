@@ -21,12 +21,14 @@ package org.apache.samza.system.eventhub;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 
 /**
- * A descriptor for an EventHubs input stream
+ * A descriptor for an Event Hubs output stream
  * <p>
  *   An instance of this descriptor may be obtained from and {@link EventHubSystemDescriptor}
  * </p>
@@ -37,8 +39,8 @@ import org.apache.samza.serializers.Serde;
  */
 public class EventHubOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, EventHubOutputDescriptor<StreamMessageType>> {
-  private Optional<String> namespace = Optional.empty();
-  private Optional<String> entityPath = Optional.empty();
+  private String namespace;
+  private String entityPath;
   private Optional<String> sasKeyName = Optional.empty();
   private Optional<String> sasToken = Optional.empty();
 
@@ -48,52 +50,39 @@ public class EventHubOutputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param serde serde for messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
+   * @param namespace namespace for the Event Hubs entity to produce to, not null
+   * @param entityPath entity path for the Event Hubs entity to produce to, not null
    */
-  public EventHubOutputDescriptor(String streamId, Serde<StreamMessageType> serde, SystemDescriptor systemDescriptor) {
+  EventHubOutputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor, String namespace,
+      String entityPath) {
     super(streamId, serde, systemDescriptor);
+    this.namespace = StringUtils.stripToNull(namespace);
+    this.entityPath = StringUtils.stripToNull(entityPath);
+    if (this.namespace == null || this.entityPath == null) {
+      throw new ConfigException(String.format("Missing namespace and entity path Event Hubs output descriptor in " //
+          + "system: {%s}, stream: {%s}", getSystemName(), streamId));
+    }
   }
 
   /**
-   * Namespace associated with the output stream. Required to access the output Eventhubs entity per stream.
+   * SAS Key name of the associated output stream. Required to access the output Event Hubs entity per stream.
    *
-   * @param namespace namespace of the Eventhub entity to produce to
-   * @returne this output descriptor
-   */
-  public EventHubOutputDescriptor<StreamMessageType> withNamespace(String namespace) {
-    this.namespace = Optional.of(namespace);
-    return this;
-  }
-
-  /**
-   * Entity path associated with the output stream. Required to access the output Eventhub entity per stream.
-   *
-   * @param path path name of the Eventhub entity to produce to
-   * @return this output descriptor
-   */
-  public EventHubOutputDescriptor<StreamMessageType> withEntityPath(String path) {
-    this.entityPath = Optional.of(path);
-    return this;
-  }
-
-  /**
-   * SAS Key name of the associated output stream. Required to access the output Eventhub entity per stream.
-   *
-   * @param sasKeyName the name of the SAS key required to access the Eventhub entity
+   * @param sasKeyName the name of the SAS key required to access the Event Hubs entity
    * @return this output descriptor
    */
   public EventHubOutputDescriptor<StreamMessageType> withSasKeyName(String sasKeyName) {
-    this.sasKeyName = Optional.of(sasKeyName);
+    this.sasKeyName = Optional.of(StringUtils.stripToNull(sasKeyName));
     return this;
   }
 
   /**
-   * SAS Token of the associated output stream. Required to access the output Eventhub per stream.
+   * SAS Token of the associated output stream. Required to access the output Event Hubs per stream.
    *
-   * @param sasToken the SAS token required to access to Eventhub entity
+   * @param sasToken the SAS token required to access to Event Hubs entity
    * @return this output descriptor
    */
   public EventHubOutputDescriptor<StreamMessageType> withSasKey(String sasToken) {
-    this.sasToken = Optional.of(sasToken);
+    this.sasToken = Optional.of(StringUtils.stripToNull(sasToken));
     return this;
   }
 
@@ -103,10 +92,8 @@ public class EventHubOutputDescriptor<StreamMessageType>
 
     String streamId = getStreamId();
 
-    namespace.ifPresent(namespace ->
-        ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId), namespace));
-    entityPath.ifPresent(path ->
-        ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId), path));
+    ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId), namespace);
+    ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId), entityPath);
     sasKeyName.ifPresent(keyName ->
         ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamId), keyName));
     sasToken.ifPresent(key ->

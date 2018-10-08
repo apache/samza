@@ -18,28 +18,25 @@
  */
 package org.apache.samza.system.eventhub;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.samza.operators.descriptors.base.system.OutputDescriptorProvider;
-import org.apache.samza.operators.descriptors.base.system.SimpleInputDescriptorProvider;
 import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.PartitioningMethod;
 
 
 /**
- * A descriptor for a EventHubs system.
+ * A descriptor for a Event Hubs system.
  * <p>
  * System properties configured using a descriptor override corresponding properties provided in configuration.
  */
-public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDescriptor>
-    implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
+public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = EventHubSystemFactory.class.getName();
 
-  private List<String> streamIdList = Collections.emptyList();
+  private List<String> streamIds = new ArrayList<>();
   private Optional<Integer> fetchRuntimeInfoTimeout = Optional.empty();
   private Optional<Integer> numClientThreads = Optional.empty();
   private Optional<Integer> consumerReceiveQueueSize = Optional.empty();
@@ -56,46 +53,26 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
     super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
-  /**
-   *
-   * {@inheritDoc}
-   */
-  @Override
-  public <StreamMessageType> EventHubOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId,
-      Serde<StreamMessageType> serde) {
-    return new EventHubOutputDescriptor<>(streamId, serde, this);
-  }
-
-  /**
-   *
-   * {@inheritDoc}
-   */
-  @Override
   public <StreamMessageType> EventHubInputDescriptor<StreamMessageType> getInputDescriptor(String streamId,
-      Serde<StreamMessageType> serde) {
-    return new EventHubInputDescriptor<>(streamId, serde, this, null);
+      Serde<StreamMessageType> serde, String namespace, String entityPath) {
+    streamIds.add(streamId);
+    return new EventHubInputDescriptor<>(streamId, serde, this, namespace, entityPath);
+  }
+
+  public <StreamMessageType> EventHubOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId,
+      Serde<StreamMessageType> serde, String namespace, String entityPath) {
+    streamIds.add(streamId);
+    return new EventHubOutputDescriptor<>(streamId, serde, this, namespace, entityPath);
   }
 
   /**
-   * Set the list of samza stream-ids that will be used with the Eventhub system
+   * Timeout for fetching the runtime metadata from an Event Hubs entity on startup in millis.
    *
-   * @param streamList list of streamids of the Eventhub system
+   * @param timeoutMS the timeout in ms for getting runtime information from the Event Hubs system
    * @return this system descriptor
    */
-  public EventHubSystemDescriptor withStreamIds(List<String> streamList) {
-    this.streamIdList = streamList;
-    return this;
-  }
-
-  /**
-   * Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.
-   *
-   * @param timeout the value in milliseconds for the timeout for the completion of
-   *                getting runtime information from the Eventhub system
-   * @return this system descriptor
-   */
-  public EventHubSystemDescriptor withRuntimeInfoTimeout(int timeout) {
-    this.fetchRuntimeInfoTimeout = Optional.of(timeout);
+  public EventHubSystemDescriptor withRuntimeInfoTimeout(int timeoutMS) {
+    this.fetchRuntimeInfoTimeout = Optional.of(timeoutMS);
     return this;
   }
 
@@ -111,10 +88,10 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
   }
 
   /**
-   *  Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages.
+   *  Per partition capacity of the Event Hubs consumer buffer - the blocking queue used for storing messages.
    *  Larger buffer capacity typically leads to better throughput but consumes more memory.
    *
-   * @param receiveQueueSize the number of messages from Eventhubs that should be buffered in the
+   * @param receiveQueueSize the number of messages from Event Hubs that should be buffered in the
    *                      {@link org.apache.samza.util.BlockingEnvelopeMap}
    * @return this system descriptor
    */
@@ -124,7 +101,7 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
   }
 
   /**
-   * Maximum number of events that EventHub client can return in a receive call.
+   * Maximum number of events that Event Hubs client can return in a receive call.
    *
    * @param count the number of max events per poll
    * @return this system descriptor
@@ -135,7 +112,7 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
   }
 
   /**
-   * Number of events that EventHub client should prefetch from the server.
+   * Number of events that Event Hubs client should prefetch from the server.
    *
    * @param count the number of events that should be prefetched.
    * @return this system descriptor
@@ -147,40 +124,42 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
 
 
   /**
-   * Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:
+   * Configure the method that the message is partitioned for the downstream Event Hubs in one of the following ways:
    * <ul>
    *   <li>ROUND_ROBIN:
    *   The message key and partition key are ignored and the message
-   *   will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.</li>
+   *   will be distributed in a round-robin fashion amongst all the partitions in the downstream Event Hubs entity.</li>
    *   <li>EVENT_HUB_HASHING:
-   *   Employs the hashing mechanism in EventHubs to determine, based on the key of the message,
+   *   Employs the hashing mechanism in Event Hubs to determine, based on the key of the message,
    *   which partition the message should go. Using this method still ensures that all the events with
    *   the same key are sent to the same partition in the event hub. If this option is chosen, the partition
    *   key used for the hash should be a string. If the partition key is not set, the message key is
    *   used instead.</li>
    *   <li>PARTITION_KEY_AS_PARTITION:
    *   Use the integer key specified by the partition key or key of the message to a specific partition
-   *   on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub,
+   *   on Event Hubs. If the integer key is greater than the number of partitions in the destination Event Hubs entity,
    *   a modulo operation will be performed to determine the resulting paritition.
    *   ie. if there are 6 partitions and the key is 9, the message will end up in partition 3.
    *   Similarly to EVENT_HUB_HASHING, if the partition key is not set the message key is used instead.</li>
    * </ul>
-   * @param partitioningMethod
+   * @param partitioningMethod the desired partitioning method for the message in the downstream Event Hubs entity
    * @return this system descriptor
    */
   public EventHubSystemDescriptor withPartitioningMethod(PartitioningMethod partitioningMethod) {
-    this.producerEventhubsPartitioningMethod = Optional.of(partitioningMethod);
+    this.producerEventhubsPartitioningMethod = Optional.ofNullable(partitioningMethod);
     return this;
   }
 
   /**
-   *  Sending each message key to the eventhub in the properties of the AMQP message.
-   *  If the Samza Eventhub consumer is used, this field is used as the message key if the partition key is not present.
+   *  If set to true, the key of the Samza message will be included as the 'key' property in the outgoing EventData
+   *  message for Event Hubs. The Samza message key will not be sent otherwise.
+   *  Note: If the Samza Event Hubs consumer is used, this field is the partition key of the received EventData, or the
+   *  message key if the partition key is not present.
    *
-   * @param sendKeys Set to true if the message key should be send in the EventData properties, false otherwise
+   * @param sendKeys set to true if the message key should be sent in the EventData properties, the key is not sent otherwise
    * @return this system descriptor
    */
-  public EventHubSystemDescriptor withSendKeys(Boolean sendKeys) {
+  public EventHubSystemDescriptor withSendKeys(boolean sendKeys) {
     this.producerEventhubsSendKey = Optional.of(sendKeys);
     return this;
   }
@@ -190,8 +169,8 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
     Map<String, String> ehConfigs = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    if (!this.streamIdList.isEmpty()) {
-      ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), String.join(",", this.streamIdList));
+    if (!this.streamIds.isEmpty()) {
+      ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_LIST, systemName), String.join(",", this.streamIds));
     }
     this.fetchRuntimeInfoTimeout.ifPresent(timeout ->
         ehConfigs.put(String.format(EventHubConfig.CONFIG_FETCH_RUNTIME_INFO_TIMEOUT_MILLIS, systemName), Integer.toString(timeout)));

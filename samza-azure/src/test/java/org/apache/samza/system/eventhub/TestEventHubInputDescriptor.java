@@ -19,6 +19,7 @@
 package org.apache.samza.system.eventhub;
 
 import java.util.Map;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -27,6 +28,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 
 public class TestEventHubInputDescriptor {
@@ -38,9 +40,7 @@ public class TestEventHubInputDescriptor {
     EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
 
     EventHubInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()))
-        .withNamespace("entity-namespace")
-        .withEntityPath("entity3")
+        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), "entity-namespace", "entity3")
         .withSasKeyName("secretkey")
         .withSasKey("sasToken-123")
         .withConsumerGroup("$notdefault");
@@ -62,15 +62,30 @@ public class TestEventHubInputDescriptor {
     EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
 
     EventHubInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()));
+        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), "entity-namespace", "entity3");
 
     Map<String, String> generatedConfigs = inputDescriptor.toConfig();
     assertEquals("eventHub", generatedConfigs.get("streams.input-stream.samza.system"));
-    assertNull(generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId)));
-    assertNull(generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId)));
+    assertEquals("entity-namespace", generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_NAMESPACE, streamId)));
+    assertEquals("entity3", generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_ENTITYPATH, streamId)));
     assertNull(generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamId)));
     assertNull(generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamId)));
     assertNull(generatedConfigs.get(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_GROUP, streamId)));
-    assertEquals(1, generatedConfigs.size()); // verify that there are no other configs
+    assertEquals(3, generatedConfigs.size()); // verify that there are no other configs
+  }
+
+  @Test
+  public void testMissingInputDescriptorFields() {
+    String systemName = "eventHub";
+    String streamId = "input-stream";
+
+    EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
+    try {
+      systemDescriptor.getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), null, null);
+      fail("Should have thrown Config Exception");
+    } catch (ConfigException exception) {
+      assertEquals(String.format("Missing namespace and entity path Event Hubs input descriptor in " //
+          + "system: {%s}, stream: {%s}", systemName, streamId), exception.getMessage());
+    }
   }
 }

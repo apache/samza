@@ -47,18 +47,12 @@ public final class GenericSystemDescriptor extends SystemDescriptor<GenericSyste
     super(systemName, factoryClassName, null, null);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {
     return new GenericInputDescriptor<>(streamId, this, serde);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> GenericOutputDescriptor<StreamMessageType> getOutputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {
