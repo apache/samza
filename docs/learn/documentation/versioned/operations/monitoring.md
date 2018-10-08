@@ -30,10 +30,10 @@ Like any other production software, it is critical to monitor the health of our 
 
 * [A. Metrics Reporters](#a-metrics-reporters)
   + [A.1 Reporting Metrics to JMX (JMX Reporter)](#jmxreporter)
-    + [Enabling the JMX Reporter](#enablejmxreporter)
-    - [Using the JMX Reporter](#jmxreporter)
+      - [Enabling the JMX Reporter](#enablejmxreporter)
+      - [Using the JMX Reporter](#jmxreporter)
   + [A.2 Reporting Metrics to Kafka (MetricsSnapshot Reporter)](#snapshotreporter)
-    - [Enabling the MetricsSnapshot Reporter](#enablesnapshotreporter)
+      - [Enabling the MetricsSnapshot Reporter](#enablesnapshotreporter)
   + [A.3 Creating a Custom MetricsReporter](#customreporter)
 * [B. Metric Types in Samza](#metrictypes)
 * [C. Adding User-Defined Metrics](#userdefinedmetrics)

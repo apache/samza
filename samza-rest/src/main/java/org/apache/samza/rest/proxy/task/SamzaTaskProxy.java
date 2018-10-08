@@ -34,6 +34,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -131,7 +132,8 @@ public class SamzaTaskProxy implements TaskProxy {
   protected List<Task> readTasksFromCoordinatorStream(CoordinatorStreamSystemConsumer consumer) {
     LocalityManager localityManager = new LocalityManager(consumer.getConfig(), new MetricsRegistryMap());
     Map<String, Map<String, String>> containerIdToHostMapping = localityManager.readContainerLocality();
-    Map<String, String> taskNameToContainerIdMapping = localityManager.getTaskAssignmentManager().readTaskAssignment();
+    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(consumer.getConfig(), new MetricsRegistryMap());
+    Map<String, String> taskNameToContainerIdMapping = taskAssignmentManager.readTaskAssignment();
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());
     List<String> storeNames = JavaConverters.seqAsJavaListConverter(storageConfig.getStoreNames()).asJava();
     return taskNameToContainerIdMapping.entrySet()

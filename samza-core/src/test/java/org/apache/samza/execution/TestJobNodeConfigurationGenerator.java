@@ -157,28 +157,6 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   }
 
   @Test
-  public void testBroadcastStreamApplicationWithoutSerde() {
-    // set the application to BroadcastStreamApplication withoutSerde
-    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(null), mockConfig);
-    configureJobNode(mockStreamAppDesc);
-
-    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
-    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
-    Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
-    validateJobConfig(expectedJobConfig, jobConfig);
-    Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
-    validateIntermediateStreamConfigure(broadcastInputDesriptor.getStreamId(), broadcastInputDesriptor.getPhysicalName().get(), jobConfig);
-
-    String keySerde = jobConfig.get(String.format("streams.%s.samza.key.serde", broadcastInputDesriptor.getStreamId()));
-    String msgSerde = jobConfig.get(String.format("streams.%s.samza.msg.serde", broadcastInputDesriptor.getStreamId()));
-    assertTrue("Serialized serdes should not contain intermediate stream key serde",
-        !deserializedSerdes.containsKey(keySerde));
-    assertTrue("Serialized serdes should not contain intermediate stream msg serde",
-        !deserializedSerdes.containsKey(msgSerde));
-  }
-
-  @Test
   public void testStreamApplicationWithTableAndSideInput() {
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     // add table to the RepartitionJoinStreamApplication
