@@ -65,7 +65,6 @@ public class QueryTranslator {
   private final ModifyTranslator modifyTranslator;
   private final SamzaSqlApplicationConfig sqlConfig;
   private final Map<String, SamzaRelConverter> converters;
-  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
     private transient SamzaRelConverter samzaMsgConverter;
@@ -170,7 +169,7 @@ public class QueryTranslator {
     });
 
     // the snippet below will be performed only when sql is a query statement
-    if (sqlConfig.getOutputSystemStreamConfigsBySource().containsKey(LOG_OUTPUT_STREAM)) {
+    if (sqlConfig.getOutputSystemStreamConfigsBySource().containsKey(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM)) {
       sendToOutputStream(appDesc, context, node);
     }
 
@@ -187,9 +186,9 @@ public class QueryTranslator {
   }
 
   private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node) {
-    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(LOG_OUTPUT_STREAM);
-    MessageStreamImpl<SamzaSqlRelMessage> stream = (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(LOG_OUTPUT_STREAM));
+    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM);
+    MessageStream<SamzaSqlRelMessage> stream = context.getMessageStream(node.getId());
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM));
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
       KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());

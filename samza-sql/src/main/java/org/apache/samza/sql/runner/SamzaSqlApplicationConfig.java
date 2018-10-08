@@ -37,6 +37,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.DslConverter;
@@ -56,8 +57,6 @@ import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 
 
 /**
@@ -85,7 +84,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
 
-  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
+  public static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
@@ -209,13 +208,15 @@ public class SamzaSqlApplicationConfig {
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    // the snippet below dose not work when sql is a query
+    // FIXME: the snippet below dose not work when sql is a query
     // for (RelRoot relRoot : relRoots) {
     //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
     // }
 
-    List<String> sqlStmts = fetchSqlFromConfig(config);
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    // RelRoot does not have sink node (aka. log.outputStream) when Sql statement is a query, so we
+    // can not traverse the tree of relRoot to get "outputSystemStreams"
+    List<String> sqlStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(sqlStmts);
     inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
           .collect(Collectors.toSet()));
     outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
