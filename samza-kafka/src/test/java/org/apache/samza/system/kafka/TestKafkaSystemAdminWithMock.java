@@ -116,9 +116,6 @@ public class TestKafkaSystemAdminWithMock {
     when(mockKafkaConsumer.endOffsets(ImmutableList.of(testTopicPartition0, testTopicPartition1))).thenReturn(
         testEndOffsets);
 
-    // mock KafkaSystemFactory constructor and behavior
-    //kafkaAdmin = mock(KafkaSystemAdmin.class);
-    Supplier<Consumer<byte[], byte[]>> getMetadataConsumer = () -> mockKafkaConsumer;
     ZkUtils zkUtilsMock = mock(ZkUtils.class);
     Supplier<ZkUtils> connectZk = () -> zkUtilsMock;
 
@@ -127,8 +124,7 @@ public class TestKafkaSystemAdminWithMock {
 
     KafkaSystemFactory kafkaSystemFactory = new KafkaSystemFactory();
     kafkaSystemAdmin =
-        new KafkaSystemAdmin<>(TEST_SYSTEM, getMetadataConsumer, connectZk, connectAdminClient, Collections.emptyMap(),
-            Collections.emptyMap(), new Properties(), 1, false);
+        new KafkaSystemAdmin<>(TEST_SYSTEM, testConfig, mockKafkaConsumer);
 
     /*
 

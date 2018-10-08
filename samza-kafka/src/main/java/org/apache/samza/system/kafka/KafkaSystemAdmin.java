@@ -42,7 +42,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.ExtendedSystemAdmin;
 import org.apache.samza.system.StreamSpec;
@@ -71,16 +70,15 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemAdmin.class);
 
   // The same default exponential sleep strategy values as in open source
-  private static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
-  private static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
-  private static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
-  private static final int MAX_RETRIES_ON_EXCEPTION = 5;
+  protected static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
+  protected static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
+  protected static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
+  protected static final int MAX_RETRIES_ON_EXCEPTION = 5;
 
-  private final String systemName;
-  private final Consumer<K, V> metadataConsumer;
+  protected final String systemName;
+  protected final Consumer<K, V> metadataConsumer;
 
   private final Supplier<ZkUtils> connectZk;
-  private final Supplier<AdminClient> connectAdminClient;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -115,6 +113,14 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     if (stopped.get()) {
       throw new SamzaException("SamzaKafkaAdmin.start() is called after stop()");
     }
+
+    // Plese note. There is slight inconsistency in the use of this class.
+    // Some of the functinality of this class may actually be used BEFORE start() is called.
+    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
+    // Also we assume that start is called only once.
+    if (metadataConsumer == null) {
+      throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null metadataConsumer");
+    }
   }
 
   @Override
@@ -123,42 +129,20 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
       try {
         metadataConsumer.close();
       } catch (Exception e) {
-        LOG.warn("metadataConsumer.close for system " + systemName  + " failed with exception.", e);
+        LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
       }
       try {
         adminClient.close();
       } catch (Exception e) {
-        LOG.warn("adminClient.close for system " + systemName  + " failed with exception.", e);
+        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
       }
     }
   }
 
-  @VisibleForTesting
-  KafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
-      Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
-      Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
-      Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor, boolean deleteCommittedMessages) {
+  public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
     this.systemName = systemName;
-    this.metadataConsumer = metadataConsumerSupplier.get();
-    this.adminClient = connectAdminClient.get();
-    this.changelogTopicMetaInformation = changelogTopicMetaInformation;
-    this.intermediateStreamProperties = intermediateStreamProperties;
-    this.coordinatorStreamProperties = coordinatorStreamProperties;
-    this.coordinatorStreamReplicationFactor = coordinatorStreamReplicationFactor;
-    this.connectZk = connectZk;
-    this.connectAdminClient = connectAdminClient;
-    this.deleteCommittedMessages = deleteCommittedMessages;
-  }
 
-  /**
-   * Helper method to create KafkaSystemAdmin
-   * @param systemName system name
-   * @param config application config
-   * @param idPrefix will be used to generate clientId for the metadata consumer
-   * @return new KafkaSystemAdmin object
-   */
-  public static KafkaSystemAdmin getKafkaSystemAdmin(final String systemName, final Config config,
-      final String idPrefix) {
+    this.metadataConsumer = metadataConsumer;
 
     boolean zkSecure = false; // needs to be added to the argument if ever true is possible
 
@@ -184,31 +168,21 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     }
     props.put(ZOOKEEPER_CONNECT, zkConnectStr);
 
-    Supplier<AdminClient> adminClientSupplier = () -> {
-      return AdminClient.create(props);
-    };
+    adminClient = AdminClient.create(props);
 
-    Supplier<ZkUtils> zkConnectSupplier = () -> {
+    connectZk = () -> {
       return ZkUtils.apply(zkConnectStr, 6000, 6000, zkSecure);
     };
 
-    // extract kafka client configs
-    KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, idPrefix);
-
-    // KafkaConsumer for metadata access
-    Supplier<Consumer<byte[], byte[]>> metadataConsumerSupplier =
-        () -> KafkaSystemConsumer.getKafkaConsumerImpl(systemName, consumerConfig);
-
     KafkaConfig kafkaConfig = new KafkaConfig(config);
-    Properties coordinatorStreamProperties = KafkaSystemAdminUtilsScala.getCoordinatorTopicProperties(kafkaConfig);
-    int coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
+    coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
+    coordinatorStreamProperties = KafkaSystemAdminUtilsScala.getCoordinatorTopicProperties(kafkaConfig);
 
     Map<String, String> storeToChangelog =
         JavaConverters.mapAsJavaMapConverter(kafkaConfig.getKafkaChangelogEnabledStores()).asJava();
     // Construct the meta information for each topic, if the replication factor is not defined,
     // we use 2 as the number of replicas for the change log stream.
-    Map<String, ChangelogInfo> topicMetaInformation = new HashMap<>();
+    changelogTopicMetaInformation = new HashMap<>();
     for (Map.Entry<String, String> e : storeToChangelog.entrySet()) {
       String storeName = e.getKey();
       String topicName = e.getValue();
@@ -218,24 +192,20 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
           new ChangelogInfo(replicationFactor, kafkaConfig.getChangelogKafkaProperties(storeName));
       LOG.info(String.format("Creating topic meta information for topic: %s with replication factor: %s", topicName,
           replicationFactor));
-      topicMetaInformation.put(topicName, changelogInfo);
+      changelogTopicMetaInformation.put(topicName, changelogInfo);
     }
 
     // special flag to allow/enforce deleting of committed messages
     SystemConfig systemConfig = new SystemConfig(config);
     Option<String> deleteCommittedMessagesOpt = systemConfig.deleteCommittedMessages(systemName);
-    boolean deleteCommittedMessages =
+    this.deleteCommittedMessages =
         (deleteCommittedMessagesOpt.isEmpty()) ? false : Boolean.valueOf(deleteCommittedMessagesOpt.get());
 
-    Map<String, Properties> intermediateStreamProperties =
+    intermediateStreamProperties =
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
             .asJava();
 
-    LOG.info(String.format("Creating KafkaSystemAdmin for system %s, idPrefix %s", systemName, idPrefix));
-
-    return new KafkaSystemAdmin(systemName, metadataConsumerSupplier, zkConnectSupplier, adminClientSupplier,
-        topicMetaInformation, intermediateStreamProperties, coordinatorStreamProperties,
-        coordinatorStreamReplicationFactor, deleteCommittedMessages);
+    LOG.info(String.format("Creating KafkaSystemAdmin for system %s", systemName));
   }
 
   /**
@@ -250,12 +220,25 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
     // This optimization omits actual metadata for performance. Instead, we inject a dummy for all partitions.
     final SystemStreamMetadata.SystemStreamPartitionMetadata dummySspm =
-    new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null) {
-      String msg = "getSystemStreamPartitionCounts does not populate SystemStreaMetadata info. Only number of partitions";
-      @Override public String getOldestOffset() {throw new NotImplementedException(msg);}
-      @Override public String getNewestOffset() {throw new NotImplementedException(msg);}
-      @Override public String getUpcomingOffset() {throw new NotImplementedException(msg);}
-    };
+        new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null) {
+          String msg =
+              "getSystemStreamPartitionCounts does not populate SystemStreaMetadata info. Only number of partitions";
+
+          @Override
+          public String getOldestOffset() {
+            throw new NotImplementedException(msg);
+          }
+
+          @Override
+          public String getNewestOffset() {
+            throw new NotImplementedException(msg);
+          }
+
+          @Override
+          public String getUpcomingOffset() {
+            throw new NotImplementedException(msg);
+          }
+        };
 
     ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
         DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
@@ -439,6 +422,11 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     return offset;
   }
 
+  /**
+   * convert TopicPartition to SystemStreamPartition
+   * @param topicPartition the topic partition to be created
+   * @return an instance of SystemStreamPartition
+   */
   private SystemStreamPartition createSystemStreamPartition(TopicPartition topicPartition) {
     String topic = topicPartition.topic();
     Partition partition = new Partition(topicPartition.partition());

@@ -23,7 +23,7 @@ import java.util.Properties
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
 import org.apache.samza.config.{JobConfig, KafkaConsumerConfig, MapConfig}
-import org.apache.samza.system.kafka.KafkaSystemAdmin
+import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaSystemConsumer}
 
 /**
   * LinkedIn integration test harness for Kafka
@@ -77,11 +77,10 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
-    KafkaSystemAdmin.getKafkaSystemAdmin(
-      system,
-      new MapConfig(map),
-      "idPrefix"
-    );
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(map),
+      system, KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX)
+
+    new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.getKafkaConsumerImpl(system, consumerConfig));
   }
 
 }

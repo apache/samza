@@ -50,13 +50,13 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientIdPrefix);
 
-    val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl(systemName, kafkaConsumerConfig)
+    val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
     info("Created kafka consumer for system %s, clientId %s: %s" format(systemName, clientIdPrefix, kafkaConsumer))
 
     val clientId = kafkaConsumerConfig.getClientId
     val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
       new SystemClock)
-    info("Created samza system consumer %s with config %s" format (kafkaSystemConsumer, config))
+    info("Created samza system consumer %s with config %s" format(kafkaSystemConsumer, config))
 
     kafkaSystemConsumer
   }
@@ -84,11 +84,10 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
+    // extract kafka client configs
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX)
 
-    KafkaSystemAdmin.getKafkaSystemAdmin(
-      systemName,
-      config,
-      KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX);
+    new KafkaSystemAdmin(systemName, config, KafkaSystemConsumer.getKafkaConsumerImpl(systemName, consumerConfig))
   }
 
   def getCoordinatorTopicProperties(config: Config) = {
