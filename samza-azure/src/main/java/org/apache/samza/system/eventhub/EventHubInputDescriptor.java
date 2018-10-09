@@ -29,7 +29,7 @@ import org.apache.samza.serializers.Serde;
 
 
 /**
- * A descriptor for the Event Hubss output stream
+ * A descriptor for the Event Hubs output stream
  *<p>
  *   An instance of this descriptor may be obtained from an {@link EventHubSystemDescriptor}
  *</p>
@@ -50,13 +50,13 @@ public class EventHubInputDescriptor<StreamMessageType>
    * Constructs an {@link InputDescriptor} instance.
    *
    * @param streamId id of the stream
-   * @param serde serde for messages in the stream
-   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    * @param namespace namespace for the Event Hubs entity to consume from, not null
    * @param entityPath entity path for the Event Hubs entity to consume from, not null
+   * @param serde serde for messages in the stream
+   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  EventHubInputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor, String namespace,
-      String entityPath) {
+  EventHubInputDescriptor(String streamId, String namespace, String entityPath, Serde serde,
+      SystemDescriptor systemDescriptor) {
     super(streamId, serde, systemDescriptor, null);
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);

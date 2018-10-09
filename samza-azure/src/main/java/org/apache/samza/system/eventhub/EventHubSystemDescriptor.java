@@ -53,16 +53,16 @@ public class EventHubSystemDescriptor extends SystemDescriptor<EventHubSystemDes
     super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
-  public <StreamMessageType> EventHubInputDescriptor<StreamMessageType> getInputDescriptor(String streamId,
-      Serde<StreamMessageType> serde, String namespace, String entityPath) {
+  public <StreamMessageType> EventHubInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, String namespace,
+      String entityPath, Serde<StreamMessageType> serde) {
     streamIds.add(streamId);
-    return new EventHubInputDescriptor<>(streamId, serde, this, namespace, entityPath);
+    return new EventHubInputDescriptor<>(streamId, namespace, entityPath, serde, this);
   }
 
-  public <StreamMessageType> EventHubOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId,
-      Serde<StreamMessageType> serde, String namespace, String entityPath) {
+  public <StreamMessageType> EventHubOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, String namespace,
+      String entityPath, Serde<StreamMessageType> serde) {
     streamIds.add(streamId);
-    return new EventHubOutputDescriptor<>(streamId, serde, this, namespace, entityPath);
+    return new EventHubOutputDescriptor<>(streamId, namespace, entityPath, serde, this);
   }
 
   /**

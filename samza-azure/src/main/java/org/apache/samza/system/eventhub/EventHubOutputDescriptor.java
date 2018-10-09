@@ -48,13 +48,13 @@ public class EventHubOutputDescriptor<StreamMessageType>
    * Constructs an {@link OutputDescriptor} instance.
    *
    * @param streamId id of the stream
-   * @param serde serde for messages in the stream
-   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    * @param namespace namespace for the Event Hubs entity to produce to, not null
    * @param entityPath entity path for the Event Hubs entity to produce to, not null
+   * @param serde serde for messages in the stream
+   * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  EventHubOutputDescriptor(String streamId, Serde serde, SystemDescriptor systemDescriptor, String namespace,
-      String entityPath) {
+  EventHubOutputDescriptor(String streamId, String namespace, String entityPath, Serde serde,
+      SystemDescriptor systemDescriptor) {
     super(streamId, serde, systemDescriptor);
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);

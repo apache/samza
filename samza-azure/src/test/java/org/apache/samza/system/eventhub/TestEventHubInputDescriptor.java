@@ -40,7 +40,7 @@ public class TestEventHubInputDescriptor {
     EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
 
     EventHubInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), "entity-namespace", "entity3")
+        .getInputDescriptor(streamId, "entity-namespace", "entity3", KVSerde.of(new StringSerde(), new IntegerSerde()))
         .withSasKeyName("secretkey")
         .withSasKey("sasToken-123")
         .withConsumerGroup("$notdefault");
@@ -62,7 +62,7 @@ public class TestEventHubInputDescriptor {
     EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
 
     EventHubInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), "entity-namespace", "entity3");
+        .getInputDescriptor(streamId, "entity-namespace", "entity3", KVSerde.of(new StringSerde(), new IntegerSerde()));
 
     Map<String, String> generatedConfigs = inputDescriptor.toConfig();
     assertEquals("eventHub", generatedConfigs.get("streams.input-stream.samza.system"));
@@ -81,7 +81,7 @@ public class TestEventHubInputDescriptor {
 
     EventHubSystemDescriptor systemDescriptor = new EventHubSystemDescriptor(systemName);
     try {
-      systemDescriptor.getInputDescriptor(streamId, KVSerde.of(new StringSerde(), new IntegerSerde()), null, null);
+      systemDescriptor.getInputDescriptor(streamId, null, null, KVSerde.of(new StringSerde(), new IntegerSerde()));
       fail("Should have thrown Config Exception");
     } catch (ConfigException exception) {
       assertEquals(String.format("Missing namespace and entity path Event Hubs input descriptor in " //
