@@ -20,7 +20,6 @@
 package org.apache.samza.table.utils;
 
 import com.google.common.base.Preconditions;
-import java.util.function.Supplier;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
@@ -28,6 +27,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.SupplierGauge;
+
+import java.util.function.Supplier;
 
 
 /**

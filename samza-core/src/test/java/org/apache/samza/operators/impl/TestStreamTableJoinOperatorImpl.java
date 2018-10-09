@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
@@ -32,6 +31,8 @@ import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
+
+import java.util.Collection;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

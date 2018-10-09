@@ -67,14 +67,7 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   private final Map<String, KV<Serde, Serde>> tableSerdes = new HashMap<>();
   final Config config;
 
-  /**
-   * Applications are not required to define a factory.
-   */
   private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactoryOptional = Optional.empty();
-
-  /**
-   * Applications are not required to define a factory.
-   */
   private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactoryOptional = Optional.empty();
 
   // Default to no-op  ProcessorLifecycleListenerFactory

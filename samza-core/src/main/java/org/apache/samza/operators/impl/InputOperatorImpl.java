@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
-import java.util.Collections;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.InputTransformer;
@@ -28,6 +26,9 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /**

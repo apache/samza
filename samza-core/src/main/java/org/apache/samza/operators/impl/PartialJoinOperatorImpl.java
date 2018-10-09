@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
-import java.util.Collections;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.PartialJoinFunction;
@@ -30,6 +28,9 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.TimestampedValue;
+
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Implementation of one side of a {@link JoinOperatorSpec} that buffers and joins its input messages of

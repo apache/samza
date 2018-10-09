@@ -18,10 +18,6 @@
  */
 package org.apache.samza.table;
 
-import java.lang.reflect.Field;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.JavaTableConfig;
@@ -34,6 +30,11 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.StorageEngine;
 import org.junit.Test;
+
+import java.lang.reflect.Field;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;

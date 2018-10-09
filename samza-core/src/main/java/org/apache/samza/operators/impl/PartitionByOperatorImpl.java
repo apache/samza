@@ -18,8 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
-import java.util.Collections;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.operators.functions.MapFunction;
@@ -33,6 +31,9 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /**

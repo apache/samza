@@ -18,13 +18,14 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.Collection;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
+
+import java.util.Collection;
 
 
 /**

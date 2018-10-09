@@ -90,7 +90,7 @@ class TaskInstance(
   // need separate field for this instead of using it through Context, since Context throws an exception if it is null
   private val applicationTaskContextOption = applicationTaskContextFactoryOption.map(_.create(jobContext,
     containerContext, taskContext, applicationContainerContextOption.orNull))
-  val context: Context = new ContextImpl(jobContext, containerContext, taskContext,
+  val context = new ContextImpl(jobContext, containerContext, taskContext,
     Optional.ofNullable(applicationContainerContextOption.orNull),
     Optional.ofNullable(applicationTaskContextOption.orNull))
 
@@ -141,7 +141,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Starting table manager for taskName: %s" format taskName)
 
-      tableManager.init(this.context)
+      tableManager.init(context)
     } else {
       debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
@@ -151,11 +151,11 @@ class TaskInstance(
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
 
-      task.asInstanceOf[InitableTask].init(this.context)
+      task.asInstanceOf[InitableTask].init(context)
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
     }
-    this.applicationTaskContextOption.foreach(applicationTaskContext => {
+    applicationTaskContextOption.foreach(applicationTaskContext => {
       debug("Starting application-defined task context for taskName: %s" format taskName)
       applicationTaskContext.start()
     })
@@ -285,7 +285,7 @@ class TaskInstance(
   }
 
   def shutdownTask {
-    this.applicationTaskContextOption.foreach(applicationTaskContext => {
+    applicationTaskContextOption.foreach(applicationTaskContext => {
       debug("Stopping application-defined task context for taskName: %s" format taskName)
       applicationTaskContext.stop()
     })

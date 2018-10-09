@@ -19,9 +19,6 @@
 
 package org.apache.samza.operators.spec;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
 import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;
@@ -37,8 +34,13 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.mock;
 
 public class TestWindowOperatorSpec {
 

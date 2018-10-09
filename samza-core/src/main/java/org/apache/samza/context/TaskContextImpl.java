@@ -18,9 +18,6 @@
  */
 package org.apache.samza.context;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -31,6 +28,10 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 
 public class TaskContextImpl implements TaskContext {
