@@ -133,11 +133,11 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
     return taskFactory;
   }
 
+  // check uniqueness of the {@code systemDescriptor} and add if it is unique
   private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
     Preconditions.checkState(!systemDescriptors.containsKey(systemDescriptor.getSystemName())
             || systemDescriptors.get(systemDescriptor.getSystemName()) == systemDescriptor,
         "Must not use different system descriptor instances for the same system name: " + systemDescriptor.getSystemName());
     systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
   }
-
 }

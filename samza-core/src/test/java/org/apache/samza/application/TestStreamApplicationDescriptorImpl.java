@@ -55,7 +55,6 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
@@ -407,22 +406,14 @@ public class TestStreamApplicationDescriptorImpl {
     assertEquals(streamId, intermediateStreamImpl.getStreamId());
   }
 
-  @Test
+  @Test(expected = NullPointerException.class)
   public void testGetIntermediateStreamWithNoSerde() {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        streamAppDesc.getIntermediateStream(streamId, null, false);
-
-    assertEquals(streamAppDesc.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
-    assertEquals(streamAppDesc.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
-    assertEquals(streamId, intermediateStreamImpl.getStreamId());
-    assertNull(intermediateStreamImpl.getOutputStream().getKeySerde());
-    assertNull(intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
-    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+        streamAppDesc.getIntermediateStream(streamId, null, false); // should throw
   }
 
   @Test(expected = IllegalStateException.class)

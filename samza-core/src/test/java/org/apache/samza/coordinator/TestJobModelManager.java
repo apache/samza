@@ -23,6 +23,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.grouper.task.GroupByContainerCount;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -45,12 +46,18 @@ import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 import scala.collection.JavaConversions;
 
 /**
  * Unit tests for {@link JobModelManager}
  */
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class})
 public class TestJobModelManager {
   private final TaskAssignmentManager mockTaskManager = mock(TaskAssignmentManager.class);
   private final LocalityManager mockLocalityManager = mock(LocalityManager.class);
@@ -67,7 +74,7 @@ public class TestJobModelManager {
   private JobModelManager jobModelManager;
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     when(mockLocalityManager.readContainerLocality()).thenReturn(this.localityMappings);
     when(mockStreamMetadataCache.getStreamMetadata(argThat(new ArgumentMatcher<scala.collection.immutable.Set<SystemStream>>() {
       @Override
@@ -77,7 +84,7 @@ public class TestJobModelManager {
       }
     }), anyBoolean())).thenReturn(mockStreamMetadataMap);
     when(mockStreamMetadata.getSystemStreamPartitionMetadata()).thenReturn(mockSspMetadataMap);
-    when(mockLocalityManager.getTaskAssignmentManager()).thenReturn(mockTaskManager);
+    PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(mockTaskManager);
     when(mockTaskManager.readTaskAssignment()).thenReturn(Collections.EMPTY_MAP);
   }
 
