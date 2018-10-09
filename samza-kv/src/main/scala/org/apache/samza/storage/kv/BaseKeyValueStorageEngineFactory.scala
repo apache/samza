@@ -64,7 +64,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param storeName The name of the storage engine.
    * @param storeDir The directory of the storage engine.
    * @param keySerde The serializer to use for serializing keys when reading or writing to the store.
-   * @param msgSerde The serializer to use for serializing messages when reading or writing to the store.
+   * @param msgSerde The stserializer to use for serializing messages when reading or writing to the store.
    * @param collector MessageCollector the storage engine uses to persist changes.
    * @param registry MetricsRegistry to which to publish storage-engine specific metrics.
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
@@ -151,8 +151,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       }
     }
 
-    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore,
-      storeDir, keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
+    new KeyValueStorageEngine(storeName, storeDir, storePropertiesBuilder.build(), nullSafeStore, rawStore,
+      keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
   }
 
 }

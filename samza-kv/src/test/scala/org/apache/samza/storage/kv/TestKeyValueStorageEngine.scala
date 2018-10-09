@@ -39,10 +39,11 @@ class TestKeyValueStorageEngine {
   def setup() {
     val wrapperKv = new MockKeyValueStore()
     val rawKv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
+    val storeName = "test-storeName"
+    val storeDir = mock(classOf[File])
     val properties = mock(classOf[StoreProperties])
-    val storeName = mock(classOf[File])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, storeName, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After
@@ -141,8 +142,6 @@ class TestKeyValueStorageEngine {
       new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)),
       new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)),
       new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
-
-    val taskName = new TaskName("testTask")
 
     engine.restore(changelogEntries.iterator())
 
