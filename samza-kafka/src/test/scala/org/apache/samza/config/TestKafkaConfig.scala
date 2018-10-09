@@ -120,6 +120,11 @@ class TestKafkaConfig {
     props.setProperty("job.changelog.system", "kafka")
     props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
+    props.setProperty("stores.test4.rocksdb.ttl.ms", "3600")
+    props.setProperty("stores.test5.rocksdb.ttl.ms", "3600")
+    props.setProperty("stores.test5.changelog.kafka.retention.ms", "1000")
+    props.setProperty("stores.test6.rocksdb.ttl.ms", "3600")
+    props.setProperty("stores.test6.changelog.kafka.cleanup.policy", "compact")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -130,14 +135,23 @@ class TestKafkaConfig {
     assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
     assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
+    assertNull(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("retention.ms"))
+    assertNull(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("retention.ms"))
 
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.SomeOtherFactory")
-    val mapConfig1 = new MapConfig(props.asScala.asJava)
-    val kafkaConfig1 = new KafkaConfig(mapConfig)
     val storeToChangelog1 = kafkaConfig.getKafkaChangelogEnabledStores()
     assertEquals("mychangelog1", storeToChangelog1.get("test1").getOrElse(""))
     assertEquals("mychangelog2", storeToChangelog1.get("test2").getOrElse(""))
     assertEquals("otherstream", storeToChangelog1.get("test3").getOrElse(""))
+
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("cleanup.policy"), "delete")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("retention.ms"), "3600")
+
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test5").getProperty("cleanup.policy"), "delete")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test5").getProperty("retention.ms"), "1000")
+
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test6").getProperty("cleanup.policy"), "compact")
+    assertNull(kafkaConfig.getChangelogKafkaProperties("test6").getProperty("retention.ms"))
 
     props.setProperty(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name())
     val batchMapConfig = new MapConfig(props.asScala.asJava)

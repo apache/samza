@@ -58,7 +58,7 @@
           Apache Samza
         </h1>
         <h2 class="section__title section__title--sub">
-          Build scalable, fault-tolerant applications that process your data in real-time
+          A distributed stream processing framework
         </h2>
         <div class="content">
           <a class="button" href="/startup/hello-samza/{{site.version}}">
@@ -73,7 +73,7 @@
       <div class="hero-blog-posts">
         <h3>Latest from our blog</h3>
         <div class="blog-posts">
-        
+
             {% assign sortedBlogPost = site.blog | sort: 'date' | reverse %}
             {% assign maxCount = 3 %}
             {% assign latestCount = 1 %}
@@ -94,7 +94,7 @@
                   <div class="blog-post__title">{{ post.title }}</div>
                   <div class="blog-post__date">{{ post.date | date: "%B %-d, %Y" }}</div>
               </a>
-        
+
             {% endfor %}
 
         </div>
@@ -106,15 +106,19 @@
 
 
   <div class="section section--what-is-samza">
-    <div class="section__title">What is Apache Samza?</div>
-    <div class="content">
+
+   <!-- <div class="section__title">What is Apache Samza?</div> -->
+  <div class="content--samza-intro">
       <p>
-        <strong>Apache Samza</strong>, a top level project of the
-        <a href="https://www.apache.org/" target="_blank">Apache Software Foundation</a>, is a distributed stream processing framework. It uses
-        <a target="_blank" href="https://kafka.apache.org">Apache Kafka</a> for messaging, and
-        <a target="_blank" href="https://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html">Apache Hadoop YARN</a> to provide fault tolerance, processor isolation, security, and resource management.
+        Samza allows you to build stateful applications that process data in real-time from multiple sources including Apache Kafka.
+        <br/> <br/> 
+        Battle-tested at scale, it supports flexible deployment options to run on <a href="/learn/documentation/latest/deployment/yarn.html">YARN</a> or as a 
+        <a href="/learn/documentation/latest/deployment/standalone.html">standalone library</a>.
       </p>
-    </div>
+
+      <!-- <img src="/img/latest/learn/documentation/api/samza-arch3.png"> -->
+      <img src="/img/latest/learn/documentation/api/samza-arch4.png" width="44.7%" height="50%" hspace="25px">
+  </div>
   </div>
 
   <div class="section section--highlight section--bottom-flare section--features">
@@ -217,7 +221,7 @@
   {% include footer.html %}
 
   <script type="text/javascript" src="/js/flickity.js"></script>
-  
+
 </body>
 
 </html>
