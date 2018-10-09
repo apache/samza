@@ -20,10 +20,13 @@
 package org.apache.samza.execution;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,7 +52,6 @@ import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.execution.ExecutionPlanner.StreamSet.StreamSetCategory;
 import static org.apache.samza.util.StreamUtil.getStreamSpec;
 import static org.apache.samza.util.StreamUtil.getStreamSpecs;
 
@@ -216,48 +218,30 @@ public class ExecutionPlanner {
       // streams associated with the joined table (if any).
       if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
         StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
-        Iterable<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
-        for (String sideInput : sideInputs) {
-          StreamEdge sideInputStreamEdge = jobGraph.getStreamEdge(sideInput);
-          streamSet.getStreamEdges().add(sideInputStreamEdge);
-        }
+
+        Collection<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
+        Iterable<StreamEdge> sideInputStreams = sideInputs.stream().map(jobGraph::getStreamEdge)::iterator;
+        Iterable<StreamEdge> streams = streamSet.getStreamEdges();
+        streamSet = new StreamSet(streamSet.getSetId(), Iterables.concat(streams, sideInputStreams));
       }
 
       streamSets.add(streamSet);
     }
 
-    return streamSets;
+    return Collections.unmodifiableList(streamSets);
   }
 
   /**
    * Creates a {@link StreamSet} whose Id is {@code setId}, and {@link StreamEdge}s
    * correspond to the provided {@code inputOpSpecs}.
    */
-  private static StreamSet getStreamSet(String setId, Iterable<InputOperatorSpec> inputOpSpecs,
-      JobGraph jobGraph) {
-
-    int countStreamEdgeWithSetPartitions = 0;
+  private static StreamSet getStreamSet(String setId, Iterable<InputOperatorSpec> inputOpSpecs, JobGraph jobGraph) {
     Set<StreamEdge> streamEdges = new HashSet<>();
-
     for (InputOperatorSpec inputOpSpec : inputOpSpecs) {
       StreamEdge streamEdge = jobGraph.getStreamEdge(inputOpSpec.getStreamId());
-      if (streamEdge.getPartitionCount() != StreamEdge.PARTITIONS_UNKNOWN) {
-        ++countStreamEdgeWithSetPartitions;
-      }
       streamEdges.add(streamEdge);
     }
-
-    // Determine category of stream group based on stream partition counts.
-    StreamSetCategory category;
-    if (countStreamEdgeWithSetPartitions == 0) {
-      category = StreamSetCategory.NO_PARTITION_COUNT_SET;
-    } else if (countStreamEdgeWithSetPartitions == streamEdges.size()) {
-      category = StreamSetCategory.ALL_PARTITION_COUNT_SET;
-    } else {
-      category = StreamSetCategory.SOME_PARTITION_COUNT_SET;
-    }
-
-    return new StreamSet(setId, streamEdges, category);
+    return new StreamSet(setId, streamEdges);
   }
 
   /**
@@ -284,57 +268,20 @@ public class ExecutionPlanner {
    */
   /* package private */ static class StreamSet {
 
-    /**
-     * Indicates whether all stream edges in this group have their partition counts assigned.
-     */
-    public enum StreamSetCategory {
-      /**
-       * All stream edges in this group have their partition counts assigned.
-       */
-      ALL_PARTITION_COUNT_SET(0),
-
-      /**
-       * Only some stream edges in this group have their partition counts assigned.
-       */
-      SOME_PARTITION_COUNT_SET(1),
-
-      /**
-       * No stream edge in this group is assigned a partition count.
-       */
-      NO_PARTITION_COUNT_SET(2);
-
-
-      private final int sortOrder;
-
-      StreamSetCategory(int sortOrder) {
-        this.sortOrder = sortOrder;
-      }
-
-      public int getSortOrder() {
-        return sortOrder;
-      }
-    }
-
     private final String setId;
     private final Set<StreamEdge> streamEdges;
-    private final StreamSetCategory category;
 
-    StreamSet(String setId, Set<StreamEdge> streamEdges, StreamSetCategory category) {
+    StreamSet(String setId, Iterable<StreamEdge> streamEdges) {
       this.setId = setId;
-      this.streamEdges = streamEdges;
-      this.category = category;
+      this.streamEdges = ImmutableSet.copyOf(streamEdges);
     }
 
     Set<StreamEdge> getStreamEdges() {
-      return streamEdges;
+      return Collections.unmodifiableSet(streamEdges);
     }
 
     String getSetId() {
       return setId;
-    }
-
-    StreamSetCategory getCategory() {
-      return category;
     }
   }
 }

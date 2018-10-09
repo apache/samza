@@ -301,15 +301,15 @@ public class TestExecutionPlanner {
 
         MessageStream<KV<Object, Object>> messageStream2 =
             appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, "p2");
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2");
 
         MessageStream<KV<Object, Object>> messageStream3 =
             appDesc.getInputStream(input3Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, "p3");
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p3");
 
         MessageStream<KV<Object, Object>> messageStream4 =
             appDesc.getInputStream(input4Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, "p4");
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p4");
 
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
@@ -731,28 +731,6 @@ public class TestExecutionPlanner {
     assertEquals(StreamEdge.PARTITIONS_UNKNOWN, IntermediateStreamManager.maxPartitions(edges));
   }
 
-  private static class TestTableDescriptor extends BaseTableDescriptor implements TableDescriptor {
-    private final List<String> sideInputs;
-    private final SideInputsProcessor sideInputsProcessor;
-
-    public TestTableDescriptor(String tableId) {
-      this(tableId, Collections.emptyList(), null);
-    }
-
-    public TestTableDescriptor(String tableId, List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
-      super(tableId);
-      this.sideInputs = sideInputs;
-      this.sideInputsProcessor = sideInputsProcessor;
-    }
-
-    @Override
-    public TableSpec getTableSpec() {
-      validate();
-      return new TableSpec(tableId, serde, "dummyTableProviderFactoryClassName",
-          Collections.emptyMap(), sideInputs, sideInputsProcessor);
-    }
-  }
-
   @Test
   public void testCreateJobGraphForTaskApplication() {
     TaskApplicationDescriptorImpl taskAppDesc = mock(TaskApplicationDescriptorImpl.class);
@@ -838,6 +816,28 @@ public class TestExecutionPlanner {
     @Override
     public void describe(ApplicationDescriptor appDesc) {
 
+    }
+  }
+
+  private static class TestTableDescriptor extends BaseTableDescriptor implements TableDescriptor {
+    private final List<String> sideInputs;
+    private final SideInputsProcessor sideInputsProcessor;
+
+    public TestTableDescriptor(String tableId) {
+      this(tableId, Collections.emptyList(), null);
+    }
+
+    public TestTableDescriptor(String tableId, List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
+      super(tableId);
+      this.sideInputs = sideInputs;
+      this.sideInputsProcessor = sideInputsProcessor;
+    }
+
+    @Override
+    public TableSpec getTableSpec() {
+      validate();
+      return new TableSpec(tableId, serde, "dummyTableProviderFactoryClassName",
+          Collections.emptyMap(), sideInputs, sideInputsProcessor);
     }
   }
 }
