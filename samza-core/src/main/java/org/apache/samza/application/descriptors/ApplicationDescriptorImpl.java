@@ -18,13 +18,19 @@
  */
 package org.apache.samza.application.descriptors;
 
+import com.google.common.base.Preconditions;
+
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.application.SamzaApplication;
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ApplicationContainerContext;
 import org.apache.samza.context.ApplicationContainerContextFactory;
@@ -34,6 +40,7 @@ import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.KV;
+import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -56,17 +63,25 @@ import org.slf4j.LoggerFactory;
  * @param <S> the type of {@link ApplicationDescriptor} interface this implements. It has to be either
  *            {@link StreamApplicationDescriptor} or {@link TaskApplicationDescriptor}
  */
-public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
-    implements ApplicationDescriptor<S> {
+public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor> implements ApplicationDescriptor<S> {
   private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationDescriptorImpl.class);
+  static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
   private final Class<? extends SamzaApplication> appClass;
+  private final Config config;
+
+  // We use a LHMs for deterministic order in initializing and closing operators.
+  private final Map<String, InputDescriptor> inputDescriptors = new LinkedHashMap<>();
+  private final Map<String, OutputDescriptor> outputDescriptors = new LinkedHashMap<>();
+  private final Map<String, SystemDescriptor> systemDescriptors = new LinkedHashMap<>();
+  private final Map<String, TableDescriptor> tableDescriptors = new LinkedHashMap<>();
+  private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
+
   private final Map<String, MetricsReporterFactory> reporterFactories = new LinkedHashMap<>();
   // serdes used by input/output/intermediate streams, keyed by streamId
   private final Map<String, KV<Serde, Serde>> streamSerdes = new HashMap<>();
   // serdes used by tables, keyed by tableId
   private final Map<String, KV<Serde, Serde>> tableSerdes = new HashMap<>();
-  final Config config;
 
   private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactoryOptional = Optional.empty();
   private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactoryOptional = Optional.empty();
@@ -80,30 +95,41 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public Config getConfig() {
+  public final Config getConfig() {
     return config;
   }
 
   @Override
-  public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
+  public final S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
+    Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
+    Preconditions.checkState(getInputStreamIds().isEmpty() && getOutputStreamIds().isEmpty(),
+        "Default system must be set before creating any input or output streams.");
+    addSystemDescriptor(defaultSystemDescriptor);
+
+    defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
+    return (S) this;
+  }
+
+  @Override
+  public final S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
     this.applicationContainerContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
   @Override
-  public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
+  public final S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
     this.applicationTaskContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
   @Override
-  public S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
+  public final S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
     this.listenerFactory = listenerFactory;
     return (S) this;
   }
 
   @Override
-  public S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories) {
+  public final S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories) {
     this.reporterFactories.clear();
     this.reporterFactories.putAll(reporterFactories);
     return (S) this;
@@ -161,13 +187,85 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   /**
+   * Get all the unique input streamIds in this application, including any intermediate streams.
+   *
+   * @return an immutable set of input streamIds
+   */
+  public Set<String> getInputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(inputDescriptors.keySet()));
+  }
+
+  /**
+   * Get all the unique output streamIds in this application, including any intermediate streams.
+   *
+   * @return an immutable set of output streamIds
+   */
+  public Set<String> getOutputStreamIds() {
+    return Collections.unmodifiableSet(new HashSet<>(outputDescriptors.keySet()));
+  }
+
+  /**
+   * Get all the intermediate broadcast streamIds for this application
+   *
+   * @return an immutable set of streamIds
+   */
+  public Set<String> getIntermediateBroadcastStreamIds() {
+    return Collections.emptySet();
+  }
+
+  /**
+   * Get all the {@link InputDescriptor}s to this application
+   *
+   * @return an immutable map of streamId to {@link InputDescriptor}
+   */
+  public Map<String, InputDescriptor> getInputDescriptors() {
+    return Collections.unmodifiableMap(inputDescriptors);
+  }
+
+  /**
+   * Get all the {@link OutputDescriptor}s for this application
+   *
+   * @return an immutable map of streamId to {@link OutputDescriptor}
+   */
+  public Map<String, OutputDescriptor> getOutputDescriptors() {
+    return Collections.unmodifiableMap(outputDescriptors);
+  }
+
+  /**
+   * Get all the {@link SystemDescriptor}s in this application
+   *
+   * @return an immutable set of {@link SystemDescriptor}s
+   */
+  public Set<SystemDescriptor> getSystemDescriptors() {
+    return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+  }
+
+  /**
    * Get the default {@link SystemDescriptor} in this application
    *
    * @return the default {@link SystemDescriptor}
    */
   public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
-    // default is not set
-    return Optional.empty();
+    return defaultSystemDescriptorOptional;
+  }
+
+  /**
+   * Get all the {@link TableDescriptor}s in this application
+   *
+   * @return an immutable set of {@link TableDescriptor}s
+   */
+  public Set<TableDescriptor> getTableDescriptors() {
+    return Collections.unmodifiableSet(new HashSet<>(tableDescriptors.values()));
+  }
+
+  /**
+   * Get a map of all {@link InputOperatorSpec}s in this application
+   *
+   * @return an immutable map from streamId to {@link InputOperatorSpec}. Default to empty map for low-level
+   * {@link org.apache.samza.application.TaskApplication}
+   */
+  public Map<String, InputOperatorSpec> getInputOperators() {
+    return Collections.emptyMap();
   }
 
   /**
@@ -189,65 +287,6 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   public KV<Serde, Serde> getTableSerdes(String tableId) {
     return tableSerdes.get(tableId);
   }
-
-  /**
-   * Get the map of all {@link InputOperatorSpec}s in this applicaiton
-   *
-   * @return an immutable map from streamId to {@link InputOperatorSpec}. Default to empty map for low-level
-   * {@link org.apache.samza.application.TaskApplication}
-   */
-  public Map<String, InputOperatorSpec> getInputOperators() {
-    return Collections.EMPTY_MAP;
-  }
-
-  /**
-   * Get all the {@link InputDescriptor}s to this application
-   *
-   * @return an immutable map of streamId to {@link InputDescriptor}
-   */
-  public abstract Map<String, InputDescriptor> getInputDescriptors();
-
-  /**
-   * Get all the {@link OutputDescriptor}s from this application
-   *
-   * @return an immutable map of streamId to {@link OutputDescriptor}
-   */
-  public abstract Map<String, OutputDescriptor> getOutputDescriptors();
-
-  /**
-   * Get all the broadcast streamIds from this application
-   *
-   * @return an immutable set of streamIds
-   */
-  public abstract Set<String> getBroadcastStreams();
-
-  /**
-   * Get all the {@link TableDescriptor}s in this application
-   *
-   * @return an immutable set of {@link TableDescriptor}s
-   */
-  public abstract Set<TableDescriptor> getTableDescriptors();
-
-  /**
-   * Get all the unique {@link SystemDescriptor}s in this application
-   *
-   * @return an immutable set of {@link SystemDescriptor}s
-   */
-  public abstract Set<SystemDescriptor> getSystemDescriptors();
-
-  /**
-   * Get all the unique input streamIds in this application
-   *
-   * @return an immutable set of input streamIds
-   */
-  public abstract Set<String> getInputStreamIds();
-
-  /**
-   * Get all the unique output streamIds in this application
-   *
-   * @return an immutable set of output streamIds
-   */
-  public abstract Set<String> getOutputStreamIds();
 
   KV<Serde, Serde> getOrCreateStreamSerdes(String streamId, Serde serde) {
     Serde keySerde, valueSerde;
@@ -273,7 +312,7 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
       }
       streamSerdes.put(streamId, KV.of(keySerde, valueSerde));
     } else if (!currentSerdePair.getKey().equals(keySerde) || !currentSerdePair.getValue().equals(valueSerde)) {
-      throw new IllegalArgumentException(String.format("Serde for stream %s is already defined. Cannot change it to "
+      throw new IllegalArgumentException(String.format("Serde for streamId: %s is already defined. Cannot change it to "
           + "different serdes.", streamId));
     }
     return streamSerdes.get(streamId);
@@ -297,4 +336,47 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
     return streamSerdes.get(tableId);
   }
 
+  final void addInputDescriptor(InputDescriptor inputDescriptor) {
+    String streamId = inputDescriptor.getStreamId();
+    Preconditions.checkState(!inputDescriptors.containsKey(streamId)
+            || inputDescriptors.get(streamId) == inputDescriptor,
+        String.format("Cannot add multiple input descriptors with the same streamId: %s", streamId));
+    inputDescriptors.put(streamId, inputDescriptor);
+    addSystemDescriptor(inputDescriptor.getSystemDescriptor());
+  }
+
+  final void addOutputDescriptor(OutputDescriptor outputDescriptor) {
+    String streamId = outputDescriptor.getStreamId();
+    Preconditions.checkState(!outputDescriptors.containsKey(streamId)
+            || outputDescriptors.get(streamId) == outputDescriptor,
+        String.format("Cannot add an output descriptor multiple times with the same streamId: %s", streamId));
+    outputDescriptors.put(streamId, outputDescriptor);
+    addSystemDescriptor(outputDescriptor.getSystemDescriptor());
+  }
+
+  final void addTableDescriptor(TableDescriptor tableDescriptor) {
+    String tableId = tableDescriptor.getTableId();
+    Preconditions.checkState(StringUtils.isNotBlank(tableId) && ID_PATTERN.matcher(tableId).matches(),
+        String.format("tableId: %s must confirm to pattern: %s", tableId, ID_PATTERN.toString()));
+    Preconditions.checkState(!tableDescriptors.containsKey(tableId)
+        || tableDescriptors.get(tableId) == tableDescriptor,
+        String.format("Cannot add multiple table descriptors with the same tableId: %s", tableId));
+
+    if (tableDescriptor instanceof BaseHybridTableDescriptor) {
+      List<? extends TableDescriptor> tableDescs =
+          ((BaseHybridTableDescriptor) tableDescriptor).getTableDescriptors();
+      tableDescs.forEach(td -> addTableDescriptor(td));
+    }
+
+    tableDescriptors.put(tableId, tableDescriptor);
+  }
+
+  // check uniqueness of the {@code systemDescriptor} and add if it is unique
+  private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
+    String systemName = systemDescriptor.getSystemName();
+    Preconditions.checkState(!systemDescriptors.containsKey(systemName)
+            || systemDescriptors.get(systemName) == systemDescriptor,
+        "Must not use different system descriptor instances for the same system name: " + systemName);
+    systemDescriptors.put(systemName, systemDescriptor);
+  }
 }

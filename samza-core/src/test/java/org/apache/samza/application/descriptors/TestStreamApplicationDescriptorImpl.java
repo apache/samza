@@ -24,19 +24,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.context.ApplicationContainerContextFactory;
 import org.apache.samza.context.ApplicationTaskContextFactory;
-import org.apache.samza.system.descriptors.GenericInputDescriptor;
-import org.apache.samza.system.descriptors.GenericOutputDescriptor;
-import org.apache.samza.system.descriptors.InputDescriptor;
-import org.apache.samza.system.descriptors.GenericSystemDescriptor;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.system.descriptors.ExpandingInputDescriptorProvider;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.system.descriptors.GenericOutputDescriptor;
+import org.apache.samza.system.descriptors.GenericSystemDescriptor;
+import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.system.descriptors.TransformingInputDescriptorProvider;
 import org.apache.samza.system.descriptors.InputTransformer;
@@ -52,11 +53,11 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
@@ -516,10 +517,11 @@ public class TestStreamApplicationDescriptorImpl {
     when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
     when(mockTableDescriptor.getTableId()).thenReturn(testTableSpec.getId());
     when(mockTableDescriptor.getSerde()).thenReturn(testTableSpec.getSerde());
+    AtomicReference<TableImpl> table = new AtomicReference<>();
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getTable(mockTableDescriptor);
+        table.set((TableImpl) appDesc.getTable(mockTableDescriptor));
       }, mockConfig);
-    assertNotNull(streamAppDesc.getTables().get(testTableSpec.getId()));
+    assertEquals(testTableSpec.getId(), table.get().getTableSpec().getId());
   }
 
   @Test

@@ -765,7 +765,7 @@ public class TestExecutionPlanner {
     when(taskAppDesc.getOutputStreamIds()).thenReturn(outputDescriptors.keySet());
     when(taskAppDesc.getTableDescriptors()).thenReturn(Collections.emptySet());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(systemDescriptors);
-    when(taskAppDesc.getBroadcastStreams()).thenReturn(broadcastStreams);
+    when(taskAppDesc.getIntermediateBroadcastStreamIds()).thenReturn(broadcastStreams);
     doReturn(MockTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();
@@ -796,7 +796,7 @@ public class TestExecutionPlanner {
     when(taskAppDesc.getOutputDescriptors()).thenReturn(new HashMap<>());
     when(taskAppDesc.getTableDescriptors()).thenReturn(new HashSet<>());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(new HashSet<>());
-    when(taskAppDesc.getBroadcastStreams()).thenReturn(new HashSet<>());
+    when(taskAppDesc.getIntermediateBroadcastStreamIds()).thenReturn(new HashSet<>());
     doReturn(LegacyTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();

@@ -20,14 +20,13 @@ package org.apache.samza.application.descriptors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
@@ -54,10 +53,6 @@ import org.apache.samza.operators.stream.IntermediateMessageStreamImpl;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This class defines:
@@ -67,21 +62,12 @@ import org.slf4j.LoggerFactory;
  */
 public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<StreamApplicationDescriptor>
     implements StreamApplicationDescriptor {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamApplicationDescriptorImpl.class);
-  private static final Pattern ID_PATTERN = Pattern.compile("[\\d\\w-_]+");
 
-  private final Map<String, InputDescriptor> inputDescriptors = new LinkedHashMap<>();
-  private final Map<String, OutputDescriptor> outputDescriptors = new LinkedHashMap<>();
-  private final Set<String> broadcastStreams = new HashSet<>();
-  private final Map<String, TableDescriptor> tableDescriptors = new LinkedHashMap<>();
-  private final Map<String, SystemDescriptor> systemDescriptors = new LinkedHashMap<>();
-  // We use a LHM for deterministic order in initializing and closing operators.
+  // We use a LHMs for deterministic order in initializing and closing operators.
+  private final Set<String> intermediateBroadcastStreamIds = new HashSet<>();
   private final Map<String, InputOperatorSpec> inputOperators = new LinkedHashMap<>();
   private final Map<String, OutputStreamImpl> outputStreams = new LinkedHashMap<>();
-  private final Map<String, TableImpl> tables = new LinkedHashMap<>();
   private final Set<String> operatorIds = new HashSet<>();
-
-  private Optional<SystemDescriptor> defaultSystemDescriptorOptional = Optional.empty();
 
   /**
    * The 0-based position of the next operator in the graph.
@@ -96,17 +82,6 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   }
 
   @Override
-  public StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
-    Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
-    Preconditions.checkState(inputOperators.isEmpty() && outputStreams.isEmpty(),
-        "Default system must be set before creating any input or output streams.");
-    addSystemDescriptor(defaultSystemDescriptor);
-
-    defaultSystemDescriptorOptional = Optional.of(defaultSystemDescriptor);
-    return this;
-  }
-
-  @Override
   public <M> MessageStream<M> getInputStream(InputDescriptor<M, ?> inputDescriptor) {
     SystemDescriptor systemDescriptor = inputDescriptor.getSystemDescriptor();
     Optional<StreamExpander> expander = systemDescriptor.getExpander();
@@ -115,26 +90,11 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     }
 
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
-    Preconditions.checkState(!inputDescriptors.containsKey(inputDescriptor.getStreamId()),
-        String.format("add input descriptors multiple times with the same streamId: %s", inputDescriptor.getStreamId()));
-    inputDescriptors.put(inputDescriptor.getStreamId(), inputDescriptor);
-    addSystemDescriptor(inputDescriptor.getSystemDescriptor());
+    addInputDescriptor(inputDescriptor);
 
     String streamId = inputDescriptor.getStreamId();
-    Preconditions.checkState(!inputOperators.containsKey(streamId),
-        "getInputStream must not be called multiple times with the same streamId: " + streamId);
-
     Serde serde = inputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getOrCreateStreamSerdes(streamId, serde);
-    if (outputStreams.containsKey(streamId)) {
-      OutputStreamImpl outputStream = outputStreams.get(streamId);
-      Serde keySerde = outputStream.getKeySerde();
-      Serde valueSerde = outputStream.getValueSerde();
-      Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
-          String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
-              + "stream level, so the same key and message Serde must be used for both.", streamId));
-    }
-
     boolean isKeyed = serde instanceof KVSerde;
     InputTransformer transformer = inputDescriptor.getTransformer().orElse(null);
     InputOperatorSpec inputOperatorSpec =
@@ -146,26 +106,11 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
   @Override
   public <M> OutputStream<M> getOutputStream(OutputDescriptor<M, ?> outputDescriptor) {
-    Preconditions.checkState(!outputDescriptors.containsKey(outputDescriptor.getStreamId()),
-        String.format("add output descriptors multiple times with the same streamId: %s", outputDescriptor.getStreamId()));
-    outputDescriptors.put(outputDescriptor.getStreamId(), outputDescriptor);
-    addSystemDescriptor(outputDescriptor.getSystemDescriptor());
+    addOutputDescriptor(outputDescriptor);
 
     String streamId = outputDescriptor.getStreamId();
-    Preconditions.checkState(!outputStreams.containsKey(streamId),
-        "getOutputStream must not be called multiple times with the same streamId: " + streamId);
-
     Serde serde = outputDescriptor.getSerde();
     KV<Serde, Serde> kvSerdes = getOrCreateStreamSerdes(streamId, serde);
-    if (inputOperators.containsKey(streamId)) {
-      InputOperatorSpec inputOperatorSpec = inputOperators.get(streamId);
-      Serde keySerde = inputOperatorSpec.getKeySerde();
-      Serde valueSerde = inputOperatorSpec.getValueSerde();
-      Preconditions.checkState(kvSerdes.getKey().equals(keySerde) && kvSerdes.getValue().equals(valueSerde),
-          String.format("Stream %s is being used both as an input and an output stream. Serde in Samza happens at "
-              + "stream level, so the same key and message Serde must be used for both.", streamId));
-    }
-
     boolean isKeyed = serde instanceof KVSerde;
     outputStreams.put(streamId, new OutputStreamImpl<>(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return outputStreams.get(streamId);
@@ -173,80 +118,10 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
   @Override
   public <K, V> Table<KV<K, V>> getTable(TableDescriptor<K, V, ?> tableDescriptor) {
-
-    if (tableDescriptor instanceof BaseHybridTableDescriptor) {
-      List<? extends TableDescriptor<K, V, ?>> tableDescs = ((BaseHybridTableDescriptor) tableDescriptor).getTableDescriptors();
-      tableDescs.forEach(td -> getTable(td));
-    }
-
-    String tableId = tableDescriptor.getTableId();
-    Preconditions.checkState(StringUtils.isNotBlank(tableId) && ID_PATTERN.matcher(tableId).matches(),
-        String.format("tableId: %s must confirm to pattern: %s", tableId, ID_PATTERN.toString()));
-    Preconditions.checkState(!tableDescriptors.containsKey(tableDescriptor.getTableId()),
-        String.format("add table descriptors multiple times with the same tableId: %s", tableDescriptor.getTableId()));
-    tableDescriptors.put(tableDescriptor.getTableId(), tableDescriptor);
-
+    addTableDescriptor(tableDescriptor);
     BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
-    TableSpec tableSpec = baseTableDescriptor.getTableSpec();
-    if (tables.containsKey(tableSpec.getId())) {
-      throw new IllegalStateException(
-          String.format("getTable() invoked multiple times with the same tableId: %s", tableId));
-    }
-    tables.put(tableSpec.getId(), new TableImpl(tableSpec));
-    getOrCreateTableSerdes(tableSpec.getId(), baseTableDescriptor.getSerde());
-    return tables.get(tableSpec.getId());
-  }
-
-  /**
-   * Get all the {@link InputDescriptor}s to this application
-   *
-   * @return an immutable map of streamId to {@link InputDescriptor}
-   */
-  @Override
-  public Map<String, InputDescriptor> getInputDescriptors() {
-    return Collections.unmodifiableMap(inputDescriptors);
-  }
-
-  /**
-   * Get all the {@link OutputDescriptor}s from this application
-   *
-   * @return an immutable map of streamId to {@link OutputDescriptor}
-   */
-  @Override
-  public Map<String, OutputDescriptor> getOutputDescriptors() {
-    return Collections.unmodifiableMap(outputDescriptors);
-  }
-
-  /**
-   * Get all the broadcast streamIds from this application
-   *
-   * @return an immutable set of streamIds
-   */
-  @Override
-  public Set<String> getBroadcastStreams() {
-    return Collections.unmodifiableSet(broadcastStreams);
-  }
-
-  /**
-   * Get all the {@link TableDescriptor}s in this application
-   *
-   * @return an immutable set of {@link TableDescriptor}s
-   */
-  @Override
-  public Set<TableDescriptor> getTableDescriptors() {
-    return Collections.unmodifiableSet(new HashSet<>(tableDescriptors.values()));
-  }
-
-  /**
-   * Get all the unique {@link SystemDescriptor}s in this application
-   *
-   * @return an immutable set of {@link SystemDescriptor}s
-   */
-  @Override
-  public Set<SystemDescriptor> getSystemDescriptors() {
-    // We enforce that users must not use different system descriptor instances for the same system name
-    // when getting an input/output stream or setting the default system descriptor
-    return Collections.unmodifiableSet(new HashSet<>(systemDescriptors.values()));
+    getOrCreateTableSerdes(baseTableDescriptor.getTableId(), baseTableDescriptor.getSerde());
+    return new TableImpl(baseTableDescriptor.getTableSpec());
   }
 
   @Override
@@ -259,14 +134,17 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     return Collections.unmodifiableSet(new HashSet<>(outputStreams.keySet()));
   }
 
-  /**
-   * Get the default {@link SystemDescriptor} in this application
-   *
-   * @return the default {@link SystemDescriptor}
-   */
   @Override
-  public Optional<SystemDescriptor> getDefaultSystemDescriptor() {
-    return defaultSystemDescriptorOptional;
+  public Set<String> getIntermediateBroadcastStreamIds() {
+    return Collections.unmodifiableSet(intermediateBroadcastStreamIds);
+  }
+
+  public Map<String, InputOperatorSpec> getInputOperators() {
+    return Collections.unmodifiableMap(inputOperators);
+  }
+
+  public Map<String, OutputStreamImpl> getOutputStreams() {
+    return Collections.unmodifiableMap(outputStreams);
   }
 
   public OperatorSpecGraph getOperatorSpecGraph() {
@@ -287,8 +165,8 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     }
 
     String nextOpId = String.format("%s-%s-%s-%s",
-        config.get(JobConfig.JOB_NAME()),
-        config.get(JobConfig.JOB_ID(), "1"),
+        getConfig().get(JobConfig.JOB_NAME()),
+        getConfig().get(JobConfig.JOB_ID(), "1"),
         opCode.name().toLowerCase(),
         StringUtils.isNotBlank(userDefinedId) ? userDefinedId.trim() : String.valueOf(nextOpNum));
     if (!operatorIds.add(nextOpId)) {
@@ -310,18 +188,6 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     return getNextOpId(opCode, null);
   }
 
-  public Map<String, InputOperatorSpec> getInputOperators() {
-    return Collections.unmodifiableMap(inputOperators);
-  }
-
-  public Map<String, OutputStreamImpl> getOutputStreams() {
-    return Collections.unmodifiableMap(outputStreams);
-  }
-
-  public Map<String, TableImpl> getTables() {
-    return Collections.unmodifiableMap(tables);
-  }
-
   /**
    * Internal helper for {@link MessageStreamImpl} to add an intermediate {@link MessageStream} to the graph.
    * An intermediate {@link MessageStream} is both an output and an input stream.
@@ -340,7 +206,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
 
     if (isBroadcast) {
-      broadcastStreams.add(streamId);
+      intermediateBroadcastStreamIds.add(streamId);
     }
 
     boolean isKeyed = serde instanceof KVSerde;
@@ -355,13 +221,5 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     inputOperators.put(streamId, inputOperatorSpec);
     outputStreams.put(streamId, new OutputStreamImpl(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamId), outputStreams.get(streamId));
-  }
-
-  // check uniqueness of the {@code systemDescriptor} and add if it is unique
-  private void addSystemDescriptor(SystemDescriptor systemDescriptor) {
-    Preconditions.checkState(!systemDescriptors.containsKey(systemDescriptor.getSystemName())
-            || systemDescriptors.get(systemDescriptor.getSystemName()) == systemDescriptor,
-        "Must not use different system descriptor instances for the same system name: " + systemDescriptor.getSystemName());
-    systemDescriptors.put(systemDescriptor.getSystemName(), systemDescriptor);
   }
 }

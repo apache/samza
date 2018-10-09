@@ -25,7 +25,6 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.table.Table;
 
 
@@ -34,17 +33,6 @@ import org.apache.samza.table.Table;
  */
 @InterfaceStability.Evolving
 public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {
-
-  /**
-   * Sets the default SystemDescriptor to use for intermediate streams. This is equivalent to setting
-   * {@code job.default.system} and its properties in configuration.
-   * <p>
-   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
-   *
-   * @param defaultSystemDescriptor the default system descriptor to use
-   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
-   */
-  StreamApplicationDescriptor withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
    * Gets the input {@link MessageStream} corresponding to the {@code inputDescriptor}.
