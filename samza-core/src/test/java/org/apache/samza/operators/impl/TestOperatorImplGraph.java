@@ -613,7 +613,7 @@ public class TestOperatorImplGraph {
         MessageStream messageStream3 =
             appDesc.getInputStream(inputDescriptor3)
                 .filter(m -> true)
-                .partitionBy(m -> "m", m -> m, "p1")
+                .partitionBy(m -> "m", m -> m, mock(KVSerde.class),  "p1")
                 .map(m -> m);
         OutputStream<Object> outputStream1 = appDesc.getOutputStream(outputDescriptor1);
         OutputStream<Object> outputStream2 = appDesc.getOutputStream(outputDescriptor2);
@@ -621,7 +621,7 @@ public class TestOperatorImplGraph {
         messageStream1
             .join(messageStream2, mock(JoinFunction.class),
                 mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-            .partitionBy(m -> "m", m -> m, "p2")
+            .partitionBy(m -> "m", m -> m, mock(KVSerde.class), "p2")
             .sendTo(outputStream1);
         messageStream3
             .join(messageStream2, mock(JoinFunction.class),

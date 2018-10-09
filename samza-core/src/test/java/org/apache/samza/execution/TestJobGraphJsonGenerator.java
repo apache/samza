@@ -178,12 +178,12 @@ public class TestJobGraphJsonGenerator {
                 .map(m -> m);
         MessageStream<KV<Object, Object>> messageStream2 =
             appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, "p1")
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
                 .filter(m -> true);
         MessageStream<KV<Object, Object>> messageStream3 =
             appDesc.getInputStream(input3Descriptor)
                 .filter(m -> true)
-                .partitionBy(m -> m.key, m -> m.value, "p2")
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
                 .map(m -> m);
         OutputStream<KV<Object, Object>> outputStream1 = appDesc.getOutputStream(output1Descriptor);
         OutputStream<KV<Object, Object>> outputStream2 = appDesc.getOutputStream(output2Descriptor);
@@ -250,7 +250,7 @@ public class TestJobGraphJsonGenerator {
         MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream(pageView);
         OutputStream<KV<String, Long>> outputStream = appDesc.getOutputStream(pageViewCount);
         inputStream
-            .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), "keyed-by-country")
+            .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), pvSerde, "keyed-by-country")
             .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
                 Duration.ofSeconds(10L),
                 () -> 0L,

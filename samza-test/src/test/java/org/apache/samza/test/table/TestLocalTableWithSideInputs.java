@@ -135,7 +135,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
       KafkaSystemDescriptor sd =
           new KafkaSystemDescriptor("test");
       appDesc.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
+          .partitionBy(TestTableData.PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "partition-page-view")
           .join(table, new PageViewToProfileJoinFunction())
           .sendTo(appDesc.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
     }

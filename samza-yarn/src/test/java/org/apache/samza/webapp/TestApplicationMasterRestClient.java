@@ -44,6 +44,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaResource;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GroupByContainerCount;
@@ -275,7 +276,9 @@ public class TestApplicationMasterRestClient {
         new TaskModel(new TaskName("task2"),
             ImmutableSet.of(new SystemStreamPartition(new SystemStream("system1", "stream1"), new Partition(1))),
             new Partition(1)));
-    GroupByContainerCount grouper = new GroupByContainerCount(2);
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_CONTAINER_COUNT(), String.valueOf(2));
+    GroupByContainerCount grouper = new GroupByContainerCount(new MapConfig(config));
     Set<ContainerModel> containerModels = grouper.group(taskModels);
     HashMap<String, ContainerModel> containers = new HashMap<>();
     for (ContainerModel containerModel : containerModels) {

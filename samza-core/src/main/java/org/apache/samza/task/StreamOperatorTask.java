@@ -121,7 +121,9 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
 
   @Override
   public void close() throws Exception {
-    operatorImplGraph.close();
+    if (operatorImplGraph != null) {
+      operatorImplGraph.close();
+    }
   }
 
   /* package private for testing */
