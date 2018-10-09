@@ -22,7 +22,7 @@ package org.apache.samza.runtime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import org.apache.log4j.MDC;
+import org.slf4j.MDC;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
@@ -139,7 +139,6 @@ public class LocalContainerRunner {
     }
 
     container.run();
-
     if (heartbeatMonitor != null) {
       heartbeatMonitor.stop();
     }

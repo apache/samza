@@ -9,27 +9,33 @@
   License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
-<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
 
-<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+<Configuration>
+  <Appenders>
+    <Console name="STDOUT" target="SYSTEM_OUT">
+      <PatternLayout pattern="[%t] %c{1} [%p] %m%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="info">
+      <AppenderRef ref="STDOUT"/>
+    </Root>
 
-  <appender name="console" class="org.apache.log4j.ConsoleAppender">
-    <layout class="org.apache.log4j.PatternLayout">
-      <param name="ConversionPattern"
-             value="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n" />
-    </layout>
-  </appender>
+    <Logger name="STARTUP_LOGGER" level="info" additivity="false">
+      <AppenderRef ref="STDOUT"/>
+    </Logger>
 
-  <logger name="org.apache" additivity="false">
-    <level value="DEBUG"/>
-    <appender-ref ref="console"/>
-  </logger>
+    <Logger name="org.apache.hadoop" level="error"></Logger>
 
-  <root>
-    <priority value ="DEBUG" />
-    <appender-ref ref="console"/>
-  </root>
+    <Logger name="org.I0Itec.zkclient" level="error"></Logger>
 
+    <Logger name="org.apache.zookeeper" level="error"></Logger>
 
-</log4j:configuration>
+    <Logger name="org.apache.samza.system.kafka" level="error"></Logger>
 
+    <Logger name="org.apache.kafka" level="error"></Logger>
+
+    <Logger name="kafka" level="error"></Logger>
+
+  </Loggers>
+</Configuration>

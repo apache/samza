@@ -560,7 +560,9 @@ object SamzaContainer extends Logging {
               case _ => null
             }
 
-            val storeDir = if (changeLogSystemStreamPartition != null) {
+            // We use the logged storage base directory for change logged and side input stores since side input stores
+            // dont have changelog configured.
+            val storeDir = if (changeLogSystemStreamPartition != null || sideInputStoresToSystemStreams.contains(storeName)) {
               TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             } else {
               TaskStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
