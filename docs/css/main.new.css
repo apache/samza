@@ -95,9 +95,23 @@ a.side-navigation__group-title:hover::after {
 }
 
 .content {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+    line-height: 25px;
+}
+
+.content--samza-intro {
   max-width: 1200px;
   margin: auto;
   padding: 20px;
+  line-height: 25px;
+  display: flex;
+  align-items: center;
+}
+
+.content--samza-intro p {
+  font-size: 18px;
   line-height: 25px;
 }
 
@@ -455,7 +469,7 @@ footer .side-by-side > * {
 }
 
 .section--highlight {
-  color: #9a9a9a;
+  color: #fbfbfb;
   background: #111;
   background-color: #111;
   background-image:  linear-gradient(to bottom, #3f3f3f, transparent 50%);
@@ -482,7 +496,7 @@ footer .side-by-side > * {
 }
 
 .section--what-is-samza {
-  padding: 0px 20px 100px;
+  padding: 0px 1px 1px;
 }
 
 .section--hero {
@@ -632,11 +646,11 @@ footer .side-by-side > * {
 }
 
 .section--highlight .section__item {
-  color: #7d7d7d;
+  color: #fbfbfb;
 }
 
 .section--highlight .section__item-title {
-  color: #848484;
+  color: #ec1c23;
 }
 
 .section__item-title {
@@ -2171,7 +2185,7 @@ ul.case-studies {
 }
 
 .meet-smoosh-content {
-  
+
 }
 
 @media only screen and (min-width:768px) {
@@ -2183,11 +2197,11 @@ ul.case-studies {
     width: 45%;
     margin-left: 5%;
   }
-  
+
   .meet-name-date-host-info {
     width: 50%;
   }
-  
+
 }
 
 

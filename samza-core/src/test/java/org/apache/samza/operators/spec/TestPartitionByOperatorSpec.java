@@ -136,7 +136,7 @@ public class TestPartitionByOperatorSpec {
     MapFunction<Object, Object> valueFn = m -> m;
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(keyFn, valueFn, testRepartitionedStreamName);
+        inputStream.partitionBy(keyFn, valueFn, mock(KVSerde.class), testRepartitionedStreamName);
       }, mockConfig);
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(
         String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
@@ -161,7 +161,7 @@ public class TestPartitionByOperatorSpec {
   public void testCopy() {
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), m -> m, testRepartitionedStreamName);
+        inputStream.partitionBy(m -> m.toString(), m -> m, mock(KVSerde.class), testRepartitionedStreamName);
       }, mockConfig);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
@@ -173,7 +173,7 @@ public class TestPartitionByOperatorSpec {
     ScheduledMapFn keyFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(keyFn, m -> m, "parByKey");
+        inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
       }, mockConfig);
   }
 
@@ -182,7 +182,7 @@ public class TestPartitionByOperatorSpec {
     WatermarkMapFn keyFn = new WatermarkMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(keyFn, m -> m, "parByKey");
+        inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
       }, mockConfig);
   }
 
@@ -191,7 +191,7 @@ public class TestPartitionByOperatorSpec {
     ScheduledMapFn valueFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
+        inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
       }, mockConfig);
   }
 
@@ -200,7 +200,7 @@ public class TestPartitionByOperatorSpec {
     WatermarkMapFn valueFn = new WatermarkMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<Object> inputStream = appDesc.getInputStream(testinputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), valueFn, "parByKey");
+        inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
       }, mockConfig);
   }
 }

@@ -191,7 +191,7 @@ The code snippet below illustrates the usage of table in Samza low level API.
  5    DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("mySystem");
  6 
  7    TableDescriptor<Integer, Profile> tableDesc = new InMemoryTableDescriptor(
- 8        "T1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()));
+ 8        "t1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()));
  9    GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
 10 
 11   appDesc.addTable(tableDesc); 

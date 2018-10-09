@@ -28,11 +28,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.container.IllegalContainerStateException;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -101,10 +101,10 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
-  private final ExecutorService executorService;
+  private final ExecutorService containerExcecutorService;
   private final Object lock = new Object();
 
-  private Throwable containerException = null;
+  private volatile Throwable containerException = null;
 
   volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
 
@@ -198,7 +198,7 @@ public class StreamProcessor {
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
     // TODO: remove the dependency on jobCoordinator for processorId after fixing SAMZA-1835
     this.processorId = this.jobCoordinator.getProcessorId();
     this.processorListener = listenerFactory.createInstance(this);
@@ -258,7 +258,7 @@ public class StreamProcessor {
           boolean hasContainerShutdown = stopSamzaContainer();
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
-            executorService.shutdownNow();
+            containerExcecutorService.shutdownNow();
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
@@ -298,22 +298,28 @@ public class StreamProcessor {
   private boolean stopSamzaContainer() {
     boolean hasContainerShutdown = true;
     if (container != null) {
-      if (!container.hasStopped()) {
-        try {
-          container.shutdown();
-          LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
-          hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-        } catch (IllegalContainerStateException icse) {
-          LOGGER.info(String.format("Cannot shutdown container: %s for stream processor: %s. Container is not running.", container, processorId), icse);
-        } catch (Exception e) {
-          LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
-          hasContainerShutdown = false;
+      try {
+        container.shutdown();
+        LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
+        hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
+        hasContainerShutdown = false;
+        if (containerException != null) {
+          containerException = e;
         }
-        LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
-      } else {
-        LOGGER.info("Container is not instantiated for stream processor: {}.", processorId);
       }
+      LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
     }
+
+    // We want to propagate TimeoutException when container shutdown times out. It is possible that the timeout exception
+    // we propagate to the application runner maybe overwritten by container failure cause in case of interleaved execution.
+    // It is acceptable since container exception is much more useful compared to timeout exception.
+    // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
+    if (!hasContainerShutdown && containerException == null) {
+      containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+    }
+
     return hasContainerShutdown;
   }
 
@@ -348,7 +354,7 @@ public class StreamProcessor {
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            executorService.submit(container);
+            containerExcecutorService.submit(container);
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -359,8 +365,12 @@ public class StreamProcessor {
       public void onCoordinatorStop() {
         synchronized (lock) {
           LOGGER.info("Shutting down the executor service of the stream processor: {}.", processorId);
-          stopSamzaContainer();
-          executorService.shutdownNow();
+          boolean hasContainerShutdown = stopSamzaContainer();
+
+          // we only want to interrupt when container shutdown times out.
+          if (!hasContainerShutdown) {
+            containerExcecutorService.shutdownNow();
+          }
           state = State.STOPPED;
         }
         if (containerException != null)
@@ -374,8 +384,12 @@ public class StreamProcessor {
       public void onCoordinatorFailure(Throwable throwable) {
         synchronized (lock) {
           LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
-          stopSamzaContainer();
-          executorService.shutdownNow();
+          boolean hasContainerShutdown = stopSamzaContainer();
+
+          // we only want to interrupt when container shutdown times out.
+          if (!hasContainerShutdown) {
+            containerExcecutorService.shutdownNow();
+          }
           state = State.STOPPED;
         }
         processorListener.afterFailure(throwable);
@@ -413,6 +427,7 @@ public class StreamProcessor {
     @Override
     public void afterStop() {
       containerShutdownLatch.countDown();
+
       synchronized (lock) {
         if (state == State.IN_REBALANCE) {
           LOGGER.info("Container: {} of the stream processor: {} was stopped by the JobCoordinator.", container, processorId);
@@ -426,11 +441,12 @@ public class StreamProcessor {
 
     @Override
     public void afterFailure(Throwable t) {
+      containerException = t;
       containerShutdownLatch.countDown();
+
       synchronized (lock) {
         LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), t);
         state = State.STOPPING;
-        containerException = t;
         jobCoordinator.stop();
       }
     }

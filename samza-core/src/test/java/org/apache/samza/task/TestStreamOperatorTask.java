@@ -19,12 +19,37 @@
 
 package org.apache.samza.task;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.junit.Test;
+
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestStreamOperatorTask {
 
   public static OperatorImplGraph getOperatorImplGraph(StreamOperatorTask task) {
     return task.getOperatorImplGraph();
+  }
+
+  @Test
+  public void testCloseDuringInitializationErrors() {
+    ContextManager mockContextManager = mock(ContextManager.class);
+    StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class), mockContextManager);
+
+    doThrow(new RuntimeException("Failed to initialize context manager"))
+        .when(mockContextManager).init(any(), any());
+
+    try {
+      operatorTask.init(mock(Config.class), mock(TaskContext.class));
+      operatorTask.close();
+    } catch (Exception e) {
+      if (e instanceof NullPointerException) {
+        fail("Unexpected null pointer exception");
+      }
+    }
   }
 }

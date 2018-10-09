@@ -139,7 +139,7 @@ public class TestExecutionPlanner {
         MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input1Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         input1
-            .partitionBy(m -> m.key, m -> m.value, "p1")
+            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
             .map(kv -> kv)
             .sendTo(output1);
       }, config);
@@ -163,12 +163,12 @@ public class TestExecutionPlanner {
                 .map(m -> m);
         MessageStream<KV<Object, Object>> messageStream2 =
             appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, "p1")
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
                 .filter(m -> true);
         MessageStream<KV<Object, Object>> messageStream3 =
             appDesc.getInputStream(input3Descriptor)
                 .filter(m -> true)
-                .partitionBy(m -> m.key, m -> m.value, "p2")
+                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
                 .map(m -> m);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
@@ -191,9 +191,14 @@ public class TestExecutionPlanner {
     return new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor).map(m -> m);
         MessageStream<KV<Object, Object>> messageStream2 =
-          appDesc.getInputStream(input2Descriptor).partitionBy(m -> m.key, m -> m.value, "p1").filter(m -> true);
+          appDesc.getInputStream(input2Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+              .filter(m -> true);
         MessageStream<KV<Object, Object>> messageStream3 =
-          appDesc.getInputStream(input3Descriptor).filter(m -> true).partitionBy(m -> m.key, m -> m.value, "p2").map(m -> m);
+          appDesc.getInputStream(input3Descriptor)
+              .filter(m -> true)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
+              .map(m -> m);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
         OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
 
@@ -483,7 +488,7 @@ public class TestExecutionPlanner {
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
         MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        input1.partitionBy(m -> m.key, m -> m.value, "p1").map(kv -> kv).sendTo(output1);
+        input1.partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1").map(kv -> kv).sendTo(output1);
       }, config);
 
     JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);

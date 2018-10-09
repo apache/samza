@@ -334,27 +334,16 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
    */
   @VisibleForTesting
   public <M> IntermediateMessageStreamImpl<M> getIntermediateStream(String streamId, Serde<M> serde, boolean isBroadcast) {
+    Preconditions.checkNotNull(serde, "serde must not be null for intermediate stream: " + streamId);
     Preconditions.checkState(!inputOperators.containsKey(streamId) && !outputStreams.containsKey(streamId),
         "getIntermediateStream must not be called multiple times with the same streamId: " + streamId);
-
-    if (serde == null) {
-      LOGGER.info("No serde provided for intermediate stream: " + streamId +
-          ". Key and message serdes configured for the job.default.system will be used.");
-    }
 
     if (isBroadcast) {
       broadcastStreams.add(streamId);
     }
 
-    boolean isKeyed;
-    KV<Serde, Serde> kvSerdes;
-    if (serde == null) { // if no explicit serde available
-      isKeyed = true; // assume keyed stream
-      kvSerdes = new KV<>(null, null); // and that key and msg serdes are provided for job.default.system in configs
-    } else {
-      isKeyed = serde instanceof KVSerde;
-      kvSerdes = getOrCreateStreamSerdes(streamId, serde);
-    }
+    boolean isKeyed = serde instanceof KVSerde;
+    KV<Serde, Serde> kvSerdes = getOrCreateStreamSerdes(streamId, serde);
 
     InputTransformer transformer = (InputTransformer) getDefaultSystemDescriptor()
         .flatMap(SystemDescriptor::getTransformer).orElse(null);
