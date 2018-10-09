@@ -21,20 +21,16 @@ package org.apache.samza.storage.kv;
 
 import java.util.ArrayList;
 
-import java.util.Base64;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.SerializerConfig$;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
-import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.Util;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
@@ -74,33 +70,6 @@ public class RocksDbKeyValueReader {
     SamzaContainerContext samzaContainerContext =
         new SamzaContainerContext("0",  config, taskNameList, new MetricsRegistryMap());
     Options options = RocksDbOptionsHelper.options(config, samzaContainerContext);
-
-    // open the db
-    RocksDB.loadLibrary();
-    try {
-      db = RocksDB.openReadOnly(options, dbPath);
-    } catch (RocksDBException e) {
-      throw new SamzaException("can not open the rocksDb in " + dbPath, e);
-    }
-  }
-
-  /**
-   * Construct the <code>RocksDbKeyValueReader</code> with store's descriptor,
-   * database's path and Samza's config
-   *
-   * @param descriptor describes rocksdb
-   * @param dbPath path to the db directory
-   */
-  public RocksDbKeyValueReader(RocksDbTableDescriptor descriptor, String dbPath) {
-    keySerde = descriptor.getSerde().getKeySerde();
-    valueSerde = descriptor.getSerde().getValueSerde();
-
-    // get db options
-    ArrayList<TaskName> taskNameList = new ArrayList<TaskName>();
-    taskNameList.add(new TaskName("read-rocks-db"));
-    SamzaContainerContext samzaContainerContext =
-        new SamzaContainerContext("0", new MapConfig(), taskNameList, new MetricsRegistryMap());
-    Options options = RocksDbOptionsHelper.options(new MapConfig(), samzaContainerContext);
 
     // open the db
     RocksDB.loadLibrary();

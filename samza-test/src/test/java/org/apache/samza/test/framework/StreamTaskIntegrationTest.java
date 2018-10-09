@@ -34,7 +34,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.storage.kv.RocksDbTableDescriptor;
+import org.apache.samza.storage.kv.inmemory.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -66,7 +66,8 @@ public class StreamTaskIntegrationTest {
     @Override
     public void describe(TaskApplicationDescriptor appDesc) {
       appDesc.setTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
-      appDesc.addTable(new RocksDbTableDescriptor("profile-view-store", KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+      appDesc.addTable(new InMemoryTableDescriptor("profile-view-store",
+          KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
       appDesc.addInputStream(profileISD);
@@ -108,10 +109,6 @@ public class StreamTaskIntegrationTest {
     List<PageView> pageViews = Arrays.asList(TestTableData.generatePageViews(10));
     List<Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
 
-    RocksDbTableDescriptor tableDescriptor =
-        new RocksDbTableDescriptor<Integer, Profile>("profile-view-store",
-            KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()));
-
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<TestTableData.PageView> pageViewStreamDesc = isd
@@ -132,7 +129,6 @@ public class StreamTaskIntegrationTest {
         .run(Duration.ofSeconds(2));
 
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
-    profiles.forEach(p -> StateAssert.contains(p.getMemberId(), tableDescriptor));
   }
 
   @Test

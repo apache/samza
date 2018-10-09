@@ -103,10 +103,6 @@ public class StreamApplicationIntegrationTest {
     List<TestTableData.PageView> pageViews = Arrays.asList(TestTableData.generatePageViews(10));
     List<TestTableData.Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
 
-    RocksDbTableDescriptor tableDescriptor =
-        new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
-            KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde()));
-
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
     InMemoryInputDescriptor<TestTableData.PageView> pageViewStreamDesc = isd
@@ -127,7 +123,6 @@ public class StreamApplicationIntegrationTest {
         .run(Duration.ofSeconds(2));
 
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
-    profiles.forEach(p -> StateAssert.contains(p.getMemberId(), tableDescriptor));
   }
 
   @Test

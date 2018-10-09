@@ -20,7 +20,14 @@
 package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -98,9 +105,16 @@ public class TestRunner {
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
-    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
+    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY,
+        PassthroughCoordinationUtilsFactory.class.getName());
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    // RockDb Tables if used needs this to be configured if no changelog is configured
+    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
+    // SideInput Tables needs this to be configured for persisting data
+    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // This is important because Table Api enables host affinity by default for RocksDb
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
@@ -254,9 +268,9 @@ public class TestRunner {
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
   public void run(Duration timeout) {
-    Preconditions.checkState(app != null,
-        "TestRunner should run for Low Level Task api or High Level Application Api");
+    Preconditions.checkState(app != null, "TestRunner should run for Low Level Task api or High Level Application Api");
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
+
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);
@@ -264,6 +278,14 @@ public class TestRunner {
     ApplicationStatus status = runner.status();
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
+    }
+    // Clean the state directory if any
+    Path stateDir = Paths.get(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
+    if (!Files.exists(stateDir)) return;
+    try {
+      Files.walk(stateDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+    } catch (IOException e) {
+      throw new SamzaException("Could not delete the JOB_NON_LOGGED_STORE_BASE_DIR due to: \n" + e.getMessage());
     }
   }
 
