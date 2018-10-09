@@ -21,6 +21,7 @@ package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
 
+import java.nio.file.FileSystems;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,7 +34,6 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.serializers.IntegerSerde;
@@ -64,7 +64,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   @Test
   public void testJoinWithSideInputsTable() {
     runTest(
-        "side-input-join",
+        "test",
         new PageViewProfileJoin(),
         Arrays.asList(TestTableData.generatePageViews(10)),
         Arrays.asList(TestTableData.generateProfiles(10)));
@@ -73,7 +73,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
   @Test
   public void testJoinWithDurableSideInputTable() {
     runTest(
-        "durable-side-input",
+        "test",
         new DurablePageViewProfileJoin(),
         Arrays.asList(TestTableData.generatePageViews(5)),
         Arrays.asList(TestTableData.generateProfiles(5)));
@@ -84,8 +84,12 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     Map<String, String> configs = new HashMap<>();
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM), systemName);
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PROFILE_STREAM), systemName);
+    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath("non-logged").toAbsolutePath().toString());
+    // SideInput Tables needs this to be configured for persisting data
+    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath("logged").toAbsolutePath().toString());
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), systemName);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);
 
@@ -103,8 +107,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
-        .addConfigs(new MapConfig(configs))
-        .addOverrideConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString())
+        .addConfig(new MapConfig(configs))
         .run(Duration.ofMillis(100000));
 
     try {
@@ -135,9 +138,9 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     public void describe(StreamApplicationDescriptor appDesc) {
       Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
       KafkaSystemDescriptor sd =
-          new KafkaSystemDescriptor(appDesc.getConfig().get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM)));
+          new KafkaSystemDescriptor("test");
       appDesc.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
-          .partitionBy(TestTableData.PageView::getMemberId, v -> v, "partition-page-view")
+          .partitionBy(TestTableData.PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "partition-page-view")
           .join(table, new PageViewToProfileJoinFunction())
           .sendTo(appDesc.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
     }
@@ -148,7 +151,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
           .withSideInputsProcessor((msg, store) -> {
               Profile profile = (Profile) msg.getMessage();
               int key = profile.getMemberId();
-
               return ImmutableList.of(new Entry<>(key, profile));
             });
     }
@@ -162,7 +164,6 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
           .withSideInputsProcessor((msg, store) -> {
               TestTableData.Profile profile = (TestTableData.Profile) msg.getMessage();
               int key = profile.getMemberId();
-
               return ImmutableList.of(new Entry<>(key, profile));
             });
     }

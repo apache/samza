@@ -12,29 +12,31 @@ items:
     items_attributes: 'data-documentation="/learn/documentation/version/"'
   - menu_title: Releases
     get_items: releases
-    map_title: version
-    map_url: link
     sort: 'order'
     reverse: true
   - menu_title: Blog
-    url: '/news/'
+    url: '/blog/'
   - menu_title: Community
     items:
       - menu_title: Contact Us
-        url: '/community/mailing-lists.html'
-      - menu_title: Contributor's Corner 
+        url: '/community/contact-us.html'
+      - menu_title: Contributor's Corner
         url: '/contribute/contributors-corner.html'
+      - menu_title: Enhancement Proposal
+        url: '/contribute/enhancement-proposal.html'
       - menu_title: PMC members and committers
         url: '/community/committers.html'
-      - menu_title: Talks and Meetups 
+      - menu_title: Talks and Meetups
         url: '/meetups/'
 
   - menu_title: Case Studies
     get_items: case-studies
+    sort: 'priority'
     items:
       - menu_title: View All
         url: /case-studies/
-      - divider: true        
+        match_active: 'exact'
+      - divider: true
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -69,7 +71,6 @@ items:
     {% else %}
       {% assign has_sub = false %}
     {% endif %}
-    
     <!-- Start Group -->
     {% if has_sub %}
     <div class="side-navigation__group side-navigation__group--has-nested" data-plugin="sub-menu" data-sub-menu-show-class="side-navigation__group--has-nested-visible">
@@ -85,7 +86,7 @@ items:
       </div>
       <div class="side-navigation__group-items {{ sub_class }}" data-sub-menu {{ item.items_attributes | replace: 'version', site.version }}>
     {% else %}
-      <a class="side-navigation__group-title" href="{{ item.url | replace: 'version', site.version }}">
+      <a class="side-navigation__group-title" data-plugin="top-menu" data-match-active="{{ item.match_active }}" href="{{ item.url | replace: 'version', site.version }}">
         {{ item.menu_title }}
       </a>
     {% endif %}
@@ -97,7 +98,7 @@ items:
           <hr>
           {% continue %}
         {% endif %}
-      <a class="side-navigation__group-item" href="{{ subitem.url | replace: 'version', site.version }}">{{ subitem.menu_title }}</a>
+      <a class="side-navigation__group-item" data-match-active="{{ subitem.match_active }}" href="{{ subitem.url | replace: 'version', site.version }}">{{ subitem.menu_title }}</a>
       {% endfor %}
 
     {% endif %}
@@ -126,6 +127,7 @@ items:
 
         {% assign url = subitem.url %}
         {% assign menu_title = subitem.menu_title %}
+        {% assign match_active = '' %}
 
         {% if item.map_title %}
           {% assign menu_title = subitem[item.map_title] %}
@@ -135,7 +137,11 @@ items:
           {% assign url = subitem[item.map_url] %}
         {% endif %}
 
-      <a class="side-navigation__group-item" href="{{ url }}">{{ menu_title }}</a>
+        {% if item.match_active %}
+          {% assign match_active = subitem[item.match_active] %}
+        {% endif %}
+
+      <a class="side-navigation__group-item" href="{{ url }}" data-match-active="{{ match_active }}">{{ menu_title }}</a>
       {% endfor %}
 
     {% endif %}

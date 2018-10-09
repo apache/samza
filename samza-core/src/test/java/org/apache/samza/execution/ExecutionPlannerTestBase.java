@@ -109,7 +109,7 @@ class ExecutionPlannerTestBase {
   StreamApplication getRepartitionOnlyStreamApplication() {
     return appDesc -> {
       MessageStream<KV<String, Object>> input1 = appDesc.getInputStream(input1Descriptor);
-      input1.partitionBy(KV::getKey, KV::getValue, "p1");
+      input1.partitionBy(KV::getKey, KV::getValue, mock(KVSerde.class), "p1");
     };
   }
 
@@ -147,11 +147,7 @@ class ExecutionPlannerTestBase {
   StreamApplication getBroadcastOnlyStreamApplication(Serde serde) {
     return appDesc -> {
       MessageStream<KV<String, Object>> input = appDesc.getInputStream(input1Descriptor);
-      if (serde != null) {
-        input.broadcast(serde, "b1");
-      } else {
-        input.broadcast("b1");
-      }
+      input.broadcast(serde, "b1");
     };
   }
 }
