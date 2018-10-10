@@ -20,14 +20,23 @@
 package org.apache.samza.sql.runner;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
+import org.apache.samza.operators.ContextManager;
+import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
+import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.translator.QueryTranslator;
+import org.apache.samza.sql.translator.TranslatorContext;
+import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,12 +47,15 @@ import org.slf4j.LoggerFactory;
 public class SamzaSqlApplication implements StreamApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlApplication.class);
+  private AtomicInteger queryId = new AtomicInteger(0);
 
   @Override
   public void describe(StreamApplicationDescriptor appDesc) {
     try {
       // TODO: Introduce an API to return a dsl string containing one or more sql statements.
       List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(appDesc.getConfig());
+
+      Map<Integer, TranslatorContext> translatorContextMap = new HashMap<>();
 
       // 1. Get Calcite plan
       Set<String> inputSystemStreams = new HashSet<>();
@@ -58,11 +70,28 @@ public class SamzaSqlApplication implements StreamApplication {
           new SamzaSqlApplicationConfig(appDesc.getConfig(), inputSystemStreams, outputSystemStreams);
 
       // 3. Translate Calcite plan to Samza stream operators
-      QueryTranslator queryTranslator = new QueryTranslator(sqlConfig);
+      QueryTranslator queryTranslator = new QueryTranslator(appDesc, sqlConfig);
+      SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
+      Map<String, SamzaRelConverter> converters = sqlConfig.getSamzaRelConverters();
       for (RelRoot relRoot : relRoots) {
         LOG.info("Translating relRoot {} to samza stream graph", relRoot);
-        queryTranslator.translate(relRoot, appDesc);
+        int qId = queryId.incrementAndGet();
+        TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext, converters);
+        translatorContextMap.put(qId, translatorContext);
+        queryTranslator.translate(relRoot, translatorContext, qId);
       }
+
+      // 4. Set all translator contexts in TaskContext
+      appDesc.withContextManager(new ContextManager() {
+        @Override
+        public void init(Config config, TaskContext taskContext) {
+          taskContext.setUserContext(translatorContextMap);
+        }
+
+        @Override
+        public void close() {
+        }
+      });
     } catch (RuntimeException e) {
       LOG.error("SamzaSqlApplication threw exception.", e);
       throw e;

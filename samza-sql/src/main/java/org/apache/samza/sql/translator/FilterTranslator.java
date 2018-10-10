@@ -22,6 +22,7 @@ package org.apache.samza.sql.translator;
 import java.util.Arrays;
 import java.util.Collections;
 
+import java.util.Map;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.MessageStream;
@@ -40,21 +41,28 @@ import org.slf4j.LoggerFactory;
 class FilterTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(FilterTranslator.class);
+  private final int queryId;
+
+  FilterTranslator(int queryId) {
+    this.queryId = queryId;
+  }
 
   private static class FilterTranslatorFunction implements FilterFunction<SamzaSqlRelMessage> {
     private transient Expression expr;
     private transient TranslatorContext context;
     private transient LogicalFilter filter;
+    private final int queryId;
 
     private final int filterId;
 
-    FilterTranslatorFunction(int filterId) {
+    FilterTranslatorFunction(int filterId, int queryId) {
       this.filterId = filterId;
+      this.queryId = queryId;
     }
 
     @Override
-    public void init(Config config, TaskContext context) {
-      this.context = (TranslatorContext) context.getUserContext();
+    public void init(Config config, TaskContext taskContext) {
+      this.context = ((Map<Integer, TranslatorContext>) taskContext.getUserContext()).get(queryId);
       this.filter = (LogicalFilter) this.context.getRelNode(filterId);
       this.expr = this.context.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
     }
@@ -81,7 +89,7 @@ class FilterTranslator {
     MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(filter.getInput().getId());
     final int filterId = filter.getId();
 
-    MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(new FilterTranslatorFunction(filterId));
+    MessageStream<SamzaSqlRelMessage> outputStream = inputStream.filter(new FilterTranslatorFunction(filterId, queryId));
 
     context.registerMessageStream(filterId, outputStream);
     context.registerRelNode(filterId, filter);
