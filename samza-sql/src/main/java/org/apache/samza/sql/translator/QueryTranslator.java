@@ -168,10 +168,13 @@ public class QueryTranslator {
     });
 
     // the snippet below will be performed only when sql is a query statement
-
-    if (sqlConfig.getOutputSystemStreamConfigsBySource().containsKey(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM)) {
-      sendToOutputStream(appDesc, translatorContext, node);
-    }
+    sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
+        key -> {
+          if (key.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
+            sendToOutputStream(appDesc, translatorContext, node, key);
+          }
+        }
+    );
 
     /*
      * TODO When serialization of ApplicationDescriptor is actually needed, then something will need to be updated here,
@@ -186,10 +189,10 @@ public class QueryTranslator {
         new SamzaSqlApplicationContext(translatorContext.clone()));
   }
 
-  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node) {
-    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM);
+  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, String sink) {
+    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sink);
     MessageStream<SamzaSqlRelMessage> stream = context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(SamzaSqlApplicationConfig.LOG_OUTPUT_STREAM));
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sink));
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
       KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());

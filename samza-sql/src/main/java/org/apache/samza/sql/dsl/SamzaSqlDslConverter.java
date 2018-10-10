@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 public class SamzaSqlDslConverter implements DslConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlDslConverter.class);
-  private static final String LOG_OUTPUT_STREAM = "log.outputStream";
 
   private final Config config;
 
@@ -67,7 +66,7 @@ public class SamzaSqlDslConverter implements DslConverter {
     for (String sql: sqlStmts) {
       // when sql is a query, we only pass the select query to the planner
       SamzaSqlQueryParser.QueryInfo qinfo = SamzaSqlQueryParser.parseQuery(sql);
-      if (qinfo.getSink().equals(LOG_OUTPUT_STREAM)) {
+      if (qinfo.getSink().split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
         sql = qinfo.getSelectQuery();
       }
 
