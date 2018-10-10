@@ -388,7 +388,7 @@ public class TestRunner {
       });
   }
 
-  private void deleteStoreDirectories(){
+  private void deleteStoreDirectories() {
     Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()),
         configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
     deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
@@ -397,10 +397,10 @@ public class TestRunner {
 
   private void deleteDirectory(String path) {
     File dir = new File(path);
-    LOG.info("Deleting the directory "+path);
+    LOG.info("Deleting the directory " + path);
     FileUtil.rm(dir);
     if (dir.exists()) {
-      LOG.warn("Could not delete the directory "+path);
+      LOG.warn("Could not delete the directory " + path);
     }
   }
 }

@@ -21,7 +21,6 @@ package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
 
-import java.nio.file.FileSystems;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -31,7 +30,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.KV;
