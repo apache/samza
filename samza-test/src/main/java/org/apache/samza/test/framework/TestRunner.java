@@ -21,13 +21,8 @@ package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -68,7 +63,11 @@ import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.util.FileUtil;
 import org.junit.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * TestRunner provides APIs to set up integration tests for a Samza application.
@@ -87,6 +86,7 @@ import org.junit.Assert;
  *
  */
 public class TestRunner {
+  private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
   private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
   private static final String JOB_NAME = "samza-test";
 
@@ -105,14 +105,16 @@ public class TestRunner {
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
-    // RockDb Tables if used needs this to be configured if no changelog is configured
+    // Changing the base directory for non-changelog stores used by Samza application to separate the
+    // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
         FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
-    // SideInput Tables needs this to be configured for persisting data
+    // Changing the base directory for changelog stores (here SideInput) used by Samza application to separate the
+    // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
         FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
-    // This is important because Table Api enables host affinity by default for RocksDb
+    // Disabling host affinity since Table Api enables it by default for RocksDb and expects coordinator stream
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
     addConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).withInMemoryScope(inMemoryScope).toConfig());
@@ -264,25 +266,20 @@ public class TestRunner {
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
   public void run(Duration timeout) {
-    Preconditions.checkState(app != null, "TestRunner should run for Low Level Task api or High Level Application Api");
+    Preconditions.checkState(app != null, "No Samza application to run");
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
-
+    // Cleaning store directories to ensure current run does not pick up state from previous run
+    deleteStoreDirectories();
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
     boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
     ApplicationStatus status = runner.status();
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
+      deleteStoreDirectories();
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }
-    // Clean the state directory if any
-    Path stateDir = Paths.get(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
-    if (!Files.exists(stateDir)) return;
-    try {
-      Files.walk(stateDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-    } catch (IOException e) {
-      throw new SamzaException("Could not delete the JOB_NON_LOGGED_STORE_BASE_DIR due to: \n" + e.getMessage());
-    }
+    deleteStoreDirectories();
   }
 
   /**
@@ -389,5 +386,21 @@ public class TestRunner {
         producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
             new EndOfStreamMessage(null)));
       });
+  }
+
+  private void deleteStoreDirectories(){
+    Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()),
+        configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
+    deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
+    deleteDirectory(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()));
+  }
+
+  private void deleteDirectory(String path) {
+    File dir = new File(path);
+    LOG.info("Deleting the directory "+path);
+    FileUtil.rm(dir);
+    if (dir.exists()) {
+      LOG.warn("Could not delete the directory "+path);
+    }
   }
 }
