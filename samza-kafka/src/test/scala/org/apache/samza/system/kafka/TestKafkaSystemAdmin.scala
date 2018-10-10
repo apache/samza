@@ -155,7 +155,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     new KafkaSystemAdmin(
       system,
       config,
-      KafkaSystemConsumer.getKafkaConsumerImpl(system, consumerConfig))
+      KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig))
   }
 }
 

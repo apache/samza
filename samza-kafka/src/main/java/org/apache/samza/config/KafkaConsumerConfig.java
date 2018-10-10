@@ -42,8 +42,6 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
-  public static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
-  public static final String ADMIN_CLIENT_ID_PREFIX = "kafka-admin-metadata";
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
 
   public static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
@@ -66,17 +64,17 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   /**
    * Create kafka consumer configs, based on the subset of global configs.
-   * @param config
-   * @param systemName
-   * @param idPrefix - prefix for the client id provided by the caller
+   * @param config application config
+   * @param systemName system name
+   * @param clientIdPrefix prefix for the client id provided by the caller
    * @return KafkaConsumerConfig
    */
-  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String idPrefix) {
+  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientIdPrefix) {
 
     Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
     final String groupId = createConsumerGroupId(config);
-    final String clientId = createClientId(idPrefix, config);
+    final String clientId = createClientId(clientIdPrefix, config);
 
     Map<String, Object> consumerProps = new HashMap<>();
     consumerProps.putAll(subConf);
@@ -126,7 +124,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public String getClientId() {
     String clientId = (String) get(ConsumerConfig.CLIENT_ID_CONFIG);
-    if (clientId == null) {
+    if (StringUtils.isBlank(clientId)) {
       throw new SamzaException("client Id is not set for consumer for system=" + systemName);
     }
     return clientId;

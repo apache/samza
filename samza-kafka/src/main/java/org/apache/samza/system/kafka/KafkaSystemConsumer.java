@@ -114,7 +114,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @param kafkaConsumerConfig config object for Kafka's KafkaConsumer
    * @return KafkaConsumer object
    */
-  public static <K,V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName,
+  public static <K,V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName,
       HashMap<String, Object> kafkaConsumerConfig) {
 
     LOG.info("Instantiating KafkaConsumer for systemName {} with properties {}", systemName, kafkaConsumerConfig);

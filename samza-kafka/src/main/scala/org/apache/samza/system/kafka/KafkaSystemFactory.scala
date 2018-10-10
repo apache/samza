@@ -49,7 +49,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "kafka-consumer");
 
-    val kafkaConsumer = KafkaSystemConsumer.getKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
+    val kafkaConsumer = KafkaSystemConsumer.createKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
     info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, kafkaConsumerConfig.getClientId, kafkaConsumer))
 
     val clientId = kafkaConsumerConfig.getClientId
@@ -62,7 +62,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
-    val clientId = KafkaConsumerConfig.createClientId(KafkaConsumerConfig.PRODUCER_CLIENT_ID_PREFIX, config);
+    val clientId = KafkaConsumerConfig.createClientId("kafka-producer", config);
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
@@ -84,9 +84,9 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
     // extract kafka client configs
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX)
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "kafka-admin-consumer")
 
-    new KafkaSystemAdmin(systemName, config, KafkaSystemConsumer.getKafkaConsumerImpl(systemName, consumerConfig))
+    new KafkaSystemAdmin(systemName, config, KafkaSystemConsumer.createKafkaConsumerImpl(systemName, consumerConfig))
   }
 
   def getCoordinatorTopicProperties(config: Config) = {

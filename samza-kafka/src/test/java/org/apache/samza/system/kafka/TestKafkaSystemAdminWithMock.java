@@ -117,23 +117,9 @@ public class TestKafkaSystemAdminWithMock {
     when(mockKafkaConsumer.endOffsets(ImmutableList.of(testTopicPartition0, testTopicPartition1))).thenReturn(
         testEndOffsets);
 
-    ZkUtils zkUtilsMock = mock(ZkUtils.class);
-    Supplier<ZkUtils> connectZk = () -> zkUtilsMock;
-
-    AdminClient adminClientMock = mock(AdminClient.class);
-    Supplier<AdminClient> connectAdminClient = () -> adminClientMock;
-
-    KafkaSystemFactory kafkaSystemFactory = new KafkaSystemFactory();
     kafkaSystemAdmin =
         new KafkaSystemAdmin(TEST_SYSTEM, testConfig, mockKafkaConsumer);
 
-    /*
-
-    KafkaSystemAdmin(String systemName, Supplier<Consumer<K, V>> metadataConsumerSupplier,
-        Supplier<ZkUtils> connectZk, Supplier<AdminClient> connectAdminClient,
-        Map<String, ChangelogInfo> changelogTopicMetaInformation, Map<String, Properties> intermediateStreamProperties,
-        Properties coordinatorStreamProperties, int coordinatorStreamReplicationFactor, boolean deleteCommittedMessages) {
-*/
   }
 
   @After

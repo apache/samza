@@ -28,7 +28,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestStreamConfig {
-  public static final String SYSTEM_STREAM_PATTERN = "systems.%s.streams.%s.";
+  private static final String SYSTEM_STREAM_PATTERN = "systems.%s.streams.%s.";
   private static final String STREAM_ID_PATTERN = "streams.%s.";
 
   private static final String STREAM1_SYSTEM = "Sys1";

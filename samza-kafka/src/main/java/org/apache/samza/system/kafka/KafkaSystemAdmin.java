@@ -105,44 +105,6 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
-  @Override
-  public void start() {
-    // Plese note. There is slight inconsistency in the use of this class.
-    // Some of the functionality of this class may actually be used BEFORE start() is called.
-    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply,
-    // but this "start" actually gets called in SamzaContainer.run.
-    // review this usage (SAMZA-1888)
-
-    // Throw exception if start is called after stop
-    if (stopped.get()) {
-      throw new IllegalStateException("SamzaKafkaAdmin.start() is called after stop()");
-    }
-
-    // Plese note. There is slight inconsistency in the use of this class.
-    // Some of the functinality of this class may actually be used BEFORE start() is called.
-    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
-    // Also we assume that start is called only once.
-    if (metadataConsumer == null) {
-      throw new SamzaException("Cannot start SamzaLiKafkaSystemAdmin with null metadataConsumer");
-    }
-  }
-
-  @Override
-  public void stop() {
-    if (stopped.compareAndSet(false, true)) {
-      try {
-        metadataConsumer.close();
-      } catch (Exception e) {
-        LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
-      }
-      try {
-        adminClient.close();
-      } catch (Exception e) {
-        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
-      }
-    }
-  }
-
   public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
     this.systemName = systemName;
 
@@ -208,6 +170,37 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
             .asJava();
 
     LOG.info(String.format("Creating KafkaSystemAdmin for system %s", systemName));
+  }
+
+
+  @Override
+  public void start() {
+    // Plese note. There is slight inconsistency in the use of this class.
+    // Some of the functionality of this class may actually be used BEFORE start() is called.
+    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply,
+    // but this "start" actually gets called in SamzaContainer.run.
+    // review this usage (SAMZA-1888)
+
+    // Throw exception if start is called after stop
+    if (stopped.get()) {
+      throw new IllegalStateException("SamzaKafkaAdmin.start() is called after stop()");
+    }
+  }
+
+  @Override
+  public void stop() {
+    if (stopped.compareAndSet(false, true)) {
+      try {
+        metadataConsumer.close();
+      } catch (Exception e) {
+        LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
+      }
+      try {
+        adminClient.close();
+      } catch (Exception e) {
+        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
+      }
+    }
   }
 
   /**
@@ -424,7 +417,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   }
 
   /**
-   * convert TopicPartition to SystemStreamPartition
+   * Convert TopicPartition to SystemStreamPartition
    * @param topicPartition the topic partition to be created
    * @return an instance of SystemStreamPartition
    */
