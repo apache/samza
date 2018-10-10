@@ -20,19 +20,21 @@
 package org.apache.samza.task;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 
 
-public class IdentityStreamTask implements StreamTask , InitableTask  {
+public class IdentityStreamTask implements StreamTask, InitableTask  {
   private int processedMessageCount = 0;
   private int expectedMessageCount;
   private String outputTopic;
   private String outputSystem;
 
   @Override
-  public void init(Config config, TaskContext taskContext) throws Exception {
+  public void init(Context context) throws Exception {
+    Config config = context.getJobContext().getConfig();
     this.expectedMessageCount = config.getInt("app.messageCount");
     this.outputTopic = config.get("app.outputTopic", "output");
     this.outputSystem = config.get("app.outputSystem", "test-system");

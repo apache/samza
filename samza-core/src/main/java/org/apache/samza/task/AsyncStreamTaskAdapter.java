@@ -20,7 +20,7 @@
 package org.apache.samza.task;
 
 import java.util.concurrent.ExecutorService;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 
@@ -40,9 +40,9 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
   }
 
   @Override
-  public void init(Config config, TaskContext context) throws Exception {
+  public void init(Context context) throws Exception {
     if (wrappedTask instanceof InitableTask) {
-      ((InitableTask) wrappedTask).init(config, context);
+      ((InitableTask) wrappedTask).init(context);
     }
   }
 

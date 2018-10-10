@@ -54,13 +54,13 @@ public class CachingTableProvider extends BaseTableProvider {
   @Override
   public Table getTable() {
     String realTableId = tableSpec.getConfig().get(REAL_TABLE_ID);
-    ReadableTable table = (ReadableTable) taskContext.getTable(realTableId);
+    ReadableTable table = (ReadableTable) this.context.getTaskContext().getTable(realTableId);
 
     String cacheTableId = tableSpec.getConfig().get(CACHE_TABLE_ID);
     ReadWriteTable cache;
 
     if (cacheTableId != null) {
-      cache = (ReadWriteTable) taskContext.getTable(cacheTableId);
+      cache = (ReadWriteTable) this.context.getTaskContext().getTable(cacheTableId);
     } else {
       cache = createDefaultCacheTable(realTableId);
       defaultCaches.add(cache);
@@ -68,7 +68,7 @@ public class CachingTableProvider extends BaseTableProvider {
 
     boolean isWriteAround = Boolean.parseBoolean(tableSpec.getConfig().get(WRITE_AROUND));
     CachingTable cachingTable = new CachingTable(tableSpec.getId(), table, cache, isWriteAround);
-    cachingTable.init(containerContext, taskContext);
+    cachingTable.init(this.context);
     return cachingTable;
   }
 
@@ -97,7 +97,7 @@ public class CachingTableProvider extends BaseTableProvider {
         readTtlMs, writeTtlMs, cacheSize));
 
     GuavaCacheTable cacheTable = new GuavaCacheTable(tableId + "-def-cache", cacheBuilder.build());
-    cacheTable.init(containerContext, taskContext);
+    cacheTable.init(this.context);
 
     return cacheTable;
   }

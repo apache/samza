@@ -18,11 +18,10 @@
  */
 package org.apache.samza.table.utils;
 
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
-import org.apache.samza.task.TaskContext;
 
 
 public class DefaultTableWriteMetrics {
@@ -43,14 +42,12 @@ public class DefaultTableWriteMetrics {
   /**
    * Utility class that contains the default set of write metrics.
    *
-   * @param containerContext container context
-   * @param taskContext task context
+   * @param context {@link Context} for this task
    * @param table underlying table
    * @param tableId table Id
    */
-  public DefaultTableWriteMetrics(SamzaContainerContext containerContext, TaskContext taskContext,
-      Table table, String tableId) {
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, table, tableId);
+  public DefaultTableWriteMetrics(Context context, Table table, String tableId) {
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
     putNs = tableMetricsUtil.newTimer("put-ns");
     putAllNs = tableMetricsUtil.newTimer("putAll-ns");
     deleteNs = tableMetricsUtil.newTimer("delete-ns");

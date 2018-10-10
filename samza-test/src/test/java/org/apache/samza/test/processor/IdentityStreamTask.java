@@ -20,13 +20,13 @@
 package org.apache.samza.test.processor;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 
 
@@ -37,7 +37,8 @@ public class IdentityStreamTask implements StreamTask , InitableTask  {
   private String outputSystem;
 
   @Override
-  public void init(Config config, TaskContext taskContext) throws Exception {
+  public void init(Context context) throws Exception {
+    Config config = context.getJobContext().getConfig();
     this.expectedMessageCount = config.getInt("app.messageCount");
     this.outputTopic = config.get("app.outputTopic", "output");
     this.outputSystem = config.get("app.outputSystem", "test-system");

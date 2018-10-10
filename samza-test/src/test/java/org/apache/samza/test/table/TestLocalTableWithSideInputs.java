@@ -20,7 +20,6 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;

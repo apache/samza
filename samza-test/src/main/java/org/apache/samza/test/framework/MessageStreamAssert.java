@@ -21,9 +21,7 @@ package org.apache.samza.test.framework;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.serializers.KVSerde;
@@ -31,10 +29,11 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.hamcrest.Matchers;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -148,10 +147,12 @@ class MessageStreamAssert<M> {
     }
 
     @Override
-    public void init(Config config, TaskContext context) {
-      final SystemStreamPartition ssp = Iterables.getFirst(context.getSystemStreamPartitions(), null);
+    public void init(Context context) {
+      final SystemStreamPartition ssp =
+          Iterables.getFirst(context.getTaskContext().getTaskModel().getSystemStreamPartitions(), null);
       if (ssp != null || ssp.getPartition().getPartitionId() == 0) {
-        final int count = checkEachTask ? context.getSamzaContainerContext().taskNames.size() : 1;
+        final int count =
+            checkEachTask ? context.getContainerContext().getContainerModel().getTasks().keySet().size() : 1;
         LATCHES.put(id, new CountDownLatch(count));
         timer.schedule(timerTask, TIMEOUT);
       }
