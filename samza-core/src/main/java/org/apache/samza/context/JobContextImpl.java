@@ -19,6 +19,8 @@
 package org.apache.samza.context;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import scala.Option;
 
 
 public class JobContextImpl implements JobContext {
@@ -26,10 +28,28 @@ public class JobContextImpl implements JobContext {
   private final String jobName;
   private final String jobId;
 
-  public JobContextImpl(Config config, String jobName, String jobId) {
+  private JobContextImpl(Config config, String jobName, String jobId) {
     this.config = config;
     this.jobName = jobName;
     this.jobId = jobId;
+  }
+
+  /**
+   * Build a {@link JobContextImpl} from a {@link Config} object.
+   * This extracts some information like job name and job id.
+   *
+   * @param config used to extract job information
+   * @return {@link JobContextImpl} corresponding to the {@code config}
+   * @throws IllegalArgumentException if job name is not defined in the {@code config}
+   */
+  public static JobContextImpl fromConfigWithDefaults(Config config) {
+    JobConfig jobConfig = new JobConfig(config);
+    Option<String> jobName = jobConfig.getName();
+    if (jobName.isEmpty()) {
+      throw new IllegalArgumentException("Job name is not defined in configuration");
+    }
+    String jobId = jobConfig.getJobId();
+    return new JobContextImpl(config, jobName.get(), jobId);
   }
 
   @Override

@@ -19,14 +19,17 @@
 
 package org.apache.samza.task;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.operators.ContextManager;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.util.Clock;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestStreamOperatorTask {
@@ -36,20 +39,19 @@ public class TestStreamOperatorTask {
   }
 
   @Test
-  public void testCloseDuringInitializationErrors() {
-    ContextManager mockContextManager = mock(ContextManager.class);
-    StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class), mockContextManager);
-
-    doThrow(new RuntimeException("Failed to initialize context manager"))
-        .when(mockContextManager).init(any(), any());
-
+  public void testCloseDuringInitializationErrors() throws Exception {
+    Context context = mock(Context.class);
+    JobContext jobContext = mock(JobContext.class);
+    when(context.getJobContext()).thenReturn(jobContext);
+    doThrow(new RuntimeException("Failed to get config")).when(jobContext).getConfig();
+    StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class), mock(Clock.class));
     try {
-      operatorTask.init(mock(Config.class), mock(TaskContext.class));
-      operatorTask.close();
-    } catch (Exception e) {
+      operatorTask.init(context);
+    } catch (RuntimeException e) {
       if (e instanceof NullPointerException) {
         fail("Unexpected null pointer exception");
       }
     }
+    operatorTask.close();
   }
 }

@@ -25,8 +25,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.metrics.MetricsReporterFactory;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TableDescriptor;
 import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
@@ -38,7 +41,6 @@ import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +49,8 @@ import org.slf4j.LoggerFactory;
  * This is the base class that implements interface {@link ApplicationDescriptor}.
  * <p>
  * This base class contains the common objects that are used by both high-level and low-level API applications, such as
- * {@link Config}, {@link ContextManager}, and {@link ProcessorLifecycleListenerFactory}.
+ * {@link Config}, {@link ApplicationContainerContextFactory}, {@link ApplicationTaskContextFactory}, and
+ * {@link ProcessorLifecycleListenerFactory}.
  *
  * @param <S> the type of {@link ApplicationDescriptor} interface this implements. It has to be either
  *            {@link StreamApplicationDescriptor} or {@link TaskApplicationDescriptor}
@@ -64,17 +67,8 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   private final Map<String, KV<Serde, Serde>> tableSerdes = new HashMap<>();
   final Config config;
 
-  // Default to no-op functions in ContextManager
-  // TODO: this should be replaced by shared context factory defined in SAMZA-1714
-  ContextManager contextManager = new ContextManager() {
-    @Override
-    public void init(Config config, TaskContext context) {
-    }
-
-    @Override
-    public void close() {
-    }
-  };
+  private Optional<ApplicationContainerContextFactory<?>> applicationContainerContextFactoryOptional = Optional.empty();
+  private Optional<ApplicationTaskContextFactory<?>> applicationTaskContextFactoryOptional = Optional.empty();
 
   // Default to no-op  ProcessorLifecycleListenerFactory
   ProcessorLifecycleListenerFactory listenerFactory = (pcontext, cfg) -> new ProcessorLifecycleListener() { };
@@ -90,8 +84,14 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public S withContextManager(ContextManager contextManager) {
-    this.contextManager = contextManager;
+  public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
+    this.applicationContainerContextFactoryOptional = Optional.of(factory);
+    return (S) this;
+  }
+
+  @Override
+  public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
+    this.applicationTaskContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
@@ -118,12 +118,27 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   /**
-   * Get the {@link ContextManager} associated with this application
+   * Get the {@link ApplicationContainerContextFactory} specified by the application.
    *
-   * @return the {@link ContextManager} for this application
+   * @return {@link ApplicationContainerContextFactory} if application specified it; empty otherwise
    */
-  public ContextManager getContextManager() {
-    return contextManager;
+  public Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> getApplicationContainerContextFactory() {
+    @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationContainerContext
+    Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> factoryOptional =
+        (Optional) this.applicationContainerContextFactoryOptional;
+    return factoryOptional;
+  }
+
+  /**
+   * Get the {@link ApplicationTaskContextFactory} specified by the application.
+   *
+   * @return {@link ApplicationTaskContextFactory} if application specified it; empty otherwise
+   */
+  public Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> getApplicationTaskContextFactory() {
+    @SuppressWarnings("unchecked") // ok because all context types are at least ApplicationTaskContext
+    Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> factoryOptional =
+        (Optional) this.applicationTaskContextFactoryOptional;
+    return factoryOptional;
   }
 
   /**
