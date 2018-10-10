@@ -164,9 +164,10 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
 
+    JobConfig jobConfig = new JobConfig(getConfig());
     String nextOpId = String.format("%s-%s-%s-%s",
-        getConfig().get(JobConfig.JOB_NAME()),
-        getConfig().get(JobConfig.JOB_ID(), "1"),
+        jobConfig.getName().get(),
+        jobConfig.getJobId(),
         opCode.name().toLowerCase(),
         StringUtils.isNotBlank(userDefinedId) ? userDefinedId.trim() : String.valueOf(nextOpNum));
     if (!operatorIds.add(nextOpId)) {
