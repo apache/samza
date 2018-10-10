@@ -66,15 +66,15 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
    * Create kafka consumer configs, based on the subset of global configs.
    * @param config application config
    * @param systemName system name
-   * @param clientIdPrefix prefix for the client id provided by the caller
+   * @param clientId client id provided by the caller
    * @return KafkaConsumerConfig
    */
-  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientIdPrefix) {
+  public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId) {
 
     Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
     final String groupId = createConsumerGroupId(config);
-    final String clientId = createClientId(clientIdPrefix, config);
+    //final String clientId = KafkaConsumerConfig.createClientId(clientIdPrefix, config);
 
     Map<String, Object> consumerProps = new HashMap<>();
     consumerProps.putAll(subConf);

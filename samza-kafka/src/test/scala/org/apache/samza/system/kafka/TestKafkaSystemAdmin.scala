@@ -149,8 +149,9 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     val res = KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config)
 
 
+    val clientId = KafkaConsumerConfig.createClientId("clientPrefix", config);
     // extract kafka client configs
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, "clientPrefix")
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, clientId)
 
     new KafkaSystemAdmin(
       system,

@@ -64,8 +64,9 @@ public class TestKafkaSystemConsumer {
     map.put(JobConfig.JOB_NAME(), "jobName");
 
     Config config = new MapConfig(map);
+    String clientId = KafkaConsumerConfig.createClientId(TEST_PREFIX_ID, config);
     KafkaConsumerConfig consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, TEST_PREFIX_ID);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, clientId);
 
     final KafkaConsumer<byte[], byte[]> kafkaConsumer = new MockKafkaConsumer(consumerConfig);
 

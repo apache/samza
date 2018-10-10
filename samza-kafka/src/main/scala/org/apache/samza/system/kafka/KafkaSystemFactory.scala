@@ -47,12 +47,12 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
-    val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "kafka-consumer");
+    val clientId = KafkaConsumerConfig.createClientId("kafka-consumer", config);
+    val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
 
     val kafkaConsumer = KafkaSystemConsumer.createKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
-    info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, kafkaConsumerConfig.getClientId, kafkaConsumer))
+    info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, clientId, kafkaConsumer))
 
-    val clientId = kafkaConsumerConfig.getClientId
     val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
       new SystemClock)
     info("Created samza system consumer %s with config %s" format(kafkaSystemConsumer, config))
@@ -84,7 +84,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
     // extract kafka client configs
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "kafka-admin-consumer")
+    val clientId = KafkaConsumerConfig.createClientId("kafka-admin-consumer", config);
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId)
 
     new KafkaSystemAdmin(systemName, config, KafkaSystemConsumer.createKafkaConsumerImpl(systemName, consumerConfig))
   }

@@ -77,8 +77,8 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
       KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(map),
-      system, "kafka-admin-consumer")
+    val config = new MapConfig(map)
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, KafkaConsumerConfig.createClientId("kafka-admin-consumer", config))
 
     new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig));
   }

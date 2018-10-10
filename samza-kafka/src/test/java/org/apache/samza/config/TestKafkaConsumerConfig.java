@@ -53,8 +53,9 @@ public class TestKafkaConsumerConfig {
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + "bootstrap.servers", "useThis:9092");
 
     Config config = new MapConfig(props);
+    String clientId = KafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config);
     KafkaConsumerConfig kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID_PREFIX);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, clientId);
 
     Assert.assertEquals("false", kafkaConsumerConfig.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG));
 
@@ -118,8 +119,9 @@ public class TestKafkaConsumerConfig {
     props.put(JobConfig.JOB_NAME(), "jobName");
 
     Config config = new MapConfig(props);
+    String clientId = KafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config);
     KafkaConsumerConfig kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, CLIENT_ID_PREFIX);
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, clientId);
 
     Assert.assertEquals("useThis:9092", kafkaConsumerConfig.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
 
@@ -157,9 +159,9 @@ public class TestKafkaConsumerConfig {
 
   @Test(expected = SamzaException.class)
   public void testNoBootstrapServers() {
-    KafkaConsumerConfig kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(Collections.emptyMap()), SYSTEM_NAME,
-            "clientId");
+    Config config = new MapConfig(Collections.emptyMap());
+    String clientId = KafkaConsumerConfig.createClientId("clientId", config);
+    KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, clientId);
 
     Assert.fail("didn't get exception for the missing config:" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
   }
