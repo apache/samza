@@ -48,8 +48,8 @@ public class TaskFactoryUtil {
     if (appDesc instanceof TaskApplicationDescriptorImpl) {
       return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
     } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
-      return (StreamTaskFactory) () -> new StreamOperatorTask(((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph(),
-          ((StreamApplicationDescriptorImpl) appDesc).getContextManager());
+      return (StreamTaskFactory) () -> new StreamOperatorTask(
+          ((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph());
     }
     throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
         + "StreamApplicationDescriptorImpl. class %s is not supported", appDesc.getClass().getName()));

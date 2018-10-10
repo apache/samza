@@ -19,10 +19,10 @@
 
 package org.apache.samza.test.integration
 
-import org.apache.samza.config.Config
+import org.apache.samza.context.Context
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.task.{MessageCollector, TaskContext, TaskCoordinator}
+import org.apache.samza.task.{MessageCollector, TaskCoordinator}
 import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 
@@ -112,8 +112,8 @@ class ShutdownStateStoreTask extends TestTask {
   var store: KeyValueStore[String, String] = null
   var restored = scala.collection.mutable.Map[String, String]()
 
-  override def testInit(config: Config, context: TaskContext) {
-    store = context
+  override def testInit(context: Context) {
+    store = context.getTaskContext
       .getStore(TestShutdownStatefulTask.STORE_NAME)
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all

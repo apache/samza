@@ -52,7 +52,10 @@ import org.junit.Assert;
 import org.junit.Test;
 import scala.Option$;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {

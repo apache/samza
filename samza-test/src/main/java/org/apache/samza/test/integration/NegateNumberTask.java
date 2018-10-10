@@ -19,15 +19,14 @@
 
 package org.apache.samza.test.integration;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 import org.apache.samza.util.StreamUtil;
@@ -53,9 +52,9 @@ public class NegateNumberTask implements StreamTask, InitableTask {
   private SystemStream outputSystemStream;
 
   @Override
-  public void init(Config config, TaskContext context) throws Exception {
-    maxMessages = config.getInt("task.max.messages", 50);
-    String outputSystemStreamString = config.get("task.outputs", null);
+  public void init(Context context) throws Exception {
+    maxMessages = context.getJobContext().getConfig().getInt("task.max.messages", 50);
+    String outputSystemStreamString = context.getJobContext().getConfig().get("task.outputs", null);
     if (outputSystemStreamString == null) {
       throw new ConfigException("Missing required configuration: task.outputs");
     }

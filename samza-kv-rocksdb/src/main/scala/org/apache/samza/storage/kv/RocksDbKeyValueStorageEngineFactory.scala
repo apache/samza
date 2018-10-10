@@ -20,11 +20,12 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
-import org.apache.samza.container.SamzaContainerContext
+
+import org.apache.samza.config.StorageConfig._
+import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamPartition
 import org.rocksdb.{FlushOptions, WriteOptions}
-import org.apache.samza.config.StorageConfig._
 
 class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngineFactory[K, V] {
   /**
@@ -37,17 +38,19 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
    * @return A valid KeyValueStore instance
    */
   override def getKVStore(storeName: String,
-                          storeDir: File,
-                          registry: MetricsRegistry,
-                          changeLogSystemStreamPartition: SystemStreamPartition,
-                          containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
-    val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
-    val isLoggedStore = containerContext.config.getChangelogStream(storeName).isDefined
+    storeDir: File,
+    registry: MetricsRegistry,
+    changeLogSystemStreamPartition: SystemStreamPartition,
+    jobContext: JobContext,
+    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    val storageConfig = jobContext.getConfig.subset("stores." + storeName + ".", true)
+    val isLoggedStore = jobContext.getConfig.getChangelogStream(storeName).isDefined
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
+    val numTasksForContainer = containerContext.getContainerModel.getTasks.keySet().size()
     rocksDbMetrics.newGauge("rocksdb.block-cache-size",
-      () => RocksDbOptionsHelper.getBlockCacheSize(storageConfig, containerContext))
+      () => RocksDbOptionsHelper.getBlockCacheSize(storageConfig, numTasksForContainer))
 
-    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, containerContext)
+    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, numTasksForContainer)
     val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
     val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
     val rocksDb = new RocksDbKeyValueStore(

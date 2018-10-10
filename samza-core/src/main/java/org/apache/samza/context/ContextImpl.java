@@ -18,27 +18,36 @@
  */
 package org.apache.samza.context;
 
+import com.google.common.base.Preconditions;
+
+import java.util.Objects;
+import java.util.Optional;
+
+
 public class ContextImpl implements Context {
   private final JobContext jobContext;
   private final ContainerContext containerContext;
   private final TaskContext taskContext;
-  private final ApplicationContainerContext applicationContainerContext;
-  private final ApplicationTaskContext applicationTaskContext;
+  private final Optional<ApplicationContainerContext> applicationContainerContextOptional;
+  private final Optional<ApplicationTaskContext> applicationTaskContextOptional;
 
   /**
    * @param jobContext non-null job context
    * @param containerContext non-null framework container context
    * @param taskContext non-null framework task context
-   * @param applicationContainerContext nullable application-defined container context
-   * @param applicationTaskContext nullable application-defined task context
+   * @param applicationContainerContextOptional optional application-defined container context
+   * @param applicationTaskContextOptional optional application-defined task context
    */
-  public ContextImpl(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
-      ApplicationContainerContext applicationContainerContext, ApplicationTaskContext applicationTaskContext) {
-    this.jobContext = jobContext;
-    this.containerContext = containerContext;
-    this.taskContext = taskContext;
-    this.applicationContainerContext = applicationContainerContext;
-    this.applicationTaskContext = applicationTaskContext;
+  public ContextImpl(JobContext jobContext,
+      ContainerContext containerContext,
+      TaskContext taskContext,
+      Optional<ApplicationContainerContext> applicationContainerContextOptional,
+      Optional<ApplicationTaskContext> applicationTaskContextOptional) {
+    this.jobContext = Preconditions.checkNotNull(jobContext, "Job context can not be null");
+    this.containerContext = Preconditions.checkNotNull(containerContext, "Container context can not be null");
+    this.taskContext = Preconditions.checkNotNull(taskContext, "Task context can not be null");
+    this.applicationContainerContextOptional = applicationContainerContextOptional;
+    this.applicationTaskContextOptional = applicationTaskContextOptional;
   }
 
   @Override
@@ -58,17 +67,38 @@ public class ContextImpl implements Context {
 
   @Override
   public ApplicationContainerContext getApplicationContainerContext() {
-    if (this.applicationContainerContext == null) {
+    if (!this.applicationContainerContextOptional.isPresent()) {
       throw new IllegalStateException("No application-defined container context exists");
     }
-    return this.applicationContainerContext;
+    return this.applicationContainerContextOptional.get();
   }
 
   @Override
   public ApplicationTaskContext getApplicationTaskContext() {
-    if (this.applicationTaskContext == null) {
+    if (!this.applicationTaskContextOptional.isPresent()) {
       throw new IllegalStateException("No application-defined task context exists");
     }
-    return this.applicationTaskContext;
+    return this.applicationTaskContextOptional.get();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    ContextImpl context = (ContextImpl) o;
+    return Objects.equals(jobContext, context.jobContext) && Objects.equals(containerContext, context.containerContext)
+        && Objects.equals(taskContext, context.taskContext) && Objects.equals(applicationContainerContextOptional,
+        context.applicationContainerContextOptional) && Objects.equals(applicationTaskContextOptional,
+        context.applicationTaskContextOptional);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(jobContext, containerContext, taskContext, applicationContainerContextOptional,
+        applicationTaskContextOptional);
   }
 }

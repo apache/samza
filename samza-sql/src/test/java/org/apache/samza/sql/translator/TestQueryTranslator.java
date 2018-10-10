@@ -21,7 +21,6 @@ package org.apache.samza.sql.translator;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,13 +29,13 @@ import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.context.ApplicationTaskContext;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
@@ -45,7 +44,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchQueryInfo;
+import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchSqlFromConfig;
+import static org.junit.Assert.assertTrue;
 
 
 public class TestQueryTranslator {
@@ -53,11 +54,11 @@ public class TestQueryTranslator {
   // Helper functions to validate the cloned copies of TranslatorContext and SamzaSqlExecutionContext
   private void validateClonedTranslatorContext(TranslatorContext originContext, TranslatorContext clonedContext) {
     Assert.assertNotEquals(originContext, clonedContext);
-    Assert.assertTrue(originContext.getExpressionCompiler() == clonedContext.getExpressionCompiler());
-    Assert.assertTrue(originContext.getStreamAppDescriptor() == clonedContext.getStreamAppDescriptor());
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "relSamzaConverters") == Whitebox.getInternalState(clonedContext, "relSamzaConverters"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "messageStreams") == Whitebox.getInternalState(clonedContext, "messageStreams"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "relNodes") == Whitebox.getInternalState(clonedContext, "relNodes"));
+    assertTrue(originContext.getExpressionCompiler() == clonedContext.getExpressionCompiler());
+    assertTrue(originContext.getStreamAppDescriptor() == clonedContext.getStreamAppDescriptor());
+    assertTrue(Whitebox.getInternalState(originContext, "relSamzaConverters") == Whitebox.getInternalState(clonedContext, "relSamzaConverters"));
+    assertTrue(Whitebox.getInternalState(originContext, "messageStreams") == Whitebox.getInternalState(clonedContext, "messageStreams"));
+    assertTrue(Whitebox.getInternalState(originContext, "relNodes") == Whitebox.getInternalState(clonedContext, "relNodes"));
     Assert.assertNotEquals(originContext.getDataContext(), clonedContext.getDataContext());
     validateClonedExecutionContext(originContext.getExecutionContext(), clonedContext.getExecutionContext());
   }
@@ -65,11 +66,11 @@ public class TestQueryTranslator {
   private void validateClonedExecutionContext(SamzaSqlExecutionContext originContext,
       SamzaSqlExecutionContext clonedContext) {
     Assert.assertNotEquals(originContext, clonedContext);
-    Assert.assertTrue(
+    assertTrue(
         Whitebox.getInternalState(originContext, "sqlConfig") == Whitebox.getInternalState(clonedContext, "sqlConfig"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "udfMetadata") == Whitebox.getInternalState(clonedContext,
+    assertTrue(Whitebox.getInternalState(originContext, "udfMetadata") == Whitebox.getInternalState(clonedContext,
         "udfMetadata"));
-    Assert.assertTrue(Whitebox.getInternalState(originContext, "udfInstances") != Whitebox.getInternalState(clonedContext,
+    assertTrue(Whitebox.getInternalState(originContext, "udfInstances") != Whitebox.getInternalState(clonedContext,
         "udfInstances"));
   }
 
@@ -121,18 +122,14 @@ public class TestQueryTranslator {
 
   private void validatePerTaskContextInit(StreamApplicationDescriptorImpl appDesc, Config samzaConfig) {
     // make sure that each task context would have a separate instance of cloned TranslatorContext
-    TaskContextImpl testContext = new TaskContextImpl(new TaskName("Partition 1"), null, null,
-        new HashSet<>(), null, null, null, null, null, null);
-    // call ContextManager.bootstrap() to instantiate the per-task TranslatorContext
-    appDesc.getContextManager().init(samzaConfig, testContext);
-    Assert.assertNotNull(testContext.getUserContext());
-    Assert.assertTrue(testContext.getUserContext() instanceof TranslatorContext);
-    TranslatorContext contextPerTaskOne = (TranslatorContext) testContext.getUserContext();
-    // call ContextManager.bootstrap() second time to instantiate another clone of TranslatorContext
-    appDesc.getContextManager().init(samzaConfig, testContext);
-    Assert.assertTrue(testContext.getUserContext() instanceof TranslatorContext);
-    // validate the two copies of TranslatorContext are clones of each other
-    validateClonedTranslatorContext(contextPerTaskOne, (TranslatorContext) testContext.getUserContext());
+    ApplicationTaskContext contextPerTaskOne =
+        appDesc.getApplicationTaskContextFactory().get().create(null, null, null, null);
+    ApplicationTaskContext contextPerTaskTwo =
+        appDesc.getApplicationTaskContextFactory().get().create(null, null, null, null);
+    assertTrue(contextPerTaskOne instanceof SamzaSqlApplicationContext);
+    assertTrue(contextPerTaskTwo instanceof SamzaSqlApplicationContext);
+    validateClonedTranslatorContext(((SamzaSqlApplicationContext) contextPerTaskOne).getTranslatorContext(),
+        ((SamzaSqlApplicationContext) contextPerTaskTwo).getTranslatorContext());
   }
 
   @Test
@@ -734,7 +731,7 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(1, specGraph.getInputOperators().size());
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
-    Assert.assertTrue(specGraph.hasWindowOrJoins());
+    assertTrue(specGraph.hasWindowOrJoins());
     Collection<OperatorSpec> operatorSpecs = specGraph.getAllOperatorSpecs();
   }
 

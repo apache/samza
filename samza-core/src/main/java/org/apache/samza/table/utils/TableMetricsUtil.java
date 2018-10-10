@@ -19,18 +19,16 @@
 
 package org.apache.samza.table.utils;
 
-import java.util.function.Supplier;
-
 import com.google.common.base.Preconditions;
-
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.SupplierGauge;
-import org.apache.samza.task.TaskContext;
+
+import java.util.function.Supplier;
 
 
 /**
@@ -46,21 +44,16 @@ public class TableMetricsUtil {
   /**
    * Constructor based on container context
    *
-   * @param containerContext container context
-   * @param taskContext task context
+   * @param context {@link Context} for this task
    * @param table underlying table
    * @param tableId table Id
    */
-  public TableMetricsUtil(SamzaContainerContext containerContext, TaskContext taskContext,
-      Table table, String tableId) {
-
-    Preconditions.checkNotNull(containerContext);
+  public TableMetricsUtil(Context context, Table table, String tableId) {
+    Preconditions.checkNotNull(context);
     Preconditions.checkNotNull(table);
     Preconditions.checkNotNull(tableId);
 
-    this.metricsRegistry = taskContext == null // The table is at container level, when the task
-        ? containerContext.metricsRegistry     // context passed in is null
-        : taskContext.getMetricsRegistry();
+    this.metricsRegistry = context.getTaskContext().getTaskMetricsRegistry();
     this.groupName = table.getClass().getSimpleName();
     this.tableId = tableId;
   }

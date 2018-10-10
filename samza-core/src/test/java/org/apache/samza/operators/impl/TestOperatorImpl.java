@@ -21,9 +21,9 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
-
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
@@ -32,8 +32,8 @@ import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.mockito.Matchers.anyLong;
@@ -46,14 +46,20 @@ import static org.mockito.Mockito.when;
 
 
 public class TestOperatorImpl {
+  private Context context;
+
+  @Before
+  public void setup() {
+    this.context = new MockContext();
+    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
+  }
 
   @Test(expected = IllegalStateException.class)
   public void testMultipleInitShouldThrow() {
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    opImpl.init(mock(Config.class), mockTaskContext);
-    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(this.context);
+    opImpl.init(this.context);
   }
 
   @Test(expected = IllegalStateException.class)
@@ -64,24 +70,21 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnMessagePropagatesResults() {
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-
     Object mockTestOpImplOutput = mock(Object.class);
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
-    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(this.context);
 
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
     when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
-    mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
+    mockNextOpImpl1.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
     when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
-    mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
+    mockNextOpImpl2.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl2);
 
     // send a message to this operator
@@ -96,9 +99,8 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnMessageUpdatesMetrics() {
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);
     when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockCounter);
@@ -106,7 +108,7 @@ public class TestOperatorImpl {
 
     Object mockTestOpImplOutput = mock(Object.class);
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
-    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(this.context);
 
     // send a message to this operator
     MessageCollector mockCollector = mock(MessageCollector.class);
@@ -120,24 +122,21 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnTimerPropagatesResultsAndTimer() {
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-
     Object mockTestOpImplOutput = mock(Object.class);
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
-    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(this.context);
 
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
     when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
-    mockNextOpImpl1.init(mock(Config.class), mockTaskContext);
+    mockNextOpImpl1.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
     when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
     when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
-    mockNextOpImpl2.init(mock(Config.class), mockTaskContext);
+    mockNextOpImpl2.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl2);
 
     // send a timer tick to this operator
@@ -156,9 +155,8 @@ public class TestOperatorImpl {
 
   @Test
   public void testOnTimerUpdatesMetrics() {
-    TaskContextImpl mockTaskContext = mock(TaskContextImpl.class);
     ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
-    when(mockTaskContext.getMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockMessageCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);
     when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockMessageCounter);
@@ -166,7 +164,7 @@ public class TestOperatorImpl {
 
     Object mockTestOpImplOutput = mock(Object.class);
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mockTestOpImplOutput);
-    opImpl.init(mock(Config.class), mockTaskContext);
+    opImpl.init(this.context);
 
     // send a message to this operator
     MessageCollector mockCollector = mock(MessageCollector.class);
@@ -188,7 +186,7 @@ public class TestOperatorImpl {
     }
 
     @Override
-    protected void handleInit(Config config, TaskContext context) {}
+    protected void handleInit(Context context) {}
 
     @Override
     public Collection<Object> handleMessage(Object message,

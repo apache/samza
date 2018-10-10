@@ -19,16 +19,15 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.util.TimestampedValue;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.Clock;
+import org.apache.samza.util.TimestampedValue;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -54,7 +53,7 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
   PartialJoinOperatorImpl(JoinOperatorSpec<K, M, OM, JM> joinOpSpec, boolean isLeftSide,
       PartialJoinFunction<K, M, OM, JM> thisPartialJoinFn,
       PartialJoinFunction<K, OM, M, JM> otherPartialJoinFn,
-      Config config, TaskContext context, Clock clock) {
+      Clock clock) {
     this.joinOpSpec = joinOpSpec;
     this.isLeftSide = isLeftSide;
     this.thisPartialJoinFn = thisPartialJoinFn;
@@ -64,8 +63,8 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
   }
 
   @Override
-  protected void handleInit(Config config, TaskContext context) {
-    this.thisPartialJoinFn.init(config, context);
+  protected void handleInit(Context context) {
+    this.thisPartialJoinFn.init(context);
   }
 
   @Override

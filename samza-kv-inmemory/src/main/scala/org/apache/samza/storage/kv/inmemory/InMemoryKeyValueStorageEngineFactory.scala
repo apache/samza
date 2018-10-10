@@ -21,18 +21,19 @@ package org.apache.samza.storage.kv.inmemory
 
 import java.io.File
 
-import org.apache.samza.container.SamzaContainerContext
+import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.storage.kv.{KeyValueStoreMetrics, BaseKeyValueStorageEngineFactory, KeyValueStore}
+import org.apache.samza.storage.kv.{BaseKeyValueStorageEngineFactory, KeyValueStore, KeyValueStoreMetrics}
 import org.apache.samza.system.SystemStreamPartition
 
 class InMemoryKeyValueStorageEngineFactory[K, V] extends BaseKeyValueStorageEngineFactory[K, V] {
 
   override def getKVStore(storeName: String,
-                          storeDir: File,
-                          registry: MetricsRegistry,
-                          changeLogSystemStreamPartition: SystemStreamPartition,
-                          containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    storeDir: File,
+    registry: MetricsRegistry,
+    changeLogSystemStreamPartition: SystemStreamPartition,
+    jobContext: JobContext,
+    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
     val metrics = new KeyValueStoreMetrics(storeName, registry)
     val inMemoryDb = new InMemoryKeyValueStore (metrics)
     inMemoryDb
