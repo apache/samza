@@ -34,10 +34,9 @@ title: Samza Meetups
             {% for meet in meetup.meetups %}
 
             <div class="meet" data-plugin="event" data-date="{{ meet.date | date: '%-d %B %Y' }}" data-upcoming-class="meet--upcoming">
+                <div class="meet-name">{{ meet.name}}</div>
                 <div class="meet-smoosh-content">
-
                     <div class="meet-name-date-host-info">
-                        <div class="meet-name">{{ meet.name}}</div>
                         {% if meet.date %}
                         <div class="meet-date"><strong>&raquo; Date &HorizontalLine;</strong> {{ meet.date }}</div>
                         {% endif %}
