@@ -40,6 +40,10 @@ object KafkaSystemFactory extends Logging {
   } else {
     Map[String, String]()
   }
+
+  val CLIENTID_PRODUCER_PREFIX = "kafka-producer"
+  val CLIENTID_CONSUMER_PREFIX = "kafka-consumer"
+  val CLIENTID_ADMIN_PREFIX = "kafka-admin-consumer"
 }
 
 class KafkaSystemFactory extends SystemFactory with Logging {
@@ -62,7 +66,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
-    val clientId = KafkaConsumerConfig.createClientId("kafka-producer", config);
+    val clientId = KafkaConsumerConfig.createClientId(KafkaSystemFactory.CLIENTID_PRODUCER_PREFIX, config);
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
@@ -84,7 +88,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
     // extract kafka client configs
-    val clientId = KafkaConsumerConfig.createClientId("kafka-admin-consumer", config);
+    val clientId = KafkaConsumerConfig.createClientId(KafkaSystemFactory.CLIENTID_ADMIN_PREFIX, config);
     val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId)
 
     new KafkaSystemAdmin(systemName, config, KafkaSystemConsumer.createKafkaConsumerImpl(systemName, consumerConfig))
