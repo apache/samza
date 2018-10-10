@@ -84,7 +84,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
 
-  public static final String LOG_OUTPUT_STREAM = "log.outputStream";
+  public static final String SAMZA_SYSTEM_LOG = "log";
 
   private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
@@ -135,7 +135,12 @@ public class SamzaSqlApplicationConfig {
 
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
 
-    systemStreamConfigsBySource.remove(LOG_OUTPUT_STREAM);
+    // remove the SqlIOConfigs of outputs whose system is "log" out of systemStreamConfigsBySource
+    outputSystemStreamConfigsBySource.forEach((k, v) -> {
+        if (k.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
+            systemStreamConfigsBySource.remove(k);
+        }
+    });
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
