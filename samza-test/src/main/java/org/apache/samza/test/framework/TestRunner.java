@@ -108,11 +108,11 @@ public class TestRunner {
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
-        FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
+        FileSystems.getDefault().getPath("/tmp/" + this.inMemoryScope).toAbsolutePath().toString() + File.separator);
     // Changing the base directory for changelog stores (here SideInput) used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
-        FileSystems.getDefault().getPath(this.inMemoryScope).toAbsolutePath().toString() + File.separator);
+        FileSystems.getDefault().getPath("/tmp/" + this.inMemoryScope).toAbsolutePath().toString() + File.separator);
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since Table Api enables it by default for RocksDb and expects coordinator stream
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
