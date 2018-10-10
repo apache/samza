@@ -58,7 +58,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
   var metadataStore: TopicMetadataStore = null
   var producerConfig: KafkaProducerConfig = null
-  var systemAdmin: KafkaSystemAdmin[_, _] = null
+  var systemAdmin: KafkaSystemAdmin = null
 
   override def generateConfigs(): Seq[KafkaConfig] = {
     val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
@@ -152,7 +152,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     // extract kafka client configs
     val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, "clientPrefix")
 
-    new KafkaSystemAdmin[Array[Byte], Array[Byte]](
+    new KafkaSystemAdmin(
       system,
       config,
       KafkaSystemConsumer.getKafkaConsumerImpl(system, consumerConfig))
@@ -295,9 +295,6 @@ class TestKafkaSystemAdmin {
     val map = new java.util.HashMap[String, String]()
     map.put(org.apache.samza.config.KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "3")
     val systemAdmin = createSystemAdmin(SYSTEM, map)
-
-    //val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure),
-    //  coordinatorStreamReplicationFactor = 3)
 
     val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
     systemAdmin.createStream(spec)

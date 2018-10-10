@@ -111,8 +111,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   /**
    * Create internal kafka consumer object, which will be used in the Proxy.
    * @param systemName system name for which we create the consumer
-   * @param kafkaConsumerConfig
-   * @return kafka consumer
+   * @param kafkaConsumerConfig config object for Kafka's KafkaConsumer
+   * @return KafkaConsumer object
    */
   public static <K,V> KafkaConsumer<K, V> getKafkaConsumerImpl(String systemName,
       HashMap<String, Object> kafkaConsumerConfig) {

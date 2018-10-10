@@ -91,7 +91,7 @@ class KafkaConsumerProxy<K, V> {
     consumerPollThread.setName(
         "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
 
-    LOG.info("Creating KafkaConsumerProxy with sn={}, clientId={}, metricsName={}", systemName, clientId, metricName);
+    LOG.info("Creating KafkaConsumerProxy with systeName={}, clientId={}, metricsName={}", systemName, clientId, metricName);
   }
 
   /**

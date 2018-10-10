@@ -26,8 +26,8 @@ import org.apache.samza.config.{JobConfig, KafkaConsumerConfig, MapConfig}
 import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaSystemConsumer}
 
 /**
-  * LinkedIn integration test harness for Kafka
-  * This is simply a copy of open source code. We do this because java does not support trait and we are making it an
+  * Integration test harness for Kafka
+  * We do this because java does not support trait and we are making it an
   * abstract class so that user's java test class can extend it.
   */
 abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHarness {
@@ -63,7 +63,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     */
   def bootstrapServers(): String = super.bootstrapUrl
 
-  def createSystemAdmin(system: String): KafkaSystemAdmin[_, _] = {
+  def createSystemAdmin(system: String): KafkaSystemAdmin = {
 
     val map: java.util.Map[String, String] = new java.util.HashMap();
 
@@ -78,7 +78,7 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
       KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
     val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(map),
-      system, KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX)
+      system, KafkaConsumerConfig.ADMIN_CLIENT_ID_PREFIX)
 
     new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.getKafkaConsumerImpl(system, consumerConfig));
   }

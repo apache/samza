@@ -43,9 +43,14 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
   public static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
-  public static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
   public static final String ADMIN_CLIENT_ID_PREFIX = "kafka-admin-metadata";
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
+
+  public static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
+  public static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
+  public static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
+  public static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
+
 
   private final String systemName;
   /*

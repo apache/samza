@@ -55,7 +55,6 @@ import org.slf4j.LoggerFactory;
 import scala.Function0;
 import scala.Function1;
 import scala.Function2;
-import scala.Option;
 import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
@@ -66,19 +65,25 @@ import static org.apache.samza.config.KafkaConsumerConfig.*;
 import static org.apache.samza.system.kafka.KafkaSystemDescriptor.*;
 
 
-public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
+public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemAdmin.class);
 
-  // The same default exponential sleep strategy values as in open source
+  // Default exponential sleep strategy values
   protected static final double DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER = 2.0;
   protected static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
   protected static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
   protected static final int MAX_RETRIES_ON_EXCEPTION = 5;
+  public static final int DEFAULT_REPL_FACTOR = 2;
+
+  // used in TestRepartitionJoinWindowApp TODO - remove SAMZA-1945
+  @VisibleForTesting
+  public static volatile boolean deleteMessageCalled = false;
 
   protected final String systemName;
-  protected final Consumer<K, V> metadataConsumer;
+  protected final Consumer metadataConsumer;
 
-  private final Supplier<ZkUtils> connectZk;
+  // get ZkUtils object to connect to Kafka's ZK.
+  private final Supplier<ZkUtils> getZkConnection;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -92,26 +97,25 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   // Kafka properties for intermediate topics creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-  // adminClient is required for deleteBeforeMessages operation
+  // adminClient is required for deleteCommittedMessages operation
   private final AdminClient adminClient;
 
+  // used for intermediate streams
   private final boolean deleteCommittedMessages;
-
-  // used in TestRepartitionJoinWindowApp
-  @VisibleForTesting
-  public static volatile boolean deleteMessageCalled = false;
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
   @Override
   public void start() {
     // Plese note. There is slight inconsistency in the use of this class.
-    // Some of the functinality of this class may actually be used BEFORE start() is called.
-    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply, but this "start" actually gets called in SamzaContainer.run.
+    // Some of the functionality of this class may actually be used BEFORE start() is called.
+    // The SamzaContainer gets metadata (using this class) in SamzaContainer.apply,
+    // but this "start" actually gets called in SamzaContainer.run.
+    // review this usage (SAMZA-1888)
 
     // Throw exception if start is called after stop
     if (stopped.get()) {
-      throw new SamzaException("SamzaKafkaAdmin.start() is called after stop()");
+      throw new IllegalStateException("SamzaKafkaAdmin.start() is called after stop()");
     }
 
     // Plese note. There is slight inconsistency in the use of this class.
@@ -142,36 +146,36 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
     this.systemName = systemName;
 
+    if (metadataConsumer == null) {
+      throw new SamzaException("Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
+    }
     this.metadataConsumer = metadataConsumer;
-
-    boolean zkSecure = false; // needs to be added to the argument if ever true is possible
 
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
-    String brokerListString =
+    String brokerList =
         config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-    if (brokerListString == null) {
-      brokerListString =
-          config.get(String.format(PRODUCER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    if (brokerList == null) {
+      brokerList = config.get(String.format(PRODUCER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
-    if (brokerListString == null) {
+    if (brokerList == null) {
       throw new SamzaException(
-          "" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
     }
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerListString);
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient
-    String zkConnectStr = config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ZOOKEEPER_CONNECT));
-    if (zkConnectStr == null) {
+    String zkConnect = config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ZOOKEEPER_CONNECT));
+    if (StringUtils.isBlank(zkConnect)) {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
-    props.put(ZOOKEEPER_CONNECT, zkConnectStr);
+    props.put(ZOOKEEPER_CONNECT, zkConnect);
 
     adminClient = AdminClient.create(props);
 
-    connectZk = () -> {
-      return ZkUtils.apply(zkConnectStr, 6000, 6000, zkSecure);
+    getZkConnection = () -> {
+      return ZkUtils.apply(zkConnect, 6000, 6000, false);
     };
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
@@ -181,13 +185,13 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     Map<String, String> storeToChangelog =
         JavaConverters.mapAsJavaMapConverter(kafkaConfig.getKafkaChangelogEnabledStores()).asJava();
     // Construct the meta information for each topic, if the replication factor is not defined,
-    // we use 2 as the number of replicas for the change log stream.
+    // we use 2 (DEFAULT_REPL_FACTOR) as the number of replicas for the change log stream.
     changelogTopicMetaInformation = new HashMap<>();
     for (Map.Entry<String, String> e : storeToChangelog.entrySet()) {
       String storeName = e.getKey();
       String topicName = e.getValue();
       String replicationFactorStr = kafkaConfig.getChangelogStreamReplicationFactor(storeName);
-      int replicationFactor = StringUtils.isEmpty(replicationFactorStr) ? 2 : Integer.valueOf(replicationFactorStr);
+      int replicationFactor = StringUtils.isEmpty(replicationFactorStr) ? DEFAULT_REPL_FACTOR : Integer.valueOf(replicationFactorStr);
       ChangelogInfo changelogInfo =
           new ChangelogInfo(replicationFactor, kafkaConfig.getChangelogKafkaProperties(storeName));
       LOG.info(String.format("Creating topic meta information for topic: %s with replication factor: %s", topicName,
@@ -197,9 +201,7 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
     // special flag to allow/enforce deleting of committed messages
     SystemConfig systemConfig = new SystemConfig(config);
-    Option<String> deleteCommittedMessagesOpt = systemConfig.deleteCommittedMessages(systemName);
-    this.deleteCommittedMessages =
-        (deleteCommittedMessagesOpt.isEmpty()) ? false : Boolean.valueOf(deleteCommittedMessagesOpt.get());
+    this.deleteCommittedMessages = systemConfig.deleteCommittedMessages(systemName);
 
     intermediateStreamProperties =
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
@@ -214,7 +216,7 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
    * It will throw NotImplementedException if anyone tries to access the actual metadata.
    * @param streamNames set of streams for which get the partitions counts
    * @param cacheTTL cache TTL if caching the data
-   * @return
+   * @return a map, keyed on stream names. Number of partitions in SystemStreamMetadata is the output of this method.
    */
   @Override
   public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
@@ -314,8 +316,7 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
         .map(ssp -> new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId()))
         .collect(Collectors.toList());
 
-    OffsetsMaps topicPartitionsMetadata;
-    topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
+    OffsetsMaps topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
 
     Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
     for (SystemStreamPartition ssp : ssps) {
@@ -427,7 +428,7 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
    * @param topicPartition the topic partition to be created
    * @return an instance of SystemStreamPartition
    */
-  private SystemStreamPartition createSystemStreamPartition(TopicPartition topicPartition) {
+  private SystemStreamPartition toSystemStreamPartition(TopicPartition topicPartition) {
     String topic = topicPartition.topic();
     Partition partition = new Partition(topicPartition.partition());
     return new SystemStreamPartition(systemName, topic, partition);
@@ -449,11 +450,11 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
 
     oldestOffsetsWithLong.forEach((topicPartition, offset) -> {
-      oldestOffsets.put(createSystemStreamPartition(topicPartition), String.valueOf(offset));
+      oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
     });
 
     upcomingOffsetsWithLong.forEach((topicPartition, offset) -> {
-      upcomingOffsets.put(createSystemStreamPartition(topicPartition), String.valueOf(offset));
+      upcomingOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
 
       // Kafka's beginning Offset corresponds to the offset for the oldest message.
       // Kafka's end offset corresponds to the offset for the upcoming message, and it is the newest offset + 1.
@@ -466,9 +467,9 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
         LOG.warn(
             "Empty Kafka topic partition {} with upcoming offset {}. Skipping newest offset and setting oldest offset to 0 to consume from beginning",
             topicPartition, offset);
-        oldestOffsets.put(createSystemStreamPartition(topicPartition), "0");
+        oldestOffsets.put(toSystemStreamPartition(topicPartition), "0");
       } else {
-        newestOffsets.put(createSystemStreamPartition(topicPartition), String.valueOf(offset - 1));
+        newestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset - 1));
       }
     });
     return new OffsetsMaps(oldestOffsets, newestOffsets, upcomingOffsets);
@@ -476,15 +477,15 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
 
   /**
    * Fetch SystemStreamMetadata for each topic with the consumer
-   * @param topics
-   * @return scala map of topic to SystemStreamMetadata
+   * @param topics set of topics to get metadata info for
+   * @return map of topic to SystemStreamMetadata
    */
   private Map<String, SystemStreamMetadata> fetchSystemStreamMetadata(Set<String> topics) {
     Map<SystemStreamPartition, String> allOldestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> allNewestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> allUpcomingOffsets = new HashMap<>();
 
-    LOG.info("fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
+    LOG.info("Fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
 
     topics.forEach(topic -> {
       List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
@@ -519,7 +520,7 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
     TopicPartition topicPartition = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
 
     // the offsets returned from the consumer is the Long type
-    Long upcomingOffset = metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+    Long upcomingOffset = (Long)metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
 
     // Kafka's "latest" offset is always last message in stream's offset + 1,
     // so get newest message in stream by subtracting one. This is safe
@@ -549,14 +550,14 @@ public class KafkaSystemAdmin<K, V> implements ExtendedSystemAdmin {
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), connectZk);
+    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), getZkConnection);
   }
 
   @Override
   public boolean clearStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    KafkaSystemAdminUtilsScala.clearStream(streamSpec, connectZk);
+    KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection);
 
     Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
     return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();

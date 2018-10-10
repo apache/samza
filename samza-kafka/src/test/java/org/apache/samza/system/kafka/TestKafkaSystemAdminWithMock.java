@@ -42,6 +42,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -56,7 +57,7 @@ import static org.mockito.Mockito.*;
 
 
 public class TestKafkaSystemAdminWithMock {
-  private KafkaSystemAdmin<byte[], byte[]> kafkaSystemAdmin;
+  private KafkaSystemAdmin kafkaSystemAdmin;
   //private KafkaSystemAdmin kafkaAdmin;
   private Config testConfig;
   private Consumer<byte[], byte[]> mockKafkaConsumer;
@@ -78,9 +79,9 @@ public class TestKafkaSystemAdminWithMock {
   @Before
   public void setUp() throws Exception {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(String.format(CONSUMER_CONFIGS_CONFIG_KEY, TEST_SYSTEM, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG),
+    configMap.put(String.format(KafkaConsumerConfig.CONSUMER_CONFIGS_CONFIG_KEY, TEST_SYSTEM, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG),
         "localhost:123");
-    configMap.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, TEST_SYSTEM), "localhost:124");
+    configMap.put(String.format(KafkaConsumerConfig.CONSUMER_ZK_CONNECT_CONFIG_KEY, TEST_SYSTEM), "localhost:124");
     configMap.put(JobConfig.JOB_NAME(), "jobName");
     configMap.put(JobConfig.JOB_ID(), "jobId");
 
@@ -124,7 +125,7 @@ public class TestKafkaSystemAdminWithMock {
 
     KafkaSystemFactory kafkaSystemFactory = new KafkaSystemFactory();
     kafkaSystemAdmin =
-        new KafkaSystemAdmin<>(TEST_SYSTEM, testConfig, mockKafkaConsumer);
+        new KafkaSystemAdmin(TEST_SYSTEM, testConfig, mockKafkaConsumer);
 
     /*
 

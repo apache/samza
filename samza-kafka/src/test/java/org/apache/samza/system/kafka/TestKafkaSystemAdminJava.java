@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import kafka.api.TopicMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
@@ -258,7 +259,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     systemAdmin().validateStream(spec2);
   }
 
-  //@Test TODO - see if it can be fixed
+  //@Test //TODO - currently the connection to ZK fails, but since it checks for empty, the tests succeeds.  SAMZA-1887
   public void testClearStream() {
     StreamSpec spec = new StreamSpec("testId", "testStreamClear", "testSystem", 8);
 
@@ -269,10 +270,5 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     ImmutableSet<String> topics = ImmutableSet.of(spec.getPhysicalName());
     Map<String, List<PartitionInfo>> metadata = systemAdmin().getTopicMetadata(topics);
     assertTrue(metadata.get(spec.getPhysicalName()).isEmpty());
-
-    //scala.collection.immutable.Set<String> topics = new scala.collection.immutable.Set.Set1<>(spec.getPhysicalName());
-    //scala.collection.immutable.Map<String, TopicMetadata> metadata = ((KafkaSystemAdmin)systemAdmin()).getTopicMetadata(topics);
-    //assertTrue(metadata.get(spec.getPhysicalName()).get().partitionsMetadata().isEmpty());
-
   }
 }

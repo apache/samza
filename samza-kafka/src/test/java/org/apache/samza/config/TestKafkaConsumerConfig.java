@@ -77,8 +77,8 @@ public class TestKafkaConsumerConfig {
     Assert.assertEquals(CLIENT_ID_PREFIX.replace("-", "_") + "-" + JOB_NAME + "-" + "1",
         kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
 
-    Assert.assertEquals(KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-1",
-        KafkaConsumerConfig.createClientId(KafkaConsumerConfig.CONSUMER_CLIENT_ID_PREFIX, config));
+    Assert.assertEquals(CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-1",
+        KafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config));
 
     Assert.assertEquals("jobName-1", KafkaConsumerConfig.createConsumerGroupId(config));
 

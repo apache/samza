@@ -41,14 +41,14 @@ import org.apache.samza.serializers.Serde;
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = KafkaSystemFactory.class.getName();
-  public static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
+  private static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
   private static final String CONSUMER_AUTO_OFFSET_RESET_CONFIG_KEY = "systems.%s.consumer.auto.offset.reset";
   private static final String CONSUMER_FETCH_THRESHOLD_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD();
   private static final String CONSUMER_FETCH_THRESHOLD_BYTES_CONFIG_KEY = KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES();
   private static final String CONSUMER_FETCH_MESSAGE_MAX_BYTES_KEY = "systems.%s.consumer.fetch.message.max.bytes";
-  public static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
-  public static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
-  public static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
+  private static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
+  private static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
+  private static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
 
   private List<String> consumerZkConnect = Collections.emptyList();
   private Optional<String> consumerAutoOffsetResetOptional = Optional.empty();

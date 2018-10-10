@@ -50,8 +50,6 @@ object KafkaSystemAdminUtilsScala extends Logging {
   val CLEAR_STREAM_RETRIES = 3
   val CREATE_STREAM_RETRIES = 10
 
-  val LOG: Logger = LoggerFactory.getLogger("KafkaSystemAdminUtils")
-
   /**
     * @inheritdoc
     *
@@ -59,7 +57,7 @@ object KafkaSystemAdminUtilsScala extends Logging {
     * Otherwise it's a no-op.
     */
   def clearStream(spec: StreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Unit = {
-    LOG.info("Deleting topic %s for system %s" format(spec.getPhysicalName, spec.getSystemName))
+    info("Deleting topic %s for system %s" format(spec.getPhysicalName, spec.getSystemName))
     val kSpec = KafkaStreamSpec.fromSpec(spec)
     var retries = CLEAR_STREAM_RETRIES
     new ExponentialSleepStrategy().run(
@@ -78,10 +76,10 @@ object KafkaSystemAdminUtilsScala extends Logging {
 
       (exception, loop) => {
         if (retries > 0) {
-          LOG.warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
+          warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
           retries -= 1
         } else {
-          LOG.warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
+          warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
           loop.done
           throw exception
         }
@@ -90,7 +88,7 @@ object KafkaSystemAdminUtilsScala extends Logging {
 
 
   def createStream(kSpec: KafkaStreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Boolean = {
-    LOG.info("Creating topic %s for system %s" format(kSpec.getPhysicalName, kSpec.getSystemName))
+    info("Creating topic %s for system %s" format(kSpec.getPhysicalName, kSpec.getSystemName))
     var streamCreated = false
     var retries = CREATE_STREAM_RETRIES
 
@@ -119,10 +117,10 @@ object KafkaSystemAdminUtilsScala extends Logging {
             loop.done
           case e: Exception =>
             if (retries > 0) {
-              LOG.warn("Failed to create topic %s. Retrying." format (kSpec.getPhysicalName), exception)
+              warn("Failed to create topic %s. Retrying." format (kSpec.getPhysicalName), exception)
               retries -= 1
             } else {
-              LOG.error("Failed to create topic %s. Bailing out." format (kSpec.getPhysicalName), exception)
+              error("Failed to create topic %s. Bailing out." format (kSpec.getPhysicalName), exception)
               throw exception
             }
         }
