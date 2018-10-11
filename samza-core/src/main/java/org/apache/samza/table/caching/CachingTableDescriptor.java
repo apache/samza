@@ -47,10 +47,30 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
   private boolean isWriteAround;
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance with internal cache
+   *
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param table target table descriptor
    */
-  public CachingTableDescriptor(String tableId) {
+  public CachingTableDescriptor(String tableId, TableDescriptor<K, V, ?> table) {
     super(tableId);
+    this.table = table;
+  }
+
+  /**
+   * Constructs a table descriptor instance and specify a cache (as Table descriptor)
+   * to be used for caching. Cache get is not synchronized with put for better parallelism
+   * in the read path of {@link CachingTable}. As such, cache table implementation is
+   * expected to be thread-safe for concurrent accesses.
+   *
+   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param table target table descriptor
+   * @param cache cache table descriptor
+   */
+  public CachingTableDescriptor(String tableId, TableDescriptor<K, V, ?> table,
+      TableDescriptor<K, V, ?> cache) {
+    this(tableId, table);
+    this.cache = cache;
   }
 
   @Override
@@ -85,29 +105,6 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
     tableSpecConfig.put(CachingTableProvider.WRITE_AROUND, String.valueOf(isWriteAround));
 
     return new TableSpec(tableId, serde, CachingTableProviderFactory.class.getName(), tableSpecConfig);
-  }
-
-  /**
-   * Specify a cache (as Table descriptor) to be used for caching.
-   * Cache get is not synchronized with put for better parallelism in the read path
-   * of {@link CachingTable}. As such, cache table implementation is expected to be
-   * thread-safe for concurrent accesses.
-   * @param cache cache table descriptor
-   * @return this descriptor
-   */
-  public CachingTableDescriptor withCache(TableDescriptor<K, V, ?> cache) {
-    this.cache = cache;
-    return this;
-  }
-
-  /**
-   * Specify the target table descriptor for the actual table input/output.
-   * @param table the target table descriptor
-   * @return this descriptor
-   */
-  public CachingTableDescriptor withTable(TableDescriptor<K, V, ?> table) {
-    this.table = table;
-    return this;
   }
 
   /**
