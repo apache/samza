@@ -50,18 +50,12 @@ public final class DelegatingSystemDescriptor extends SystemDescriptor<Delegatin
     super(systemName, null, null, null);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> GenericInputDescriptor<StreamMessageType> getInputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {
     return new GenericInputDescriptor<>(streamId, this, serde);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> GenericOutputDescriptor<StreamMessageType> getOutputDescriptor(
       String streamId, Serde<StreamMessageType> serde) {

@@ -29,7 +29,7 @@ The following table lists the complete set of properties that can be included in
   + [3.1 Advanced System & Stream Configuration](#advanced-system-stream-configurations)
   + [3.2 Kafka](#kafka)
   + [3.3 HDFS](#hdfs)
-  + [3.4 EventHubs](#eventhubs)
+  + [3.4 Event Hubs](#eventhubs)
   + [3.5 Kinesis](#kinesis)
   + [3.6 ElasticSearch](#elasticsearch)
 * [4. State Storage](#state-storage)
@@ -114,7 +114,7 @@ These are the basic properties for setting up a Samza application.
 |task.checkpoint.<br>segment.bytes|26214400|If you are using Kafka for checkpoints, this is the segment size to be used for the checkpoint topic's log segments. Keeping this number small is useful because it increases the frequency that Kafka will garbage collect old checkpoints.|
 
 ### <a name="systems-streams"></a>[3. Systems & Streams](#systems-streams)
-Samza consumes from and produces to [Streams](../container/streams.html) and has support for a variety of Systems including Kafka, HDFS, Azure EventHubs, Kinesis and ElasticSearch.
+Samza consumes from and produces to [Streams](../container/streams.html) and has support for a variety of Systems including Kafka, HDFS, Azure Event Hubs, Kinesis and ElasticSearch.
 
 |Name|Default|Description|
 |--- |--- |--- |
@@ -184,29 +184,29 @@ More about batch processing [here](../hadoop/overview.html).
 |systems.**_system-name_**.<br>.producer.hdfs.write.batch.size.bytes|268435456|The number of bytes of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 256MB if not set.|
 |systems.**_system-name_**.<br>.producer.hdfs.write.batch.size.records|262144|The number of outgoing messages to write to each HDFS output file before cutting a new file. Defaults to 262144 if not set.|
 
-#### <a name="eventhubs"></a>[3.4 EventHubs](#eventhubs)
-Configs for consuming and producing to [Azure EventHubs](https://azure.microsoft.com/en-us/services/event-hubs/). This section applies if you have set systems.*.samza.factory = `org.apache.samza.system.eventhub.EventHubSystemFactory`
+#### <a name="eventhubs"></a>[3.4 Event Hubs](#eventhubs)
+Configs for consuming and producing to [Azure Event Hubs](https://azure.microsoft.com/en-us/services/event-hubs/). This section applies if you have set systems.*.samza.factory = `org.apache.samza.system.eventhub.EventHubSystemFactory`
 Documentation and samples found [here](../azure/eventhubs.html)
 
 |Name|Default|Description|
 |--- |--- |--- |
-|systems.**_system-name_**.stream.list| |List of Samza **_stream-id_** used for the Eventhub system|
-|streams.**_stream-id_**.eventhubs.namespace| |Namespace of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
-|streams.**_stream-id_**.eventhubs.entitypath| |Entity of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
-|sensitive.streams.**_stream-id_**.eventhubs.sas.keyname| |SAS Keyname of the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
-|sensitive.streams.**_stream-id_**.eventhubs.sas.token| |SAS Token the associated stream-ids. __Required__ to access the Eventhubs entity per stream.|
+|systems.**_system-name_**.stream.list| |List of Samza **_stream-id_** used for the Event Hubs system. __Required__ if not using input/output system descriptors.|
+|streams.**_stream-id_**.eventhubs.namespace| |Namespace of the associated stream-ids. __Required__ to access the Event Hubs entity per stream.|
+|streams.**_stream-id_**.eventhubs.entitypath| |Entity of the associated stream-ids. __Required__ to access the Event Hubs entity per stream.|
+|sensitive.streams.**_stream-id_**.eventhubs.sas.keyname| |SAS Keyname of the associated stream-ids. __Required__ to access the Event Hubs entity per stream.|
+|sensitive.streams.**_stream-id_**.eventhubs.sas.token| |SAS Token of the associated stream-ids. __Required__ to access the Event Hubs entity per stream.|
 
-##### <a name="advanced-eventhubs-configurations"></a>[Advanced EventHubs Configurations](#advanced-eventhubs-configurations)
+##### <a name="advanced-eventhubs-configurations"></a>[Advanced Event Hubs Configurations](#advanced-eventhubs-configurations)
 |Name|Default|Description|
 |--- |--- |--- |
 |streams.**_stream-name_**.<br>eventhubs.numClientThreads|10|Number of threads in thread pool that will be used by the EventHubClient. See [here](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_hub_client.create?view=azure-java-stable) for more details.|
 |systems.**_system-name_**.<br>eventhubs.prefetchCount|999|Number of threads in thread pool that will be used by the EventHubClient. See [here](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_hub_client.create?view=azure-java-stable) for more details.|
-|systems.**_system-name_**.<br>eventhubs.maxEventCountPerPoll|50|Maximum number of events that EventHub client can return in a receive call. See Maximum number of events that EventHub client can return in a receive call. See [here](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._partition_receive_handler.getmaxeventcount?view=azure-java-stable#com_microsoft_azure_eventhubs__partition_receive_handler_getMaxEventCount__) for more details. for more details.|
-|systems.**_system-name_**.<br>eventhubs.runtime.info.timeout|60000|Timeout for fetching the runtime metadata from an Eventhub entity on startup in millis.|
-|systems.**_system-name_**.<br>eventhubs.partition.method|`EVENT_HUB_HASHING`|Producer only config. Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:<br><br>`ROUND_ROBIN` <br>The message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.<br><br>`EVENT_HUB_HASHING` <br>Employs the hashing mechanism in EventHubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.<br><br>`PARTITION_KEY_AS_PARTITION` <br>Use the integer key specified by the partition key or key of the message to a specific partition on Eventhub. If the integer key is greater than the number of partitions in the destination Eventhub, a modulo operation will be performed to determine the resulting paritition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to `EVENT_HUB_HASHING`, if the partition key is not set the message key is used instead.|
-|systems.**_system-name_**.<br>eventhubs.send.key|true|Producer only config. Sending each message key to the eventhub in the properties of the AMQP message. If the Samza Eventhub consumer is used, this field is used as the message key if the partition key is not present.|
-|streams.**_stream-id_**.<br>eventhubs.consumer.group|`$Default`|Consumer only config. Set the consumer group from the upstream Eventhub that the consumer is part of. Defaults to the `$Default` group that is initially present in all Eventhub entities (unless removed)|
-|systems.**_system-name_**.<br>eventhubs.receive.queue.size|100|Consumer only config. Per partition capacity of the eventhubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.|
+|systems.**_system-name_**.<br>eventhubs.maxEventCountPerPoll|50|Maximum number of events that the Event Hubs client can return in a receive call. See Maximum number of events that the Event Hubs client can return in a receive call. See [here](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._partition_receive_handler.getmaxeventcount?view=azure-java-stable#com_microsoft_azure_eventhubs__partition_receive_handler_getMaxEventCount__) for more details. for more details.|
+|systems.**_system-name_**.<br>eventhubs.runtime.info.timeout|60000|Timeout for fetching the runtime metadata from an Event Hubs entity on startup in millis.|
+|systems.**_system-name_**.<br>eventhubs.partition.method|`EVENT_HUB_HASHING`|Producer only config. Configure the method that the message is partitioned for the downstream Eventhub in one of the following ways:<br><br>`ROUND_ROBIN` <br>The message key and partition key are ignored and the message will be distributed in a round-robin fashion amongst all the partitions in the downstream EventHub.<br><br>`EVENT_HUB_HASHING` <br>Employs the hashing mechanism in Event Hubs to determine, based on the key of the message, which partition the message should go. Using this method still ensures that all the events with the same key are sent to the same partition in the event hub. If this option is chosen, the partition key used for the hash should be a string. If the partition key is not set, the message key is used instead.<br><br>`PARTITION_KEY_AS_PARTITION` <br>Use the integer key specified by the partition key or key of the message to a specific partition on Event Hubs. If the integer key is greater than the number of partitions in the destination Event Hubs entity, a modulo operation will be performed to determine the resulting partition. ie. if there are 6 partitions and the key is 9, the message will end up in partition 3. Similarly to `EVENT_HUB_HASHING`, if the partition key is not set the message key is used instead.|
+|systems.**_system-name_**.<br>eventhubs.send.key|true|Producer only config. If set to true, the key of the Samza message will be included as the 'key' property in the outgoing EventData message for Event Hubs. The Samza message key will not be sent otherwise. <br> Note: If the Samza Event Hubs consumer is used, the Samza key is the partition key of the received EventData, or the message key if the partition key is not present.|
+|streams.**_stream-id_**.<br>eventhubs.consumer.group|`$Default`|Consumer only config. Set the consumer group from the upstream Event Hubs entity that the consumer is part of. Defaults to the `$Default` group that is initially present in all Event Hubs entities (unless removed)|
+|systems.**_system-name_**.<br>eventhubs.receive.queue.size|100|Consumer only config. Per partition capacity of the Event Hubs consumer buffer - the blocking queue used for storing messages. Larger buffer capacity typically leads to better throughput but consumes more memory.|
 
 
 #### <a name="kinesis"></a>[3.5 Kinesis](#kinesis)
