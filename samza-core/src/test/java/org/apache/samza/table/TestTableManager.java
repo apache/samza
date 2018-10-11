@@ -18,25 +18,23 @@
  */
 package org.apache.samza.table;
 
-import java.lang.reflect.Field;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-
+import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.StorageEngine;
-import org.apache.samza.task.TaskContext;
 import org.junit.Test;
 
-import junit.framework.Assert;
+import java.lang.reflect.Field;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.mock;
@@ -122,11 +120,11 @@ public class TestTableManager {
           });
 
     TableManager tableManager = new TableManager(new MapConfig(map), serdeMap);
-    tableManager.init(mock(SamzaContainerContext.class), mock(TaskContext.class));
+    tableManager.init(new MockContext());
 
     for (int i = 0; i < 2; i++) {
       Table table = tableManager.getTable(TABLE_ID);
-      verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject(), anyObject());
+      verify(DummyTableProviderFactory.tableProvider, times(1)).init(anyObject());
       verify(DummyTableProviderFactory.tableProvider, times(1)).getTable();
       Assert.assertEquals(DummyTableProviderFactory.table, table);
     }

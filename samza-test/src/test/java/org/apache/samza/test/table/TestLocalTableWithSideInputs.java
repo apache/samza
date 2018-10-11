@@ -20,7 +20,6 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.KV;
@@ -49,7 +48,10 @@ import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestTableData.*;
+import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import static org.apache.samza.test.table.TestTableData.PageView;
+import static org.apache.samza.test.table.TestTableData.Profile;
+import static org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

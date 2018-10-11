@@ -25,6 +25,10 @@ package org.apache.samza.context;
  * This needs to be created by an implementation of {@link ApplicationTaskContextFactory}. The factory should create
  * the runtime objects contained within this context.
  * <p>
+ * This is related to {@link TaskContext} in that they are both associated with a task lifecycle. In order to access
+ * this in application code, use {@link Context#getApplicationTaskContext()}. The {@link TaskContext} is accessible
+ * through {@link Context#getTaskContext()}.
+ * <p>
  * If it is possible to share an instance of this across tasks in a container, then use
  * {@link ApplicationContainerContext} instead.
  * <p>

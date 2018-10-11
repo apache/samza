@@ -18,11 +18,11 @@
  */
 package org.apache.samza.storage.kv;
 
+import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -31,15 +31,12 @@ import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
-import org.apache.samza.task.TaskContext;
-
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -59,13 +56,12 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
   }
 
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  public void init(Context context) {
+    super.init(context);
 
-    super.init(containerContext, taskContext);
+    Preconditions.checkNotNull(this.context, "Must specify context for local tables.");
 
-    Preconditions.checkNotNull(this.taskContext, "Must specify task context for local tables.");
-
-    kvStore = (KeyValueStore) taskContext.getStore(tableSpec.getId());
+    kvStore = (KeyValueStore) this.context.getTaskContext().getStore(tableSpec.getId());
 
     if (kvStore == null) {
       throw new SamzaException(String.format(
@@ -81,7 +77,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
       throw new SamzaException("Store not initialized for table " + tableSpec.getId());
     }
     ReadableTable table = new LocalStoreBackedReadWriteTable(tableSpec.getId(), kvStore);
-    table.init(containerContext, taskContext);
+    table.init(this.context);
     return table;
   }
 
