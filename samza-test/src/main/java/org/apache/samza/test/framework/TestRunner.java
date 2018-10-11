@@ -270,12 +270,13 @@ public class TestRunner {
     deleteStoreDirectories();
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
     runner.run();
-    boolean timedOut = !runner.waitForFinish(timeout);
-    Assert.assertFalse("Timed out waiting for application to finish", timedOut);
+    if (!runner.waitForFinish(timeout)) {
+      throw new SamzaException("Timed out waiting for application to finish");
+    }
     ApplicationStatus status = runner.status();
     deleteStoreDirectories();
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
-      throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
+      throw new SamzaException("Application could not finish successfully", status.getThrowable());
     }
   }
 
