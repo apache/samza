@@ -81,7 +81,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   public RemoteTableDescriptor(String tableId) {
     super(tableId);
@@ -89,7 +89,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   public RemoteTableDescriptor(String tableId, KVSerde<K, V> serde) {

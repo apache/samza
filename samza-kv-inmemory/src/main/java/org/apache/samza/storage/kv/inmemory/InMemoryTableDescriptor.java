@@ -36,7 +36,7 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   public InMemoryTableDescriptor(String tableId) {
     super(tableId);
@@ -44,7 +44,7 @@ public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDesc
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   public InMemoryTableDescriptor(String tableId, KVSerde<K, V> serde) {
