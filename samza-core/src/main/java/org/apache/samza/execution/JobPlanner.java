@@ -28,6 +28,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -88,8 +89,10 @@ public abstract class JobPlanner {
     Map<String, String> systemStreamConfigs = expandSystemStreamConfigs(appDesc);
     cfg.putAll(systemStreamConfigs);
 
-    // adding app.class in the configuration
-    cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
+    // adding app.class in the configuration, unless it is LegacyTaskApplication
+    if (!LegacyTaskApplication.class.getName().equals(appDesc.getAppClass().getName())) {
+      cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
+    }
 
     // create the physical execution plan and merge with overrides. This works for a single-stage job now
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811

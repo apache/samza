@@ -19,6 +19,8 @@
 
 package org.apache.samza.storage.kv
 
+import java.io.File
+
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.IncomingMessageEnvelope
@@ -32,6 +34,8 @@ import scala.collection.JavaConverters._
  * This implements both the key/value interface and the storage engine interface.
  */
 class KeyValueStorageEngine[K, V](
+  storeName: String,
+  storeDir: File,
   storeProperties: StoreProperties,
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
@@ -104,7 +108,7 @@ class KeyValueStorageEngine[K, V](
    * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
    */
   def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
-    info("Restoring entries for store " + metrics.storeName)
+    info("Restoring entries for store: " + storeName + " in directory: " + storeDir.toString)
 
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
 
@@ -132,11 +136,11 @@ class KeyValueStorageEngine[K, V](
       count += 1
 
       if (count % 1000000 == 0) {
-        info(count + " entries restored...")
+        info(count + " entries restored for store: " + storeName + " in directory: " + storeDir.toString + "...")
       }
     }
 
-    info(count + " total entries restored.")
+    info(count + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
     if (batch.size > 0) {
       doPutAll(rawStore, batch)

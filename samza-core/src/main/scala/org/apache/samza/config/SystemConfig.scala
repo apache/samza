@@ -50,7 +50,7 @@ class SystemConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDefaultSystemOffset(systemName: String) = getOption(SystemConfig.CONSUMER_OFFSET_DEFAULT format (systemName))
 
-  def deleteCommittedMessages(systemName: String) = getOption(SystemConfig.DELETE_COMMITTED_MESSAGES format (systemName))
+  def deleteCommittedMessages(systemName: String) = getBoolean(SystemConfig.DELETE_COMMITTED_MESSAGES format (systemName), false)
 
   /**
    * Returns a list of all system names from the config file. Useful for

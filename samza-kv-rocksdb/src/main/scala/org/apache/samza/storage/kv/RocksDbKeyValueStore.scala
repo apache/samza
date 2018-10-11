@@ -68,7 +68,7 @@ object RocksDbKeyValueStore extends Logging {
     try {
       val rocksDb =
         if (useTTL) {
-          info("Opening RocksDB store with TTL value: %s" format ttl)
+          info("Opening RocksDB store: %s in path: %s with TTL value: %s" format (storeName, dir.toString, ttl))
           TtlDB.open(options, dir.toString, ttl.toInt, false)
         } else {
           RocksDB.open(options, dir.toString)
