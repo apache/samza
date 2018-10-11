@@ -18,15 +18,20 @@
  */
 package org.apache.samza.context;
 
-import java.util.function.Function;
 import org.apache.samza.checkpoint.OffsetManager;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableManager;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 
 public class TaskContextImpl implements TaskContext {
@@ -36,19 +41,26 @@ public class TaskContextImpl implements TaskContext {
   private final TableManager tableManager;
   private final CallbackScheduler callbackScheduler;
   private final OffsetManager offsetManager;
+  private final JobModel jobModel;
+  private final StreamMetadataCache streamMetadataCache;
+  private final Map<String, Object> objectRegistry = new HashMap<>();
 
   public TaskContextImpl(TaskModel taskModel,
       MetricsRegistry taskMetricsRegistry,
       Function<String, KeyValueStore> keyValueStoreProvider,
       TableManager tableManager,
       CallbackScheduler callbackScheduler,
-      OffsetManager offsetManager) {
+      OffsetManager offsetManager,
+      JobModel jobModel,
+      StreamMetadataCache streamMetadataCache) {
     this.taskModel = taskModel;
     this.taskMetricsRegistry = taskMetricsRegistry;
     this.keyValueStoreProvider = keyValueStoreProvider;
     this.tableManager = tableManager;
     this.callbackScheduler = callbackScheduler;
     this.offsetManager = offsetManager;
+    this.jobModel = jobModel;
+    this.streamMetadataCache = streamMetadataCache;
   }
 
   @Override
@@ -83,5 +95,23 @@ public class TaskContextImpl implements TaskContext {
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
     this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
+  }
+
+  // TODO SAMZA-1935: below methods are used by operator code; they should be decoupled from this client API
+
+  public void registerObject(String name, Object value) {
+    this.objectRegistry.put(name, value);
+  }
+
+  public Object fetchObject(String name) {
+    return this.objectRegistry.get(name);
+  }
+
+  public JobModel getJobModel() {
+    return this.jobModel;
+  }
+
+  public StreamMetadataCache getStreamMetadataCache() {
+    return this.streamMetadataCache;
   }
 }

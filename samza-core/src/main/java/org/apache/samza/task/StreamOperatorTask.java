@@ -18,14 +18,13 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.OperatorSpecGraph;
-import org.apache.samza.system.EndOfStreamMessage;
-import org.apache.samza.system.MessageType;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.MessageType;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
@@ -42,8 +41,6 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final OperatorSpecGraph specGraph;
-  // TODO: to be replaced by proper scope of shared context factory in SAMZA-1714
-  private final ContextManager contextManager;
   private final Clock clock;
 
   private OperatorImplGraph operatorImplGraph;
@@ -52,17 +49,15 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * Constructs an adaptor task to run the user-implemented {@link OperatorSpecGraph}.
    * @param specGraph the serialized version of user-implemented {@link OperatorSpecGraph}
    *                  that includes the logical DAG
-   * @param contextManager the {@link ContextManager} used to set up the shared context used by operators in the DAG
    * @param clock the {@link Clock} to use for time-keeping
    */
-  public StreamOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager, Clock clock) {
+  public StreamOperatorTask(OperatorSpecGraph specGraph, Clock clock) {
     this.specGraph = specGraph.clone();
-    this.contextManager = contextManager;
     this.clock = clock;
   }
 
-  public StreamOperatorTask(OperatorSpecGraph specGraph, ContextManager contextManager) {
-    this(specGraph, contextManager, SystemClock.instance());
+  public StreamOperatorTask(OperatorSpecGraph specGraph) {
+    this(specGraph, SystemClock.instance());
   }
 
   /**
@@ -75,20 +70,13 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * an immutable {@link OperatorSpecGraph} accordingly, which is passed in to this class to create the {@link OperatorImplGraph}
    * corresponding to the logical DAG.
    *
-   * @param config allows accessing of fields in the configuration files that this StreamTask is specified in
    * @param context allows initializing and accessing contextual data of this StreamTask
    * @throws Exception in case of initialization errors
    */
   @Override
-  public final void init(Config config, TaskContext context) throws Exception {
-
-    // get the user-implemented per task context manager and initialize it
-    if (this.contextManager != null) {
-      this.contextManager.init(config, context);
-    }
-
+  public final void init(Context context) throws Exception {
     // create the operator impl DAG corresponding to the logical operator spec DAG
-    this.operatorImplGraph = new OperatorImplGraph(specGraph, config, context, clock);
+    this.operatorImplGraph = new OperatorImplGraph(specGraph, context, clock);
   }
 
   /**
@@ -133,10 +121,9 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
 
   @Override
   public void close() throws Exception {
-    if (this.contextManager != null) {
-      this.contextManager.close();
+    if (operatorImplGraph != null) {
+      operatorImplGraph.close();
     }
-    operatorImplGraph.close();
   }
 
   /* package private for testing */

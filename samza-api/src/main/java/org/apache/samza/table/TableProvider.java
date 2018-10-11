@@ -19,11 +19,9 @@
 package org.apache.samza.table;
 
 import java.util.Map;
-
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.context.Context;
 
 /**
  * A table provider provides the implementation for a table. It ensures a table is
@@ -33,10 +31,9 @@ import org.apache.samza.task.TaskContext;
 public interface TableProvider {
   /**
    * Initialize TableProvider with container and task context
-   * @param containerContext Samza container context
-   * @param taskContext nullable for global table
+   * @param context context for the task
    */
-  void init(SamzaContainerContext containerContext, TaskContext taskContext);
+  void init(Context context);
 
   /**
    * Get an instance of the table for read/write operations

@@ -21,23 +21,23 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.container.TaskContextImpl;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.operators.Scheduler;
-import org.apache.samza.operators.functions.ScheduledFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
+import org.apache.samza.operators.Scheduler;
+import org.apache.samza.operators.functions.ScheduledFunction;
+import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.scheduler.CallbackScheduler;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
@@ -82,16 +82,15 @@ public abstract class OperatorImpl<M, RM> {
   private EndOfStreamStates eosStates;
   // watermark states
   private WatermarkStates watermarkStates;
-  private TaskContext taskContext;
+  private CallbackScheduler callbackScheduler;
   private ControlMessageSender controlMessageSender;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * @param config  the {@link Config} for the task
-   * @param context  the {@link TaskContext} for the task
+   * @param context the {@link Context} for the task
    */
-  public final void init(Config config, TaskContext context) {
+  public final void init(Context context) {
     String opId = getOpImplId();
 
     if (initialized) {
@@ -102,32 +101,24 @@ public abstract class OperatorImpl<M, RM> {
       throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opId));
     }
 
-    this.highResClock = createHighResClock(config);
+    this.highResClock = createHighResClock(context.getJobContext().getConfig());
     registeredOperators = new HashSet<>();
     prevOperators = new HashSet<>();
     inputStreams = new HashSet<>();
-    MetricsRegistry metricsRegistry = context.getMetricsRegistry();
+    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
+    TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    MetricsRegistry metricsRegistry = taskContext.getTaskMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opId + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
-    this.taskName = context.getTaskName();
+    this.taskName = taskContext.getTaskModel().getTaskName();
 
-    TaskContextImpl taskContext = (TaskContextImpl) context;
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
     this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
-
-    if (taskContext.getJobModel() != null) {
-      ContainerModel containerModel = taskContext.getJobModel().getContainers()
-          .get(context.getSamzaContainerContext().id);
-      this.taskModel = containerModel.getTasks().get(taskName);
-    } else {
-      this.taskModel = null;
-      this.usedInCurrentTask = true;
-    }
-
-    this.taskContext = taskContext;
-    handleInit(config, taskContext);
+    this.taskModel = taskContext.getTaskModel();
+    this.callbackScheduler = taskContext.getCallbackScheduler();
+    handleInit(context);
 
     initialized = true;
   }
@@ -135,10 +126,9 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * @param config  the {@link Config} for the task
-   * @param context  the {@link TaskContext} for the task
+   * @param context the {@link Context} for the task
    */
-  protected abstract void handleInit(Config config, TaskContext context);
+  protected abstract void handleInit(Context context);
 
   /**
    * Register an operator that this operator should propagate its results to.
@@ -448,7 +438,7 @@ public abstract class OperatorImpl<M, RM> {
     return new Scheduler<K>() {
       @Override
       public void schedule(K key, long time) {
-        taskContext.scheduleCallback(key, time, (k, collector, coordinator) -> {
+        callbackScheduler.scheduleCallback(key, time, (k, collector, coordinator) -> {
             final ScheduledFunction<K, RM> scheduledFn = getOperatorSpec().getScheduledFn();
             if (scheduledFn != null) {
               final Collection<RM> output = scheduledFn.onCallback(key, time);
@@ -468,7 +458,7 @@ public abstract class OperatorImpl<M, RM> {
 
       @Override
       public void delete(K key) {
-        taskContext.deleteScheduledCallback(key);
+        callbackScheduler.deleteCallback(key);
       }
     };
   }

@@ -24,8 +24,9 @@ import org.apache.samza.task.TaskCoordinator;
 
 
 /**
- * The callback that is invoked when its corresponding schedule time registered via
- * {@link org.apache.samza.task.TaskContext} is reached.
+ * The callback that is invoked when its corresponding schedule time registered via {@link CallbackScheduler} is
+ * reached. The {@link CallbackScheduler} is available through
+ * {@link org.apache.samza.context.TaskContext#getCallbackScheduler()}.
  * @param <K> type of the callback key
  */
 public interface ScheduledCallback<K> {

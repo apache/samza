@@ -20,16 +20,10 @@
 package org.apache.samza.test.table;
 
 import com.google.common.collect.ImmutableList;
-
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.KV;
@@ -49,7 +43,18 @@ import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestTableData.*;
+import java.nio.file.FileSystems;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import static org.apache.samza.test.table.TestTableData.PageView;
+import static org.apache.samza.test.table.TestTableData.Profile;
+import static org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -82,6 +87,11 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     Map<String, String> configs = new HashMap<>();
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM), systemName);
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PROFILE_STREAM), systemName);
+    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath("non-logged").toAbsolutePath().toString());
+    // SideInput Tables needs this to be configured for persisting data
+    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
+        FileSystems.getDefault().getPath("logged").toAbsolutePath().toString());
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);

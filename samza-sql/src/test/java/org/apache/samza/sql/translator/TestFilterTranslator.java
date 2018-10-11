@@ -21,14 +21,11 @@ package org.apache.samza.sql.translator;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.FilterFunction;
@@ -38,6 +35,7 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -50,8 +48,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -96,11 +94,9 @@ public class TestFilterTranslator extends TranslatorTestBase {
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
     // Verify that the describe() method will establish the context for the filter function
-    Config mockConfig = mock(Config.class);
-    TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
-        new HashSet<>(), null, null, null, null, null, null);
-    taskContext.setUserContext(mockContext);
-    filterSpec.getTransformFn().init(mockConfig, taskContext);
+    Context context = mock(Context.class);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    filterSpec.getTransformFn().init(context);
     FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "filterFn");
     assertNotNull(filterFn);
     assertEquals(mockContext, Whitebox.getInternalState(filterFn, "context"));
