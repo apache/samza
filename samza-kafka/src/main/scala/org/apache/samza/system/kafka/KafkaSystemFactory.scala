@@ -51,7 +51,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
-    val clientId = KafkaConsumerConfig.createClientId("kafka-consumer", config);
+    val clientId = KafkaConsumerConfig.createClientId(KafkaSystemFactory.CLIENTID_CONSUMER_PREFIX, config);
     val kafkaConsumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
 
     val kafkaConsumer = KafkaSystemConsumer.createKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
@@ -59,7 +59,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
     val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
       new SystemClock)
-    info("Created samza system consumer %s with config %s" format(kafkaSystemConsumer, config))
+    info("Created samza system consumer for system %s, config %s: %s" format(systemName, config, kafkaSystemConsumer))
 
     kafkaSystemConsumer
   }

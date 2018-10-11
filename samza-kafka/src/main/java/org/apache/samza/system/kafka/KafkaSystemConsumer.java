@@ -99,13 +99,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    String metricName = generateMetricsName();
+    String metricName = String.format("%s-%s", systemName, clientId);
     proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
     LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
-  }
-
-  protected String generateMetricsName() {
-    return String.format("%s", systemName);
   }
 
   /**

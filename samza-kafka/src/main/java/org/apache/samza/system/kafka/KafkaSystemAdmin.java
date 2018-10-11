@@ -62,7 +62,6 @@ import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 
 import static org.apache.samza.config.KafkaConsumerConfig.*;
-import static org.apache.samza.system.kafka.KafkaSystemDescriptor.*;
 
 
 public class KafkaSystemAdmin implements ExtendedSystemAdmin {
@@ -73,7 +72,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   protected static final long DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS = 500;
   protected static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
   protected static final int MAX_RETRIES_ON_EXCEPTION = 5;
-  public static final int DEFAULT_REPL_FACTOR = 2;
+  protected static final int DEFAULT_REPL_FACTOR = 2;
 
   // used in TestRepartitionJoinWindowApp TODO - remove SAMZA-1945
   @VisibleForTesting
@@ -109,16 +108,18 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     this.systemName = systemName;
 
     if (metadataConsumer == null) {
-      throw new SamzaException("Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
+      throw new SamzaException(
+          "Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
     }
     this.metadataConsumer = metadataConsumer;
 
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
-    String brokerList =
-        config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    String brokerList = config.get(
+        String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     if (brokerList == null) {
-      brokerList = config.get(String.format(PRODUCER_CONFIGS_CONFIG_KEY, systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+      brokerList = config.get(String.format(KafkaConfig.PRODUCER_CONFIGS_CONFIG_KEY(), systemName,
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
     if (brokerList == null) {
       throw new SamzaException(
@@ -128,7 +129,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient
-    String zkConnect = config.get(String.format(CONSUMER_CONFIGS_CONFIG_KEY, systemName, ZOOKEEPER_CONNECT));
+    String zkConnect =
+        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
     if (StringUtils.isBlank(zkConnect)) {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
@@ -153,7 +155,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
       String storeName = e.getKey();
       String topicName = e.getValue();
       String replicationFactorStr = kafkaConfig.getChangelogStreamReplicationFactor(storeName);
-      int replicationFactor = StringUtils.isEmpty(replicationFactorStr) ? DEFAULT_REPL_FACTOR : Integer.valueOf(replicationFactorStr);
+      int replicationFactor =
+          StringUtils.isEmpty(replicationFactorStr) ? DEFAULT_REPL_FACTOR : Integer.valueOf(replicationFactorStr);
       ChangelogInfo changelogInfo =
           new ChangelogInfo(replicationFactor, kafkaConfig.getChangelogKafkaProperties(storeName));
       LOG.info(String.format("Creating topic meta information for topic: %s with replication factor: %s", topicName,
@@ -169,9 +172,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
         JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
             .asJava();
 
-    LOG.info(String.format("Creating KafkaSystemAdmin for system %s", systemName));
+    LOG.info(String.format("Created KafkaSystemAdmin for system %s", systemName));
   }
-
 
   @Override
   public void start() {
@@ -513,7 +515,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     TopicPartition topicPartition = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
 
     // the offsets returned from the consumer is the Long type
-    Long upcomingOffset = (Long)metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+    Long upcomingOffset =
+        (Long) metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
 
     // Kafka's "latest" offset is always last message in stream's offset + 1,
     // so get newest message in stream by subtracting one. This is safe

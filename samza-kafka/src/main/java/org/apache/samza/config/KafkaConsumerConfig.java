@@ -44,12 +44,6 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
 
-  public static final String CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s";
-  public static final String PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers";
-  public static final String PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s";
-  public static final String CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect";
-
-
   private final String systemName;
   /*
    * By default, KafkaConsumer will fetch some big number of available messages for all the partitions.
@@ -74,7 +68,6 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
     final String groupId = createConsumerGroupId(config);
-    //final String clientId = KafkaConsumerConfig.createClientId(clientIdPrefix, config);
 
     Map<String, Object> consumerProps = new HashMap<>();
     consumerProps.putAll(subConf);
