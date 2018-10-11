@@ -49,7 +49,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
   /**
    * Constructs a table descriptor instance with internal cache
    *
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern { @literal [\\d\\w-_]+ }
    * @param table target table descriptor
    */
   public CachingTableDescriptor(String tableId, TableDescriptor<K, V, ?> table) {
@@ -63,7 +63,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
    * in the read path of {@link CachingTable}. As such, cache table implementation is
    * expected to be thread-safe for concurrent accesses.
    *
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern { @literal [\\d\\w-_]+ }
    * @param table target table descriptor
    * @param cache cache table descriptor
    */
