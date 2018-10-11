@@ -39,7 +39,7 @@ public class ApplicationUtil {
    */
   public static SamzaApplication fromConfig(Config config) {
     String appClassName = new ApplicationConfig(config).getAppClass();
-    if (StringUtils.isNotBlank(appClassName) && !appClassName.equals(LegacyTaskApplication.class.getName())) {
+    if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
       try {
         Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName);
