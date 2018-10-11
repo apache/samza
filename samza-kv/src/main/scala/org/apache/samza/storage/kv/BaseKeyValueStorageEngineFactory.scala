@@ -154,7 +154,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       }
     }
 
-    new KeyValueStorageEngine(storePropertiesBuilder.build(), nullSafeStore, rawStore,
+    new KeyValueStorageEngine(storeName, storeDir, storePropertiesBuilder.build(), nullSafeStore, rawStore,
       keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
   }
 

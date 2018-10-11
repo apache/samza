@@ -39,6 +39,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
+import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,7 @@ public abstract class AsyncSystemProducer implements SystemProducer {
   /**
    * The constant CONFIG_STREAM_LIST. This config is used to get the list of streams produced by this EventHub system.
    */
-  public static final String CONFIG_STREAM_LIST = "systems.%s.stream.list";
+  public static final String CONFIG_STREAM_LIST = EventHubConfig.CONFIG_STREAM_LIST;
 
   private static final String SEND_ERRORS = "sendErrors";
   private static final String SEND_CALLBACK_LATENCY = "sendCallbackLatency";

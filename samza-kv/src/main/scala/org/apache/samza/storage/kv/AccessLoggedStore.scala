@@ -100,16 +100,16 @@ class AccessLoggedStore[K, V](
   }
 
   def close(): Unit = {
-    trace("Closing accessLogged store.")
+    trace("Closing accessLogged store: %s." format storeName)
 
     store.close
   }
 
   def flush(): Unit = {
-    trace("Flushing store.")
+    trace("Flushing store: %s." format storeName)
 
     store.flush
-    trace("Flushed store.")
+    trace("Flushed store: %s." format storeName)
   }
 
 
