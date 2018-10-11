@@ -90,7 +90,7 @@ public abstract class JobPlanner {
     cfg.putAll(systemStreamConfigs);
 
     // adding app.class in the configuration, unless it is LegacyTaskApplication
-    if (! LegacyTaskApplication.class.getName().equals(appDesc.getAppClass().getName())) {
+    if (!LegacyTaskApplication.class.getName().equals(appDesc.getAppClass().getName())) {
       cfg.put(ApplicationConfig.APP_CLASS, appDesc.getAppClass().getName());
     }
 
