@@ -20,14 +20,12 @@
 package org.apache.samza.sql.runner;
 
 import java.util.Map;
-
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
-
 import org.junit.Test;
 
 

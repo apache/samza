@@ -67,7 +67,6 @@ rat {
     '**/bootstrap.min.css',
     '**/bootstrap.min.js',
     '**/build/**',
-    '**/google-fonts.css',
     '**/ionicons.min.css',
     '**/font-awesome.min.css',
     '**/jquery-1.11.1.min.js',

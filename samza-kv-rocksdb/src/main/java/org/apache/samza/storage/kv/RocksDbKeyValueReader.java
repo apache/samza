@@ -19,16 +19,11 @@
 
 package org.apache.samza.storage.kv;
 
-import java.util.ArrayList;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.SerializerConfig$;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.util.Util;
@@ -65,11 +60,7 @@ public class RocksDbKeyValueReader {
     valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName), serializerConfig);
 
     // get db options
-    ArrayList<TaskName> taskNameList = new ArrayList<TaskName>();
-    taskNameList.add(new TaskName("read-rocks-db"));
-    SamzaContainerContext samzaContainerContext =
-        new SamzaContainerContext("0",  config, taskNameList, new MetricsRegistryMap());
-    Options options = RocksDbOptionsHelper.options(config, samzaContainerContext);
+    Options options = RocksDbOptionsHelper.options(config, 1);
 
     // open the db
     RocksDB.loadLibrary();

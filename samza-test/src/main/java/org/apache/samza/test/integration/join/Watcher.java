@@ -19,31 +19,30 @@
 
 package org.apache.samza.test.integration.join;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.WindowableTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Watcher implements StreamTask, WindowableTask, InitableTask {
-  
+
   private static Logger logger = LoggerFactory.getLogger(Watcher.class);
 
   private boolean inError = false;
   private long lastEpochChange = System.currentTimeMillis();
   private long maxTimeBetweenEpochsMs;
   private int currentEpoch = 0;
-  
+
   @Override
-  public void init(Config config, TaskContext context) {
-    this.maxTimeBetweenEpochsMs = config.getLong("max.time.between.epochs.ms");
+  public void init(Context context) {
+    this.maxTimeBetweenEpochsMs = context.getJobContext().getConfig().getLong("max.time.between.epochs.ms");
   }
-  
+
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     int epoch = Integer.parseInt((String) envelope.getMessage());
@@ -54,7 +53,7 @@ public class Watcher implements StreamTask, WindowableTask, InitableTask {
       this.inError = false;
     }
   }
-  
+
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
     boolean isLagging = System.currentTimeMillis() - lastEpochChange > maxTimeBetweenEpochsMs;
@@ -64,5 +63,5 @@ public class Watcher implements StreamTask, WindowableTask, InitableTask {
       logger.error("Job failed to make progress!" + String.format("No epoch change for %d minutes.", this.maxTimeBetweenEpochsMs / (60 * 1000)));
     }
   }
-  
+
 }
