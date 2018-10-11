@@ -105,9 +105,9 @@ public class TestRunner {
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
-        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope).getAbsolutePath());
+        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-non-logged").getAbsolutePath());
     configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
-        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope).getAbsolutePath());
+        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-logged").getAbsolutePath());
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
