@@ -16,32 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.context;
 
-import org.apache.samza.config.Config;
+package org.apache.samza.sql.runner;
+
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.sql.translator.TranslatorContext;
 
 
-/**
- * Contains information at job granularity, provided by the Samza framework, to be used to instantiate an application at
- * runtime.
- */
-public interface JobContext {
-  /**
-   * Returns the final configuration for this job.
-   * @return configuration for this job
-   */
-  Config getConfig();
+public class SamzaSqlApplicationContext implements ApplicationTaskContext {
+  private final TranslatorContext translatorContext;
 
-  /**
-   * Returns the name of the job.
-   * @return name of the job
-   * @throws org.apache.samza.SamzaException if the job name was not configured
-   */
-  String getJobName();
+  public SamzaSqlApplicationContext(TranslatorContext translatorContext) {
+    this.translatorContext = translatorContext;
+  }
 
-  /**
-   * Returns the instance id for this instance of this job.
-   * @return instance id for the job
-   */
-  String getJobId();
+  public TranslatorContext getTranslatorContext() {
+    return translatorContext;
+  }
+
+  @Override
+  public void start() {
+  }
+
+  @Override
+  public void stop() {
+  }
 }

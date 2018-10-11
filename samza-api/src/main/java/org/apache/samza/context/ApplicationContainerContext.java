@@ -20,10 +20,15 @@ package org.apache.samza.context;
 
 /**
  * An application should implement this to contain any runtime objects required by processing logic which can be shared
- * across all tasks in a container. A single instance of this will be created in each container.
+ * across all tasks in a container. A single instance of this will be created in each container. Note that if the
+ * container moves or the container model changes (e.g. container failure/rebalancing), then this will be recreated.
  * <p>
  * This needs to be created by an implementation of {@link ApplicationContainerContextFactory}. The factory should
  * create the runtime objects contained within this context.
+ * <p>
+ * This is related to {@link ContainerContext} in that they are both associated with the container lifecycle. In order
+ * to access this in application code, use {@link Context#getApplicationContainerContext()}. The
+ * {@link ContainerContext} is accessible through {@link Context#getContainerContext()}.
  * <p>
  * If it is necessary to have a separate instance per task, then use {@link ApplicationTaskContext} instead.
  * <p>
