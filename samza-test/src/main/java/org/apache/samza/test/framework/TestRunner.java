@@ -109,12 +109,10 @@ public class TestRunner {
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
         FileSystems.getDefault().getPath("/tmp/" + this.inMemoryScope).toAbsolutePath().toString() + File.separator);
-    // Changing the base directory for changelog stores (here SideInput) used by Samza application to separate the
-    // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
         FileSystems.getDefault().getPath("/tmp/" + this.inMemoryScope).toAbsolutePath().toString() + File.separator);
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
-    // Disabling host affinity since Table Api enables it by default for RocksDb and expects coordinator stream
+    // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
     addConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).withInMemoryScope(inMemoryScope).toConfig());
@@ -266,7 +264,7 @@ public class TestRunner {
    * @throws SamzaException if Samza job fails with exception and returns UnsuccessfulFinish as the statuscode
    */
   public void run(Duration timeout) {
-    Preconditions.checkState(app != null, "No Samza application to run");
+    Preconditions.checkNotNull(app);
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
@@ -275,11 +273,10 @@ public class TestRunner {
     boolean timedOut = !runner.waitForFinish(timeout);
     Assert.assertFalse("Timed out waiting for application to finish", timedOut);
     ApplicationStatus status = runner.status();
+    deleteStoreDirectories();
     if (status.getStatusCode() == ApplicationStatus.StatusCode.UnsuccessfulFinish) {
-      deleteStoreDirectories();
       throw new SamzaException(ExceptionUtils.getStackTrace(status.getThrowable()));
     }
-    deleteStoreDirectories();
   }
 
   /**

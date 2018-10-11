@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.TaskApplicationDescriptor;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -46,7 +46,6 @@ import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
@@ -226,8 +225,8 @@ public class StreamTaskIntegrationTest {
     private ReadWriteTable<Integer, Profile> profileViewTable;
 
     @Override
-    public void init(Config config, TaskContext context) throws Exception {
-      profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTable("profile-view-store");
+    public void init(Context context) throws Exception {
+      profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTaskContext().getTable("profile-view-store");
     }
 
     @Override
@@ -245,6 +244,7 @@ public class StreamTaskIntegrationTest {
         }
       }
     }
+
   }
 
   public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {
