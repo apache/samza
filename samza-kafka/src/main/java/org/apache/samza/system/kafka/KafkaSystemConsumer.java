@@ -35,7 +35,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -53,9 +52,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   private static final long FETCH_THRESHOLD = 50000;
   private static final long FETCH_THRESHOLD_BYTES = -1L;
 
-  private final Consumer<K, V> kafkaConsumer;
-  private final String systemName;
-  private final String clientId;
+  protected final Consumer<K, V> kafkaConsumer;
+  protected final String systemName;
+  protected final String clientId;
   private final AtomicBoolean stopped = new AtomicBoolean(false);
   private final AtomicBoolean started = new AtomicBoolean(false);
   private final Config config;
@@ -100,7 +99,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    String metricName = String.format("%s", systemName);
+    String metricName = String.format("%s-%s", systemName, clientId);
     proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
     LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
   }
@@ -108,18 +107,14 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   /**
    * Create internal kafka consumer object, which will be used in the Proxy.
    * @param systemName system name for which we create the consumer
-   * @param clientId client id to use int the kafka client
-   * @param config config
-   * @return kafka consumer object
+   * @param kafkaConsumerConfig config object for Kafka's KafkaConsumer
+   * @return KafkaConsumer object
    */
-  public static KafkaConsumer<byte[], byte[]> getKafkaConsumerImpl(String systemName, String clientId, Config config) {
+  public static <K,V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName,
+      HashMap<String, Object> kafkaConsumerConfig) {
 
-    // extract kafka client configs
-    KafkaConsumerConfig consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, clientId);
-
-    LOG.info("{}: KafkaClient properties {}", systemName, consumerConfig);
-
-    return new KafkaConsumer(consumerConfig);
+    LOG.info("Instantiating KafkaConsumer for systemName {} with properties {}", systemName, kafkaConsumerConfig);
+    return new KafkaConsumer<>(kafkaConsumerConfig);
   }
 
   @Override

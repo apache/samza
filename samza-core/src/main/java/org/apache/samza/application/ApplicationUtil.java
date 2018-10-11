@@ -59,5 +59,4 @@ public class ApplicationUtil {
     }
     return new LegacyTaskApplication(taskClassOption.get());
   }
-
 }
