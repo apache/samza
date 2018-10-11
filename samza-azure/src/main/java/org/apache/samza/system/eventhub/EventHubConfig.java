@@ -79,8 +79,8 @@ public class EventHubConfig extends MapConfig {
   private static final int MESSAGE_HEADER_OVERHEAD = 24 * 1024;
   private static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024 - MESSAGE_HEADER_OVERHEAD;
 
-  // Each EventHub client maintains single TCP connection. To improve throughput, we will instantiate one
-  // client for each partition. Allow the option to disable the feature in case too many EventHub clients
+  // Each Event Hubs client maintains single TCP connection. To improve throughput, we will instantiate one
+  // client for each partition. Allow the option to disable the feature in case too many Event Hubs clients
   // end up causing unpredictable issues when number of partitions is really high.
   public static final String CONFIG_PER_PARTITION_CONNECTION = "systems.%s.eventhubs.perPartition.connection";
   public static final Boolean DEFAULT_CONFIG_PER_PARTITION_CONNECTION = true;
@@ -151,7 +151,7 @@ public class EventHubConfig extends MapConfig {
 
   /**
    * Get the list of streams that are defined. Each stream has enough
-   * information for connecting to a certain EventHub entity.
+   * information for connecting to a certain Event Hubs entity.
    *
    * @param systemName name of the system
    * @return list of stream names
@@ -161,11 +161,11 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the EventHubs namespace for the stream
+   * Get the Event Hubs namespace for the stream
    *
    * @param systemName name of the system
    * @param streamName name of stream (physical or streamId)
-   * @return EventHubs namespace
+   * @return Event Hubs namespace
    */
   public String getStreamNamespace(String systemName, String streamName) {
     LOG.info("Obtaining name-space for system: {} physical name: {}", systemName, streamName);
@@ -174,11 +174,11 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the EventHubs entity path (topic name) for the stream
+   * Get the Event Hubs entity path (topic name) for the stream
    *
    * @param systemName name of the system
    * @param streamName name of stream (physical or streamId)
-   * @return EventHubs entity path
+   * @return Event Hubs entity path
    */
   public String getStreamEntityPath(String systemName, String streamName) {
     LOG.info("Obtaining entity-path for system: {} physical name: {}", systemName, streamName);
@@ -206,16 +206,16 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the per partition prefetch count for the event hub client
+   * Get the per partition prefetch count for the Event Hubs client
    * @param systemName Name of the system.
-   * @return Per partition Prefetch count for the event hub client.
+   * @return Per partition Prefetch count for the Event Hubs client.
    */
   public Integer getPrefetchCount(String systemName) {
     return getInt(String.format(CONFIG_PREFETCH_COUNT, systemName), DEFAULT_CONFIG_PREFETCH_COUNT);
   }
 
   /**
-   * Get the EventHubs max Message size
+   * Get the Event Hubs max Message size
    *
    * @param systemName name of the system
    * @return the max message size supported in event hubs.
@@ -225,11 +225,11 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the EventHubs SAS (Shared Access Signature) key name for the stream
+   * Get the Event Hubs SAS (Shared Access Signature) key name for the stream
    *
    * @param systemName name of the system
    * @param streamName name of stream (physical or streamId)
-   * @return EventHubs SAS key name
+   * @return Event Hubs SAS key name
    */
   public String getStreamSasKeyName(String systemName, String streamName) {
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_KEY_NAME, streamName),
@@ -237,11 +237,11 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the EventHubs SAS (Shared Access Signature) token for the stream
+   * Get the Event Hubs SAS (Shared Access Signature) token for the stream
    *
    * @param systemName name of the system
    * @param streamName name of stream (physical or streamId)
-   * @return EventHubs SAS token
+   * @return Event Hubs SAS token
    */
   public String getStreamSasToken(String systemName, String streamName) {
     return validateRequiredConfig(getFromStreamIdOrName(CONFIG_STREAM_SAS_TOKEN, streamName),
@@ -249,18 +249,18 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the EventHubs consumer group used for consumption for the stream
+   * Get the Event Hubs consumer group used for consumption for the stream
    *
    * @param systemName name of the system
    * @param streamName name of stream (physical or streamId)
-   * @return EventHubs consumer group
+   * @return Event Hubs consumer group
    */
   public String getStreamConsumerGroup(String systemName, String streamName) {
     return getFromStreamIdOrName(CONFIG_STREAM_CONSUMER_GROUP, streamName, DEFAULT_CONFIG_STREAM_CONSUMER_GROUP);
   }
 
   /**
-   * Get the partition method of the systemName. By default partitioning is handed by EventHub.
+   * Get the partition method of the systemName. By default partitioning is handled by Event Hubs.
    *
    * @param systemName name of the system
    * @return The method the producer should use to partition the outgoing data
@@ -287,7 +287,7 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the timeout for the getRuntimeInfo request to EventHub client
+   * Get the timeout for the getRuntimeInfo request to Event Hubs client
    *
    * @param systemName name of the systems
    * @return long, timeout in millis for fetching RuntimeInfo
@@ -298,7 +298,7 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Get the capacity of the Event Hub consumer buffer - the blocking queue used for storing messages
+   * Get the capacity of the Event Hubs consumer buffer - the blocking queue used for storing messages
    *
    * @param systemName name of the system
    * @return int, number of buffered messages per SystemStreamPartition
@@ -312,9 +312,12 @@ public class EventHubConfig extends MapConfig {
   }
 
   /**
-   * Returns whether to create one EventHub client per partition. Each EventHub client maintains
-   * single TCP connection. More EventHub clients will improve throughput in general.
+   * Returns whether to create one Event Hubs client per partition. Each Event Hubs client maintains
+   * single TCP connection. More Event Hubs clients will improve throughput in general.
    * For producer this config is only relevant when partition method is PARTITION_KEY_AS_PARTITION
+   *
+   * @param systemName name of the system
+   * @return true if an Event Hubs client should be created per partition, false otherwise
    */
   public Boolean getPerPartitionConnection(String systemName) {
     String isPerPartitionConnection = get(String.format(CONFIG_PER_PARTITION_CONNECTION, systemName));
