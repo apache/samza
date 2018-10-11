@@ -45,12 +45,12 @@ public class TestGenericInputDescriptor {
 
     input1
         .withPhysicalName("input-1")
-        .withBootstrap(false)
+        .shouldBootstrap()
         .withOffsetDefault(SystemStreamMetadata.OffsetType.NEWEST)
         .withPriority(1)
-        .withResetOffset(false)
-        .withBounded(false)
-        .withDeleteCommittedMessages(true)
+        .shouldResetOffset()
+        .isBounded()
+        .shouldDeleteCommittedMessages()
         .withStreamConfigs(Collections.emptyMap());
 
     output1
@@ -68,12 +68,12 @@ public class TestGenericInputDescriptor {
 
     GenericInputDescriptor<Double> isd = mySystem.getInputDescriptor("input-stream", new DoubleSerde())
             .withPhysicalName("physical-name")
-            .withBootstrap(true)
-            .withBounded(true)
-            .withDeleteCommittedMessages(true)
+            .shouldBootstrap()
+            .isBounded()
+            .shouldDeleteCommittedMessages()
             .withOffsetDefault(SystemStreamMetadata.OffsetType.OLDEST)
             .withPriority(12)
-            .withResetOffset(true)
+            .shouldResetOffset()
             .withStreamConfigs(ImmutableMap.of("custom-config-key", "custom-config-value"));
 
     Map<String, String> generatedConfigs = isd.toConfig();

@@ -41,15 +41,13 @@ public class TestKafkaInputDescriptor {
 
     KafkaInputDescriptor<KV<String, Integer>> isd =
         sd.getInputDescriptor("input-stream", KVSerde.of(new StringSerde(), new IntegerSerde()))
-            .withPhysicalName("physical-name")
             .withConsumerAutoOffsetReset("largest")
             .withConsumerFetchMessageMaxBytes(1024 * 1024);
 
     Map<String, String> generatedConfigs = isd.toConfig();;
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));
-    assertEquals("physical-name", generatedConfigs.get("streams.input-stream.samza.physical.name"));
-    assertEquals("largest", generatedConfigs.get("systems.kafka.streams.physical-name.consumer.auto.offset.reset"));
-    assertEquals("1048576", generatedConfigs.get("systems.kafka.streams.physical-name.consumer.fetch.message.max.bytes"));
+    assertEquals("largest", generatedConfigs.get("systems.kafka.streams.input-stream.consumer.auto.offset.reset"));
+    assertEquals("1048576", generatedConfigs.get("systems.kafka.streams.input-stream.consumer.fetch.message.max.bytes"));
   }
 
   @Test
