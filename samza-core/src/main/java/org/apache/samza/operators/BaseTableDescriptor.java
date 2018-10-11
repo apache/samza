@@ -45,7 +45,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   protected BaseTableDescriptor(String tableId) {
     this.tableId = tableId;
@@ -53,7 +53,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   protected BaseTableDescriptor(String tableId, KVSerde<K, V> serde) {
@@ -61,12 +61,18 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     this.serde = serde;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public D withConfig(String key, String value) {
     config.put(key, value);
     return (D) this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getTableId() {
     return tableId;
