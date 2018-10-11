@@ -73,7 +73,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String inputTopicName2 = "ad-clicks";
     String outputTopicName = "user-ad-click-counts";
 
-    KafkaSystemAdmin.deleteMessagesCalled_$eq(false);
+    KafkaSystemAdmin.deleteMessageCalled = false;
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);
 
@@ -95,7 +95,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
     assertEquals(2, messages.size());
 
-    Assert.assertFalse(KafkaSystemAdmin.deleteMessagesCalled());
+    Assert.assertFalse(KafkaSystemAdmin.deleteMessageCalled);
   }
 
   @Test
@@ -133,18 +133,20 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
 
     // Verify that messages in the intermediate stream will be deleted in 10 seconds
     long startTimeMs = System.currentTimeMillis();
-    for (String streamId: app.getIntermediateStreamIds()) {
+    for (String streamId : app.getIntermediateStreamIds()) {
       long remainingMessageNum = -1;
 
       while (remainingMessageNum != 0 && System.currentTimeMillis() - startTimeMs < 10000) {
         remainingMessageNum = 0;
-        SystemStreamMetadata metadatas = systemAdmin.getSystemStreamMetadata(
-            new HashSet<>(Arrays.asList(streamId)), new ExponentialSleepStrategy.Mock(3)
-        ).get(streamId).get();
+        SystemStreamMetadata metadatas =
+            (SystemStreamMetadata) systemAdmin.getSystemStreamMetadata(new HashSet<>(Arrays.asList(streamId)),
+                new ExponentialSleepStrategy.Mock(3)).get(streamId);
 
-        for (Map.Entry<Partition, SystemStreamPartitionMetadata> entry : metadatas.getSystemStreamPartitionMetadata().entrySet()) {
+        for (Map.Entry<Partition, SystemStreamPartitionMetadata> entry : metadatas.getSystemStreamPartitionMetadata()
+            .entrySet()) {
           SystemStreamPartitionMetadata metadata = entry.getValue();
-          remainingMessageNum += Long.parseLong(metadata.getUpcomingOffset()) - Long.parseLong(metadata.getOldestOffset());
+          remainingMessageNum +=
+              Long.parseLong(metadata.getUpcomingOffset()) - Long.parseLong(metadata.getOldestOffset());
         }
       }
       assertEquals(0, remainingMessageNum);

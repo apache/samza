@@ -21,22 +21,18 @@
 
 package org.apache.samza.system.kafka
 
-import java.util.{Properties, UUID}
-
 import kafka.admin.AdminUtils
-import org.apache.kafka.common.errors.LeaderNotAvailableException
-import org.apache.kafka.common.protocol.Errors
 import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
-import kafka.utils.{TestUtils, ZkUtils}
+import kafka.utils.TestUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
-import org.apache.samza.config.KafkaProducerConfig
+import org.apache.samza.config._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, TopicMetadataStore}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 import org.junit._
 
@@ -53,6 +49,9 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   val TOTAL_PARTITIONS = 50
   val REPLICATION_FACTOR = 2
   val zkSecure = JaasUtils.isZkSecurityEnabled()
+  val KAFKA_CONSUMER_PROPERTY_PREFIX: String = "systems." + SYSTEM + ".consumer."
+  val KAFKA_PRODUCER_PROPERTY_PREFIX: String = "systems." + SYSTEM + ".producer."
+
 
   protected def numBrokers: Int = 3
 
@@ -69,14 +68,19 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   @BeforeClass
   override def setUp() {
     super.setUp()
-    val config = new java.util.HashMap[String, String]()
-    config.put("bootstrap.servers", brokerList)
-    config.put("acks", "all")
-    config.put("serializer.class", "kafka.serializer.StringEncoder")
-    producerConfig = new KafkaProducerConfig("kafka", "i001", config)
+    val map = new java.util.HashMap[String, String]()
+    map.put("bootstrap.servers", brokerList)
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX +
+      org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    map.put("acks", "all")
+    map.put("serializer.class", "kafka.serializer.StringEncoder")
+
+
+    producerConfig = new KafkaProducerConfig("kafka", "i001", map)
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
-    systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure))
+    systemAdmin = createSystemAdmin(SYSTEM, map)
+
     systemAdmin.start()
   }
 
@@ -122,7 +126,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   }
 
   def getConsumerConnector(): ConsumerConnector = {
-    val props = new Properties
+    val props = new java.util.Properties
 
     props.put("zookeeper.connect", zkConnect)
     props.put("group.id", "test")
@@ -132,18 +136,36 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     Consumer.create(consumerConfig)
   }
 
-  def createSystemAdmin(coordinatorStreamProperties: Properties, coordinatorStreamReplicationFactor: Int, topicMetaInformation: Map[String, ChangelogInfo]): KafkaSystemAdmin = {
-    new KafkaSystemAdmin(SYSTEM, brokerList, connectZk = () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamProperties,
-      coordinatorStreamReplicationFactor, 10000, ConsumerConfig.SocketBufferSize, UUID.randomUUID.toString, topicMetaInformation, Map(), false)
-  }
+  def createSystemAdmin(system: String, map: java.util.Map[String, String]) = {
+    // required configs - boostraplist, zkconnect and jobname
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+      brokerList)
+    map.put(KAFKA_PRODUCER_PROPERTY_PREFIX + org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+      brokerList)
+    map.put(JobConfig.JOB_NAME, "job.name")
+    map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
+    val config: Config = new MapConfig(map)
+    val res = KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config)
+
+
+    val clientId = KafkaConsumerConfig.createClientId("clientPrefix", config);
+    // extract kafka client configs
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, clientId)
+
+    new KafkaSystemAdmin(
+      system,
+      config,
+      KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig))
+  }
 }
 
 /**
- * Test creates a local ZK and Kafka cluster, and uses it to create and test
- * topics for to verify that offset APIs in SystemAdmin work as expected.
- */
+  * Test creates a local ZK and Kafka cluster, and uses it to create and test
+  * topics for to verify that offset APIs in SystemAdmin work as expected.
+  */
 class TestKafkaSystemAdmin {
+
   import TestKafkaSystemAdmin._
 
   @Test
@@ -163,7 +185,7 @@ class TestKafkaSystemAdmin {
       new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "u2",
       new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "u3",
       new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "u4")
-    val metadata = KafkaSystemAdmin.assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
+    val metadata = KafkaSystemAdminUtilsScala.assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
     assertNotNull(metadata)
     assertEquals(2, metadata.size)
     assertTrue(metadata.contains("stream1"))
@@ -271,7 +293,9 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldCreateCoordinatorStream {
     val topic = "test-coordinator-stream"
-    val systemAdmin = new KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure), coordinatorStreamReplicationFactor = 3)
+    val map = new java.util.HashMap[String, String]()
+    map.put(org.apache.samza.config.KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "3")
+    val systemAdmin = createSystemAdmin(SYSTEM, map)
 
     val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
     systemAdmin.createStream(spec)
@@ -282,30 +306,6 @@ class TestKafkaSystemAdmin {
     val partitionMetadata = topicMetadata.partitionsMetadata.head
     assertEquals(0, partitionMetadata.partitionId)
     assertEquals(3, partitionMetadata.replicas.size)
-  }
-
-  class KafkaSystemAdminWithTopicMetadataError extends KafkaSystemAdmin(SYSTEM, brokerList, () => ZkUtils(zkConnect, 6000, 6000, zkSecure)) {
-    import kafka.api.TopicMetadata
-    var metadataCallCount = 0
-
-    // Simulate Kafka telling us that the leader for the topic is not available
-    override def getTopicMetadata(topics: Set[String]) = {
-      metadataCallCount += 1
-      val topicMetadata = TopicMetadata(topic = "quux", partitionsMetadata = Seq(), error = Errors.LEADER_NOT_AVAILABLE)
-      Map("quux" -> topicMetadata)
-    }
-  }
-
-  @Test
-  def testShouldRetryOnTopicMetadataError {
-    val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
-    val retryBackoff = new ExponentialSleepStrategy.Mock(maxCalls = 3)
-    try {
-      systemAdmin.getSystemStreamMetadata(Set("quux").asJava, retryBackoff)
-      fail("expected CallLimitReached to be thrown")
-    } catch {
-      case e: ExponentialSleepStrategy.CallLimitReached => ()
-    }
   }
 
   @Test
@@ -334,18 +334,5 @@ class TestKafkaSystemAdmin {
     assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 13, "key4".getBytes, "val4".getBytes)).get().offset().toString)
     assertEquals("2", systemAdmin.getNewestOffset(sspUnderTest, 0))
     assertEquals("0", systemAdmin.getNewestOffset(otherSsp, 0))
-  }
-
-  @Test (expected = classOf[LeaderNotAvailableException])
-  def testGetNewestOffsetMaxRetry {
-    val expectedRetryCount = 3
-    val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
-    try {
-      systemAdmin.getNewestOffset(new SystemStreamPartition(SYSTEM, "quux", new Partition(0)), 3)
-    } catch {
-      case e: Exception =>
-        assertEquals(expectedRetryCount + 1, systemAdmin.metadataCallCount)
-        throw e
-    }
   }
 }
