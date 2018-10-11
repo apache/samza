@@ -50,7 +50,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId) {
     super(tableId);
@@ -58,7 +58,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
 
   /**
    * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must confirm to pattern { @literal [\\d\\w-_]+ }
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   public BaseLocalStoreBackedTableDescriptor(String tableId, KVSerde<K, V> serde) {
@@ -82,7 +82,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   /**
    * Enable changelog for this table, by default changelog is disabled. When the
    * changelog stream name is not specified, it is automatically generated in
-   * the format { @literal [job-name]-[job-id]-table-[table-id] }.
+   * the format {@literal [job-name]-[job-id]-table-[table-id]}.
    * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
    *
    * @return this table descriptor instance
@@ -93,6 +93,16 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   }
 
   /**
+   * Samza stores are local to a container. If the container fails, the contents of
+   * the store are lost. To prevent loss of data, you need to set this property to
+   * configure a changelog stream: Samza then ensures that writes to the store are
+   * replicated to this stream, and the store is restored from this stream after a
+   * failure. The value of this property is given in the form system-name.stream-name.
+   * The "system-name" part is optional. If it is omitted you must specify the system
+   * in <code>job.changelog.system</code> config. Any output stream can be used as
+   * changelog, but you must ensure that only one job ever writes to a given changelog
+   * stream (each instance of a job and each store needs its own changelog stream).
+   * <p>
    * Refer to <code>stores.store-name.changelog</code> in Samza configuration guide
    *
    * @param changelogStream changelog stream name
@@ -105,6 +115,10 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   }
 
   /**
+   * The property defines the number of replicas to use for the change log stream.
+   * <p>
+   * Default value is <code>stores.default.changelog.replication.factor</code>.
+   * <p>
    * Refer to <code>stores.store-name.changelog.replication.factor</code> in Samza configuration guide
    *
    * @param replicationFactor replication factor
