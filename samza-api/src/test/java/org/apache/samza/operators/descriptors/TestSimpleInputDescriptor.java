@@ -41,15 +41,13 @@ public class TestSimpleInputDescriptor {
     ExampleSimpleOutputDescriptor<Integer> output1 = kafkaSystem.getOutputDescriptor("output1", new IntegerSerde());
 
     input1
-        .withBootstrap(false)
+        .shouldBootstrap()
         .withOffsetDefault(SystemStreamMetadata.OffsetType.NEWEST)
-        .withPhysicalName("input-1")
         .withPriority(1)
-        .withResetOffset(false)
+        .shouldResetOffset()
         .withStreamConfigs(Collections.emptyMap());
 
     output1
-        .withPhysicalName("output-1")
         .withStreamConfigs(Collections.emptyMap());
   }
 
