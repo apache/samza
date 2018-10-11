@@ -21,9 +21,8 @@ package org.apache.samza.test.integration.join;
 
 import java.util.HashSet;
 import java.util.Set;
-
-import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -31,25 +30,24 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("unchecked")
 public class Joiner implements StreamTask, InitableTask {
-  
+
   private static Logger logger = LoggerFactory.getLogger(Joiner.class);
-  
+
   private KeyValueStore<String, String> store;
   private int expected;
   private TaskName taskName;
 
   @Override
-  public void init(Config config, TaskContext context) {
-    this.store = (KeyValueStore<String, String>) context.getStore("joiner-state");
-    this.expected = config.getInt("num.partitions");
-    this.taskName = context.getTaskName();
+  public void init(Context context) {
+    this.store = (KeyValueStore<String, String>) context.getTaskContext().getStore("joiner-state");
+    this.expected = context.getJobContext().getConfig().getInt("num.partitions");
+    this.taskName = context.getTaskContext().getTaskModel().getTaskName();
   }
 
   @Override
@@ -83,7 +81,7 @@ public class Joiner implements StreamTask, InitableTask {
     this.store.put(key, partitions.toString());
     logger.info("Join store in Task " + this.taskName + " " + key + " -> " + partitions.toString());
   }
-  
+
   private Partitions loadPartitions(int epoch, String key) {
     String current = this.store.get(key);
     Partitions partitions;
@@ -93,16 +91,16 @@ public class Joiner implements StreamTask, InitableTask {
       partitions = Partitions.parse(current);
     return partitions;
   }
-  
+
   private static class Partitions {
     int epoch;
     Set<Integer> partitions;
-    
+
     public Partitions(int epoch, Set<Integer> partitions) {
       this.epoch = epoch;
       this.partitions = partitions;
     }
-    
+
     public static Partitions parse(String s) {
       String[] pieces = s.split("\\|", -1);
       int epoch = Integer.parseInt(pieces[1]);
@@ -111,7 +109,7 @@ public class Joiner implements StreamTask, InitableTask {
         set.add(Integer.parseInt(pieces[i]));
       return new Partitions(epoch, set);
     }
-    
+
     public String toString() {
       StringBuilder b = new StringBuilder("|");
       b.append(epoch);

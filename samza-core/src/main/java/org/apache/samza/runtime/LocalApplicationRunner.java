@@ -167,7 +167,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
     // TODO: the null processorId has to be fixed after SAMZA-1835
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, null, config)));
-    return new StreamProcessor(config, reporters, taskFactory, listenerFactory, null);
+    return new StreamProcessor(config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
+        appDesc.getApplicationTaskContextFactory(), listenerFactory, null);
   }
 
   /**

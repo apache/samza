@@ -20,19 +20,20 @@
 package org.apache.samza.test.performance
 
 import java.io.File
-import java.util
-import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.{Collections, UUID}
 
 import com.google.common.base.Stopwatch
 import org.apache.samza.config.Config
 import org.apache.samza.config.StorageConfig._
-import org.apache.samza.container.{SamzaContainerContext, TaskName}
+import org.apache.samza.container.TaskName
+import org.apache.samza.context.{ContainerContextImpl, JobContextImpl}
+import org.apache.samza.job.model.{ContainerModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.{ByteSerde, SerdeManager, UUIDSerde}
 import org.apache.samza.storage.StorageEngineFactory
 import org.apache.samza.storage.kv.{KeyValueStorageEngine, KeyValueStore}
-import org.apache.samza.system.{SystemProducer, SystemProducers}
+import org.apache.samza.system.{SystemProducer, SystemProducers, SystemStreamPartition}
 import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.{CommandLine, FileUtil, Logging, Util}
 import org.apache.samza.{Partition, SamzaException}
@@ -84,9 +85,14 @@ object TestKeyValuePerformance extends Logging {
   }
 
   def invokeTest(testName: String, testMethod: (KeyValueStorageEngine[Array[Byte], Array[Byte]], Config) => Unit, config: Config) {
-    val taskNames = new java.util.ArrayList[TaskName]()
     val partitionCount = config.getInt("partition.count", 1)
-    (0 until partitionCount).map(p => taskNames.add(new TaskName(new Partition(p).toString)))
+    val tasks = (0 until partitionCount)
+      .map(i => new Partition(i))
+      .map(partition => (new TaskName(partition.toString),
+        new TaskModel(new TaskName(partition.toString),
+          Collections.singleton(new SystemStreamPartition("system", "stream", partition)),
+          partition)))
+      .toMap
 
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
@@ -116,7 +122,8 @@ object TestKeyValuePerformance extends Logging {
           new TaskInstanceCollector(producerMultiplexer),
           new MetricsRegistryMap,
           null,
-          new SamzaContainerContext("0", config, taskNames, new MetricsRegistryMap)
+          JobContextImpl.fromConfigWithDefaults(config),
+          new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap)
         )
 
         val db = if(!engine.isInstanceOf[KeyValueStorageEngine[_,_]]) {

@@ -19,6 +19,16 @@
 
 package org.apache.samza.table.caching;
 
+import com.google.common.base.Preconditions;
+import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.utils.DefaultTableWriteMetrics;
+import org.apache.samza.table.utils.TableMetricsUtil;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,18 +36,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.DefaultTableReadMetrics;
-import org.apache.samza.table.utils.DefaultTableWriteMetrics;
-import org.apache.samza.table.utils.TableMetricsUtil;
-import org.apache.samza.task.TaskContext;
-
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -91,10 +89,10 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
-    writeMetrics = new DefaultTableWriteMetrics(containerContext, taskContext, this, tableId);
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+  public void init(Context context) {
+    readMetrics = new DefaultTableReadMetrics(context, this, tableId);
+    writeMetrics = new DefaultTableWriteMetrics(context, this, tableId);
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     tableMetricsUtil.newGauge("hit-rate", () -> hitRate());
     tableMetricsUtil.newGauge("miss-rate", () -> missRate());
     tableMetricsUtil.newGauge("req-count", () -> requestCount());

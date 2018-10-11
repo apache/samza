@@ -35,6 +35,7 @@ public interface JobContext {
   /**
    * Returns the name of the job.
    * @return name of the job
+   * @throws org.apache.samza.SamzaException if the job name was not configured
    */
   String getJobName();
 

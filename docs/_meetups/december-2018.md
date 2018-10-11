@@ -2,31 +2,17 @@
 date: December 2018
 display_date: December 2018
 meetups:
-    - name: 'How we did something awesome using samza'
-      date: December 15th, 2018
-      url: https://google.com
+    - name: 'How LinkedIn navigates Streams Infrastructure using Cruise Control'
+      date: October 23rd, 2018
+      url: https://www.meetup.com/Stream-Processing-Meetup-LinkedIn/events/255016589/?rv=ea1_v2&_xtd=gatlbWFpbF9jbGlja9oAJDcwMTNkNTNjLTRkNjUtNDEyMi1hM2UzLWU5ZjExNzFmMTFjMg
       host: LinkedIn
       image: 
       presenters:
-        - name: Xinyu Liu
+        - name: Efe Gencer
           website: 
           image:
           affiliation: LinkedIn
-      abstract: We will discuss x y and z.
-    - name: Another amazing meetup
-      date: December 12th, 2018
-      url: https://google.com
-      host: LinkedIn
-      image: 
-      presenters:
-        - name: Ajith Muralidharan
-          website: 
-          image:
-          affiliation: LinkedIn
-        - name: Vivek Nelamangala
-          website:
-          image: 
-          affiliation: LinkedIn
+      abstract: Alleviating the management overhead of large-scale Kafka clusters using Cruise Control at LinkedIn
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

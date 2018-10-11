@@ -33,16 +33,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.util.Throttleable;
 import org.apache.samza.util.ThrottlingScheduler;
 import org.slf4j.Logger;
@@ -374,7 +373,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
         }, commitMs, commitMs, TimeUnit.MILLISECONDS);
       }
 
-      final EpochTimeScheduler epochTimeScheduler = task.context().getTimerScheduler();
+      final EpochTimeScheduler epochTimeScheduler = task.epochTimeScheduler();
       if (epochTimeScheduler != null) {
         epochTimeScheduler.registerListener(() -> {
             state.needScheduler();

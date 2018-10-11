@@ -34,17 +34,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.StreamApplicationDescriptor;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
@@ -56,18 +57,22 @@ import org.apache.samza.table.remote.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestTableData.*;
+import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import static org.apache.samza.test.table.TestTableData.PageView;
+import static org.apache.samza.test.table.TestTableData.Profile;
+import static org.apache.samza.test.table.TestTableData.generatePageViews;
+import static org.apache.samza.test.table.TestTableData.generateProfiles;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 
@@ -239,12 +244,14 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     doTestStreamTableJoinRemoteTable(true, true, "testStreamTableJoinRemoteTableWithDefaultCache");
   }
 
-  private TaskContext createMockTaskContext() {
+  private Context createMockContext() {
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(new Counter("")).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(new Timer("")).when(metricsRegistry).newTimer(anyString(), anyString());
-    TaskContext context = mock(TaskContext.class);
-    doReturn(metricsRegistry).when(context).getMetricsRegistry();
+    Context context = mock(Context.class);
+    TaskContext taskContext = mock(TaskContext.class);
+    when(context.getTaskContext()).thenReturn(taskContext);
+    doReturn(metricsRegistry).when(taskContext).getTaskMetricsRegistry();
     return context;
   }
 
@@ -257,7 +264,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
     RemoteReadableTable<String, ?> table = new RemoteReadableTable<>(
         "table1", reader, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
-    table.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    table.init(createMockContext());
     table.get("abc");
   }
 
@@ -271,7 +278,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
     RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<String, String>(
         "table1", reader, writer, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
-    table.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    table.init(createMockContext());
     table.put("abc", "efg");
   }
 }

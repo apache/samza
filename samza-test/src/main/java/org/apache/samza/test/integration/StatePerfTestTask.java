@@ -19,13 +19,12 @@
 
 package org.apache.samza.test.integration;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.TaskCoordinator.RequestScope;
 
@@ -41,10 +40,10 @@ public class StatePerfTestTask implements StreamTask, InitableTask {
   private long start = System.currentTimeMillis();
 
   @SuppressWarnings("unchecked")
-  public void init(Config config, TaskContext context) {
-    this.store = (KeyValueStore<String, String>) context.getStore("mystore");
+  public void init(Context context) {
+    this.store = (KeyValueStore<String, String>) context.getTaskContext().getStore("mystore");
   }
-  
+
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
     store.put((String) envelope.getMessage(), (String) envelope.getMessage());
     count++;
