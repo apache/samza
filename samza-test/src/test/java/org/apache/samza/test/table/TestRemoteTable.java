@@ -144,17 +144,17 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
   }
 
   private <K, V> Table<KV<K, V>> getCachingTable(TableDescriptor<K, V, ?> actualTableDesc, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
-    CachingTableDescriptor<K, V> cachingDesc = new CachingTableDescriptor<>("caching-table-" + id);
+    CachingTableDescriptor<K, V> cachingDesc;
     if (defaultCache) {
+      cachingDesc = new CachingTableDescriptor<>("caching-table-" + id, actualTableDesc);
       cachingDesc.withReadTtl(Duration.ofMinutes(5));
       cachingDesc.withWriteTtl(Duration.ofMinutes(5));
     } else {
       GuavaCacheTableDescriptor<K, V> guavaTableDesc = new GuavaCacheTableDescriptor<>("guava-table-" + id);
       guavaTableDesc.withCache(CacheBuilder.newBuilder().expireAfterAccess(5, TimeUnit.MINUTES).build());
-      cachingDesc.withCache(guavaTableDesc);
+      cachingDesc = new CachingTableDescriptor<>("caching-table-" + id, actualTableDesc, guavaTableDesc);
     }
 
-    cachingDesc.withTable(actualTableDesc);
     return appDesc.getTable(cachingDesc);
   }
 
