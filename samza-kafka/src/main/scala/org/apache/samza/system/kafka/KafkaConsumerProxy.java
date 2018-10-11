@@ -90,6 +90,8 @@ class KafkaConsumerProxy<K, V> {
     consumerPollThread.setDaemon(true);
     consumerPollThread.setName(
         "Samza KafkaConsumerProxy Poll " + consumerPollThread.getName() + " - " + systemName);
+
+    LOG.info("Creating KafkaConsumerProxy with systeName={}, clientId={}, metricsName={}", systemName, clientId, metricName);
   }
 
   /**

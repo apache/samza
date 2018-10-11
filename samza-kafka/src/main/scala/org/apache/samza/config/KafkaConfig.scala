@@ -62,6 +62,11 @@ object KafkaConfig {
   val JOB_COORDINATOR_REPLICATION_FACTOR = "job.coordinator." + TOPIC_REPLICATION_FACTOR
   val JOB_COORDINATOR_SEGMENT_BYTES = "job.coordinator." + SEGMENT_BYTES
 
+  val CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s"
+  val PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers"
+  val PRODUCER_CONFIGS_CONFIG_KEY = "systems.%s.producer.%s"
+  val CONSUMER_ZK_CONNECT_CONFIG_KEY = "systems.%s.consumer.zookeeper.connect"
+
   /**
     * Defines how low a queue can get for a single system/stream/partition
     * combination before trying to fetch more messages for it.
