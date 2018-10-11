@@ -19,6 +19,7 @@
 package org.apache.samza.application.descriptors;
 
 import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ApplicationContainerContextFactory;
 import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.operators.TableImpl;
@@ -60,8 +62,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -71,11 +71,10 @@ import static org.mockito.Mockito.when;
  * Unit test for {@link StreamApplicationDescriptorImpl}
  */
 public class TestStreamApplicationDescriptorImpl {
-
   @Test
   public void testConstructor() {
     StreamApplication mockApp = mock(StreamApplication.class);
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
     StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(mockApp, mockConfig);
     verify(mockApp).describe(appDesc);
     assertEquals(mockConfig, appDesc.getConfig());
@@ -90,7 +89,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mockValueSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -113,7 +112,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mockKVSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -129,7 +128,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd = sd.getInputDescriptor("mockStreamId", null);
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test
@@ -141,7 +140,7 @@ public class TestStreamApplicationDescriptorImpl {
     MockInputDescriptor isd = sd.getInputDescriptor(streamId, mockValueSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -167,7 +166,7 @@ public class TestStreamApplicationDescriptorImpl {
     MockInputDescriptor isd = sd.getInputDescriptor(streamId, new IntegerSerde());
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(expandedStreamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -185,7 +184,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mock(Serde.class));
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -204,7 +203,7 @@ public class TestStreamApplicationDescriptorImpl {
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd1);
         appDesc.getInputStream(isd2);
-      }, mock(Config.class));
+      }, getConfig());
 
     InputOperatorSpec inputOpSpec1 = streamAppDesc.getInputOperators().get(streamId1);
     InputOperatorSpec inputOpSpec2 = streamAppDesc.getInputOperators().get(streamId2);
@@ -227,7 +226,7 @@ public class TestStreamApplicationDescriptorImpl {
         appDesc.getInputStream(isd1);
         // should throw exception
         appDesc.getInputStream(isd2);
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test
@@ -249,7 +248,7 @@ public class TestStreamApplicationDescriptorImpl {
           appDesc.getOutputStream(osd1);
           fail("adding output stream with the same system name but different SystemDescriptor should have failed");
         } catch (IllegalStateException e) { }
-      }, mock(Config.class));
+      }, getConfig());
 
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.withDefaultSystem(sd2);
@@ -257,7 +256,7 @@ public class TestStreamApplicationDescriptorImpl {
           appDesc.getInputStream(isd1);
           fail("Adding input stream with the same system name as the default system but different SystemDescriptor should have failed");
         } catch (IllegalStateException e) { }
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test
@@ -273,7 +272,7 @@ public class TestStreamApplicationDescriptorImpl {
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
-      }, mock(Config.class));
+      }, getConfig());
 
     OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = streamAppDesc.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
@@ -289,7 +288,7 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, null);
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test
@@ -301,7 +300,7 @@ public class TestStreamApplicationDescriptorImpl {
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
-      }, mock(Config.class));
+      }, getConfig());
 
     OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = streamAppDesc.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
@@ -319,7 +318,7 @@ public class TestStreamApplicationDescriptorImpl {
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getInputStream(isd);
         appDesc.withDefaultSystem(sd); // should throw exception
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test(expected = IllegalStateException.class)
@@ -330,13 +329,13 @@ public class TestStreamApplicationDescriptorImpl {
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd);
         appDesc.withDefaultSystem(sd); // should throw exception
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test(expected = IllegalStateException.class)
   public void testSetDefaultSystemDescriptorAfterGettingIntermediateStream() {
     String streamId = "test-stream-1";
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, getConfig());
     streamAppDesc.getIntermediateStream(streamId, mock(Serde.class), false);
     streamAppDesc.withDefaultSystem(mock(SystemDescriptor.class)); // should throw exception
   }
@@ -350,13 +349,13 @@ public class TestStreamApplicationDescriptorImpl {
     new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getOutputStream(osd1);
         appDesc.getOutputStream(osd2); // should throw exception
-      }, mock(Config.class));
+      }, getConfig());
   }
 
   @Test
   public void testGetIntermediateStreamWithValueSerde() {
     String streamId = "stream-1";
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, getConfig());
 
     Serde mockValueSerde = mock(Serde.class);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
@@ -374,7 +373,7 @@ public class TestStreamApplicationDescriptorImpl {
   @Test
   public void testGetIntermediateStreamWithKeyValueSerde() {
     String streamId = "streamId";
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, getConfig());
 
     KVSerde mockKVSerde = mock(KVSerde.class);
     Serde mockKeySerde = mock(Serde.class);
@@ -395,7 +394,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testGetIntermediateStreamWithDefaultSystemDescriptor() {
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
     String streamId = "streamId";
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
@@ -411,7 +410,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test(expected = NullPointerException.class)
   public void testGetIntermediateStreamWithNoSerde() {
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
     String streamId = "streamId";
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
@@ -421,7 +420,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test(expected = IllegalStateException.class)
   public void testGetSameIntermediateStreamTwice() {
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mock(Config.class));
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, getConfig());
     streamAppDesc.getIntermediateStream("test-stream-1", mock(Serde.class), false);
     // should throw exception
     streamAppDesc.getIntermediateStream("test-stream-1", mock(Serde.class), false);
@@ -429,11 +428,12 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testGetNextOpIdIncrementsId() {
-    Config mockConfig = mock(Config.class);
-    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
-    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "jobName");
+    configMap.put(JobConfig.JOB_ID(), "1234");
+    Config config = new MapConfig(configMap);
 
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
     assertEquals("jobName-1234-merge-0", streamAppDesc.getNextOpId(OpCode.MERGE, null));
     assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
     assertEquals("jobName-1234-map-2", streamAppDesc.getNextOpId(OpCode.MAP, null));
@@ -441,22 +441,24 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test(expected = SamzaException.class)
   public void testGetNextOpIdRejectsDuplicates() {
-    Config mockConfig = mock(Config.class);
-    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
-    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "jobName");
+    configMap.put(JobConfig.JOB_ID(), "1234");
+    Config config = new MapConfig(configMap);
 
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
     assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
     streamAppDesc.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
 
   @Test
   public void testOpIdValidation() {
-    Config mockConfig = mock(Config.class);
-    when(mockConfig.get(eq(JobConfig.JOB_NAME()))).thenReturn("jobName");
-    when(mockConfig.get(eq(JobConfig.JOB_ID()), anyString())).thenReturn("1234");
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "jobName");
+    configMap.put(JobConfig.JOB_ID(), "1234");
+    Config config = new MapConfig(configMap);
 
-    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
+    StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
 
     // null and empty userDefinedIDs should fall back to autogenerated IDs.
     try {
@@ -488,7 +490,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testGetInputStreamPreservesInsertionOrder() {
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
 
     String testStreamId1 = "test-stream-1";
     String testStreamId2 = "test-stream-2";
@@ -510,7 +512,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   @Test
   public void testGetTable() throws Exception {
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
 
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
     TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
@@ -528,7 +530,7 @@ public class TestStreamApplicationDescriptorImpl {
   public void testApplicationContainerContextFactory() {
     ApplicationContainerContextFactory factory = mock(ApplicationContainerContextFactory.class);
     StreamApplication testApp = appDesc -> appDesc.withApplicationContainerContextFactory(factory);
-    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, getConfig());
     assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.of(factory));
   }
 
@@ -536,7 +538,7 @@ public class TestStreamApplicationDescriptorImpl {
   public void testNoApplicationContainerContextFactory() {
     StreamApplication testApp = appDesc -> {
     };
-    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, getConfig());
     assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.empty());
   }
 
@@ -544,7 +546,7 @@ public class TestStreamApplicationDescriptorImpl {
   public void testApplicationTaskContextFactory() {
     ApplicationTaskContextFactory factory = mock(ApplicationTaskContextFactory.class);
     StreamApplication testApp = appDesc -> appDesc.withApplicationTaskContextFactory(factory);
-    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, getConfig());
     assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.of(factory));
   }
 
@@ -552,7 +554,7 @@ public class TestStreamApplicationDescriptorImpl {
   public void testNoApplicationTaskContextFactory() {
     StreamApplication testApp = appDesc -> {
     };
-    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, getConfig());
     assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.empty());
   }
 
@@ -560,18 +562,24 @@ public class TestStreamApplicationDescriptorImpl {
   public void testProcessorLifecycleListenerFactory() {
     ProcessorLifecycleListenerFactory mockFactory = mock(ProcessorLifecycleListenerFactory.class);
     StreamApplication testApp = appSpec -> appSpec.withProcessorLifecycleListenerFactory(mockFactory);
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(testApp, getConfig());
     assertEquals(appDesc.getProcessorLifecycleListenerFactory(), mockFactory);
   }
 
   @Test(expected = IllegalStateException.class)
   public void testGetTableWithBadId() {
-    Config mockConfig = mock(Config.class);
+    Config mockConfig = getConfig();
     new StreamApplicationDescriptorImpl(appDesc -> {
         BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
         when(mockTableDescriptor.getTableId()).thenReturn("my.table");
         appDesc.getTable(mockTableDescriptor);
       }, mockConfig);
+  }
+
+  private Config getConfig() {
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "test-job");
+    return new MapConfig(configMap);
   }
 
   class MockExpandingSystemDescriptor extends SystemDescriptor<MockExpandingSystemDescriptor> implements ExpandingInputDescriptorProvider<Integer> {
