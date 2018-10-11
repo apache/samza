@@ -69,17 +69,11 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
     super(systemName, FACTORY_CLASS_NAME, null, null);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> KafkaInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, Serde<StreamMessageType> serde) {
     return new KafkaInputDescriptor<>(streamId, this, serde, null);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public <StreamMessageType> KafkaOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, Serde<StreamMessageType> serde) {
     return new KafkaOutputDescriptor<>(streamId, this, serde);

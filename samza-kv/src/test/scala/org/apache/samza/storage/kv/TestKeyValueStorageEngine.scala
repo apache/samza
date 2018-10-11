@@ -19,9 +19,11 @@
 
 package org.apache.samza.storage.kv
 
+import java.io.File
 import java.util.Arrays
 
 import org.apache.samza.Partition
+import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.junit.Assert._
@@ -37,9 +39,11 @@ class TestKeyValueStorageEngine {
   def setup() {
     val wrapperKv = new MockKeyValueStore()
     val rawKv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
+    val storeName = "test-storeName"
+    val storeDir = mock(classOf[File])
     val properties = mock(classOf[StoreProperties])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After

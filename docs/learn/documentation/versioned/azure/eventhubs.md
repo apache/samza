@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Connecting to Eventhubs
+title: Connecting to Event Hubs
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,13 +19,13 @@ title: Connecting to Eventhubs
    limitations under the License.
 -->
 
-You can configure your Samza jobs to process data from [Azure Eventhubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft's data streaming service. An `event hub` is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data). 
+You can configure your Samza jobs to process data from [Azure Event Hubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft's data streaming service. An `event hub` is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data). 
 
-### Consuming from EventHubs:
+### Consuming from Event Hubs:
 
 Samza's [EventHubSystemConsumer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubSystemConsumer.java) wraps the EventData into an [EventHubIncomingMessageEnvelope](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubIncomingMessageEnvelope.java). The key of the message is set to the partition key of the EventData. The message is obtained from the EventData body. 
 
-To configure Samza to configure from EventHub streams: 
+To configure Samza to configure from Event Hubs streams: 
 
 ```
 # define an event hub system factory with your identifier. eg: eh-system
@@ -46,21 +46,21 @@ systems.eh-system.streams.output0.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
 systems.eh-system.streams.output0.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
 ```
 
-The tuple required to access the Eventhubs entity per stream must be provided, namely the fields `YOUR-STREAM-NAMESPACE`, `YOUR-ENTITY-NAME`, `YOUR-SAS-KEY-NAME`, `YOUR-SAS-KEY-TOKEN`.
+The tuple required to access the Event Hubs entity per stream must be provided, namely the fields `YOUR-STREAM-NAMESPACE`, `YOUR-ENTITY-NAME`, `YOUR-SAS-KEY-NAME`, `YOUR-SAS-KEY-TOKEN`.
 
-### Producing to EventHubs:
+### Producing to Event Hubs:
 
-Similarly, you can also configure your Samza job to write to EventHubs.  
+Similarly, you can also configure your Samza job to write to Event Hubs.  
 ```
 OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("eh-system", "output0"), key, message);
 collector.send(envelope);
 ```
 
-Each [OutgoingMessageEnvelope](https://samza.apache.org/learn/documentation/latest/api/javadocs/org/apache/samza/system/OutgoingMessageEnvelope.html) is converted into an [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data) instance whose body is set to the `message` in the envelope. Additionally, the `key` and the `produce timestamp` are set as properties in the EventData before sending it to EventHubs.
+Each [OutgoingMessageEnvelope](https://samza.apache.org/learn/documentation/latest/api/javadocs/org/apache/samza/system/OutgoingMessageEnvelope.html) is converted into an [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data) instance whose body is set to the `message` in the envelope. Additionally, the `key` and the `produce timestamp` are set as properties in the EventData before sending it to Event Hubs.
 
 #### Size limit of partition key:
 
-Note that EventHubs has a limit on the length of partition key (128 characters). In [EventHubSystemProducer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/producer/EventHubSystemProducer.java) we truncate the partition key if the size of the key exceeds the limit.
+Note that Event Hubs has a limit on the length of partition key (128 characters). In [EventHubSystemProducer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/producer/EventHubSystemProducer.java) we truncate the partition key if the size of the key exceeds the limit.
 
 ### Advanced configuration:
 
@@ -82,7 +82,7 @@ systems.eh-system.partition.method = EVENT_HUB_HASHING
 
 ##### Consumer groups: 
 
-Eventhub supports a notion of [consumer groups](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features#consumer-groups) which enable multiple applications have their own view of the event stream. Each event hub stream has a pre-defined consumer group named `$Default`. You can define your own consumer group for your job and configure a `eventhubs.consumer.group`  
+Event Hubs supports a notion of [consumer groups](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features#consumer-groups) which enable multiple applications have their own view of the event stream. Each event hub stream has a pre-defined consumer group named `$Default`. You can define your own consumer group for your job and configure a `eventhubs.consumer.group`  
 
 ```
 systems.eh-system.streams.eh-input0.eventhubs.consumer.group = my-group
@@ -90,7 +90,7 @@ systems.eh-system.streams.eh-input0.eventhubs.consumer.group = my-group
 
 ##### Serde: 
 
-By default, the messages from EventHubs are sent and received as byte arrays. You can configure a serializer and deserializer for your message by setting a value for `msg.serde` for your stream. 
+By default, the messages from Event Hubs are sent and received as byte arrays. You can configure a serializer and deserializer for your message by setting a value for `msg.serde` for your stream. 
 
 ```
 streams.input0.samza.msg.serde = json
@@ -107,9 +107,9 @@ systems.eh-system.eventhubs.receive.queue.size = 10
 
 For the list of all configs, check out the configuration table page [here](../jobs/configuration-table.html)
 
-### Azure Eventhubs Hello-Samza Example
+### Azure Event Hubs Hello-Samza Example
 
-The [hello-samza](https://github.com/apache/samza-hello-samza) project contains an example of a high level job that consumes and produces to Eventhub using the Zookeeper deployment model.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project contains an example of a high level job that consumes and produces to Event Hubs using the Zookeeper deployment model.
 
 #### Get the Code
 
@@ -141,13 +141,13 @@ If you get a complaint that JAVA_HOME is not set, then you'll need to set it to 
 Here are the configs you must set before building the project. Configure these in the `src/main/config/azure-application-local-runner.properties` file.
 
 ```
-# Add your EventHubs input stream credentials here
+# Add your Event Hubs input stream credentials here
 systems.eventhubs.streams.input-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
 systems.eventhubs.streams.input-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
 systems.eventhubs.streams.input-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
 systems.eventhubs.streams.input-stream.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
 
-# Add your EventHubs output stream credentials here
+# Add your Event Hubs output stream credentials here
 systems.eventhubs.streams.output-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
 systems.eventhubs.streams.output-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
 systems.eventhubs.streams.output-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME

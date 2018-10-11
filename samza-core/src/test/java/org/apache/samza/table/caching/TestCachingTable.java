@@ -82,14 +82,15 @@ public class TestCachingTable {
   }
 
   private void doTestSerialize(TableDescriptor cache) {
-    CachingTableDescriptor desc = new CachingTableDescriptor("1");
-    desc.withTable(createDummyTableDescriptor("2"));
+    CachingTableDescriptor desc;
+    TableDescriptor table = createDummyTableDescriptor("2");
     if (cache == null) {
+      desc = new CachingTableDescriptor("1", table);
       desc.withReadTtl(Duration.ofMinutes(3));
       desc.withWriteTtl(Duration.ofMinutes(3));
       desc.withCacheSize(1000);
     } else {
-      desc.withCache(cache);
+      desc = new CachingTableDescriptor("1", table, cache);
     }
 
     desc.withWriteAround();
@@ -150,9 +151,9 @@ public class TestCachingTable {
   }
 
   private void doTestCacheOps(boolean isWriteAround) {
-    CachingTableDescriptor desc = new CachingTableDescriptor("1");
-    desc.withTable(createDummyTableDescriptor("realTable"));
-    desc.withCache(createDummyTableDescriptor("cacheTable"));
+    CachingTableDescriptor desc = new CachingTableDescriptor("1",
+        createDummyTableDescriptor("realTable"),
+        createDummyTableDescriptor("cacheTable"));
     if (isWriteAround) {
       desc.withWriteAround();
     }

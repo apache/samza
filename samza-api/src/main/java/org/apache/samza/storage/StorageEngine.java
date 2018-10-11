@@ -25,7 +25,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
  * A storage engine for managing state maintained by a stream processor.
- * 
+ *
  * <p>
  * This interface does not specify any query capabilities, which, of course,
  * would be query engine specific. Instead it just specifies the minimum
@@ -39,7 +39,7 @@ public interface StorageEngine {
    * Restore the content of this StorageEngine from the changelog. Messages are
    * provided in one {@link java.util.Iterator} and not deserialized for
    * efficiency, allowing the implementation to optimize replay, if possible.
-   * 
+   *
    * @param envelopes
    *          An iterator of envelopes that the storage engine can read from to
    *          restore its state on startup.

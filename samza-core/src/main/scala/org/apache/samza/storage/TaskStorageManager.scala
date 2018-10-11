@@ -203,7 +203,7 @@ class TaskStorageManager(
   }
 
   private def restoreStores() {
-    debug("Restoring stores.")
+    debug("Restoring stores for task: %s." format taskName.getTaskName)
 
     for ((storeName, store) <- taskStoresToRestore) {
       if (changeLogSystemStreams.contains(storeName)) {

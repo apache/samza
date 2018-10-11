@@ -91,7 +91,7 @@ import org.apache.samza.operators.TableDescriptor;
 public interface TableDescriptorsProvider {
   /**
    * Constructs instances of the table descriptors
-   * @param config
+   * @param config the job config
    * @return list of table descriptors
    */
   List<TableDescriptor> getTableDescriptors(Config config);
