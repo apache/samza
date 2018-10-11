@@ -19,7 +19,7 @@ title: Quick Start
    limitations under the License.
 -->
 
-This tutorial will go through the steps of creating your first Samza application - `WordCount`. It demonstrates how to start writing a Samza application, consume from a kafka stream, tokenize the lines into words, and count the frequency of each word.  For this tutorial we are going to use gradle 4.9 to build the projects. The full tutorial project tar file can be downloaded [here](?).
+This tutorial will go through the steps of creating your first Samza application - `WordCount`. It demonstrates how to start writing a Samza application, consume from a kafka stream, tokenize the lines into words, and count the frequency of each word.  For this tutorial we are going to use gradle 4.9 to build the projects. The full tutorial project tar file can be downloaded [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
 
 ### Setting up a Java Project
 
