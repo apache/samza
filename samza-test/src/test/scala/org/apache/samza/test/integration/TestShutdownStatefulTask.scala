@@ -19,10 +19,10 @@
 
 package org.apache.samza.test.integration
 
-import org.apache.samza.config.Config
+import org.apache.samza.context.Context
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.task.{MessageCollector, TaskContext, TaskCoordinator}
+import org.apache.samza.task.{MessageCollector, TaskCoordinator}
 import org.junit.Assert._
 import org.junit.{AfterClass, BeforeClass, Test}
 
@@ -77,7 +77,6 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     val (job, task) = startJob
 
     // Validate that restored is empty.
-    assertEquals(0, task.initFinished.getCount)
     assertEquals(0, task.asInstanceOf[ShutdownStateStoreTask].restored.size)
     assertEquals(0, task.received.size)
 
@@ -88,7 +87,6 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     send(task, "2")
     send(task, "99")
     send(task, "99")
-
     stopJob(job)
 
   }
@@ -114,13 +112,13 @@ class ShutdownStateStoreTask extends TestTask {
   var store: KeyValueStore[String, String] = null
   var restored = scala.collection.mutable.Map[String, String]()
 
-  override def testInit(config: Config, context: TaskContext) {
-    store = context
+  override def testInit(context: Context) {
+    store = context.getTaskContext
       .getStore(TestShutdownStatefulTask.STORE_NAME)
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     iter.asScala.foreach( p => restored += (p.getKey -> p.getValue))
-    System.err.println("ShutdownStateStoreTask.createStream(): %s" format restored)
+    System.out.println("ShutdownStateStoreTask.createStream(): %s" format restored)
     iter.close
   }
 

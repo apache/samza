@@ -49,6 +49,7 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -392,14 +393,15 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
+    StreamProcessor streamProcessor = new TestableStreamProcessor(config, new HashMap<>(), null,
+        lifecycleListener, mockJobCoordinator, mockSamzaContainer);
 
-    streamProcessor.container = mockSamzaContainer;
     streamProcessor.state = State.IN_REBALANCE;
     Mockito.doNothing().when(mockSamzaContainer).run();
 
     streamProcessor.jobCoordinatorListener.onNewJobModel("TestProcessorId", new JobModel(new MapConfig(), new HashMap<>()));
 
+    Mockito.verify(mockSamzaContainer, Mockito.times(1)).setContainerListener(any());
     Mockito.verify(mockSamzaContainer, Mockito.atMost(1)).run();
   }
 
@@ -464,8 +466,10 @@ public class TestStreamProcessor {
   @Test
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
-    StreamProcessor streamProcessor = new StreamProcessor(mock(Config.class), new HashMap<>(), mock(TaskFactory.class),
-        sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)), mock(JobCoordinator.class));
+    StreamProcessor streamProcessor =
+        new StreamProcessor(mock(Config.class), new HashMap<>(), mock(TaskFactory.class), null, null,
+            sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
+            mock(JobCoordinator.class));
     assertEquals(streamProcessor, mockListener.get().processor);
   }
 

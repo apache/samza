@@ -21,14 +21,13 @@ package org.apache.samza.sql.translator;
 
 import java.util.Arrays;
 import java.util.Collections;
-
 import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +52,8 @@ class FilterTranslator {
     }
 
     @Override
-    public void init(Config config, TaskContext context) {
-      this.context = (TranslatorContext) context.getUserContext();
+    public void init(Context context) {
+      this.context = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
       this.filter = (LogicalFilter) this.context.getRelNode(filterId);
       this.expr = this.context.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
     }

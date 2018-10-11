@@ -20,14 +20,17 @@
 package org.apache.samza.container
 
 
+import java.util.Optional
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.job.model.JobModel
+import org.apache.samza.context._
+import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsReporter
+import org.apache.samza.scheduler.{CallbackSchedulerImpl, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{TaskSideInputStorageManager, TaskStorageManager}
 import org.apache.samza.system._
@@ -35,19 +38,17 @@ import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
-import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.Map
 
 class TaskInstance(
   val task: Any,
-  val taskName: TaskName,
-  config: Config,
+  taskModel: TaskModel,
   val metrics: TaskInstanceMetrics,
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
-  containerContext: SamzaContainerContext,
   val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
@@ -58,15 +59,23 @@ class TaskInstance(
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
   sideInputSSPs: Set[SystemStreamPartition] = Set(),
-  sideInputStorageManager: TaskSideInputStorageManager = null) extends Logging {
+  sideInputStorageManager: TaskSideInputStorageManager = null,
+  jobContext: JobContext,
+  containerContext: ContainerContext,
+  applicationContainerContextOption: Option[ApplicationContainerContext],
+  applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
+) extends Logging {
 
+  val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
   val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
   val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
+  val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
+
+  private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
       if (storageManager != null && storageManager.getStore(storeName).isDefined) {
         storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
@@ -76,9 +85,14 @@ class TaskInstance(
         null
       }
     })
-
-  val context = new TaskContextImpl(taskName, metrics, containerContext, systemStreamPartitions.asJava, offsetManager,
-                                    kvStoreSupplier, tableManager, jobModel, streamMetadataCache, timerExecutor)
+  private val taskContext = new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
+    new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache)
+  // need separate field for this instead of using it through Context, since Context throws an exception if it is null
+  private val applicationTaskContextOption = applicationTaskContextFactoryOption.map(_.create(jobContext,
+    containerContext, taskContext, applicationContainerContextOption.orNull))
+  val context = new ContextImpl(jobContext, containerContext, taskContext,
+    Optional.ofNullable(applicationContainerContextOption.orNull),
+    Optional.ofNullable(applicationTaskContextOption.orNull))
 
   // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
@@ -86,6 +100,8 @@ class TaskInstance(
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
     scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
+
+  private val config: Config = jobContext.getConfig
 
   val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
 
@@ -125,7 +141,7 @@ class TaskInstance(
     if (tableManager != null) {
       debug("Starting table manager for taskName: %s" format taskName)
 
-      tableManager.init(containerContext, context)
+      tableManager.init(context)
     } else {
       debug("Skipping table manager initialization for taskName: %s" format taskName)
     }
@@ -135,10 +151,14 @@ class TaskInstance(
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
 
-      task.asInstanceOf[InitableTask].init(config, context)
+      task.asInstanceOf[InitableTask].init(context)
     } else {
       debug("Skipping task initialization for taskName: %s" format taskName)
     }
+    applicationTaskContextOption.foreach(applicationTaskContext => {
+      debug("Starting application-defined task context for taskName: %s" format taskName)
+      applicationTaskContext.start()
+    })
   }
 
   def registerProducers {
@@ -221,12 +241,12 @@ class TaskInstance(
     }
   }
 
-  def timer(coordinator: ReadableCoordinator) {
-    trace("Timer for taskName: %s" format taskName)
+  def scheduler(coordinator: ReadableCoordinator) {
+    trace("Scheduler for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
-      context.getTimerScheduler.removeReadyTimers().entrySet().foreach { entry =>
-        entry.getValue.asInstanceOf[TimerCallback[Any]].onTimer(entry.getKey.getKey, collector, coordinator)
+      epochTimeScheduler.removeReadyTimers().entrySet().foreach { entry =>
+        entry.getValue.asInstanceOf[ScheduledCallback[Any]].onCallback(entry.getKey.getKey, collector, coordinator)
       }
     }
   }
@@ -265,6 +285,10 @@ class TaskInstance(
   }
 
   def shutdownTask {
+    applicationTaskContextOption.foreach(applicationTaskContext => {
+      debug("Stopping application-defined task context for taskName: %s" format taskName)
+      applicationTaskContext.stop()
+    })
     if (task.isInstanceOf[ClosableTask]) {
       debug("Shutting down stream task for taskName: %s" format taskName)
 

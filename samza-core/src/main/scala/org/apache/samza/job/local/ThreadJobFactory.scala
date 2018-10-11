@@ -20,26 +20,26 @@
 package org.apache.samza.job.local
 
 import org.apache.samza.application.{ApplicationDescriptorUtil, ApplicationUtil}
-import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
+import org.apache.samza.config.{Config, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
+import org.apache.samza.context.JobContextImpl
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.task.TaskFactory
-import org.apache.samza.task.TaskFactoryUtil
+import org.apache.samza.task.{TaskFactory, TaskFactoryUtil}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 /**
- * Creates a new Thread job with the given config
- */
+  * Creates a new Thread job with the given config
+  */
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
@@ -51,7 +51,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     coordinatorStreamManager.bootstrap
     val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
 
-    val coordinator = JobModelManager(coordinatorStreamManager, changelogStreamManager.readPartitionMapping())
+    val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
+
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -67,6 +68,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
     if (checkpointManager != null) {
       checkpointManager.createResources()
+      checkpointManager.stop()
     }
     ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
@@ -74,17 +76,17 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jmxServer = new JmxServer
 
     val appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config)
-    val taskFactory : TaskFactory[_] = TaskFactoryUtil.getTaskFactory(appDesc)
+    val taskFactory: TaskFactory[_] = TaskFactoryUtil.getTaskFactory(appDesc)
 
     // Give developers a nice friendly warning if they've specified task.opts and are using a threaded job.
     config.getTaskOpts match {
       case Some(taskOpts) => warn("%s was specified in config, but is not being used because job is being executed with ThreadJob. " +
-        "You probably want to run %s=%s." format (TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
+        "You probably want to run %s=%s." format(TASK_JVM_OPTS, STREAM_JOB_FACTORY_CLASS, classOf[ProcessJobFactory].getName))
       case _ => None
     }
 
     val containerListener = {
-      val processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() { }, config)
+      val processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory().createInstance(new ProcessorContext() {}, config)
       new SamzaContainerListener {
         override def afterFailure(t: Throwable): Unit = {
           processorLifecycleListener.afterFailure(t)
@@ -111,15 +113,19 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       val container = SamzaContainer(
         containerId,
         jobModel,
-        config,
         Map[String, MetricsReporter](),
-        taskFactory)
+        taskFactory,
+        JobContextImpl.fromConfigWithDefaults(config),
+        Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
+        Option(appDesc.getApplicationTaskContextFactory.orElse(null))
+      )
       container.setContainerListener(containerListener)
 
       val threadJob = new ThreadJob(container)
       threadJob
     } finally {
       coordinator.stop
+      coordinatorStreamManager.stop()
       jmxServer.stop
     }
   }

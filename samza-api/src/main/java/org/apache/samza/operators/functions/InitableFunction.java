@@ -20,8 +20,7 @@
 package org.apache.samza.operators.functions;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.context.Context;
 
 /**
  * A function that can be initialized before execution.
@@ -33,12 +32,10 @@ import org.apache.samza.task.TaskContext;
  */
 @InterfaceStability.Evolving
 public interface InitableFunction {
-
   /**
    * Initializes the function before any messages are processed.
    *
-   * @param config the {@link Config} for the application
-   * @param context the {@link TaskContext} for this task
+   * @param context the {@link Context} for this task
    */
-  default void init(Config config, TaskContext context) { }
+  default void init(Context context) { }
 }

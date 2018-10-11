@@ -19,17 +19,14 @@
 
 package org.apache.samza.system.kafka;
 
-import java.util.*;
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.Properties;
 import kafka.api.TopicMetadata;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.util.ScalaJavaUtil;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -71,7 +68,6 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     admin.createStream(spec);
     admin.validateStream(spec);
-
   }
 
   @Test
@@ -143,7 +139,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   public void testCreateStream() {
     StreamSpec spec = new StreamSpec("testId", "testStream", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec));
+    assertTrue("createStream should return true if the stream does not exist and then is created.",
+        systemAdmin().createStream(spec));
     systemAdmin().validateStream(spec);
 
     assertFalse("createStream should return false if the stream already exists.", systemAdmin().createStream(spec));
@@ -162,7 +159,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     StreamSpec spec1 = new StreamSpec("testId", "testStreamPartition", "testSystem", 8);
     StreamSpec spec2 = new StreamSpec("testId", "testStreamPartition", "testSystem", 4);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec1));
+    assertTrue("createStream should return true if the stream does not exist and then is created.",
+        systemAdmin().createStream(spec1));
 
     systemAdmin().validateStream(spec2);
   }
@@ -172,7 +170,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     StreamSpec spec1 = new StreamSpec("testId", "testStreamName1", "testSystem", 8);
     StreamSpec spec2 = new StreamSpec("testId", "testStreamName2", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec1));
+    assertTrue("createStream should return true if the stream does not exist and then is created.",
+        systemAdmin().createStream(spec1));
 
     systemAdmin().validateStream(spec2);
   }
@@ -181,7 +180,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   public void testClearStream() {
     StreamSpec spec = new StreamSpec("testId", "testStreamClear", "testSystem", 8);
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.", systemAdmin().createStream(spec));
+    assertTrue("createStream should return true if the stream does not exist and then is created.",
+        systemAdmin().createStream(spec));
     assertTrue(systemAdmin().clearStream(spec));
 
     scala.collection.immutable.Set<String> topic = new scala.collection.immutable.Set.Set1<>(spec.getPhysicalName());

@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ConfigRewriter;
@@ -50,7 +49,7 @@ import org.apache.samza.util.Util;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 
 /**
@@ -96,8 +95,6 @@ public class TestTableDescriptorsProvider {
     Assert.assertEquals(storageConfig.getStoreNames().get(0), localTableId);
     Assert.assertEquals(storageConfig.getStorageFactoryClassName(localTableId),
         RocksDbKeyValueStorageEngineFactory.class.getName());
-    Assert.assertTrue(storageConfig.getStorageKeySerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(storageConfig.getStorageMsgSerde(localTableId).startsWith("StringSerde"));
     Config storeConfig = resultConfig.subset("stores." + localTableId + ".", true);
     Assert.assertEquals(4, storeConfig.size());
     Assert.assertEquals(4096, storeConfig.getInt("rocksdb.block.size.bytes"));
@@ -107,10 +104,6 @@ public class TestTableDescriptorsProvider {
         RocksDbTableProviderFactory.class.getName());
     Assert.assertEquals(tableConfig.getTableProviderFactory(remoteTableId),
         RemoteTableProviderFactory.class.getName());
-    Assert.assertTrue(tableConfig.getKeySerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getValueSerde(localTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getKeySerde(remoteTableId).startsWith("StringSerde"));
-    Assert.assertTrue(tableConfig.getValueSerde(remoteTableId).startsWith("LongSerde"));
     Assert.assertEquals(tableConfig.getTableProviderFactory(localTableId), RocksDbTableProviderFactory.class.getName());
     Assert.assertEquals(tableConfig.getTableProviderFactory(remoteTableId), RemoteTableProviderFactory.class.getName());
   }

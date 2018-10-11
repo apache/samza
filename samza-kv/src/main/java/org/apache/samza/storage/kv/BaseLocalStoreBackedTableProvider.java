@@ -18,11 +18,11 @@
  */
 package org.apache.samza.storage.kv;
 
+import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -31,15 +31,12 @@ import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
-import org.apache.samza.task.TaskContext;
-
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -59,13 +56,12 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
   }
 
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
+  public void init(Context context) {
+    super.init(context);
 
-    super.init(containerContext, taskContext);
+    Preconditions.checkNotNull(this.context, "Must specify context for local tables.");
 
-    Preconditions.checkNotNull(this.taskContext, "Must specify task context for local tables.");
-
-    kvStore = (KeyValueStore) taskContext.getStore(tableSpec.getId());
+    kvStore = (KeyValueStore) this.context.getTaskContext().getStore(tableSpec.getId());
 
     if (kvStore == null) {
       throw new SamzaException(String.format(
@@ -81,7 +77,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
       throw new SamzaException("Store not initialized for table " + tableSpec.getId());
     }
     ReadableTable table = new LocalStoreBackedReadWriteTable(tableSpec.getId(), kvStore);
-    table.init(containerContext, taskContext);
+    table.init(this.context);
     return table;
   }
 
@@ -89,10 +85,15 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
 
     Map<String, String> storeConfig = new HashMap<>();
 
-    // We assume the configuration for serde are already generated for this table,
-    // so we simply carry them over to store configuration.
-    //
-    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(generatedConfig));
+    // serde configurations for tables are generated at top level by JobNodeConfigurationGenerator and are included
+    // in the global jobConfig. generatedConfig has all table specific configuration generated from TableSpec, such
+    // as TableProviderFactory, sideInputs, etc.
+    // Merge the global jobConfig and generatedConfig to get full access to configuration needed to create local
+    // store configuration
+    Map<String, String> mergedConfigMap = new HashMap<>(jobConfig);
+    mergedConfigMap.putAll(generatedConfig);
+    JobConfig mergedJobConfig = new JobConfig(new MapConfig(mergedConfigMap));
+    JavaTableConfig tableConfig = new JavaTableConfig(mergedJobConfig);
 
     String keySerde = tableConfig.getKeySerde(tableSpec.getId());
     storeConfig.put(String.format(StorageConfig.KEY_SERDE(), tableSpec.getId()), keySerde);
@@ -116,9 +117,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
     if (enableChangelog) {
       String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
       if (StringUtils.isEmpty(changelogStream)) {
-        changelogStream = String.format("%s-%s-table-%s",
-            jobConfig.get(JobConfig.JOB_NAME()),
-            jobConfig.get(JobConfig.JOB_ID(), "1"),
+        changelogStream = String.format("%s-%s-table-%s", mergedJobConfig.getName().get(), mergedJobConfig.getJobId(),
             tableSpec.getId());
       }
 

@@ -22,14 +22,14 @@ package org.apache.samza.storage.kv
 import java.io.File
 
 import org.apache.samza.SamzaException
-import org.apache.samza.container.SamzaContainerContext
+import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
-import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
+import org.apache.samza.util.HighResolutionClock
 
 /**
  * A key value storage engine factory implementation
@@ -52,11 +52,12 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param containerContext Information about the container in which the task is executing.
    * @return A valid KeyValueStore instance
    */
-  def getKVStore( storeName: String,
-                  storeDir: File,
-                  registry: MetricsRegistry,
-                  changeLogSystemStreamPartition: SystemStreamPartition,
-                  containerContext: SamzaContainerContext): KeyValueStore[Array[Byte], Array[Byte]]
+  def getKVStore(storeName: String,
+    storeDir: File,
+    registry: MetricsRegistry,
+    changeLogSystemStreamPartition: SystemStreamPartition,
+    jobContext: JobContext,
+    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]]
 
   /**
    * Constructs a key-value StorageEngine and returns it to the caller
@@ -70,15 +71,16 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param containerContext Information about the container in which the task is executing.
    **/
-  def getStorageEngine( storeName: String,
-                        storeDir: File,
-                        keySerde: Serde[K],
-                        msgSerde: Serde[V],
-                        collector: MessageCollector,
-                        registry: MetricsRegistry,
-                        changeLogSystemStreamPartition: SystemStreamPartition,
-                        containerContext: SamzaContainerContext): StorageEngine = {
-    val storageConfig = containerContext.config.subset("stores." + storeName + ".", true)
+  def getStorageEngine(storeName: String,
+    storeDir: File,
+    keySerde: Serde[K],
+    msgSerde: Serde[V],
+    collector: MessageCollector,
+    registry: MetricsRegistry,
+    changeLogSystemStreamPartition: SystemStreamPartition,
+    jobContext: JobContext,
+    containerContext: ContainerContext): StorageEngine = {
+    val storageConfig = jobContext.getConfig.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getBoolean("accesslog.enabled", false)
@@ -106,7 +108,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       throw new SamzaException("Must define a message serde when using key value storage.")
     }
 
-    val rawStore = getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, containerContext)
+    val rawStore =
+      getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, jobContext, containerContext)
 
     // maybe wrap with logging
     val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
@@ -141,7 +144,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
-    val clock = if (containerContext.config.getMetricsTimerEnabled) {
+    val clock = if (jobContext.getConfig.getMetricsTimerEnabled) {
       new HighResolutionClock {
         override def nanoTime(): Long = System.nanoTime()
       }

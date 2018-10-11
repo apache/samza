@@ -19,19 +19,17 @@
 
 package org.apache.samza.table.caching.guava;
 
+import com.google.common.cache.Cache;
+import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.utils.TableMetricsUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.utils.TableMetricsUtil;
-import org.apache.samza.task.TaskContext;
-
-import com.google.common.cache.Cache;
 
 
 /**
@@ -54,8 +52,8 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+  public void init(Context context) {
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     // hit- and miss-rate are provided by CachingTable.
     tableMetricsUtil.newGauge("evict-count", () -> cache.stats().evictionCount());
   }

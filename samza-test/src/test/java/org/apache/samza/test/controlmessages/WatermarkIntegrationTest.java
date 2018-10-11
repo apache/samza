@@ -58,7 +58,6 @@ import org.apache.samza.serializers.IntegerSerdeFactory;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerdeFactory;
-import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
@@ -133,7 +132,6 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
 
     configs.put(JobConfig.JOB_NAME(), "test-watermark-job");
     configs.put(JobConfig.PROCESSOR_ID(), "1");
-    configs.put(JobCoordinatorConfig.JOB_COORDINATION_UTILS_FACTORY, PassthroughCoordinationUtilsFactory.class.getName());
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
 
@@ -158,8 +156,8 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
         appDesc.getInputStream(isd)
-            .map(EndOfStreamIntegrationTest.Values.create())
-            .partitionBy(pv -> pv.getMemberId(), pv -> pv, "p1")
+            .map(KV::getValue)
+            .partitionBy(pv -> pv.getMemberId(), pv -> pv, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .sink((m, collector, coordinator) -> {
                 received.add(m.getValue());
               });

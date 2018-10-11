@@ -65,19 +65,12 @@ public class EventHubSystemAdmin implements SystemAdmin {
     this.eventHubClientManagerFactory = eventHubClientManagerFactory;
   }
 
-  private String getNextOffset(String currentOffset) {
-    // EventHub will return the first message AFTER the offset
-    // that was specified in the fetch request.
-    // If no such offset exists Eventhub will return an error.
-    return String.valueOf(Long.parseLong(currentOffset) + 1);
-  }
-
   @Override
   public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
-    Map<SystemStreamPartition, String> results = new HashMap<>();
-
-    offsets.forEach((partition, offset) -> results.put(partition, getNextOffset(offset)));
-    return results;
+    // In EventHubSystemConsumer#initializeEventHubsManagers, we exclude the offset that we specify. i.e.
+    // we will only get the message after the checkpoint offset. Hence, by returning the same offset as the
+    // "next" offset, we won't be reprocessing the same event.
+    return offsets;
   }
 
   // EventHubRuntimeInformation does not implement toString()

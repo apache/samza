@@ -52,75 +52,108 @@
 
   <div class="section section--bottom-flare section--hero" id="hero">
     <canvas id="canvas"></canvas>
-    <div>
-      <h1 class="section__title">
-        Build powerful tools with samza stream processing
-      </h1>
-      <h2 class="section__title section__title--sub">
-        View our
-        <a href="somewhere">case studies</a> to see examples from leading brands
-      </h2>
-      <div class="content">
-        <a class="button" href="/startup/quick-start/{{site.version}}">
-          Quick Start
-        </a>
+    <div class="hero-inner">
+      <div class="hero-info">
+        <h1 class="section__title">
+          Apache Samza
+        </h1>
+        <h2 class="section__title section__title--sub">
+          A distributed stream processing framework
+        </h2>
+        <div class="content">
+          <a class="button" href="/startup/quick-start/{{site.version}}">
+            Quick Start
+          </a>
+          <a class="button" href="/case-studies/">
+            Case studies
+          </a>
+        </div>
       </div>
+
+      <div class="hero-blog-posts">
+        <h3>Latest from our blog</h3>
+        <div class="blog-posts">
+
+            {% assign sortedBlogPost = site.blog | sort: 'date' | reverse %}
+            {% assign maxCount = 3 %}
+            {% assign latestCount = 1 %}
+
+            {% for post in sortedBlogPost %}
+
+              {% if latestCount > maxCount %}
+                {% break %}
+              {% endif %}
+
+              {% if post.exclude_from_loop %}
+                {% continue %}
+              {% endif %}
+
+              {% assign latestCount = latestCount | plus: 1 %}
+
+              <a class="blog-post" href="{{ post.url }}">
+                  <div class="blog-post__title">{{ post.title }}</div>
+                  <div class="blog-post__date">{{ post.date | date: "%B %-d, %Y" }}</div>
+              </a>
+
+            {% endfor %}
+
+        </div>
+      </div>
+
+
     </div>
   </div>
 
 
   <div class="section section--what-is-samza">
-    <div class="section__title">What is Apache Samza?</div>
-    <div class="content">
+
+   <!-- <div class="section__title">What is Apache Samza?</div> -->
+  <div class="content--samza-intro">
       <p>
-        <strong>Apache Samza</strong>, a top level project of the
-        <a href="https://www.apache.org/" target="_blank">Apache Software Foundation</a>, is a distributed stream processing framework. It uses
-        <a target="_blank" href="https://kafka.apache.org">Apache Kafka</a> for messaging, and
-        <a target="_blank" href="https://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html">Apache Hadoop YARN</a> to provide fault tolerance, processor isolation, security, and resource management.
+        Samza allows you to build stateful applications that process data in real-time from multiple sources including Apache Kafka.
+        <br/> <br/>
+        Battle-tested at scale, it supports flexible deployment options to run on <a href="/learn/documentation/latest/deployment/yarn.html">YARN</a> or as a
+        <a href="/learn/documentation/latest/deployment/standalone.html">standalone library</a>.
       </p>
-    </div>
+
+      <!-- <img src="/img/latest/learn/documentation/api/samza-arch3.png"> -->
+      <img src="/img/latest/learn/documentation/api/samza-arch4.png" width="44.7%" height="50%" hspace="25px">
+  </div>
   </div>
 
   <div class="section section--highlight section--bottom-flare section--features">
     <div class="section__title section__title--center">
-      Features of the Samza Framework
+      Samza features
     </div>
     <div class="section__items">
       <div class="section__item">
         <i class="section__item-icon icon ion-md-flash"></i>
         <div class="section__item-title">
-          Performance
+          High performance
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Extremely high throughput</div>
-          <div class="section__item-feature">Low latency streaming</div>
-          <div class="section__item-feature">Async i/O support</div>
-          <div class="section__item-feature">Configurable Parallelism</div>
+          <div class="section__item-feature">Samza provides extremely low latencies and high throughput to analyze your data instantly</div>
         </div>
       </div>
 
       <div class="section__item">
         <i class="section__item-icon icon ion-md-trending-up"></i>
         <div class="section__item-title">
-          Massive scale
+
+          Horizontally scalable
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Incremental checkpointing</div>
-          <div class="section__item-feature">Host affinity</div>
-          <div class="section__item-feature">Terabytes of state</div>
-          <div class="section__item-feature">Fault tolerance</div>
+          <div class="section__item-feature">Scales to several terabytes of state with features like incremental checkpoints and host-affinity</div>
         </div>
       </div>
 
       <div class="section__item">
         <i class="section__item-icon icon ion-md-build"></i>
         <div class="section__item-title">
-          Operability
+          Easy to Operate
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Backpressure handling</div>
-          <div class="section__item-feature">High availability</div>
-          <div class="section__item-feature">Rolling upgrades</div>
+          <div class="section__item-feature">Samza is easy to operate with flexible deployment options - YARN, Kubernetes or standalone</div>
         </div>
       </div>
 
@@ -130,10 +163,7 @@
           Powerful APIs
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Per-message low-level</div>
-          <div class="section__item-feature">Stream based high-level DSL</div>
-          <div class="section__item-feature">Declarative SQL</div>
-          <div class="section__item-feature">Apache BEAM</div>
+          <div class="section__item-feature">Rich APIs to build your applications: Choose from low-level, Streams DSL, Samza SQL and Apache BEAM APIs</div>
         </div>
       </div>
 
@@ -143,9 +173,7 @@
           Write once, Run Anywhere
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Batch vs streaming</div>
-          <div class="section__item-feature">Standalone vs YARN</div>
-          <div class="section__item-feature">Embedded library vs service</div>
+          <div class="section__item-feature"> Ability to run the same code to process both batch and streaming data</div>
         </div>
       </div>
 
@@ -155,8 +183,7 @@
           Pluggable architecture
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Integrate with Kubernetes, Mesos, Yarn</div>
-          <div class="section__item-feature">Consume from EventHubs, Kafka, Kinesis</div>
+          <div class="section__item-feature">Integrates with several sources including Kafka, HDFS, AWS Kinesis, Azure Eventhubs, K-V stores and ElasticSearch</div>
         </div>
       </div>
 
@@ -169,9 +196,9 @@
       Case Studies
     </div>
 
-    <div class="section__items">
-
-      {% for study in site.case-studies %}
+    <div class="section__items js-flickity" data-flickity-options='{ "wrapAround": true, "autoPlay": 1500 }'>
+    {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
+    {% for study in case-studies_sorted %}
 
       {% if study.exclude_from_loop %}
         {% continue %}
@@ -182,8 +209,8 @@
           <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
         </a>
       </div>
-      
-      {% endfor %}
+
+    {% endfor %}
 
     </div>
 
@@ -192,7 +219,9 @@
   <!-- footer starts here -->
 
   {% include footer.html %}
-  
+
+  <script type="text/javascript" src="/js/flickity.js"></script>
+
 </body>
 
 </html>

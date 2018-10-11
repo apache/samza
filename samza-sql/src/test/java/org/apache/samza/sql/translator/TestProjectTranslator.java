@@ -21,7 +21,6 @@ package org.apache.samza.sql.translator;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
@@ -33,13 +32,11 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.config.Config;
-import org.apache.samza.container.TaskContextImpl;
-import org.apache.samza.container.TaskName;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.TimerFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
@@ -47,6 +44,7 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -58,8 +56,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -114,11 +112,9 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
     // Verify that the bootstrap() method will establish the context for the map function
-    Config mockConfig = mock(Config.class);
-    TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
-        new HashSet<>(), null, null, null, null, null, null);
-    taskContext.setUserContext(mockContext);
-    projectSpec.getTransformFn().init(mockConfig, taskContext);
+    Context context = mock(Context.class);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
     assertEquals(mockContext, Whitebox.getInternalState(mapFn, "context"));
@@ -192,7 +188,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       }
 
       @Override
-      public TimerFunction getTimerFn() {
+      public ScheduledFunction getScheduledFn() {
         return null;
       }
     };
@@ -249,11 +245,9 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
     // Verify that the describe() method will establish the context for the map function
-    Config mockConfig = mock(Config.class);
-    TaskContextImpl taskContext = new TaskContextImpl(new TaskName("Partition-1"), null, null,
-        new HashSet<>(), null, null, null, null, null, null);
-    taskContext.setUserContext(mockContext);
-    projectSpec.getTransformFn().init(mockConfig, taskContext);
+    Context context = mock(Context.class);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
     assertEquals(mockContext, Whitebox.getInternalState(mapFn, "context"));
@@ -285,5 +279,4 @@ public class TestProjectTranslator extends TranslatorTestBase {
     }});
 
   }
-
 }

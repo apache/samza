@@ -22,10 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +38,7 @@ abstract public class BaseTableProvider implements TableProvider {
 
   final protected TableSpec tableSpec;
 
-  protected SamzaContainerContext containerContext;
-  protected TaskContext taskContext;
+  protected Context context;
 
   public BaseTableProvider(TableSpec tableSpec) {
     this.tableSpec = tableSpec;
@@ -50,9 +48,8 @@ abstract public class BaseTableProvider implements TableProvider {
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    this.containerContext = containerContext;
-    this.taskContext = taskContext;
+  public void init(Context context) {
+    this.context = context;
   }
 
   /**

@@ -23,18 +23,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.container.IllegalContainerStateException;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
+import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
@@ -46,6 +52,8 @@ import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Option;
+
 
 /**
  * StreamProcessor can be embedded in any application or executed in a distributed environment (aka cluster) as an
@@ -97,14 +105,24 @@ public class StreamProcessor {
   private final JobCoordinator jobCoordinator;
   private final ProcessorLifecycleListener processorListener;
   private final TaskFactory taskFactory;
+  /**
+   * Type parameter needs to be {@link ApplicationContainerContext} so that we can eventually call the base methods of
+   * the context object.
+   */
+  private final Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationDefinedContainerContextFactoryOptional;
+  /**
+   * Type parameter needs to be {@link ApplicationTaskContext} so that we can eventually call the base methods of the
+   * context object.
+   */
+  private final Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationDefinedTaskContextFactoryOptional;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
-  private final ExecutorService executorService;
+  private final ExecutorService containerExcecutorService;
   private final Object lock = new Object();
 
-  private Throwable containerException = null;
+  private volatile Throwable containerException = null;
 
   volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
 
@@ -143,62 +161,65 @@ public class StreamProcessor {
   JobCoordinatorListener jobCoordinatorListener = null;
 
   /**
-   * StreamProcessor encapsulates and manages the lifecycle of {@link JobCoordinator} and {@link SamzaContainer}.
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
+   * it creates a {@link JobCoordinator} instead of accepting it as an argument.
    *
-   * <p>
-   * On startup, StreamProcessor starts the JobCoordinator. Schedules the SamzaContainer to run in a ExecutorService
-   * when it receives new {@link JobModel} from JobCoordinator.
-   * <p>
-   *
-   * <b>Note:</b> Lifecycle of the ExecutorService is fully managed by the StreamProcessor.
-   *
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
-   * @param customMetricsReporters metricReporter instances that will be used by SamzaContainer and JobCoordinator to report metrics.
-   * @param taskFactory the {@link TaskFactory} to be used for creating task instances.
-   * @param processorListener listener to the StreamProcessor life cycle.
+   * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, Optional, Optional,
+   * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
+  @Deprecated
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener) {
     this(config, customMetricsReporters, taskFactory, processorListener, null);
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener)}, except the
-   * {@link JobCoordinator} is given for this {@link StreamProcessor}.
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
-   * @param customMetricsReporters metric Reporter
-   * @param taskFactory task factory to instantiate the Task
+   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, Optional, Optional,
+   * StreamProcessorLifecycleListenerFactory, JobCoordinator)}, with the following differences:
+   * <ol>
+   *   <li>Passes null for application-defined context factories</li>
+   *   <li>Accepts a {@link ProcessorLifecycleListener} directly instead of a
+   *   {@link StreamProcessorLifecycleListenerFactory}</li>
+   * </ol>
+   * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, Optional, Optional,
+   * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
+   *
    * @param processorListener listener to the StreamProcessor life cycle
-   * @param jobCoordinator the instance of {@link JobCoordinator}
    */
+  @Deprecated
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
-    this(config, customMetricsReporters, taskFactory, sp -> processorListener, jobCoordinator);
+    this(config, customMetricsReporters, taskFactory, Optional.empty(), Optional.empty(), sp -> processorListener,
+        jobCoordinator);
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
-   * there is a {@link StreamProcessorLifecycleListenerFactory} as input instead of {@link ProcessorLifecycleListener}.
-   * This is useful to create a {@link ProcessorLifecycleListener} with a reference to this {@link StreamProcessor}
+   * Builds a {@link StreamProcessor} with full specification of processing components.
    *
    * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
-   * @param customMetricsReporters metric Reporter
+   * @param customMetricsReporters registered with the metrics system to report metrics
    * @param taskFactory task factory to instantiate the Task
-   * @param listenerFactory listener to the StreamProcessor life cycle
+   * @param applicationDefinedContainerContextFactoryOptional optional factory for application-defined container context
+   * @param applicationDefinedTaskContextFactoryOptional optional factory for application-defined task context
+   * @param listenerFactory factory for creating a listener to the StreamProcessor life cycle
    * @param jobCoordinator the instance of {@link JobCoordinator}
    */
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+      Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationDefinedContainerContextFactoryOptional,
+      Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationDefinedTaskContextFactoryOptional,
       StreamProcessorLifecycleListenerFactory listenerFactory, JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
-    this.taskFactory = taskFactory;
     this.config = config;
-    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.customMetricsReporter = customMetricsReporters;
+    this.taskFactory = taskFactory;
+    this.applicationDefinedContainerContextFactoryOptional = applicationDefinedContainerContextFactoryOptional;
+    this.applicationDefinedTaskContextFactoryOptional = applicationDefinedTaskContextFactoryOptional;
+    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.executorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
     // TODO: remove the dependency on jobCoordinator for processorId after fixing SAMZA-1835
     this.processorId = this.jobCoordinator.getProcessorId();
     this.processorListener = listenerFactory.createInstance(this);
@@ -258,7 +279,7 @@ public class StreamProcessor {
           boolean hasContainerShutdown = stopSamzaContainer();
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
-            executorService.shutdownNow();
+            containerExcecutorService.shutdownNow();
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
@@ -283,7 +304,10 @@ public class StreamProcessor {
 
   @VisibleForTesting
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
-    return SamzaContainer.apply(processorId, jobModel, config, ScalaJavaUtil.toScalaMap(customMetricsReporter), taskFactory);
+    return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
+        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
+        Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
+        Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)));
   }
 
   private JobCoordinator createJobCoordinator() {
@@ -298,22 +322,28 @@ public class StreamProcessor {
   private boolean stopSamzaContainer() {
     boolean hasContainerShutdown = true;
     if (container != null) {
-      if (!container.hasStopped()) {
-        try {
-          container.shutdown();
-          LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
-          hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-        } catch (IllegalContainerStateException icse) {
-          LOGGER.info(String.format("Cannot shutdown container: %s for stream processor: %s. Container is not running.", container, processorId), icse);
-        } catch (Exception e) {
-          LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
-          hasContainerShutdown = false;
+      try {
+        container.shutdown();
+        LOGGER.info("Waiting {} ms for the container: {} to shutdown.", taskShutdownMs, container);
+        hasContainerShutdown = containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        LOGGER.error("Exception occurred when shutting down the container: {}.", container, e);
+        hasContainerShutdown = false;
+        if (containerException != null) {
+          containerException = e;
         }
-        LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
-      } else {
-        LOGGER.info("Container is not instantiated for stream processor: {}.", processorId);
       }
+      LOGGER.info(String.format("Shutdown status of container: %s for stream processor: %s is: %b.", container, processorId, hasContainerShutdown));
     }
+
+    // We want to propagate TimeoutException when container shutdown times out. It is possible that the timeout exception
+    // we propagate to the application runner maybe overwritten by container failure cause in case of interleaved execution.
+    // It is acceptable since container exception is much more useful compared to timeout exception.
+    // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
+    if (!hasContainerShutdown && containerException == null) {
+      containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+    }
+
     return hasContainerShutdown;
   }
 
@@ -348,7 +378,7 @@ public class StreamProcessor {
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            executorService.submit(container);
+            containerExcecutorService.submit(container);
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -359,8 +389,12 @@ public class StreamProcessor {
       public void onCoordinatorStop() {
         synchronized (lock) {
           LOGGER.info("Shutting down the executor service of the stream processor: {}.", processorId);
-          stopSamzaContainer();
-          executorService.shutdownNow();
+          boolean hasContainerShutdown = stopSamzaContainer();
+
+          // we only want to interrupt when container shutdown times out.
+          if (!hasContainerShutdown) {
+            containerExcecutorService.shutdownNow();
+          }
           state = State.STOPPED;
         }
         if (containerException != null)
@@ -374,8 +408,12 @@ public class StreamProcessor {
       public void onCoordinatorFailure(Throwable throwable) {
         synchronized (lock) {
           LOGGER.info(String.format("Coordinator: %s failed with an exception. Stopping the stream processor: %s. Original exception:", jobCoordinator, processorId), throwable);
-          stopSamzaContainer();
-          executorService.shutdownNow();
+          boolean hasContainerShutdown = stopSamzaContainer();
+
+          // we only want to interrupt when container shutdown times out.
+          if (!hasContainerShutdown) {
+            containerExcecutorService.shutdownNow();
+          }
           state = State.STOPPED;
         }
         processorListener.afterFailure(throwable);
@@ -413,6 +451,7 @@ public class StreamProcessor {
     @Override
     public void afterStop() {
       containerShutdownLatch.countDown();
+
       synchronized (lock) {
         if (state == State.IN_REBALANCE) {
           LOGGER.info("Container: {} of the stream processor: {} was stopped by the JobCoordinator.", container, processorId);
@@ -426,11 +465,12 @@ public class StreamProcessor {
 
     @Override
     public void afterFailure(Throwable t) {
+      containerException = t;
       containerShutdownLatch.countDown();
+
       synchronized (lock) {
         LOGGER.error(String.format("Container: %s failed with an exception. Stopping the stream processor: %s. Original exception:", container, processorId), t);
         state = State.STOPPING;
-        containerException = t;
         jobCoordinator.stop();
       }
     }

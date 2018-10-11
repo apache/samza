@@ -251,15 +251,24 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     val kafkaChangeLogProperties = new Properties
 
     val appConfig = new ApplicationConfig(config)
-    // SAMZA-1600: do not use the combination of "compact,delete" as cleanup policy until we pick up Kafka broker 0.11.0.3,
+    // SAMZA-1600: do not use the combination of "compact,delete" as cleanup policy until we pick up Kafka broker 0.11.0.57,
     // 1.0.2, or 1.1.0 (see KAFKA-6568)
-    // if (appConfig.getAppMode == ApplicationMode.STREAM) {
-    //  kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
-    // } else{
-    //  kafkaChangeLogProperties.setProperty("cleanup.policy", "compact,delete")
-    //  kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
-    // }
-    kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+
+    // Adjust changelog topic setting, when TTL is set on a RocksDB store
+    //  - Disable log compaction on Kafka changelog topic
+    //  - Set topic TTL to be the same as RocksDB TTL
+    Option(config.get("stores.%s.rocksdb.ttl.ms" format name)) match {
+      case Some(rocksDbTtl) =>
+        if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
+          kafkaChangeLogProperties.setProperty("cleanup.policy", "delete")
+          if (!config.containsKey("stores.%s.changelog.kafka.retention.ms" format name)) {
+            kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(rocksDbTtl))
+          }
+        }
+      case _ =>
+        kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+    }
+
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
     kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
@@ -289,7 +298,10 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     properties
   }
 
-  // kafka config
+  /**
+    * @deprecated Use KafkaConsumerConfig
+    */
+  @Deprecated
   def getKafkaSystemConsumerConfig( systemName: String,
                                     clientId: String,
                                     groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,

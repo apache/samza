@@ -22,8 +22,8 @@ package org.apache.samza.test.integration
 import java.util
 import java.util.Properties
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import javax.security.auth.login.Configuration
 
+import javax.security.auth.login.Configuration
 import kafka.admin.AdminUtils
 import kafka.consumer.{Consumer, ConsumerConfig}
 import kafka.message.MessageAndMetadata
@@ -31,12 +31,13 @@ import kafka.server.{KafkaConfig, KafkaServer}
 import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import kafka.zk.EmbeddedZookeeper
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
-import org.apache.samza.Partition
-import org.apache.samza.checkpoint.Checkpoint
 import org.apache.kafka.common.protocol.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
+import org.apache.samza.Partition
+import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
+import org.apache.samza.context.Context
 import org.apache.samza.job.local.ThreadJobFactory
 import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
@@ -45,7 +46,7 @@ import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task._
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore, Util}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 
 import scala.collection.JavaConverters._
@@ -223,6 +224,13 @@ class StreamTaskTestUtil {
    * interrupt, which is forwarded on to ThreadJob, and marked as a failure).
    */
   def stopJob(job: StreamJob) {
+    // make sure we don't kill the job before it was started.
+    // eventProcesses guarantees all the consumers have been initialized
+    val tasks = TestTask.tasks
+    val task = tasks.values.toList.head
+    task.eventProcessed.await(60, TimeUnit.SECONDS)
+    assertEquals(0, task.eventProcessed.getCount)
+
     // Shutdown task.
     job.kill
     val status = job.waitForFinish(60000)
@@ -279,7 +287,10 @@ class StreamTaskTestUtil {
     val taskConfig = new TaskConfig(jobModel.getConfig)
     val checkpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap())
     checkpointManager match {
-      case Some(checkpointManager) => checkpointManager.createResources
+      case Some(checkpointManager) => {
+        checkpointManager.createResources
+        checkpointManager.stop
+      }
       case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
     }
 
@@ -323,16 +334,19 @@ object TestTask {
 abstract class TestTask extends StreamTask with InitableTask {
   var received = ArrayBuffer[String]()
   val initFinished = new CountDownLatch(1)
+  val eventProcessed = new CountDownLatch(1)
   @volatile var gotMessage = new CountDownLatch(1)
 
-  def init(config: Config, context: TaskContext) {
-    TestTask.register(context.getTaskName, this)
-    testInit(config, context)
+  def init(context: Context) {
+    TestTask.register(context.getTaskContext.getTaskModel.getTaskName, this)
+    testInit(context)
     initFinished.countDown()
   }
 
   def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator) {
     val msg = envelope.getMessage.asInstanceOf[String]
+
+    eventProcessed.countDown()
 
     System.err.println("TestTask.process(): %s" format msg)
 
@@ -350,7 +364,7 @@ abstract class TestTask extends StreamTask with InitableTask {
     gotMessage = new CountDownLatch(1)
   }
 
-  def testInit(config: Config, context: TaskContext)
+  def testInit(context: Context)
 
   def testProcess(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator)
 

@@ -19,16 +19,17 @@
 package org.apache.samza.application;
 
 import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.operators.BaseTableDescriptor;
-import org.apache.samza.operators.ContextManager;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
@@ -55,7 +56,6 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyString;
@@ -407,22 +407,14 @@ public class TestStreamApplicationDescriptorImpl {
     assertEquals(streamId, intermediateStreamImpl.getStreamId());
   }
 
-  @Test
+  @Test(expected = NullPointerException.class)
   public void testGetIntermediateStreamWithNoSerde() {
     Config mockConfig = mock(Config.class);
     String streamId = "streamId";
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, mockConfig);
     IntermediateMessageStreamImpl<TestMessageEnvelope> intermediateStreamImpl =
-        streamAppDesc.getIntermediateStream(streamId, null, false);
-
-    assertEquals(streamAppDesc.getInputOperators().get(streamId), intermediateStreamImpl.getOperatorSpec());
-    assertEquals(streamAppDesc.getOutputStreams().get(streamId), intermediateStreamImpl.getOutputStream());
-    assertEquals(streamId, intermediateStreamImpl.getStreamId());
-    assertNull(intermediateStreamImpl.getOutputStream().getKeySerde());
-    assertNull(intermediateStreamImpl.getOutputStream().getValueSerde());
-    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getKeySerde());
-    assertNull(((InputOperatorSpec) (OperatorSpec)  intermediateStreamImpl.getOperatorSpec()).getValueSerde());
+        streamAppDesc.getIntermediateStream(streamId, null, false); // should throw
   }
 
   @Test(expected = IllegalStateException.class)
@@ -522,18 +514,43 @@ public class TestStreamApplicationDescriptorImpl {
     TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
     when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
     when(mockTableDescriptor.getTableId()).thenReturn(testTableSpec.getId());
+    when(mockTableDescriptor.getSerde()).thenReturn(testTableSpec.getSerde());
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         appDesc.getTable(mockTableDescriptor);
       }, mockConfig);
-    assertNotNull(streamAppDesc.getTables().get(testTableSpec));
+    assertNotNull(streamAppDesc.getTables().get(testTableSpec.getId()));
   }
 
   @Test
-  public void testContextManager() {
-    ContextManager cntxMan = mock(ContextManager.class);
-    StreamApplication testApp = appDesc -> appDesc.withContextManager(cntxMan);
+  public void testApplicationContainerContextFactory() {
+    ApplicationContainerContextFactory factory = mock(ApplicationContainerContextFactory.class);
+    StreamApplication testApp = appDesc -> appDesc.withApplicationContainerContextFactory(factory);
     StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
-    assertEquals(appSpec.getContextManager(), cntxMan);
+    assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.of(factory));
+  }
+
+  @Test
+  public void testNoApplicationContainerContextFactory() {
+    StreamApplication testApp = appDesc -> {
+    };
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationContainerContextFactory(), Optional.empty());
+  }
+
+  @Test
+  public void testApplicationTaskContextFactory() {
+    ApplicationTaskContextFactory factory = mock(ApplicationTaskContextFactory.class);
+    StreamApplication testApp = appDesc -> appDesc.withApplicationTaskContextFactory(factory);
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.of(factory));
+  }
+
+  @Test
+  public void testNoApplicationTaskContextFactory() {
+    StreamApplication testApp = appDesc -> {
+    };
+    StreamApplicationDescriptorImpl appSpec = new StreamApplicationDescriptorImpl(testApp, mock(Config.class));
+    assertEquals(appSpec.getApplicationTaskContextFactory(), Optional.empty());
   }
 
   @Test
