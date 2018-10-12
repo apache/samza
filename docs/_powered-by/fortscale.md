@@ -20,4 +20,3 @@ domain: fortscale.com
 -->
 
 <a class="external-link" href="https://www.fortscale.com/" rel="nofollow">Fortscale</a> is redefining behavioral analytics, with the industry’s first embeddable engine, making behavioral analytics available for everyone. It is using Samza to process security events as part of their data ingestion pipelines and for the creation of on-line machine learning models.
-

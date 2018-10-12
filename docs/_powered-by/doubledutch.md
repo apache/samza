@@ -20,5 +20,3 @@ domain: doubledutch.me
 -->
 
 <a class="external-link" href="www.doubledutch.me" rel="nofollow">DoubleDutch</a> provides mobile applications and performance analytics for events, conferences, and trade shows for more than 1,000 customers including SAP, UBM, and Urban Land Institute. It uses Samza to power their analytics platform and stream data live into an event dashboard for real-time insights.
-
-
