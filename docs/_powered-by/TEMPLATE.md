@@ -2,6 +2,7 @@
 exclude_from_loop: true # wont be able to find this page, useful for draft
 name: Company # formatted name of company eg LinkedIn
 domain: company.com # just the domain, no protocol
+priority: 2
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

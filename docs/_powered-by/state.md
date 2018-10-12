@@ -1,7 +1,6 @@
 ---
-layout: page
-title: Powered By
-exclude_from_loop: true
+name: State
+domain: state.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,30 +19,4 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-A list of companies powered by Samza
-
-<ul class="powered-by">
-{% assign sorted = site.powered-by | sort: 'priority' %}
-
-  {% for company in sorted %} 
-    {% if company.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ company.name }}">
-      <span style="background-image: url('https://logo.clearbit.com/{{ company.domain }}?size=256');"></span>
-    </span>
-    <div>
-      <a href="https://{{ company.domain }}" class="external-link" rel="nofollow">
-        <i class="icon ion-md-share-alt"></i> {{ company.name }}
-      </a>
-      <p>
-      {{ company.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>
+<a class="external-link" href="https://state.com" rel="nofollow">State</a> is a public global opinion network that focuses on empowering individuals, democracy, and social progress. It uses Samza to process and join streams of changes from MongoDB to update a wide range of realtime services that support the website and mobile apps. These include search, user recommendations, opinion metrics and lots more.
