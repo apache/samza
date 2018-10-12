@@ -1,7 +1,7 @@
 ---
-layout: page
-title: Powered By
-exclude_from_loop: true
+name: Redfin
+domain: redfin.com
+priority: 06
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,30 +20,4 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-A list of companies powered by Samza
-
-<ul class="powered-by">
-{% assign sorted = site.powered-by | sort: 'priority' %}
-
-  {% for company in sorted %} 
-    {% if company.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ company.name }}">
-      <span style="background-image: url('https://logo.clearbit.com/{{ company.domain }}?size=256');"></span>
-    </span>
-    <div>
-      <a href="https://{{ company.domain }}" class="external-link" rel="nofollow">
-        <i class="icon ion-md-share-alt"></i> {{ company.name }}
-      </a>
-      <p>
-      {{ company.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>
+<a class="external-link" href="https://redfin.com" rel="nofollow">Redfin</a> provides real estate search and brokerage services through a combination of real estate web platforms. It uses Samza and Kafka for sending millions of email and push notifications to our customers everyday. Redfin chose Samza for distributed processing because it integrates really well with Kafka. Samza also provides managed state and a resilient local storage which Redfin found to be very useful features.

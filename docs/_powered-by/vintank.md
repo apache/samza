@@ -1,7 +1,6 @@
 ---
-layout: page
-title: Powered By
-exclude_from_loop: true
+name: VinTank
+domain: vintank.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,30 +19,4 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-A list of companies powered by Samza
-
-<ul class="powered-by">
-{% assign sorted = site.powered-by | sort: 'priority' %}
-
-  {% for company in sorted %} 
-    {% if company.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ company.name }}">
-      <span style="background-image: url('https://logo.clearbit.com/{{ company.domain }}?size=256');"></span>
-    </span>
-    <div>
-      <a href="https://{{ company.domain }}" class="external-link" rel="nofollow">
-        <i class="icon ion-md-share-alt"></i> {{ company.name }}
-      </a>
-      <p>
-      {{ company.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>
+<a class="external-link" href="https://www.crunchbase.com/organization/vintank" rel="nofollow">VinTank</a>, is the leading software solution for social media management for the wine and hospitality industry. It uses Samza to power their social media analysis and NLP pipeline. Measuring over one billion conversations about wine, profiling over 30 million social wine consumers and serving over 1000 wine brands, VinTank helps wineries, restaurants, and hotels connect and understand their customers.

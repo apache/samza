@@ -1,7 +1,6 @@
 ---
-layout: page
-title: Powered By
-exclude_from_loop: true
+name: DoubleDutch
+domain: doubledutch.me
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,30 +19,4 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-A list of companies powered by Samza
-
-<ul class="powered-by">
-{% assign sorted = site.powered-by | sort: 'priority' %}
-
-  {% for company in sorted %} 
-    {% if company.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ company.name }}">
-      <span style="background-image: url('https://logo.clearbit.com/{{ company.domain }}?size=256');"></span>
-    </span>
-    <div>
-      <a href="https://{{ company.domain }}" class="external-link" rel="nofollow">
-        <i class="icon ion-md-share-alt"></i> {{ company.name }}
-      </a>
-      <p>
-      {{ company.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>
+<a class="external-link" href="www.doubledutch.me" rel="nofollow">DoubleDutch</a> provides mobile applications and performance analytics for events, conferences, and trade shows for more than 1,000 customers including SAP, UBM, and Urban Land Institute. It uses Samza to power their analytics platform and stream data live into an event dashboard for real-time insights.

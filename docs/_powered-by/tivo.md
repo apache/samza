@@ -1,7 +1,7 @@
 ---
-layout: page
-title: Powered By
-exclude_from_loop: true
+name: Tivo
+domain: tivo.com
+priority: 03
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,30 +20,4 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-A list of companies powered by Samza
-
-<ul class="powered-by">
-{% assign sorted = site.powered-by | sort: 'priority' %}
-
-  {% for company in sorted %} 
-    {% if company.exclude_from_loop %}
-        {% continue %}
-    {% endif %}
-
-  <li>
-    <span title="{{ company.name }}">
-      <span style="background-image: url('https://logo.clearbit.com/{{ company.domain }}?size=256');"></span>
-    </span>
-    <div>
-      <a href="https://{{ company.domain }}" class="external-link" rel="nofollow">
-        <i class="icon ion-md-share-alt"></i> {{ company.name }}
-      </a>
-      <p>
-      {{ company.content }}
-      </p>
-    </div>
-  </li>
-
-  {% endfor %}
-
-</ul>
+<a class="external-link" href="www.tivo.com" rel="nofollow">Tivo</a> TiVo is a digital video recorder that allows users to save TV programs for later viewing based on an electronic TV programming schedule. It leverages Samza leveraging Samza to do online processing of views and ratings to help power personalized content recommendations and analytics.

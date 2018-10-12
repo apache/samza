@@ -1,6 +1,7 @@
 ---
 name: LinkedIn
 domain: linkedin.com
+priority: 04
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
