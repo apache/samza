@@ -20,4 +20,4 @@ priority: 3
    limitations under the License.
 -->
 
-<a class="external-link" href="www.banno.com" rel="nofollow">Jack Henry and Associates</a>  is an S&P 400 company that supports more than 11,300 financial institutions with core processing services. It leverages Samza to process user activity data across its Banno suite of products for financial institutions.
+<a class="external-link" href="https://www.banno.com" rel="nofollow">Jack Henry and Associates</a>  is an S&P 400 company that supports more than 11,300 financial institutions with core processing services. It leverages Samza to process user-activity data across its Banno suite of products for financial institutions.

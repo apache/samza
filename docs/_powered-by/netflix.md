@@ -20,4 +20,4 @@ priority: 2
    limitations under the License.
 -->
 
-<a class="external-link" href="www.netflix.com" rel="nofollow">Netflix</a> uses single-stage Samza jobs to route over 700 billion events / 1 peta byte per day from fronting Kafka clusters to s3/hive. A portion of these events are routed to Kafka and ElasticSearch with support for custom index creation, basic filtering and projection. We run over 10,000 samza jobs in that many docker containers.
+<a class="external-link" href="https://www.netflix.com" rel="nofollow">Netflix</a> uses single-stage Samza jobs to route over 700 billion events / 1 peta byte per day from fronting Kafka clusters to s3/hive. A portion of these events are routed to Kafka and ElasticSearch with support for custom index creation, basic filtering and projection. We run over 10,000 samza jobs in that many docker containers.

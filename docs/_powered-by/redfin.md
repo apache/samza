@@ -20,4 +20,4 @@ priority: 1
    limitations under the License.
 -->
 
-<a class="external-link" href="https://redfin.com" rel="nofollow">Redfin</a> provides real estate search and brokerage services through a combination of real estate web platforms. It uses Samza and Kafka for sending millions of email and push notifications to our customers everyday. Redfin chose Samza for distributed processing because it integrates really well with Kafka. Samza also provides managed state and a resilient local storage which Redfin found to be very useful features.
+<a class="external-link" href="https://redfin.com" rel="nofollow">Redfin</a> provides real estate search and brokerage services through a combination of real estate web platforms. At Redfin, we use Samza and Kafka for sending millions of email and push notifications to our customers everyday. We chose Samza for distributed processing because it integrates really well with Kafka. Samza also provides managed state and a resilient local storage which we found to be very useful features.
