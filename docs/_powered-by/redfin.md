@@ -1,6 +1,7 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Redfin
+domain: redfin.com
+priority: 06
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +20,11 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://redfin.com" rel="nofollow">Redfin</a> provides real estate search and brokerage services through a combination of real estate web platforms. It uses Samza and Kafka for sending millions of email and push notifications to our customers everyday. Redfin chose Samza for distributed processing because it integrates really well with Kafka. Samza also provides managed state and a resilient local storage which Redfin found to be very useful features.
+
+
+
+
+
+
+

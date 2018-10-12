@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: DoubleDutch
+domain: doubledutch.me
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,6 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="www.doubledutch.me" rel="nofollow">DoubleDutch</a> provides mobile applications and performance analytics for events, conferences, and trade shows for more than 1,000 customers including SAP, UBM, and Urban Land Institute. It uses Samza to power their analytics platform and stream data live into an event dashboard for real-time insights.
+
+

@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Banno
+domain: banno.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,7 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="www.banno.com" rel="nofollow">Jack Henry and Associates</a>  is an S&P 400 company that supports more than 11,300 financial institutions with core processing services. It leverages Samza to process user activity data across its Banno suite of products for financial institutions.
+
+
+

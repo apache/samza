@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: HappyPancake
+domain: happypancake.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,4 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://www.happypancake.com/" rel="nofollow">Happy Pancake</a>, Northern Europe's largest internet dating service, is using Samza for all event handlers and data replication.

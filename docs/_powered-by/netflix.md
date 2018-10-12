@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Netflix
+domain: netflix.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,6 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="www.netflix.com" rel="nofollow">Netflix</a> uses single-stage Samza jobs to route over 700 billion events / 1 peta byte per day from fronting Kafka clusters to s3/hive. A portion of these events are routed to Kafka and ElasticSearch with support for custom index creation, basic filtering and projection. We run over 10,000 samza jobs in that many docker containers.
+
+

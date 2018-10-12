@@ -1,6 +1,7 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Optimizely
+domain: optimizely.com
+priority: 07
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +20,9 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://www.optimizely.com" rel="nofollow">Optimizely</a>, the world's leader in customer experience optimization uses Apache Samza to aggregate and enrich billions of events per day to power real-time analytics of Experiments and Personalization experiences.
+
+
+
+
+

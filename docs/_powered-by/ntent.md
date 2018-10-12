@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Ntent
+domain: ntent.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,10 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="http://www.ntent.com" rel="nofollow">Ntent</a> blends semantic search with natural language processing technologies to predict and create relevant content experiences.  They use Samza to power their streaming content ingestion system. Ntent takes crawled web pages and news articles, and passes them through a multi-stage processing pipeline that cleanses, classifies, extracts features that power other learning models, stores, and indexes the content for search.
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: VinTank
+domain: vintank.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,5 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://www.crunchbase.com/organization/vintank" rel="nofollow">VinTank</a>, is the leading software solution for social media management for the wine and hospitality industry. It uses Samza to power their social media analysis and NLP pipeline. Measuring over one billion conversations about wine, profiling over 30 million social wine consumers and serving over 1000 wine brands, VinTank helps wineries, restaurants, and hotels connect and understand their customers.
+

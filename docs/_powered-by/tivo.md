@@ -1,6 +1,7 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Tivo
+domain: tivo.com
+priority: 03
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +20,6 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="www.tivo.com" rel="nofollow">Tivo</a> TiVo is a digital video recorder that allows users to save TV programs for later viewing based on an electronic TV programming schedule. It leverages Samza leveraging Samza to do online processing of views and ratings to help power personalized content recommendations and analytics.
+
+

@@ -1,6 +1,6 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Fortscale
+domain: fortscale.com
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +19,5 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://www.fortscale.com/" rel="nofollow">Fortscale</a> is redefining behavioral analytics, with the industry’s first embeddable engine, making behavioral analytics available for everyone. It is using Samza to process security events as part of their data ingestion pipelines and for the creation of on-line machine learning models.
+

@@ -1,6 +1,7 @@
 ---
-name: MobileAware
-domain: mobileaware.com
+name: Tripadvisor
+domain: tripadvisor.com
+priority: 02
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +20,11 @@ domain: mobileaware.com
    limitations under the License.
 -->
 
-At <a class="external-link" href="https://www.mobileaware.com/" rel="nofollow">MobileAware</a>, we use Samza to enrich events with more contextual data from various sources (CMDB, Change Management, Incident Management, Problem Management). This gives us more meaningful events that an operations centre person can act on.
+<a class="external-link" href="https://tripadvisor.com" rel="nofollow">Tripadvisor</a> is the world's largest travel site, enabling travelers to plan and book the perfect trip. It uses Apache Samza to process billions of events daily for analytics, machine learning, and site improvement.
+
+
+
+
+
+
+
