@@ -73,16 +73,15 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   }
 
   /**
-   * If set to true, when a Samza container starts up, it ignores any checkpointed offset for this particular
+   * If set, when a Samza container starts up, it ignores any checkpointed offset for this particular
    * input stream. Its behavior is thus determined by the {@link #withOffsetDefault} setting.
    * Note that the reset takes effect every time a container is started, which may be every time you restart your job,
    * or more frequently if a container fails and is restarted by the framework.
    *
-   * @param resetOffset whether the container should ignore any checkpointed offset when starting
    * @return this input descriptor
    */
-  public SubClass withResetOffset(boolean resetOffset) {
-    this.resetOffsetOptional = Optional.of(resetOffset);
+  public SubClass shouldResetOffset() {
+    this.resetOffsetOptional = Optional.of(true);
     return (SubClass) this;
   }
 
@@ -126,38 +125,35 @@ public abstract class InputDescriptor<StreamMessageType, SubClass extends InputD
   }
 
   /**
-   * If set to true, this stream will be processed as a bootstrap stream. This means that every time a Samza container
+   * If set, this stream will be processed as a bootstrap stream. This means that every time a Samza container
    * starts up, this stream will be fully consumed before messages from any other stream are processed.
    *
-   * @param bootstrap whether this stream should be processed as a bootstrap stream
    * @return this input descriptor
    */
-  public SubClass withBootstrap(boolean bootstrap) {
-    this.isBootstrapOptional = Optional.of(bootstrap);
+  public SubClass shouldBootstrap() {
+    this.isBootstrapOptional = Optional.of(true);
     return (SubClass) this;
   }
 
   /**
-   * If set to true, this stream will be considered a bounded stream. If all input streams in an application are
+   * If set, this stream will be considered a bounded stream. If all input streams in an application are
    * bounded, the job is considered to be running in batch processing mode.
    *
-   * @param isBounded whether this stream is a bounded
    * @return this input descriptor
    */
-  public SubClass withBounded(boolean isBounded) {
-    this.isBoundedOptional = Optional.of(isBounded);
+  public SubClass isBounded() {
+    this.isBoundedOptional = Optional.of(true);
     return (SubClass) this;
   }
 
   /**
-   * If set to true, and supported by the system implementation, messages older than the latest checkpointed offset
+   * If set, and supported by the system implementation, messages older than the latest checkpointed offset
    * for this stream may be deleted after the commit.
    *
-   * @param deleteCommittedMessages whether the system should attempt to delete checkpointed messages
    * @return this input descriptor
    */
-  public SubClass withDeleteCommittedMessages(boolean deleteCommittedMessages) {
-    this.deleteCommittedMessagesOptional = Optional.of(deleteCommittedMessages);
+  public SubClass shouldDeleteCommittedMessages() {
+    this.deleteCommittedMessagesOptional = Optional.of(true);
     return (SubClass) this;
   }
 
