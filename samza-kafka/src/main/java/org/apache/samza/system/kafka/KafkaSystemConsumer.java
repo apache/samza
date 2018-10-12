@@ -77,8 +77,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   /**
    * Create a KafkaSystemConsumer for the provided {@code systemName}
+   * @param kafkaConsumer kafka Consumer object to be used by this system consumer
    * @param systemName system name for which we create the consumer
    * @param config application config
+   * @param clientId clientId from the kafka consumer to be used in the KafkaConsumerProxy
    * @param metrics metrics for this KafkaSystemConsumer
    * @param clock system clock
    */
@@ -106,12 +108,13 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   /**
    * Create internal kafka consumer object, which will be used in the Proxy.
+   * @param <K> key type for the consumer
+   * @param <V> value type for the consumer
    * @param systemName system name for which we create the consumer
    * @param kafkaConsumerConfig config object for Kafka's KafkaConsumer
-   * @return KafkaConsumer object
+   * @return KafkaConsumer newly create kafka consumer object
    */
-  public static <K,V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName,
-      HashMap<String, Object> kafkaConsumerConfig) {
+  public static <K, V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName, HashMap<String, Object> kafkaConsumerConfig) {
 
     LOG.info("Instantiating KafkaConsumer for systemName {} with properties {}", systemName, kafkaConsumerConfig);
     return new KafkaConsumer<>(kafkaConsumerConfig);
@@ -176,7 +179,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         throw new SamzaException(msg, e);
       }
 
-      LOG.info("{}: Changing consumer's starting offset for tp = %s to %s", this, tp, startingOffsetString);
+      LOG.info("{}: Changing consumer's starting offset for tp = {} to {}", this, tp, startingOffsetString);
 
       // add the partition to the proxy
       proxy.addTopicPartition(topicPartitionsToSSP.get(tp), startingOffset);
@@ -310,16 +313,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     return super.poll(systemStreamPartitions, timeout);
   }
 
-  /**
-   * convert from TopicPartition to TopicAndPartition
-   */
   public static TopicAndPartition toTopicAndPartition(TopicPartition tp) {
     return new TopicAndPartition(tp.topic(), tp.partition());
   }
 
-  /**
-   * convert to TopicPartition from SystemStreamPartition
-   */
   public static TopicPartition toTopicPartition(SystemStreamPartition ssp) {
     return new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
   }
