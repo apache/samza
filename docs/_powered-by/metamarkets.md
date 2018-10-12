@@ -1,6 +1,7 @@
 ---
 name: Metamarkets
 domain: metamarkets.com
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

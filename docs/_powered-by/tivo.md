@@ -1,7 +1,7 @@
 ---
 name: Tivo
 domain: tivo.com
-priority: 03
+priority: 1
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

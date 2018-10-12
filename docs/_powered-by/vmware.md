@@ -1,7 +1,7 @@
 ---
 name: Vmware
 domain: vmware.com
-priority: 01
+priority: 2
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
