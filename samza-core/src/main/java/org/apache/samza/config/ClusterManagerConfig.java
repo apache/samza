@@ -90,7 +90,13 @@ public class ClusterManagerConfig extends MapConfig {
    * Default: true
    */
   public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
+  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jmx.enabled";
+
+  /**
+   * Determines whether a JMX server should be started on the container
+   * Default: true
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_JMX_ENABLED = "cluster-manager.container.jmx.enabled";
 
   /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
@@ -189,12 +195,20 @@ public class ClusterManagerConfig extends MapConfig {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
   }
 
-  public boolean getJmxEnabled() {
+  public boolean getJmxEnabledOnJobCoordinator() {
     if (containsKey(CLUSTER_MANAGER_JMX_ENABLED)) {
       return getBoolean(CLUSTER_MANAGER_JMX_ENABLED);
     } else if (containsKey(AM_JMX_ENABLED)) {
       log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, CLUSTER_MANAGER_JMX_ENABLED);
       return getBoolean(AM_JMX_ENABLED);
+    } else {
+      return true;
+    }
+  }
+
+  public boolean getJmxEnabledOnContainer() {
+    if (containsKey(CLUSTER_MANAGER_CONTAINER_JMX_ENABLED)) {
+      return getBoolean(CLUSTER_MANAGER_CONTAINER_JMX_ENABLED);
     } else {
       return true;
     }

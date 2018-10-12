@@ -22,7 +22,7 @@ package org.apache.samza.job.local
 import org.apache.samza.application.{ApplicationDescriptorUtil, ApplicationUtil}
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.config.{Config, TaskConfigJava}
+import org.apache.samza.config.{ClusterManagerConfig, Config, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
 import org.apache.samza.context.JobContextImpl
 import org.apache.samza.coordinator.JobModelManager
@@ -73,7 +73,10 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerId = "0"
-    val jmxServer = new JmxServer
+    var jmxServer: JmxServer = null
+    if (new ClusterManagerConfig(config).getJmxEnabledOnContainer) {
+      jmxServer = new JmxServer();
+    }
 
     val appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config)
     val taskFactory: TaskFactory[_] = TaskFactoryUtil.getTaskFactory(appDesc)
@@ -126,7 +129,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     } finally {
       coordinator.stop
       coordinatorStreamManager.stop()
-      jmxServer.stop
+      if (jmxServer != null) {
+        jmxServer.stop
+      }
     }
   }
 }
