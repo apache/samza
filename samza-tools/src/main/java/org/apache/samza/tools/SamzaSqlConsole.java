@@ -67,7 +67,6 @@ public class SamzaSqlConsole {
   private static final String OPT_DESC_SQL_STMT = "SQL statement to execute.";
 
   private static final String SAMZA_SYSTEM_KAFKA = "kafka";
-  private static final String SAMZA_SYSTEM_LOG = "log";
 
   public static void main(String[] args) {
     Options options = new Options();
@@ -152,8 +151,8 @@ public class SamzaSqlConsole {
     staticConfigs.put(avroSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");
 
     String logSystemConfigPrefix =
-        String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_LOG);
-    String logSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SAMZA_SYSTEM_LOG);
+        String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG);
+    String logSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG);
     staticConfigs.put(logSystemConfigPrefix + "samza.factory", ConsoleLoggingSystemFactory.class.getName());
     staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER, "json");
     staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");

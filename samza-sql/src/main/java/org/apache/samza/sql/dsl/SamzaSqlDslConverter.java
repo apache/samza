@@ -37,8 +37,6 @@ import org.apache.samza.sql.testutil.SqlFileParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
-
 
 public class SamzaSqlDslConverter implements DslConverter {
 
@@ -66,6 +64,12 @@ public class SamzaSqlDslConverter implements DslConverter {
 
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
+      // when sql is a query, we only pass the select query to the planner
+      SamzaSqlQueryParser.QueryInfo qinfo = SamzaSqlQueryParser.parseQuery(sql);
+      if (qinfo.getSink().split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
+        sql = qinfo.getSelectQuery();
+      }
+
       relRoots.add(planner.plan(sql));
     }
     return relRoots;
@@ -77,13 +81,15 @@ public class SamzaSqlDslConverter implements DslConverter {
 
   public static List<String> fetchSqlFromConfig(Map<String, String> config) {
     List<String> sql;
-    if (config.containsKey(CFG_SQL_STMT) && StringUtils.isNotBlank(config.get(CFG_SQL_STMT))) {
-      String sqlValue = config.get(CFG_SQL_STMT);
+    if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_STMT) &&
+        StringUtils.isNotBlank(config.get(SamzaSqlApplicationConfig.CFG_SQL_STMT))) {
+      String sqlValue = config.get(SamzaSqlApplicationConfig.CFG_SQL_STMT);
       sql = Collections.singletonList(sqlValue);
-    } else if (config.containsKey(CFG_SQL_STMTS_JSON) && StringUtils.isNotBlank(config.get(CFG_SQL_STMTS_JSON))) {
-      sql = deserializeSqlStmts(config.get(CFG_SQL_STMTS_JSON));
-    } else if (config.containsKey(CFG_SQL_FILE)) {
-      String sqlFile = config.get(CFG_SQL_FILE);
+    } else if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON) &&
+        StringUtils.isNotBlank(config.get(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON))) {
+      sql = SamzaSqlApplicationConfig.deserializeSqlStmts(config.get(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON));
+    } else if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_FILE)) {
+      String sqlFile = config.get(SamzaSqlApplicationConfig.CFG_SQL_FILE);
       sql = SqlFileParser.parseSqlFile(sqlFile);
     } else {
       String msg = "Config doesn't contain the SQL that needs to be executed.";
