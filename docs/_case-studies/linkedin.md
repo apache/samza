@@ -24,8 +24,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Testing the excerpt
-
+How LinkedIn built Air Traffic Controller, a stateful stream processing system to optimize email communications?
 <!--more-->
 
 LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline and standardize our communications to the users. In order to ensure member experience comes first before individual product metrics, LinkedIn developed a new email and notifications platform called *Air Traffic Controller*.

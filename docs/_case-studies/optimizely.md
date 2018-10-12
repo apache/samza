@@ -5,6 +5,7 @@ title: Real Time Session Aggregation
 study_domain: optimizely.com
 priority: 2
 menu_title: Optimizely
+exclude_from_loop: true
 excerpt_separator: <!--more-->
 ---
 <!--
