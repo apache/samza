@@ -20,4 +20,4 @@ priority: 1
    limitations under the License.
 -->
 
-<a class="external-link" href="www.tivo.com" rel="nofollow">Tivo</a> TiVo is a digital video recorder that allows users to save TV programs for later viewing based on an electronic TV programming schedule. It leverages Samza leveraging Samza to do online processing of views and ratings to help power personalized content recommendations and analytics.
+<a class="external-link" href="https://www.tivo.com" rel="nofollow">Tivo</a> is a digital video recorder that allows users to save TV programs for later viewing based on an electronic TV programming schedule. It leverages Samza for realtime processing of views and ratings to help power personalized content recommendations and analytics.
