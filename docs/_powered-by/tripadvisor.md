@@ -21,10 +21,3 @@ priority: 02
 -->
 
 <a class="external-link" href="https://tripadvisor.com" rel="nofollow">Tripadvisor</a> is the world's largest travel site, enabling travelers to plan and book the perfect trip. It uses Apache Samza to process billions of events daily for analytics, machine learning, and site improvement.
-
-
-
-
-
-
-

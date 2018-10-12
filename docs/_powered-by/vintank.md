@@ -20,4 +20,3 @@ domain: vintank.com
 -->
 
 <a class="external-link" href="https://www.crunchbase.com/organization/vintank" rel="nofollow">VinTank</a>, is the leading software solution for social media management for the wine and hospitality industry. It uses Samza to power their social media analysis and NLP pipeline. Measuring over one billion conversations about wine, profiling over 30 million social wine consumers and serving over 1000 wine brands, VinTank helps wineries, restaurants, and hotels connect and understand their customers.
-

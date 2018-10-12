@@ -20,6 +20,3 @@ domain: metamarkets.com
 -->
 
 <a class="external-link" href="www.metamarkets.com" rel="nofollow">Metamarkets</a> Metamarkets offers an interactive analytics platform for buyers and sellers of programmatic advertising. It uses Samza to transform and join real-time event streams, then forward them into a Druid cluster for interactive querying.
-
-
-

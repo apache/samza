@@ -21,8 +21,3 @@ priority: 07
 -->
 
 <a class="external-link" href="https://www.optimizely.com" rel="nofollow">Optimizely</a>, the world's leader in customer experience optimization uses Apache Samza to aggregate and enrich billions of events per day to power real-time analytics of Experiments and Personalization experiences.
-
-
-
-
-
