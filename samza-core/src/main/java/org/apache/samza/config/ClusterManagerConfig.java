@@ -90,7 +90,7 @@ public class ClusterManagerConfig extends MapConfig {
    * Default: true
    */
   public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jmx.enabled";
+  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
   /**
    * Determines whether a JMX server should be started on the container
