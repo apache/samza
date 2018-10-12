@@ -4,6 +4,7 @@ hide_title: true # so we have control in case-study layout, but can still use pa
 title: Totally awesome use-case of samza by State # title of case study page
 study_domain: state.com # just the domain, not the protocol
 menu_title: State # what shows up in the menu
+exclude_from_loop: true
 excerpt_separator: <!--more-->
 ---
 <!--
