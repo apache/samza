@@ -37,6 +37,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.DslConverter;
@@ -52,6 +53,7 @@ import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.ReflectionUtils;
+import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +83,8 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_FMT_UDF_RESOLVER_DOMAIN = "samza.sql.udfResolver.%s.";
 
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+
+  public static final String SAMZA_SYSTEM_LOG = "log";
 
   private static final long DEFAULT_GROUPBY_WINDOW_DURATION_MS = 300000; // default groupby window duration is 5 mins.
 
@@ -130,6 +134,13 @@ public class SamzaSqlApplicationConfig {
     udfMetadata = udfResolver.getUdfs();
 
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
+
+    // remove the SqlIOConfigs of outputs whose system is "log" out of systemStreamConfigsBySource
+    outputSystemStreamConfigsBySource.forEach((k, v) -> {
+        if (k.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
+            systemStreamConfigsBySource.remove(k);
+        }
+    });
   }
 
   private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -202,9 +213,18 @@ public class SamzaSqlApplicationConfig {
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    for (RelRoot relRoot : relRoots) {
-      SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
-    }
+    // FIXME: the snippet below dose not work when sql is a query
+    // for (RelRoot relRoot : relRoots) {
+    //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
+    // }
+
+    // RelRoot does not have sink node (aka. log.outputStream) when Sql statement is a query, so we
+    // can not traverse the tree of relRoot to get "outputSystemStreams"
+    List<String> sqlStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(sqlStmts);
+    inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+          .collect(Collectors.toSet()));
+    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
 
     return relRoots;
   }

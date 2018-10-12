@@ -27,7 +27,7 @@ import org.apache.samza.test.table.TestTableData.Profile;
 /**
  * A {@link StreamTableJoinFunction} used by unit tests in this package
  */
-class PageViewToProfileJoinFunction implements StreamTableJoinFunction
+public class PageViewToProfileJoinFunction implements StreamTableJoinFunction
     <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
 
   @Override

@@ -37,17 +37,6 @@ object KafkaUtil extends Logging {
   val CHECKPOINT_LOG_VERSION_NUMBER = 1
   val counter = new AtomicLong(0)
 
-  def getClientId(id: String, config: Config): String = getClientId(
-    id,
-    config.getName.getOrElse(throw new ConfigException("Missing job name.")),
-    config.getJobId)
-
-  def getClientId(id: String, jobName: String, jobId: String): String =
-    "%s-%s-%s" format
-      (id.replaceAll("[^A-Za-z0-9]", "_"),
-        jobName.replaceAll("[^A-Za-z0-9]", "_"),
-        jobId.replaceAll("[^A-Za-z0-9]", "_"))
-
   private def abs(n: Int) = if (n == Integer.MIN_VALUE) 0 else math.abs(n)
 
   def getIntegerPartitionKey(envelope: OutgoingMessageEnvelope, partitions: java.util.List[PartitionInfo]): Integer = {

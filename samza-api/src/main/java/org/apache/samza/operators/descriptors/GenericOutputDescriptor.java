@@ -40,4 +40,9 @@ public final class GenericOutputDescriptor<StreamMessageType>
   GenericOutputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
     super(streamId, serde, systemDescriptor);
   }
+
+  @Override
+  public GenericOutputDescriptor<StreamMessageType> withPhysicalName(String physicalName) {
+    return super.withPhysicalName(physicalName);
+  }
 }

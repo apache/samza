@@ -24,6 +24,8 @@ package org.apache.samza.config;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -40,35 +42,32 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
-  static final String PRODUCER_CLIENT_ID_PREFIX = "kafka-producer";
-  static final String CONSUMER_CLIENT_ID_PREFIX = "kafka-consumer";
-  static final String ADMIN_CLIENT_ID_PREFIX = "samza-admin";
+  public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
 
+  private final String systemName;
   /*
    * By default, KafkaConsumer will fetch some big number of available messages for all the partitions.
    * This may cause memory issues. That's why we will limit the number of messages per partition we get on EACH poll().
    */
   static final String DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS = "100";
 
-  private KafkaConsumerConfig(Map<String, Object> map) {
-    super(map);
+  private KafkaConsumerConfig(Map<String, Object> props, String systemName) {
+    super(props);
+    this.systemName = systemName;
   }
 
   /**
-   * Helper method to create configs for use in Kafka consumer.
-   * The values are based on the "consumer" subset of the configs provided by the app and Samza overrides.
-   *
-   * @param config config provided by the app.
-   * @param systemName system name to get the consumer configuration for.
-   * @param clientId client id to be used in the Kafka consumer.
+   * Create kafka consumer configs, based on the subset of global configs.
+   * @param config application config
+   * @param systemName system name
+   * @param clientId client id provided by the caller
    * @return KafkaConsumerConfig
    */
   public static KafkaConsumerConfig getKafkaSystemConsumerConfig(Config config, String systemName, String clientId) {
 
     Config subConf = config.subset(String.format("systems.%s.consumer.", systemName), true);
 
-    //Kafka client configuration
-    String groupId = getConsumerGroupId(config);
+    final String groupId = createConsumerGroupId(config);
 
     Map<String, Object> consumerProps = new HashMap<>();
     consumerProps.putAll(subConf);
@@ -113,48 +112,42 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
         (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
-    return new KafkaConsumerConfig(consumerProps);
+    return new KafkaConsumerConfig(consumerProps, systemName);
+  }
+
+  public String getClientId() {
+    String clientId = (String) get(ConsumerConfig.CLIENT_ID_CONFIG);
+    if (StringUtils.isBlank(clientId)) {
+      throw new SamzaException("client Id is not set for consumer for system=" + systemName);
+    }
+    return clientId;
   }
 
   // group id should be unique per job
-  static String getConsumerGroupId(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
-    Option jobNameOption = jobConfig.getName();
-    if (jobNameOption.isEmpty()) {
-      throw new ConfigException("Missing job name");
-    }
-    String jobName = (String) jobNameOption.get();
+  static String createConsumerGroupId(Config config) {
+    Pair<String, String> jobNameId = getJobNameAndId(config);
 
-    String jobId = jobConfig.getJobId();
-
-    return String.format("%s-%s", jobName, jobId);
+    return String.format("%s-%s", jobNameId.getLeft(), jobNameId.getRight());
   }
 
   // client id should be unique per job
-  public static String getConsumerClientId(Config config) {
-    return getConsumerClientId(CONSUMER_CLIENT_ID_PREFIX, config);
+  public static String createClientId(String prefix, Config config) {
+
+    Pair<String, String> jobNameId = getJobNameAndId(config);
+    String jobName = jobNameId.getLeft();
+    String jobId = jobNameId.getRight();
+    return String.format("%s-%s-%s", prefix.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
+        jobId.replaceAll("\\W", "_"));
   }
 
-  public static String getProducerClientId(Config config) {
-    return getConsumerClientId(PRODUCER_CLIENT_ID_PREFIX, config);
-  }
-
-  public static String getAdminClientId(Config config) {
-    return getConsumerClientId(ADMIN_CLIENT_ID_PREFIX, config);
-  }
-
-  static String getConsumerClientId(String id, Config config) {
+  public static Pair<String, String> getJobNameAndId(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     Option jobNameOption = jobConfig.getName();
     if (jobNameOption.isEmpty()) {
       throw new ConfigException("Missing job name");
     }
     String jobName = (String) jobNameOption.get();
-
-    String jobId = jobConfig.getJobId();
-
-    return String.format("%s-%s-%s", id.replaceAll("\\W", "_"), jobName.replaceAll("\\W", "_"),
-        jobId.replaceAll("\\W", "_"));
+    return new ImmutablePair<>(jobName, jobConfig.getJobId());
   }
 
   /**

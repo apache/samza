@@ -30,7 +30,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
 
-
 /**
  * A descriptor for InMemorySystem.
  * System properties configured using a descriptor override corresponding properties provided in configuration.

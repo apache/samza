@@ -1,14 +1,7 @@
 ---
-name: Angela Murrell
-website: 
-linkedin: https://www.linkedin.com/in/angela-murrell-92689088/
-twitter: angie_splice
-image: 
-github: amurrell
-pmc_member: false
-job_title:
-samza_title:
-order: 100
+name: Metamarkets
+domain: metamarkets.com
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -26,3 +19,5 @@ order: 100
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
+
+<a class="external-link" href="https://www.metamarkets.com" rel="nofollow">Metamarkets</a>  offers an interactive analytics platform for buyers and sellers of programmatic advertising. It uses Samza to transform and join real-time event streams, then forward them into a Druid cluster for interactive querying.
