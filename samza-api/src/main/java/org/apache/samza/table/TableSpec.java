@@ -32,8 +32,9 @@ import org.apache.samza.storage.SideInputsProcessor;
 /**
  * TableSpec is a blueprint for creating, validating, or simply describing a table in the runtime environment.
  *
- * It is typically created indirectly by constructing an instance of {@link org.apache.samza.operators.TableDescriptor},
- * and then invoke <code>BaseTableDescriptor.getTableSpec()</code>.
+ * It is typically created indirectly by constructing an instance of
+ * {@link org.apache.samza.table.descriptors.TableDescriptor}, and then invoke
+ * <code>BaseTableDescriptor.getTableSpec()</code>.
  *
  * It has specific attributes for common behaviors that Samza uses.
  *

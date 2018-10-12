@@ -44,9 +44,8 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
 
   private DefaultTableWriteMetrics writeMetrics;
 
-  @VisibleForTesting
-  final TableWriteFunction<K, V> writeFn;
-  final TableRateLimiter writeRateLimiter;
+  protected final TableWriteFunction<K, V> writeFn;
+  protected final TableRateLimiter writeRateLimiter;
 
   public RemoteReadWriteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,
       TableRateLimiter<K, V> readRateLimiter, TableRateLimiter<K, V> writeRateLimiter,
@@ -218,5 +217,15 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   public void close() {
     writeFn.close();
     super.close();
+  }
+
+  @VisibleForTesting
+  public TableWriteFunction<K, V> getWriteFn() {
+    return writeFn;
+  }
+
+  @VisibleForTesting
+  public TableRateLimiter getWriteRateLimiter() {
+    return writeRateLimiter;
   }
 }
