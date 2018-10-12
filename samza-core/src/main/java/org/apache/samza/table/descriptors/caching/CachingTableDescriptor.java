@@ -28,8 +28,6 @@ import java.util.Map;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.caching.CachingTableProvider;
-import org.apache.samza.table.descriptors.caching.CachingTableProviderFactory;
 import org.apache.samza.table.descriptors.hybrid.BaseHybridTableDescriptor;
 
 import com.google.common.annotations.VisibleForTesting;

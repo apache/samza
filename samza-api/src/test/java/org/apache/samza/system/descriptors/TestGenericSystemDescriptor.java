@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.descriptors.GenericSystemDescriptor;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
