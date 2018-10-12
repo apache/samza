@@ -78,7 +78,7 @@ Time is a fundamental concept in stream processing, especially how it is modeled
 On the other hand, in event time, the timestamp of an event is determined by when it actually occurred in the source. For example, a sensor which generates an event could embed the time of occurrence as a part of the event itself. Samza provides event-time based processing by its integration with [Apache BEAM](https://beam.apache.org/documentation/runners/samza/).
 
 ## Processing guarantee
-Samza supports at-least once processing. As the name implies, this ensures that each message in the input stream is processed by the system at-least once. This guarantees no data-loss even when there are failures making Samza a practical choice for building fault-tolerant applications.
+Samza supports at-least once processing. As the name implies, this ensures that each message in the input stream is processed by the system at-least once. This guarantees no data-loss even when there are failures, thereby making Samza a practical choice for building fault-tolerant applications.
 
 
 Next Steps: We are now ready to have a closer look at Samza’s architecture.
