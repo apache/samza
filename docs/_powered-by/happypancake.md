@@ -1,6 +1,7 @@
 ---
 name: HappyPancake
 domain: happypancake.com
+priority: 5
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

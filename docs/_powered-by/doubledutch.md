@@ -1,6 +1,7 @@
 ---
 name: DoubleDutch
 domain: doubledutch.me
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

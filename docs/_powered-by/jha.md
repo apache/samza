@@ -1,6 +1,7 @@
 ---
 name: Banno
 domain: banno.com
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

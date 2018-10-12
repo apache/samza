@@ -1,7 +1,7 @@
 ---
 name: Optimizely
 domain: optimizely.com
-priority: 07
+priority: 2
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
