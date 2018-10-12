@@ -20,4 +20,4 @@ priority: 4
    limitations under the License.
 -->
 
-<a class="external-link" href="http://www.ntent.com" rel="nofollow">Movio</a> offers data-driven marketing solutions for the film industry. At Movio, they use Samza to process and enrich billions of change data capture events on all databases in real-time. 
+<a class="external-link" href="http://www.ntent.com" rel="nofollow">Movio</a> offers data-driven marketing solutions for the film industry. At Movio, we use Samza to process and enrich billions of change data capture events on all databases in real-time. 

@@ -20,4 +20,4 @@ priority: 4
    limitations under the License.
 -->
 
-<a class="external-link" href="http://www.ntent.com" rel="nofollow">Ntent</a> blends semantic search with natural language processing technologies to predict and create relevant content experiences.  They use Samza to power their streaming content ingestion system. Ntent takes crawled web pages and news articles, and passes them through a multi-stage processing pipeline that cleanses, classifies, extracts features that power other learning models, stores, and indexes the content for search.
+<a class="external-link" href="http://www.ntent.com" rel="nofollow">Ntent</a> blends semantic search with natural language processing technologies to predict and create relevant content experiences.  At Ntent, we use Samza to power our streaming content ingestion system. We take crawled web pages and news articles, and pass them through a multi-stage processing pipeline that cleanses, classifies, extracts features that power other learning models, stores, and indexes the content for search.
