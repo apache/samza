@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.application.StreamApplicationDescriptor;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
@@ -34,8 +34,8 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 
 
 /**
@@ -64,9 +64,10 @@ class ScanTranslator {
     }
 
     @Override
-    public void init(Config config, TaskContext taskContext) {
-      TranslatorContext context = (TranslatorContext) taskContext.getUserContext();
-      this.msgConverter = context.getMsgConverter(streamName);
+    public void init(Context context) {
+      TranslatorContext translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
+      this.msgConverter = translatorContext.getMsgConverter(streamName);
     }
 
     @Override

@@ -19,13 +19,14 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
-
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.TaskContextImpl;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.operators.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
@@ -40,7 +41,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamOperatorTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.apache.samza.testUtils.TestClock;
@@ -56,10 +56,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -304,22 +304,23 @@ public class TestJoinOperator {
     mapConfig.put("job.id", "jobId");
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream2", "insystem", "instream2");
-    Config config = new MapConfig(mapConfig);
-    TaskContextImpl taskContext = mock(TaskContextImpl.class);
-    when(taskContext.getSystemStreamPartitions()).thenReturn(ImmutableSet
+    Context context = new MockContext(new MapConfig(mapConfig));
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getSystemStreamPartitions()).thenReturn(ImmutableSet
         .of(new SystemStreamPartition("insystem", "instream", new Partition(0)),
             new SystemStreamPartition("insystem", "instream2", new Partition(0))));
-    when(taskContext.getMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+    when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();
     TimestampedValueSerde timestampedValueSerde = new TimestampedValueSerde(new KVSerde(integerSerde, integerSerde));
-    when(taskContext.getStore(eq("jobName-jobId-join-j1-L")))
+    when(context.getTaskContext().getStore(eq("jobName-jobId-join-j1-L")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
-    when(taskContext.getStore(eq("jobName-jobId-join-j1-R")))
+    when(context.getTaskContext().getStore(eq("jobName-jobId-join-j1-R")))
         .thenReturn(new TestInMemoryStore(integerSerde, timestampedValueSerde));
 
-    StreamOperatorTask sot = new StreamOperatorTask(graphSpec.getOperatorSpecGraph(), graphSpec.getContextManager(), clock);
-    sot.init(config, taskContext);
+    StreamOperatorTask sot = new StreamOperatorTask(graphSpec.getOperatorSpecGraph(), clock);
+    sot.init(context);
     return sot;
   }
 
@@ -357,7 +358,7 @@ public class TestJoinOperator {
     private int numCloseCalls = 0;
 
     @Override
-    public void init(Config config, TaskContext context) {
+    public void init(Context context) {
       numInitCalls++;
     }
 

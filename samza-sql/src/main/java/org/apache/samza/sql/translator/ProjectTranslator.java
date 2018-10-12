@@ -31,12 +31,12 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.task.TaskContext;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,8 +61,8 @@ class ProjectTranslator {
     }
 
     @Override
-    public void init(Config config, TaskContext taskContext) {
-      this.context = (TranslatorContext) taskContext.getUserContext();
+    public void init(Context context) {
+      this.context = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
       this.project = (Project) this.context.getRelNode(projectId);
       this.expr = this.context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
     }

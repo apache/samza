@@ -44,6 +44,7 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.context.Context;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
@@ -54,7 +55,6 @@ import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
@@ -340,8 +340,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     protected String processorIdToFail;
 
     @Override
-    public void init(Config config, TaskContext taskContext)
-        throws Exception {
+    public void init(Context context) {
+      Config config = context.getJobContext().getConfig();
       this.processorId = config.get(ApplicationConfig.PROCESSOR_ID);
       this.outputTopic = config.get("app.outputTopic", "output");
       this.outputSystem = config.get("app.outputSystem", "test-system");

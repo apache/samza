@@ -19,7 +19,7 @@
 
 package org.apache.samza.test.integration.join;
 
-import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -29,14 +29,13 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.task.WindowableTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Checker implements StreamTask, WindowableTask, InitableTask {
-  
+
   private static Logger logger = LoggerFactory.getLogger(Checker.class);
 
   private static final String CURRENT_EPOCH = "current-epoch";
@@ -44,13 +43,13 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
   private KeyValueStore<String, String> store;
   private int expectedKeys;
   private int numPartitions;
-  
+
   @Override
   @SuppressWarnings("unchecked")
-  public void init(Config config, TaskContext context) {
-    this.store = (KeyValueStore<String, String>) context.getStore("checker-state");
-    this.expectedKeys = config.getInt("expected.keys");
-    this.numPartitions = config.getInt("num.partitions");
+  public void init(Context context) {
+    this.store = (KeyValueStore<String, String>) context.getTaskContext().getStore("checker-state");
+    this.expectedKeys = context.getJobContext().getConfig().getInt("expected.keys");
+    this.numPartitions = context.getJobContext().getConfig().getInt("num.partitions");
   }
 
   @Override
@@ -61,7 +60,7 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
     checkEpoch(epoch);
     this.store.put(key, epoch);
   }
-  
+
   @Override
   public void window(MessageCollector collector, TaskCoordinator coordinator) {
     String currentEpoch = this.store.get(CURRENT_EPOCH);
@@ -93,7 +92,7 @@ public class Checker implements StreamTask, WindowableTask, InitableTask {
       logger.info("Only found " + count + " valid keys, try again later.");
     }
   }
-  
+
   private void checkEpoch(String epoch) {
     String curr = this.store.get(CURRENT_EPOCH);
     if (curr == null)

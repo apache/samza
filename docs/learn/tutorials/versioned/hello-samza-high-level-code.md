@@ -357,7 +357,7 @@ To use the store in the application, we need to get it from the [TaskContext](/l
 private KeyValueStore<String, Integer> store;
 {% endhighlight %}
 
-Then override the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/InitableFunction.html#init-org.apache.samza.config.Config-org.apache.samza.task.TaskContext-) method in `WikipediaStatsAggregator` to initialize the store.
+Then override the [init](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/InitableFunction.html#init-org.apache.samza.context.Context-) method in `WikipediaStatsAggregator` to initialize the store.
 {% highlight java %}
 @Override
 public void init(Config config, TaskContext context) {

@@ -20,14 +20,20 @@
 package org.apache.samza.execution;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.collections4.ListUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
@@ -38,12 +44,16 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.TableSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.util.StreamUtil.*;
+import static org.apache.samza.util.StreamUtil.getStreamSpec;
+import static org.apache.samza.util.StreamUtil.getStreamSpecs;
 
 
 /**
@@ -56,23 +66,33 @@ public class ExecutionPlanner {
 
   private final Config config;
   private final StreamManager streamManager;
+  private final StreamConfig streamConfig;
 
   public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
     this.streamManager = streamManager;
+    this.streamConfig = new StreamConfig(config);
   }
 
   public ExecutionPlan plan(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     validateConfig();
 
-    // create physical job graph based on stream graph
-    JobGraph jobGraph = createJobGraph(config, appDesc);
+    // Create physical job graph based on stream graph
+    JobGraph jobGraph = createJobGraph(appDesc);
 
-    // fetch the external streams partition info
-    setInputAndOutputStreamPartitionCount(jobGraph, streamManager);
+    // Fetch the external streams partition info
+    setInputAndOutputStreamPartitionCount(jobGraph);
 
-    // figure out the partitions for internal streams
-    new IntermediateStreamManager(config, appDesc).calculatePartitions(jobGraph);
+    // Group streams participating in joins together into sets
+    List<StreamSet> joinedStreamSets = groupJoinedStreams(jobGraph);
+
+    // Set partitions of intermediate streams if any
+    if (!jobGraph.getIntermediateStreamEdges().isEmpty()) {
+      new IntermediateStreamManager(config).calculatePartitions(jobGraph, joinedStreamSets);
+    }
+
+    // Verify every group of joined streams has the same partition count
+    joinedStreamSets.forEach(ExecutionPlanner::validatePartitions);
 
     return jobGraph;
   }
@@ -88,12 +108,11 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Create the physical graph from {@link ApplicationDescriptorImpl}
+   * Creates the physical graph from {@link ApplicationDescriptorImpl}
    */
   /* package private */
-  JobGraph createJobGraph(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+  JobGraph createJobGraph(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
     JobGraph jobGraph = new JobGraph(config, appDesc);
-    StreamConfig streamConfig = new StreamConfig(config);
     // Source streams contain both input and intermediate streams.
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
     // Sink streams contain both output and intermediate streams.
@@ -106,7 +125,7 @@ public class ExecutionPlanner {
     Set<TableSpec> tables = appDesc.getTableDescriptors().stream()
         .map(tableDescriptor -> ((BaseTableDescriptor) tableDescriptor).getTableSpec()).collect(Collectors.toSet());
 
-    // For this phase, we have a single job node for the whole dag
+    // For this phase, we have a single job node for the whole DAG
     String jobName = config.get(JobConfig.JOB_NAME());
     String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
@@ -121,7 +140,14 @@ public class ExecutionPlanner {
     intermediateStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
 
     // Add tables
-    tables.forEach(spec -> jobGraph.addTable(spec, node));
+    for (TableSpec table : tables) {
+      jobGraph.addTable(table, node);
+      // Add side-input streams (if any)
+      Iterable<String> sideInputs = ListUtils.emptyIfNull(table.getSideInputs());
+      for (String sideInput : sideInputs) {
+        jobGraph.addSideInputStream(getStreamSpec(sideInput, streamConfig));
+      }
+    }
 
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
       // skip the validation when input streamIds are empty. This is only possible for LegacyTaskApplication
@@ -132,13 +158,12 @@ public class ExecutionPlanner {
   }
 
   /**
-   * Fetch the partitions of source/sink streams and update the StreamEdges.
-   * @param jobGraph {@link JobGraph}
-   * @param streamManager the {@link StreamManager} to interface with the streams.
+   * Fetches the partitions of input, side-input, and output streams and updates their corresponding StreamEdges.
    */
-  /* package private */ static void setInputAndOutputStreamPartitionCount(JobGraph jobGraph, StreamManager streamManager) {
+  /* package private */ void setInputAndOutputStreamPartitionCount(JobGraph jobGraph) {
     Set<StreamEdge> existingStreams = new HashSet<>();
     existingStreams.addAll(jobGraph.getInputStreams());
+    existingStreams.addAll(jobGraph.getSideInputStreams());
     existingStreams.addAll(jobGraph.getOutputStreams());
 
     // System to StreamEdges
@@ -152,7 +177,7 @@ public class ExecutionPlanner {
 
     // Fetch partition count for every set of StreamEdges belonging to a particular system.
     for (String system : systemToStreamEdges.keySet()) {
-      Collection<StreamEdge> streamEdges = systemToStreamEdges.get(system);
+      Iterable<StreamEdge> streamEdges = systemToStreamEdges.get(system);
 
       // Map every stream to its corresponding StreamEdge so we can retrieve a StreamEdge given its stream.
       Map<String, StreamEdge> streamToStreamEdge = new HashMap<>();
@@ -174,4 +199,89 @@ public class ExecutionPlanner {
     }
   }
 
+  /**
+   * Groups streams participating in joins together.
+   */
+  private static List<StreamSet> groupJoinedStreams(JobGraph jobGraph) {
+    // Group input operator specs (input/intermediate streams) by the joins they participate in.
+    Multimap<OperatorSpec, InputOperatorSpec> joinOpSpecToInputOpSpecs =
+        OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(
+            jobGraph.getApplicationDescriptorImpl().getInputOperators().values());
+
+    // Convert every group of input operator specs into a group of corresponding stream edges.
+    List<StreamSet> streamSets = new ArrayList<>();
+    for (OperatorSpec joinOpSpec : joinOpSpecToInputOpSpecs.keySet()) {
+      Collection<InputOperatorSpec> joinedInputOpSpecs = joinOpSpecToInputOpSpecs.get(joinOpSpec);
+      StreamSet streamSet = getStreamSet(joinOpSpec.getOpId(), joinedInputOpSpecs, jobGraph);
+
+      // If current join is a stream-table join, add the stream edges corresponding to side-input
+      // streams associated with the joined table (if any).
+      if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
+        StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
+
+        Collection<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
+        Iterable<StreamEdge> sideInputStreams = sideInputs.stream().map(jobGraph::getStreamEdge)::iterator;
+        Iterable<StreamEdge> streams = streamSet.getStreamEdges();
+        streamSet = new StreamSet(streamSet.getSetId(), Iterables.concat(streams, sideInputStreams));
+      }
+
+      streamSets.add(streamSet);
+    }
+
+    return Collections.unmodifiableList(streamSets);
+  }
+
+  /**
+   * Creates a {@link StreamSet} whose Id is {@code setId}, and {@link StreamEdge}s
+   * correspond to the provided {@code inputOpSpecs}.
+   */
+  private static StreamSet getStreamSet(String setId, Iterable<InputOperatorSpec> inputOpSpecs, JobGraph jobGraph) {
+    Set<StreamEdge> streamEdges = new HashSet<>();
+    for (InputOperatorSpec inputOpSpec : inputOpSpecs) {
+      StreamEdge streamEdge = jobGraph.getStreamEdge(inputOpSpec.getStreamId());
+      streamEdges.add(streamEdge);
+    }
+    return new StreamSet(setId, streamEdges);
+  }
+
+  /**
+   * Verifies all {@link StreamEdge}s in the supplied {@code streamSet} agree in
+   * partition count, or throws.
+   */
+  private static void validatePartitions(StreamSet streamSet) {
+    Collection<StreamEdge> streamEdges = streamSet.getStreamEdges();
+    StreamEdge referenceStreamEdge = streamEdges.stream().findFirst().get();
+    int referencePartitions = referenceStreamEdge.getPartitionCount();
+
+    for (StreamEdge streamEdge : streamEdges) {
+      int partitions = streamEdge.getPartitionCount();
+      if (partitions != referencePartitions) {
+        throw  new SamzaException(String.format(
+            "Unable to resolve input partitions of stream %s for the join %s. Expected: %d, Actual: %d",
+            referenceStreamEdge.getName(), streamSet.getSetId(), referencePartitions, partitions));
+      }
+    }
+  }
+
+  /**
+   * Represents a set of {@link StreamEdge}s.
+   */
+  /* package private */ static class StreamSet {
+
+    private final String setId;
+    private final Set<StreamEdge> streamEdges;
+
+    StreamSet(String setId, Iterable<StreamEdge> streamEdges) {
+      this.setId = setId;
+      this.streamEdges = ImmutableSet.copyOf(streamEdges);
+    }
+
+    Set<StreamEdge> getStreamEdges() {
+      return Collections.unmodifiableSet(streamEdges);
+    }
+
+    String getSetId() {
+      return setId;
+    }
+  }
 }

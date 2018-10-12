@@ -18,13 +18,12 @@
  */
 package org.apache.samza.storage.kv;
 
+import junit.framework.Assert;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
-
-import junit.framework.Assert;
 
 
 public class TestRocksDbTableDescriptor {

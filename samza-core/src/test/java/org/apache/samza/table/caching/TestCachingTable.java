@@ -19,19 +19,11 @@
 
 package org.apache.samza.table.caching;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -45,17 +37,24 @@ import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.caching.guava.GuavaCacheTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTableProvider;
-import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
@@ -139,15 +138,14 @@ public class TestCachingTable {
   }
 
   private void initTables(ReadableTable ... tables) {
-    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
-    TaskContext taskContext = mock(TaskContext.class);
+    Context context = new MockContext();
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
-    when(taskContext.getMetricsRegistry()).thenReturn(metricsRegistry);
+    when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(metricsRegistry);
     for (ReadableTable table : tables) {
-      table.init(containerContext, taskContext);
+      table.init(context);
     }
   }
 
@@ -160,9 +158,7 @@ public class TestCachingTable {
     }
     CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableSpec());
 
-    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
-
-    TaskContext taskContext = mock(TaskContext.class);
+    Context context = new MockContext();
     final ReadWriteTable cacheTable = getMockCache().getLeft();
 
     final ReadWriteTable realTable = mock(ReadWriteTable.class);
@@ -185,11 +181,11 @@ public class TestCachingTable {
 
         Assert.fail();
         return null;
-      }).when(taskContext).getTable(anyString());
+      }).when(context.getTaskContext()).getTable(anyString());
 
-    when(taskContext.getMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
+    when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
-    tableProvider.init(containerContext, taskContext);
+    tableProvider.init(context);
 
     CachingTable cachingTable = (CachingTable) tableProvider.getTable();
 

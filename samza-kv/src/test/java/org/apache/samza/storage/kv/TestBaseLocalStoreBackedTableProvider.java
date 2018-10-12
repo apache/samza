@@ -28,33 +28,33 @@ import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.storage.StorageEngine;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.task.TaskContext;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestBaseLocalStoreBackedTableProvider {
 
   @Test
   public void testInit() {
-    StorageEngine store = mock(KeyValueStorageEngine.class);
-    SamzaContainerContext containerContext = mock(SamzaContainerContext.class);
+    Context context = mock(Context.class);
     TaskContext taskContext = mock(TaskContext.class);
-    when(taskContext.getStore(any())).thenReturn(store);
-    when(taskContext.getMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
+    when(context.getTaskContext()).thenReturn(taskContext);
+    when(taskContext.getStore(any())).thenReturn(mock(KeyValueStore.class));
+    when(taskContext.getTaskMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
     TableSpec tableSpec = mock(TableSpec.class);
     when(tableSpec.getId()).thenReturn("t1");
 
     TableProvider tableProvider = createTableProvider(tableSpec);
-    tableProvider.init(containerContext, taskContext);
+    tableProvider.init(context);
     Assert.assertNotNull(tableProvider.getTable());
   }
 

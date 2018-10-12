@@ -19,6 +19,18 @@
 
 package org.apache.samza.table.remote;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.utils.TableMetricsUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -27,20 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.container.SamzaContainerContext;
-import org.apache.samza.metrics.Timer;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.DefaultTableReadMetrics;
-import org.apache.samza.table.utils.TableMetricsUtil;
-import org.apache.samza.task.TaskContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 
 
 /**
@@ -110,9 +108,9 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    * {@inheritDoc}
    */
   @Override
-  public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    readMetrics = new DefaultTableReadMetrics(containerContext, taskContext, this, tableId);
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(containerContext, taskContext, this, tableId);
+  public void init(Context context) {
+    readMetrics = new DefaultTableReadMetrics(context, this, tableId);
+    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
   }
 

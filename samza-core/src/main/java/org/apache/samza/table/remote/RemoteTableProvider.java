@@ -19,14 +19,6 @@
 
 package org.apache.samza.table.remote;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.retry.RetriableReadFunction;
@@ -36,6 +28,14 @@ import org.apache.samza.table.utils.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.util.RateLimiter;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
@@ -83,7 +83,7 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableReadFunction readFn = getReadFn();
     RateLimiter rateLimiter = deserializeObject(RATE_LIMITER);
     if (rateLimiter != null) {
-      rateLimiter.init(containerContext.config, taskContext);
+      rateLimiter.init(this.context);
     }
     TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(READ_CREDIT_FN);
     TableRateLimiter readRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, readCreditFn, RL_READ_TAG);
@@ -150,7 +150,7 @@ public class RemoteTableProvider extends BaseTableProvider {
           writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
     }
 
-    TableMetricsUtil metricsUtil = new TableMetricsUtil(containerContext, taskContext, table, tableId);
+    TableMetricsUtil metricsUtil = new TableMetricsUtil(this.context, table, tableId);
     if (readRetryPolicy != null) {
       ((RetriableReadFunction) readFn).setMetrics(metricsUtil);
     }
@@ -158,7 +158,7 @@ public class RemoteTableProvider extends BaseTableProvider {
       ((RetriableWriteFunction) writeFn).setMetrics(metricsUtil);
     }
 
-    table.init(containerContext, taskContext);
+    table.init(this.context);
     tables.add(table);
     return table;
   }
@@ -184,7 +184,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   private TableReadFunction<?, ?> getReadFn() {
     TableReadFunction<?, ?> readFn = deserializeObject(READ_FN);
     if (readFn != null) {
-      readFn.init(containerContext.config, taskContext);
+      readFn.init(this.context);
     }
     return readFn;
   }
@@ -192,7 +192,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   private TableWriteFunction<?, ?> getWriteFn() {
     TableWriteFunction<?, ?> writeFn = deserializeObject(WRITE_FN);
     if (writeFn != null) {
-      writeFn.init(containerContext.config, taskContext);
+      writeFn.init(this.context);
     }
     return writeFn;
   }

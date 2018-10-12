@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.samza.application.ApplicationDescriptor;
 import org.apache.samza.application.ApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
@@ -58,6 +57,7 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> inputStreams = new HashSet<>();
   private final Set<StreamEdge> outputStreams = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
+  private final Set<StreamEdge> sideInputStreams = new HashSet<>();
   private final Set<TableSpec> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator;
@@ -156,6 +156,15 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
+   * Add a side-input stream to graph
+   * @param streamSpec side-input stream
+   */
+  void addSideInputStream(StreamSpec streamSpec) {
+    StreamEdge edge = getOrCreateStreamEdge(streamSpec, false);
+    sideInputStreams.add(edge);
+  }
+
+  /**
    * Get the {@link JobNode}. Create one if it does not exist.
    * @param jobName name of the job
    * @param jobId id of the job
@@ -173,6 +182,14 @@ import org.slf4j.LoggerFactory;
    */
   StreamEdge getOrCreateStreamEdge(StreamSpec streamSpec) {
     return getOrCreateStreamEdge(streamSpec, false);
+  }
+
+  /**
+   * Returns the {@link ApplicationDescriptorImpl} of this graph.
+   * @return Application descriptor implementation
+   */
+  ApplicationDescriptorImpl<? extends ApplicationDescriptor> getApplicationDescriptorImpl() {
+    return appDesc;
   }
 
   /**
@@ -203,7 +220,15 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Return the output streams in the graph
+   * Returns the side-input streams in the graph
+   * @return unmodifiable set of {@link StreamEdge}
+   */
+  Set<StreamEdge> getSideInputStreams() {
+    return Collections.unmodifiableSet(sideInputStreams);
+  }
+
+  /**
+   * Returns the output streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
   Set<StreamEdge> getOutputStreams() {
@@ -211,7 +236,7 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Return the tables in the graph
+   * Returns the tables in the graph
    * @return unmodifiable set of {@link TableSpec}
    */
   Set<TableSpec> getTables() {
@@ -219,7 +244,7 @@ import org.slf4j.LoggerFactory;
   }
 
   /**
-   * Return the intermediate streams in the graph
+   * Returns the intermediate streams in the graph
    * @return unmodifiable set of {@link StreamEdge}
    */
   Set<StreamEdge> getIntermediateStreamEdges() {
@@ -293,6 +318,7 @@ import org.slf4j.LoggerFactory;
   private void validateInternalStreams() {
     Set<StreamEdge> internalEdges = new HashSet<>(edges.values());
     internalEdges.removeAll(inputStreams);
+    internalEdges.removeAll(sideInputStreams);
     internalEdges.removeAll(outputStreams);
 
     internalEdges.forEach(edge -> {
