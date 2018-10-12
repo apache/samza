@@ -20,7 +20,7 @@ exclude_from_loop: true
    limitations under the License.
 -->
 
-Explore the many use-cases of the Samza Framework via our case-studies.
+Explore the many use-cases of the Samza via our case-studies. For a complete list of companies using Samza, visit our <a href="/powered-by/">Powered By</a> page
 
 <ul class="case-studies">
 

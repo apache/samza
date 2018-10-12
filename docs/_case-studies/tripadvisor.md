@@ -23,7 +23,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Hedwig - Converting Hadoop M/R ETL systems to Stream Processing
+Hedwig - Converting Hadoop M/R ETL systems to Stream Processing at TripAdvisor
 
 <!--more-->
 

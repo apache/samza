@@ -5,6 +5,7 @@ title: Totally awesome use-case of samza by DigitalSmiths # title of case study 
 study_domain: digitalsmiths.com # just the domain, not the protocol
 priority: 7
 menu_title: DigitalSmiths # what shows up in the menu
+exclude_from_loop: true
 excerpt_separator: <!--more-->
 ---
 <!--

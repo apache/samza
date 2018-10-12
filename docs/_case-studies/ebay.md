@@ -23,7 +23,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Low Latency Web Scale Fraud Prevention
+How Samza powers low-latency, web-scale fraud prevention at Ebay?
 
 <!--more-->
 

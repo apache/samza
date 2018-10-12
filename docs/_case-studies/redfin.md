@@ -24,7 +24,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Realtime Notifications
+How Redfin uses Samza for stateful stream-processing and delivers realtime notifications?
 
 <!--more-->
 

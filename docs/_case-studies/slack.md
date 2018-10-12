@@ -24,7 +24,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Testing the excerpt
+How Slack monitors their infrastructure using Samza's streaming data-pipelines?
 
 <!--more-->
 
