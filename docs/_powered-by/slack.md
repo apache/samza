@@ -20,4 +20,4 @@ priority: 1
    limitations under the License.
 -->
 
-<a class="external-link" href="https://slack.com/" rel="nofollow">Slack</a> uses Samza for building their streaming data pipelines for monitoring and analytics.
+<a class="external-link" href="https://slack.com/" rel="nofollow">Slack</a> uses Samza to build their streaming data pipelines for monitoring and analytics.
