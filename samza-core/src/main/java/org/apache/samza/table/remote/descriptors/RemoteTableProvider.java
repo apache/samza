@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.remote;
+package org.apache.samza.table.remote.descriptors;
 
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
@@ -29,7 +29,7 @@ import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
-import org.apache.samza.table.descriptors.utils.BaseTableProvider;
+import org.apache.samza.table.utils.descriptors.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.util.RateLimiter;

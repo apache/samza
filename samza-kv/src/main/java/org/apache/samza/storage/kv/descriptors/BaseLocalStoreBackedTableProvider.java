@@ -37,7 +37,7 @@ import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.utils.BaseTableProvider;
+import org.apache.samza.table.utils.descriptors.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 
 

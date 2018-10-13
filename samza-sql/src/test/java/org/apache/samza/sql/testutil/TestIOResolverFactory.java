@@ -42,7 +42,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.TableProvider;
 import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.utils.BaseTableProvider;
+import org.apache.samza.table.utils.descriptors.BaseTableProvider;
 
 
 public class TestIOResolverFactory implements SqlIOResolverFactory {

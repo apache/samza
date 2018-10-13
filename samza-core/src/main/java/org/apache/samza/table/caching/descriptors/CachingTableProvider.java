@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.caching;
+package org.apache.samza.table.caching.descriptors;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +29,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.CachingTable;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
-import org.apache.samza.table.descriptors.utils.BaseTableProvider;
+import org.apache.samza.table.utils.descriptors.BaseTableProvider;
 
 import com.google.common.cache.CacheBuilder;
 

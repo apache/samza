@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table.descriptors.utils;
+package org.apache.samza.table.utils.descriptors;
 
 import java.util.HashMap;
 import java.util.Map;

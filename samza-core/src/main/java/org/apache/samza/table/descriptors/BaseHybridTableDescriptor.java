@@ -16,11 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table.descriptors.hybrid;
+package org.apache.samza.table.descriptors;
 
 import java.util.List;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
-import org.apache.samza.table.descriptors.TableDescriptor;
 
 /**
  * Base class for hybrid table descriptors. A hybrid table consists of one or more

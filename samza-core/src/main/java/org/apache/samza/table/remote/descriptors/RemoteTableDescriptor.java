@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.remote;
+package org.apache.samza.table.remote.descriptors;
 
 import java.util.HashMap;
 import java.util.Map;

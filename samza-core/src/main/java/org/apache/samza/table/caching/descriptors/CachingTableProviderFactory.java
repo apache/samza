@@ -17,22 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.remote;
+package org.apache.samza.table.caching.descriptors;
 
 import org.apache.samza.table.descriptors.TableProvider;
 import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 
-import com.google.common.base.Preconditions;
-
-
 /**
- * Factory class for a remote table provider
+ * Table provider factory for {@link org.apache.samza.table.caching.CachingTable}.
  */
-public class RemoteTableProviderFactory implements TableProviderFactory {
+public class CachingTableProviderFactory implements TableProviderFactory {
   @Override
   public TableProvider getTableProvider(TableSpec tableSpec) {
-    Preconditions.checkNotNull(tableSpec, "null table spec");
-    return new RemoteTableProvider(tableSpec);
+    return new CachingTableProvider(tableSpec);
   }
 }

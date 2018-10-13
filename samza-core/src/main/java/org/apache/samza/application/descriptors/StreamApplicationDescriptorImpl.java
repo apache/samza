@@ -55,7 +55,7 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.hybrid.BaseHybridTableDescriptor;
+import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

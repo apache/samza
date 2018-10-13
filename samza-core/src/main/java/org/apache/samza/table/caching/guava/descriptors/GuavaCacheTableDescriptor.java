@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.caching.guava;
+package org.apache.samza.table.caching.guava.descriptors;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.remote;
+package org.apache.samza.table.remote.descriptors;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.container.TaskName;
@@ -34,6 +34,7 @@ import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
+
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -42,11 +43,15 @@ import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Matchers;
-import org.mockito.Mockito;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 
 public class TestRemoteTableDescriptor {
@@ -54,8 +59,8 @@ public class TestRemoteTableDescriptor {
       TableRateLimiter.CreditFunction readCredFn,
       TableRateLimiter.CreditFunction writeCredFn) {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
-    desc.withReadFunction(Mockito.mock(TableReadFunction.class));
-    desc.withWriteFunction(Mockito.mock(TableWriteFunction.class));
+    desc.withReadFunction(mock(TableReadFunction.class));
+    desc.withWriteFunction(mock(TableWriteFunction.class));
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
     } else {
@@ -75,28 +80,28 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testSerializeWithLimiter() {
-    doTestSerialize(Mockito.mock(RateLimiter.class), null, null);
+    doTestSerialize(mock(RateLimiter.class), null, null);
   }
 
   @Test
   public void testSerializeWithLimiterAndReadCredFn() {
-    doTestSerialize(Mockito.mock(RateLimiter.class), (k, v) -> 1, null);
+    doTestSerialize(mock(RateLimiter.class), (k, v) -> 1, null);
   }
 
   @Test
   public void testSerializeWithLimiterAndWriteCredFn() {
-    doTestSerialize(Mockito.mock(RateLimiter.class), null, (k, v) -> 1);
+    doTestSerialize(mock(RateLimiter.class), null, (k, v) -> 1);
   }
 
   @Test
   public void testSerializeWithLimiterAndReadWriteCredFns() {
-    doTestSerialize(Mockito.mock(RateLimiter.class), (key, value) -> 1, (key, value) -> 1);
+    doTestSerialize(mock(RateLimiter.class), (key, value) -> 1, (key, value) -> 1);
   }
 
   @Test
   public void testSerializeNullWriteFunction() {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
-    desc.withReadFunction(Mockito.mock(TableReadFunction.class));
+    desc.withReadFunction(mock(TableReadFunction.class));
     TableSpec spec = desc.getTableSpec();
     Assert.assertTrue(spec.getConfig().containsKey(RemoteTableProvider.READ_FN));
     Assert.assertFalse(spec.getConfig().containsKey(RemoteTableProvider.WRITE_FN));
@@ -112,28 +117,28 @@ public class TestRemoteTableDescriptor {
   @Test(expected = IllegalArgumentException.class)
   public void testSpecifyBothRateAndRateLimiter() {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
-    desc.withReadFunction(Mockito.mock(TableReadFunction.class));
+    desc.withReadFunction(mock(TableReadFunction.class));
     desc.withReadRateLimit(100);
-    desc.withRateLimiter(Mockito.mock(RateLimiter.class), null, null);
+    desc.withRateLimiter(mock(RateLimiter.class), null, null);
     desc.getTableSpec();
   }
 
   private Context createMockContext() {
     Context context = new MockContext();
 
-    MetricsRegistry metricsRegistry = Mockito.mock(MetricsRegistry.class);
-    Mockito.doReturn(Mockito.mock(Timer.class)).when(metricsRegistry).newTimer(Matchers.anyString(), Matchers.anyString());
-    Mockito.doReturn(Mockito.mock(Counter.class)).when(metricsRegistry).newCounter(Matchers.anyString(), Matchers.anyString());
-    Mockito.doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(Matchers.anyString(), Matchers.anyString());
+    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(Matchers.anyString(), Matchers.anyString());
+    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
 
     TaskName taskName = new TaskName("MyTask");
-    TaskModel taskModel = Mockito.mock(TaskModel.class);
-    Mockito.when(taskModel.getTaskName()).thenReturn(taskName);
-    Mockito.when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(taskName);
+    when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
 
-    ContainerModel containerModel = Mockito.mock(ContainerModel.class);
-    Mockito.when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
-    Mockito.when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
+    ContainerModel containerModel = mock(ContainerModel.class);
+    when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
+    when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
 
     return context;
   }
@@ -152,8 +157,8 @@ public class TestRemoteTableDescriptor {
     RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1");
     TableRetryPolicy retryPolicy = new TableRetryPolicy();
     retryPolicy.withRetryPredicate((ex) -> false);
-    desc.withReadFunction(Mockito.mock(TableReadFunction.class), retryPolicy);
-    desc.withWriteFunction(Mockito.mock(TableWriteFunction.class));
+    desc.withReadFunction(mock(TableReadFunction.class), retryPolicy);
+    desc.withWriteFunction(mock(TableWriteFunction.class));
     desc.withAsyncCallbackExecutorPoolSize(10);
 
     if (rateOnly) {
@@ -174,7 +179,7 @@ public class TestRemoteTableDescriptor {
         }
 
         // Spy the rate limiter to verify call count
-        RateLimiter rateLimiter = Mockito.spy(new EmbeddedTaggedRateLimiter(tagCredits));
+        RateLimiter rateLimiter = spy(new EmbeddedTaggedRateLimiter(tagCredits));
         desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction());
       }
     }

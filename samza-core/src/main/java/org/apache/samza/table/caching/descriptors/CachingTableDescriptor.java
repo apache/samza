@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.caching;
+package org.apache.samza.table.caching.descriptors;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -28,7 +28,7 @@ import java.util.Map;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.hybrid.BaseHybridTableDescriptor;
+import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;

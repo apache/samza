@@ -17,18 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.table.descriptors.caching;
+package org.apache.samza.table.caching.guava.descriptors;
 
 import org.apache.samza.table.descriptors.TableProvider;
 import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 
 /**
- * Table provider factory for {@link org.apache.samza.table.caching.CachingTable}.
+ * Table provider factory for {@link org.apache.samza.table.caching.guava.GuavaCacheTable}.
  */
-public class CachingTableProviderFactory implements TableProviderFactory {
+public class GuavaCacheTableProviderFactory implements TableProviderFactory {
   @Override
   public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new CachingTableProvider(tableSpec);
+    return new GuavaCacheTableProvider(tableSpec);
   }
 }
