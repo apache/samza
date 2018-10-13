@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.operators.functions.InputTransformer;
+import org.apache.samza.system.descriptors.InputTransformer;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.Serde;

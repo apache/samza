@@ -19,8 +19,8 @@
 package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
@@ -29,10 +29,10 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
@@ -41,8 +41,8 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableProvider;
-import org.apache.samza.table.TableProviderFactory;
+import org.apache.samza.table.descriptors.TableProvider;
+import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 

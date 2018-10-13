@@ -200,8 +200,8 @@ import org.codehaus.jackson.map.ObjectMapper;
   }
 
   /**
-   * Create JSON POJO for a {@link JobNode}, including the {@link org.apache.samza.application.ApplicationDescriptorImpl}
-   * for this job
+   * Create JSON POJO for a {@link JobNode}, including the
+   * {@link org.apache.samza.application.descriptors.ApplicationDescriptorImpl} for this job
    *
    * @param jobNode job node in the {@link JobGraph}
    * @return {@link org.apache.samza.execution.JobGraphJsonGenerator.JobNodeJson}
