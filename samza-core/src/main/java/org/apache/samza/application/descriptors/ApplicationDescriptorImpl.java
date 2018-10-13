@@ -95,12 +95,12 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public final Config getConfig() {
+  public Config getConfig() {
     return config;
   }
 
   @Override
-  public final S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
+  public S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor) {
     Preconditions.checkNotNull(defaultSystemDescriptor, "Provided defaultSystemDescriptor must not be null.");
     Preconditions.checkState(getInputStreamIds().isEmpty() && getOutputStreamIds().isEmpty(),
         "Default system must be set before creating any input or output streams.");
@@ -111,25 +111,25 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
   }
 
   @Override
-  public final S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
+  public S withApplicationContainerContextFactory(ApplicationContainerContextFactory<?> factory) {
     this.applicationContainerContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
   @Override
-  public final S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
+  public S withApplicationTaskContextFactory(ApplicationTaskContextFactory<?> factory) {
     this.applicationTaskContextFactoryOptional = Optional.of(factory);
     return (S) this;
   }
 
   @Override
-  public final S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
+  public S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory) {
     this.listenerFactory = listenerFactory;
     return (S) this;
   }
 
   @Override
-  public final S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories) {
+  public S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories) {
     this.reporterFactories.clear();
     this.reporterFactories.putAll(reporterFactories);
     return (S) this;

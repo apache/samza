@@ -564,7 +564,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
    * @param spec a StreamSpec object
    * @return KafkaStreamSpec object
    */
-  KafkaStreamSpec toKafkaSpec(StreamSpec spec) {
+  public KafkaStreamSpec toKafkaSpec(StreamSpec spec) {
     KafkaStreamSpec kafkaSpec;
     if (spec.isChangeLogStream()) {
       String topicName = spec.getPhysicalName();

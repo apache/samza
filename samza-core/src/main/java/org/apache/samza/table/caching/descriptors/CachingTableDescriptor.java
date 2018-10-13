@@ -114,7 +114,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
    * @param readTtl read TTL
    * @return this descriptor
    */
-  public CachingTableDescriptor withReadTtl(Duration readTtl) {
+  public CachingTableDescriptor<K, V> withReadTtl(Duration readTtl) {
     this.readTtl = readTtl;
     return this;
   }
@@ -125,7 +125,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
    * @param writeTtl write TTL
    * @return this descriptor
    */
-  public CachingTableDescriptor withWriteTtl(Duration writeTtl) {
+  public CachingTableDescriptor<K, V> withWriteTtl(Duration writeTtl) {
     this.writeTtl = writeTtl;
     return this;
   }
@@ -135,7 +135,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
    * @param cacheSize max size of the cache
    * @return this descriptor
    */
-  public CachingTableDescriptor withCacheSize(long cacheSize) {
+  public CachingTableDescriptor<K, V> withCacheSize(long cacheSize) {
     this.cacheSize = cacheSize;
     return this;
   }
@@ -146,7 +146,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
    * dominant operation and get() has no locality with recent puts.
    * @return this descriptor
    */
-  public CachingTableDescriptor withWriteAround() {
+  public CachingTableDescriptor<K, V> withWriteAround() {
     this.isWriteAround = true;
     return this;
   }
