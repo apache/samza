@@ -273,7 +273,7 @@ import org.slf4j.LoggerFactory;
     String streamId = streamSpec.getId();
     StreamEdge edge = edges.get(streamId);
     if (edge == null) {
-      boolean isBroadcast = appDesc.getBroadcastStreams().contains(streamId);
+      boolean isBroadcast = appDesc.getIntermediateBroadcastStreamIds().contains(streamId);
       edge = new StreamEdge(streamSpec, isIntermediate, isBroadcast, config);
       edges.put(streamId, edge);
     }
