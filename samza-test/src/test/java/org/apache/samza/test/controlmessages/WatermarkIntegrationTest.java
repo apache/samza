@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.controlmessages;
 
-import org.apache.samza.application.SamzaApplication;
 import scala.collection.JavaConverters;
 
 import java.lang.reflect.Field;
@@ -30,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;

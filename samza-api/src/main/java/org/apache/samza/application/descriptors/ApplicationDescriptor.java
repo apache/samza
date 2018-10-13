@@ -25,6 +25,7 @@ import org.apache.samza.context.ApplicationContainerContextFactory;
 import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
+import org.apache.samza.system.descriptors.SystemDescriptor;
 
 
 /**
@@ -45,6 +46,17 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
    * @return config of the application
    */
   Config getConfig();
+
+  /**
+   * Sets the default SystemDescriptor to use for the application. This is equivalent to setting
+   * {@code job.default.system} and its properties in configuration.
+   * <p>
+   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
+   *
+   * @param defaultSystemDescriptor the default system descriptor to use
+   * @return type {@code S} of {@link ApplicationDescriptor} with {@code defaultSystemDescriptor} set as its default system
+   */
+  S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
    * Sets the {@link ApplicationContainerContextFactory} for this application. Each task will be given access to a

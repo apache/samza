@@ -86,134 +86,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestOperatorImplGraph {
-  private void addOperatorRecursively(HashSet<OperatorImpl> s, OperatorImpl op) {
-    List<OperatorImpl> operators = new ArrayList<>();
-    operators.add(op);
-    while (!operators.isEmpty()) {
-      OperatorImpl opImpl = operators.remove(0);
-      s.add(opImpl);
-      if (!opImpl.registeredOperators.isEmpty()) {
-        operators.addAll(opImpl.registeredOperators);
-      }
-    }
-  }
-
-  static class TestMapFunction<M, OM> extends BaseTestFunction implements MapFunction<M, OM> {
-    final Function<M, OM> mapFn;
-
-    public TestMapFunction(String opId, Function<M, OM> mapFn) {
-      super(opId);
-      this.mapFn = mapFn;
-    }
-
-    @Override
-    public OM apply(M message) {
-      return this.mapFn.apply(message);
-    }
-  }
-
-  static class TestJoinFunction<K, M, JM, RM> extends BaseTestFunction implements JoinFunction<K, M, JM, RM> {
-    final BiFunction<M, JM, RM> joiner;
-    final Function<M, K> firstKeyFn;
-    final Function<JM, K> secondKeyFn;
-    final Collection<RM> joinResults = new HashSet<>();
-
-    public TestJoinFunction(String opId, BiFunction<M, JM, RM> joiner, Function<M, K> firstKeyFn, Function<JM, K> secondKeyFn) {
-      super(opId);
-      this.joiner = joiner;
-      this.firstKeyFn = firstKeyFn;
-      this.secondKeyFn = secondKeyFn;
-    }
-
-    @Override
-    public RM apply(M message, JM otherMessage) {
-      RM result = this.joiner.apply(message, otherMessage);
-      this.joinResults.add(result);
-      return result;
-    }
-
-    @Override
-    public K getFirstKey(M message) {
-      return this.firstKeyFn.apply(message);
-    }
-
-    @Override
-    public K getSecondKey(JM message) {
-      return this.secondKeyFn.apply(message);
-    }
-  }
-
-  static abstract class BaseTestFunction implements InitableFunction, ClosableFunction, Serializable {
-
-    static Map<TaskName, Map<String, BaseTestFunction>> perTaskFunctionMap = new HashMap<>();
-    static Map<TaskName, List<String>> perTaskInitList = new HashMap<>();
-    static Map<TaskName, List<String>> perTaskCloseList = new HashMap<>();
-    int numInitCalled = 0;
-    int numCloseCalled = 0;
-    TaskName taskName = null;
-    final String opId;
-
-    public BaseTestFunction(String opId) {
-      this.opId = opId;
-    }
-
-    static public void reset() {
-      perTaskFunctionMap.clear();
-      perTaskCloseList.clear();
-      perTaskInitList.clear();
-    }
-
-    static public BaseTestFunction getInstanceByTaskName(TaskName taskName, String opId) {
-      return perTaskFunctionMap.get(taskName).get(opId);
-    }
-
-    static public List<String> getInitListByTaskName(TaskName taskName) {
-      return perTaskInitList.get(taskName);
-    }
-
-    static public List<String> getCloseListByTaskName(TaskName taskName) {
-      return perTaskCloseList.get(taskName);
-    }
-
-    @Override
-    public void close() {
-      if (this.taskName == null) {
-        throw new IllegalStateException("Close called before init");
-      }
-      if (perTaskFunctionMap.get(this.taskName) == null || !perTaskFunctionMap.get(this.taskName).containsKey(opId)) {
-        throw new IllegalStateException("Close called before init");
-      }
-
-      if (perTaskCloseList.get(this.taskName) == null) {
-        perTaskCloseList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
-      } else {
-        perTaskCloseList.get(taskName).add(opId);
-      }
-
-      this.numCloseCalled++;
-    }
-
-    @Override
-    public void init(Context context) {
-      TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
-      if (perTaskFunctionMap.get(taskName) == null) {
-        perTaskFunctionMap.put(taskName, new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
-      } else {
-        if (perTaskFunctionMap.get(taskName).containsKey(opId)) {
-          throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
-        }
-        perTaskFunctionMap.get(taskName).put(opId, this);
-      }
-      if (perTaskInitList.get(taskName) == null) {
-        perTaskInitList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
-      } else {
-        perTaskInitList.get(taskName).add(opId);
-      }
-      this.taskName = taskName;
-      this.numInitCalled++;
-    }
-  }
-
   private Context context;
 
   @Before
@@ -357,6 +229,8 @@ public class TestOperatorImplGraph {
     String inputSystem = "input-system";
     String inputPhysicalName = "input-stream";
     HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "test-job");
+    configMap.put(JobConfig.JOB_ID(), "1");
     StreamTestUtils.addStreamConfigs(configMap, inputStreamId, inputSystem, inputPhysicalName);
     Config config = new MapConfig(configMap);
     when(this.context.getJobContext().getConfig()).thenReturn(config);
@@ -391,7 +265,7 @@ public class TestOperatorImplGraph {
         MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
         stream1.merge(Collections.singleton(stream2))
             .map(new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m));
-      }, mock(Config.class));
+      }, getConfig());
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskModel taskModel = mock(TaskModel.class);
@@ -495,7 +369,6 @@ public class TestOperatorImplGraph {
     String inputStreamId1 = "input1";
     String inputStreamId2 = "input2";
     String inputSystem = "input-system";
-    Config mockConfig = mock(Config.class);
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskModel taskModel = mock(TaskModel.class);
@@ -515,7 +388,7 @@ public class TestOperatorImplGraph {
 
         inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
             .map(new TestMapFunction<Object, Object>("4", mapFn));
-      }, mockConfig);
+      }, getConfig());
 
     OperatorImplGraph opImplGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, SystemClock.instance());
 
@@ -692,5 +565,139 @@ public class TestOperatorImplGraph {
         streamToConsumerTasks, intermediateToInputStreams);
     assertTrue(counts.get(int1) == 3);
     assertTrue(counts.get(int2) == 2);
+  }
+
+  private void addOperatorRecursively(HashSet<OperatorImpl> s, OperatorImpl op) {
+    List<OperatorImpl> operators = new ArrayList<>();
+    operators.add(op);
+    while (!operators.isEmpty()) {
+      OperatorImpl opImpl = operators.remove(0);
+      s.add(opImpl);
+      if (!opImpl.registeredOperators.isEmpty()) {
+        operators.addAll(opImpl.registeredOperators);
+      }
+    }
+  }
+
+  private Config getConfig() {
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME(), "test-job");
+    configMap.put(JobConfig.JOB_ID(), "1");
+    return new MapConfig(configMap);
+  }
+
+  private static class TestMapFunction<M, OM> extends BaseTestFunction implements MapFunction<M, OM> {
+    final Function<M, OM> mapFn;
+
+    public TestMapFunction(String opId, Function<M, OM> mapFn) {
+      super(opId);
+      this.mapFn = mapFn;
+    }
+
+    @Override
+    public OM apply(M message) {
+      return this.mapFn.apply(message);
+    }
+  }
+
+  private static class TestJoinFunction<K, M, JM, RM> extends BaseTestFunction implements JoinFunction<K, M, JM, RM> {
+    final BiFunction<M, JM, RM> joiner;
+    final Function<M, K> firstKeyFn;
+    final Function<JM, K> secondKeyFn;
+    final Collection<RM> joinResults = new HashSet<>();
+
+    public TestJoinFunction(String opId, BiFunction<M, JM, RM> joiner, Function<M, K> firstKeyFn, Function<JM, K> secondKeyFn) {
+      super(opId);
+      this.joiner = joiner;
+      this.firstKeyFn = firstKeyFn;
+      this.secondKeyFn = secondKeyFn;
+    }
+
+    @Override
+    public RM apply(M message, JM otherMessage) {
+      RM result = this.joiner.apply(message, otherMessage);
+      this.joinResults.add(result);
+      return result;
+    }
+
+    @Override
+    public K getFirstKey(M message) {
+      return this.firstKeyFn.apply(message);
+    }
+
+    @Override
+    public K getSecondKey(JM message) {
+      return this.secondKeyFn.apply(message);
+    }
+  }
+
+  private static abstract class BaseTestFunction implements InitableFunction, ClosableFunction, Serializable {
+    static Map<TaskName, Map<String, BaseTestFunction>> perTaskFunctionMap = new HashMap<>();
+    static Map<TaskName, List<String>> perTaskInitList = new HashMap<>();
+    static Map<TaskName, List<String>> perTaskCloseList = new HashMap<>();
+    int numInitCalled = 0;
+    int numCloseCalled = 0;
+    TaskName taskName = null;
+    final String opId;
+
+    public BaseTestFunction(String opId) {
+      this.opId = opId;
+    }
+
+    static public void reset() {
+      perTaskFunctionMap.clear();
+      perTaskCloseList.clear();
+      perTaskInitList.clear();
+    }
+
+    static public BaseTestFunction getInstanceByTaskName(TaskName taskName, String opId) {
+      return perTaskFunctionMap.get(taskName).get(opId);
+    }
+
+    static public List<String> getInitListByTaskName(TaskName taskName) {
+      return perTaskInitList.get(taskName);
+    }
+
+    static public List<String> getCloseListByTaskName(TaskName taskName) {
+      return perTaskCloseList.get(taskName);
+    }
+
+    @Override
+    public void close() {
+      if (this.taskName == null) {
+        throw new IllegalStateException("Close called before init");
+      }
+      if (perTaskFunctionMap.get(this.taskName) == null || !perTaskFunctionMap.get(this.taskName).containsKey(opId)) {
+        throw new IllegalStateException("Close called before init");
+      }
+
+      if (perTaskCloseList.get(this.taskName) == null) {
+        perTaskCloseList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
+      } else {
+        perTaskCloseList.get(taskName).add(opId);
+      }
+
+      this.numCloseCalled++;
+    }
+
+    @Override
+    public void init(Context context) {
+      TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
+      if (perTaskFunctionMap.get(taskName) == null) {
+        perTaskFunctionMap.put(taskName, new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
+      } else {
+        if (perTaskFunctionMap.get(taskName).containsKey(opId)) {
+          throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
+        }
+        perTaskFunctionMap.get(taskName).put(opId, this);
+      }
+      if (perTaskInitList.get(taskName) == null) {
+        perTaskInitList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
+      } else {
+        perTaskInitList.get(taskName).add(opId);
+      }
+      this.taskName = taskName;
+      this.numInitCalled++;
+    }
   }
 }
