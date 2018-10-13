@@ -77,12 +77,10 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   protected final ExecutorService callbackExecutor;
   protected final ExecutorService tableExecutor;
+  protected final TableReadFunction<K, V> readFn;
+  protected final TableRateLimiter<K, V> readRateLimiter;
 
   private DefaultTableReadMetrics readMetrics;
-
-  @VisibleForTesting
-  final TableReadFunction<K, V> readFn;
-  final TableRateLimiter<K, V> readRateLimiter;
 
   /**
    * Construct a RemoteReadableTable instance
@@ -297,5 +295,25 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public void close() {
     readFn.close();
+  }
+
+  @VisibleForTesting
+  public ExecutorService getCallbackExecutor() {
+    return callbackExecutor;
+  }
+
+  @VisibleForTesting
+  public ExecutorService getTableExecutor() {
+    return tableExecutor;
+  }
+
+  @VisibleForTesting
+  public TableReadFunction<K, V> getReadFn() {
+    return readFn;
+  }
+
+  @VisibleForTesting
+  public TableRateLimiter<K, V> getReadRateLimiter() {
+    return readRateLimiter;
   }
 }
