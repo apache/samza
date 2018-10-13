@@ -66,7 +66,7 @@ public class StreamApplicationIntegrationTest {
 
     InMemoryInputDescriptor<TestTableData.Profile> profileStreamDesc = isd
         .getInputDescriptor("Profile", new NoOpSerde<TestTableData.Profile>())
-        .withBootstrap(true);
+        .shouldBootstrap();
 
     InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
         .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
