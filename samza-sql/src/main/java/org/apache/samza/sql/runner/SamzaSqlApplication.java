@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.translator.QueryTranslator;
 import org.slf4j.Logger;

@@ -19,6 +19,7 @@
 package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 
 /**
  * Describes and initializes the transforms for processing message streams and generating results in high-level API. 

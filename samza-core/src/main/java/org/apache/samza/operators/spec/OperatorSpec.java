@@ -103,7 +103,8 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
   }
 
   /**
-   * Get the unique ID of this operator in the {@link org.apache.samza.application.StreamApplicationDescriptorImpl}.
+   * Get the unique ID of this operator in the
+   * {@link org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl}.
    * @return  the unique operator ID
    */
   public final String getOpId() {
