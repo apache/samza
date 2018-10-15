@@ -25,18 +25,21 @@ excerpt_separator: <!--more-->
 -->
 
 How LinkedIn built Air Traffic Controller, a stateful stream processing system to optimize email communications?
+
 <!--more-->
 
-LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline and standardize our communications to the users. In order to ensure member experience comes first before individual product metrics, LinkedIn developed a new email and notifications platform called *Air Traffic Controller*.
+LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline and standardize communications to members. To ensure member experience comes first before individual product metrics, LinkedIn developed a new email and notifications platform called *Air Traffic Controller*.
 
-ATC is an intelligent platform, that is capable of tracking all the outgoing communications to the user and delivering the communication through the right channel to the right member at the right time.
+ATC is designed to be an intelligent platform capable of tracking all the outgoing communications and delivering the communication through the right channel to the right member at the right time.
 
 <img src="/img/{{site.version}}/case-studies/linkedin-atc-samza-pipeline.png" alt="architecture" style="max-width: 80%; height: auto;" onclick="window.open(this.src)"/>
 
-It has a three main components,
+Any service that wants to send out a notification to members writes its request to a Kafka topic, which ATC later reads from. The ATC platform comprises of three components:
 
-- **Partitioner**: Partition communication requests, metrics based on user
-- **Pipeline**: Handle partitioned communication requests which performs aggregation and consults with the relevance model to determine delivery time
+- **Partitioner**: _Partitioners_ read incoming communication requests from Kafka, perform some basic filtering and then re-partition them by userId. 
+- **Pipeline**: 
+
+Handle partitioned communication requests which performs aggregation and consults with the relevance model to determine delivery time
 - **Relevance processor**: Provide insights on how relevant is the content to the user, the right delivery time, etc.
 
 ATC, leverages Samza extensively and uses a lot of features including but not limited to:
