@@ -25,8 +25,8 @@ import org.apache.samza.serializers.NoOpSerde;
 /**
  * A descriptor for an in memory stream of messages that can either have single or multiple partitions.
  * <p>
- *  An instance of this descriptor may be obtained from an appropriately configured {@link InMemorySystemDescriptor}.
- * <p>
+ * An instance of this descriptor may be obtained from an appropriately configured {@link InMemorySystemDescriptor}.
+ *
  * @param <StreamMessageType> type of messages in input stream
  */
 public class InMemoryInputDescriptor<StreamMessageType>

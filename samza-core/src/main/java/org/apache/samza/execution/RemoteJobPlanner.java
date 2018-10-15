@@ -87,7 +87,7 @@ public class RemoteJobPlanner extends JobPlanner {
   }
 
   private Config getConfigFromPrevRun() {
-    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(userConfig, new MetricsRegistryMap());
     consumer.register();
     consumer.start();
     consumer.bootstrap();

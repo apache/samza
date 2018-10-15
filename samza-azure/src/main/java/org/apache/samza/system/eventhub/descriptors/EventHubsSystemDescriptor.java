@@ -33,7 +33,7 @@ import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.Partitio
 /**
  * A descriptor for a Event Hubs system.
  * <p>
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * System properties provided in configuration override corresponding properties configured using a descriptor.
  */
 public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = EventHubSystemFactory.class.getName();

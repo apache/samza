@@ -36,7 +36,7 @@ import org.apache.samza.system.kafka.KafkaSystemFactory;
 /**
  * A descriptor for a Kafka system.
  * <p>
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * System properties provided in configuration override corresponding properties configured using a descriptor.
  */
 @SuppressWarnings("unchecked")
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>

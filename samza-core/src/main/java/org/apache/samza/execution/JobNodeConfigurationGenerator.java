@@ -66,67 +66,77 @@ import org.slf4j.LoggerFactory;
 
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
-  static JobConfig mergeJobConfig(Config originalConfig, Config generatedConfig) {
-    JobConfig jobConfig = new JobConfig(originalConfig);
-    String jobNameAndId = JobNode.createJobNameAndId(jobConfig.getName().get(), jobConfig.getJobId());
-    return new JobConfig(Util.rewriteConfig(extractScopedConfig(originalConfig, generatedConfig,
-        String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), jobNameAndId))));
+  static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
+    originalConfig.forEach((k, v) -> {
+        if (generatedConfig.containsKey(k)) {
+          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
+              k, generatedConfig.get(k), v);
+        }
+        mergedConfig.put(k, v);
+      });
+
+    return Util.rewriteConfig(new MapConfig(mergedConfig));
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
-    Map<String, String> configs = new HashMap<>();
+    if (jobNode.isLegacyTaskApplication()) {
+      return new JobConfig(jobNode.getConfig());
+    }
+
+    Map<String, String> generatedConfig = new HashMap<>();
     // set up job name and job ID
-    configs.put(JobConfig.JOB_NAME(), jobNode.getJobName());
-    configs.put(JobConfig.JOB_ID(), jobNode.getJobId());
+    generatedConfig.put(JobConfig.JOB_NAME(), jobNode.getJobName());
+    generatedConfig.put(JobConfig.JOB_ID(), jobNode.getJobId());
 
     Map<String, StreamEdge> inEdges = jobNode.getInEdges();
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
     Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
     Map<String, TableSpec> reachableTables = getReachableTables(reachableOperators, jobNode);
-    Config config = jobNode.getConfig();
+    Config originalConfig = jobNode.getConfig(); // user-provided and system-stream descriptor generated config
 
     // check all inputs to the node for broadcast and input streams
     final Set<String> inputs = new HashSet<>();
-    final Set<String> broadcasts = new HashSet<>();
+    final Set<String> broadcastInputs = new HashSet<>();
     for (StreamEdge inEdge : inEdges.values()) {
       String formattedSystemStream = inEdge.getName();
       if (inEdge.isBroadcast()) {
-        broadcasts.add(formattedSystemStream + "#0");
+        broadcastInputs.add(formattedSystemStream + "#0");
       } else {
         inputs.add(formattedSystemStream);
       }
     }
 
-    configureBroadcastInputs(configs, config, broadcasts);
+    configureBroadcastInputs(generatedConfig, originalConfig, broadcastInputs);
 
     // compute window and join operator intervals in this node
-    configureWindowInterval(configs, config, reachableOperators);
+    configureWindowInterval(generatedConfig, originalConfig, reachableOperators);
 
     // set store configuration for stateful operators.
-    stores.forEach(sd -> configs.putAll(sd.getStorageConfigs()));
+    stores.forEach(sd -> generatedConfig.putAll(sd.getStorageConfigs()));
 
     // set the execution plan in json
-    configs.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
+    generatedConfig.put(CONFIG_INTERNAL_EXECUTION_PLAN, executionPlanJson);
 
     // write intermediate input/output streams to configs
-    inEdges.values().stream().filter(StreamEdge::isIntermediate).forEach(edge -> configs.putAll(edge.generateConfig()));
+    inEdges.values().stream().filter(StreamEdge::isIntermediate)
+        .forEach(intermediateEdge -> generatedConfig.putAll(intermediateEdge.generateConfig()));
 
     // write serialized serde instances and stream, store, and table serdes to configs
     // serde configuration generation has to happen before table configuration, since the serde configuration
     // is required when generating configurations for some TableProvider (i.e. local store backed tables)
-    configureSerdes(configs, inEdges, outEdges, stores, reachableTables.keySet(), jobNode);
+    configureSerdes(generatedConfig, inEdges, outEdges, stores, reachableTables.keySet(), jobNode);
 
     // generate table configuration and potential side input configuration
-    configureTables(configs, config, reachableTables, inputs);
+    configureTables(generatedConfig, originalConfig, reachableTables, inputs);
 
-    // finalize the task.inputs configuration
-    configs.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    // generate the task.inputs configuration
+    generatedConfig.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
 
-    LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), configs);
+    LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
-    // apply configure rewriters and user configure overrides
-    return applyConfigureRewritersAndOverrides(configs, config, jobNode);
+    return new JobConfig(mergeConfig(originalConfig, generatedConfig));
   }
 
   private Map<String, TableSpec> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
@@ -140,9 +150,9 @@ import org.slf4j.LoggerFactory;
     if (broadcastStreams.isEmpty()) {
       return;
     }
-    final String taskBroadcasts = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
-    if (StringUtils.isNoneEmpty(taskBroadcasts)) {
-      broadcastStreams.add(taskBroadcasts);
+    String broadcastInputs = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
+    if (StringUtils.isNotBlank(broadcastInputs)) {
+      broadcastStreams.add(broadcastInputs);
     }
     configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
   }
@@ -155,12 +165,10 @@ import org.slf4j.LoggerFactory;
     }
 
     // set triggering interval if a window or join is defined. Only applies to high-level applications
-    if ("-1".equals(config.get(TaskConfig.WINDOW_MS(), "-1"))) {
-      long triggerInterval = computeTriggerInterval(reachableOperators);
-      LOG.info("Using triggering interval: {}", triggerInterval);
+    long triggerInterval = computeTriggerInterval(reachableOperators);
+    LOG.info("Using triggering interval: {}", triggerInterval);
 
-      configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
-    }
+    configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
   }
 
   /**
@@ -190,68 +198,27 @@ import org.slf4j.LoggerFactory;
     return MathUtil.gcd(candidateTimerIntervals);
   }
 
-  private JobConfig applyConfigureRewritersAndOverrides(Map<String, String> configs, Config config, JobNode jobNode) {
-    // Disallow user specified job inputs/outputs. This info comes strictly from the user application.
-    Map<String, String> allowedConfigs = new HashMap<>(config);
-    if (!jobNode.isLegacyTaskApplication()) {
-      if (allowedConfigs.containsKey(TaskConfig.INPUT_STREAMS())) {
-        LOG.warn("Specifying task inputs in configuration is not allowed for SamzaApplication. "
-            + "Ignoring configured value for " + TaskConfig.INPUT_STREAMS());
-        allowedConfigs.remove(TaskConfig.INPUT_STREAMS());
-      }
-    }
-
-    LOG.debug("Job {} has allowed configs {}", jobNode.getJobNameAndId(), allowedConfigs);
-    return mergeJobConfig(new MapConfig(allowedConfigs), new MapConfig(configs));
-  }
-
-  /**
-   * This function extract the subset of configs from the full config, and use it to override the generated configs
-   * from the job.
-   * @param fullConfig full config
-   * @param generatedConfig config generated for the job
-   * @param configPrefix prefix to extract the subset of the config overrides
-   * @return config that merges the generated configs and overrides
-   */
-  private static Config extractScopedConfig(Config fullConfig, Config generatedConfig, String configPrefix) {
-    Config scopedConfig = fullConfig.subset(configPrefix);
-
-    Config[] configPrecedence = new Config[] {fullConfig, generatedConfig, scopedConfig};
-    // Strip empty configs so they don't override the configs before them.
-    Map<String, String> mergedConfig = new HashMap<>();
-    for (Map<String, String> config : configPrecedence) {
-      for (Map.Entry<String, String> property : config.entrySet()) {
-        String value = property.getValue();
-        if (!(value == null || value.isEmpty())) {
-          mergedConfig.put(property.getKey(), property.getValue());
-        }
-      }
-    }
-    scopedConfig = new MapConfig(mergedConfig);
-    LOG.debug("Prefix '{}' has merged config {}", configPrefix, scopedConfig);
-
-    return scopedConfig;
-  }
-
   private List<StoreDescriptor> getStoreDescriptors(Collection<OperatorSpec> reachableOperators) {
     return reachableOperators.stream().filter(operatorSpec -> operatorSpec instanceof StatefulOperatorSpec)
         .map(operatorSpec -> ((StatefulOperatorSpec) operatorSpec).getStoreDescriptors()).flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
 
-  private void configureTables(Map<String, String> configs, Config config, Map<String, TableSpec> tables, Set<String> inputs) {
-    configs.putAll(TableConfigGenerator.generateConfigsForTableSpecs(new MapConfig(configs),
-        tables.values().stream().collect(Collectors.toList())));
+  private void configureTables(Map<String, String> generatedConfig, Config originalConfig,
+      Map<String, TableSpec> tables, Set<String> inputs) {
+    generatedConfig.putAll(
+        TableConfigGenerator.generateConfigsForTableSpecs(
+            new MapConfig(generatedConfig), new ArrayList<>(tables.values())));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
     tables.values().forEach(tableSpec -> {
         List<String> sideInputs = tableSpec.getSideInputs();
         if (sideInputs != null && !sideInputs.isEmpty()) {
           sideInputs.stream()
-              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(config, sideInput))
+              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
               .forEach(systemStream -> {
                   inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                  configs.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                  generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
                       systemStream.getSystem(), systemStream.getStream()), "true");
                 });
         }

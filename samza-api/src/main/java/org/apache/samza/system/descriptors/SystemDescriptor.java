@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 /**
  * The base descriptor for a system. Allows setting properties that are common to all systems.
  * <p>
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * System properties provided in configuration override corresponding properties configured using a descriptor.
  * <p>
  * Systems may provide an {@link InputTransformer} to be used for input streams on the system. An
  * {@link InputTransformer} transforms an {@code IncomingMessageEnvelope} with deserialized key and message
