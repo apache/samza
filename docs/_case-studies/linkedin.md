@@ -44,9 +44,9 @@ The _ATC pipeline_ processors aggregate the output from the _Relevance_ and the 
 
 ATC uses several of Samza features:
 
-**Stateful processing**: The ML models in the relevance module are stored locally in RocksDb and are updated realtime time based on user feedback. <br/>
-**Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allow ATC to perform remote calls with high throughput. This helps bring down the 90th percentile end-to-end latency for push notifications. <br/>
-**Host affinity**: Samza's incremental checkpointing and host-affinity enable ATC to achieve zero downtime during upgrades and instant recovery during failures. <br/>
+**1.Stateful processing**: The ML models in the relevance module are stored locally in RocksDb and are updated realtime time based on user feedback. <br/><br/>
+**2.Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allow ATC to perform remote calls with high throughput. This helps bring down the 90th percentile end-to-end latency for push notifications. <br/><br/>
+**3.Host affinity**: Samza's incremental checkpointing and host-affinity enable ATC to achieve zero downtime during upgrades and instant recovery during failures. <br/><br/>
 
 Key Samza Features: *Stateful processing*, *Async API*, *Host affinity*
 
