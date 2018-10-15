@@ -36,7 +36,7 @@ ATC is designed to be an intelligent platform that tracks all outgoing communica
 
 Any service that wants to send out a notification to members writes its request to a Kafka topic, which ATC later reads from. The ATC platform comprises of three components:
 
-- **Partitioner**: _Partitioners_ read incoming communication requests from Kafka, perform some basic filtering and then re-partition them by userId. 
+- **Partitioner**: _Partitioners_ read incoming communication requests from Kafka and uniformly distribute them by the hash of the userId and notification-type.
 - **Pipeline**: 
 
 Handle partitioned communication requests which performs aggregation and consults with the relevance model to determine delivery time
