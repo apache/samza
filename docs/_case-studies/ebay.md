@@ -65,5 +65,5 @@ Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*, *JM
 
 More information:
 
--   [https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends](https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends)
+-   [Slides: Low latency Fraud prevention with Apache Samza](https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends)
 -   [http://ebayenterprise.com/](http://ebayenterprise.com/)
