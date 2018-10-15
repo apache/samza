@@ -2343,6 +2343,7 @@ ul.case-studies {
 
 .meet-name {
   margin-bottom: 10px;
+  line-height: 40px;
 }
 
 .meet-image {
@@ -2452,6 +2453,7 @@ ul.case-studies {
 .meet-description {
   margin-top: 30px;
   font-size: 20px;
+  line-height: 30px;
 }
 
 
