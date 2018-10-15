@@ -38,13 +38,9 @@ Any service that wants to send out a notification to members writes its request 
 
 - **Partitioner**: _Partitioners_ read incoming communication requests from Kafka and distribute them across _Pipeline_ instances based on the hash of the recipient. It also does some
 filtering early-on to drop malformed messages.
-- **Relevance processor**: The _Relevance processors_ read personalized machine-learning models and stores them in Samza's RocksDb store. It uses them to evaluate incoming requests and determine the right channel (eg: drop it vs sending an email vs push notification vs badge) for the notification.
-- **Pipeline**:  The _pipeline_ processors aggregate the output of the _Relevance_ and the _Partitioners_, thereby making the final call. It heavily leverages Samza's local state to 
-store and merge notifications. It decides the frequency of notifications (eg: duplicate notifications are merged, notifications are capped at a certain threshold). The _Pipeline_ also implements a _scheduler_ on top of Samza's local-store so that it can schedule messages for delivery later (For eg: it makes no sense to send notifications to a member at midnight)
+- **Relevance processor**: The _Relevance processors_ read personalized machine-learning models from Kafka and stores them in Samza's RocksDb store for evaluating them later. It uses them to score incoming requests and determine the right channel (eg: drop it vs sending an email vs push notification vs badge) for the notification.
+- **Pipeline**:  The _pipeline_ processors aggregate the output of the _Relevance_ and the _Partitioners_, thereby making the final determination on the notification. It heavily leverages Samza's local state to batch and aggregate notifications. It decides the frequency of notifications (eg: duplicate notifications are merged, notifications are capped at a certain threshold). The _Pipeline_ also implements a _scheduler_ on top of Samza's local-store so that it can schedule messages for delivery later (For eg: it makes no sense to send notifications to a member at midnight)
 
-
-Handle partitioned communication requests which performs aggregation and consults with the relevance model to determine delivery time
-- **Relevance processor**: Provide insights on how relevant is the content to the user, the right delivery time, etc.
 
 ATC, leverages Samza extensively and uses a lot of features including but not limited to:
 
