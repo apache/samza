@@ -183,7 +183,7 @@ public class ClusterBasedJobCoordinator {
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
     clusterManagerConfig = new ClusterManagerConfig(config);
-    isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
+    isJmxEnabled = clusterManagerConfig.getJmxEnabled();
 
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 

@@ -74,7 +74,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val containerId = "0"
     var jmxServer: JmxServer = null
-    if (new ClusterManagerConfig(config).getJmxEnabledOnContainer) {
+    if (new ClusterManagerConfig(config).getJmxEnabled) {
       jmxServer = new JmxServer();
     }
 

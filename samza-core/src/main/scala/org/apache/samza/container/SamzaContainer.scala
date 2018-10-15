@@ -791,7 +791,6 @@ class SamzaContainer(
   def hasStopped(): Boolean = status == SamzaContainerStatus.STOPPED || status == SamzaContainerStatus.FAILED
 
   def run {
-    val isJMXEnabledOnContainer = new ClusterManagerConfig(config).getJmxEnabledOnContainer
     try {
       info("Starting container.")
 
@@ -801,7 +800,8 @@ class SamzaContainer(
 
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
-      if (isJMXEnabledOnContainer) {
+      val isJMXEnabled = new ClusterManagerConfig(config).getJmxEnabled
+      if (isJMXEnabled) {
         jmxServer = new JmxServer()
       }
       applicationContainerContextOption.foreach(_.start)
