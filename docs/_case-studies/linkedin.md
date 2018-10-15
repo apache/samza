@@ -28,25 +28,25 @@ How LinkedIn built Air Traffic Controller, a stateful stream processing system t
 
 <!--more-->
 
-LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline communications to members. To ensure member experience comes first before individual product metrics, LinkedIn developed a new email and notifications platform called *Air Traffic Controller*.
+LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline communications to members. To ensure member experience comes first, LinkedIn developed a new email and notifications platform called *Air Traffic Controller (ATC)*.
 
 ATC is designed to be an intelligent platform that tracks all outgoing communications and delivers the communication through the right channe to the right member at the right time.
 
 <img src="/img/{{site.version}}/case-studies/linkedin-atc-samza-pipeline.png" alt="architecture" style="max-width: 80%; height: auto;" onclick="window.open(this.src)"/>
 
-Any service that wants to send out a notification to members writes its request to a Kafka topic, which ATC later reads from. The ATC platform comprises of three components:
+Any service that wants to send out a notification to members writes its request to a Kafka topic, which ATC later reads from. The ATC platform comprises of three components: <br/>
 
-- **Partitioner**: _Partitioners_ read incoming communication requests from Kafka and distribute them across _Pipeline_ instances based on the hash of the recipient. It also does some
-filtering early-on to drop malformed messages.
-- **Relevance processor**: The _Relevance processors_ read personalized machine-learning models from Kafka and stores them in Samza's RocksDb store for evaluating them later. It uses them to score incoming requests and determine the right channel (eg: drop it vs sending an email vs push notification vs badge) for the notification.
-- **Pipeline**:  The _pipeline_ processors aggregate the output of the _Relevance_ and the _Partitioners_, thereby making the final determination on the notification. It heavily leverages Samza's local state to batch and aggregate notifications. It decides the frequency of notifications (eg: duplicate notifications are merged, notifications are capped at a certain threshold). The _Pipeline_ also implements a _scheduler_ on top of Samza's local-store so that it can schedule messages for delivery later (For eg: it makes no sense to send notifications to a member at midnight)
+_Partitioners_ read incoming communication requests from Kafka and distribute them across _Pipeline_ instances based on the hash of the recipient. It also does some
+filtering early-on to drop malformed messages. <br/><br/>
+The _Relevance processors_ read personalized machine-learning models from Kafka and stores them in Samza's state store for evaluating them later. It uses them to score incoming requests and determine the right channel for the notification (eg: drop it vs sending an email vs push notification) . <br/><br/>
+The _ATC pipeline_ processors aggregate the output from the _Relevance_ and the _Partitioners_, thereby making the final call on the notification. It heavily leverages Samza's local state to batch and aggregate notifications. It decides the frequency of notifications - duplicate notifications are merged, notifications are capped at a certain threshold. The _Pipeline_ also implements a _scheduler_ on top of Samza's local-store so that it can schedule messages for delivery later. As an example, it may not be helpful to send a push-notification at midnight. <br/><br/>
 
 
-ATC, leverages Samza extensively and uses a lot of features including but not limited to:
+ATC uses several of Samza features:
 
-- **Stateful processing**: The ML models in the relevance module are stored locally in RocksDb which are updated realtime time based on user feedback.
-- **Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allows ATC to perform remote calls with high-throughput. This helps bring down the 90th percentile (P90) end-to-end latency for end to end latency for push notifications from about 12 seconds to about 1.5 seconds.
-- **Host affinity**: Co-location of local state stores along with host awareness helps ATC to achieve zero downtime and instant recovery.
+**Stateful processing**: The ML models in the relevance module are stored locally in RocksDb and are updated realtime time based on user feedback. <br/>
+**Async APIs and Multi-threading**: Samza’s multi-threading and Async APIs allow ATC to perform remote calls with high throughput. This helps bring down the 90th percentile end-to-end latency for push notifications. <br/>
+**Host affinity**: Samza's incremental checkpointing and host-affinity enable ATC to achieve zero downtime during upgrades and instant recovery during failures. <br/>
 
 Key Samza Features: *Stateful processing*, *Async API*, *Host affinity*
 
