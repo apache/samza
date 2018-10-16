@@ -94,7 +94,9 @@ import org.slf4j.LoggerFactory;
     Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
     Map<String, TableSpec> reachableTables = getReachableTables(reachableOperators, jobNode);
-    Config originalConfig = jobNode.getConfig(); // user-provided and system-stream descriptor generated config
+
+    // config passed by the JobPlanner. user-provided + system-stream descriptor config + misc. other config
+    Config originalConfig = jobNode.getConfig();
 
     // check all inputs to the node for broadcast and input streams
     final Set<String> inputs = new HashSet<>();
