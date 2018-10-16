@@ -25,6 +25,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 
@@ -52,12 +54,12 @@ public class EventHubsInputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param namespace namespace for the Event Hubs entity to consume from, not null
    * @param entityPath entity path for the Event Hubs entity to consume from, not null
-   * @param serde serde for messages in the stream
+   * @param valueSerde serde the values of the messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  EventHubsInputDescriptor(String streamId, String namespace, String entityPath, Serde serde,
+  EventHubsInputDescriptor(String streamId, String namespace, String entityPath, Serde valueSerde,
       SystemDescriptor systemDescriptor) {
-    super(streamId, serde, systemDescriptor, null);
+    super(streamId, KVSerde.of(new NoOpSerde<>(), valueSerde), systemDescriptor, null);
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);
     if (this.namespace == null || this.entityPath == null) {

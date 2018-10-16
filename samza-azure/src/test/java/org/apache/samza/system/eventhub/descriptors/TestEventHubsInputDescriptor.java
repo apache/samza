@@ -20,15 +20,15 @@ package org.apache.samza.system.eventhub.descriptors;
 
 import java.util.Map;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.operators.KV;
-import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 
@@ -40,8 +40,8 @@ public class TestEventHubsInputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, "entity-namespace", "entity3", KVSerde.of(new StringSerde(), new IntegerSerde()))
+    EventHubsInputDescriptor<String> inputDescriptor = systemDescriptor
+        .getInputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde())
         .withSasKeyName("secretkey")
         .withSasKey("sasToken-123")
         .withConsumerGroup("$notdefault");
@@ -62,8 +62,8 @@ public class TestEventHubsInputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsInputDescriptor<KV<String, Integer>> inputDescriptor = systemDescriptor
-        .getInputDescriptor(streamId, "entity-namespace", "entity3", KVSerde.of(new StringSerde(), new IntegerSerde()));
+    EventHubsInputDescriptor<String> inputDescriptor = systemDescriptor
+        .getInputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
 
     Map<String, String> generatedConfigs = inputDescriptor.toConfig();
     assertEquals("eventHub", generatedConfigs.get("streams.input-stream.samza.system"));
@@ -82,11 +82,24 @@ public class TestEventHubsInputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
     try {
-      systemDescriptor.getInputDescriptor(streamId, null, null, KVSerde.of(new StringSerde(), new IntegerSerde()));
+      systemDescriptor.getInputDescriptor(streamId, null, null, new StringSerde());
       fail("Should have thrown Config Exception");
     } catch (ConfigException exception) {
       assertEquals(String.format("Missing namespace and entity path Event Hubs input descriptor in " //
           + "system: {%s}, stream: {%s}", systemName, streamId), exception.getMessage());
     }
+  }
+
+  @Test
+  public void testStreamDescriptorContainsKVserde() {
+    String systemName = "eventHub";
+    String streamId = "input-stream";
+
+    EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
+    EventHubsOutputDescriptor<String> outputDescriptor = systemDescriptor
+        .getOutputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
+    assertTrue(outputDescriptor.getSerde() instanceof KVSerde);
+    assertTrue(((KVSerde) outputDescriptor.getSerde()).getKeySerde() instanceof NoOpSerde);
+    assertTrue(((KVSerde) outputDescriptor.getSerde()).getValueSerde() instanceof StringSerde);
   }
 }
