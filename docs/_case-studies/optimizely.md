@@ -5,6 +5,7 @@ title: Real Time Session Aggregation
 study_domain: optimizely.com
 priority: 2
 menu_title: Optimizely
+exclude_from_loop: false
 excerpt_separator: <!--more-->
 ---
 <!--
@@ -28,29 +29,31 @@ Real Time Session Aggregation
 
 <!--more-->
 
-Optimizely is a world’s leading experimentation platform, enabling businesses to 
+Optimizely is the world’s leading experimentation platform, enabling businesses to 
 deliver continuous experimentation and personalization across websites, mobile 
 apps and connected devices. At Optimizely, billions of events are tracked on a 
-daily basis. Session metrics are among the key metrics provided to their end user 
-in real time. Prior to introducing Samza for their realtime computation, the 
+daily basis and session metrics are provided to their users in real-time. 
+
+Prior to introducing Samza for their realtime computation, the 
 engineering team at Optimizely built their data-pipeline using a complex 
-[Lambda architecture] (http://lambda-architecture.net/) leveraging 
-[Druid and Hbase] (https://medium.com/engineers-optimizely/building-a-scalable-data-pipeline-bfe3f531eb38). 
-As business requirements evolve, this solution became more and more challenging.
+[Lambda architecture](http://lambda-architecture.net/) using 
+[Druid and Hbase](https://medium.com/engineers-optimizely/building-a-scalable-data-pipeline-bfe3f531eb38). 
+Since some session metrics were computed using Map-Reduce jobs, they 
+could be delayed up to hours after the events are received. As business requirements evolved, 
+this solution became more and [more challenging](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3) to scale. 
 
-The engineering team at Optimizely decided to move away from Druid and focus on 
-HBase as the store, and introduced stream processing to pre-aggregate and 
-deduplicate session events. In their solution, every session event is tagged 
-with an identifier for up to 30 minutes; upon receiving a session event, the 
-Samza job updates session metadata and aggregates counters for the session 
-that is stored in a local RocksDB state store. At the end of each one-minute 
-window, aggregated session metrics are ingested to HBase. With the new solution
 
--   The median query latency was reduced from 40+ ms to 5 ms
--   Session metrics are now available in realtime
--   HBase query response time is improved due to reduced write-rate
--   HBase storage requirement are drastically reduced
--   Lower development effort thanks to out-of-the-box Kafka integration
+The engineering team at Optimizely turned to stream processing to reduce latencies. 
+In their solution, each up-stream client associates a _sessionId_ with the events it generates. Upon receiving each event, the Samza job extracts various
+fields (e.g. ip address, location information, browser version, etc) and updates aggregated metrics
+for the session. At the end of a time-window, the merged metrics for that session are ingested to HBase. 
+
+With the new solution <br/>
+-   The median query latency was reduced from 40+ ms to 5 ms <br/>
+-   Session metrics are now available in real-time <br/>
+-   Write-rate to Hbase is reduced, since the metrics are pre-aggregated by Samza<br/>
+-   Storage requirements on Hbase are drastically reduced <br/>
+-   Lower development effort thanks to out-of-the-box Kafka integration <br/>
  
 Here is a testimonial from Optimizely
 
@@ -60,17 +63,16 @@ for analysis. Apache Samza has been a great asset to Optimizely's Event
 ingestion pipeline allowing us to perform large scale, real time stream 
 computing such as aggregations (e.g. session computations) and data enrichment 
 on a multiple billion events / day scale. The programming model, durability 
-and the close integration with Apache Kafka fit our needs perfectly” said 
-Vignesh Sukumar, Senior Engineering Manager at Optimizely”
+and the close integration with Apache Kafka fit our needs perfectly” says 
+Vignesh Sukumar, Senior Engineering Manager at Optimizely.
 
-In addition, stream processing is also applied to other use cases such as 
-data enrichment, event stream partitioning and metrics processing at Optimizely.
+In addition to this case-study, Apache Samza is also leveraged for other usecases such as 
+data-enrichment, re-partitioning of event streams and computing realtime metrics etc.
 
 Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*
 
 More information
 
--   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3)
-c9715fbc85f973907807cccc26c9d7d3ed983df
--   [https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820)
+-   [From batching to streaming at Optimizely - Part 1](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-1-aed2051dd7a3)
+-   [From batching to streaming at Optimizely - Part 2](https://medium.com/engineers-optimizely/from-batching-to-streaming-real-time-session-metrics-using-samza-part-2-b596350a7820)
     

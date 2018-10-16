@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -33,22 +33,23 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.storage.kv.RocksDbTableDescriptor;
+import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.kafka.KafkaInputDescriptor;
-import org.apache.samza.system.kafka.KafkaOutputDescriptor;
-import org.apache.samza.system.kafka.KafkaSystemDescriptor;
+import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.controlmessages.TestData;
-import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.table.PageViewToProfileJoinFunction;
 import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
-import static org.apache.samza.test.controlmessages.TestData.*;
+
+import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
 
@@ -66,7 +67,7 @@ public class StreamApplicationIntegrationTest {
 
     InMemoryInputDescriptor<TestTableData.Profile> profileStreamDesc = isd
         .getInputDescriptor("Profile", new NoOpSerde<TestTableData.Profile>())
-        .withBootstrap(true);
+        .shouldBootstrap();
 
     InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
         .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());

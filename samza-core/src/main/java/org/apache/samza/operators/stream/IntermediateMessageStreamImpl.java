@@ -18,7 +18,7 @@
  */
 package org.apache.samza.operators.stream;
 
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.spec.InputOperatorSpec;

@@ -23,16 +23,14 @@ title: Samza Meetups
 <div class="meetups" data-plugin="paginate" data-max-posts="2" data-previous=".paginate-previous--meetup" data-next=".paginate-next--meetup" data-pagination=".pagination--meetup">
     {% assign sorted = (site.meetups | sort: 'date') | reverse %}
     {% for meetup in sorted %}
-        {% if meetup.exclude_from_loop %}
+        {% if meetup.exclude_from_loop or meetup.date == site.time %}
             {% continue %}
         {% endif %}
     <div class="meetup" data-plugin="event" data-date="{{ meetup.date | date: '%-d %B %Y' }}" data-upcoming-class="meetup--upcoming">
         <i class="meetup-icon ion-md-calendar"></i>
         <div class="meetup-info">
             <div class="meetup-date-group">{{ meetup.display_date }}</div>
-
             {% for meet in meetup.meetups %}
-
             <div class="meet" data-plugin="event" data-date="{{ meet.date | date: '%-d %B %Y' }}" data-upcoming-class="meet--upcoming">
                 <div class="meet-name">{{ meet.name}}</div>
                 <div class="meet-smoosh-content">
@@ -97,7 +95,6 @@ title: Samza Meetups
                     </div>
                 </div>
             </div>
-
             {% endfor %}
         </div>
     </div>
