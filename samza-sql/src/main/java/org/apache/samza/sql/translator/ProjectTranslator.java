@@ -48,21 +48,27 @@ import org.slf4j.LoggerFactory;
 class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
+  private final int queryId;
+  ProjectTranslator(int queryId) {
+    this.queryId = queryId;
+  }
 
   private static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private transient Project project;
     private transient Expression expr;
     private transient TranslatorContext context;
 
+    private final int queryId;
     private final int projectId;
 
-    ProjectMapFunction(int projectId) {
+    ProjectMapFunction(int projectId, int queryId) {
       this.projectId = projectId;
+      this.queryId = queryId;
     }
 
     @Override
     public void init(Context context) {
-      this.context = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContext();
+      this.context = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.project = (Project) this.context.getRelNode(projectId);
       this.expr = this.context.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
     }
@@ -126,7 +132,7 @@ class ProjectTranslator {
 
     final int projectId = project.getId();
 
-    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId));
+    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId, queryId));
 
     context.registerMessageStream(project.getId(), outputStream);
     context.registerRelNode(project.getId(), project);
