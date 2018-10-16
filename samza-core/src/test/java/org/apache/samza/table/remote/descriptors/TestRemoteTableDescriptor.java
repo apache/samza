@@ -21,9 +21,11 @@ package org.apache.samza.table.remote.descriptors;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.MockContext;
+import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -48,7 +50,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -124,12 +125,15 @@ public class TestRemoteTableDescriptor {
   }
 
   private Context createMockContext() {
-    Context context = new MockContext();
+    Context context = mock(Context.class);
+
+    TaskContextImpl taskContext = mock(TaskContextImpl.class);
+    when(context.getTaskContext()).thenReturn(taskContext);
 
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
-    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(Matchers.anyString(), Matchers.anyString());
-    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(Matchers.anyString(), Matchers.anyString());
-    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    when(metricsRegistry.newTimer(Matchers.anyString(), Matchers.anyString())).thenReturn(mock(Timer.class));
+    when(metricsRegistry.newCounter(Matchers.anyString(), Matchers.anyString())).thenReturn(mock(Counter.class));
+    when(taskContext.getTaskMetricsRegistry()).thenReturn(metricsRegistry);
 
     TaskName taskName = new TaskName("MyTask");
     TaskModel taskModel = mock(TaskModel.class);
@@ -138,7 +142,15 @@ public class TestRemoteTableDescriptor {
 
     ContainerModel containerModel = mock(ContainerModel.class);
     when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
-    when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
+
+    ContainerContext containerContext = mock(ContainerContext.class);
+    when(containerContext.getContainerModel()).thenReturn(containerModel);
+    when(context.getContainerContext()).thenReturn(containerContext);
+
+    String containerId = "container-1";
+    JobModel jobModel = mock(JobModel.class);
+    when(taskContext.getJobModel()).thenReturn(jobModel);
+    when(jobModel.getContainers()).thenReturn(ImmutableMap.of(containerId, containerModel));
 
     return context;
   }
