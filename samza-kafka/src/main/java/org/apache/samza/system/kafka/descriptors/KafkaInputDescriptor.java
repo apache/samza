@@ -32,7 +32,7 @@ import org.apache.samza.serializers.Serde;
  * <p>
  * An instance of this descriptor may be obtained from an appropriately configured {@link KafkaSystemDescriptor}.
  * <p>
- * Stream properties configured using a descriptor override corresponding properties provided in configuration.
+ * Stream properties provided in configuration override corresponding properties configured using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream.
  */

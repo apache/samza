@@ -28,7 +28,7 @@ import org.apache.samza.serializers.Serde;
  * Otherwise, this {@link GenericSystemDescriptor} may be used to provide Samza-specific properties of the system.
  * Additional system specific properties may be provided using {@link #withSystemConfigs}
  * <p>
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * System properties provided in configuration override corresponding properties configured using a descriptor.
  */
 public final class GenericSystemDescriptor extends SystemDescriptor<GenericSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
