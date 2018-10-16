@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -69,7 +70,8 @@ import org.slf4j.LoggerFactory;
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
     originalConfig.forEach((k, v) -> {
-        if (generatedConfig.containsKey(k)) {
+        if (generatedConfig.containsKey(k) &&
+            !Objects.equals(generatedConfig.get(k), v)) {
           LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
               k, generatedConfig.get(k), v);
         }
