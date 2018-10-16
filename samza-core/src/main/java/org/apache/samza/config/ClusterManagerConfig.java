@@ -86,11 +86,21 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
 
   /**
-   * Determines whether a JMX server should be started on the job coordinator and container
+   * Determines whether a JMX server should be started on the job coordinator
+   * Default: true
+   *
+   * @deprecated use {@code JOB_JMX_ENABLED} instead
+   */
+  @Deprecated
+  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
+  @Deprecated
+  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
+
+  /**
+   * Determines whether a JMX server should be started on job coordinator and container
    * Default: true
    */
-  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
+  public static final String JOB_JMX_ENABLED = "job.jmx.enabled";
 
   /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
@@ -189,12 +199,23 @@ public class ClusterManagerConfig extends MapConfig {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
   }
 
-  public boolean getJmxEnabled() {
+  public boolean getJmxEnabledOnJobCoordinator() {
     if (containsKey(CLUSTER_MANAGER_JMX_ENABLED)) {
+      log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(CLUSTER_MANAGER_JMX_ENABLED);
     } else if (containsKey(AM_JMX_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, CLUSTER_MANAGER_JMX_ENABLED);
+      log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(AM_JMX_ENABLED);
+    } else if (containsKey(JOB_JMX_ENABLED)) {
+      return getBoolean(JOB_JMX_ENABLED);
+    } else {
+      return true;
+    }
+  }
+
+  public boolean getJmxEnabled() {
+    if (containsKey(JOB_JMX_ENABLED)) {
+      return getBoolean(JOB_JMX_ENABLED);
     } else {
       return true;
     }
