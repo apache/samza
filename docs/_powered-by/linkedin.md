@@ -1,6 +1,11 @@
 ---
 name: LinkedIn
 domain: linkedin.com
+<<<<<<< Updated upstream
+priority: 0
+=======
+priority: D
+>>>>>>> Stashed changes
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,4 +24,4 @@ domain: linkedin.com
    limitations under the License.
 -->
 
-Samza was originally developed at <a class="external-link" href="https://linkedin.com/" rel="nofollow">LinkedIn</a>. It's currently used to process tracking data, service log data, and for data ingestion pipelines for realtime services.
+Samza was originally developed at <a class="external-link" href="https://linkedin.com/" rel="nofollow">LinkedIn</a>. It's currently used to process tracking data, logs from various services, and for streaming data pipelines.

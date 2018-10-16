@@ -23,8 +23,9 @@ exclude_from_loop: true
 A list of companies powered by Samza
 
 <ul class="powered-by">
+{% assign sorted = site.powered-by | sort: 'priority' %}
 
-  {% for company in site.powered-by %}
+  {% for company in sorted %} 
     {% if company.exclude_from_loop %}
         {% continue %}
     {% endif %}

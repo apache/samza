@@ -40,7 +40,7 @@ import org.apache.samza.table.Table;
  * A stream of messages that can be transformed into another {@link MessageStream}.
  * <p>
  * A {@link MessageStream} corresponding to an input stream can be obtained using
- * {@link org.apache.samza.application.StreamApplicationDescriptor#getInputStream}.
+ * {@link org.apache.samza.application.descriptors.StreamApplicationDescriptor#getInputStream}.
  *
  * @param <M> the type of messages in this stream
  */
@@ -214,7 +214,8 @@ public interface MessageStream<M> {
 
   /**
    * Re-partitions this {@link MessageStream} using keys from the {@code keyExtractor} by creating a new
-   * intermediate stream on the default system provided via {@link org.apache.samza.application.StreamApplicationDescriptor#withDefaultSystem}.
+   * intermediate stream on the default system provided via
+   * {@link org.apache.samza.application.descriptors.StreamApplicationDescriptor#withDefaultSystem}.
    * This intermediate stream is both an output and input to the job.
    * <p>
    * Uses the provided {@link KVSerde} for serialization of keys and values.

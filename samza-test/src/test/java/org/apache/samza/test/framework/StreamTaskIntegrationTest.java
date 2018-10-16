@@ -27,17 +27,67 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.context.Context;
+import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.operators.KV;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
+import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
+import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
+import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.task.InitableTask;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
+import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
+import org.apache.samza.test.table.TestTableData;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
+import static org.apache.samza.test.table.TestTableData.PageView;
+import static org.apache.samza.test.table.TestTableData.Profile;
+
 
 public class StreamTaskIntegrationTest {
+
+  @Test
+  public void testStatefulTaskWithLocalTable() {
+    List<PageView> pageViews = Arrays.asList(TestTableData.generatePageViews(10));
+    List<Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
+
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+
+    InMemoryInputDescriptor<TestTableData.PageView> pageViewStreamDesc = isd
+        .getInputDescriptor("PageView", new NoOpSerde<TestTableData.PageView>());
+
+    InMemoryInputDescriptor<TestTableData.Profile> profileStreamDesc = isd
+        .getInputDescriptor("Profile", new NoOpSerde<TestTableData.Profile>())
+        .shouldBootstrap();
+
+    InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
+        .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+
+    TestRunner
+        .of(new JoinTaskApplication())
+        .addInputStream(pageViewStreamDesc, pageViews)
+        .addInputStream(profileStreamDesc, profiles)
+        .addOutputStream(outputStreamDesc, 1)
+        .run(Duration.ofSeconds(2));
+
+    Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
+  }
 
   @Test
   public void testSyncTaskWithSinglePartition() throws Exception {
@@ -155,6 +205,49 @@ public class StreamTaskIntegrationTest {
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
   }
 
+  static public class JoinTaskApplication implements TaskApplication {
+    @Override
+    public void describe(TaskApplicationDescriptor appDesc) {
+      appDesc.setTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
+      appDesc.addTable(new InMemoryTableDescriptor("profile-view-store",
+          KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+      KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+      KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+      appDesc.addInputStream(profileISD);
+      KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      appDesc.addInputStream(pageViewISD);
+      KafkaOutputDescriptor<EnrichedPageView> enrichedPageViewOSD =
+          ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+      appDesc.addOutputStream(enrichedPageViewOSD);
+    }
+  }
+
+  static public class StatefulStreamTask implements StreamTask, InitableTask {
+    private ReadWriteTable<Integer, Profile> profileViewTable;
+
+    @Override
+    public void init(Context context) throws Exception {
+      profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTaskContext().getTable("profile-view-store");
+    }
+
+    @Override
+    public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
+      if (message.getMessage() instanceof Profile) {
+        Profile profile = (Profile) message.getMessage();
+        profileViewTable.put(profile.getMemberId(), profile);
+      } else if (message.getMessage() instanceof PageView) {
+        PageView pageView = (PageView) message.getMessage();
+        Profile profile = profileViewTable.get(pageView.getMemberId());
+        if (profile != null) {
+          System.out.println("Joining Page View ArticleView by " + profile.getMemberId());
+          collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "EnrichedPageView"), null, null,
+              new TestTableData.EnrichedPageView(pageView.getPageKey(), pageView.getMemberId(), profile.getCompany())));
+        }
+      }
+    }
+
+  }
+
   public void genData(Map<Integer, List<KV>> inputPartitionData, Map<Integer, List<Integer>> expectedOutputPartitionData) {
     List<Integer> partition = Arrays.asList(1, 2, 3, 4, 5);
     List<Integer> outputPartition = partition.stream().map(x -> x * 10).collect(Collectors.toList());
@@ -167,4 +260,5 @@ public class StreamTaskIntegrationTest {
       expectedOutputPartitionData.put(i, new ArrayList<Integer>(outputPartition));
     }
   }
+
 }

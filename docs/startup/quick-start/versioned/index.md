@@ -54,7 +54,7 @@ Now let’s write some code! The first step is to create your own Samza applicat
 package samzaapp;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 
 public class WordCount implements StreamApplication {
  @Override

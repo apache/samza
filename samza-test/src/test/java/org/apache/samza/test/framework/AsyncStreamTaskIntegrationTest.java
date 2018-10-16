@@ -26,11 +26,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.Assert;
 import org.junit.Test;
@@ -145,7 +146,7 @@ public class AsyncStreamTaskIntegrationTest {
   /**
    * Job should fail because it times out too soon
    */
-  @Test(expected = AssertionError.class)
+  @Test(expected = SamzaException.class)
   public void testSamzaJobTimeoutFailureForAsyncTask() {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("async-test");
 

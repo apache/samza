@@ -5,6 +5,7 @@ title: Totally awesome use-case of samza by FortScale # title of case study page
 study_domain: fortscale.com # just the domain, not the protocol
 priority: 6
 menu_title: FortScale # what shows up in the menu
+exclude_from_loop: true
 excerpt_separator: <!--more-->
 ---
 <!--

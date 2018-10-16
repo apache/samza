@@ -19,7 +19,8 @@
 
 package org.apache.samza.job.local
 
-import org.apache.samza.application.{ApplicationDescriptorUtil, ApplicationUtil}
+import org.apache.samza.application.ApplicationUtil
+import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, TaskConfigJava}
