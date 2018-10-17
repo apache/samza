@@ -185,8 +185,7 @@ object KafkaSystemAdminUtilsScala extends Logging {
 
   def deleteMessages(adminClient : AdminClient, offsets: util.Map[SystemStreamPartition, String]) = {
     val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
-      (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId),
-        offset.toLong + 1)
+      (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
     }.toMap
     adminClient.deleteRecordsBefore(nextOffsets);
   }

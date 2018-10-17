@@ -115,7 +115,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   private final Map<String, Properties> intermediateStreamProperties;
 
   // used for intermediate streams
-  private final Boolean deleteCommittedMessages;
+  private final boolean deleteCommittedMessages;
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
@@ -174,6 +174,14 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     if (stopped.get()) {
       throw new IllegalStateException("SamzaKafkaAdmin.start() is called after stop()");
     }
+    if (adminClient != null) {
+      try {
+        adminClient.close();
+      } catch (Exception e) {
+        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
+      }
+    }
+
   }
 
   @Override
@@ -612,9 +620,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   @Override
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
     if (deleteCommittedMessages) {
-      synchronized (deleteCommittedMessages) {
-        if (adminClient == null)
-          adminClient = AdminClient.create(createAdminClientProperties());
+      if (adminClient == null) {
+        adminClient = AdminClient.create(createAdminClientProperties());
       }
       KafkaSystemAdminUtilsScala.deleteMessages(adminClient, offsets);
       deleteMessageCalled = true;
@@ -625,6 +632,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
     // included SSL settings if needed
+
     props.putAll(config.subset(String.format("systems.%s.consumer.", systemName), true));
 
     //validate brokerList
