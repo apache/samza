@@ -60,14 +60,13 @@ public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemD
    * Gets an {@link EventHubsInputDescriptor} for the input stream of this system. The stream has the provided
    * namespace and entity name of the associated Event Hubs entity and the provided stream level value serde.
    * <p>
-   * The message in the stream will be a key-value pair. The type of message key in the stream is of type {@link String}.
-   * The type of message value in the stream is the type of the provided stream level serde.
+   * The message in the stream will have {@link String} keys and {@code ValueType} values.
    *
    * @param streamId id of the input stream
    * @param namespace namespace of the Event Hubs entity to consume from
    * @param entityPath entity path of the Event Hubs entity to consume from
-   * @param valueSerde stream level serde for the values of the messages from the input stream
-   * @param <ValueType> type of the value of messages in this stream
+   * @param valueSerde stream level serde for the values in the messages in the input stream
+   * @param <ValueType> type of the value in the messages in this stream
    * @return an {@link EventHubsInputDescriptor} for the Event Hubs input stream
    */
   public <ValueType> EventHubsInputDescriptor<KV<String, ValueType>> getInputDescriptor(String streamId, String namespace,
@@ -80,14 +79,13 @@ public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemD
    * Gets an {@link EventHubsOutputDescriptor} for the output stream of this system. The stream has the provided
    * namespace and entity name of the associated Event Hubs entity and the provided stream level value serde.
    * <p>
-   * The message in the stream will be a key-value pair. The type of message key in the stream is of type {@link String}.
-   * The type of messages values in the stream is the type of the provided stream level serde.
+   * The message in the stream will have {@link String} keys and {@code ValueType} values.
    *
    * @param streamId id of the output stream
    * @param namespace namespace of the Event Hubs entity to produce to
    * @param entityPath entity path of the Event Hubs entity to produce to
-   * @param valueSerde stream level serde for the values of the messages to the output stream
-   * @param <ValueType> type of the value of messages in this stream
+   * @param valueSerde stream level serde for the values in the messages to the output stream
+   * @param <ValueType> type of the value in the messages in this stream
    * @return an {@link EventHubsOutputDescriptor} for the Event Hubs output stream
    */
   public <ValueType> EventHubsOutputDescriptor<KV<String, ValueType>> getOutputDescriptor(String streamId, String namespace,

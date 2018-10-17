@@ -52,7 +52,7 @@ public class EventHubsOutputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param namespace namespace for the Event Hubs entity to produce to, not null
    * @param entityPath entity path for the Event Hubs entity to produce to, not null
-   * @param valueSerde serde the values of the messages in the stream
+   * @param valueSerde serde the values in the messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
   EventHubsOutputDescriptor(String streamId, String namespace, String entityPath, Serde valueSerde,
