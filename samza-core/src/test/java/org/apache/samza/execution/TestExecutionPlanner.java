@@ -32,26 +32,26 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationDescriptor;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
-import org.apache.samza.application.TaskApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.operators.BaseTableDescriptor;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.system.descriptors.GenericOutputDescriptor;
+import org.apache.samza.system.descriptors.InputDescriptor;
+import org.apache.samza.system.descriptors.OutputDescriptor;
+import org.apache.samza.system.descriptors.GenericSystemDescriptor;
+import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
-import org.apache.samza.operators.TableDescriptor;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.GenericOutputDescriptor;
-import org.apache.samza.operators.descriptors.GenericSystemDescriptor;
-import org.apache.samza.operators.descriptors.base.stream.InputDescriptor;
-import org.apache.samza.operators.descriptors.base.stream.OutputDescriptor;
-import org.apache.samza.operators.descriptors.base.system.SystemDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.Windows;
@@ -672,9 +672,8 @@ public class TestExecutionPlanner {
   }
 
   @Test
-  public void testTriggerIntervalWithInvalidWindowMs() {
+  public void testTriggerIntervalWithNoWindowMs() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(TaskConfig.WINDOW_MS(), "-1");
     map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
@@ -765,7 +764,7 @@ public class TestExecutionPlanner {
     when(taskAppDesc.getOutputStreamIds()).thenReturn(outputDescriptors.keySet());
     when(taskAppDesc.getTableDescriptors()).thenReturn(Collections.emptySet());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(systemDescriptors);
-    when(taskAppDesc.getBroadcastStreams()).thenReturn(broadcastStreams);
+    when(taskAppDesc.getIntermediateBroadcastStreamIds()).thenReturn(broadcastStreams);
     doReturn(MockTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();
@@ -796,7 +795,7 @@ public class TestExecutionPlanner {
     when(taskAppDesc.getOutputDescriptors()).thenReturn(new HashMap<>());
     when(taskAppDesc.getTableDescriptors()).thenReturn(new HashSet<>());
     when(taskAppDesc.getSystemDescriptors()).thenReturn(new HashSet<>());
-    when(taskAppDesc.getBroadcastStreams()).thenReturn(new HashSet<>());
+    when(taskAppDesc.getIntermediateBroadcastStreamIds()).thenReturn(new HashSet<>());
     doReturn(LegacyTaskApplication.class).when(taskAppDesc).getAppClass();
 
     Map<String, String> systemStreamConfigs = new HashMap<>();

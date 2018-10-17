@@ -25,7 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
@@ -43,7 +43,7 @@ public class OperatorSpecGraph implements Serializable {
   // We use a LHM for deterministic order in initializing and closing operators.
   private final Map<String, InputOperatorSpec> inputOperators;
   private final Map<String, OutputStreamImpl> outputStreams;
-  private final Set<String> broadcastStreams;
+  private final Set<String> intermediateBroadcastStreamIds;
   private final Set<OperatorSpec> allOpSpecs;
   private final boolean hasWindowOrJoins;
 
@@ -54,7 +54,7 @@ public class OperatorSpecGraph implements Serializable {
   public OperatorSpecGraph(StreamApplicationDescriptorImpl streamAppDesc) {
     this.inputOperators = streamAppDesc.getInputOperators();
     this.outputStreams = streamAppDesc.getOutputStreams();
-    this.broadcastStreams = streamAppDesc.getBroadcastStreams();
+    this.intermediateBroadcastStreamIds = streamAppDesc.getIntermediateBroadcastStreamIds();
     this.allOpSpecs = Collections.unmodifiableSet(this.findAllOperatorSpecs());
     this.hasWindowOrJoins = checkWindowOrJoins();
     this.serializedOpSpecGraph = opSpecGraphSerde.toBytes(this);
@@ -68,8 +68,8 @@ public class OperatorSpecGraph implements Serializable {
     return outputStreams;
   }
 
-  public Set<String> getBroadcastStreams() {
-    return broadcastStreams;
+  public Set<String> getIntermediateBroadcastStreamIds() {
+    return intermediateBroadcastStreamIds;
   }
 
   /**

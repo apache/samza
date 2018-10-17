@@ -24,7 +24,7 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 
@@ -32,8 +32,8 @@ import static org.junit.Assert.assertThat;
 
 
 /**
- * Assertion utils on the content of a stream described by
- * {@link org.apache.samza.operators.descriptors.base.stream.StreamDescriptor}.
+ * Assertion utils on the content of a stream described by a
+ * {@link org.apache.samza.system.descriptors.StreamDescriptor}
  */
 public class StreamAssert {
   /**

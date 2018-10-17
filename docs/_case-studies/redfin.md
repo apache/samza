@@ -35,34 +35,34 @@ emails, scheduled digests and push notifications. Thousands of emails are delive
 to customers every minute at peak. 
 
 The notification system used to be a monolithic system, which served the company 
-well. However, as business grew and requirements evolved, it became harder and 
+well. However, as the business grew and requirements evolved, it became harder and 
 harder to maintain and scale. 
 
 ![Samza pipeline at Redfin](/img/case-studies/redfin.svg)
 
-The engineering team at Redfin decided to replace 
-the existing system with Samza primarily for Samza’s performance, scalability, 
-support for stateful processing and Kafka-integration. A multi-stage stream 
-processing pipeline was developed. At the Identify stage, external events 
-such as new Listings are identified as candidates for new notification;
-then potential recipients of notifications are determined by analyzing data in 
-events and customer profiles, results are grouped by customer at the end of 
-each time window at the Match Stage; once recipients and notification outlines are 
-identified, the Organize stage retrieves adjunct data necessary to appear in each 
-notification from various data sources by joining them with notification and 
-customer profiles, results are stored/merged in local RocksDB state store; finally 
-notifications are formatted at the Format stage and sent to notification
- delivery system at the Notify stage. 
+The engineering team at Redfin decided to replace the existing system with Samza 
+primarily for Samza’s performance, scalability,  support for stateful processing and 
+Kafka-integration. A multi-stage stream 
+processing pipeline was developed. At the _Identify_ stage, external events 
+such as new listings are identified as candidates for sending a new notification;
+Then potential recipients of notifications are determined by analyzing data in 
+the events and customer profiles. The results are grouped by customer at the end of 
+each time window during the _Match_ Stage. Once notifications and recipients are 
+identified, the _Organize_ stage further joins them with additional data-sources (eg: 
+notification settings, customer profiles) leveraging Samza's support for local state. 
+It makes heavy use of RocksDB to store and merge individual notifications before sending
+them to customers. Finally, the notifications are formatted at the _Format_ stage and 
+sent to the delivery system at the _Notify_ stage.
 
-With the new notification system
+With the new notification system based on Apache Samza, Redfin observed that
 
--   The system is more performant and horizontally scalable
 -   It is now easier to add support for new use cases
--   Reduced pressure on other system due to the use of local RocksDB state store
--   Processing stages can be scaled individually
+-   The new system is more performant and horizontally scalable
+-   Reduced pressure on downstream services due to the use of local RocksDB state store
+-   Processing stages can be scaled individually since they are isolated
 
-Other engineering teams at Redfin are also using Samza for business metrics 
-calculation, document processing, event scheduling.
+In addition to the notifications platform, other engineering teams at Redfin also use Samza for 
+calculating business metrics, document processing, event scheduling etc.,
 
 Key Samza Features: *Stateful processing*, *Windowing*, *Kafka-integration*
 

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.task.TaskFactoryUtil;
 
 /**
