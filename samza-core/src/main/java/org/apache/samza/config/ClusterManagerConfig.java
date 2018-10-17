@@ -96,7 +96,7 @@ public class ClusterManagerConfig extends MapConfig {
    * Determines whether a JMX server should be started on JobCoordinator and SamzaContainer
    * Default: true
    */
-  public static final String JOB_JMX_ENABLED = "job.jmx.enabled";
+  private static final String JOB_JMX_ENABLED = "job.jmx.enabled";
 
   /**
    * Determines whether a JMX server should be started on the job coordinator
@@ -105,7 +105,7 @@ public class ClusterManagerConfig extends MapConfig {
    * @deprecated use {@code JOB_JMX_ENABLED} instead
    */
   private static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
+  private static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
   public ClusterManagerConfig(Config config) {
       super(config);
