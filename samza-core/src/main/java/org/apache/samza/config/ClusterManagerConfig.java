@@ -104,7 +104,7 @@ public class ClusterManagerConfig extends MapConfig {
    *
    * @deprecated use {@code JOB_JMX_ENABLED} instead
    */
-  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
+  private static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
   public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
   public ClusterManagerConfig(Config config) {
