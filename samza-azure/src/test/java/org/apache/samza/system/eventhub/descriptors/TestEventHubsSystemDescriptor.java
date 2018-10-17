@@ -47,14 +47,10 @@ public class TestEventHubsSystemDescriptor {
         .withRuntimeInfoTimeout(60000)
         .withSendKeys(false);
 
-    systemDescriptor.getInputDescriptor(streamId1, "entity-namespace1", "entity1", KVSerde.of(new StringSerde(),
-        new IntegerSerde()));
-    systemDescriptor.getInputDescriptor(streamId2, "entity-namespace2", "entity2", KVSerde.of(new StringSerde(),
-            new IntegerSerde()));
-    systemDescriptor.getOutputDescriptor(streamId3, "entity-namespace3", "entity3", KVSerde.of(new StringSerde(),
-            new IntegerSerde()));
-    systemDescriptor.getOutputDescriptor(streamId4, "entity-namespace4", "entity4", KVSerde.of(new StringSerde(),
-            new IntegerSerde()));
+    systemDescriptor.getInputDescriptor(streamId1, "entity-namespace1", "entity1", new StringSerde());
+    systemDescriptor.getInputDescriptor(streamId2, "entity-namespace2", "entity2", new StringSerde());
+    systemDescriptor.getOutputDescriptor(streamId3, "entity-namespace3", "entity3", new StringSerde());
+    systemDescriptor.getOutputDescriptor(streamId4, "entity-namespace4", "entity4", new StringSerde());
 
     Map<String, String> generatedConfigs = systemDescriptor.toConfig();
     assertEquals("org.apache.samza.system.eventhub.EventHubSystemFactory", generatedConfigs.get(String.format("systems.%s.samza.factory", systemName)));
@@ -96,14 +92,10 @@ public class TestEventHubsSystemDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    systemDescriptor.getInputDescriptor(streamId1, "entity-namespace1", "entity1", KVSerde.of(new StringSerde(),
-        new IntegerSerde()));
-    systemDescriptor.getInputDescriptor(streamId2, "entity-namespace2", "entity2", KVSerde.of(new StringSerde(),
-        new IntegerSerde()));
-    systemDescriptor.getOutputDescriptor(streamId3, "entity-namespace3", "entity3", KVSerde.of(new StringSerde(),
-        new IntegerSerde()));
-    systemDescriptor.getOutputDescriptor(streamId4, "entity-namespace4", "entity4", KVSerde.of(new StringSerde(),
-        new IntegerSerde()));
+    systemDescriptor.getInputDescriptor(streamId1, "entity-namespace1", "entity1", new StringSerde());
+    systemDescriptor.getInputDescriptor(streamId2, "entity-namespace2", "entity2", new StringSerde());
+    systemDescriptor.getOutputDescriptor(streamId3, "entity-namespace3", "entity3", new StringSerde());
+    systemDescriptor.getOutputDescriptor(streamId4, "entity-namespace4", "entity4", new StringSerde());
 
     Map<String, String> generatedConfigs = systemDescriptor.toConfig();
     assertEquals("org.apache.samza.system.eventhub.EventHubSystemFactory", generatedConfigs.get(String.format("systems.%s.samza.factory", systemName)));
