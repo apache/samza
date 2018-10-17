@@ -97,7 +97,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   private final Map<String, Properties> intermediateStreamProperties;
 
   // used for intermediate streams
-  private final boolean deleteCommittedMessages;
+  protected final boolean deleteCommittedMessages;
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
