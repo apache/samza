@@ -26,12 +26,10 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
-import org.apache.avro.Schema;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.samza.SamzaException;
@@ -51,7 +49,6 @@ import org.apache.samza.sql.client.interfaces.QueryResult;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.apache.samza.sql.client.interfaces.SqlFunction;
 import org.apache.samza.sql.client.interfaces.SqlSchema;
-import org.apache.samza.sql.client.interfaces.SqlSchemaBuilder;
 import org.apache.samza.sql.client.util.RandomAccessQueue;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
@@ -78,8 +75,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.base.Joiner;
 import scala.collection.JavaConversions;
-
-import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
 public class SamzaExecutor implements SqlExecutor {
@@ -117,7 +112,7 @@ public class SamzaExecutor implements SqlExecutor {
     @Override
     public List<String> listTables(ExecutionContext context) {
         /**
-         * TODO: currently the Shell can only talk to Kafka system, but we should use a general way
+         * TODO: currently Shell can only talk to Kafka system, but we should use a general way
          *       to connect to different systems.
          */
         String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS,
@@ -132,6 +127,9 @@ public class SamzaExecutor implements SqlExecutor {
 
     @Override
     public SqlSchema getTableSchema(ExecutionContext context, String tableName) {
+        /**
+         *  currently Shell works only for systems that has Avro schemas
+         */
         m_lastErrorMsg = "";
         int execId = m_execIdSeq.incrementAndGet();
         Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId, context);
@@ -141,12 +139,12 @@ public class SamzaExecutor implements SqlExecutor {
             SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(samzaSqlConfig);
             SqlIOConfig sourceInfo = ioResolver.fetchSourceInfo(tableName);
             RelSchemaProvider schemaProvider =
-                initializePlugin("RelSchemaProvider", sourceInfo.getRelSchemaProviderName(), samzaSqlConfig,
-                    CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
+                SamzaSqlApplicationConfig.initializePlugin("RelSchemaProvider", sourceInfo.getRelSchemaProviderName(),
+                    samzaSqlConfig, SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
                     (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
             AvroRelSchemaProvider avroSchemaProvider = (AvroRelSchemaProvider) schemaProvider;
             String schema = avroSchemaProvider.getSchema(sourceInfo.getSystemStream());
-            sqlSchema = convertAvroToSamzaSqlSchema(schema);
+            sqlSchema = AvroSqlSchemaConverter.convertAvroToSamzaSqlSchema(schema);
         } catch (SamzaException ex) {
             m_lastErrorMsg = ex.toString();
             LOG.error(m_lastErrorMsg);
@@ -336,79 +334,6 @@ public class SamzaExecutor implements SqlExecutor {
 
     static void saveOutputMessage(OutgoingMessageEnvelope messageEnvelope) {
         m_outputData.add(messageEnvelope);
-    }
-
-    private String getColumnTypeName(SamzaSqlFieldType fieldType) {
-        if (fieldType.isPrimitiveField()) {
-            return fieldType.getTypeName().toString();
-        } else if (fieldType.getTypeName() == SamzaSqlFieldType.TypeName.MAP) {
-            return String.format("MAP(%s)", getColumnTypeName(fieldType.getValueType()));
-        } else if (fieldType.getTypeName() == SamzaSqlFieldType.TypeName.ARRAY) {
-            return String.format("ARRAY(%s)", getColumnTypeName(fieldType.getElementType()));
-        } else {
-            SqlSchema schema = fieldType.getRowSchema();
-            List<String> fieldTypes = IntStream.range(0, schema.getFieldCount())
-                    .mapToObj(i -> schema.getFieldName(i) + " " + schema.getFieldTypeName(i))
-                    .collect(Collectors.toList());
-            String rowSchemaValue = Joiner.on(", ").join(fieldTypes);
-            return String.format("STRUCT(%s)", rowSchemaValue);
-        }
-    }
-
-    private SqlSchema convertAvroToSamzaSqlSchema(String schema) {
-        Schema avroSchema = Schema.parse(schema);
-        return getSchema(avroSchema.getFields());
-    }
-
-    private SqlSchema getSchema(List<Schema.Field> fields) {
-        SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
-        for (Schema.Field field : fields) {
-            schemaBuilder.addField(field.name(), getColumnTypeName(getFieldType(field.schema())));
-        }
-        return schemaBuilder.toSchema();
-    }
-
-    private SamzaSqlFieldType getFieldType(org.apache.avro.Schema schema) {
-        switch (schema.getType()) {
-            case ARRAY:
-                return SamzaSqlFieldType.createArrayFieldType(getFieldType(schema.getElementType()));
-            case BOOLEAN:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.BOOLEAN);
-            case DOUBLE:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.DOUBLE);
-            case FLOAT:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.FLOAT);
-            case ENUM:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.STRING);
-            case UNION:
-                // NOTE: We only support Union types when they are used for representing Nullable fields in Avro
-                List<org.apache.avro.Schema> types = schema.getTypes();
-                if (types.size() == 2) {
-                    if (types.get(0).getType() == org.apache.avro.Schema.Type.NULL) {
-                        return getFieldType(types.get(1));
-                    } else if ((types.get(1).getType() == org.apache.avro.Schema.Type.NULL)) {
-                        return getFieldType(types.get(0));
-                    }
-                }
-            case FIXED:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.STRING);
-            case STRING:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.STRING);
-            case BYTES:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.BYTES);
-            case INT:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.INT32);
-            case LONG:
-                return SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.INT64);
-            case RECORD:
-                return SamzaSqlFieldType.createRowFieldType(getSchema(schema.getFields()));
-            case MAP:
-                return SamzaSqlFieldType.createMapFieldType(getFieldType(schema.getValueType()));
-            default:
-                String msg = String.format("Field Type %s is not supported", schema.getType());
-                LOG.error(msg);
-                throw new SamzaException(msg);
-        }
     }
 
     private List<String> formatSqlStmts(List<String> statements) {
