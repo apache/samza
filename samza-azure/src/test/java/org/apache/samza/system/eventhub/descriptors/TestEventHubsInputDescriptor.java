@@ -20,6 +20,7 @@ package org.apache.samza.system.eventhub.descriptors;
 
 import java.util.Map;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
@@ -40,7 +41,7 @@ public class TestEventHubsInputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsInputDescriptor<String> inputDescriptor = systemDescriptor
+    EventHubsInputDescriptor<KV<String, String>> inputDescriptor = systemDescriptor
         .getInputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde())
         .withSasKeyName("secretkey")
         .withSasKey("sasToken-123")
@@ -62,7 +63,7 @@ public class TestEventHubsInputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsInputDescriptor<String> inputDescriptor = systemDescriptor
+    EventHubsInputDescriptor<KV<String, String>> inputDescriptor = systemDescriptor
         .getInputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
 
     Map<String, String> generatedConfigs = inputDescriptor.toConfig();
@@ -96,8 +97,8 @@ public class TestEventHubsInputDescriptor {
     String streamId = "input-stream";
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
-    EventHubsOutputDescriptor<String> outputDescriptor = systemDescriptor
-        .getOutputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
+    EventHubsInputDescriptor<KV<String, String>> outputDescriptor = systemDescriptor
+        .getInputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
     assertTrue(outputDescriptor.getSerde() instanceof KVSerde);
     assertTrue(((KVSerde) outputDescriptor.getSerde()).getKeySerde() instanceof NoOpSerde);
     assertTrue(((KVSerde) outputDescriptor.getSerde()).getValueSerde() instanceof StringSerde);
