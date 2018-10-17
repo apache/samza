@@ -35,13 +35,14 @@ package org.apache.samza.context;
  * manage their lifecycle.
  * <p>
  * Use {@link ApplicationTaskContext} to hold unique runtime state and objects for each task within a container.
+ * Use {@link ContainerContext} to access framework-provided context for a container.
  * <p>
  * Unlike its {@link ApplicationContainerContextFactory}, an implementation does not need to be
  * {@link java.io.Serializable}.
  */
 public interface ApplicationContainerContext {
   /**
-   * Starts this {@link ApplicationContainerContext} after all tasks in the container are initialized but before
+   * Starts this {@link ApplicationContainerContext} before any tasks in the container are initialized and before
    * processing begins.
    * <p>
    * If this throws an exception, the container will fail to start.
@@ -49,7 +50,7 @@ public interface ApplicationContainerContext {
   void start();
 
   /**
-   * Stops this {@link ApplicationContainerContext} after processing ends bue before any tasks in the container
+   * Stops this {@link ApplicationContainerContext} after processing ends and after all tasks in the container
    * are closed.
    * <p>
    * If this throws an exception, the container will fail to fully shut down.

@@ -85,7 +85,7 @@ public class SamzaSqlApplication implements StreamApplication {
        * container, so it does not need to be serialized. Therefore, the translatorContext is recreated in each container
        * and does not need to be serialized.
        */
-      appDesc.withApplicationTaskContextFactory((jobContext,
+      appDescriptor.withApplicationTaskContextFactory((jobContext,
           containerContext,
           taskContext,
           applicationContainerContext) ->

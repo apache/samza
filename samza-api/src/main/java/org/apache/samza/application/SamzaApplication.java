@@ -36,7 +36,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptor;
  * <p>
  * Per container context may be managed using {@link org.apache.samza.context.ApplicationContainerContext} and
  * set using {@link ApplicationDescriptor#withApplicationContainerContextFactory}. Similarly, per task context
- * may be managed using {@link org.apache.samza.context.ApplicationTaskContextFactory} and set using
+ * may be managed using {@link org.apache.samza.context.ApplicationTaskContext} and set using
  * {@link ApplicationDescriptor#withApplicationTaskContextFactory}.
  */
 @InterfaceStability.Evolving

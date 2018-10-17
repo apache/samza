@@ -42,7 +42,7 @@ public interface ApplicationTaskContextFactory<T extends ApplicationTaskContext>
    * @param containerContext framework-provided container context
    * @param taskContext framework-provided task context
    * @param applicationContainerContext application-defined container context
-   * @return a new instance of the application-defined {@link ApplicationContainerContext}
+   * @return a new instance of the application-defined {@link ApplicationTaskContext}
    */
   T create(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       ApplicationContainerContext applicationContainerContext);

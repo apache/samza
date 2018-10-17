@@ -32,6 +32,7 @@ package org.apache.samza.context;
  * {@link ApplicationTaskContext#start()} and {@link ApplicationTaskContext#stop()} methods to manage their lifecycle.
  * <p>
  * Use {@link ApplicationContainerContext} to hold runtime state and objects shared across all tasks within a container.
+ * Use {@link TaskContext} to access framework-provided context for a task.
  * <p>
  * Unlike its {@link ApplicationTaskContextFactory}, an implementation does not need to be
  * {@link java.io.Serializable}.
