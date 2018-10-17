@@ -624,6 +624,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   private Properties createAdminClientProperties() {
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
+    // included SSL settings if needed
     props.putAll(config.subset(String.format("systems.%s.consumer.", systemName), true));
 
     //validate brokerList
