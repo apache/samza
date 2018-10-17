@@ -93,7 +93,7 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CLUSTER_MANAGER_SLEEP_MS = 1000;
 
   /**
-   * Determines whether a JMX server should be started on job coordinator and container
+   * Determines whether a JMX server should be started on JobCoordinator and SamzaContainer
    * Default: true
    */
   public static final String JOB_JMX_ENABLED = "job.jmx.enabled";
