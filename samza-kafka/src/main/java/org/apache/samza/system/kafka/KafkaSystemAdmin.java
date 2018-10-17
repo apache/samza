@@ -16,6 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.system.kafka;
 
@@ -80,9 +98,9 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
 
   protected final String systemName;
   protected final Consumer metadataConsumer;
+  protected final Config  config;
 
-  // get ZkUtils object to connect to Kafka's ZK.
-  private final Supplier<ZkUtils> getZkConnection;
+  private AdminClient adminClient = null;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -96,51 +114,20 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   // Kafka properties for intermediate topics creation
   private final Map<String, Properties> intermediateStreamProperties;
 
-  // adminClient is required for deleteCommittedMessages operation
-  private final AdminClient adminClient;
-
   // used for intermediate streams
-  private final boolean deleteCommittedMessages;
+  private final Boolean deleteCommittedMessages;
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
   public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
     this.systemName = systemName;
+    this.config = config;
 
     if (metadataConsumer == null) {
       throw new SamzaException(
           "Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
     }
     this.metadataConsumer = metadataConsumer;
-
-    // populate brokerList from either consumer or producer configs
-    Properties props = new Properties();
-    String brokerList = config.get(
-        String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-    if (brokerList == null) {
-      brokerList = config.get(String.format(KafkaConfig.PRODUCER_CONFIGS_CONFIG_KEY(), systemName,
-          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-    }
-    if (brokerList == null) {
-      throw new SamzaException(
-          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
-    }
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-
-    // kafka.admin.AdminUtils requires zkConnect
-    // this will change after we move to the new org.apache..AdminClient
-    String zkConnect =
-        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
-    if (StringUtils.isBlank(zkConnect)) {
-      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
-    }
-    props.put(ZOOKEEPER_CONNECT, zkConnect);
-
-    adminClient = AdminClient.create(props);
-
-    getZkConnection = () -> {
-      return ZkUtils.apply(zkConnect, 6000, 6000, false);
-    };
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
@@ -196,11 +183,6 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
         metadataConsumer.close();
       } catch (Exception e) {
         LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
-      }
-      try {
-        adminClient.close();
-      } catch (Exception e) {
-        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
       }
     }
   }
@@ -546,14 +528,14 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), getZkConnection);
+    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), getZkConnection());
   }
 
   @Override
   public boolean clearStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection);
+    KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection());
 
     Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
     return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();
@@ -630,9 +612,55 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   @Override
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
     if (deleteCommittedMessages) {
+      synchronized (deleteCommittedMessages) {
+        if (adminClient == null)
+          adminClient = AdminClient.create(createAdminClientProperties());
+      }
       KafkaSystemAdminUtilsScala.deleteMessages(adminClient, offsets);
       deleteMessageCalled = true;
     }
+  }
+
+  private Properties createAdminClientProperties() {
+    // populate brokerList from either consumer or producer configs
+    Properties props = new Properties();
+    props.putAll(config.subset(String.format("systems.%s.consumer.", systemName), true));
+
+    //validate brokerList
+    String brokerList = config.get(
+        String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    if (brokerList == null) {
+      brokerList = config.get(String.format(KafkaConfig.PRODUCER_CONFIGS_CONFIG_KEY(), systemName,
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    }
+    if (brokerList == null) {
+      throw new SamzaException(
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
+    }
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
+
+
+    // kafka.admin.AdminUtils requires zkConnect
+    // this will change after we move to the new org.apache..AdminClient
+    String zkConnect =
+        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
+    if (StringUtils.isBlank(zkConnect)) {
+      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
+    }
+    props.put(ZOOKEEPER_CONNECT, zkConnect);
+
+    return props;
+  }
+
+  private Supplier<ZkUtils> getZkConnection() {
+    String zkConnect =
+        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
+    if (StringUtils.isBlank(zkConnect)) {
+      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
+    }
+    return () -> {
+      return ZkUtils.apply(zkConnect, 6000, 6000, false);
+    };
   }
 
   /**
