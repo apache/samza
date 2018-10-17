@@ -71,7 +71,8 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       info("Generating new configs for matching stream %s." format m)
 
       if (existingInputStreams.contains(m)) {
-        throw new SamzaException("Regex '%s' matches existing, statically defined input %s." format (regex, m))
+        warn("Regex '%s' matches existing, statically defined input %s. " +
+          "Please ensure regex-defined and statically-defined inputs are exclusive." format (regex, m))
       }
 
       newInputStreams.add(m)

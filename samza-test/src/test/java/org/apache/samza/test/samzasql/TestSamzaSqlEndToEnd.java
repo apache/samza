@@ -70,13 +70,13 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEnd() throws Exception {
+  public void testEndToEnd() {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
-    List<String> sqlStmts = Arrays.asList(sql1);
+    String sql = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
@@ -87,6 +87,69 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(outMessages));
+  }
+
+  @Test
+  public void testEndToEndMultiSqlStmts() {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
+    String sql2 = "Insert into testavro.SIMPLE3 select * from testavro.SIMPLE2";
+    List<String> sqlStmts = Arrays.asList(sql1, sql2);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages * 2, outMessages.size());
+    Set<Integer> outMessagesSet = new HashSet<>(outMessages);
+    Assert.assertEquals(numMessages, outMessagesSet.size());
+    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(new ArrayList<>(outMessagesSet)));
+  }
+
+  @Test
+  public void testEndToEndFanIn() {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE2";
+    String sql2 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql1, sql2);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages * 2, outMessages.size());
+    Set<Integer> outMessagesSet = new HashSet<>(outMessages);
+    Assert.assertEquals(numMessages, outMessagesSet.size());
+    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(new ArrayList<>(outMessagesSet)));
+  }
+
+  @Test
+  public void testEndToEndFanOut() {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 = "Insert into testavro.SIMPLE2 select * from testavro.SIMPLE1";
+    String sql2 = "Insert into testavro.SIMPLE3 select * from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql1, sql2);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages * 2, outMessages.size());
+    Set<Integer> outMessagesSet = new HashSet<>(outMessages);
+    Assert.assertEquals(numMessages, outMessagesSet.size());
+    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(new ArrayList<>(outMessagesSet)));
   }
 
   @Test

@@ -1,4 +1,4 @@
----
+.png
 layout: page
 title: Core concepts
 ---
@@ -43,7 +43,7 @@ _**Unified API:**_ Use a simple API to describe your application-logic in a mann
 
 *Massive scale:* Battle-tested on applications that use several terabytes of state and run on thousands of cores. It [powers](/powered-by/) multiple large companies including LinkedIn, Uber, TripAdvisor, Slack etc. 
 
-Next, we will introduce Samza’s terminology. You will realize that it is extremely easy to get started with [building](/quickstart/{{site.version}}) your first stream-processing application. 
+Next, we will introduce Samza’s terminology. You will realize that it is extremely easy to [get started](/quickstart/{{site.version}}) with building your first application. 
 
 
 ## Streams, Partitions

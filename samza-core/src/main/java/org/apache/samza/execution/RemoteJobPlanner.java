@@ -21,8 +21,8 @@ package org.apache.samza.execution;
 import java.util.List;
 import java.util.UUID;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationDescriptor;
-import org.apache.samza.application.ApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -87,7 +87,7 @@ public class RemoteJobPlanner extends JobPlanner {
   }
 
   private Config getConfigFromPrevRun() {
-    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap());
+    CoordinatorStreamSystemConsumer consumer = new CoordinatorStreamSystemConsumer(userConfig, new MetricsRegistryMap());
     consumer.register();
     consumer.start();
     consumer.bootstrap();

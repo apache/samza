@@ -19,19 +19,20 @@
 
 package org.apache.samza.sql.runner;
 
+import java.util.Map;
 import org.apache.samza.context.ApplicationTaskContext;
 import org.apache.samza.sql.translator.TranslatorContext;
 
 
 public class SamzaSqlApplicationContext implements ApplicationTaskContext {
-  private final TranslatorContext translatorContext;
+  private Map<Integer, TranslatorContext> queryIdAndTranslatorContextMap;
 
-  public SamzaSqlApplicationContext(TranslatorContext translatorContext) {
-    this.translatorContext = translatorContext;
+  public SamzaSqlApplicationContext(Map<Integer, TranslatorContext> queryAndTranslatorContextMap) {
+    this.queryIdAndTranslatorContextMap = queryAndTranslatorContextMap;
   }
 
-  public TranslatorContext getTranslatorContext() {
-    return translatorContext;
+  public Map<Integer, TranslatorContext> getTranslatorContexts() {
+    return queryIdAndTranslatorContextMap;
   }
 
   @Override

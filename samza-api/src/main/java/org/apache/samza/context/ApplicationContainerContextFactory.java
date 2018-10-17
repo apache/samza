@@ -29,7 +29,8 @@ import java.io.Serializable;
  * stage. At that stage, the framework-provided job-level and container-level contexts are available for creating the
  * {@link ApplicationContainerContext}.
  * <p>
- * This is {@link Serializable} because it is specified in {@link org.apache.samza.application.ApplicationDescriptor}.
+ * This is {@link Serializable} because it is specified in the
+ * {@link org.apache.samza.application.descriptors.ApplicationDescriptor}.
  * @param <T> concrete type of {@link ApplicationContainerContext} returned by this factory
  */
 public interface ApplicationContainerContextFactory<T extends ApplicationContainerContext> extends Serializable {

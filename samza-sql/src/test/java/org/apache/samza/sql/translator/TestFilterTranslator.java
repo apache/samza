@@ -21,10 +21,12 @@ package org.apache.samza.sql.translator;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -82,7 +84,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
     // Apply translate() method to verify that we are getting the correct filter operator constructed
-    FilterTranslator filterTranslator = new FilterTranslator();
+    FilterTranslator filterTranslator = new FilterTranslator(1);
     filterTranslator.translate(mockFilter, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerRelNode(2, mockFilter);
@@ -95,7 +97,9 @@ public class TestFilterTranslator extends TranslatorTestBase {
 
     // Verify that the describe() method will establish the context for the filter function
     Context context = mock(Context.class);
-    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
+    mockContexts.put(1, mockContext);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
     filterSpec.getTransformFn().init(context);
     FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "filterFn");
     assertNotNull(filterFn);

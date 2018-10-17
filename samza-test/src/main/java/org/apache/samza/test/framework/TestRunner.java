@@ -58,9 +58,9 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
-import org.apache.samza.test.framework.system.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.system.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.InMemorySystemDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,9 +105,9 @@ public class TestRunner {
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
-        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope).getAbsolutePath());
+        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-non-logged").getAbsolutePath());
     configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
-        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope).getAbsolutePath());
+        new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-logged").getAbsolutePath());
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
     addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
@@ -168,8 +168,7 @@ public class TestRunner {
   public TestRunner addConfig(String key, String value) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
-    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
-    configs.put(String.format("%s%s", configPrefix, key), value);
+    configs.put(key, value);
     return this;
   }
 
@@ -180,8 +179,7 @@ public class TestRunner {
    */
   public TestRunner addConfig(Map<String, String> config) {
     Preconditions.checkNotNull(config);
-    String configPrefix = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId());
-    config.forEach((key, value) -> this.configs.put(String.format("%s%s", configPrefix, key), value));
+    configs.putAll(config);
     return this;
   }
 
@@ -202,10 +200,6 @@ public class TestRunner {
     partitionData.put(0, messages);
     initializeInMemoryInputStream(descriptor, partitionData);
     return this;
-  }
-
-  private String getJobNameAndId() {
-    return String.format("%s-%s", JOB_NAME, configs.getOrDefault(JobConfig.JOB_ID(), "1"));
   }
 
   /**
@@ -348,12 +342,11 @@ public class TestRunner {
 
   /**
    * Creates an in memory stream with {@link InMemorySystemFactory} and feeds its partition with stream of messages
-   * @param partitonData key of the map represents partitionId and value represents
-   *                 messages in the partition
+   * @param partitionData key of the map represents partitionId and value represents messages in the partition
    * @param descriptor describes a stream to initialize with the in memory system
    */
   private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor<?> descriptor,
-      Map<Integer, Iterable<StreamMessageType>> partitonData) {
+      Map<Integer, Iterable<StreamMessageType>> partitionData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
     if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
@@ -366,13 +359,13 @@ public class TestRunner {
     imsd.withInMemoryScope(this.inMemoryScope);
     addConfig(descriptor.toConfig());
     addConfig(descriptor.getSystemDescriptor().toConfig());
-    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitonData.size());
+    StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitionData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
     factory.getAdmin(systemName, config).createStream(spec);
     SystemProducer producer = factory.getProducer(systemName, config, null);
     SystemStream sysStream = new SystemStream(systemName, streamName);
-    partitonData.forEach((partitionId, partition) -> {
+    partitionData.forEach((partitionId, partition) -> {
         partition.forEach(e -> {
             Object key = e instanceof KV ? ((KV) e).getKey() : null;
             Object value = e instanceof KV ? ((KV) e).getValue() : e;

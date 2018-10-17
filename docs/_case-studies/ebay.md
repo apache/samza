@@ -1,7 +1,7 @@
 ---
 layout: case-study
 hide_title: true # so we have control in case-study layout, but can still use page
-title: Low Latency Web Scale Fraud Prevention
+title: Low Latency Web-Scale Fraud Prevention
 study_domain: ebay.com
 menu_title: eBay
 excerpt_separator: <!--more-->
@@ -27,30 +27,43 @@ How Samza powers low-latency, web-scale fraud prevention at Ebay?
 
 <!--more-->
 
-eBay Enterprise is the world’s largest omni-channel commerce provider with 
-hundreds millions of units shipped annually, as commerce gets more 
-convenient and complex, so does fraud. The engineering team at eBay 
-Enterprise selected Samza as the platform to build the horizontally 
-scalable, realtime (sub-seconds) and fault tolerant abnormality detection 
-system. For example, the system computes and evaluates key metrics to 
-detect abnormal behaviors
+eBay Enterprise is the world’s largest omni-channel commerce provider. The engineering team at eBay chose Apache Samza to build _PreCog_, their 
+horizontally scalable anomaly detection system. 
 
--   Transaction velocity (#tnx/day) and change (#tnx/day vs #tnx/day over n days)
--   Amount velocity ($tnx/day) and change ($tnx/day vs $tnx/day over n days)
+_PreCog_ extensively leverages Samza's high-performance, fault-tolerant local storage. Its architecture had the following requirements, for which Samza perfectly fit the bill: <br/>
 
-A wide range of realtime and historical adjunct data from various sources 
-including people, places, interests, social and connections are ingested 
-through Kafka, and stored in local RocksDB state store with changelog 
-enabled for recovery. Incoming transaction data is aggregated using 
-windowing and then joined with adjunct data stores in multiple stages. 
-The system generates potential fraud cases for review real time. Finally, 
-the engineering team at eBay Enterprise has built an OpenTSDB and Grafana 
-based monitoring system using metrics collected through JMX.
+_Web-scale:_ Scale to a large number of users and large volume of data per-user. Additionally, should be possible to add more commodity hardware and scale horizontally. <br/>
+_Low-latency:_ Process customer interactions real-time by reacting in milliseconds instead of hours. <br/>
+_Fault-tolerance:_ Gracefully tolerate and handle hardware failures. <br/>
 
-Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*,
-*JMX-metrics*
+![diagram-large](/img/{{site.version}}/learn/documentation/case-study/ebay.png)
 
-More information
+The PreCog anomaly-detection system comprises of multiple tiers, with each tier consisting of multiple Samza jobs, which process the output of the previous tier.
 
--   [https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends](https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends)
+_Ingestion tier:_ In this tier, a variety of historical and realtime data from various
+sources including people, places etc., is ingested into Kafka.
+
+_Fanout tier:_ This tier consists of Samza jobs which process the Kafka events, fan them out and re-partition them based on various
+facets like email-address, ip-address, credit-card number, shipping address etc. 
+
+_Compute tier:_ The Samza jobs in this tier consume messages from the fan-out tier and compute various key metrics and derived features. Features used to evaluate fraud include: 
+
+1. Number of transactions per-customer per-day <br/>
+2. Change in the number of daily transactions over the past few days <br/>
+3. Amount value ($$) of each transaction per-day <br/>
+4. Change in the amount value of transactions over a sliding time-window <br/>
+5. Number of transactions per shipping-address
+
+_Assembly tier:_ This tier comprises of Samza jobs which join the output of the compute-tier with other additional data-sources
+and make a final determination on transaction-fraud. 
+
+For monitoring the _PreCog_ pipeline, EBay leverages Samza's [JMXMetricsReporter](/learn/documentation/{{site.version}}/operations/monitoring.html) and ingests the reported metrics into OpenTSDB/ HBase. The metrics are then 
+visualzed using [Grafana](https://grafana.com/).
+
+
+Key Samza features: *Stateful processing*, *Windowing*, *Kafka-integration*, *JMX-metrics*
+
+More information:
+
+-   [Slides: Low latency Fraud prevention with Apache Samza](https://www.slideshare.net/edibice/extremely-low-latency-web-scale-fraud-prevention-with-apache-samza-kafka-and-friends)
 -   [http://ebayenterprise.com/](http://ebayenterprise.com/)
