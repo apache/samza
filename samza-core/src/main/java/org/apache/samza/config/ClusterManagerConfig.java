@@ -199,10 +199,10 @@ public class ClusterManagerConfig extends MapConfig {
 
   public boolean getJmxEnabledOnJobCoordinator() {
     if (containsKey(CLUSTER_MANAGER_JMX_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", CLUSTER_MANAGER_JMX_ENABLED, JOB_JMX_ENABLED);
+      log.warn("Configuration {} is deprecated. Please use {}", CLUSTER_MANAGER_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(CLUSTER_MANAGER_JMX_ENABLED);
     } else if (containsKey(AM_JMX_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
+      log.warn("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(AM_JMX_ENABLED);
     } else if (containsKey(JOB_JMX_ENABLED)) {
       return getBoolean(JOB_JMX_ENABLED);
