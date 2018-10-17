@@ -82,7 +82,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   protected final Consumer metadataConsumer;
   protected final Config  config;
 
-  private AdminClient adminClient = null;
+  protected AdminClient adminClient = null;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -609,7 +609,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     }
   }
 
-  private Properties createAdminClientProperties() {
+  protected Properties createAdminClientProperties() {
     // populate brokerList from either consumer or producer configs
     Properties props = new Properties();
     // included SSL settings if needed
@@ -648,9 +648,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     if (StringUtils.isBlank(zkConnect)) {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
-    return () -> {
-      return ZkUtils.apply(zkConnect, 6000, 6000, false);
-    };
+    return () -> ZkUtils.apply(zkConnect, 6000, 6000, false);
   }
 
   /**

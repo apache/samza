@@ -112,7 +112,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @param <V> value type for the consumer
    * @param systemName system name for which we create the consumer
    * @param kafkaConsumerConfig config object for Kafka's KafkaConsumer
-   * @return KafkaConsumer newly create kafka consumer object
+   * @return KafkaConsumer newly created kafka consumer object
    */
   public static <K, V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName, HashMap<String, Object> kafkaConsumerConfig) {
 
