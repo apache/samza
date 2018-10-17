@@ -156,14 +156,6 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     if (stopped.get()) {
       throw new IllegalStateException("SamzaKafkaAdmin.start() is called after stop()");
     }
-    if (adminClient != null) {
-      try {
-        adminClient.close();
-      } catch (Exception e) {
-        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
-      }
-    }
-
   }
 
   @Override
@@ -173,6 +165,13 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
         metadataConsumer.close();
       } catch (Exception e) {
         LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
+      }
+    }
+    if (adminClient != null) {
+      try {
+        adminClient.close();
+      } catch (Exception e) {
+        LOG.warn("adminClient.close for system " + systemName + " failed with exception.", e);
       }
     }
   }
