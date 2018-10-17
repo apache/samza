@@ -34,9 +34,12 @@ import org.apache.samza.system.kafka.KafkaSystemFactory;
 
 
 /**
- * A descriptor for a Kafka system.
+ * A {@link KafkaSystemDescriptor} can be used for specifying Samza and Kafka-specific properties of a Kafka
+ * input/output system. It can also be used for obtaining {@link KafkaInputDescriptor}s and
+ * {@link KafkaOutputDescriptor}s, which can be used for specifying Samza and system-specific properties of
+ * Kafka input/output streams.
  * <p>
- * System properties provided in configuration override corresponding properties configured using a descriptor.
+ * System properties provided in configuration override corresponding properties specified using a descriptor.
  */
 @SuppressWarnings("unchecked")
 public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescriptor>

@@ -47,10 +47,10 @@ public class SamzaSqlApplication implements StreamApplication {
   private AtomicInteger queryId = new AtomicInteger(0);
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     try {
       // TODO: Introduce an API to return a dsl string containing one or more sql statements.
-      List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(appDesc.getConfig());
+      List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(appDescriptor.getConfig());
 
       Map<Integer, TranslatorContext> translatorContextMap = new HashMap<>();
 
@@ -59,21 +59,21 @@ public class SamzaSqlApplication implements StreamApplication {
       Set<String> outputSystemStreams = new HashSet<>();
 
       Collection<RelRoot> relRoots =
-          SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, appDesc.getConfig(),
+          SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, appDescriptor.getConfig(),
               inputSystemStreams, outputSystemStreams);
 
       // 2. Populate configs
       SamzaSqlApplicationConfig sqlConfig =
-          new SamzaSqlApplicationConfig(appDesc.getConfig(), inputSystemStreams, outputSystemStreams);
+          new SamzaSqlApplicationConfig(appDescriptor.getConfig(), inputSystemStreams, outputSystemStreams);
 
       // 3. Translate Calcite plan to Samza stream operators
-      QueryTranslator queryTranslator = new QueryTranslator(appDesc, sqlConfig);
+      QueryTranslator queryTranslator = new QueryTranslator(appDescriptor, sqlConfig);
       SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
       Map<String, SamzaRelConverter> converters = sqlConfig.getSamzaRelConverters();
       for (RelRoot relRoot : relRoots) {
         LOG.info("Translating relRoot {} to samza stream graph", relRoot);
         int qId = queryId.incrementAndGet();
-        TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext, converters);
+        TranslatorContext translatorContext = new TranslatorContext(appDescriptor, relRoot, executionContext, converters);
         translatorContextMap.put(qId, translatorContext);
         queryTranslator.translate(relRoot, translatorContext, qId);
       }

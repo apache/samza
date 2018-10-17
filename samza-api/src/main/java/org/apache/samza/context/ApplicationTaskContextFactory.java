@@ -22,27 +22,27 @@ import java.io.Serializable;
 
 
 /**
- * An application should implement this if it has a {@link ApplicationTaskContext} that is needed for
- * initialization. This will be used to create instance(s) of that {@link ApplicationTaskContext}.
+ * The factory for creating {@link ApplicationTaskContext} instances for a
+ * {@link org.apache.samza.application.SamzaApplication}during task initialization.
  * <p>
- * This will be called to create an instance of {@link ApplicationTaskContext} during the initialization stage of each
- * task. At that stage, the framework-provided job-level, container-level, and task-level contexts are available for
- * creating the {@link ApplicationTaskContext}. Also, the application-defined container-level context is available.
+ * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationTaskContextFactory} to
+ * provide the {@link ApplicationTaskContextFactory}. Use {@link Context#getApplicationTaskContext()} to
+ * get the created {@link ApplicationTaskContext} instance for the current task.
  * <p>
- * This is {@link Serializable} because it is specified in the
- * {@link org.apache.samza.application.descriptors.ApplicationDescriptor}.
- * @param <T> concrete type of {@link ApplicationTaskContext} returned by this factory
+ * The {@link ApplicationTaskContextFactory} implementation must be {@link Serializable}.
+ *
+ * @param <T> concrete type of {@link ApplicationTaskContext} created by this factory
  */
 public interface ApplicationTaskContextFactory<T extends ApplicationTaskContext> extends Serializable {
+
   /**
-   * Create an instance of the application-defined {@link ApplicationTaskContext}.
+   * Creates an instance of the application-defined {@link ApplicationTaskContext}.
    *
-   * @param jobContext framework-provided job context used for building {@link ApplicationTaskContext}
-   * @param containerContext framework-provided container context used for building {@link ApplicationTaskContext}
-   * @param taskContext framework-provided task context used for building {@link ApplicationTaskContext}
-   * @param applicationContainerContext application-provided container context used for building
-   * {@link ApplicationTaskContext}
-   * @return new instance of the application-defined {@link ApplicationContainerContext}
+   * @param jobContext framework-provided job context
+   * @param containerContext framework-provided container context
+   * @param taskContext framework-provided task context
+   * @param applicationContainerContext application-defined container context
+   * @return a new instance of the application-defined {@link ApplicationContainerContext}
    */
   T create(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       ApplicationContainerContext applicationContainerContext);

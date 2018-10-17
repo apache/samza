@@ -25,7 +25,7 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
  */
 public class MockStreamApplication implements StreamApplication {
   @Override
-  public void describe(StreamApplicationDescriptor appSpec) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
 
   }
 }

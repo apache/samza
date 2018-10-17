@@ -818,7 +818,7 @@ public class TestExecutionPlanner {
   public static class MockTaskApplication implements SamzaApplication {
 
     @Override
-    public void describe(ApplicationDescriptor appDesc) {
+    public void describe(ApplicationDescriptor appDescriptor) {
 
     }
   }

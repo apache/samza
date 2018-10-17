@@ -416,12 +416,12 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
 
   static public class MyTaskApplication implements TaskApplication {
     @Override
-    public void describe(TaskApplicationDescriptor appDesc) {
-      appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
-      appDesc.addTable(new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())));
+    public void describe(TaskApplicationDescriptor appDescriptor) {
+      appDescriptor.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+      appDescriptor.addTable(new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())));
       DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      appDesc.addInputStream(pageViewISD);
+      appDescriptor.addInputStream(pageViewISD);
     }
   }
 

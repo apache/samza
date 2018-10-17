@@ -18,34 +18,37 @@
  */
 package org.apache.samza.context;
 
+
 /**
- * An application should implement this to contain any runtime objects required by processing logic which cannot be
- * shared across tasks. A new instance of this will be created for each task.
+ * An {@link ApplicationTaskContext} instance can be used for holding per-task runtime state and objects and managing
+ * their lifecycle in an {@link org.apache.samza.application.SamzaApplication}
  * <p>
- * This needs to be created by an implementation of {@link ApplicationTaskContextFactory}. The factory should create
- * the runtime objects contained within this context.
+ * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationTaskContextFactory}
+ * to provide the {@link ApplicationTaskContextFactory}. Use {@link Context#getApplicationTaskContext()} to get
+ * the created {@link ApplicationTaskContext} instance for the current task.
  * <p>
- * This is related to {@link TaskContext} in that they are both associated with a task lifecycle. In order to access
- * this in application code, use {@link Context#getApplicationTaskContext()}. The {@link TaskContext} is accessible
- * through {@link Context#getTaskContext()}.
+ * A unique instance of {@link ApplicationTaskContext} is created for each task in a container.
+ * Use the {@link ApplicationTaskContextFactory} to create any runtime state and objects, and the
+ * {@link ApplicationTaskContext#start()} and {@link ApplicationTaskContext#stop()} methods to manage their lifecycle.
  * <p>
- * If it is possible to share an instance of this across tasks in a container, then use
- * {@link ApplicationContainerContext} instead.
+ * Use {@link ApplicationContainerContext} to hold runtime state and objects shared across all tasks within a container.
  * <p>
- * This class does not need to be {@link java.io.Serializable} and instances are not persisted across deployments.
+ * Unlike its {@link ApplicationTaskContextFactory}, an implementation does not need to be
+ * {@link java.io.Serializable}.
  */
 public interface ApplicationTaskContext {
+
   /**
-   * Lifecycle logic which will run after tasks are initialized but before processing begins.
+   * Starts this {@link ApplicationTaskContext} after its task is initialized but before any messages are processed.
    * <p>
-   * If this throws an exception, then the container will fail to start.
+   * If this throws an exception, the container will fail to start.
    */
   void start();
 
   /**
-   * Lifecycle logic which will run after processing ends but before tasks are closed.
+   * Stops this {@link ApplicationTaskContext} after processing ends but before its task is closed.
    * <p>
-   * If this throws an exception, then the container will fail to fully shut down.
+   * If this throws an exception, the container will fail to fully shut down.
    */
   void stop();
 }

@@ -50,7 +50,7 @@ public class BroadcastExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
     KafkaInputDescriptor<KV<String, PageViewEvent>> pageViewEvent =
@@ -62,10 +62,10 @@ public class BroadcastExample implements StreamApplication {
     KafkaOutputDescriptor<KV<String, PageViewEvent>> outStream3 =
         trackingSystem.getOutputDescriptor("outStream3", serde);
 
-    MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream(pageViewEvent);
-    inputStream.filter(m -> m.key.equals("key1")).sendTo(appDesc.getOutputStream(outStream1));
-    inputStream.filter(m -> m.key.equals("key2")).sendTo(appDesc.getOutputStream(outStream2));
-    inputStream.filter(m -> m.key.equals("key3")).sendTo(appDesc.getOutputStream(outStream3));
+    MessageStream<KV<String, PageViewEvent>> inputStream = appDescriptor.getInputStream(pageViewEvent);
+    inputStream.filter(m -> m.key.equals("key1")).sendTo(appDescriptor.getOutputStream(outStream1));
+    inputStream.filter(m -> m.key.equals("key2")).sendTo(appDescriptor.getOutputStream(outStream2));
+    inputStream.filter(m -> m.key.equals("key3")).sendTo(appDescriptor.getOutputStream(outStream3));
   }
 
   class PageViewEvent {

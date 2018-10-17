@@ -39,11 +39,11 @@ public class TestSchedulingApp implements StreamApplication {
   public static final String PAGE_VIEWS = "page-views";
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka");
     KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(PAGE_VIEWS, serde);
-    final MessageStream<PageView> pageViews = appDesc.getInputStream(isd);
+    final MessageStream<PageView> pageViews = appDescriptor.getInputStream(isd);
     final MessageStream<PageView> output = pageViews.flatMap(new FlatmapScheduledFn());
 
     MessageStreamAssert.that("Output from scheduling function should container all complete messages", output, serde)

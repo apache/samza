@@ -30,12 +30,14 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 
+
 /**
- * A descriptor for an Event Hubs output stream
+ * A {@link EventHubsOutputDescriptor} can be used for specifying Samza and EventHubs-specific properties of EventHubs
+ * output streams.
  * <p>
- * An instance of this descriptor may be obtained from and {@link EventHubsSystemDescriptor}
+ * Use {@link EventHubsSystemDescriptor#getOutputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream
  */
