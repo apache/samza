@@ -19,8 +19,6 @@
 package org.apache.samza.system.eventhub.descriptors;
 
 import java.util.Map;
-import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.PartitioningMethod;

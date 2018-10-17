@@ -40,7 +40,7 @@ public class TestEventHubsOutputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsOutputDescriptor<KV<String,String>> outputDescriptor = systemDescriptor
+    EventHubsOutputDescriptor<KV<String, String>> outputDescriptor = systemDescriptor
         .getOutputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde())
         .withSasKeyName("secretkey")
         .withSasKey("sasToken-123");
@@ -60,7 +60,7 @@ public class TestEventHubsOutputDescriptor {
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
 
-    EventHubsOutputDescriptor<KV<String,String>> outputDescriptor = systemDescriptor
+    EventHubsOutputDescriptor<KV<String, String>> outputDescriptor = systemDescriptor
         .getOutputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
 
     Map<String, String> generatedConfigs = outputDescriptor.toConfig();
@@ -94,7 +94,7 @@ public class TestEventHubsOutputDescriptor {
     String streamId = "output-stream";
 
     EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor(systemName);
-    EventHubsOutputDescriptor<KV<String,String>> outputDescriptor = systemDescriptor
+    EventHubsOutputDescriptor<KV<String, String>> outputDescriptor = systemDescriptor
         .getOutputDescriptor(streamId, "entity-namespace", "entity3", new StringSerde());
     assertTrue(outputDescriptor.getSerde() instanceof KVSerde);
     assertTrue(((KVSerde) outputDescriptor.getSerde()).getKeySerde() instanceof NoOpSerde);
