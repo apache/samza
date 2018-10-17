@@ -19,11 +19,12 @@
 
 package org.apache.samza.system.kafka_deprecated
 import java.util.Properties
+
 import kafka.utils.ZkUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
-import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
-import org.apache.samza.config.{KafkaConfig, ApplicationConfig, StreamConfig, Config}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
+import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -46,7 +47,7 @@ object KafkaSystemFactory extends Logging {
 
 class KafkaSystemFactory extends SystemFactory with Logging {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
-    val clientId = KafkaUtil.getClientId("samza-consumer", config)
+    val clientId = getClientId("samza-consumer", config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
     // Kind of goofy to need a producer config for consumers, but we need metadata.
@@ -84,7 +85,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
-    val clientId = KafkaUtil.getClientId("samza-producer", config)
+    val clientId = getClientId("samza-producer", config)
     val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
     val getProducer = () => { new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties) }
@@ -103,7 +104,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
-    val clientId = KafkaUtil.getClientId("samza-admin", config)
+    val clientId = getClientId("samza-admin", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
@@ -163,4 +164,15 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       Map()
     }
   }
+  def getClientId(id: String, config: Config): String = getClientId(
+    id,
+    config.getName.getOrElse(throw new ConfigException("Missing job name.")),
+    config.getJobId.getOrElse("1"))
+
+  def getClientId(id: String, jobName: String, jobId: String): String =
+    "%s-%s-%s" format
+      (id.replaceAll("[^A-Za-z0-9]", "_"),
+        jobName.replaceAll("[^A-Za-z0-9]", "_"),
+        jobId.replaceAll("[^A-Za-z0-9]", "_"))
+
 }
