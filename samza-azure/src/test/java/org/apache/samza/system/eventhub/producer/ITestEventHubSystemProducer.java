@@ -76,7 +76,7 @@ public class ITestEventHubSystemProducer {
     systemProducer.send(STREAM_NAME1, createMessageEnvelope(STREAM_NAME1));
 
     try {
-      systemProducer.send(STREAM_NAME2, createMessageEnvelope(STREAM_NAME1));
+      systemProducer.send("unregistered_stream", createMessageEnvelope("unregistered_stream"));
       Assert.fail("Sending event to destination that is not registered should throw exception");
     } catch (SamzaException e) {
     }
