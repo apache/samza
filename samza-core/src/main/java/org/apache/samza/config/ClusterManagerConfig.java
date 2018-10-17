@@ -86,15 +86,11 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
 
   /**
-   * Determines whether a JMX server should be started on the job coordinator
-   * Default: true
-   *
-   * @deprecated use {@code JOB_JMX_ENABLED} instead
+   * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
+   * The sleep interval of the cluster managed job coordinator.
    */
-  @Deprecated
-  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  @Deprecated
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
+  public static final String CLUSTER_MANAGER_SLEEP_MS = "cluster-manager.jobcoordinator.sleep.interval.ms";
+  private static final int DEFAULT_CLUSTER_MANAGER_SLEEP_MS = 1000;
 
   /**
    * Determines whether a JMX server should be started on job coordinator and container
@@ -103,11 +99,13 @@ public class ClusterManagerConfig extends MapConfig {
   public static final String JOB_JMX_ENABLED = "job.jmx.enabled";
 
   /**
-   * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
-   * The sleep interval of the cluster managed job coordinator.
+   * Determines whether a JMX server should be started on the job coordinator
+   * Default: true
+   *
+   * @deprecated use {@code JOB_JMX_ENABLED} instead
    */
-  public static final String CLUSTER_MANAGER_SLEEP_MS = "cluster-manager.jobcoordinator.sleep.interval.ms";
-  private static final int DEFAULT_CLUSTER_MANAGER_SLEEP_MS = 1000;
+  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
+  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
   public ClusterManagerConfig(Config config) {
       super(config);
@@ -207,14 +205,6 @@ public class ClusterManagerConfig extends MapConfig {
       log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(AM_JMX_ENABLED);
     } else if (containsKey(JOB_JMX_ENABLED)) {
-      return getBoolean(JOB_JMX_ENABLED);
-    } else {
-      return true;
-    }
-  }
-
-  public boolean getJmxEnabled() {
-    if (containsKey(JOB_JMX_ENABLED)) {
       return getBoolean(JOB_JMX_ENABLED);
     } else {
       return true;

@@ -800,7 +800,7 @@ class SamzaContainer(
 
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
-      if (new ClusterManagerConfig(config).getJmxEnabled) {
+      if (new JobConfig(config).getJMXEnabled) {
         jmxServer = new JmxServer()
       }
       applicationContainerContextOption.foreach(_.start)

@@ -23,7 +23,7 @@ import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.config.{ClusterManagerConfig, Config, TaskConfigJava}
+import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
 import org.apache.samza.context.JobContextImpl
 import org.apache.samza.coordinator.JobModelManager
@@ -75,7 +75,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val containerId = "0"
     var jmxServer: JmxServer = null
-    if (new ClusterManagerConfig(config).getJmxEnabled) {
+    if (new JobConfig(config).getJMXEnabled) {
       jmxServer = new JmxServer();
     }
 
