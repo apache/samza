@@ -45,15 +45,15 @@ public class SamzaSqlJavaTypeFactoryImpl
 
   @Override
   public RelDataType toSql(RelDataType type) {
-    return toSql(this, type);
+    return convertToSql(this, type);
   }
 
-  /** Converts a type in Java format to a SQL-oriented type. */
-  public static RelDataType toSql(final RelDataTypeFactory typeFactory,
+  // Converts a type in Java format to a SQL-oriented type.
+  private static RelDataType convertToSql(final RelDataTypeFactory typeFactory,
       RelDataType type) {
     if (type instanceof RelRecordType) {
       return typeFactory.createStructType(
-          Lists.transform(type.getFieldList(), a0 -> toSql(typeFactory, a0.getType())),
+          Lists.transform(type.getFieldList(), a0 -> convertToSql(typeFactory, a0.getType())),
           type.getFieldNames());
     }
     if (type instanceof JavaType) {
