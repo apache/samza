@@ -79,6 +79,8 @@ public class SamzaExecutor implements SqlExecutor {
   private static final String SAMZA_SQL_OUTPUT = "samza.sql.output";
   private static final String SAMZA_SQL_SYSTEM_KAFKA_ADDRESS = "samza.sql.system.kafka.address";
   private static final String DEFAULT_SERVER_ADDRESS = "localhost:2181";
+
+  // The maximum number of rows of data we keep when user pauses the display view and data accumulates.
   private static final int RANDOM_ACCESS_QUEUE_CAPACITY = 5000;
   private static final int DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT = 20000;
 
