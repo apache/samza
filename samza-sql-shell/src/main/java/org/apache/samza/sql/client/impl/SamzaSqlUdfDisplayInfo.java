@@ -24,7 +24,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.samza.sql.client.interfaces.SqlFunction;
 
-
+/**
+ * UDF information displayer
+ */
 public class SamzaSqlUdfDisplayInfo implements SqlFunction {
 
     private String name;

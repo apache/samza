@@ -21,7 +21,9 @@ package org.apache.samza.sql.client.cli;
 
 import org.apache.samza.sql.client.interfaces.QueryResult;
 
+/**
+ * For displaying the streaming result of a SELECT statement.
+ */
 public interface CliView {
-
-    public void open(CliShell shell, QueryResult queryResult);
+  public void open(CliShell shell, QueryResult queryResult);
 }

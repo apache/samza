@@ -19,23 +19,25 @@
 
 package org.apache.samza.sql.client.util;
 
-
+/**
+ * Convenient utility class with static methods.
+ */
 public class CliUtil {
-    public static boolean isNullOrEmpty(String str) {
-        return str == null || str.isEmpty();
-    }
+  public static boolean isNullOrEmpty(String str) {
+    return str == null || str.isEmpty();
+  }
 
-    public static int ceilingDiv(int x, int y) {
-        if(x < 0 || y <= 0)
-            throw new IllegalArgumentException();
+  public static int ceilingDiv(int x, int y) {
+    if (x < 0 || y <= 0)
+      throw new IllegalArgumentException();
 
-        return x / y + (x % y == 0 ? 0 : 1);
-    }
+    return x / y + (x % y == 0 ? 0 : 1);
+  }
 
-    public static StringBuilder appendTo(StringBuilder builder, int toPos, char c) {
-        for(int i = builder.length(); i <= toPos; ++i) {
-            builder.append(c);
-        }
-        return builder;
+  public static StringBuilder appendTo(StringBuilder builder, int toPos, char c) {
+    for (int i = builder.length(); i <= toPos; ++i) {
+      builder.append(c);
     }
+    return builder;
+  }
 }

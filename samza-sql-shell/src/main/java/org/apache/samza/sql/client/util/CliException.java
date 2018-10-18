@@ -19,21 +19,23 @@
 
 package org.apache.samza.sql.client.util;
 
-
+/**
+ * The exception used by the shell for unrecoverable errors.
+ */
 public class CliException extends RuntimeException {
-    public CliException() {
+  public CliException() {
 
-    }
+  }
 
-    public CliException(String message) {
-        super(message);
-    }
+  public CliException(String message) {
+    super(message);
+  }
 
-    public CliException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public CliException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-    public CliException(Throwable cause) {
-        super(cause);
-    }
+  public CliException(Throwable cause) {
+    super(cause);
+  }
 }

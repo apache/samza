@@ -21,6 +21,9 @@ package org.apache.samza.sql.client.impl;
 
 import org.apache.samza.sql.client.interfaces.SqlSchema;
 
+/**
+ * Types of Samza Sql fields.
+ */
 public class SamzaSqlFieldType {
 
   public boolean isPrimitiveField() {

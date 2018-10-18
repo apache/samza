@@ -34,7 +34,9 @@ import org.apache.samza.sql.client.util.CliUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * Main entry of the
+ */
 public class Main {
     private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 

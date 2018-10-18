@@ -19,105 +19,111 @@
 
 package org.apache.samza.sql.client.cli;
 
-
-import java.io.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * CliEnvironment contains "environment variables" that configures the shell behavior.
+ */
 public class CliEnvironment {
-    private static PrintStream m_stdout = System.out;
-    private static PrintStream m_stderr = System.err;
+  private static final String debugEnvVar = "shell.debug";
+  private static PrintStream stdout = System.out;
+  private static PrintStream stderr = System.err;
+  private Boolean debug = false;
 
+  public boolean isDebug() {
+    return debug;
+  }
 
-    private Boolean m_debug = false;
-    private static final String m_debugEnvVar = "shell.debug";
+  public void setDebug(Boolean debug) {
+    this.debug = debug;
+  }
 
-    public boolean isDebug() {
-        return m_debug;
+  /**
+   * @param var Environment variable
+   * @param val Value of the environment variable
+   * @return 0 : succeed
+   * -1: invalid var
+   * -2: invalid val
+   */
+  public int setEnvironmentVariable(String var, String val) {
+    switch (var.toUpperCase()) {
+      case debugEnvVar:
+        val = val.toLowerCase();
+        if (val.equals("true")) {
+          debug = true;
+          enableJavaSystemOutAndErr();
+        } else if (val.equals("false")) {
+          debug = false;
+          disableJavaSystemOutAndErr();
+        } else
+          return -2;
+        break;
+      default:
+        return -1;
     }
 
-    public void setDebug(Boolean debug) {
-        m_debug = debug;
+    return 0;
+  }
+
+  public List<String> getPossibleValues(String var) {
+    List<String> vals = new ArrayList<>();
+    switch (var.toLowerCase()) {
+      case debugEnvVar:
+        vals.add("true");
+        vals.add("false");
+        return vals;
+      default:
+        return null;
+    }
+  }
+
+  public void printAll(Writer writer) throws IOException {
+    writer.write(debugEnvVar);
+    writer.write('=');
+    writer.write(debug.toString());
+    writer.write('\n');
+  }
+
+  private void disableJavaSystemOutAndErr() {
+    PrintStream ps = new PrintStream(new NullOutputStream());
+    System.setOut(ps);
+    System.setErr(ps);
+  }
+
+  private void enableJavaSystemOutAndErr() {
+    System.setOut(stdout);
+    System.setErr(stderr);
+  }
+
+  void takeEffect() {
+    if (debug) {
+      enableJavaSystemOutAndErr();
+    } else {
+      // We control terminal directly; Forbid any Java System.out and System.err stuff so
+      // any underlying output will not mess up the console
+      disableJavaSystemOutAndErr();
+    }
+  }
+
+  private class NullOutputStream extends OutputStream {
+    public void close() {
     }
 
-    /**
-     *
-     * @param var Environment variable
-     * @param val Value of the environment variable
-     * @return 0 : succeed
-     *         -1: invalid var
-     *         -2: invalid val
-     */
-    public int setEnvironmentVariable(String var, String val) {
-        switch (var.toUpperCase()) {
-            case m_debugEnvVar:
-                val = val.toLowerCase();
-                if(val.equals("true")) {
-                    m_debug = true;
-                    enableJavaSystemOutAndErr();
-                }
-                else if(val.equals("false")) {
-                    m_debug = false;
-                    disableJavaSystemOutAndErr();
-                }
-                else
-                    return -2;
-                break;
-            default:
-                return -1;
-        }
-
-        return 0;
+    public void flush() {
     }
 
-    public List<String> getPossibleValues(String var) {
-        List<String> vals = new ArrayList<>();
-        switch (var.toLowerCase()) {
-            case m_debugEnvVar:
-                vals.add("true");
-                vals.add("false");
-                return vals;
-            default:
-                return null;
-        }
+    public void write(byte[] b) {
     }
 
-    public void printAll(Writer writer) throws IOException {
-        writer.write(m_debugEnvVar);
-        writer.write('=');
-        writer.write(m_debug.toString());
-        writer.write('\n');
+    public void write(byte[] b, int off, int len) {
     }
 
-    private void disableJavaSystemOutAndErr() {
-        PrintStream ps = new PrintStream(new NullOutputStream());
-        System.setOut(ps);
-        System.setErr(ps);
+    public void write(int b) {
     }
-
-    private void enableJavaSystemOutAndErr() {
-        System.setOut(m_stdout);
-        System.setErr(m_stderr);
-    }
-
-    private class NullOutputStream extends OutputStream {
-        public void close() {}
-        public void flush() {}
-        public void write(byte[] b) {}
-        public void write(byte[] b, int off, int len) {}
-        public void write(int b) {}
-    }
-
-    void takeEffect() {
-        if(m_debug) {
-            enableJavaSystemOutAndErr();
-        }
-        else {
-            // We control terminal directly; Forbid any Java System.out and System.err stuff so
-            // any underlying output will not mess up the console
-            disableJavaSystemOutAndErr();
-        }
-
-    }
+  }
 }

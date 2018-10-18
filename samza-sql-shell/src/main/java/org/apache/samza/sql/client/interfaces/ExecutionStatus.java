@@ -19,10 +19,12 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-
+/**
+ * Status of the execution of a SQL statement.
+ */
 public enum ExecutionStatus {
-    New,
-    Running,
-    SuccessfulFinish,
-    UnsuccessfulFinish
+  New,
+  Running,
+  SuccessfulFinish,
+  UnsuccessfulFinish
 }

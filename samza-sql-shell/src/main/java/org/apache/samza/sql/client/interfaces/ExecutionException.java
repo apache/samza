@@ -19,20 +19,22 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-
+/**
+ * An executor shall throw an ExecutionException when it encounters an unrecoverable error.
+ */
 public class ExecutionException extends RuntimeException {
-    public ExecutionException() {
-    }
+  public ExecutionException() {
+  }
 
-    public ExecutionException(String message) {
-        super(message);
-    }
+  public ExecutionException(String message) {
+    super(message);
+  }
 
-    public ExecutionException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public ExecutionException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-    public ExecutionException(Throwable cause) {
-        super(cause);
-    }
+  public ExecutionException(Throwable cause) {
+    super(cause);
+  }
 }

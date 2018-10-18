@@ -30,7 +30,9 @@ import org.apache.samza.sql.client.interfaces.SqlSchemaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * Schema converter which converts Avro schema to Samza Sql schema
+ */
 public class AvroSqlSchemaConverter {
   private static final Logger LOG = LoggerFactory.getLogger(AvroSqlSchemaConverter.class);
 
