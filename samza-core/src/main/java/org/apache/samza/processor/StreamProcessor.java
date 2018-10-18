@@ -164,6 +164,11 @@ public class StreamProcessor {
    * Same as {@link #StreamProcessor(Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
    * it creates a {@link JobCoordinator} instead of accepting it as an argument.
    *
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
+   * @param customMetricsReporters registered with the metrics system to report metrics
+   * @param taskFactory task factory to instantiate the Task
+   * @param processorListener listener to the StreamProcessor life cycle
+   *
    * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
@@ -181,10 +186,15 @@ public class StreamProcessor {
    *   <li>Accepts a {@link ProcessorLifecycleListener} directly instead of a
    *   {@link StreamProcessorLifecycleListenerFactory}</li>
    * </ol>
+   *
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
+   * @param customMetricsReporters registered with the metrics system to report metrics
+   * @param taskFactory task factory to instantiate the Task
+   * @param processorListener listener to the StreamProcessor life cycle
+   * @param jobCoordinator the instance of {@link JobCoordinator}
+   *
    * Deprecated: Use {@link #StreamProcessor(Config, Map, TaskFactory, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
-   *
-   * @param processorListener listener to the StreamProcessor life cycle
    */
   @Deprecated
   public StreamProcessor(Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
