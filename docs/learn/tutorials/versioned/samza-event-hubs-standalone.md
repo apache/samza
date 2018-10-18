@@ -80,7 +80,7 @@ Configure these in the `src/main/java/samza/examples/AzureApplication.java` file
 In the code snippet above, we create the input and output streams that can consume and produce from the configured Event Hubs entities.
 
 1. Line 3: A `EventHubsSystemDescriptor` is created with the name "eventhubs". You may set different system descriptors here. 
-2. Line 6: Event Hubs messages are consumed as key value pairs. The [serde](../../documentation/versioned/container/serialization.html) is defined for the value of the payload of the Event Hubs' EventData.
+2. Line 6: Event Hubs messages are consumed as key value pairs. The [serde](../../documentation/versioned/container/serialization.html) is defined for the value of the payload of the Event Hubs' EventData. You may use any of the serdes that samza ships with out of the box or define your own.
 The serde for the key is not set since it will always the String from the EventData [partitionKey](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data._system_properties.getpartitionkey?view=azure-java-stable#com_microsoft_azure_eventhubs__event_data__system_properties_getPartitionKey__).
 3. Line 9-17: An `EventHubsInputDescriptor` and an `EventHubsOutputDescriptor` are created with the required descriptors to gain access of the Event Hubs entity (`STREAM_ID`, `EVENTHUBS_NAMESPACE`, `EVENTHUBS_ENTITY`, `EVENTHUBS_SAS_KEY_NAME`, `EVENTHUBS_SAS_KEY_TOKEN`).
 These must be set to the credentials of the entities you wish to connect to.
