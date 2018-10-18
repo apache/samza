@@ -35,14 +35,14 @@ public class BroadcastAssertApp implements StreamApplication {
 
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
-    Config config = appDesc.getConfig();
+  public void describe(StreamApplicationDescriptor appDescriptor) {
+    Config config = appDescriptor.getConfig();
     String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
     final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
     KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(inputTopic, serde);
-    final MessageStream<PageView> broadcastPageViews = appDesc
+    final MessageStream<PageView> broadcastPageViews = appDescriptor
         .getInputStream(isd)
         .broadcast(serde, "pv");
 

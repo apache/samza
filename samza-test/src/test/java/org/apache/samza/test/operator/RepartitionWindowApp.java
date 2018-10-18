@@ -47,19 +47,19 @@ public class RepartitionWindowApp implements StreamApplication {
 
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KVSerde<String, PageView> inputSerde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageView.class));
     KVSerde<String, String> outputSerde = KVSerde.of(new StringSerde(), new StringSerde());
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
     KafkaInputDescriptor<KV<String, PageView>> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
     KafkaOutputDescriptor<KV<String, String>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 
-    appDesc.getInputStream(id)
+    appDescriptor.getInputStream(id)
         .map(KV::getValue)
         .partitionBy(PageView::getUserId, m -> m, inputSerde, "p1")
         .window(Windows.keyedSessionWindow(m -> m.getKey(), Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
         .map(wp -> KV.of(wp.getKey().getKey().toString(), String.valueOf(wp.getMessage())))
-        .sendTo(appDesc.getOutputStream(od));
+        .sendTo(appDescriptor.getOutputStream(od));
 
   }
 }

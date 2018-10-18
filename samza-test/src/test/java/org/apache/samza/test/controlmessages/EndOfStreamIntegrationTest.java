@@ -96,11 +96,11 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     class PipelineApplication implements StreamApplication {
 
       @Override
-      public void describe(StreamApplicationDescriptor appDesc) {
+      public void describe(StreamApplicationDescriptor appDescriptor) {
         DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-        appDesc.getInputStream(isd)
+        appDescriptor.getInputStream(isd)
             .map(KV::getValue)
             .partitionBy(pv -> pv.getMemberId(), pv -> pv, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .sink((m, collector, coordinator) -> {

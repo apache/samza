@@ -57,7 +57,7 @@ public class WindowExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -67,8 +67,8 @@ public class WindowExample implements StreamApplication {
 
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> counter = (m, c) -> c == null ? 1 : c + 1;
-    MessageStream<PageViewEvent> inputStream = appDesc.getInputStream(inputStreamDescriptor);
-    OutputStream<Integer> outputStream = appDesc.getOutputStream(outputStreamDescriptor);
+    MessageStream<PageViewEvent> inputStream = appDescriptor.getInputStream(inputStreamDescriptor);
+    OutputStream<Integer> outputStream = appDescriptor.getOutputStream(outputStreamDescriptor);
 
     // create a tumbling window that outputs the number of message collected every 10 minutes.
     // also emit early results if either the number of messages collected reaches 30000, or if no new messages arrive
