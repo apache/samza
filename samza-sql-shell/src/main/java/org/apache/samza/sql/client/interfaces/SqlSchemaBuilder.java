@@ -22,39 +22,42 @@ package org.apache.samza.sql.client.interfaces;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Convenient class for building a SqlSchema object.
+ */
 public class SqlSchemaBuilder {
-    private List<String> m_names = new ArrayList<>();
-    private List<String> m_typeName = new ArrayList<>();
+  private List<String> names = new ArrayList<>();
+  private List<String> typeNames = new ArrayList<>();
 
-    private SqlSchemaBuilder() {
-    }
+  private SqlSchemaBuilder() {
+  }
 
-    public static SqlSchemaBuilder builder() {
-        return new SqlSchemaBuilder();
-    }
+  public static SqlSchemaBuilder builder() {
+    return new SqlSchemaBuilder();
+  }
 
-    public SqlSchemaBuilder addField(String name, String fieldType) {
-        if(name == null || name.isEmpty() || fieldType == null)
-            throw new IllegalArgumentException();
+  public SqlSchemaBuilder addField(String name, String fieldType) {
+    if (name == null || name.isEmpty() || fieldType == null)
+      throw new IllegalArgumentException();
 
-        m_names.add(name);
-        m_typeName.add(fieldType);
-        return this;
-    }
+    names.add(name);
+    typeNames.add(fieldType);
+    return this;
+  }
 
-    public SqlSchemaBuilder appendFields(List<String> names, List<String> typeNames) {
-        if(names == null || names.size() == 0
-                ||typeNames == null || typeNames.size() == 0
-                || names.size() != typeNames.size())
-            throw new IllegalArgumentException();
+  public SqlSchemaBuilder appendFields(List<String> names, List<String> typeNames) {
+    if (names == null || names.size() == 0
+            || typeNames == null || typeNames.size() == 0
+            || names.size() != typeNames.size())
+      throw new IllegalArgumentException();
 
-        m_names.addAll(names);
-        m_typeName.addAll(typeNames);
+    this.names.addAll(names);
+    this.typeNames.addAll(typeNames);
 
-        return this;
-    }
+    return this;
+  }
 
-    public SqlSchema toSchema() {
-        return new SqlSchema(m_names, m_typeName);
-    }
+  public SqlSchema toSchema() {
+    return new SqlSchema(names, typeNames);
+  }
 }

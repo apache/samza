@@ -21,16 +21,19 @@ package org.apache.samza.sql.client.interfaces;
 
 import java.util.List;
 
+/**
+ * Represents a SQL function.
+ */
 public interface SqlFunction {
-    public String getName();
+  public String getName();
 
-    public String getDescription();
+  public String getDescription();
 
-    public List<String> getArgumentTypes();
+  public List<String> getArgumentTypes();
 
-    public String getReturnType();
+  public String getReturnType();
 
-    /**
-     * Don't forget to implement toString()
-     */
+  /**
+   * Don't forget to implement toString()
+   */
 }

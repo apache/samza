@@ -21,37 +21,40 @@ package org.apache.samza.sql.client.interfaces;
 
 import java.util.List;
 
+/**
+ * Result of a non-query SQL statement or SQL file containing multiple non-query statements.
+ */
 public class NonQueryResult {
-    private int m_execId;
-    private boolean m_success;
-    private List<String> m_submittedStmts;
-    private List<String> m_nonSubmittedStmts;
+  private int execId;
+  private boolean success;
+  private List<String> submittedStmts;
+  private List<String> nonSubmittedStmts;
 
-    public NonQueryResult(int execId, boolean success) {
-        m_execId = execId;
-        m_success = success;
-    }
+  public NonQueryResult(int execId, boolean success) {
+    this.execId = execId;
+    this.success = success;
+  }
 
-    public NonQueryResult(int execId, boolean success, List<String> submittedStmts, List<String> nonSubmittedStmts) {
-        m_execId = execId;
-        m_success = success;
-        m_submittedStmts = submittedStmts;
-        m_nonSubmittedStmts = nonSubmittedStmts;
-    }
+  public NonQueryResult(int execId, boolean success, List<String> submittedStmts, List<String> nonSubmittedStmts) {
+    this.execId = execId;
+    this.success = success;
+    this.submittedStmts = submittedStmts;
+    this.nonSubmittedStmts = nonSubmittedStmts;
+  }
 
-    public int getExecutionId() {
-        return m_execId;
-    }
+  public int getExecutionId() {
+    return execId;
+  }
 
-    public boolean succeeded() {
-        return m_success;
-    }
+  public boolean succeeded() {
+    return success;
+  }
 
-    public List<String> getSubmittedStmts() {
-        return m_submittedStmts;
-    }
+  public List<String> getSubmittedStmts() {
+    return submittedStmts;
+  }
 
-    public List<String> getNonSubmittedStmts() {
-        return m_nonSubmittedStmts;
-    }
+  public List<String> getNonSubmittedStmts() {
+    return nonSubmittedStmts;
+  }
 }

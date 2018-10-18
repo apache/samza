@@ -22,32 +22,35 @@ package org.apache.samza.sql.client.interfaces;
 
 import java.util.List;
 
+/**
+ * A primitive representation of SQL schema which is just for display purpose.
+ */
 public class SqlSchema {
-    private String[] m_names; // field names
-    private String[] m_typeNames; // names of field type
+  private String[] names; // field names
+  private String[] typeNames; // names of field type
 
-    public SqlSchema(List<String> colNames, List<String> colTypeNames) {
-        if(colNames == null || colNames.size() == 0
-                ||colTypeNames == null || colTypeNames.size() == 0
-                || colNames.size() != colTypeNames.size())
-            throw new IllegalArgumentException();
+  public SqlSchema(List<String> colNames, List<String> colTypeNames) {
+    if (colNames == null || colNames.size() == 0
+            || colTypeNames == null || colTypeNames.size() == 0
+            || colNames.size() != colTypeNames.size())
+      throw new IllegalArgumentException();
 
-        m_names = new String[colNames.size()];
-        m_names = colNames.toArray(m_names);
+    names = new String[colNames.size()];
+    names = colNames.toArray(names);
 
-        m_typeNames = new String[colTypeNames.size()];
-        m_typeNames = colTypeNames.toArray(m_typeNames);
-    }
+    typeNames = new String[colTypeNames.size()];
+    typeNames = colTypeNames.toArray(typeNames);
+  }
 
-    public int getFieldCount() {
-        return m_names.length;
-    }
+  public int getFieldCount() {
+    return names.length;
+  }
 
-    public String getFieldName(int colIdx) {
-        return m_names[colIdx];
-    }
+  public String getFieldName(int colIdx) {
+    return names[colIdx];
+  }
 
-    public String getFieldTypeName(int colIdx) {
-        return m_typeNames[colIdx];
-    }
+  public String getFieldTypeName(int colIdx) {
+    return typeNames[colIdx];
+  }
 }

@@ -19,29 +19,31 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-
+/**
+ * Execution result of a SELECT statement. It doesn't contain data though.
+ */
 public class QueryResult {
-    private int m_execId;
-    private boolean m_success;
-    private SqlSchema m_schema;
+  private int execId;
+  private boolean success;
+  private SqlSchema schema;
 
-    public QueryResult(int execId, SqlSchema schema, Boolean success) {
-        if(success && schema == null)
-            throw new IllegalArgumentException();
-        m_execId = execId;
-        m_schema = schema;
-        m_success = success;
-    }
+  public QueryResult(int execId, SqlSchema schema, Boolean success) {
+    if (success && schema == null)
+      throw new IllegalArgumentException();
+    this.execId = execId;
+    this.schema = schema;
+    this.success = success;
+  }
 
-    public int getExecutionId() {
-        return m_execId;
-    }
+  public int getExecutionId() {
+    return execId;
+  }
 
-    public SqlSchema getSchema() {
-        return m_schema;
-    }
+  public SqlSchema getSchema() {
+    return schema;
+  }
 
-    public boolean succeeded() {
-        return m_success;
-    }
+  public boolean succeeded() {
+    return success;
+  }
 }

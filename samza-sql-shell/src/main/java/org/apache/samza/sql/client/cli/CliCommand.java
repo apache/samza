@@ -19,33 +19,35 @@
 
 package org.apache.samza.sql.client.cli;
 
-
+/**
+ * A shell command containing command name and parameters.
+ */
 class CliCommand {
-    private CliCommandType m_cmdType;
-    private String m_parameters;
+  private CliCommandType commandType;
+  private String parameters;
 
-    public CliCommand(CliCommandType cmdType) {
-        m_cmdType = cmdType;
-    }
+  public CliCommand(CliCommandType cmdType) {
+    this.commandType = cmdType;
+  }
 
-    public CliCommand(CliCommandType cmdType, String parameters) {
-        this(cmdType);
-        m_parameters = parameters;
-    }
+  public CliCommand(CliCommandType cmdType, String parameters) {
+    this(cmdType);
+    this.parameters = parameters;
+  }
 
-    public CliCommandType getCommandType() {
-        return m_cmdType;
-    }
+  public CliCommandType getCommandType() {
+    return commandType;
+  }
 
-    public String getParameters() {
-        return m_parameters;
-    }
+  public String getParameters() {
+    return parameters;
+  }
 
-    public void setParameters(String parameters) {
-        m_parameters = parameters;
-    }
+  public void setParameters(String parameters) {
+    this.parameters = parameters;
+  }
 
-    public String getFullCommand() {
-        return m_cmdType.getCommandName() + CliConstants.SPACE + m_parameters;
-    }
+  public String getFullCommand() {
+    return commandType.getCommandName() + CliConstants.SPACE + parameters;
+  }
 }

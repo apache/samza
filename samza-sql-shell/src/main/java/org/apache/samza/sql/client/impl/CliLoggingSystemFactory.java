@@ -33,84 +33,85 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * System factory of Samza Sql Shell which needs to provide Consumer, Producer and Admin
+ */
 public class CliLoggingSystemFactory implements SystemFactory {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CliLoggingSystemFactory.class);
-    private static AtomicInteger messageCounter = new AtomicInteger(0);
+  private static final Logger LOG = LoggerFactory.getLogger(CliLoggingSystemFactory.class);
+  private static AtomicInteger messageCounter = new AtomicInteger(0);
 
-    @Override
-    public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-        throw new UnsupportedOperationException();
+  @Override
+  public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
+    return new CliLoggingSystemFactory.LoggingSystemProducer();
+  }
+
+  @Override
+  public SystemAdmin getAdmin(String systemName, Config config) {
+    return new CliLoggingSystemFactory.SimpleSystemAdmin(config);
+  }
+
+  private static class SimpleSystemAdmin implements SystemAdmin {
+
+    public SimpleSystemAdmin(Config config) {
     }
 
     @Override
-    public SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry) {
-        return new CliLoggingSystemFactory.LoggingSystemProducer();
+    public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
+      return offsets.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, null));
     }
 
     @Override
-    public SystemAdmin getAdmin(String systemName, Config config) {
-        return new CliLoggingSystemFactory.SimpleSystemAdmin(config);
+    public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
+      return streamNames.stream()
+              .collect(Collectors.toMap(Function.identity(), streamName -> new SystemStreamMetadata(streamName,
+                      Collections.singletonMap(new Partition(0),
+                              new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null)))));
     }
 
+    @Override
+    public Integer offsetComparator(String offset1, String offset2) {
+      if (offset1 == null) {
+        return offset2 == null ? 0 : -1;
+      } else if (offset2 == null) {
+        return 1;
+      }
+      return offset1.compareTo(offset2);
+    }
+  }
 
-    private class LoggingSystemProducer implements SystemProducer {
+  private class LoggingSystemProducer implements SystemProducer {
 
-        @Override
-        public void start() {
-        }
-
-        @Override
-        public void stop() {
-        }
-
-        @Override
-        public void register(String source) {
-            LOG.info("Registering source" + source);
-        }
-
-        @Override
-        public void send(String source, OutgoingMessageEnvelope envelope) {
-            LOG.info(String.format(String.format("Message %d :", messageCounter.incrementAndGet())));
-            String msg = String.format("OutputStream:%s Key:%s Value:%s", envelope.getSystemStream(), envelope.getKey(),
-                    new String((byte[]) envelope.getMessage()));
-            LOG.info(msg);
-
-            SamzaExecutor.saveOutputMessage(envelope);
-        }
-
-        @Override
-        public void flush(String source) {
-        }
+    @Override
+    public void start() {
     }
 
-
-    private static class SimpleSystemAdmin implements SystemAdmin {
-
-        public SimpleSystemAdmin(Config config) {
-        }
-
-        @Override
-        public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
-            return offsets.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, null));
-        }
-
-        @Override
-        public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-            return streamNames.stream()
-                    .collect(Collectors.toMap(Function.identity(), streamName -> new SystemStreamMetadata(streamName,
-                            Collections.singletonMap(new Partition(0),
-                                    new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null)))));
-        }
-
-        @Override
-        public Integer offsetComparator(String offset1, String offset2) {
-            if (offset1 == null) {
-                return offset2 == null ? 0 : -1;
-            } else if (offset2 == null) {
-                return 1;
-            }
-            return offset1.compareTo(offset2);
-        }
+    @Override
+    public void stop() {
     }
+
+    @Override
+    public void register(String source) {
+      LOG.info("Registering source" + source);
+    }
+
+    @Override
+    public void send(String source, OutgoingMessageEnvelope envelope) {
+      LOG.info(String.format(String.format("Message %d :", messageCounter.incrementAndGet())));
+      String msg = String.format("OutputStream:%s Key:%s Value:%s", envelope.getSystemStream(), envelope.getKey(),
+              new String((byte[]) envelope.getMessage()));
+      LOG.info(msg);
+
+      SamzaExecutor.saveOutputMessage(envelope);
+    }
+
+    @Override
+    public void flush(String source) {
+    }
+  }
 }
