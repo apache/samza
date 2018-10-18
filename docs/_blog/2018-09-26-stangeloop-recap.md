@@ -25,7 +25,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-Talk By Kartik Paramasivam (Director of Engineering, LinkedIN)   
+Talk By Kartik Paramasivam (Director of Engineering, Linkedin)   
 @Strange Loop, St. Louis, MO
 
 <!--more-->
