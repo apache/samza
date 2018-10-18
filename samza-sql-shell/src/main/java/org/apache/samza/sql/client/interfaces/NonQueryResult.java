@@ -25,8 +25,10 @@ import java.util.List;
  * Result of a non-query SQL statement or SQL file containing multiple non-query statements.
  */
 public class NonQueryResult {
-  private int execId;
-  private boolean success;
+  private int execId; // execution ID of the statement(s) submitted
+  private boolean success; // whether the statement(s) submitted successfully
+
+  // When user submits a batch of SQL statements, only the non-query ones will be submitted
   private List<String> submittedStmts;
   private List<String> nonSubmittedStmts;
 
