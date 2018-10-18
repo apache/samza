@@ -21,7 +21,9 @@ package org.apache.samza.sql.translator;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalProject;
@@ -31,7 +33,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
-import org.apache.samza.application.StreamApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -100,7 +102,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
-    ProjectTranslator projectTranslator = new ProjectTranslator();
+    ProjectTranslator projectTranslator = new ProjectTranslator(1);
     projectTranslator.translate(mockProject, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerRelNode(2, mockProject);
@@ -113,7 +115,9 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Verify that the bootstrap() method will establish the context for the map function
     Context context = mock(Context.class);
-    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
+    mockContexts.put(1, mockContext);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
     projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
@@ -202,7 +206,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
-    ProjectTranslator projectTranslator = new ProjectTranslator();
+    ProjectTranslator projectTranslator = new ProjectTranslator(1);
     projectTranslator.translate(mockProject, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerRelNode(2, mockProject);
@@ -246,7 +250,9 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Verify that the describe() method will establish the context for the map function
     Context context = mock(Context.class);
-    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContext));
+    Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
+    mockContexts.put(1, mockContext);
+    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
     projectSpec.getTransformFn().init(context);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);

@@ -18,11 +18,11 @@
  */
 package org.apache.samza.util;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.MockContext;
+import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -209,14 +209,20 @@ public class TestEmbeddedTaggedRateLimiter {
   }
 
   static void initRateLimiter(RateLimiter rateLimiter) {
-    Context context = new MockContext(mock(Config.class));
-    when(context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
-    ContainerModel containerModel = mock(ContainerModel.class);
     Map<TaskName, TaskModel> tasks = IntStream.range(0, NUMBER_OF_TASKS)
         .mapToObj(i -> new TaskName("task-" + i))
         .collect(Collectors.toMap(Function.identity(), x -> mock(TaskModel.class)));
+    ContainerModel containerModel = mock(ContainerModel.class);
     when(containerModel.getTasks()).thenReturn(tasks);
-    when(context.getContainerContext().getContainerModel()).thenReturn(containerModel);
+    JobModel jobModel = mock(JobModel.class);
+    Map<String, ContainerModel> containerModelMap = new HashMap<>();
+    containerModelMap.put("container-1", containerModel);
+    when(jobModel.getContainers()).thenReturn(containerModelMap);
+    Context context = mock(Context.class);
+    TaskContextImpl taskContext = mock(TaskContextImpl.class);
+    when(context.getTaskContext()).thenReturn(taskContext);
+    when(taskContext.getJobModel()).thenReturn(jobModel);
+    when(context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
     rateLimiter.init(context);
   }
 }

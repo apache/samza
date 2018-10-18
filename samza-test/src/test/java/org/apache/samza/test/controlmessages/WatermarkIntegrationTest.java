@@ -19,7 +19,6 @@
 
 package org.apache.samza.test.controlmessages;
 
-import org.apache.samza.application.SamzaApplication;
 import scala.collection.JavaConverters;
 
 import java.lang.reflect.Field;
@@ -29,7 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.application.StreamApplicationDescriptor;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -40,10 +40,10 @@ import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.descriptors.GenericInputDescriptor;
-import org.apache.samza.operators.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.operators.impl.InputOperatorImpl;
 import org.apache.samza.operators.impl.OperatorImpl;
 import org.apache.samza.operators.impl.OperatorImplGraph;

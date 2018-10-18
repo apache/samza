@@ -28,24 +28,21 @@ How Slack monitors their infrastructure using Samza's streaming data-pipelines?
 
 <!--more-->
 
-Slack is a cloud based company that offers collaboration tools and services to increase productivity. With a rapidly growing user base, and a daily active users north of 8 million, there is an imminent need to react quickly to issues and proactively monitor the health of the application. With a lack of existing monitoring solution, the team went on to build a new data pipeline with the following requirements
+Slack is a cloud based company that offers collaboration tools and services to increase productivity. With a rapidly growing user base and a daily active users north of 8 million, they needed to react quickly to issues and proactively monitor the application health. For this, the team went on to build a new monitoiring solution using Apache Samza with the following requirements:
 
-- Near realtime alerting
-- Fault tolerant and high throughput data pipeline
-- Process billions of metric data, logs and derive timely insights on the health of application
-- Extend the pipeline to other use cases such as experimentation, performance etc.
+- Near real-time alerting to quickly surface issues
+- Fault-tolerant processing of data streams
+- Process billions of events from metrics, logs and derive timely insights on application health
+- Ease of extensibility to other use cases like experimentation
 
 <img src="/img/{{site.version}}/case-studies/slack-samza-pipeline.png" alt="architecture" style="max-width: 80%; height: auto;" onclick="window.open(this.src)"/>
 
-The engineering team built a data platform using Apache Samza. It has three main components,
+The engineering team at Slack built their data platform using Apache Samza. It has three types of Samza jobs - _Routers_, _Processors_ and _Converters_.
 
-- **Router**: Deserialize Kafka events and add instrumentation
-- **Processor**: Registers with the routers to process subset of message types and performs aggregation
-- **Converter**: Enrich the processed data before piping the data to analytics store.  
+All services at Slack emit their logs in a well-defined format, which end up in a Kafka cluster. The logs are processed by a fleet of Samza jobs called _Routers_. The routers deserialize
+incoming log events, decorate them and add instrumentation on top of them. The output of the router is processed by another pipeline, _Processors_ which perform aggregations using Samza's state-store. Finally, the processed results are enriched by the last stage - _Coverters_, which pipe the data into Druid for analytics and querying. Performance anomalies trigger an alert to a slackbot for further action. Slack built the data-platform to be extensible, thereby enabling other teams within the company to build their own applications on top of it.
 
-The clients and backend servers channels the logs and exceptions through Kafka to content routers a.k.a samza partitioners. The partitioned data then flows through processors where it is stored in RocksDb before being joined with other metrics data. The enriched data is stored in druid which powers analytics queries and also acts as a trigger to alert slackbot notifications.
-
-Other notable use case includes experimentation framework that leverage the data pipeline to track the results of A/B testing in near realtime. The metrics data is joined with the exposure table (members part of the experiment) to derive insights on the experiment. The periodic snapshots of RocksDb is also used to perform data quality check with the batch pipeline.
+Another noteworthy use-case powered by Samza is their experimentation framework. It leverages a data-pipeline to measure the results of A/B testing in near real-time. The pipeline uses Samza to join a stream of performance-related metrics with additional data on experiments that the customer was a part of. This enables Slack to learn how each experiment affects their overall customer experience. 
 
 Key Samza Features: *Stateful processing*, *Join*, *Windowing*
 

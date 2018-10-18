@@ -39,13 +39,13 @@ object JobConfig {
    */
   val CONFIG_REWRITERS = "job.config.rewriters" // streaming.job_config_rewriters
   val CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class" // streaming.job_config_rewriter_class - regex, system, config
-  val CONFIG_OVERRIDE_JOBS_PREFIX = "jobs.%s."
   val JOB_NAME = "job.name" // streaming.job_name
   val JOB_ID = "job.id" // streaming.job_id
   val SAMZA_FWK_PATH = "samza.fwk.path"
   val SAMZA_FWK_VERSION = "samza.fwk.version"
   val JOB_COORDINATOR_SYSTEM = "job.coordinator.system"
   val JOB_DEFAULT_SYSTEM = "job.default.system"
+  val JOB_JMX_ENABLED = "job.jmx.enabled"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
   val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
@@ -208,5 +208,9 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDiagnosticsAppenderClass = {
     getOrDefault(JobConfig.DIAGNOSTICS_APPENDER_CLASS, JobConfig.DEFAULT_DIAGNOSTICS_APPENDER_CLASS)
+  }
+
+  def getJMXEnabled = {
+    getBoolean(JobConfig.JOB_JMX_ENABLED, true);
   }
 }

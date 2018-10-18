@@ -18,6 +18,8 @@
  */
 package org.apache.samza.application;
 
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+
 /**
  * Test class of {@link StreamApplication} for unit tests
  */

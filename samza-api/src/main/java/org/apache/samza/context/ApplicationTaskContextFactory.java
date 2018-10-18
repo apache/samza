@@ -29,7 +29,8 @@ import java.io.Serializable;
  * task. At that stage, the framework-provided job-level, container-level, and task-level contexts are available for
  * creating the {@link ApplicationTaskContext}. Also, the application-defined container-level context is available.
  * <p>
- * This is {@link Serializable} because it is specified in {@link org.apache.samza.application.ApplicationDescriptor}.
+ * This is {@link Serializable} because it is specified in the
+ * {@link org.apache.samza.application.descriptors.ApplicationDescriptor}.
  * @param <T> concrete type of {@link ApplicationTaskContext} returned by this factory
  */
 public interface ApplicationTaskContextFactory<T extends ApplicationTaskContext> extends Serializable {
