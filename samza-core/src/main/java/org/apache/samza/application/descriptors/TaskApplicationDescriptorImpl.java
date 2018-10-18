@@ -50,7 +50,7 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   }
 
   @Override
-  public TaskApplicationDescriptor addInputStream(InputDescriptor inputDescriptor) {
+  public TaskApplicationDescriptor withInputStream(InputDescriptor inputDescriptor) {
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     addInputDescriptor(inputDescriptor);
     getOrCreateStreamSerdes(inputDescriptor.getStreamId(), inputDescriptor.getSerde());
@@ -58,14 +58,14 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   }
 
   @Override
-  public TaskApplicationDescriptor addOutputStream(OutputDescriptor outputDescriptor) {
+  public TaskApplicationDescriptor withOutputStream(OutputDescriptor outputDescriptor) {
     addOutputDescriptor(outputDescriptor);
     getOrCreateStreamSerdes(outputDescriptor.getStreamId(), outputDescriptor.getSerde());
     return this;
   }
 
   @Override
-  public TaskApplicationDescriptor addTable(TableDescriptor tableDescriptor) {
+  public TaskApplicationDescriptor withTable(TableDescriptor tableDescriptor) {
     addTableDescriptor(tableDescriptor);
     BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
     getOrCreateTableSerdes(baseTableDescriptor.getTableId(), baseTableDescriptor.getSerde());

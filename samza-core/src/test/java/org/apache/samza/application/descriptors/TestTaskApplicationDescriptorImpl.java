@@ -97,7 +97,7 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddInputStreams() {
     TaskApplication testApp = appDesc -> {
-      mockInputs.forEach(appDesc::addInputStream);
+      mockInputs.forEach(appDesc::withInputStream);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockInputs.toArray(), appDesc.getInputDescriptors().values().toArray());
@@ -106,7 +106,7 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddOutputStreams() {
     TaskApplication testApp = appDesc -> {
-      mockOutputs.forEach(appDesc::addOutputStream);
+      mockOutputs.forEach(appDesc::withOutputStream);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockOutputs.toArray(), appDesc.getOutputDescriptors().values().toArray());
@@ -115,7 +115,7 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddTables() {
     TaskApplication testApp = appDesc -> {
-      mockTables.forEach(appDesc::addTable);
+      mockTables.forEach(appDesc::withTable);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockTables, appDesc.getTableDescriptors());

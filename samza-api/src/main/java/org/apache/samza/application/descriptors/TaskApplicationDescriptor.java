@@ -58,7 +58,7 @@ public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApp
    * @param isd the {@link InputDescriptor}
    * @return this {@link TaskApplicationDescriptor}
    */
-  TaskApplicationDescriptor addInputStream(InputDescriptor isd);
+  TaskApplicationDescriptor withInputStream(InputDescriptor isd);
 
   /**
    * Adds the output stream to the application.
@@ -66,7 +66,7 @@ public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApp
    * @param osd the {@link OutputDescriptor} of the output stream
    * @return this {@link TaskApplicationDescriptor}
    */
-  TaskApplicationDescriptor addOutputStream(OutputDescriptor osd);
+  TaskApplicationDescriptor withOutputStream(OutputDescriptor osd);
 
   /**
    * Adds the {@link TableDescriptor} used in the application
@@ -74,6 +74,6 @@ public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApp
    * @param table {@link TableDescriptor}
    * @return this {@link TaskApplicationDescriptor}
    */
-  TaskApplicationDescriptor addTable(TableDescriptor table);
+  TaskApplicationDescriptor withTable(TableDescriptor table);
 
 }

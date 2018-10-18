@@ -51,8 +51,8 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
  *         trackingSystemDescriptor.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
  *
  *     appDescriptor
- *         .addInputStream(inputStreamDescriptor)
- *         .addOutputStream(outputStreamDescriptor)
+ *         .withInputStream(inputStreamDescriptor)
+ *         .withOutputStream(outputStreamDescriptor)
  *         .withTaskFactory((StreamTaskFactory) () -> new PageViewTask());
  *   }
  * }
