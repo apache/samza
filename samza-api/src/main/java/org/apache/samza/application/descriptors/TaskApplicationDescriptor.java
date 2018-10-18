@@ -33,7 +33,7 @@ import org.apache.samza.task.TaskFactory;
  * to add the {@link InputDescriptor}s, {@link OutputDescriptor}s and {@link TableDescriptor}s for streams and
  * tables to be used in the task implementation.
  * <p>
- * Use {@link #setTaskFactory} to set the factory for the {@link org.apache.samza.task.StreamTask} or
+ * Use {@link #withTaskFactory} to set the factory for the {@link org.apache.samza.task.StreamTask} or
  * {@link org.apache.samza.task.AsyncStreamTask} implementation that contains the processing logic for
  * the {@link org.apache.samza.application.TaskApplication}.
  */
@@ -48,28 +48,32 @@ public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApp
    * The provided {@code taskFactory} instance must be serializable.
    *
    * @param factory the {@link TaskFactory} for the Low Level API Task implementation
+   * @return this {@link TaskApplicationDescriptor}
    */
-  void setTaskFactory(TaskFactory factory);
+  TaskApplicationDescriptor withTaskFactory(TaskFactory factory);
 
   /**
    * Adds the input stream to the application.
    *
    * @param isd the {@link InputDescriptor}
+   * @return this {@link TaskApplicationDescriptor}
    */
-  void addInputStream(InputDescriptor isd);
+  TaskApplicationDescriptor withInputStream(InputDescriptor isd);
 
   /**
    * Adds the output stream to the application.
    *
    * @param osd the {@link OutputDescriptor} of the output stream
+   * @return this {@link TaskApplicationDescriptor}
    */
-  void addOutputStream(OutputDescriptor osd);
+  TaskApplicationDescriptor withOutputStream(OutputDescriptor osd);
 
   /**
    * Adds the {@link TableDescriptor} used in the application
    *
    * @param table {@link TableDescriptor}
+   * @return this {@link TaskApplicationDescriptor}
    */
-  void addTable(TableDescriptor table);
+  TaskApplicationDescriptor withTable(TableDescriptor table);
 
 }

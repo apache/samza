@@ -67,11 +67,11 @@ public class TaskApplicationExample implements TaskApplication {
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor("myout", new StringSerde());
     TableDescriptor td = new RocksDbTableDescriptor("mytable");
 
-    appDescriptor.addInputStream(isd);
-    appDescriptor.addOutputStream(osd);
-    appDescriptor.addTable(td);
-    // create the task factory based on configuration
-    appDescriptor.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+    appDescriptor
+        .withInputStream(isd)
+        .withOutputStream(osd)
+        .withTable(td)
+        .withTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 
 }
