@@ -16,16 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
 
-import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+package org.apache.samza.system.kafka_deprecated
 
-/**
- * Test class of {@link StreamApplication} for unit tests
- */
-public class MockStreamApplication implements StreamApplication {
-  @Override
-  public void describe(StreamApplicationDescriptor appDescriptor) {
+import kafka.common.TopicAndPartition
+import kafka.message.MessageAndOffset
 
-  }
+private[kafka_deprecated] trait MessageSink {
+  def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean): Unit
+
+  def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long): Unit
+
+  def abdicate(tp: TopicAndPartition, nextOffset: Long): Unit
+
+  def refreshDropped(): Unit
+
+  def needsMoreMessages(tp: TopicAndPartition): Boolean
 }
