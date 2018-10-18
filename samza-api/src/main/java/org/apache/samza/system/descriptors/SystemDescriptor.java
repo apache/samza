@@ -30,9 +30,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The base descriptor for a system. Allows setting properties that are common to all systems.
+ * A {@link SystemDescriptor} can be used for specifying Samza and system-specific properties of an input/output system.
+ * It can also be used for obtaining {@link InputDescriptor}s and {@link OutputDescriptor}s, which can be used for
+ * specifying Samza and system-specific properties of input/output streams.
  * <p>
- * System properties provided in configuration override corresponding properties configured using a descriptor.
+ * System properties provided in configuration override corresponding properties specified using a descriptor.
+ * <p>
+ * This is the base descriptor for a system. Use a system-specific descriptor (e.g. KafkaSystemDescriptor) if one
+ * is available. Otherwise use the {@link GenericSystemDescriptor}.
  * <p>
  * Systems may provide an {@link InputTransformer} to be used for input streams on the system. An
  * {@link InputTransformer} transforms an {@code IncomingMessageEnvelope} with deserialized key and message

@@ -21,9 +21,13 @@ package org.apache.samza.system.descriptors;
 import org.apache.samza.serializers.Serde;
 
 /**
- * The base descriptor for an output stream. Allows setting properties that are common to all output streams.
+ * An {@link OutputDescriptor} can be used for specifying Samza and system-specific properties of output streams.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
+ * <p>
+ * This is the base descriptor for an output stream. Use a system-specific input descriptor (e.g. KafkaOutputDescriptor)
+ * obtained from its system descriptor (e.g. KafkaSystemDescriptor) if one is available. Otherwise use the
+ * {@link GenericOutputDescriptor} obtained from a {@link GenericSystemDescriptor}.
  *
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class

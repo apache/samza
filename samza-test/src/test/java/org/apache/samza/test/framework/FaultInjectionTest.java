@@ -92,15 +92,15 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     private static transient CountDownLatch containerShutdownLatch;
 
     @Override
-    public void describe(TaskApplicationDescriptor appDesc) {
-      Config config = appDesc.getConfig();
+    public void describe(TaskApplicationDescriptor appDescriptor) {
+      Config config = appDescriptor.getConfig();
       String inputTopic = config.get(INPUT_TOPIC_NAME_PROP);
 
       final JsonSerdeV2<PageView> serde = new JsonSerdeV2<>(PageView.class);
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
       KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(inputTopic, serde);
-      appDesc.addInputStream(isd);
-      appDesc.setTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(containerShutdownLatch));
+      appDescriptor.addInputStream(isd);
+      appDescriptor.setTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(containerShutdownLatch));
     }
 
     private static class FaultInjectionTask implements StreamTask, ClosableTask {

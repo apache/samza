@@ -50,7 +50,7 @@ public class OrderShipmentJoinExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<OrderRecord> orderStreamDescriptor =
@@ -61,12 +61,12 @@ public class OrderShipmentJoinExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("fulfilledOrders",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(FulfilledOrderRecord.class)));
 
-    appDesc.getInputStream(orderStreamDescriptor)
-        .join(appDesc.getInputStream(shipmentStreamDescriptor), new MyJoinFunction(),
+    appDescriptor.getInputStream(orderStreamDescriptor)
+        .join(appDescriptor.getInputStream(shipmentStreamDescriptor), new MyJoinFunction(),
             new StringSerde(), new JsonSerdeV2<>(OrderRecord.class), new JsonSerdeV2<>(ShipmentRecord.class),
             Duration.ofMinutes(1), "join")
         .map(fulFilledOrder -> KV.of(fulFilledOrder.orderId, fulFilledOrder))
-        .sendTo(appDesc.getOutputStream(fulfilledOrdersStreamDescriptor));
+        .sendTo(appDescriptor.getOutputStream(fulfilledOrdersStreamDescriptor));
 
   }
 

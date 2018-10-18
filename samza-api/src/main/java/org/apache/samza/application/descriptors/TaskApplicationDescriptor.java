@@ -26,18 +26,28 @@ import org.apache.samza.task.TaskFactory;
 
 
 /**
- *  The interface to describe a {@link org.apache.samza.application.SamzaApplication} that uses low-level API task
- *  for processing.
+ * A {@link TaskApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the
+ * processing logic for a Samza Low Level API {@link org.apache.samza.application.TaskApplication}.
+ * <p>
+ * Use the {@link TaskApplicationDescriptor} obtained from {@link org.apache.samza.application.TaskApplication#describe}
+ * to add the {@link InputDescriptor}s, {@link OutputDescriptor}s and {@link TableDescriptor}s for streams and
+ * tables to be used in the task implementation.
+ * <p>
+ * Use {@link #setTaskFactory} to set the factory for the {@link org.apache.samza.task.StreamTask} or
+ * {@link org.apache.samza.task.AsyncStreamTask} implementation that contains the processing logic for
+ * the {@link org.apache.samza.application.TaskApplication}.
  */
 @InterfaceStability.Evolving
 public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApplicationDescriptor> {
 
   /**
-   * Sets the {@link TaskFactory} for the user application. The {@link TaskFactory#createInstance()} creates task instance
-   * that implements the main processing logic of the user application.
+   * Sets the {@link org.apache.samza.task.StreamTaskFactory} or {@link org.apache.samza.task.AsyncStreamTaskFactory}
+   * for the {@link org.apache.samza.task.StreamTask} or {@link org.apache.samza.task.AsyncStreamTask} implementation
+   * that contains the processing logic for the {@link org.apache.samza.application.TaskApplication}.
+   * <p>
+   * The provided {@code taskFactory} instance must be serializable.
    *
-   * @param factory the {@link TaskFactory} including the low-level task processing logic. The only allowed task factory
-   *                classes are {@link org.apache.samza.task.StreamTaskFactory} and {@link org.apache.samza.task.AsyncStreamTaskFactory}.
+   * @param factory the {@link TaskFactory} for the Low Level API Task implementation
    */
   void setTaskFactory(TaskFactory factory);
 

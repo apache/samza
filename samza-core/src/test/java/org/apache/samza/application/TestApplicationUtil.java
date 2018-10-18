@@ -91,7 +91,7 @@ public class TestApplicationUtil {
    */
   public static class MockTaskApplication implements TaskApplication {
     @Override
-    public void describe(TaskApplicationDescriptor appSpec) {
+    public void describe(TaskApplicationDescriptor appDescriptor) {
 
     }
   }
