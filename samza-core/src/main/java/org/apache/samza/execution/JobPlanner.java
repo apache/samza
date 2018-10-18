@@ -70,17 +70,21 @@ public abstract class JobPlanner {
 
   /* package private */
   ExecutionPlan getExecutionPlan(String runId) {
-    Map<String, String> generatedConfig = getGeneratedConfig(runId);
-
-    // merge user-provided configuration with generated configuration. generated configuration has lower priority.
-    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
     Map<String, String> allowedUserConfig = new HashMap<>(userConfig);
+    Map<String, String> generatedConfig = new HashMap<>();
+
+    // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
-      LOG.warn("SamzaApplications should not specify task.inputs in configuration. " +
-          "Ignoring configured value of " + userConfig.get(TaskConfig.INPUT_STREAMS()));
-      allowedUserConfig.remove(TaskConfig.INPUT_STREAMS()); // must be set using descriptors or operators
+      if (userConfig.containsKey(TaskConfig.INPUT_STREAMS())) {
+        LOG.warn("SamzaApplications should not specify task.inputs in configuration. " +
+            "Ignoring configured value of " + userConfig.get(TaskConfig.INPUT_STREAMS()));
+        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS()); // must be set using descriptors or operators
+      }
+
+      generatedConfig.putAll(getGeneratedConfig(runId));
     }
 
+    // merge user-provided configuration with generated configuration. generated configuration has lower priority.
     Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig);
 
     // creating the StreamManager to get all input/output streams' metadata for planning
