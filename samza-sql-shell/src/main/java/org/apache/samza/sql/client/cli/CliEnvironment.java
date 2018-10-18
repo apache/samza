@@ -51,7 +51,7 @@ public class CliEnvironment {
    * -2: invalid val
    */
   int setEnvironmentVariable(String var, String val) {
-    switch (var.toUpperCase()) {
+    switch (var.toLowerCase()) {
       case debugEnvVar:
         val = val.toLowerCase();
         if (val.equals("true")) {
