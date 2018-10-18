@@ -36,7 +36,7 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
  *   {@link org.apache.samza.task.AsyncStreamTask} that operates on each
  *   {@link org.apache.samza.system.IncomingMessageEnvelope} one at a time.
  *   <li>Setting a {@link org.apache.samza.task.TaskFactory} using
- *   {@link TaskApplicationDescriptor#setTaskFactory(org.apache.samza.task.TaskFactory)} that creates instances of the
+ *   {@link TaskApplicationDescriptor#withTaskFactory(org.apache.samza.task.TaskFactory)} that creates instances of the
  *   task above. The {@link org.apache.samza.task.TaskFactory} implementation must be {@link java.io.Serializable}.
  * </ol>
  * <p>
@@ -50,9 +50,10 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
  *     KafkaOutputDescriptor<PageViewEvent>> outputStreamDescriptor =
  *         trackingSystemDescriptor.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
  *
- *     appDescriptor.addInputStream(inputStreamDescriptor);
- *     appDescriptor.addOutputStream(outputStreamDescriptor);
- *     appDescriptor.setTaskFactory((StreamTaskFactory) () -> new PageViewTask());
+ *     appDescriptor
+ *         .addInputStream(inputStreamDescriptor)
+ *         .addOutputStream(outputStreamDescriptor)
+ *         .withTaskFactory((StreamTaskFactory) () -> new PageViewTask());
  *   }
  * }
  *

@@ -136,7 +136,7 @@ class ExecutionPlannerTestBase {
       appDesc.addInputStream(intermediateInputDescriptor);
       appDesc.addOutputStream(intermediateOutputDescriptor);
       appDesc.addOutputStream(outputDescriptor);
-      appDesc.setTaskFactory(() -> new IdentityStreamTask());
+      appDesc.withTaskFactory(() -> new IdentityStreamTask());
     };
   }
 

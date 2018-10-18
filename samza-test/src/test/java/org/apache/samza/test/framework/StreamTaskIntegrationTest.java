@@ -208,7 +208,7 @@ public class StreamTaskIntegrationTest {
   static public class JoinTaskApplication implements TaskApplication {
     @Override
     public void describe(TaskApplicationDescriptor appDescriptor) {
-      appDescriptor.setTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
+      appDescriptor.withTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
       appDescriptor.addTable(new InMemoryTableDescriptor("profile-view-store",
           KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");

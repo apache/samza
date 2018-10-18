@@ -100,7 +100,7 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
       KafkaInputDescriptor<PageView> isd = ksd.getInputDescriptor(inputTopic, serde);
       appDescriptor.addInputStream(isd);
-      appDescriptor.setTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(containerShutdownLatch));
+      appDescriptor.withTaskFactory((StreamTaskFactory) () -> new FaultInjectionTask(containerShutdownLatch));
     }
 
     private static class FaultInjectionTask implements StreamTask, ClosableTask {

@@ -122,9 +122,9 @@ public class TestTaskApplicationDescriptorImpl {
   }
 
   @Test
-  public void testSetTaskFactory() {
+  public void testWithTaskFactory() {
     TaskFactory mockTf = mock(TaskFactory.class);
-    TaskApplication testApp = appDesc -> appDesc.setTaskFactory(mockTf);
+    TaskApplication testApp = appDesc -> appDesc.withTaskFactory(mockTf);
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(appDesc.getTaskFactory(), mockTf);
   }

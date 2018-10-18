@@ -44,28 +44,32 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   }
 
   @Override
-  public void setTaskFactory(TaskFactory factory) {
+  public TaskApplicationDescriptor withTaskFactory(TaskFactory factory) {
     this.taskFactory = factory;
+    return this;
   }
 
   @Override
-  public void addInputStream(InputDescriptor inputDescriptor) {
+  public TaskApplicationDescriptor addInputStream(InputDescriptor inputDescriptor) {
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     addInputDescriptor(inputDescriptor);
     getOrCreateStreamSerdes(inputDescriptor.getStreamId(), inputDescriptor.getSerde());
+    return this;
   }
 
   @Override
-  public void addOutputStream(OutputDescriptor outputDescriptor) {
+  public TaskApplicationDescriptor addOutputStream(OutputDescriptor outputDescriptor) {
     addOutputDescriptor(outputDescriptor);
     getOrCreateStreamSerdes(outputDescriptor.getStreamId(), outputDescriptor.getSerde());
+    return this;
   }
 
   @Override
-  public void addTable(TableDescriptor tableDescriptor) {
+  public TaskApplicationDescriptor addTable(TableDescriptor tableDescriptor) {
     addTableDescriptor(tableDescriptor);
     BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
     getOrCreateTableSerdes(baseTableDescriptor.getTableId(), baseTableDescriptor.getSerde());
+    return this;
   }
 
   /**

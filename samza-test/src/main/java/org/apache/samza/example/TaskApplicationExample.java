@@ -71,7 +71,7 @@ public class TaskApplicationExample implements TaskApplication {
     appDescriptor.addOutputStream(osd);
     appDescriptor.addTable(td);
     // create the task factory based on configuration
-    appDescriptor.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+    appDescriptor.withTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 
 }
