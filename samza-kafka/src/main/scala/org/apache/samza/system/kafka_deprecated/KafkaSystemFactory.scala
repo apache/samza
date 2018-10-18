@@ -127,7 +127,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       (topicName, changelogInfo)
     }}
 
-    val deleteCommittedMessages = config.deleteCommittedMessages(systemName).exists(isEnabled => isEnabled.toBoolean)
+    val deleteCommittedMessages = config.deleteCommittedMessages(systemName)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(
       systemName,
@@ -166,8 +166,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
   def getClientId(id: String, config: Config): String = getClientId(
     id,
-    config.getName.getOrElse(throw new ConfigException("Missing job name.")),
-    config.getJobId.getOrElse("1"))
+    new JobConfig(config).getName.getOrElse(throw new ConfigException("Missing job name.")),
+    new JobConfig(config)getJobId)
 
   def getClientId(id: String, jobName: String, jobId: String): String =
     "%s-%s-%s" format
