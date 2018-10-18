@@ -59,7 +59,7 @@ object KafkaSystemConsumer {
  *  Maintain a cache of BrokerProxies, returning the appropriate one for the
  *  requested topic and partition.
  */
-private[kafka] class KafkaSystemConsumer(
+private[kafka_deprecated] class KafkaSystemConsumer(
   systemName: String,
   systemAdmin: SystemAdmin,
   metrics: KafkaSystemConsumerMetrics,
