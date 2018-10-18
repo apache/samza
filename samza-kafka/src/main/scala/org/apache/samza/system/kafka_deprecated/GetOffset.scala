@@ -19,7 +19,7 @@
  *
  */
 
-package org.apache.samza.system.kafka
+package org.apache.samza.system.kafka_deprecated
 
 import org.apache.kafka.common.errors.OffsetOutOfRangeException
 import kafka.api._

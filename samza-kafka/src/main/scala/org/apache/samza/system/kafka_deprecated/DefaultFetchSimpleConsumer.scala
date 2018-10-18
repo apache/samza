@@ -19,7 +19,7 @@
  *
  */
 
-package org.apache.samza.system.kafka
+package org.apache.samza.system.kafka_deprecated
 
 import kafka.consumer.SimpleConsumer
 import kafka.api._

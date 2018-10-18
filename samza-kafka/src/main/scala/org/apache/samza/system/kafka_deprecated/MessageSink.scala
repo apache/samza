@@ -17,29 +17,19 @@
  * under the License.
  */
 
-package org.apache.samza.sql.runner;
+package org.apache.samza.system.kafka_deprecated
 
-import java.util.Map;
-import org.apache.samza.context.ApplicationTaskContext;
-import org.apache.samza.sql.translator.TranslatorContext;
+import kafka.common.TopicAndPartition
+import kafka.message.MessageAndOffset
 
+private[kafka_deprecated] trait MessageSink {
+  def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean): Unit
 
-public class SamzaSqlApplicationContext implements ApplicationTaskContext {
-  private Map<Integer, TranslatorContext> queryIdAndTranslatorContextMap;
+  def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long): Unit
 
-  public SamzaSqlApplicationContext(Map<Integer, TranslatorContext> queryAndTranslatorContextMap) {
-    this.queryIdAndTranslatorContextMap = queryAndTranslatorContextMap;
-  }
+  def abdicate(tp: TopicAndPartition, nextOffset: Long): Unit
 
-  public Map<Integer, TranslatorContext> getTranslatorContexts() {
-    return queryIdAndTranslatorContextMap;
-  }
+  def refreshDropped(): Unit
 
-  @Override
-  public void start() {
-  }
-
-  @Override
-  public void stop() {
-  }
+  def needsMoreMessages(tp: TopicAndPartition): Boolean
 }

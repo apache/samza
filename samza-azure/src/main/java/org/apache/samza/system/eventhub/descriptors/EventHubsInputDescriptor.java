@@ -25,16 +25,19 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 
 
 /**
- * A descriptor for the Event Hubs output stream
+ * A {@link EventHubsInputDescriptor} can be used for specifying Samza and EventHubs-specific properties of EventHubs
+ * input streams.
  * <p>
- * An instance of this descriptor may be obtained from an {@link EventHubsSystemDescriptor}
+ * Use {@link EventHubsSystemDescriptor#getInputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream
  */
@@ -52,12 +55,12 @@ public class EventHubsInputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param namespace namespace for the Event Hubs entity to consume from, not null
    * @param entityPath entity path for the Event Hubs entity to consume from, not null
-   * @param serde serde for messages in the stream
+   * @param valueSerde serde the values in the messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  EventHubsInputDescriptor(String streamId, String namespace, String entityPath, Serde serde,
+  EventHubsInputDescriptor(String streamId, String namespace, String entityPath, Serde valueSerde,
       SystemDescriptor systemDescriptor) {
-    super(streamId, serde, systemDescriptor, null);
+    super(streamId, KVSerde.of(new NoOpSerde<>(), valueSerde), systemDescriptor, null);
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);
     if (this.namespace == null || this.entityPath == null) {

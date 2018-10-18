@@ -60,18 +60,18 @@ public class TaskApplicationExample implements TaskApplication {
   }
 
   @Override
-  public void describe(TaskApplicationDescriptor appDesc) {
+  public void describe(TaskApplicationDescriptor appDescriptor) {
     // add input and output streams
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("tracking");
     KafkaInputDescriptor<String> isd = ksd.getInputDescriptor("myinput", new StringSerde());
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor("myout", new StringSerde());
     TableDescriptor td = new RocksDbTableDescriptor("mytable");
 
-    appDesc.addInputStream(isd);
-    appDesc.addOutputStream(osd);
-    appDesc.addTable(td);
+    appDescriptor.addInputStream(isd);
+    appDescriptor.addOutputStream(osd);
+    appDescriptor.addTable(td);
     // create the task factory based on configuration
-    appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+    appDescriptor.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 
 }

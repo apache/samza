@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.samza.operators.KV;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
@@ -31,9 +32,12 @@ import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.Partitio
 
 
 /**
- * A descriptor for a Event Hubs system.
+ * A {@link EventHubsSystemDescriptor} can be used for specifying Samza and EventHubs-specific properties of a EventHubs
+ * input/output system. It can also be used for obtaining {@link EventHubsInputDescriptor}s and
+ * {@link EventHubsOutputDescriptor}s, which can be used for specifying Samza and system-specific properties of
+ * EventHubs input/output streams.
  * <p>
- * System properties provided in configuration override corresponding properties configured using a descriptor.
+ * System properties provided in configuration override corresponding properties specified using a descriptor.
  */
 public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = EventHubSystemFactory.class.getName();
@@ -57,40 +61,40 @@ public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemD
 
   /**
    * Gets an {@link EventHubsInputDescriptor} for the input stream of this system. The stream has the provided
-   * namespace and entity name of the associated Event Hubs entity and the provided stream level serde.
+   * namespace and entity name of the associated Event Hubs entity and the provided stream level value serde.
    * <p>
-   * The type of messages in the stream is the type of the provided stream level serde.
+   * The message in the stream will have {@link String} keys and {@code ValueType} values.
    *
    * @param streamId id of the input stream
    * @param namespace namespace of the Event Hubs entity to consume from
    * @param entityPath entity path of the Event Hubs entity to consume from
-   * @param serde stream level serde for the input stream
-   * @param <StreamMessageType> type of messages in this stream
+   * @param valueSerde stream level serde for the values in the messages in the input stream
+   * @param <ValueType> type of the value in the messages in this stream
    * @return an {@link EventHubsInputDescriptor} for the Event Hubs input stream
    */
-  public <StreamMessageType> EventHubsInputDescriptor<StreamMessageType> getInputDescriptor(String streamId, String namespace,
-      String entityPath, Serde<StreamMessageType> serde) {
+  public <ValueType> EventHubsInputDescriptor<KV<String, ValueType>> getInputDescriptor(String streamId, String namespace,
+      String entityPath, Serde<ValueType> valueSerde) {
     streamIds.add(streamId);
-    return new EventHubsInputDescriptor<>(streamId, namespace, entityPath, serde, this);
+    return new EventHubsInputDescriptor<>(streamId, namespace, entityPath, valueSerde, this);
   }
 
   /**
    * Gets an {@link EventHubsOutputDescriptor} for the output stream of this system. The stream has the provided
-   * namespace and entity name of the associated Event Hubs entity and the provided stream level serde.
+   * namespace and entity name of the associated Event Hubs entity and the provided stream level value serde.
    * <p>
-   * The type of messages in the stream is the type of the provided stream level serde.
+   * The message in the stream will have {@link String} keys and {@code ValueType} values.
    *
    * @param streamId id of the output stream
    * @param namespace namespace of the Event Hubs entity to produce to
    * @param entityPath entity path of the Event Hubs entity to produce to
-   * @param serde stream level serde for the output stream
-   * @param <StreamMessageType> type of the messages in this stream
+   * @param valueSerde stream level serde for the values in the messages to the output stream
+   * @param <ValueType> type of the value in the messages in this stream
    * @return an {@link EventHubsOutputDescriptor} for the Event Hubs output stream
    */
-  public <StreamMessageType> EventHubsOutputDescriptor<StreamMessageType> getOutputDescriptor(String streamId, String namespace,
-      String entityPath, Serde<StreamMessageType> serde) {
+  public <ValueType> EventHubsOutputDescriptor<KV<String, ValueType>> getOutputDescriptor(String streamId, String namespace,
+      String entityPath, Serde<ValueType> valueSerde) {
     streamIds.add(streamId);
-    return new EventHubsOutputDescriptor<>(streamId, namespace, entityPath, serde, this);
+    return new EventHubsOutputDescriptor<>(streamId, namespace, entityPath, valueSerde, this);
   }
 
   /**

@@ -1,4 +1,5 @@
 /*
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,31 +16,13 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
+ *
  */
 
-package org.apache.samza.sql.runner;
+package org.apache.samza.system.kafka_deprecated
 
-import java.util.Map;
-import org.apache.samza.context.ApplicationTaskContext;
-import org.apache.samza.sql.translator.TranslatorContext;
+import org.apache.samza.SamzaException
 
-
-public class SamzaSqlApplicationContext implements ApplicationTaskContext {
-  private Map<Integer, TranslatorContext> queryIdAndTranslatorContextMap;
-
-  public SamzaSqlApplicationContext(Map<Integer, TranslatorContext> queryAndTranslatorContextMap) {
-    this.queryIdAndTranslatorContextMap = queryAndTranslatorContextMap;
-  }
-
-  public Map<Integer, TranslatorContext> getTranslatorContexts() {
-    return queryIdAndTranslatorContextMap;
-  }
-
-  @Override
-  public void start() {
-  }
-
-  @Override
-  public void stop() {
-  }
+private[kafka_deprecated] trait Toss {
+  def toss(s:String) = throw new SamzaException(s)
 }
