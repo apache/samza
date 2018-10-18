@@ -72,8 +72,8 @@ import org.slf4j.LoggerFactory;
     originalConfig.forEach((k, v) -> {
         if (generatedConfig.containsKey(k) &&
             !Objects.equals(generatedConfig.get(k), v)) {
-          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
-              k, generatedConfig.get(k), v);
+          //LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
+           //   k, generatedConfig.get(k), v);
         }
         mergedConfig.put(k, v);
       });

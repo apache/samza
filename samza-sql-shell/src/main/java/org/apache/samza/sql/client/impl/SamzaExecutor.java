@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.I0Itec.zkclient.exception.ZkTimeoutException;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.samza.SamzaException;
@@ -86,6 +87,7 @@ public class SamzaExecutor implements SqlExecutor {
     private static final String SAMZA_SQL_SYSTEM_KAFKA_ADDRESS = "samza.sql.system.kafka.address";
     private static final String DEFAULT_SERVER_ADDRESS = "localhost:2181";
     private static final int RANDOM_ACCESS_QUEUE_CAPACITY = 5000;
+    private static final int DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT = 20000;
 
     private static RandomAccessQueue<OutgoingMessageEnvelope> m_outputData =
         new RandomAccessQueue<>(OutgoingMessageEnvelope.class, RANDOM_ACCESS_QUEUE_CAPACITY);
@@ -115,13 +117,20 @@ public class SamzaExecutor implements SqlExecutor {
          * TODO: currently Shell can only talk to Kafka system, but we should use a general way
          *       to connect to different systems.
          */
-        String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS,
-            DEFAULT_SERVER_ADDRESS);
-        ZkUtils zkUtils = new ZkUtils(new ZkClient(address), new ZkConnection(address), false);
-        List<String> tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
-            .stream()
-            .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
-            .collect(Collectors.toList());
+        m_lastErrorMsg = "";
+        String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS, DEFAULT_SERVER_ADDRESS);
+        List<String> tables = null;
+        try {
+            ZkUtils zkUtils = new ZkUtils(new ZkClient(address, DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT),
+                new ZkConnection(address), false);
+            tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
+                .stream()
+                .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
+                .collect(Collectors.toList());
+        } catch (ZkTimeoutException ex) {
+            m_lastErrorMsg = ex.toString();
+            LOG.error(m_lastErrorMsg);
+        }
         return tables;
     }
 
