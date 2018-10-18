@@ -74,11 +74,13 @@ public abstract class JobPlanner {
     Map<String, String> generatedConfig = new HashMap<>();
 
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
+    // Don't generate any configurations for LegacyTaskApplications
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
       if (userConfig.containsKey(TaskConfig.INPUT_STREAMS())) {
         LOG.warn("SamzaApplications should not specify task.inputs in configuration. " +
-            "Ignoring configured value of " + userConfig.get(TaskConfig.INPUT_STREAMS()));
-        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS()); // must be set using descriptors or operators
+            "Specify them using InputDescriptors instead. Ignoring configured task.inputs value of " +
+            userConfig.get(TaskConfig.INPUT_STREAMS()));
+        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS());
       }
 
       generatedConfig.putAll(getGeneratedConfig(runId));
