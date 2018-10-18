@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.I0Itec.zkclient.exception.ZkTimeoutException;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.samza.SamzaException;
@@ -79,6 +80,7 @@ public class SamzaExecutor implements SqlExecutor {
   private static final String SAMZA_SQL_SYSTEM_KAFKA_ADDRESS = "samza.sql.system.kafka.address";
   private static final String DEFAULT_SERVER_ADDRESS = "localhost:2181";
   private static final int RANDOM_ACCESS_QUEUE_CAPACITY = 5000;
+  private static final int DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT = 20000;
 
   private static RandomAccessQueue<OutgoingMessageEnvelope> outputData =
           new RandomAccessQueue<>(OutgoingMessageEnvelope.class, RANDOM_ACCESS_QUEUE_CAPACITY);
@@ -87,87 +89,6 @@ public class SamzaExecutor implements SqlExecutor {
   private String lastErrorMsg = "";
 
   // -- implementation of SqlExecutor ------------------------------------------
-
-  static void saveOutputMessage(OutgoingMessageEnvelope messageEnvelope) {
-    outputData.add(messageEnvelope);
-  }
-
-  static Map<String, String> fetchSamzaSqlConfig(int execId, ExecutionContext executionContext) {
-    HashMap<String, String> staticConfigs = new HashMap<>();
-
-    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job-" + execId);
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), String.valueOf(execId));
-    staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    staticConfigs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
-
-    staticConfigs.put(SamzaSqlApplicationConfig.CFG_IO_RESOLVER, "config");
-    String configIOResolverDomain =
-            String.format(SamzaSqlApplicationConfig.CFG_FMT_SOURCE_RESOLVER_DOMAIN, "config");
-    staticConfigs.put(configIOResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-            ConfigBasedIOResolverFactory.class.getName());
-
-    staticConfigs.put(SamzaSqlApplicationConfig.CFG_UDF_RESOLVER, "config");
-    String configUdfResolverDomain = String.format(SamzaSqlApplicationConfig.CFG_FMT_UDF_RESOLVER_DOMAIN, "config");
-    staticConfigs.put(configUdfResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-            ConfigBasedUdfResolver.class.getName());
-    staticConfigs.put(configUdfResolverDomain + ConfigBasedUdfResolver.CFG_UDF_CLASSES,
-            Joiner.on(",").join(RegexMatchUdf.class.getName(), FlattenUdf.class.getName()));
-
-    staticConfigs.put("serializers.registry.string.class", StringSerdeFactory.class.getName());
-    staticConfigs.put("serializers.registry.avro.class", AvroSerDeFactory.class.getName());
-    staticConfigs.put(AvroSerDeFactory.CFG_AVRO_SCHEMA, ProfileChangeEvent.SCHEMA$.toString());
-
-    String kafkaSystemConfigPrefix =
-            String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_KAFKA);
-    String avroSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SAMZA_SYSTEM_KAFKA);
-    staticConfigs.put(kafkaSystemConfigPrefix + "samza.factory", KafkaSystemFactory.class.getName());
-    staticConfigs.put(kafkaSystemConfigPrefix + "samza.key.serde", "string");
-    staticConfigs.put(kafkaSystemConfigPrefix + "samza.msg.serde", "avro");
-    staticConfigs.put(kafkaSystemConfigPrefix + "consumer.zookeeper.connect", "localhost:2181");
-    staticConfigs.put(kafkaSystemConfigPrefix + "producer.bootstrap.servers", "localhost:9092");
-
-    staticConfigs.put(kafkaSystemConfigPrefix + "samza.offset.reset", "true");
-    staticConfigs.put(kafkaSystemConfigPrefix + "samza.offset.default", "oldest");
-
-    staticConfigs.put(avroSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER, "avro");
-    staticConfigs.put(avroSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");
-
-    String logSystemConfigPrefix =
-            String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_LOG);
-    String logSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SAMZA_SYSTEM_LOG);
-    staticConfigs.put(logSystemConfigPrefix + "samza.factory", CliLoggingSystemFactory.class.getName());
-    staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER, "json");
-    staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");
-
-    String avroSamzaToRelMsgConverterDomain =
-            String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
-
-    staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-            AvroSchemaGenRelConverterFactory.class.getName());
-
-    String jsonSamzaToRelMsgConverterDomain =
-            String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "json");
-
-    staticConfigs.put(jsonSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-            JsonRelConverterFactory.class.getName());
-
-    String configAvroRelSchemaProviderDomain =
-            String.format(SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN, "config");
-    staticConfigs.put(configAvroRelSchemaProviderDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-            FileSystemAvroRelSchemaProviderFactory.class.getName());
-
-    staticConfigs.put(
-            configAvroRelSchemaProviderDomain + FileSystemAvroRelSchemaProviderFactory.CFG_SCHEMA_DIR,
-            "/tmp/schemas/");
-
-    /* TODO: we need to validate and read configurations from shell-defaults.conf (aka. "executionContext"),
-     *       and update their value if they've been included in staticConfigs. We could handle these logic
-     *       Shell level, or in Executor level.
-     */
-    staticConfigs.putAll(executionContext.getConfigMap());
-
-    return staticConfigs;
-  }
 
   @Override
   public void start(ExecutionContext context) {
@@ -189,13 +110,20 @@ public class SamzaExecutor implements SqlExecutor {
      * TODO: currently Shell can only talk to Kafka system, but we should use a general way
      *       to connect to different systems.
      */
-    String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS,
-            DEFAULT_SERVER_ADDRESS);
-    ZkUtils zkUtils = new ZkUtils(new ZkClient(address), new ZkConnection(address), false);
-    List<String> tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
-            .stream()
-            .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
-            .collect(Collectors.toList());
+    lastErrorMsg = "";
+    String address = context.getConfigMap().getOrDefault(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS, DEFAULT_SERVER_ADDRESS);
+    List<String> tables = null;
+    try {
+      ZkUtils zkUtils = new ZkUtils(new ZkClient(address, DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT),
+          new ZkConnection(address), false);
+      tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
+        .stream()
+        .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
+        .collect(Collectors.toList());
+    } catch (ZkTimeoutException ex) {
+      lastErrorMsg = ex.toString();
+      LOG.error(lastErrorMsg);
+    }
     return tables;
   }
 
@@ -404,6 +332,87 @@ public class SamzaExecutor implements SqlExecutor {
             SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.BOOLEAN)));
 
     return udfs;
+  }
+
+  static void saveOutputMessage(OutgoingMessageEnvelope messageEnvelope) {
+    outputData.add(messageEnvelope);
+  }
+
+  static Map<String, String> fetchSamzaSqlConfig(int execId, ExecutionContext executionContext) {
+    HashMap<String, String> staticConfigs = new HashMap<>();
+
+    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job-" + execId);
+    staticConfigs.put(JobConfig.PROCESSOR_ID(), String.valueOf(execId));
+    staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
+    staticConfigs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_IO_RESOLVER, "config");
+    String configIOResolverDomain =
+        String.format(SamzaSqlApplicationConfig.CFG_FMT_SOURCE_RESOLVER_DOMAIN, "config");
+    staticConfigs.put(configIOResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        ConfigBasedIOResolverFactory.class.getName());
+
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_UDF_RESOLVER, "config");
+    String configUdfResolverDomain = String.format(SamzaSqlApplicationConfig.CFG_FMT_UDF_RESOLVER_DOMAIN, "config");
+    staticConfigs.put(configUdfResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        ConfigBasedUdfResolver.class.getName());
+    staticConfigs.put(configUdfResolverDomain + ConfigBasedUdfResolver.CFG_UDF_CLASSES,
+        Joiner.on(",").join(RegexMatchUdf.class.getName(), FlattenUdf.class.getName()));
+
+    staticConfigs.put("serializers.registry.string.class", StringSerdeFactory.class.getName());
+    staticConfigs.put("serializers.registry.avro.class", AvroSerDeFactory.class.getName());
+    staticConfigs.put(AvroSerDeFactory.CFG_AVRO_SCHEMA, ProfileChangeEvent.SCHEMA$.toString());
+
+    String kafkaSystemConfigPrefix =
+        String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_KAFKA);
+    String avroSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SAMZA_SYSTEM_KAFKA);
+    staticConfigs.put(kafkaSystemConfigPrefix + "samza.factory", KafkaSystemFactory.class.getName());
+    staticConfigs.put(kafkaSystemConfigPrefix + "samza.key.serde", "string");
+    staticConfigs.put(kafkaSystemConfigPrefix + "samza.msg.serde", "avro");
+    staticConfigs.put(kafkaSystemConfigPrefix + "consumer.zookeeper.connect", "localhost:2181");
+    staticConfigs.put(kafkaSystemConfigPrefix + "producer.bootstrap.servers", "localhost:9092");
+
+    staticConfigs.put(kafkaSystemConfigPrefix + "samza.offset.reset", "true");
+    staticConfigs.put(kafkaSystemConfigPrefix + "samza.offset.default", "oldest");
+
+    staticConfigs.put(avroSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER, "avro");
+    staticConfigs.put(avroSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");
+
+    String logSystemConfigPrefix =
+        String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_LOG);
+    String logSamzaSqlConfigPrefix = configIOResolverDomain + String.format("%s.", SAMZA_SYSTEM_LOG);
+    staticConfigs.put(logSystemConfigPrefix + "samza.factory", CliLoggingSystemFactory.class.getName());
+    staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_SAMZA_REL_CONVERTER, "json");
+    staticConfigs.put(logSamzaSqlConfigPrefix + SqlIOConfig.CFG_REL_SCHEMA_PROVIDER, "config");
+
+    String avroSamzaToRelMsgConverterDomain =
+        String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
+
+    staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        AvroSchemaGenRelConverterFactory.class.getName());
+
+    String jsonSamzaToRelMsgConverterDomain =
+        String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "json");
+
+    staticConfigs.put(jsonSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        JsonRelConverterFactory.class.getName());
+
+    String configAvroRelSchemaProviderDomain =
+        String.format(SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN, "config");
+    staticConfigs.put(configAvroRelSchemaProviderDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
+        FileSystemAvroRelSchemaProviderFactory.class.getName());
+
+    staticConfigs.put(
+        configAvroRelSchemaProviderDomain + FileSystemAvroRelSchemaProviderFactory.CFG_SCHEMA_DIR,
+        "/tmp/schemas/");
+
+    /* TODO: we need to validate and read configurations from shell-defaults.conf (aka. "executionContext"),
+     *       and update their value if they've been included in staticConfigs. We could handle these logic
+     *       Shell level, or in Executor level.
+     */
+    staticConfigs.putAll(executionContext.getConfigMap());
+
+    return staticConfigs;
   }
 
   private List<String> formatSqlStmts(List<String> statements) {
