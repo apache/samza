@@ -20,51 +20,52 @@
 package org.apache.samza.sql.client.impl;
 
 import com.google.common.base.Joiner;
+import org.apache.samza.sql.client.interfaces.SqlFunction;
+
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.samza.sql.client.interfaces.SqlFunction;
 
 /**
  * UDF information displayer
  */
 public class SamzaSqlUdfDisplayInfo implements SqlFunction {
 
-    private String name;
+  private String name;
 
-    private String description;
+  private String description;
 
-    private List<SamzaSqlFieldType> argumentTypes;
+  private List<SamzaSqlFieldType> argumentTypes;
 
-    private SamzaSqlFieldType returnType;
+  private SamzaSqlFieldType returnType;
 
-    public SamzaSqlUdfDisplayInfo(String name, String description, List<SamzaSqlFieldType> argumentTypes,
-        SamzaSqlFieldType returnType) {
-        this.name = name;
-        this.description = description;
-        this.argumentTypes = argumentTypes;
-        this.returnType = returnType;
-    }
+  public SamzaSqlUdfDisplayInfo(String name, String description, List<SamzaSqlFieldType> argumentTypes,
+                                SamzaSqlFieldType returnType) {
+    this.name = name;
+    this.description = description;
+    this.argumentTypes = argumentTypes;
+    this.returnType = returnType;
+  }
 
   public String getName() {
-      return name;
+    return name;
   }
 
   public String getDescription() {
-      return description;
+    return description;
   }
 
   public List<String> getArgumentTypes() {
-      return argumentTypes.stream().map(x -> x.getTypeName().toString()).collect(Collectors.toList());
+    return argumentTypes.stream().map(x -> x.getTypeName().toString()).collect(Collectors.toList());
   }
 
   public String getReturnType() {
-      return returnType.getTypeName().toString();
+    return returnType.getTypeName().toString();
   }
 
   public String toString() {
-      List<String> argumentTypeNames =
-          argumentTypes.stream().map(x -> x.getTypeName().toString()).collect(Collectors.toList());
-      String args = Joiner.on(", ").join(argumentTypeNames);
-      return String.format("%s(%s) returns <%s> : %s", name, args, returnType.getTypeName().toString(), description);
+    List<String> argumentTypeNames =
+            argumentTypes.stream().map(x -> x.getTypeName().toString()).collect(Collectors.toList());
+    String args = Joiner.on(", ").join(argumentTypeNames);
+    return String.format("%s(%s) returns <%s> : %s", name, args, returnType.getTypeName().toString(), description);
   }
 }

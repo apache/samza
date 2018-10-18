@@ -23,9 +23,9 @@ package org.apache.samza.sql.client.interfaces;
  * Execution result of a SELECT statement. It doesn't contain data though.
  */
 public class QueryResult {
-  private int execId;
-  private boolean success;
-  private SqlSchema schema;
+  private int execId; // execution ID of the statement(s) submitted
+  private boolean success; // whether the statement(s) submitted successfully
+  private SqlSchema schema; // The schema of the data coming from the query
 
   public QueryResult(int execId, SqlSchema schema, Boolean success) {
     if (success && schema == null)

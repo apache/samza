@@ -27,8 +27,12 @@ class CliConstants {
   public static final String WINDOW_TITLE = "Samza SQL Shell";
   public static final String PROMPT_1ST = "Samza SQL";
   public static final String PROMPT_1ST_END = "> ";
+
+  // All shell environment variables starts with the prefix
   public static final String CONFIG_SHELL_PREFIX = "shell.";
+  // Specifies the executor used by the shell
   public static final String CONFIG_EXECUTOR = "shell.executor";
+
   public static final String VERSION = "0.0.1";
 
 

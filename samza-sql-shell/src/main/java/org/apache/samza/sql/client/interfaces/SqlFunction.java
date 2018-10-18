@@ -25,12 +25,28 @@ import java.util.List;
  * Represents a SQL function.
  */
 public interface SqlFunction {
+  /**
+   * Gets the name of the function.
+   * @return name of the function
+   */
   public String getName();
 
+  /**
+   * Gets the description of the function.
+   * @return description of the function.
+   */
   public String getDescription();
 
+  /**
+   * Gets the argument types of the function as a List.
+   * @return A list containing the type names of the arguments.
+   */
   public List<String> getArgumentTypes();
 
+  /**
+   * Gets the return type of the function.
+   * @return return type name
+   */
   public String getReturnType();
 
   /**

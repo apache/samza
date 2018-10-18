@@ -35,11 +35,11 @@ public class CliEnvironment {
   private static PrintStream stderr = System.err;
   private Boolean debug = false;
 
-  public boolean isDebug() {
+  boolean isDebug() {
     return debug;
   }
 
-  public void setDebug(Boolean debug) {
+  void setDebug(Boolean debug) {
     this.debug = debug;
   }
 
@@ -50,7 +50,7 @@ public class CliEnvironment {
    * -1: invalid var
    * -2: invalid val
    */
-  public int setEnvironmentVariable(String var, String val) {
+  int setEnvironmentVariable(String var, String val) {
     switch (var.toUpperCase()) {
       case debugEnvVar:
         val = val.toLowerCase();
@@ -70,7 +70,8 @@ public class CliEnvironment {
     return 0;
   }
 
-  public List<String> getPossibleValues(String var) {
+  // TODO: Separate the values out of the logic part
+  List<String> getPossibleValues(String var) {
     List<String> vals = new ArrayList<>();
     switch (var.toLowerCase()) {
       case debugEnvVar:
@@ -82,7 +83,7 @@ public class CliEnvironment {
     }
   }
 
-  public void printAll(Writer writer) throws IOException {
+  void printAll(Writer writer) throws IOException {
     writer.write(debugEnvVar);
     writer.write('=');
     writer.write(debug.toString());

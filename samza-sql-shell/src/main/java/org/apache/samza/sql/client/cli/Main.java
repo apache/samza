@@ -35,14 +35,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main entry of the
+ * Main entry of the program.
  */
 public class Main {
     private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
       // Get configuration file path
-  /*    String configFilePath = null;
+      String configFilePath = null;
       for(int i = 0; i < args.length; ++i) {
         switch(args[i]) {
           case "-conf":
@@ -110,14 +110,8 @@ public class Main {
         executor = new SamzaExecutor();
       }
 
-      // CliShell shell = new CliShell(executor, environment, new ExecutionContext(executorConfig));
-      // shell.open(); */
-
-      SamzaExecutor _executor = new SamzaExecutor();
-      _executor.listTables(new ExecutionContext(new HashMap<>()));
-      //_executor.executeQuery(null, "insert into kafka.ProfileChangeStream_sink select * from kafka.ProfileChangeStream");
-      //_executor.executeQuery(null, "insert into log.outputStream select * from kafka.ProfileChangeStream");
-      // _executor.executeQuery(null, "select * from kafka.ProfileChangeStream");
+      CliShell shell = new CliShell(executor, environment, new ExecutionContext(executorConfig));
+      shell.open();
     }
 }
 
