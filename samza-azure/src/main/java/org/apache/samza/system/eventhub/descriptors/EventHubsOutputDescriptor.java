@@ -25,16 +25,17 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 
 /**
  * A descriptor for an Event Hubs output stream
  * <p>
- *   An instance of this descriptor may be obtained from and {@link EventHubsSystemDescriptor}
- * </p>
- * Stream properties configured using a descriptor overrides corresponding properties and property defaults provided
- * in configuration.
+ * An instance of this descriptor may be obtained from and {@link EventHubsSystemDescriptor}
+ * <p>
+ * Stream properties provided in configuration override corresponding properties configured using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream
  */
@@ -51,12 +52,12 @@ public class EventHubsOutputDescriptor<StreamMessageType>
    * @param streamId id of the stream
    * @param namespace namespace for the Event Hubs entity to produce to, not null
    * @param entityPath entity path for the Event Hubs entity to produce to, not null
-   * @param serde serde for messages in the stream
+   * @param valueSerde serde the values in the messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  EventHubsOutputDescriptor(String streamId, String namespace, String entityPath, Serde serde,
+  EventHubsOutputDescriptor(String streamId, String namespace, String entityPath, Serde valueSerde,
       SystemDescriptor systemDescriptor) {
-    super(streamId, serde, systemDescriptor);
+    super(streamId, KVSerde.of(new NoOpSerde<>(), valueSerde), systemDescriptor);
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);
     if (this.namespace == null || this.entityPath == null) {

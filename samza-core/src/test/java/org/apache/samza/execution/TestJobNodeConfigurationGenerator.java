@@ -239,59 +239,9 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   }
 
   @Test
-  public void testTaskInputsRemovedFromOriginalConfig() {
-    Map<String, String> configs = new HashMap<>(mockConfig);
-    configs.put(TaskConfig.INPUT_STREAMS(), "not.allowed1,not.allowed2");
-    mockConfig = spy(new MapConfig(configs));
-
-    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getBroadcastOnlyStreamApplication(defaultSerde), mockConfig);
-    configureJobNode(mockStreamAppDesc);
-
-    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
-    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
-    Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
-    validateJobConfig(expectedConfig, jobConfig);
-  }
-
-  @Test
-  public void testTaskInputsRetainedForLegacyTaskApplication() {
-    Map<String, String> originConfig = new HashMap<>(mockConfig);
-    originConfig.put(TaskConfig.INPUT_STREAMS(), "must.retain1,must.retain2");
-    mockConfig = new MapConfig(originConfig);
-    TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getLegacyTaskApplication(), mockConfig);
-    configureJobNode(taskAppDesc);
-
-    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
-    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
-    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "");
-    // jobConfig should be exactly the same as original config
-    Map<String, String> generatedConfig = new HashMap<>(jobConfig);
-    assertEquals(originConfig, generatedConfig);
-  }
-
-  @Test
-  public void testOverrideConfigs() {
+  public void testConfigRewriter() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()) + streamCfgToOverride;
-    configs.put(overrideCfgKey, "customized-system");
-    mockConfig = spy(new MapConfig(configs));
-    mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
-    configureJobNode(mockStreamAppDesc);
-
-    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
-    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
-    Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
-    validateJobConfig(expectedConfig, jobConfig);
-    assertEquals("customized-system", jobConfig.get(streamCfgToOverride));
-  }
-
-  @Test
-  public void testConfigureRewriter() {
-    Map<String, String> configs = new HashMap<>(mockConfig);
-    String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    String overrideCfgKey = String.format(JobConfig.CONFIG_OVERRIDE_JOBS_PREFIX(), getJobNameAndId()) + streamCfgToOverride;
-    configs.put(overrideCfgKey, "customized-system");
     configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS(), "mock"), MockConfigRewriter.class.getName());
     configs.put(JobConfig.CONFIG_REWRITERS(), "mock");
     configs.put(String.format("job.config.rewriter.mock.%s", streamCfgToOverride), "rewritten-system");

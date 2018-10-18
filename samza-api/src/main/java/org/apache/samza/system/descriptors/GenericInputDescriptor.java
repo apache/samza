@@ -30,7 +30,7 @@ import org.apache.samza.serializers.Serde;
  * Otherwise, this {@link GenericInputDescriptor} may be used to provide Samza-specific properties of the input stream.
  * Additional system stream specific properties may be provided using {@link #withStreamConfigs}
  * <p>
- * Stream properties configured using a descriptor override corresponding properties provided in configuration.
+ * Stream properties provided in configuration override corresponding properties configured using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream.
  */

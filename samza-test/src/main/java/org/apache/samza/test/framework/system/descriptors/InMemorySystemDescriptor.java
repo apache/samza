@@ -31,8 +31,8 @@ import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.config.JavaSystemConfig;
 
 /**
- * A descriptor for InMemorySystem.
- * System properties configured using a descriptor override corresponding properties provided in configuration.
+ * Descriptor for an InMemorySystem.
+ * System properties provided in configuration override corresponding properties configured using a descriptor.
  * <p>
  * Following system level configs are set by default
  * <ol>
@@ -44,20 +44,6 @@ import org.apache.samza.config.JavaSystemConfig;
 public class InMemorySystemDescriptor extends SystemDescriptor<InMemorySystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {
   private static final String FACTORY_CLASS_NAME = InMemorySystemFactory.class.getName();
-  /**
-   * <p>
-   * The "systems.*" configs are required since the planner uses the system to get metadata about streams during
-   * planning. The "jobs.job-name.systems.*" configs are required since configs generated from user provided
-   * system/stream descriptors override configs originally supplied to the planner. Configs in the "jobs.job-name.*"
-   * scope have the highest precedence.
-   *
-   * For this case, it generates following overridden configs
-   * <ol>
-   *      <li>"jobs.<job-name>.systems.%s.default.stream.samza.offset.default" = "oldest"</li>
-   *      <li>"jobs.<job-name>.systems.%s.samza.factory" = {@link InMemorySystemFactory}</li>
-   * </ol>
-   *
-   **/
   private String inMemoryScope;
 
   /**

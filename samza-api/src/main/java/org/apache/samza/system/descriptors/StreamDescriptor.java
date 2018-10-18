@@ -31,7 +31,7 @@ import org.apache.samza.serializers.Serde;
 /**
  * The base descriptor for an input or output stream. Allows setting properties that are common to all streams.
  * <p>
- * Stream properties configured using a descriptor override corresponding properties provided in configuration.
+ * Stream properties provided in configuration override corresponding properties configured using a descriptors.
  *
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class
