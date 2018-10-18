@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -34,10 +36,16 @@ import kafka.admin.AdminClient;
 import kafka.utils.ZkUtils;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.DeleteTopicsResult;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -73,6 +81,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   protected static final long DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS = 10000;
   protected static final int MAX_RETRIES_ON_EXCEPTION = 5;
   protected static final int DEFAULT_REPL_FACTOR = 2;
+  private static final int KAFKA_ADMIN_OPS_TIMEOUT_MS = 50000;
 
   // used in TestRepartitionJoinWindowApp TODO - remove SAMZA-1945
   @VisibleForTesting
@@ -80,7 +89,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
 
   protected final String systemName;
   protected final Consumer metadataConsumer;
-  protected final Config  config;
+  protected final Config config;
 
   protected AdminClient adminClient = null;
 
@@ -99,6 +108,9 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   // used for intermediate streams
   protected final boolean deleteCommittedMessages;
 
+  // admin client for create/remove topics
+  private final org.apache.kafka.clients.admin.AdminClient newAdminClient;
+
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
   public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
@@ -110,6 +122,10 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
           "Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
     }
     this.metadataConsumer = metadataConsumer;
+
+    Properties props = createAdminClientProperties();
+    LOG.info("New admin client with props:" + props);
+    newAdminClient = org.apache.kafka.clients.admin.AdminClient.create(props);
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
@@ -517,17 +533,52 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    return KafkaSystemAdminUtilsScala.createStream(toKafkaSpec(streamSpec), getZkConnection());
+    KafkaStreamSpec kSpec = toKafkaSpec(streamSpec);
+    String topicName = kSpec.getPhysicalName();
+
+    // create topic.
+    NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
+    CreateTopicsResult result = newAdminClient.createTopics(ImmutableSet.of(newTopic));
+    try {
+      result.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (Exception e) {
+      if (e instanceof TopicExistsException || e.getCause() instanceof TopicExistsException) {
+        LOG.info("Topic {} already exists.", topicName);
+        return false;
+      }
+
+      throw new SamzaException("Create topic failed", e);
+    }
+    LOG.info("Successfully created topic {}", topicName);
+    return true;
   }
 
   @Override
   public boolean clearStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection());
+    //KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection());
 
-    Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
-    return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();
+    //Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
+    String topicName = streamSpec.getPhysicalName();
+    DescribeTopicsResult dtr = newAdminClient.describeTopics(ImmutableSet.of(topicName));
+    TopicDescription td = null;
+    try {
+      td = dtr.all().get().get(topicName);
+      System.out.println("td for {} is {}" + topicName + td);
+    } catch (Exception e) {
+      System.out.println("ERROR" + e);
+    }
+
+    try {
+      DeleteTopicsResult deleteTopicsResult = newAdminClient.deleteTopics(ImmutableSet.of(topicName));
+      deleteTopicsResult.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (Exception e) {
+      System.out.println("Failed to delete topic {} with exception {} " + topicName + "\n" + e + "\n" + e.getCause());
+      return false;
+    }
+    return true;
+    //return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();
   }
 
   /**
@@ -628,7 +679,6 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
           ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
     }
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-
 
     // kafka.admin.AdminUtils requires zkConnect
     // this will change after we move to the new org.apache..AdminClient

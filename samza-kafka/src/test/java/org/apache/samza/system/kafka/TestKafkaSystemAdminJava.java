@@ -20,6 +20,7 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -221,10 +222,10 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   @Test
   public void testCreateStream() {
     StreamSpec spec = new StreamSpec("testId", "testStream", "testSystem", 8);
-
+    KafkaSystemAdmin admin = systemAdmin();
     assertTrue("createStream should return true if the stream does not exist and then is created.",
-        systemAdmin().createStream(spec));
-    systemAdmin().validateStream(spec);
+        admin.createStream(spec));
+    admin.validateStream(spec);
 
     assertFalse("createStream should return false if the stream already exists.", systemAdmin().createStream(spec));
   }
@@ -259,13 +260,15 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     systemAdmin().validateStream(spec2);
   }
 
-  //@Test //TODO - currently the connection to ZK fails, but since it checks for empty, the tests succeeds.  SAMZA-1887
+  @Test //TODO - currently the connection to ZK fails, but since it checks for empty, the tests succeeds.  SAMZA-1887
   public void testClearStream() {
     StreamSpec spec = new StreamSpec("testId", "testStreamClear", "testSystem", 8);
 
+    KafkaSystemAdmin admin = systemAdmin();
     assertTrue("createStream should return true if the stream does not exist and then is created.",
-        systemAdmin().createStream(spec));
-    assertTrue(systemAdmin().clearStream(spec));
+        admin.createStream(spec));
+    // validate topic exists
+    assertTrue(admin.clearStream(spec));
 
     ImmutableSet<String> topics = ImmutableSet.of(spec.getPhysicalName());
     Map<String, List<PartitionInfo>> metadata = systemAdmin().getTopicMetadata(topics);
