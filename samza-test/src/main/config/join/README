@@ -44,7 +44,7 @@ Deploy Zookeeper, YARN and Kafka:
 > cd $HELLO_SAMZA_SRC
 > for i in zookeeper kafka yarn; do ./bin/grid install $i; ./bin/grid start $i; done
 
-Update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-0.15.0-SNAPSHOT.tgz
+Update the "yarn.package.path" to $DEPLOY_DIR/samza-test_2.11-1.0.0.tgz
 > cd $SAMZA_SRC
 > vi samza-test/src/main/config/join/common.properties
 yarn.package.path=file:///path/to/samza-hello-samza/deploy/samza-test_2.11-0.15.0-SNAPSHOT.tgz
