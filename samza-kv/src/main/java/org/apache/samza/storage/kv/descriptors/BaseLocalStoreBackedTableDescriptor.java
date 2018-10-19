@@ -65,6 +65,16 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     super(tableId, serde);
   }
 
+  /**
+   * Add side inputs to the table. Each stream is of the format
+   * <i>system-name</i>.<i>stream-name</i>. The streams are marked as bootstrap streams and once the table is bootstrapped, it is
+   * updated on the background in change capture mode.
+   * Applications should specify the transformation logic using {@link #withSideInputsProcessor(SideInputsProcessor)}, which is
+   * will be applied on the side input messages before writing to the table.
+   *
+   * @param sideInputs list of side input streams
+   * @return this table descriptor instance
+   */
   public D withSideInputs(List<String> sideInputs) {
     this.sideInputs = sideInputs;
     // Disable changelog
@@ -74,6 +84,13 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
     return (D) this;
   }
 
+  /**
+   * Provide the {@link SideInputsProcessor} for this table. It is a mapper function applied on the side inputs
+   * specified using {@link #withSideInputs(List)} prior to writing the entries to the table.
+   *
+   * @param sideInputsProcessor a side input processor
+   * @return this table descriptor instance
+   */
   public D withSideInputsProcessor(SideInputsProcessor sideInputsProcessor) {
     this.sideInputsProcessor = sideInputsProcessor;
     return (D) this;
