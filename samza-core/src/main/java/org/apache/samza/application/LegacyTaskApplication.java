@@ -33,6 +33,6 @@ public final class LegacyTaskApplication implements TaskApplication {
 
   @Override
   public void describe(TaskApplicationDescriptor appDescriptor) {
-    appDescriptor.setTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
+    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
   }
 }
