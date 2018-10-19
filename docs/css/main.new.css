@@ -750,72 +750,6 @@ footer .side-by-side > * {
   border: none;
 }
 
-.flickity-page-dots {
-  display: none;
-}
-
-.js-flickity {
-  position: relative;
-  display: block;
-  margin: auto;
-  width: 80%;
-  width: calc(100% - 100px);
-  margin-top: 40px;
-  outline: none;
-}
-
-.js-flickity::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 30%;
-  height: 100%;
-  background-image: linear-gradient(to right, rgba(255,255,255,0) 0%, transparent 20%, white 100%);
-  pointer-events: none;
-}
-
-.js-flickity::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 30%;
-  height: 100%;
-  background-image: linear-gradient(to left, rgba(255,255,255,0) 0%, transparent 20%, white 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.flickity-viewport {
-  overflow: hidden;
-}
-
-.flickity-button {
-  background: transparent;
-  position: absolute;
-  width: 50px;
-  height: 50px;
-  top: 50%;
-  border: none;
-  color: #333;
-  transform: translateY(-50%);
-  transition: fill .3s ease 0s;
-  cursor: pointer;
-}
-
-.flickity-button:hover {
-  fill: #eb1c23;
-}
-
-.flickity-button.previous {
-  left: -50px;
-}
-
-.flickity-button.next {
-  right: -50px;
-}
-
 /********************************************************************
  *
  * WEIRD MESH NODE CSS THING
@@ -898,7 +832,6 @@ footer .side-by-side > * {
   border-right: 3px solid #eee;
   transition: width, transform .3s ease 0s;
 }
-
 
 
 .page .section {
@@ -1537,10 +1470,6 @@ ul.case-studies {
   flex-wrap: wrap;
   margin-top: 40px;
   justify-content: center;
-}
-
-.case-studies-list.js-flickity {
-  display: block;
 }
 
 @media only screen and (min-width: 768px) {
