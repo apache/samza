@@ -1,4 +1,5 @@
 /*
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,24 +16,13 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
+ *
  */
-package org.apache.samza.application;
 
-import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
-import org.apache.samza.task.TaskFactoryUtil;
+package org.apache.samza.system.kafka_deprecated
 
-/**
- * Default {@link TaskApplication} for legacy applications w/ only task.class implemented
- */
-public final class LegacyTaskApplication implements TaskApplication {
-  private final String taskClassName;
+import org.apache.samza.SamzaException
 
-  public LegacyTaskApplication(String taskClassName) {
-    this.taskClassName = taskClassName;
-  }
-
-  @Override
-  public void describe(TaskApplicationDescriptor appDescriptor) {
-    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
-  }
+private[kafka_deprecated] trait Toss {
+  def toss(s:String) = throw new SamzaException(s)
 }

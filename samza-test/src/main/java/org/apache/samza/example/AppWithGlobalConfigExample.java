@@ -55,7 +55,7 @@ public class AppWithGlobalConfigExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -65,15 +65,15 @@ public class AppWithGlobalConfigExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
-    appDesc.getInputStream(inputStreamDescriptor)
+    appDescriptor.getInputStream(inputStreamDescriptor)
         .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1,
             null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING), "window1")
         .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
-        .sendTo(appDesc.getOutputStream(outputStreamDescriptor));
+        .sendTo(appDescriptor.getOutputStream(outputStreamDescriptor));
 
-    appDesc.withMetricsReporterFactories(new HashMap<>());
+    appDescriptor.withMetricsReporterFactories(new HashMap<>());
   }
 
   class PageViewEvent {

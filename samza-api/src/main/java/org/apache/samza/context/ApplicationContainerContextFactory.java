@@ -22,24 +22,25 @@ import java.io.Serializable;
 
 
 /**
- * An application should implement this if it has a {@link ApplicationContainerContext} that is needed for
- * initialization.
+ * The factory for creating {@link ApplicationContainerContext} instances for a
+ * {@link org.apache.samza.application.SamzaApplication} during container initialization.
  * <p>
- * This will be called to create an instance of {@link ApplicationContainerContext} during the container initialization
- * stage. At that stage, the framework-provided job-level and container-level contexts are available for creating the
- * {@link ApplicationContainerContext}.
+ * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationContainerContextFactory} to
+ * provide the {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to
+ * get the created {@link ApplicationContainerContext} instance for the current container.
  * <p>
- * This is {@link Serializable} because it is specified in the
- * {@link org.apache.samza.application.descriptors.ApplicationDescriptor}.
- * @param <T> concrete type of {@link ApplicationContainerContext} returned by this factory
+ * The {@link ApplicationContainerContextFactory} implementation must be {@link Serializable}.
+ *
+ * @param <T> concrete type of {@link ApplicationContainerContext} created by this factory
  */
 public interface ApplicationContainerContextFactory<T extends ApplicationContainerContext> extends Serializable {
+
   /**
-   * Create an instance of the application-defined {@link ApplicationContainerContext}.
+   * Creates an instance of the application-defined {@link ApplicationContainerContext}.
    *
-   * @param jobContext framework-provided job context used for building {@link ApplicationContainerContext}
-   * @param containerContext framework-provided container context used for building {@link ApplicationContainerContext}
-   * @return new instance of the application-defined {@link ApplicationContainerContext}
+   * @param jobContext framework-provided job context
+   * @param containerContext framework-provided container context
+   * @return a new instance of the application-defined {@link ApplicationContainerContext}
    */
   T create(JobContext jobContext, ContainerContext containerContext);
 }

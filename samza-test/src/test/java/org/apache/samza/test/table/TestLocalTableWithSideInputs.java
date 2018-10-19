@@ -130,14 +130,14 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
     static final String PROFILE_TABLE = "profile-table";
 
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
-      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(getTableDescriptor());
+    public void describe(StreamApplicationDescriptor appDescriptor) {
+      Table<KV<Integer, TestTableData.Profile>> table = appDescriptor.getTable(getTableDescriptor());
       KafkaSystemDescriptor sd =
           new KafkaSystemDescriptor("test");
-      appDesc.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
+      appDescriptor.getInputStream(sd.getInputDescriptor(PAGEVIEW_STREAM, new NoOpSerde<TestTableData.PageView>()))
           .partitionBy(TestTableData.PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "partition-page-view")
           .join(table, new PageViewToProfileJoinFunction())
-          .sendTo(appDesc.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
+          .sendTo(appDescriptor.getOutputStream(sd.getOutputDescriptor(ENRICHED_PAGEVIEW_STREAM, new NoOpSerde<>())));
     }
 
     protected TableDescriptor<Integer, Profile, ?> getTableDescriptor() {

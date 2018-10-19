@@ -26,9 +26,13 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemStreamMetadata.OffsetType;
 
 /**
- * The base descriptor for an input stream. Allows setting properties that are common to all input streams.
+ * An {@link InputDescriptor} can be used for specifying Samza and system-specific properties of input streams.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
+ * <p>
+ * This is the base descriptor for an input stream. Use a system-specific input descriptor (e.g. KafkaInputDescriptor)
+ * obtained from its system descriptor (e.g. KafkaSystemDescriptor) if one is available. Otherwise use the
+ * {@link GenericInputDescriptor} obtained from a {@link GenericSystemDescriptor}.
  *
  * @param <StreamMessageType> type of messages in this stream.
  * @param <SubClass> type of the concrete sub-class

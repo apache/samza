@@ -58,7 +58,7 @@ public class KeyValueStoreExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -68,9 +68,9 @@ public class KeyValueStoreExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(StatsOutput.class)));
 
-    appDesc.withDefaultSystem(trackingSystem);
-    MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
-    OutputStream<KV<String, StatsOutput>> pageViewEventPerMember = appDesc.getOutputStream(outputStreamDescriptor);
+    appDescriptor.withDefaultSystem(trackingSystem);
+    MessageStream<PageViewEvent> pageViewEvents = appDescriptor.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, StatsOutput>> pageViewEventPerMember = appDescriptor.getOutputStream(outputStreamDescriptor);
 
     pageViewEvents
         .partitionBy(pve -> pve.memberId, pve -> pve,

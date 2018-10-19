@@ -49,7 +49,7 @@ public class MergeExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
@@ -64,8 +64,8 @@ public class MergeExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("mergedStream", serde);
 
     MessageStream
-        .mergeAll(ImmutableList.of(appDesc.getInputStream(isd1), appDesc.getInputStream(isd2), appDesc.getInputStream(isd3)))
-        .sendTo(appDesc.getOutputStream(osd));
+        .mergeAll(ImmutableList.of(appDescriptor.getInputStream(isd1), appDescriptor.getInputStream(isd2), appDescriptor.getInputStream(isd3)))
+        .sendTo(appDescriptor.getOutputStream(osd));
   }
 
   class PageViewEvent {

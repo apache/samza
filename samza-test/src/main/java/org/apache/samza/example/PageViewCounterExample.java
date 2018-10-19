@@ -58,7 +58,7 @@ public class PageViewCounterExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
@@ -68,8 +68,8 @@ public class PageViewCounterExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("pageViewEventPerMember",
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
-    MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
-    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream = appDesc.getOutputStream(outputStreamDescriptor);
+    MessageStream<PageViewEvent> pageViewEvents = appDescriptor.getInputStream(inputStreamDescriptor);
+    OutputStream<KV<String, PageViewCount>> pageViewEventPerMemberStream = appDescriptor.getOutputStream(outputStreamDescriptor);
 
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;

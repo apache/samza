@@ -16,23 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.application;
 
-import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
-import org.apache.samza.task.TaskFactoryUtil;
+package org.apache.samza.system.kafka_deprecated
 
-/**
- * Default {@link TaskApplication} for legacy applications w/ only task.class implemented
- */
-public final class LegacyTaskApplication implements TaskApplication {
-  private final String taskClassName;
+import kafka.common.TopicAndPartition
+import kafka.message.MessageAndOffset
 
-  public LegacyTaskApplication(String taskClassName) {
-    this.taskClassName = taskClassName;
-  }
+private[kafka_deprecated] trait MessageSink {
+  def setIsAtHighWatermark(tp: TopicAndPartition, isAtHighWatermark: Boolean): Unit
 
-  @Override
-  public void describe(TaskApplicationDescriptor appDescriptor) {
-    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
-  }
+  def addMessage(tp: TopicAndPartition, msg: MessageAndOffset, highWatermark: Long): Unit
+
+  def abdicate(tp: TopicAndPartition, nextOffset: Long): Unit
+
+  def refreshDropped(): Unit
+
+  def needsMoreMessages(tp: TopicAndPartition): Boolean
 }

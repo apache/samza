@@ -129,20 +129,20 @@ public class StreamApplicationIntegrationTest {
 
   private static class PageViewProfileViewJoinApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
-      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(
+    public void describe(StreamApplicationDescriptor appDescriptor) {
+      Table<KV<Integer, TestTableData.Profile>> table = appDescriptor.getTable(
           new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
               KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
 
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-      appDesc.getInputStream(profileISD).map(m -> new KV(m.getMemberId(), m)).sendTo(table);
+      appDescriptor.getInputStream(profileISD).map(m -> new KV(m.getMemberId(), m)).sendTo(table);
 
       KafkaInputDescriptor<TestTableData.PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
       KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
-      OutputStream<TestTableData.EnrichedPageView> outputStream = appDesc.getOutputStream(enrichedPageViewOSD);
-      appDesc.getInputStream(pageViewISD)
+      OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
+      appDescriptor.getInputStream(pageViewISD)
           .partitionBy(TestTableData.PageView::getMemberId,  pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(
               TestTableData.PageView.class)), "p1")
           .join(table, new PageViewToProfileJoinFunction())
@@ -152,22 +152,22 @@ public class StreamApplicationIntegrationTest {
 
   private static class PageViewFilterApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
+    public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<KV<String, PageView>> isd =
           ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-      MessageStream<KV<String, TestData.PageView>> inputStream = appDesc.getInputStream(isd);
+      MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
       inputStream.map(KV::getValue).filter(pv -> pv.getPageKey().equals("inbox"));
     }
   }
 
   private static class PageViewRepartitionApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
+    public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<KV<String, PageView>> isd =
           ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-      MessageStream<KV<String, TestData.PageView>> inputStream = appDesc.getInputStream(isd);
+      MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
       inputStream
           .map(KV::getValue)
           .partitionBy(PageView::getMemberId, pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
