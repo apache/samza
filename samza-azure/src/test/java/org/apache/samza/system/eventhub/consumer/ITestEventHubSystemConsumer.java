@@ -66,8 +66,8 @@ public class ITestEventHubSystemConsumer {
       if (numEvents > 0) {
         EventHubIncomingMessageEnvelope eventData = (EventHubIncomingMessageEnvelope) result.get(0);
         System.out.println("System properties: " + eventData.getEventData().getSystemProperties());
+        System.out.println("Key: " + new String((byte[]) eventData.getKey()));
         System.out.println("Message: " + new String((byte[]) eventData.getMessage()));
-        break;
       }
       System.out.println("Retries left: " + numRetries);
     }

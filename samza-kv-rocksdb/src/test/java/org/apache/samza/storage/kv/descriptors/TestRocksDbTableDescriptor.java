@@ -30,8 +30,10 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testMinimal() {
-    new RocksDbTableDescriptor<Integer, String>("1")
-        .validate();
+    RocksDbTableDescriptor tableDescriptor = new RocksDbTableDescriptor("1");
+    tableDescriptor.validate();
+    tableDescriptor.getTableSpec();
+    tableDescriptor.getTableSpec();
   }
 
   @Test
