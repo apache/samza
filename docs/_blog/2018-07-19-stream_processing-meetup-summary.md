@@ -1,6 +1,6 @@
 ---
 layout: blog
-title: Recap of Stream Processing with Apache Kafka & Apache Samza (July '18)
+title: Our July 2018 meetup - A Report
 icon: analytics
 authors:
     - name:
@@ -25,18 +25,14 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-A look back at July edition of quarterly stream processing meetup
+On July 19, 2018, we hosted a community meetup at LinkedIn focussing on Apache Kafka, Apache Samza, and related streaming technologies.
+The event featured technical deep dives by engineers from LinkedIn and Uber on the latest in the stream processing space...
 
 <!--more-->
 
-
-On July 19th another successful stream processing meetup was hosted by LinkedIn! 
-This event focused on Apache Kafka, Apache Samza, and related streaming technologies. 
-This meetup was a full house and had techincal deep dives by engineers from LinkedIn and Uber on the latest
-and greatest in streaming tech
-
-<br>
-
+July 2018 - On July 19, 2018, we hosted a community meetup at LinkedIn focussing on Apache Kafka, Apache Samza, and related streaming technologies.
+The event featured technical deep dives by engineers from LinkedIn and Uber on the latest in the stream processing space. Here is a brief summary
+of the talks that were presented.
 
 ### [Beam me up Samza: How we built a Samza Runner for Apache Beam](https://youtu.be/o5GaifLoZho)
 
