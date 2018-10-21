@@ -90,7 +90,6 @@ a.side-navigation__group-title::after {
   border-bottom: none;
 }
 
-
 .content a:hover::after,
 .section a:hover::after,
 .content a.active::after,
