@@ -1,12 +1,13 @@
 ---
 layout: blog
-title: Recap of Chasing Stream Processing Utopia
+title: On chasing the Stream Processing Utopia
 icon: analytics
 authors:
     - name:
       website: 
       image: 
 excerpt_separator: <!--more-->
+exclude_from_loop: true
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
