@@ -206,7 +206,11 @@
 
       <div class="section__item">
         <a class="section__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+        {% if study.logo_url %}
+          <div class="section__item-logo-bg" style="background-image: url('{{ study.logo_url }}');"></div>
+        {% else %}
           <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
+        {% endif %}
         </a>
       </div>
 

@@ -741,10 +741,6 @@ footer .side-by-side > * {
   border-radius: 4px;
 }
 
-.section__item-logo-bg {
-  border-radius: 100%;
-}
-
 .is-selected .section__item-logo-bg,
 .section--brands .section__item:hover .section__item-logo-bg {
   border-radius: 4px;
