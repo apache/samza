@@ -165,4 +165,83 @@ public class TestKafkaConsumerConfig {
 
     Assert.fail("didn't get exception for the missing config:" + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
   }
+
+  @Test
+  public void testResetValues() {
+    Map<String, String> props = new HashMap<>();
+    props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "locahost:9092");
+    props.put(JobConfig.JOB_NAME(), JOB_NAME);
+
+
+    // largest -> latest
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "largest");
+
+    Config config = new MapConfig(props);
+    KafkaConsumerConfig kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+
+    // smallest -> earliest
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "smallest");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("earliest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+    // earliest -> earliest
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "earliest");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("earliest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+    // none -> none
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "none");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("none", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+
+    // someval -> latest
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "someval");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+    // no value -> latest
+    props.remove(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+
+    // if samza system has a reset value - use it (override kafka
+    // upcoming -> latest
+    props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "earliest");
+    props.put(String.format("systems.%s.samza.offset.default", SYSTEM_NAME), "upcoming");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+
+    // stream default should override it
+    props.remove(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    props.put(String.format("systems.%s.default.stream.samza.offset.default", SYSTEM_NAME), "oldest");
+
+    kafkaConsumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+
+    Assert.assertEquals("earliest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+  }
 }
