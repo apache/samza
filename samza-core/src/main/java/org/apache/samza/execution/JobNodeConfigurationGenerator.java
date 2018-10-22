@@ -70,10 +70,8 @@ import org.slf4j.LoggerFactory;
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
     originalConfig.forEach((k, v) -> {
-        if (generatedConfig.containsKey(k) &&
-            !Objects.equals(generatedConfig.get(k), v)) {
-          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
-              k, generatedConfig.get(k), v);
+        if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
+          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
         }
         mergedConfig.put(k, v);
       });
