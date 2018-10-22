@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Testing Samza jobs: Integration Framework
+title: 'Testing Samza jobs: Integration Framework'
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -21,7 +21,8 @@ title: Testing Samza jobs: Integration Framework
 
 # What is Samza's Integration Test Framework ?
 
-Samza provides an Integration framework which allows you to test applications by quickly running them against a few messages and asserting on expected results. This alleviates the need to set up dependencies like Kafka, Yarn, Zookeeper to test your Samza applications
+-   Samza provides an Integration framework which allows you to test applications by quickly running them against a few messages and asserting on expected results. This alleviates the need to set up dependencies like Kafka, Yarn, Zookeeper to test your Samza applications
+-   Integration Framework can test the new StreamDSL (StreamApplication) and Task APIs (TaskApplication) as well as supports testing for legacy low level (StreamTask and AsyncStreamTask) samza jobs
 
 # Some Prerequisite Information
 1.  Your Samza job will be executed in single container mode and framework will set all the required configs for you to run your job (more on configs later)
@@ -42,7 +43,7 @@ Samza provides an Integration framework which allows you to test applications by
 1.  Samza 1.0 introduces a new TestRunner api to set up a test for Samza job, add configs, configure input/output streams, run the job in testing mode
 2.  TestRunner also provides utilities to consume contents of a stream once the test has ran successfully
 3.  TestRunner does basic config setup for you by default, you have flexibility to change these default configs if required
-
+4.  TestRunner supports stateless and stateful job testing. TestRunner works with InMemoryTables and RocksDB Tables 
 
 ## How To Write Test
 
@@ -55,10 +56,6 @@ For example, here is a StreamApplication that validates and decorates page views
         public void describe(StreamApplicationDescriptor appDesc) { … }
     }
     
-{% endhighlight %}
-
-{% highlight java %}
-
     public class BadPageViewFilter implements StreamApplication {
       @Override
       public void describe(StreamApplicationDescriptor appDesc) {
@@ -82,7 +79,7 @@ In the example we are writing we use a Kafka system called "test", so we will co
 
 {% highlight java %}
     
-    InMemorySystemDescriptor inmemory = new InMemorySystemDescriptor("test");
+    InMemorySystemDescriptor inMemory = new InMemorySystemDescriptor("test");
 
 {% endhighlight %}
 
@@ -97,10 +94,9 @@ Input Stream described by InMemoryInputDescriptor, these streams need to be init
 
 {% highlight java %}
      
-     InMemoryInputDescriptor<PageView> pageViewInput = inmemory.getInputDescriptor(“page-views”, new NoOpSerde<>());
+     InMemoryInputDescriptor<PageView> pageViewInput = inMemory.getInputDescriptor(“page-views”, new NoOpSerde<>());
 
 {% endhighlight %}
-
 {% highlight jproperties %}
 
     INFO: Use the org.apache.samza.operators.KV as the message type ex: InMemoryInputDescriptor<KV<String,PageView>> as the message type
@@ -108,11 +104,11 @@ Input Stream described by InMemoryInputDescriptor, these streams need to be init
 
 {% endhighlight %}
 
-Output Stream described by InMemoryOutputDescriptor with a partition count, these streams are empty and your job writes to these streams
+Output Stream described by InMemoryOutputDescriptor, these streams need to be initialized with with a partition count and are empty since your job writes to these streams
 
 {% highlight java %}
 
-    InMemoryOutputDescriptor<DecoratedPageView> outputPageViews = inmemory.getOutputDescriptor("decorated-page-views", new NoOpSerde<>())
+    InMemoryOutputDescriptor<DecoratedPageView> outputPageViews = inMemory.getOutputDescriptor("decorated-page-views", new NoOpSerde<>())
 
 {% endhighlight %}
 
@@ -135,17 +131,16 @@ Output Stream described by InMemoryOutputDescriptor with a partition count, thes
 
     List<PageView> pageViews = generateData(...);
     TestRunner
-       .of(pageViewRepartitionApp)
+       .of(new BadPageViewFilterApplication())
        .addInputStream(pageViewInput, pageViews)
        .addOutputStream(outputPageViews, 10)
        .run(Duration.ofMillis(1500));
-
 
 {% endhighlight %}
 
 {% highlight jproperties  %}
 
-    Info: Use addConfig(Map<String, String> configs) TestRunner to add/modify any config in the TestRunner
+    Info: Use addConfig(Map<String, String> configs) or addConfig(String key, String value) to add/modify any config in the TestRunner
 
 {% endhighlight %}
 
@@ -158,15 +153,16 @@ You have the following choices for asserting the results of your tests
 
 {% highlight java %}
     
-    // Consume multi-paritioned stream
+    // Consume multi-paritioned stream, key of the map represents partitionId
     Map<Integer, PageView> expOutput;
-    StreamAssert.containsInOrder(imod, expectedOutput, Duration.ofMillis(1000));
+    StreamAssert.containsInOrder(outputPageViews, expectedOutput, Duration.ofMillis(1000));
     // Consume single paritioned stream
     StreamAssert.containsInOrder(outputPageViews, Arrays.asList(...), Duration.ofMillis(1000));
 
 {% endhighlight %}
    
-2. You have the flexibility to define your custom assertions using api TestRunner.consumeStream() to assert on any partitions of the stream
+   
+2. You have the flexibility to define your custom assertions using API TestRunner.consumeStream() to assert on any partitions of the stream
 
 {% highlight java %}
 
@@ -187,15 +183,15 @@ Complete Glance at the code
      List<DecoratedPageView> expectedOutput = genrateMockOutput(...);
     
      // Configure System and Stream Descriptors
-     InMemorySystemDescriptor inmemory = new InMemorySystemDescriptor("test");
-     InMemoryInputDescriptor<PageView> pageViewInput = inmemory
+     InMemorySystemDescriptor inMemory = new InMemorySystemDescriptor("test");
+     InMemoryInputDescriptor<PageView> pageViewInput = inMemory
         .getInputDescriptor(“page-views”, new NoOpSerde<>());
-     InMemoryOutputDescriptor<DecoratedPageView> outputPageView = inmemory
+     InMemoryOutputDescriptor<DecoratedPageView> outputPageView = inMemory
         .getOutputDescriptor(“decorated-page-views”, new NoOpSerde<>())
      
      // Configure the TestRunner 
      TestRunner
-         .of(pageViewRepartition)
+         .of(new BadPageViewFilterApplication())
          .addInputStream(pageViewInput, pageViews)
          .addOutputStream(outputPageView, 10)
          .run(Duration.ofMillis(1500));
@@ -204,8 +200,7 @@ Complete Glance at the code
      StreamAssert.containsInOrder(expectedOutput, outputPageView, Duration.ofMillis(1000));
     }
 
-{% endhighlight %}
-
+{% endhighlight %} 
 
 ### Example for Low Level Api:
 
@@ -245,38 +240,38 @@ For a Low Level Task API
        public void process(IncomingMessageEnvelope envelope,
                            MessageCollector collector,
                            TaskCoordinator coordinator) {
-            // process message synchronously
+         // process message synchronously
         }
      }   
      
      
-       @Test
-       public void testStatefulTaskWithLocalTable() {
-         List<PageView> badPageViews = Arrays.asList(generatePageViews(..));
-         List<Profile> expectedGoodPageViews = Arrays.asList(generatePageViews(..));
+     @Test
+     public void testBadPageViewFilterTaskApplication() {
+       List<PageView> badPageViews = Arrays.asList(generatePageViews(..));
+       List<Profile> expectedGoodPageViews = Arrays.asList(generatePageViews(..));
      
-         InMemorySystemDescriptor inmemory = new InMemorySystemDescriptor("kafka");
+       InMemorySystemDescriptor inMemory = new InMemorySystemDescriptor("kafka");
      
-         InMemoryInputDescriptor<PageView> pageViewInput = inmemory
-             .getInputDescriptor("PageView", new NoOpSerde<TestTableData.PageView>());
+       InMemoryInputDescriptor<PageView> pageViewInput = inMemory
+          .getInputDescriptor("pageViewEvent", new NoOpSerde<>());
      
-         InMemoryOutputDescriptor<TestTableData.EnrichedPageView> pageViewOutput = inmemory
-             .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+       InMemoryOutputDescriptor<PageView> pageViewOutput = inMemory
+          .getOutputDescriptor("goodPageViewEvent", new NoOpSerde<>());
      
-         TestRunner
-             .of(new JoinTaskApplication())
-             .addInputStream(pageViewStreamDesc, pageViews)
-             .addInputStream(profileStreamDesc, profiles)
-             .addOutputStream(outputStreamDesc, 1)
-             .run(Duration.ofSeconds(2));
+       TestRunner
+          .of(new BadPageViewFilter())
+          .addInputStream(pageViewInput, badPageViews)
+          .addOutputStream(pageViewOutput, 1)
+          .run(Duration.ofSeconds(2));
      
-         Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
+       StreamAssert.containsInOrder(expectedGoodPageViews, pageViewOutput, Duration.ofMillis(1000));
      }
 
 {% endhighlight %}
 
 
-Follow a similar approach for Legacy Low Level API as described above.
+Follow a similar approach for Legacy Low Level API, just provide the classname 
+(class implementing StreamTask or AsyncStreamTask) to TestRunner
 
 {% highlight java %}
 
@@ -292,23 +287,46 @@ Follow a similar approach for Legacy Low Level API as described above.
        
       @Test
       public void testLowLevelApi() throws Exception {
-       InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
-       InMemoryInputDescriptor<PageView> imid = isd
-          .getInputDescriptor("input", new NoOpSerde<>());
-       InMemoryOutputDescriptor<PageView> imod = isd
-         .getOutputDescriptor("output", new NoOpSerde<>())
-        
-       TestRunner
-           .of(MultiplyByTenStreamTask.class)
-           .addInputStream(inputDescriptor, Arrays.asList(1, 2, 3, 4, 5))
-           .addOutputStream(outputDescriptor, 1)
+        List<Integer> inputList = Arrays.asList(1, 2, 3, 4, 5);
+        List<Integer> outputList = Arrays.asList(10, 20, 30, 40, 50);
+       
+        InMemorySystemDescriptor inMemory = new InMemorySystemDescriptor("test");
+       
+        InMemoryInputDescriptor<Integer> numInput = inMemory
+           .getInputDescriptor("input", new NoOpSerde<Integer>());
+       
+        InMemoryOutputDescriptor<Integer> numOutput = inMemory
+           .getOutputDescriptor("output", new NoOpSerde<Integer>());
+       
+        TestRunner
+           .of(MyStreamTestTask.class)
+           .addInputStream(numInput, inputList)
+           .addOutputStream(numOutput, 1)
            .run(Duration.ofSeconds(1));
-      
-      Map<String, List<Integer>> output = new Map<>();
-      output.add(0, Arrays.asList(10, 20, 30, 40, 50));
-      
-      StreamAssert.containsInOrder(imod, output, Duration.ofMillis(1000));
+       
+        Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
+           IsIterableContainingInOrder.contains(outputList.toArray()));;
       }
 
 
+{% endhighlight %}
+
+## Stateful Testing
+
+1. There is no additional config/changes required for TestRunner apis for testing samza jobs using StreamApplication or TaskApplication APIs
+2. Legacy task api only supports RocksDbTable and needs following configs to be added to TestRunner. 
+   For example if your job is using a RocksDbTable named "my-store" with key and msg serde of String type
+{% highlight java %}
+
+    Map<String, String> config = new HashMap<>();
+    config.put("stores.my-store.factory", "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory");
+    config.out("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
+    config.put("stores.my-store.key.serde", "string");
+    config.put("stores.my-store.msg.serde", "string");
+    
+    TestRunner
+        .of(...)
+        .addConfig(config)
+        ...
+        
 {% endhighlight %}
