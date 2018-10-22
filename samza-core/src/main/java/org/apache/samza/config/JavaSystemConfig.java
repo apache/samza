@@ -124,8 +124,8 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
-   * Gets default system reset offset value
-   * Checks two places - syste default and stream system default (takes precedence)
+   * Get default system reset offset value
+   * Check two places - system default and stream system default (takes precedence)
    * @param systemName
    * @return value of system reset of null if not set
    */
