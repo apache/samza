@@ -109,7 +109,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   protected final boolean deleteCommittedMessages;
 
   // admin client for create/remove topics
-  private final org.apache.kafka.clients.admin.AdminClient newAdminClient;
+  final org.apache.kafka.clients.admin.AdminClient newAdminClient;
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
 
@@ -557,28 +557,17 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   public boolean clearStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
 
-    //KafkaSystemAdminUtilsScala.clearStream(streamSpec, getZkConnection());
-
-    //Map<String, List<PartitionInfo>> topicsMetadata = getTopicMetadata(ImmutableSet.of(streamSpec.getPhysicalName()));
     String topicName = streamSpec.getPhysicalName();
-    DescribeTopicsResult dtr = newAdminClient.describeTopics(ImmutableSet.of(topicName));
-    TopicDescription td = null;
-    try {
-      td = dtr.all().get().get(topicName);
-      System.out.println("td for {} is {}" + topicName + td);
-    } catch (Exception e) {
-      System.out.println("ERROR" + e);
-    }
 
     try {
       DeleteTopicsResult deleteTopicsResult = newAdminClient.deleteTopics(ImmutableSet.of(topicName));
       deleteTopicsResult.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      System.out.println("Failed to delete topic {} with exception {} " + topicName + "\n" + e + "\n" + e.getCause());
+      LOG.error("Failed to delete topic {} with exception {} " + topicName + "\n" + e + "\n" + e.getCause());
       return false;
     }
+
     return true;
-    //return topicsMetadata.get(streamSpec.getPhysicalName()).isEmpty();
   }
 
   /**

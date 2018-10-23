@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import kafka.api.TopicMetadata;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
@@ -260,18 +262,29 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     systemAdmin().validateStream(spec2);
   }
 
-  @Test //TODO - currently the connection to ZK fails, but since it checks for empty, the tests succeeds.  SAMZA-1887
+  @Test
   public void testClearStream() {
     StreamSpec spec = new StreamSpec("testId", "testStreamClear", "testSystem", 8);
 
     KafkaSystemAdmin admin = systemAdmin();
+    String topicName = spec.getPhysicalName();
+
     assertTrue("createStream should return true if the stream does not exist and then is created.",
         admin.createStream(spec));
     // validate topic exists
     assertTrue(admin.clearStream(spec));
 
-    ImmutableSet<String> topics = ImmutableSet.of(spec.getPhysicalName());
-    Map<String, List<PartitionInfo>> metadata = systemAdmin().getTopicMetadata(topics);
-    assertTrue(metadata.get(spec.getPhysicalName()).isEmpty());
+    // validate that topic was removed
+    DescribeTopicsResult dtr = admin.newAdminClient.describeTopics(ImmutableSet.of(topicName));
+    try {
+      TopicDescription td = dtr.all().get().get(topicName);
+      Assert.fail("topic " + topicName + " should've been removed. td=" + td);
+    } catch (Exception e) {
+      if (e.getCause() instanceof org.apache.kafka.common.errors.UnknownTopicOrPartitionException) {
+        // expected
+      } else {
+        Assert.fail("topic " + topicName + " should've been removed. Expected UnknownTopicOrPartitionException.");
+      }
+    }
   }
 }
