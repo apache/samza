@@ -81,7 +81,7 @@ public class PageViewFilterTask implements TaskApplication {
     appDesc.addOutputStream(osd);
     appDesc.addTable(td);
 
-    appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+    appDesc.withTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 }
 {% endhighlight %}

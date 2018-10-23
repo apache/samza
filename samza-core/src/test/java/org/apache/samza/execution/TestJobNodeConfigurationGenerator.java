@@ -222,8 +222,8 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     // set the application to TaskApplication, which still wire up all input/output/intermediate streams
     TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), mockConfig);
     // add table to the task application
-    taskAppDesc.addTable(mockTableDescriptor);
-    taskAppDesc.addInputStream(inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde));
+    taskAppDesc.withTable(mockTableDescriptor);
+    taskAppDesc.withInputStream(inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde));
     configureJobNode(taskAppDesc);
 
     // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode

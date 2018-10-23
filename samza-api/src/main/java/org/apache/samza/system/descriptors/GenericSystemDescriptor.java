@@ -22,13 +22,16 @@ package org.apache.samza.system.descriptors;
 import org.apache.samza.serializers.Serde;
 
 /**
- * A descriptor for a generic system.
+ * A {@link GenericSystemDescriptor} can be used for specifying Samza and system-specific properties of an
+ * input/output system. It can also be used for obtaining {@link GenericInputDescriptor}s and
+ * {@link GenericOutputDescriptor}s, which can be used for specifying any Samza and system-specific properties
+ * of input/output streams.
  * <p>
- * If the system being used provides its own system and stream descriptor implementations, they should be used instead.
- * Otherwise, this {@link GenericSystemDescriptor} may be used to provide Samza-specific properties of the system.
- * Additional system specific properties may be provided using {@link #withSystemConfigs}
+ * If the system provides its own system and stream descriptor implementations, use them instead.
+ * Otherwise, use this {@link GenericSystemDescriptor} to specify Samza-specific properties of the system,
+ * and {@link #withSystemConfigs} to specify additional system specific properties.
  * <p>
- * System properties provided in configuration override corresponding properties configured using a descriptor.
+ * System properties provided in configuration override corresponding properties specified using a descriptor.
  */
 public final class GenericSystemDescriptor extends SystemDescriptor<GenericSystemDescriptor>
     implements SimpleInputDescriptorProvider, OutputDescriptorProvider {

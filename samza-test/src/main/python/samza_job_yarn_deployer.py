@@ -136,7 +136,8 @@ class SamzaJobYarnDeployer(Deployer):
     assert p.returncode == 0, "Command ({0}) returned non-zero exit code ({1}).\nstdout: {2}\nstderr: {3}".format(command, p.returncode, output, err)
 
     # Save application_id for job_id so we can kill the job later.
-    regex = r'.*Submitted application (\w*)'
+    # In case of tests, this is populated by ClientHelper
+    regex = r'.*submitting application request for (\w*)'
     match = re.match(regex, output.replace("\n", ' '))
     assert match, "Job ({0}) appears not to have started. Expected to see a log line matching regex: {1}".format(job_id, regex)
     app_id = match.group(1)
