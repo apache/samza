@@ -40,15 +40,15 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
   public void describe(StreamApplicationDescriptor appDescriptor) {
     String systemName = "testSystemName";
     String inputStreamName = appDescriptor.getConfig().get("input.stream.name");
-    String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
-    LOGGER.info("Publishing message from: {} to: {}.", inputStreamName, outputStreamName);
+     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
+     LOGGER.info("Publishing message from: {} to: {}.", inputStreamName, outputStreamName);
     KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor(systemName);
 
     KVSerde<Object, Object> noOpSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     KafkaInputDescriptor<KV<Object, Object>> isd =
         kafkaSystemDescriptor.getInputDescriptor(inputStreamName, noOpSerde);
     KafkaOutputDescriptor<KV<Object, Object>> osd =
-        kafkaSystemDescriptor.getOutputDescriptor(inputStreamName, noOpSerde);
+        kafkaSystemDescriptor.getOutputDescriptor(outputStreamName, noOpSerde);
     appDescriptor.getInputStream(isd).sendTo(appDescriptor.getOutputStream(osd));
   }
 }
