@@ -119,7 +119,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
-    String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+    String containerId = config.get(JobConfig.PROCESSOR_ID());
 
     /** TODO:
      Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
