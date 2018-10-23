@@ -32,9 +32,12 @@ import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.Partitio
 
 
 /**
- * A descriptor for a Event Hubs system.
+ * A {@link EventHubsSystemDescriptor} can be used for specifying Samza and EventHubs-specific properties of a EventHubs
+ * input/output system. It can also be used for obtaining {@link EventHubsInputDescriptor}s and
+ * {@link EventHubsOutputDescriptor}s, which can be used for specifying Samza and system-specific properties of
+ * EventHubs input/output streams.
  * <p>
- * System properties provided in configuration override corresponding properties configured using a descriptor.
+ * System properties provided in configuration override corresponding properties specified using a descriptor.
  */
 public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = EventHubSystemFactory.class.getName();

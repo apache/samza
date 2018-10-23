@@ -29,7 +29,16 @@ import org.apache.samza.table.Table;
 
 
 /**
- * The interface class to describe a {@link org.apache.samza.application.SamzaApplication} in high-level API in Samza.
+ * A {@link StreamApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the
+ * processing logic for a Samza High Level API {@link org.apache.samza.application.StreamApplication}.
+ * <p>
+ * Use the {@link StreamApplicationDescriptor} obtained from
+ * {@link org.apache.samza.application.StreamApplication#describe} to get the {@link MessageStream}s,
+ * {@link OutputStream}s and {@link Table}s corresponding to their respective {@link InputDescriptor}s,
+ * {@link OutputDescriptor}s and {@link TableDescriptor}s.
+ * <p>
+ * Use the {@link MessageStream} API operators to describe the processing logic for the
+ * {@link org.apache.samza.application.StreamApplication}.
  */
 @InterfaceStability.Evolving
 public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {

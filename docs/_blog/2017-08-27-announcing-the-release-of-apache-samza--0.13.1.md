@@ -26,7 +26,8 @@ excerpt_separator: <!--more-->
 -->
 
 
-Testing the excerpt
+A stability release to make Samza as an embedded library production ready   
+Samza as a library is part of Samza’s Flexible Deployment model
 
 <!--more-->
 

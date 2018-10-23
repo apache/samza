@@ -1,4 +1,4 @@
-.png
+---
 layout: page
 title: Core concepts
 ---
