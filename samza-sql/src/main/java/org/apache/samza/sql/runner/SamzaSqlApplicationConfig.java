@@ -143,7 +143,7 @@ public class SamzaSqlApplicationConfig {
     });
   }
 
-  private static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
+  public static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
       String pluginDomainFormat, BiFunction<Object, Config, T> factoryInvoker) {
     String pluginDomain = String.format(pluginDomainFormat, plugin);
     Config pluginConfig = staticConfig.subset(pluginDomain);

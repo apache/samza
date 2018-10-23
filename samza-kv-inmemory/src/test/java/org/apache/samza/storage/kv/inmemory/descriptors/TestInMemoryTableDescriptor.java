@@ -29,6 +29,13 @@ import org.junit.Test;
 
 public class TestInMemoryTableDescriptor {
   @Test
+  public void testMinimal() {
+    InMemoryTableDescriptor tableDescriptor = new InMemoryTableDescriptor("1");
+    tableDescriptor.getTableSpec();
+    tableDescriptor.getTableSpec();
+  }
+
+  @Test
   public void testTableSpec() {
 
     TableSpec tableSpec = new InMemoryTableDescriptor("1",

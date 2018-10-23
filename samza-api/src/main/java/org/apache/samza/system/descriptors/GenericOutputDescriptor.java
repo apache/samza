@@ -21,16 +21,16 @@ package org.apache.samza.system.descriptors;
 import org.apache.samza.serializers.Serde;
 
 /**
- * A descriptor for a generic output stream.
+ * A {@link GenericOutputDescriptor} can be used for specifying Samza and system-specific properties of
+ * output streams.
  * <p>
- * An instance of this descriptor may be obtained from an appropriately configured
- * {@link GenericSystemDescriptor}.
+ * If the system provides its own system and stream descriptor implementations, use them instead.
+ * Otherwise, use this {@link GenericOutputDescriptor} to specify Samza-specific properties of the stream,
+ * and {@link #withStreamConfigs} to specify additional system specific properties.
  * <p>
- * If the system being used provides its own system and stream descriptor implementations, they should be used instead.
- * Otherwise, this {@link GenericOutputDescriptor} may be used to provide Samza-specific properties of the output stream.
- * Additional system stream specific properties may be provided using {@link #withStreamConfigs}
+ * Use {@link GenericSystemDescriptor#getOutputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream.
  */

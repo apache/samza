@@ -22,26 +22,28 @@ import org.apache.samza.config.Config;
 
 
 /**
- * Contains information at job granularity, provided by the Samza framework, to be used to instantiate an application at
- * runtime.
+ * The framework-provided context for the job.
  */
 public interface JobContext {
+
   /**
-   * Returns the final configuration for this job.
-   * @return configuration for this job
+   * Gets the final configuration for this job.
+   *
+   * @return the configuration for this job
    */
   Config getConfig();
 
   /**
-   * Returns the name of the job.
-   * @return name of the job
-   * @throws org.apache.samza.SamzaException if the job name was not configured
+   * Gets the name of the job.
+   *
+   * @return the name of this job
    */
   String getJobName();
 
   /**
-   * Returns the instance id for this instance of this job.
-   * @return instance id for the job
+   * Gets the id for this job.
+   *
+   * @return the id for this job
    */
   String getJobId();
 }
