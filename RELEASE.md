@@ -28,6 +28,7 @@ And before you proceed, do the following steps:
       version=$VERSION
    * change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'. 
    * change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
+   * change the executable version in samza-test/src/main/python/stream_processor.py to $VERSION w/o the suffix '-SNAPSHOT'.
    * push the changes to the $VERSION branch
 
 Validate Samza using all our supported build matrix.
@@ -55,7 +56,10 @@ Then build the tarball:
 
 Then sign it:
 
-    gpg --sign --armor --detach-sig build/distribution/source/apache-samza-*.tgz
+    gpg --sign --armor --detach-sig ./build/distribution/source/apache-samza-*.tgz
+
+Create MD5 signature:
+    gpg --print-md MD5 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.md5
 
 Create SHA1 signature:
 
@@ -85,7 +89,7 @@ Create SHA1 signature:
 
     gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
 
-Edit `$HOME/.gradle/gradle.properties` and add your GPG key information:
+Edit `$HOME/.gradle/gradle.properties` and add your GPG key information (without the comments):
 
     signing.keyId=01234567                          # Your GPG key ID, as 8 hex digits
     signing.secretKeyRingFile=/path/to/secring.gpg  # Normally in $HOME/.gnupg/secring.gpg
@@ -111,6 +115,14 @@ Apache LDAP credentials, go to "Staging Repositories", select the org.apache.sam
 repository just created, and close it. This may take a minute or so. When it
 finishes, the UI shows a staging repository URL. This can be used in a project
 that depends on Samza, to test the release candidate.
+
+Upload the build artifacts to your Apache home directory:
+  sftp <username>@home.apache.org
+  mkdir samza-$VERSION-rc0
+  cd samza-$VERSION-rc0
+  put ./build/distribution/source/apache-samza-* .
+  put ./samza-tools/build/distributions/samza-tools-* .
+  bye
 
 If the VOTE has successfully passed on the release candidate, you can log in to the 
 [repository web interface](https://repository.apache.org) (same as above) and "release" 
