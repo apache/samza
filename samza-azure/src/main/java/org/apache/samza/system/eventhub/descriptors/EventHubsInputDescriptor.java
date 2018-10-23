@@ -32,11 +32,12 @@ import org.apache.samza.system.eventhub.EventHubConfig;
 
 
 /**
- * A descriptor for the Event Hubs output stream
+ * A {@link EventHubsInputDescriptor} can be used for specifying Samza and EventHubs-specific properties of EventHubs
+ * input streams.
  * <p>
- * An instance of this descriptor may be obtained from an {@link EventHubsSystemDescriptor}
+ * Use {@link EventHubsSystemDescriptor#getInputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream
  */

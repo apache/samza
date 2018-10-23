@@ -55,10 +55,10 @@ public class RepartitionJoinWindowApp implements StreamApplication {
   private final List<String> intermediateStreamIds = new ArrayList<>();
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     // offset.default = oldest required for tests since checkpoint topic is empty on start and messages are published
     // before the application is run
-    Config config = appDesc.getConfig();
+    Config config = appDescriptor.getConfig();
     String inputTopic1 = config.get(INPUT_TOPIC_1_CONFIG_KEY);
     String inputTopic2 = config.get(INPUT_TOPIC_2_CONFIG_KEY);
     String outputTopic = config.get(OUTPUT_TOPIC_CONFIG_KEY);
@@ -66,8 +66,8 @@ public class RepartitionJoinWindowApp implements StreamApplication {
     KafkaInputDescriptor<PageView> id1 = ksd.getInputDescriptor(inputTopic1, new JsonSerdeV2<>(PageView.class));
     KafkaInputDescriptor<AdClick> id2 = ksd.getInputDescriptor(inputTopic2, new JsonSerdeV2<>(AdClick.class));
 
-    MessageStream<PageView> pageViews = appDesc.getInputStream(id1);
-    MessageStream<AdClick> adClicks = appDesc.getInputStream(id2);
+    MessageStream<PageView> pageViews = appDescriptor.getInputStream(id1);
+    MessageStream<AdClick> adClicks = appDescriptor.getInputStream(id2);
 
     MessageStream<KV<String, PageView>> pageViewsRepartitionedByViewId = pageViews
         .partitionBy(PageView::getViewId, pv -> pv,

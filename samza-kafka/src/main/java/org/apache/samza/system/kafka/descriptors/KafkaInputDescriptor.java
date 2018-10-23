@@ -27,12 +27,14 @@ import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.system.descriptors.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
+
 /**
- * A descriptor for a kafka input stream.
+ * A {@link KafkaInputDescriptor} can be used for specifying Samza and Kafka-specific properties of Kafka
+ * input streams.
  * <p>
- * An instance of this descriptor may be obtained from an appropriately configured {@link KafkaSystemDescriptor}.
+ * Use {@link KafkaSystemDescriptor#getInputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream.
  */

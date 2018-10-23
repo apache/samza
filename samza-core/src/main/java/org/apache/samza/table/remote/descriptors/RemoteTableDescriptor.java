@@ -65,8 +65,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   // Output support for a specific remote store (optional)
   private TableWriteFunction<K, V> writeFn;
 
-  // Rate limiter for client-side throttling;
-  // can either be constructed indirectly from rates or overridden by withRateLimiter()
+  // Rate limiter for client-side throttling; it is set by withRateLimiter()
   private RateLimiter rateLimiter;
 
   // Rates for constructing the default rate limiter when they are non-zero
@@ -113,21 +112,19 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       tableSpecConfig.put(RemoteTableProvider.WRITE_FN, SerdeUtils.serialize("write function", writeFn));
     }
 
-    // Serialize the rate limiter if specified
     if (!tagCreditsMap.isEmpty()) {
-      rateLimiter = new EmbeddedTaggedRateLimiter(tagCreditsMap);
-    }
-
-    if (rateLimiter != null) {
+      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, SerdeUtils.serialize("rate limiter",
+          new EmbeddedTaggedRateLimiter(tagCreditsMap)));
+    } else if (rateLimiter != null) {
       tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter));
     }
 
-    // Serialize the readCredit and writeCredit functions
+    // Serialize the readCredit functions
     if (readCreditFn != null) {
       tableSpecConfig.put(RemoteTableProvider.READ_CREDIT_FN, SerdeUtils.serialize(
           "read credit function", readCreditFn));
     }
-
+    // Serialize the writeCredit functions
     if (writeCreditFn != null) {
       tableSpecConfig.put(RemoteTableProvider.WRITE_CREDIT_FN, SerdeUtils.serialize(
           "write credit function", writeCreditFn));

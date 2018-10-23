@@ -93,7 +93,7 @@
 
           <div class="case-studies">
           
-              <div class="case-studies-list js-flickity" data-flickity-options='{ "wrapAround": true, "autoPlay": 1500 }'>
+              <div class="case-studies-list">
 
               {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
               {% for study in case-studies_sorted %}
@@ -123,8 +123,6 @@
   <!-- footer starts here -->
 
   {% include footer.html %}
-
-  <script type="text/javascript" src="/js/flickity.js"></script>
 
 </body>
 

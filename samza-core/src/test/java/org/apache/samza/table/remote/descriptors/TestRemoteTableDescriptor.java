@@ -197,6 +197,7 @@ public class TestRemoteTableDescriptor {
     }
 
     TableSpec spec = desc.getTableSpec();
+    spec = desc.getTableSpec();
     RemoteTableProvider provider = new RemoteTableProvider(spec);
     provider.init(createMockContext());
     Table table = provider.getTable();
