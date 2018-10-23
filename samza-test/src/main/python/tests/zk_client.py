@@ -47,8 +47,8 @@ class ZkClient:
         self.kazoo_client.stop()
 
     def watch_job_model(self, watch_function):
-        self.kazoo_client.ensure_path('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node))
-        self.kazoo_client.get_children('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node), watch=watch_function)
+        self.kazoo_client.ensure_path('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node))
+        self.kazoo_client.get_children('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node), watch=watch_function)
 
     def get_latest_job_model(self):
         """
@@ -56,12 +56,12 @@ class ZkClient:
         """
         job_model_dict = {}
         try:
-            childZkNodes = self.kazoo_client.get_children('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node))
+            childZkNodes = self.kazoo_client.get_children('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node))
             if len(childZkNodes) > 0:
                 childZkNodes.sort()
                 childZkNodes.reverse()
 
-                job_model_generation_path = '{0}/JobModelGeneration/jobModels/{1}/'.format(self.zk_base_node, childZkNodes[0])
+                job_model_generation_path = '{0}/jobModelGeneration/jobModels/{1}/'.format(self.zk_base_node, childZkNodes[0])
                 job_model, _ = self.kazoo_client.get(job_model_generation_path)
 
                 """
