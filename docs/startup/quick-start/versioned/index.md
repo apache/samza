@@ -19,7 +19,7 @@ title: Quick Start
    limitations under the License.
 -->
 
-This tutorial will go through the steps of creating your first Samza application - `WordCount`. It demonstrates how to start writing a Samza application, consume from a kafka stream, tokenize the lines into words, and count the frequency of each word.  For this tutorial we are going to use gradle 4.9 to build the projects. The full tutorial project tar file can be downloaded [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
+In this tutorial, we will create our first Samza application - `WordCount`. This application will consume messages from a Kafka stream, tokenize them into individual words and count the frequency of each word.  Let us download the entire project from [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
 
 ### Setting up a Java Project
 
@@ -48,7 +48,7 @@ You can copy build.gradle and gradle.properties files from the downloaded tutori
 
 ### Create a Samza StreamApplication
 
-Now let’s write some code! The first step is to create your own Samza application by implementing the [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html) class:
+Now let’s write some code! An application written using Samza's [high-level API](/learn/documentation/{{site.version}}/api/api/high-level-api.html) implements the [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html) interface:
 
 {% highlight java %}
 package samzaapp;
@@ -63,11 +63,11 @@ public class WordCount implements StreamApplication {
 }
 {% endhighlight %}
 
-The StreamApplication interface provides an API method named describe() for you to specify your streaming pipeline. Using [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html), you can describe your entire data processing task from data inputs, operations and outputs.
+The interface provides a single method named `describe()`, which allows us to define our inputs, the processing logic and outputs for our application. 
 
-### Input data source using Kafka
+### Describe your inputs and outputs
 
-In this example, we are going to use Kafka as the input data source and consume the text for word count line by line. We start by defining a KafkaSystemDescriptor, which specifies the properties to establishing the connection to the local Kafka cluster. Then we create a  `KafkaInputDescriptor`/`KafkaOutputDescriptor` to set up the topic, Serializer and Deserializer. Finally we use this input in the [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html) so we can consume from this topic. The code is in the following:
+To interact with Kafka, we will first create a `KafkaSystemDescriptor` by providing the coordinates of the Kafka cluster. For each Kafka topic our application reads from, we create a `KafkaInputDescriptor` with the name of the topic and a serializer. Likewise, for each output topic, we instantiate a corresponding `KafkaOutputDescriptor`. 
 
 {% highlight java %}
 public class WordCount implements StreamApplication {
@@ -99,23 +99,24 @@ public class WordCount implements StreamApplication {
 }
 {% endhighlight %}
 
-The resulting [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html) lines contains the data set that reads from Kafka and deserialized into string of each line. We also defined the output stream counts so we can write the word count results to it. Next let’s add processing logic. 
+The above example creates a [MessageStream](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/MessageStream.html) which reads from an input topic named `sample-text`. It also defines an output stream that emits results to a topic named `word-count-output`. Next let’s add our processing logic. 
 
 ### Add word count processing logic
 
-First we are going to extract the value from lines. This is a one-to-one transform and we can use the Samza map operator as following:
+Kafka messages typically have a key and a value. Since we only care about the value here, we will apply the `map` operator on the input stream to extract the value. 
 
 {% highlight java %}
-lines .map(kv -> kv.value)
+lines.map(kv -> kv.value)
 {% endhighlight %}
 
-Then we will split the line into words by using the flatmap operator:
+Next, we will tokenize the message into individual words using the `flatmap` operator.
 
 {% highlight java %}
 .flatMap(s -> Arrays.asList(s.split("\\W+")))
 {% endhighlight %}
 
-Now let’s think about how to count the words. We need to aggregate the count based on the word as the key, and emit the aggregation results once there are no more data coming. Here we can use a session window which will trigger the output if there is no data coming within a certain interval.
+
+We now need to group the words, aggregate their respective counts and periodically emit our results. For this, we will use Samza's session-windowing feature.
 
 {% highlight java %}
 .window(Windows.keyedSessionWindow(
@@ -123,7 +124,11 @@ Now let’s think about how to count the words. We need to aggregate the count b
    new StringSerde(), new IntegerSerde()), "count")
 {% endhighlight %}
 
-The output will be captured in a [WindowPane](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/WindowPane.html) type, which contains the key and the aggregation value. We add a further map to transform that into a KV. To write the output to the output Kafka stream, we used the sentTo operator in Samza:
+Let's walk through each of the parameters to the above `window` function:
+The first parameter is a "key function", which defines the key to group messages by. In our case, we can simply use the word as the key. The second parameter is the windowing interval, which is set to 5 seconds. The third parameter is a function which provides the initial value for our aggregations. We can start with an initial count of zero for each word. The fourth parameter is an aggregation function for computing counts. The next two parameters specify the key and value serializers for our window. 
+
+The output from the window operator is captured in a [WindowPane](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/windows/WindowPane.html) type, which contains the word as the key and its count as the value. We add a further `map` to format this into a `KV`, that we can send to our Kafka topic. To write our results to the output topic, we use the `sendTo` operator in Samza.
+
 
 {% highlight java %}
 .map(windowPane ->
@@ -148,27 +153,31 @@ lines
 {% endhighlight %}
 
 
-### Config your application
+### Configure your application
 
-In this section we will configure the word count example to run locally in a single JVM. Please add a file named “word-count.properties” under the config folder. We will add the job configs in this file.
-
-Since there is only a single Samza processor, there is no coordination required. We use the PassthroughJobCoordinator for the example. We also group all Samza tasks into this single processor. As for the Kafka topic, we will consume from the beginning. Here is the full config needed for the job:
+In this section, we will configure our word count example to run locally in a single JVM. Let us add a file named “word-count.properties” under the config folder. 
 
 {% highlight jproperties %}
 job.name=word-count
+# Use a PassthroughJobCoordinator since there is no coordination needed
 job.coordinator.factory=org.apache.samza.standalone.PassthroughJobCoordinatorFactory
 job.coordination.utils.factory=org.apache.samza.standalone.PassthroughCoordinationUtilsFactory
+
 job.changelog.system=kafka
+
+# Use a single container to process all of the data
 task.name.grouper.factory=org.apache.samza.container.grouper.task.SingleContainerGrouperFactory
 processor.id=0
+
+# Read from the beginning of the topic
 systems.kafka.default.stream.samza.offset.default=oldest
 {% endhighlight %}
 
-For more details about Samza config, feel free to check out the latest config [here](/learn/documentation/{{site.version}}/jobs/configuration-table.html).
+For more details on Samza's configs, feel free to check out the latest [configuration reference](/learn/documentation/{{site.version}}/jobs/configuration-table.html).
 
 ### Run your application
 
-Let’s add a `main()` function to `WordCount` class first. The function reads the config file and factory from the args, and create a `LocalApplicationRunner` to run the application locally. Here is the function details:
+Let’s now add a `main()` function to the `WordCount` class. The function reads the config file and factory from the args, and creates a `LocalApplicationRunner` that run the application locally.
 
 {% highlight java %}
 public static void main(String[] args) {
@@ -189,28 +198,28 @@ apply plugin:'application'
 mainClassName = "samzaapp.WordCount"
 {% endhighlight %}
 
-Before running `main()`, we need to create the input Kafka topic with some sample data. Let’s start a local kafka broker first. Samza examples provides a script named “grid” which you can use to start zookeeper, kafka broker and yarn. Your can download it [here](https://github.com/apache/samza-hello-samza/blob/master/bin/grid) and put it under scripts/ folder, then issue the following command:
+Before running `main()`, we will create our input Kafka topic and populate it with sample data. You can download the scripts to interact with Kafka along with the sample data from [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
 
 {% highlight bash %}
 > ./scripts/grid install zookeeper && ./scripts/grid start zookeeper
 > ./scripts/grid install kafka && ./scripts/grid start kafka
 {% endhighlight %}
 
-Next we will create a Kafka topic named sample-text, and publish some sample data into it. A "sample-text.txt" file is included in the downloaded tutorial tgz file. In command line:
 
 {% highlight bash %}
 > ./deploy/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --topic sample-text --partition 1 --replication-factor 1
 > ./deploy/kafka/bin/kafka-console-producer.sh --topic sample-text --broker localhost:9092 < ./sample-text.txt
 {% endhighlight %}
 
-Now let’s fire up our application. Here we use gradle to run it. You can also run it directly within your IDE, with the same program arguments.
+Now let’s kick off our application and use gradle to run it. Alternately, you can also run it directly from your IDE, with the same program arguments.
 
 {% highlight bash %}
 > export BASE_DIR=`pwd`
 > ./gradlew run --args="--config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$BASE_DIR/src/main/config/word-count.properties"
 {% endhighlight %}
 
-This application will output to a Kafka topic named "word-count-output". Let’s consume this topic to check out the results:
+
+The application will output to a Kafka topic named "word-count-output". Let’s fire up a Kafka consumer to read from this topic:
 
 {% highlight bash %}
 >  ./deploy/kafka/bin/kafka-console-consumer.sh --topic word-count-output --zookeeper localhost:2181 --from-beginning
@@ -245,10 +254,10 @@ The [hello-samza](https://github.com/apache/samza-hello-samza) project contains 
 
 There are four main categories of examples in this project, including:
 
-1. [wikipedia](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): this is a more complex example demonstrating the entire pipeline of consuming from the live feed from wikipedia edits, parsing the message and generating statistics from them.
+1. [Wikipedia](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): this is a more complex example demonstrating the entire pipeline of consuming from the live feed from wikipedia edits, parsing the message and generating statistics from them.
 
-2. [cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook): you will find various examples in this folder to demonstrate usage of Samza high-level API, such as windowing, join and aggregations.
+2. [Cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook): you will find various examples in this folder to demonstrate usage of Samza high-level API, such as windowing, join and aggregations.
 
-3. [asure](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/azure): this example shows how to run your application on Microsoft Asure.
+3. [Azure](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/azure): This example shows how to build an application that consumes input streams from Azure EventHubs.
 
-4. [kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis): this example shows how to consume from Kinesis streams
+4. [Kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis): This example shows how to consume from Kinesis streams.
