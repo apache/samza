@@ -18,11 +18,14 @@
  */
 package org.apache.samza.standalone;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
@@ -69,7 +72,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
 
   public PassthroughJobCoordinator(Config config) {
     this.processorId = createProcessorId(config);
-    this.config = config;
+    this.config = new MapConfig(config, ImmutableMap.of(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory"));
   }
 
   @Override
@@ -119,7 +122,11 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
+<<<<<<< Updated upstream
     String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+=======
+    String containerId = this.processorId;
+>>>>>>> Stashed changes
 
     /** TODO:
      Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
