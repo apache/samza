@@ -19,15 +19,17 @@
 package org.apache.samza.context;
 
 import java.io.Serializable;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
 
 
 /**
- * The factory for creating {@link ApplicationContainerContext} instances for a
- * {@link org.apache.samza.application.SamzaApplication} during container initialization.
+ * The factory for creating {@link ApplicationContainerContext} instances for a {@link SamzaApplication} during
+ * container initialization.
  * <p>
- * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationContainerContextFactory} to
- * provide the {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to
- * get the created {@link ApplicationContainerContext} instance for the current container.
+ * Use {@link ApplicationDescriptor#withApplicationContainerContextFactory} to provide the
+ * {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to get the created
+ * {@link ApplicationContainerContext} instance for the current container.
  * <p>
  * The {@link ApplicationContainerContextFactory} implementation must be {@link Serializable}.
  *

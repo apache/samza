@@ -19,6 +19,7 @@
 package org.apache.samza.application.descriptors;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplication;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.operators.KV;
@@ -30,15 +31,13 @@ import org.apache.samza.table.Table;
 
 /**
  * A {@link StreamApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the
- * processing logic for a Samza High Level API {@link org.apache.samza.application.StreamApplication}.
+ * processing logic for a Samza High Level API {@link StreamApplication}.
  * <p>
- * Use the {@link StreamApplicationDescriptor} obtained from
- * {@link org.apache.samza.application.StreamApplication#describe} to get the {@link MessageStream}s,
- * {@link OutputStream}s and {@link Table}s corresponding to their respective {@link InputDescriptor}s,
- * {@link OutputDescriptor}s and {@link TableDescriptor}s.
+ * Use the {@link StreamApplicationDescriptor} obtained from {@link StreamApplication#describe} to get the
+ * {@link MessageStream}s, {@link OutputStream}s and {@link Table}s corresponding to their respective
+ * {@link InputDescriptor}s, {@link OutputDescriptor}s and {@link TableDescriptor}s.
  * <p>
- * Use the {@link MessageStream} API operators to describe the processing logic for the
- * {@link org.apache.samza.application.StreamApplication}.
+ * Use the {@link MessageStream} API operators to describe the processing logic for the {@link StreamApplication}.
  */
 @InterfaceStability.Evolving
 public interface StreamApplicationDescriptor extends ApplicationDescriptor<StreamApplicationDescriptor> {
