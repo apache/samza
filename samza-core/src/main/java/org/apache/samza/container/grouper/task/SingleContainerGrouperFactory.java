@@ -19,8 +19,6 @@
 
 package org.apache.samza.container.grouper.task;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.TaskName;
@@ -29,7 +27,6 @@ import org.apache.samza.job.model.TaskModel;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,22 +41,16 @@ class SingleContainerGrouper implements TaskNameGrouper {
   private final String containerId;
 
   SingleContainerGrouper(String containerId) {
-    this.containerId = null;
+    this.containerId = containerId;
   }
 
   @Override
   public Set<ContainerModel> group(Set<TaskModel> taskModels) {
-    return group(taskModels, ImmutableList.of(this.containerId));
-  }
-
-  @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels, List<String> containersIds) {
-    Preconditions.checkState(containersIds.size() == 1);
     Map<TaskName, TaskModel> taskNameTaskModelMap = new HashMap<>();
     for (TaskModel taskModel: taskModels) {
       taskNameTaskModelMap.put(taskModel.getTaskName(), taskModel);
     }
-    ContainerModel containerModel = new ContainerModel(containersIds.get(0), taskNameTaskModelMap);
+    ContainerModel containerModel = new ContainerModel(containerId, taskNameTaskModelMap);
     return Collections.singleton(containerModel);
   }
 }
