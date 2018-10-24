@@ -65,7 +65,7 @@ public class WordCount implements StreamApplication {
 
 The StreamApplication interface provides an API method named describe() for you to specify your streaming pipeline. Using [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html), you can describe your entire data processing task from data inputs, operations and outputs.
 
-### Describe your inputs and outputs
+### Input data source using Kafka
 
 In this example, we are going to use Kafka as the input data source and consume the text for word count line by line. We start by defining a KafkaSystemDescriptor, which specifies the properties to establishing the connection to the local Kafka cluster. Then we create a  `KafkaInputDescriptor`/`KafkaOutputDescriptor` to set up the topic, Serializer and Deserializer. Finally we use this input in the [StreamApplicationDescriptor](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplicationDescriptor.html) so we can consume from this topic. The code is in the following:
 
@@ -106,7 +106,7 @@ The resulting [MessageStream](/learn/documentation/{{site.version}}/api/javadocs
 First we are going to extract the value from lines. This is a one-to-one transform and we can use the Samza map operator as following:
 
 {% highlight java %}
-lines.map(kv -> kv.value)
+lines .map(kv -> kv.value)
 {% endhighlight %}
 
 Then we will split the line into words by using the flatmap operator:
@@ -152,29 +152,23 @@ lines
 
 In this section we will configure the word count example to run locally in a single JVM. Please add a file named “word-count.properties” under the config folder. We will add the job configs in this file.
 
-In this section, we will configure our word count example to run locally in a single JVM. Let us add a file named “word-count.properties” under the config folder. 
+Since there is only a single Samza processor, there is no coordination required. We use the PassthroughJobCoordinator for the example. We also group all Samza tasks into this single processor. As for the Kafka topic, we will consume from the beginning. Here is the full config needed for the job:
 
 {% highlight jproperties %}
 job.name=word-count
-# Use a PassthroughJobCoordinator since there is no coordination needed
 job.coordinator.factory=org.apache.samza.standalone.PassthroughJobCoordinatorFactory
 job.coordination.utils.factory=org.apache.samza.standalone.PassthroughCoordinationUtilsFactory
-
 job.changelog.system=kafka
-
-# Use a single container to process all of the data
 task.name.grouper.factory=org.apache.samza.container.grouper.task.SingleContainerGrouperFactory
 processor.id=0
-
-# Read from the beginning of the topic
 systems.kafka.default.stream.samza.offset.default=oldest
 {% endhighlight %}
 
-For more details on Samza's configs, feel free to check out the latest [configuration reference](/learn/documentation/{{site.version}}/jobs/configuration-table.html).
+For more details about Samza config, feel free to check out the latest config [here](/learn/documentation/{{site.version}}/jobs/configuration-table.html).
 
 ### Run your application
 
-Let’s now add a `main()` function to the `WordCount` class. The function reads the config file and factory from the args, and creates a `LocalApplicationRunner` that run the application locally.
+Let’s add a `main()` function to `WordCount` class first. The function reads the config file and factory from the args, and create a `LocalApplicationRunner` to run the application locally. Here is the function details:
 
 {% highlight java %}
 public static void main(String[] args) {
@@ -195,7 +189,7 @@ apply plugin:'application'
 mainClassName = "samzaapp.WordCount"
 {% endhighlight %}
 
-Before running `main()`, we will create our input Kafka topic and populate it with sample data. You can download the scripts to interact with Kafka along with the sample data from [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
+Before running `main()`, we need to create the input Kafka topic with some sample data. Let’s start a local kafka broker first. Samza examples provides a script named “grid” which you can use to start zookeeper, kafka broker and yarn. Your can download it [here](https://github.com/apache/samza-hello-samza/blob/master/bin/grid) and put it under scripts/ folder, then issue the following command:
 
 {% highlight bash %}
 > ./scripts/grid install zookeeper && ./scripts/grid start zookeeper
@@ -251,10 +245,10 @@ The [hello-samza](https://github.com/apache/samza-hello-samza) project contains 
 
 There are four main categories of examples in this project, including:
 
-1. [Wikipedia](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): this is a more complex example demonstrating the entire pipeline of consuming from the live feed from wikipedia edits, parsing the message and generating statistics from them.
+1. [wikipedia](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): this is a more complex example demonstrating the entire pipeline of consuming from the live feed from wikipedia edits, parsing the message and generating statistics from them.
 
-2. [Cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook): you will find various examples in this folder to demonstrate usage of Samza high-level API, such as windowing, join and aggregations.
+2. [cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook): you will find various examples in this folder to demonstrate usage of Samza high-level API, such as windowing, join and aggregations.
 
-3. [Azure](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/azure): This example shows how to build an application that consumes input streams from Azure EventHubs.
+3. [asure](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/azure): this example shows how to run your application on Microsoft Asure.
 
-4. [Kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis): This example shows how to consume from Kinesis streams.
+4. [kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis): this example shows how to consume from Kinesis streams
