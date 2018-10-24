@@ -550,7 +550,15 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
       throw new SamzaException("Create topic failed", e);
     }
     LOG.info("Successfully created topic {}", topicName);
-    return true;
+    DescribeTopicsResult desc = newAdminClient.describeTopics(ImmutableSet.of(topicName));
+    try {
+      TopicDescription td = desc.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS).get(topicName);
+      LOG.info("Topic {} created with {}", topicName, td);
+      return true;
+    } catch (Exception e) {
+      LOG.error("'Describe after create' failed for topic " + topicName, e);
+      return false;
+    }
   }
 
   @Override
