@@ -23,7 +23,7 @@ In this tutorial, we will create our first Samza application - `WordCount`. This
 
 ### Setting up a Java Project
 
-First let’s create the project structure as follows:
+Observe the project structure as follows:
 
 {% highlight bash %}
 wordcount
@@ -38,7 +38,7 @@ wordcount
                  |-- WordCount.java
 {% endhighlight %}
 
-You can copy build.gradle and gradle.properties files from the downloaded tutorial tgz file. The WordCount class is just an empty class for now. Once finishing this setup, you can build the project by:
+You can build the project anytime by running:
 
 {% highlight bash %}
 > cd wordcount
@@ -81,11 +81,13 @@ public class WordCount implements StreamApplication {
 
  @Override
  public void describe(StreamApplicationDescriptor streamApplicationDescriptor) {
+   // Create a KafkaSystemDescriptor providing properties of the cluster
    KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor(KAFKA_SYSTEM_NAME)
        .withConsumerZkConnect(KAFKA_CONSUMER_ZK_CONNECT)
        .withProducerBootstrapServers(KAFKA_PRODUCER_BOOTSTRAP_SERVERS)
        .withDefaultStreamConfigs(KAFKA_DEFAULT_STREAM_CONFIGS);
 
+   // For each input or output stream, create a KafkaInput/Output descriptor
    KafkaInputDescriptor<KV<String, String>> inputDescriptor =
        kafkaSystemDescriptor.getInputDescriptor(INPUT_STREAM_ID,
            KVSerde.of(new StringSerde(), new StringSerde()));
@@ -93,6 +95,7 @@ public class WordCount implements StreamApplication {
        kafkaSystemDescriptor.getOutputDescriptor(OUTPUT_STREAM_ID,
            KVSerde.of(new StringSerde(), new StringSerde()));
 
+   // Obtain a handle to a MessageStream that you can chain operations on
    MessageStream<KV<String, String>> lines = streamApplicationDescriptor.getInputStream(inputDescriptor);
    OutputStream<KV<String, String>> counts = streamApplicationDescriptor.getOutputStream(outputDescriptor);
  }
@@ -177,7 +180,7 @@ For more details on Samza's configs, feel free to check out the latest [configur
 
 ### Run your application
 
-Let’s now add a `main()` function to the `WordCount` class. The function reads the config file and factory from the args, and creates a `LocalApplicationRunner` that run the application locally.
+We are ready to add a `main()` function to the `WordCount` class. It parses the command-line arguments and instantiates a `LocalApplicationRunner` to execute the application locally.
 
 {% highlight java %}
 public static void main(String[] args) {
@@ -190,13 +193,6 @@ public static void main(String[] args) {
 }
 {% endhighlight %}
 
-In your "build.gradle" file, please add the following so we can use gradle to run it:
-
-{% highlight jproperties %}
-apply plugin:'application'
-
-mainClassName = "samzaapp.WordCount"
-{% endhighlight %}
 
 Before running `main()`, we will create our input Kafka topic and populate it with sample data. You can download the scripts to interact with Kafka along with the sample data from [here](https://github.com/apache/samza-hello-samza/blob/latest/quickstart/wordcount.tar.gz).
 
@@ -211,7 +207,7 @@ Before running `main()`, we will create our input Kafka topic and populate it wi
 > ./deploy/kafka/bin/kafka-console-producer.sh --topic sample-text --broker localhost:9092 < ./sample-text.txt
 {% endhighlight %}
 
-Now let’s kick off our application and use gradle to run it. Alternately, you can also run it directly from your IDE, with the same program arguments.
+Let’s kick off our application and use gradle to run it. Alternately, you can also run it directly from your IDE, with the same program arguments.
 
 {% highlight bash %}
 > export BASE_DIR=`pwd`
@@ -219,7 +215,7 @@ Now let’s kick off our application and use gradle to run it. Alternately, you 
 {% endhighlight %}
 
 
-The application will output to a Kafka topic named "word-count-output". Let’s fire up a Kafka consumer to read from this topic:
+The application will output to a Kafka topic named "word-count-output". We will now fire up a Kafka consumer to read from this topic:
 
 {% highlight bash %}
 >  ./deploy/kafka/bin/kafka-console-consumer.sh --topic word-count-output --zookeeper localhost:2181 --from-beginning
@@ -244,20 +240,6 @@ and: 243
 from: 16
 {% endhighlight %}
 
-### More Examples
+Congratulations! You've successfully run your first Samza application.
 
-The [hello-samza](https://github.com/apache/samza-hello-samza) project contains a lot of more examples to help you create your Samza job. To checkout the hello-samza project:
-
-{% highlight bash %}
-> git clone https://git.apache.org/samza-hello-samza.git hello-samza
-{% endhighlight %}
-
-There are four main categories of examples in this project, including:
-
-1. [Wikipedia](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): this is a more complex example demonstrating the entire pipeline of consuming from the live feed from wikipedia edits, parsing the message and generating statistics from them.
-
-2. [Cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook): you will find various examples in this folder to demonstrate usage of Samza high-level API, such as windowing, join and aggregations.
-
-3. [Azure](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/azure): This example shows how to build an application that consumes input streams from Azure EventHubs.
-
-4. [Kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis): This example shows how to consume from Kinesis streams.
+### [More Examples >>](/startup/code-examples/{{site.version}})
