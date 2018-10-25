@@ -47,4 +47,6 @@
   zkClientVersion = "0.8"
   zookeeperVersion = "3.4.6"
   failsafeVersion = "1.1.0"
+  jlineVersion = "3.8.2"
+  jnaVersion = "4.5.1"
 }

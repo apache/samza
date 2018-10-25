@@ -207,18 +207,19 @@ public class StreamTaskIntegrationTest {
 
   static public class JoinTaskApplication implements TaskApplication {
     @Override
-    public void describe(TaskApplicationDescriptor appDesc) {
-      appDesc.setTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
-      appDesc.addTable(new InMemoryTableDescriptor("profile-view-store",
-          KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+    public void describe(TaskApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-      appDesc.addInputStream(profileISD);
       KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      appDesc.addInputStream(pageViewISD);
       KafkaOutputDescriptor<EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
-      appDesc.addOutputStream(enrichedPageViewOSD);
+      appDescriptor
+          .withInputStream(profileISD)
+          .withInputStream(pageViewISD)
+          .withOutputStream(enrichedPageViewOSD)
+          .withTable(new InMemoryTableDescriptor("profile-view-store",
+              KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())))
+          .withTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
     }
   }
 

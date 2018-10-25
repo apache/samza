@@ -21,22 +21,38 @@ package org.apache.samza.application;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 
+
 /**
- * Describes and initializes the transforms for processing message streams and generating results in high-level API. 
+ * A {@link StreamApplication} describes the inputs, outputs, state, configuration and the processing logic
+ * in Samza's High Level API.
  * <p>
- * The following example removes page views older than 1 hour from the input stream:
+ * A typical {@link StreamApplication} implementation consists of the following stages:
+ * <ol>
+ *   <li>Configuring the inputs, outputs and state (tables) using the appropriate
+ *   {@link org.apache.samza.system.descriptors.SystemDescriptor}s,
+ *   {@link org.apache.samza.system.descriptors.InputDescriptor}s,
+ *   {@link org.apache.samza.system.descriptors.OutputDescriptor}s and
+ *   {@link org.apache.samza.table.descriptors.TableDescriptor}s
+ *   <li>Obtaining the corresponding
+ *   {@link org.apache.samza.operators.MessageStream}s,
+ *   {@link org.apache.samza.operators.OutputStream}s and
+ *   {@link org.apache.samza.table.Table}s from the provided {@link StreamApplicationDescriptor}.
+ *   <li>Defining the processing logic using operators and functions on the streams and tables thus obtained.
+ *   E.g., {@link org.apache.samza.operators.MessageStream#filter(org.apache.samza.operators.functions.FilterFunction)}
+ * </ol>
+ * <p>
+ * The following example {@link StreamApplication} removes page views older than 1 hour from the input stream:
  * <pre>{@code
  * public class PageViewFilter implements StreamApplication {
- *   public void describe(StreamAppDescriptor appDesc) {
- *     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
+ *   public void describe(StreamApplicationDescriptor appDescriptor) {
+ *     KafkaSystemDescriptor trackingSystemDescriptor = new KafkaSystemDescriptor("tracking");
  *     KafkaInputDescriptor<PageViewEvent> inputStreamDescriptor =
- *         trackingSystem.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
- *
+ *         trackingSystemDescriptor.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
  *     KafkaOutputDescriptor<PageViewEvent>> outputStreamDescriptor =
- *         trackingSystem.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
+ *         trackingSystemDescriptor.getOutputDescriptor("recentPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
  *
- *     MessageStream<PageViewEvent> pageViewEvents = appDesc.getInputStream(inputStreamDescriptor);
- *     OutputStream<PageViewEvent> recentPageViewEvents = appDesc.getOutputStream(outputStreamDescriptor);
+ *     MessageStream<PageViewEvent> pageViewEvents = appDescriptor.getInputStream(inputStreamDescriptor);
+ *     OutputStream<PageViewEvent> recentPageViewEvents = appDescriptor.getOutputStream(outputStreamDescriptor);
  *
  *     pageViewEvents
  *       .filter(m -> m.getCreationTime() > System.currentTimeMillis() - Duration.ofHours(1).toMillis())
@@ -44,33 +60,20 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
  *   }
  * }
  * }</pre>
- *<p>
- * The example above can be run using an ApplicationRunner:
- * <pre>{@code
- *   public static void main(String[] args) {
- *     CommandLine cmdLine = new CommandLine();
- *     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
- *     PageViewFilter app = new PageViewFilter();
- *     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
- *     runner.run();
- *     runner.waitForFinish();
- *   }
- * }</pre>
- *
+ * <p>
+ * All operator function implementations used in a {@link StreamApplication} must be {@link java.io.Serializable}. Any
+ * context required within an operator function may be managed by implementing the
+ * {@link org.apache.samza.operators.functions.InitableFunction#init} and
+ * {@link org.apache.samza.operators.functions.ClosableFunction#close} methods in the function implementation.
+ * <p>
+ * Functions may implement the {@link org.apache.samza.operators.functions.ScheduledFunction} interface
+ * to schedule and receive periodic callbacks from the Samza framework.
  * <p>
  * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link org.apache.samza.task.StreamTask}
  * during execution. The execution planner will generate a serialized DAG which will be deserialized in each
  * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous
- * and thread-safe within each {@link org.apache.samza.task.StreamTask}.
- *
- * <p>
- * A {@link StreamApplication} implementation must have a proper fully-qualified class name and a default constructor
- * with no parameters to ensure successful instantiation in both local and remote environments.
- * Functions implemented for transforms in StreamApplications ({@link org.apache.samza.operators.functions.MapFunction},
- * {@link org.apache.samza.operators.functions.FilterFunction} for e.g.) are initable and closable. They are initialized
- * before messages are delivered to them and closed after their execution when the {@link org.apache.samza.task.StreamTask}
- * instance is closed. See {@link org.apache.samza.operators.functions.InitableFunction} and {@link org.apache.samza.operators.functions.ClosableFunction}.
- * Function implementations are required to be {@link java.io.Serializable}.
+ * and thread-safe within each {@link org.apache.samza.task.StreamTask}. Multiple tasks may process their
+ * messages concurrently depending on the job parallelism configuration.
  */
 @InterfaceStability.Evolving
 public interface StreamApplication extends SamzaApplication<StreamApplicationDescriptor> {

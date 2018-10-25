@@ -30,6 +30,7 @@ public interface DslConverter {
 
   /**
    * Convert the dsl into the Calcite logical plan.
+   * @param dsl String containing one or more dsl queries.
    * @return List of Root nodes of the Calcite logical plan.
    * If DSL represents multiple SQL statements. You might return root nodes one for each SQL statement.
    */

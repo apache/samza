@@ -131,12 +131,12 @@ class ExecutionPlannerTestBase {
 
   TaskApplication getTaskApplication() {
     return appDesc -> {
-      appDesc.addInputStream(input1Descriptor);
-      appDesc.addInputStream(input2Descriptor);
-      appDesc.addInputStream(intermediateInputDescriptor);
-      appDesc.addOutputStream(intermediateOutputDescriptor);
-      appDesc.addOutputStream(outputDescriptor);
-      appDesc.setTaskFactory(() -> new IdentityStreamTask());
+      appDesc.withInputStream(input1Descriptor)
+          .withInputStream(input2Descriptor)
+          .withInputStream(intermediateInputDescriptor)
+          .withOutputStream(intermediateOutputDescriptor)
+          .withOutputStream(outputDescriptor)
+          .withTaskFactory(() -> new IdentityStreamTask());
     };
   }
 

@@ -47,7 +47,7 @@ Please follow the instructions from the [Kafka quickstart](http://kafka.apache.o
 The below sql statements require a topic named ProfileChangeStream to be created on the Kafka broker. You can follow the instructions in the Kafka quick start guide to create a topic named “ProfileChangeStream”.
 
 ```bash
->./bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ProfileChangeStream
+>./deploy/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ProfileChangeStream
 ```
 
 ## Generate events into ProfileChangeStream topic

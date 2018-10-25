@@ -32,7 +32,7 @@ public final class LegacyTaskApplication implements TaskApplication {
   }
 
   @Override
-  public void describe(TaskApplicationDescriptor appDesc) {
-    appDesc.setTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
+  public void describe(TaskApplicationDescriptor appDescriptor) {
+    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
   }
 }

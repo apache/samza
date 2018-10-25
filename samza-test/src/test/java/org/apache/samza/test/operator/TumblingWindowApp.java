@@ -59,15 +59,15 @@ public class TumblingWindowApp implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     JsonSerdeV2<PageView> inputSerde = new JsonSerdeV2<>(PageView.class);
     KVSerde<String, Integer> outputSerde = KVSerde.of(new StringSerde(), new IntegerSerde());
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(SYSTEM);
     KafkaInputDescriptor<PageView> id = ksd.getInputDescriptor(INPUT_TOPIC, inputSerde);
     KafkaOutputDescriptor<KV<String, Integer>> od = ksd.getOutputDescriptor(OUTPUT_TOPIC, outputSerde);
 
-    MessageStream<PageView> pageViews = appDesc.getInputStream(id);
-    OutputStream<KV<String, Integer>> outputStream = appDesc.getOutputStream(od);
+    MessageStream<PageView> pageViews = appDescriptor.getInputStream(id);
+    OutputStream<KV<String, Integer>> outputStream = appDescriptor.getOutputStream(od);
 
     pageViews
         .filter(m -> !FILTER_KEY.equals(m.getUserId()))

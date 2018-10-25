@@ -37,9 +37,9 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestStandaloneIntegrationApplication.class);
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     String systemName = "testSystemName";
-    String inputStreamName = appDesc.getConfig().get("input.stream.name");
+    String inputStreamName = appDescriptor.getConfig().get("input.stream.name");
     String outputStreamName = "standaloneIntegrationTestKafkaOutputTopic";
     LOGGER.info("Publishing message from: {} to: {}.", inputStreamName, outputStreamName);
     KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor(systemName);
@@ -48,7 +48,7 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
     KafkaInputDescriptor<KV<Object, Object>> isd =
         kafkaSystemDescriptor.getInputDescriptor(inputStreamName, noOpSerde);
     KafkaOutputDescriptor<KV<Object, Object>> osd =
-        kafkaSystemDescriptor.getOutputDescriptor(inputStreamName, noOpSerde);
-    appDesc.getInputStream(isd).sendTo(appDesc.getOutputStream(osd));
+        kafkaSystemDescriptor.getOutputDescriptor(outputStreamName, noOpSerde);
+    appDescriptor.getInputStream(isd).sendTo(appDescriptor.getOutputStream(osd));
   }
 }

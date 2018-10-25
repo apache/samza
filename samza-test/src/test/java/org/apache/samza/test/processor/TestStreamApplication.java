@@ -59,12 +59,12 @@ public class TestStreamApplication implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor streamAppDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(systemName);
     KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor(outputTopic, new StringSerde());
-    MessageStream<String> inputStream = streamAppDesc.getInputStream(isd);
-    OutputStream<String> outputStream = streamAppDesc.getOutputStream(osd);
+    MessageStream<String> inputStream = appDescriptor.getInputStream(isd);
+    OutputStream<String> outputStream = appDescriptor.getOutputStream(osd);
     inputStream.map(new TestMapFunction(appName, processorName)).sendTo(outputStream);
   }
 
