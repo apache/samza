@@ -48,7 +48,7 @@ public class TestStandaloneIntegrationApplication implements StreamApplication {
     KafkaInputDescriptor<KV<Object, Object>> isd =
         kafkaSystemDescriptor.getInputDescriptor(inputStreamName, noOpSerde);
     KafkaOutputDescriptor<KV<Object, Object>> osd =
-        kafkaSystemDescriptor.getOutputDescriptor(inputStreamName, noOpSerde);
+        kafkaSystemDescriptor.getOutputDescriptor(outputStreamName, noOpSerde);
     appDescriptor.getInputStream(isd).sendTo(appDescriptor.getOutputStream(osd));
   }
 }
