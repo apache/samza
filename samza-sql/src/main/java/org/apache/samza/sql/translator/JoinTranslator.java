@@ -27,6 +27,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
@@ -64,7 +65,6 @@ import static org.apache.samza.sql.data.SamzaSqlCompositeKey.createSamzaSqlCompo
  *   4. Join condition with a constant is not supported.
  *   5. Compound join condition with only AND operator is supported. AND operator with a constant is not supported. No
  *      support for OR operator or any other operator in the join condition.
- *   6. Join condition with UDFs is not supported. Eg: udf1(a.key) = udf2(b.key) is not supported.
  *
  * It is assumed that the stream denoted as 'table' is already partitioned by the key(s) specified in the join
  * condition. We do not repartition the table as bootstrap semantic is not propagated to the intermediate streams.
@@ -252,7 +252,17 @@ class JoinTranslator {
         SqlExplainLevel.EXPPLAN_ATTRIBUTES);
   }
 
-  private SqlIOConfig resolveSourceConfig(RelNode relNode) {
+  private SqlIOConfig resolveSourceConfigForTable(RelNode relNode) {
+    if (relNode instanceof LogicalProject) {
+      return resolveSourceConfigForTable(((LogicalProject) relNode).getInput());
+    }
+
+    // We are returning the sourceConfig for the table as null when the table is in another join rather than an output
+    // table, that's because the output of stream-table join is considered a stream.
+    if (relNode.getInputs().size() > 1) {
+      return null;
+    }
+
     String sourceName = String.join(".", relNode.getTable().getQualifiedName());
     SqlIOConfig sourceConfig = ioResolver.fetchSourceInfo(sourceName);
     if (sourceConfig == null) {
@@ -265,8 +275,10 @@ class JoinTranslator {
     // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
     // stream-table-table join, the left side of the join is join output, which we always
     // assume to be a stream. The intermediate stream won't be an instance of EnumerableTableScan.
-    if (relNode instanceof EnumerableTableScan) {
-      return resolveSourceConfig(relNode).getTableDescriptor().isPresent();
+    // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
+    if (relNode instanceof EnumerableTableScan || relNode instanceof LogicalProject) {
+      SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode);
+      return sourceTableConfig != null && sourceTableConfig.getTableDescriptor().isPresent();
     } else {
       return false;
     }
@@ -277,9 +289,9 @@ class JoinTranslator {
 
     MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(relNode.getId());
 
-    SqlIOConfig sourceConfig = resolveSourceConfig(relNode);
+    SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode);
 
-    if (!sourceConfig.getTableDescriptor().isPresent()) {
+    if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
       String errMsg = "Failed to resolve table source in join operation: node=" + relNode;
       log.error(errMsg);
       throw new SamzaException(errMsg);
@@ -288,7 +300,7 @@ class JoinTranslator {
     // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
     // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
     Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
-        context.getStreamAppDescriptor().getTable(sourceConfig.getTableDescriptor().get());
+        context.getStreamAppDescriptor().getTable(sourceTableConfig.getTableDescriptor().get());
 
     Serde<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
     SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
