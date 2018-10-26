@@ -169,7 +169,7 @@ public class TestRunner {
    */
   public TestRunner addConfig(String key, String value) {
     Preconditions.checkNotNull(key);
-    //Preconditions.checkNotNull(value);
+    Preconditions.checkNotNull(value);
     configs.put(key, value);
     return this;
   }
