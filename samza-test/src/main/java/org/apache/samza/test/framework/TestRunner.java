@@ -83,6 +83,7 @@ import org.slf4j.LoggerFactory;
  *    <li>"job.host-affinity.enabled" = "false"</li>
  *  </ol>
  *
+ * TestRunner only supports NoOpSerde i.e. inputs to Test Framework should be deserialized
  */
 public class TestRunner {
   private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
@@ -189,7 +190,7 @@ public class TestRunner {
    * Adds the provided input stream with mock data to the test application.
    *
    * @param descriptor describes the stream that is supposed to be input to Samza application
-   * @param messages messages used to initialize the single partition stream
+   * @param messages messages used to initialize the single partition stream. These message should always be deserialized
    * @param <StreamMessageType> a message with null key or a KV {@link org.apache.samza.operators.KV}.
    *                            key of KV represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
    *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
@@ -208,7 +209,8 @@ public class TestRunner {
    * Adds the provided input stream with mock data to the test application. Default configs and user added configs have
    * a higher precedence over system and stream descriptor generated configs.
    * @param descriptor describes the stream that is supposed to be input to Samza application
-   * @param messages map whose key is partitionId and value is messages in the partition
+   * @param messages map whose key is partitionId and value is messages in the partition. These message should always
+   *                 be deserialized
    * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
    *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
    *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
