@@ -39,6 +39,7 @@ import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
@@ -55,6 +56,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.descriptors.StreamDescriptor;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
@@ -167,7 +169,7 @@ public class TestRunner {
    */
   public TestRunner addConfig(String key, String value) {
     Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(value);
+    //Preconditions.checkNotNull(value);
     configs.put(key, value);
     return this;
   }
@@ -243,6 +245,7 @@ public class TestRunner {
         .createStream(spec);
     addConfig(streamDescriptor.toConfig());
     addConfig(streamDescriptor.getSystemDescriptor().toConfig());
+    addSerdeConfigs(streamDescriptor);
     return this;
   }
 
@@ -359,6 +362,7 @@ public class TestRunner {
     imsd.withInMemoryScope(this.inMemoryScope);
     addConfig(descriptor.toConfig());
     addConfig(descriptor.getSystemDescriptor().toConfig());
+    addSerdeConfigs(descriptor);
     StreamSpec spec = new StreamSpec(descriptor.getStreamId(), streamName, systemName, partitionData.size());
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
@@ -390,5 +394,18 @@ public class TestRunner {
     if (dir.exists()) {
       LOG.warn("Could not delete the directory " + path);
     }
+  }
+
+  /**
+   * Test Framework only supports NoOpSerde. This method ensures null key and msg serde config for input and output streams
+   * takes preference when configs are merged in {@link org.apache.samza.execution.JobPlanner#getExecutionPlan}
+   * over {@link org.apache.samza.application.descriptors.ApplicationDescriptor} generated configs
+   */
+  private void addSerdeConfigs(StreamDescriptor descriptor) {
+    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), descriptor.getStreamId());
+    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+    this.configs.put(keySerdeConfigKey, null);
+    this.configs.put(msgSerdeConfigKey, null);
   }
 }

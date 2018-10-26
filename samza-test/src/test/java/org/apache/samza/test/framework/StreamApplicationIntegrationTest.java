@@ -135,10 +135,10 @@ public class StreamApplicationIntegrationTest {
               KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
 
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
-      KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+      KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new JsonSerdeV2<>());
       appDescriptor.getInputStream(profileISD).map(m -> new KV(m.getMemberId(), m)).sendTo(table);
 
-      KafkaInputDescriptor<TestTableData.PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      KafkaInputDescriptor<TestTableData.PageView> pageViewISD = ksd.getInputDescriptor("PageView", new JsonSerdeV2<>());
       KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
