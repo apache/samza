@@ -17,19 +17,23 @@
 * under the License.
 */
 
-package org.apache.samza.sql.avro;
+package org.apache.samza.sql.fn;
 
-import org.apache.samza.sql.interfaces.RelSchemaProvider;
-import org.apache.samza.system.SystemStream;
+import org.apache.samza.config.Config;
+import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-public interface AvroRelSchemaProvider extends RelSchemaProvider {
-  String getSchema(SystemStream systemStream);
-
-  default String getPayloadSchema(SystemStream systemStream) {
-    return getSchema(systemStream);
+/**
+ * UDF that converts an object to it's string representation.
+ */
+public class ConvertToStringUdf implements ScalarUdf<String> {
+  @Override
+  public void init(Config udfConfig) {
   }
-  default String getKeySchema(SystemStream systemStream) {
-    return null;
+
+  @Override
+  public String execute(Object... args) {
+    return args[0].toString();
   }
 }
+

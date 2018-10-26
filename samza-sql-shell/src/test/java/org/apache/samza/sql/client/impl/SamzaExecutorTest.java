@@ -61,7 +61,7 @@ public class SamzaExecutorTest {
         Assert.assertEquals("NewCompany", ts.getFieldName(2));
         Assert.assertEquals("OldCompany", ts.getFieldName(3));
         Assert.assertEquals("ProfileChangeTimestamp", ts.getFieldName(4));
-        Assert.assertEquals("VARCHAR", ts.getFieldTypeName(0));
+        Assert.assertEquals("ANY", ts.getFieldTypeName(0));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(1));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(2));
         Assert.assertEquals("VARCHAR", ts.getFieldTypeName(3));

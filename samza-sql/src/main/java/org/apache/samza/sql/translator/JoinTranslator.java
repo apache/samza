@@ -22,6 +22,7 @@ package org.apache.samza.sql.translator;
 import java.util.LinkedList;
 import java.util.List;
 
+import java.util.stream.Collectors;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -39,19 +40,18 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
+import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlCompositeKey.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.*;
 
 
 /**
@@ -104,7 +104,11 @@ class JoinTranslator {
             context.getMessageStream(join.getLeft().getId()) : context.getMessageStream(join.getRight().getId());
 
     List<String> streamFieldNames = (isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames();
-    List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames();
+    List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft())
+        .getRowType()
+        .getFieldNames()
+        .stream()
+        .collect(Collectors.toList());
     Validate.isTrue(streamKeyIds.size() == tableKeyIds.size());
     log.info("Joining on the following Stream and Table field(s): ");
     for (int i = 0; i < streamKeyIds.size(); i++) {
@@ -113,9 +117,10 @@ class JoinTranslator {
 
     SamzaSqlRelMessageJoinFunction joinFn =
         new SamzaSqlRelMessageJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, streamFieldNames,
-            tableFieldNames);
+            tableKeyIds, tableFieldNames);
 
-    Serde<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
+    SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+        (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
     SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
         (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
 
@@ -123,7 +128,8 @@ class JoinTranslator {
     // with the table.
     MessageStream<SamzaSqlRelMessage> outputStream =
         inputStream
-            .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds),
+            .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
+                getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)),
                 m -> m,
                 KVSerde.of(keySerde, valueSerde),
                 intermediateStreamPrefix + "stream_" + joinId)
@@ -299,13 +305,13 @@ class JoinTranslator {
 
     // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
     // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
-    Table<KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>> table =
+    Table<KV<SamzaSqlRelRecord, SamzaSqlRelMessage>> table =
         context.getStreamAppDescriptor().getTable(sourceTableConfig.getTableDescriptor().get());
 
-    Serde<SamzaSqlCompositeKey> keySerde = new JsonSerdeV2<>(SamzaSqlCompositeKey.class);
+    SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+        (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
     SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
         (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
-
     // Let's always repartition by the join fields as key before sending the key and value to the table.
     // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
     // have the same partitioning scheme and partition key.

@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.samza.operators.KV;
-import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,11 +45,11 @@ public class TestSamzaSqlRelMessageJoinFunction {
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(0, 1);
-    SamzaSqlCompositeKey compositeKey = SamzaSqlCompositeKey.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
-    KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
+    SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
+    KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
     SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableFieldNames);
+        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
@@ -68,11 +68,12 @@ public class TestSamzaSqlRelMessageJoinFunction {
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 2);
     List<Integer> tableKeyIds = Arrays.asList(0, 2);
-    SamzaSqlCompositeKey compositeKey = SamzaSqlCompositeKey.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
-    KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
+    SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
+    KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
     SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, false, streamKeyIds, streamFieldNames, tableFieldNames);
+        new SamzaSqlRelMessageJoinFunction(joinRelType, false, streamKeyIds, streamFieldNames,
+            tableKeyIds, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
@@ -89,9 +90,10 @@ public class TestSamzaSqlRelMessageJoinFunction {
     SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues);
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
+    List<Integer> tableKeyIds = Arrays.asList(2, 3);
 
     SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableFieldNames);
+        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, null);
     Assert.assertNull(outMsg);
   }
@@ -101,10 +103,11 @@ public class TestSamzaSqlRelMessageJoinFunction {
     SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues);
     JoinRelType joinRelType = JoinRelType.LEFT;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
+    List<Integer> tableKeyIds = Arrays.asList(2, 3);
 
     SamzaSqlRelMessageJoinFunction joinFn =
         new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames,
-            tableFieldNames);
+            tableKeyIds, tableFieldNames);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, null);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),

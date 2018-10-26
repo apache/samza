@@ -25,20 +25,20 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
-import org.apache.samza.sql.data.SamzaSqlCompositeKey;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlCompositeKey.*;
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.*;
 
 
 /**
  * This class joins incoming {@link SamzaSqlRelMessage} from a stream with the records in a table with the join key
- * being {@link SamzaSqlCompositeKey}
+ * being {@link SamzaSqlRelRecord}
  */
 public class SamzaSqlRelMessageJoinFunction
-    implements StreamTableJoinFunction<SamzaSqlCompositeKey, SamzaSqlRelMessage, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
+    implements StreamTableJoinFunction<SamzaSqlRelRecord, SamzaSqlRelMessage, KV<SamzaSqlRelRecord, SamzaSqlRelMessage>, SamzaSqlRelMessage> {
 
   private static final Logger log = LoggerFactory.getLogger(SamzaSqlRelMessageJoinFunction.class);
 
@@ -46,17 +46,20 @@ public class SamzaSqlRelMessageJoinFunction
   private final boolean isTablePosOnRight;
   private final ArrayList<Integer> streamFieldIds;
   // Table field names are used in the outer join when the table record is not found.
+  private final ArrayList<Integer> tableKeyIds;
   private final ArrayList<String> tableFieldNames;
   private final ArrayList<String> outFieldNames;
 
   SamzaSqlRelMessageJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
-      List<Integer> streamFieldIds, List<String> streamFieldNames, List<String> tableFieldNames) {
+      List<Integer> streamFieldIds, List<String> streamFieldNames, List<Integer> tableKeyIds,
+      List<String> tableFieldNames) {
     this.joinRelType = joinRelType;
     this.isTablePosOnRight = isTablePosOnRight;
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
         (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
         joinRelType.compareTo(JoinRelType.INNER) == 0);
     this.streamFieldIds = new ArrayList<>(streamFieldIds);
+    this.tableKeyIds = new ArrayList<>(tableKeyIds);
     this.tableFieldNames = new ArrayList<>(tableFieldNames);
     this.outFieldNames = new ArrayList<>();
     if (isTablePosOnRight) {
@@ -69,7 +72,7 @@ public class SamzaSqlRelMessageJoinFunction
   }
 
   @Override
-  public SamzaSqlRelMessage apply(SamzaSqlRelMessage message, KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record) {
+  public SamzaSqlRelMessage apply(SamzaSqlRelMessage message, KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record) {
 
     if (joinRelType.compareTo(JoinRelType.INNER) == 0 && record == null) {
       log.debug("Inner Join: Record not found for the message with key: " + getMessageKey(message));
@@ -106,12 +109,13 @@ public class SamzaSqlRelMessageJoinFunction
   }
 
   @Override
-  public SamzaSqlCompositeKey getMessageKey(SamzaSqlRelMessage message) {
-    return createSamzaSqlCompositeKey(message, streamFieldIds);
+  public SamzaSqlRelRecord getMessageKey(SamzaSqlRelMessage message) {
+    return createSamzaSqlCompositeKey(message, streamFieldIds,
+        getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds));
   }
 
   @Override
-  public SamzaSqlCompositeKey getRecordKey(KV<SamzaSqlCompositeKey, SamzaSqlRelMessage> record) {
+  public SamzaSqlRelRecord getRecordKey(KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record) {
     return record.getKey();
   }
 
