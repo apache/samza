@@ -32,6 +32,7 @@ import org.apache.samza.context.Context;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
@@ -209,8 +210,8 @@ public class StreamTaskIntegrationTest {
     @Override
     public void describe(TaskApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
-      KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-      KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new JsonSerdeV2<>());
+      KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new JsonSerdeV2<>());
       KafkaOutputDescriptor<EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
       appDescriptor
