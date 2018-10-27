@@ -96,7 +96,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
 
     Object key = samzaMessage.getKey();
-    // Key could be an avro record or could just be a string.
+    // Key could be an avro record or could just be any other object. Handle avro here.
     if (key instanceof IndexedRecord) {
       Validate.isTrue(keySchema != null, "key is an IndexedRecord but could not obtain schema.");
       List<String> keyFieldNames = new ArrayList<>();
@@ -170,9 +170,9 @@ public class AvroRelConverter implements SamzaRelConverter {
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();
     for (int index = 0; index < fieldNames.size(); index++) {
-      Object relObj = values.get(index);
-      String fieldName = fieldNames.get(index);
       if (!fieldNames.get(index).equalsIgnoreCase(SamzaSqlRelMessage.KEY_NAME)) {
+        Object relObj = values.get(index);
+        String fieldName = fieldNames.get(index);
         Schema fieldSchema = schema.getField(fieldName).schema();
         record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
       }

@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.translator;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -103,12 +104,10 @@ class JoinTranslator {
         isTablePosOnRight ?
             context.getMessageStream(join.getLeft().getId()) : context.getMessageStream(join.getRight().getId());
 
-    List<String> streamFieldNames = (isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames();
-    List<String> tableFieldNames = (isTablePosOnRight ? join.getRight() : join.getLeft())
-        .getRowType()
-        .getFieldNames()
-        .stream()
-        .collect(Collectors.toList());
+    List<String> streamFieldNames =
+        new ArrayList<>((isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames());
+    List<String> tableFieldNames =
+        new ArrayList<>((isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames());
     Validate.isTrue(streamKeyIds.size() == tableKeyIds.size());
     log.info("Joining on the following Stream and Table field(s): ");
     for (int i = 0; i < streamKeyIds.size(); i++) {
@@ -125,7 +124,8 @@ class JoinTranslator {
         (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
 
     // Always re-partition the messages from the input stream by the composite key and then join the messages
-    // with the table.
+    // with the table. For the composite key, provide the corresponding table names in the key instead of using
+    // the names from the stream as the lookup needs to be done based on what is stored in the local table.
     MessageStream<SamzaSqlRelMessage> outputStream =
         inputStream
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
