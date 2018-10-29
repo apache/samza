@@ -136,14 +136,14 @@ In this section, we walk through a complete example that reads from a Kafka topi
 
 {% endhighlight %}
 
--Lines 1-3 create a KafkaSystemDescriptor defining the coordinates of our Kafka cluster
+- Lines 1-3 create a KafkaSystemDescriptor defining the coordinates of our Kafka cluster
 
--Lines 4-6 define a KafkaInputDescriptor for our input topic - `page-views`
+- Lines 4-6 defines a KafkaInputDescriptor for our input topic - `page-views`
 
--Lines 7-9 define a KafkaOutputDescriptor for our output topic - `filtered-page-views`
+- Lines 7-9 defines a KafkaOutputDescriptor for our output topic - `filtered-page-views`
 
--Line 9 creates a MessageStream for the input topic so that you can chain operations on it later
+- Line 9 creates a MessageStream for the input topic so that you can chain operations on it later
 
--Line 10 creates an OuputStream for the output topic
+- Line 10 creates an OuputStream for the output topic
 
--Lines 11\-13 define a simple pipeline that reads from the input stream and writes filtered results to the output stream
+- Lines 11-13 define a simple pipeline that reads from the input stream and writes filtered results to the output stream
