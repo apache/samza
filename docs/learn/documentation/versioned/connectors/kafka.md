@@ -105,11 +105,10 @@ The above example configures Samza to ignore checkpointed offsets for `page-view
 
  
 
-### Code walkthrough
+### Code walkthrough: High-level API
 
-In this section, we walk through a complete example.
+In this section, we walk through a complete example that reads from a Kafka topic, filters a few messages and writes them to another topic.
 
-#### High-level API
 {% highlight java %}
 // Define coordinates of the Kafka cluster using the KafkaSystemDescriptor
 1    KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor("kafka")
