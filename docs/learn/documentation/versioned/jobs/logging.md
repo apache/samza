@@ -163,7 +163,9 @@ Rest all of the system properties will be set exactly like in the case of log4j,
 
 If you are already using log4j and want to upgrade to using log4j2, following are the changes you will need to make in your job:
 -	Clean your lib directory. This will be rebuilt with new dependency JARs and xml files.
+
 -	Replace log4j’s dependencies with log4j2’s in your pom.xml/build.gradle as mentioned above. Please ensure that none of log4j’s dependencies remain in pom.xml/build.gradle
+
 -	Create a log4j2.xml to match your existing log4j.xml file. 
 -	Rebuild your application
 
