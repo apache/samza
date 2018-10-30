@@ -29,7 +29,7 @@ import org.apache.avro.reflect.ReflectData;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.SamzaSqlRelRecord;
-import org.apache.samza.sql.avro.AvroRelConverter;
+import org.apache.samza.sql.avro.AvroRelConverterWithKeyRecord;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.system.SystemStream;
@@ -41,7 +41,7 @@ import org.apache.samza.system.SystemStream;
  * This is useful to test out the SQL quickly when the destination system supports Avro serialized data,
  * without having to manually author the avro schemas for various SQL queries.
  */
-public class AvroSchemaGenRelConverter extends AvroRelConverter {
+public class AvroSchemaGenRelConverter extends AvroRelConverterWithKeyRecord {
 
   private final String streamName;
   private Map<String, Schema> schemas = new HashMap<>();
@@ -55,7 +55,7 @@ public class AvroSchemaGenRelConverter extends AvroRelConverter {
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
     Schema keySchema = computeKeySchema(streamName, relMessage);
     Schema payloadSchema = computePayloadSchema(streamName, relMessage);
-    return convertToSamzaMessage(relMessage, keySchema, payloadSchema);
+    return super.convertToSamzaMessage(relMessage, keySchema, payloadSchema);
   }
 
   private Schema computeKeySchema(String streamName, SamzaSqlRelMessage relMessage) {

@@ -26,7 +26,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
-import org.apache.samza.sql.avro.AvroRelConverterFactory;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.avro.schemas.Company;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
@@ -45,6 +44,7 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.sql.avro.AvroRelConverterWithKeyRecordFactory;
 
 
 /**
@@ -112,12 +112,12 @@ public class SamzaSqlTestConfig {
     String avroSamzaToRelMsgConverterDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
     staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-        AvroRelConverterFactory.class.getName());
+        AvroRelConverterWithKeyRecordFactory.class.getName());
 
     String testDbSamzaToRelMsgConverterDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, TestIOResolverFactory.TEST_DB_SYSTEM);
     staticConfigs.put(testDbSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-        AvroRelConverterFactory.class.getName());
+        AvroRelConverterWithKeyRecordFactory.class.getName());
 
     String configAvroRelSchemaProviderDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN, "config");

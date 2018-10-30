@@ -63,15 +63,12 @@ public class AvroRelConverter implements SamzaRelConverter {
 
   protected final Config config;
   private final Schema payloadSchema;
-  private final Schema keySchema;
 
   private static final Logger LOG = LoggerFactory.getLogger(AvroRelConverter.class);
 
   public AvroRelConverter(SystemStream systemStream, AvroRelSchemaProvider schemaProvider, Config config) {
     this.config = config;
     this.payloadSchema = Schema.parse(schemaProvider.getPayloadSchema(systemStream));
-    this.keySchema = schemaProvider.getKeySchema(systemStream) == null ?
-        null : Schema.parse(schemaProvider.getKeySchema(systemStream));
   }
 
   /**
@@ -95,20 +92,10 @@ public class AvroRelConverter implements SamzaRelConverter {
       throw new SamzaException(msg);
     }
 
-    Object key = samzaMessage.getKey();
-    // Key could be an avro record or could just be any other object. Handle avro here.
-    if (key instanceof IndexedRecord) {
-      Validate.isTrue(keySchema != null, "key is an IndexedRecord but could not obtain schema.");
-      List<String> keyFieldNames = new ArrayList<>();
-      List<Object> keyFieldValues = new ArrayList<>();
-      fetchFieldNamesAndValuesFromIndexedRecord((IndexedRecord) key, keyFieldNames, keyFieldValues, keySchema);
-      key = new SamzaSqlRelRecord(keyFieldNames, keyFieldValues);
-    }
-
-    return new SamzaSqlRelMessage(key, payloadFieldNames, payloadFieldValues);
+    return new SamzaSqlRelMessage(samzaMessage.getKey(), payloadFieldNames, payloadFieldValues);
   }
 
-  private void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
+  void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
       List<Object> fieldValues, Schema cachedSchema) {
     // Please note that record schema and cached schema could be different due to schema evolution.
     // Always represent record schema in the form of cached schema. This approach has the side-effect
@@ -152,20 +139,14 @@ public class AvroRelConverter implements SamzaRelConverter {
    */
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    return convertToSamzaMessage(relMessage, this.payloadSchema, this.keySchema);
+    return convertToSamzaMessage(relMessage, this.payloadSchema);
   }
 
-  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema payloadSchema,
-      Schema keySchema) {
-    Object key = relMessage.getKey();
-    if (key instanceof SamzaSqlRelRecord) {
-      key = convertToGenericRecord((SamzaSqlRelRecord) key, keySchema);
-    }
-    return new KV<>(key,
-        convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
+  KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema payloadSchema) {
+    return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
   }
 
-  private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
+  GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();

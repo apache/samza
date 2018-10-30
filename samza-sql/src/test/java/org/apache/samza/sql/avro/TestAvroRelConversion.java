@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.avro;
 
-import com.google.common.base.Joiner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -128,8 +127,8 @@ public class TestAvroRelConversion {
     complexRecordAvroRelConverter = new AvroRelConverter(ss1, complexRecordSchemaProvider, new MapConfig());
     simpleRecordAvroRelConverter = new AvroRelConverter(ss2, simpleRecordSchemaProvider, new MapConfig());
     nestedRecordAvroRelConverter = new AvroRelConverter(ss3, nestedRecordSchemaProvider, new MapConfig());
-    simplePayloadWithKeyRecordAvroRelConverter = new AvroRelConverter(ss4, simplePayloadWithKeyRecordSchemaProvider,
-        new MapConfig());
+    simplePayloadWithKeyRecordAvroRelConverter = new AvroRelConverterWithKeyRecord(ss4,
+        simplePayloadWithKeyRecordSchemaProvider, new MapConfig());
 
     fixedBytes.bytes(DEFAULT_TRACKING_ID_BYTES);
   }
@@ -190,6 +189,8 @@ public class TestAvroRelConversion {
     SamzaSqlRelMessage message =
         simplePayloadWithKeyRecordAvroRelConverter.convertToRelMessage(new KV<>(keyRecord, record));
     LOG.info(message.toString());
+
+    Assert.assertTrue(message.getKey() instanceof SamzaSqlRelRecord);
 
     KV<Object, Object> samzaMessage = simplePayloadWithKeyRecordAvroRelConverter.convertToSamzaMessage(message);
     GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
