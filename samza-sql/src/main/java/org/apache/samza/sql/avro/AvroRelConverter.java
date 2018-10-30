@@ -31,7 +31,6 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.calcite.avatica.util.ByteString;
-import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -95,7 +94,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     return new SamzaSqlRelMessage(samzaMessage.getKey(), payloadFieldNames, payloadFieldValues);
   }
 
-  void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
+  public void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
       List<Object> fieldValues, Schema cachedSchema) {
     // Please note that record schema and cached schema could be different due to schema evolution.
     // Always represent record schema in the form of cached schema. This approach has the side-effect
@@ -142,11 +141,11 @@ public class AvroRelConverter implements SamzaRelConverter {
     return convertToSamzaMessage(relMessage, this.payloadSchema);
   }
 
-  KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema payloadSchema) {
+  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema payloadSchema) {
     return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
   }
 
-  GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
+  private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();

@@ -29,7 +29,7 @@ import org.apache.avro.reflect.ReflectData;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.SamzaSqlRelRecord;
-import org.apache.samza.sql.avro.AvroRelConverterWithKeyRecord;
+import org.apache.samza.sql.avro.AvroRelConverter;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.system.SystemStream;
@@ -41,7 +41,7 @@ import org.apache.samza.system.SystemStream;
  * This is useful to test out the SQL quickly when the destination system supports Avro serialized data,
  * without having to manually author the avro schemas for various SQL queries.
  */
-public class AvroSchemaGenRelConverter extends AvroRelConverterWithKeyRecord {
+public class AvroSchemaGenRelConverter extends AvroRelConverter {
 
   private final String streamName;
   private Map<String, Schema> schemas = new HashMap<>();
@@ -53,23 +53,12 @@ public class AvroSchemaGenRelConverter extends AvroRelConverterWithKeyRecord {
 
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    Schema keySchema = computeKeySchema(streamName, relMessage);
     Schema payloadSchema = computePayloadSchema(streamName, relMessage);
-    return super.convertToSamzaMessage(relMessage, keySchema, payloadSchema);
-  }
-
-  private Schema computeKeySchema(String streamName, SamzaSqlRelMessage relMessage) {
-    if (relMessage.getKey() instanceof SamzaSqlRelRecord) {
-      return computeSchema(streamName, ((SamzaSqlRelRecord) relMessage.getKey()));
-    }
-    return null;
+    return convertToSamzaMessage(relMessage, payloadSchema);
   }
 
   private Schema computePayloadSchema(String streamName, SamzaSqlRelMessage relMessage) {
-    return computeSchema(streamName, relMessage.getSamzaSqlRelRecord());
-  }
-
-  private Schema computeSchema(String streamName, SamzaSqlRelRecord relRecord) {
+    SamzaSqlRelRecord relRecord = relMessage.getSamzaSqlRelRecord();
     List<Schema.Field> keyFields = new ArrayList<>();
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();

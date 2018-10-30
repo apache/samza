@@ -202,11 +202,7 @@ public class TestAvroSystemFactory implements SystemFactory {
     }
 
     private Object getKey(int index, SystemStreamPartition ssp) {
-      if (profileRecordMap.contains(ssp)) {
-        return createSimpleRecord(index);
-      } else {
-        return "key" + index;
-      }
+      return "key" + index;
     }
 
     private Object getData(int index, SystemStreamPartition ssp) {

@@ -40,13 +40,4 @@ public interface AvroRelSchemaProvider extends RelSchemaProvider {
   default String getPayloadSchema(SystemStream systemStream) {
     return getSchema(systemStream);
   }
-
-  /**
-   * Get key schema corresponding to the system stream.
-   * @param systemStream system stream for which key schema needs to be obtained.
-   * @return schema in the form of string
-   */
-  default String getKeySchema(SystemStream systemStream) {
-    return null;
-  }
 }

@@ -34,7 +34,6 @@ import org.apache.samza.system.SystemStream;
 public class ConfigBasedAvroRelSchemaProviderFactory implements RelSchemaProviderFactory {
 
   public static final String CFG_SOURCE_SCHEMA = "%s.%s.schema";
-  public static final String CFG_SOURCE_KEY_SCHEMA = "%s.%s.keySchema";
 
   public RelSchemaProvider create(SystemStream systemStream, Config config) {
     return new ConfigBasedAvroRelSchemaProvider(systemStream, config);
@@ -59,11 +58,6 @@ public class ConfigBasedAvroRelSchemaProviderFactory implements RelSchemaProvide
     @Override
     public String getSchema(SystemStream systemStream) {
       return config.get(String.format(CFG_SOURCE_SCHEMA, systemStream.getSystem(), systemStream.getStream()));
-    }
-
-    @Override
-    public String getKeySchema(SystemStream systemStream) {
-      return config.get(String.format(CFG_SOURCE_KEY_SCHEMA, systemStream.getSystem(), systemStream.getStream()), null);
     }
   }
 }
