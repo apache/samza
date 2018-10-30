@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.runner;
 
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.Validate;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
@@ -56,9 +57,20 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public static final String RUNNER_CONFIG = "app.runner.class";
   public static final String CFG_FMT_SAMZA_STREAM_SYSTEM = "streams.%s.samza.system";
 
+  /**
+   * NOTE: This constructor is called from {@link ApplicationRunners} through reflection.
+   * Please refrain from updating the signature or removing this constructor unless the caller has changed the interface.
+   */
+  public SamzaSqlApplicationRunner(SamzaApplication app, Config config) {
+    this(app, false, config);
+  }
+
   public SamzaSqlApplicationRunner(Boolean localRunner, Config config) {
-    this.runner = ApplicationRunners.getApplicationRunner(new SamzaSqlApplication(),
-        computeSamzaConfigs(localRunner, config));
+    this(new SamzaSqlApplication(), localRunner, config);
+  }
+
+  private SamzaSqlApplicationRunner(SamzaApplication app, Boolean localRunner, Config config) {
+    this.runner = ApplicationRunners.getApplicationRunner(app, computeSamzaConfigs(localRunner, config));
   }
 
   public static Config computeSamzaConfigs(Boolean localRunner, Config config) {
@@ -74,8 +86,8 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     Set<String> inputSystemStreams = new HashSet<>();
     Set<String> outputSystemStreams = new HashSet<>();
 
-    SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config,
-        inputSystemStreams, outputSystemStreams);
+    SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config, inputSystemStreams,
+        outputSystemStreams);
 
     SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(config);
 
@@ -136,5 +148,4 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   public boolean waitForFinish(Duration timeout) {
     return runner.waitForFinish(timeout);
   }
-
 }
