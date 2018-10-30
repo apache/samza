@@ -67,7 +67,7 @@ public class AvroRelConverter implements SamzaRelConverter {
 
   public AvroRelConverter(SystemStream systemStream, AvroRelSchemaProvider schemaProvider, Config config) {
     this.config = config;
-    this.payloadSchema = Schema.parse(schemaProvider.getPayloadSchema(systemStream));
+    this.payloadSchema = Schema.parse(schemaProvider.getSchema(systemStream));
   }
 
   /**
