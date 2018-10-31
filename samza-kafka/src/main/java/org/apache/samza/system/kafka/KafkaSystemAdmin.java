@@ -538,6 +538,8 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
 
     // create topic.
     NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
+    // specify the configs
+    newTopic.configs(streamSpec.getConfig());
     CreateTopicsResult result = newAdminClient.createTopics(ImmutableSet.of(newTopic));
     try {
       result.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
