@@ -19,15 +19,17 @@
 package org.apache.samza.context;
 
 import java.io.Serializable;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
 
 
 /**
- * The factory for creating {@link ApplicationTaskContext} instances for a
- * {@link org.apache.samza.application.SamzaApplication}during task initialization.
+ * The factory for creating {@link ApplicationTaskContext} instances for a {@link SamzaApplication}during task
+ * initialization.
  * <p>
- * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationTaskContextFactory} to
- * provide the {@link ApplicationTaskContextFactory}. Use {@link Context#getApplicationTaskContext()} to
- * get the created {@link ApplicationTaskContext} instance for the current task.
+ * Use {@link ApplicationDescriptor#withApplicationTaskContextFactory} to provide the
+ * {@link ApplicationTaskContextFactory}. Use {@link Context#getApplicationTaskContext()} to get the created
+ * {@link ApplicationTaskContext} instance for the current task.
  * <p>
  * The {@link ApplicationTaskContextFactory} implementation must be {@link Serializable}.
  *

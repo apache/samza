@@ -18,34 +18,38 @@
  */
 package org.apache.samza.application.descriptors;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.task.AsyncStreamTask;
+import org.apache.samza.task.AsyncStreamTaskFactory;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskFactory;
 
 
 /**
  * A {@link TaskApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the
- * processing logic for a Samza Low Level API {@link org.apache.samza.application.TaskApplication}.
+ * processing logic for a Samza Low Level API {@link TaskApplication}.
  * <p>
- * Use the {@link TaskApplicationDescriptor} obtained from {@link org.apache.samza.application.TaskApplication#describe}
+ * Use the {@link TaskApplicationDescriptor} obtained from {@link TaskApplication#describe}
  * to add the {@link InputDescriptor}s, {@link OutputDescriptor}s and {@link TableDescriptor}s for streams and
  * tables to be used in the task implementation.
  * <p>
- * Use {@link #withTaskFactory} to set the factory for the {@link org.apache.samza.task.StreamTask} or
- * {@link org.apache.samza.task.AsyncStreamTask} implementation that contains the processing logic for
- * the {@link org.apache.samza.application.TaskApplication}.
+ * Use {@link TaskApplicationDescriptor#withTaskFactory} to set the factory for the {@link StreamTask} or
+ * {@link AsyncStreamTask} implementation that contains the processing logic for the {@link TaskApplication}.
  */
 @InterfaceStability.Evolving
 public interface TaskApplicationDescriptor extends ApplicationDescriptor<TaskApplicationDescriptor> {
 
   /**
-   * Sets the {@link org.apache.samza.task.StreamTaskFactory} or {@link org.apache.samza.task.AsyncStreamTaskFactory}
-   * for the {@link org.apache.samza.task.StreamTask} or {@link org.apache.samza.task.AsyncStreamTask} implementation
-   * that contains the processing logic for the {@link org.apache.samza.application.TaskApplication}.
+   * Sets the {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory} for the {@link StreamTask} or
+   * {@link AsyncStreamTask} implementation that contains the processing logic for the {@link TaskApplication}.
    * <p>
-   * The provided {@code taskFactory} instance must be serializable.
+   * The provided {@code taskFactory} instance must be {@link Serializable}.
    *
    * @param factory the {@link TaskFactory} for the Low Level API Task implementation
    * @return this {@link TaskApplicationDescriptor}

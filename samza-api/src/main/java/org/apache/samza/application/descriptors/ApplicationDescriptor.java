@@ -18,37 +18,46 @@
  */
 package org.apache.samza.application.descriptors;
 
+import java.io.Serializable;
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ApplicationContainerContext;
 import org.apache.samza.context.ApplicationContainerContextFactory;
+import org.apache.samza.context.ApplicationTaskContext;
 import org.apache.samza.context.ApplicationTaskContextFactory;
+import org.apache.samza.context.Context;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsReporterFactory;
+import org.apache.samza.operators.MessageStream;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 
 
 /**
- * An {@link ApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the
- * processing logic for a {@link org.apache.samza.application.SamzaApplication}.
+ * An {@link ApplicationDescriptor} contains the description of inputs, outputs, state, configuration and the processing
+ * logic for a {@link SamzaApplication}.
  * <p>
- * This is the base {@link ApplicationDescriptor} and provides functionality common to all
- * {@link org.apache.samza.application.SamzaApplication}.
- * {@link org.apache.samza.application.StreamApplication#describe} will provide access to a
- * {@link StreamApplicationDescriptor} with additional functionality for describing High Level API applications.
- * Similarly, {@link org.apache.samza.application.TaskApplication#describe} will provide access to a
- * {@link TaskApplicationDescriptor} with additional functionality for describing Low Level API applications.
+ * This is the base {@link ApplicationDescriptor} and provides functionality common to all {@link SamzaApplication}.
+ * {@link StreamApplication#describe} will provide access to a {@link StreamApplicationDescriptor} with additional
+ * functionality for describing High Level API applications. Similarly, {@link TaskApplication#describe} will provide
+ * access to a {@link TaskApplicationDescriptor} with additional functionality for describing Low Level API
+ * applications.
  * <p>
  * Use the {@link ApplicationDescriptor} to set the container scope context factory using
  * {@link ApplicationDescriptor#withApplicationContainerContextFactory}, and task scope context factory using
- * {@link ApplicationDescriptor#withApplicationTaskContextFactory}. Please note that the terms {@code container}
- * and {@code task} here refer to the units of physical and logical parallelism, not the programming API.
+ * {@link ApplicationDescriptor#withApplicationTaskContextFactory}. Please note that the terms {@code container} and
+ * {@code task} here refer to the units of physical and logical parallelism, not the programming API.
  */
 @InterfaceStability.Evolving
 public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
    * Get the configuration for the application.
+   *
    * @return config for the application
    */
   Config getConfig();
@@ -57,11 +66,11 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
    * Sets the {@link SystemDescriptor} for the default system for the application.
    * <p>
    * The default system is used by the framework for creating any internal (e.g., coordinator, changelog, checkpoint)
-   * streams. In an {@link org.apache.samza.application.StreamApplication}, it is also used for creating any
-   * intermediate streams; e.g., those created by the {@link org.apache.samza.operators.MessageStream#partitionBy} and
-   * {@link org.apache.samza.operators.MessageStream#broadcast} operators.
+   * streams. In an {@link StreamApplication}, it is also used for creating any intermediate streams; e.g., those
+   * created by the {@link MessageStream#partitionBy} and {@link MessageStream#broadcast} operators.
    * <p>
-   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate streams.
+   * If the default system descriptor is set, it must be set <b>before</b> creating any input/output/intermediate
+   * streams.
    *
    * @param defaultSystemDescriptor the {@link SystemDescriptor} for the default system for the application
    * @return this {@link ApplicationDescriptor}
@@ -70,12 +79,12 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
    * Sets the {@link ApplicationContainerContextFactory} for this application. Each task will be given access to a
-   * different instance of the {@link org.apache.samza.context.ApplicationContainerContext} that this creates. The
-   * context can be accessed through the {@link org.apache.samza.context.Context}.
+   * different instance of the {@link ApplicationContainerContext} that this creates. The context can be accessed
+   * through the {@link Context}.
    * <p>
    * Setting this is optional.
    * <p>
-   * The provided {@code factory} instance must be {@link java.io.Serializable}.
+   * The provided {@code factory} instance must be {@link Serializable}.
    *
    * @param factory the {@link ApplicationContainerContextFactory} for this application
    * @return this {@link ApplicationDescriptor}
@@ -84,8 +93,8 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
    * Sets the {@link ApplicationTaskContextFactory} for this application. Each task will be given access to a different
-   * instance of the {@link org.apache.samza.context.ApplicationTaskContext} that this creates. The context can be
-   * accessed through the {@link org.apache.samza.context.Context}.
+   * instance of the {@link ApplicationTaskContext} that this creates. The context can be accessed through the
+   * {@link Context}.
    * <p>
    * Setting this is optional.
    * <p>
@@ -99,25 +108,25 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
   /**
    * Sets the {@link ProcessorLifecycleListenerFactory} for this application.
    * <p>
-   * Setting a {@link ProcessorLifecycleListenerFactory} is optional to a user application. It allows users to
-   * plug in optional code to be invoked in different stages before/after the main processing logic is started/stopped in
-   * the application.
+   * Setting a {@link ProcessorLifecycleListenerFactory} is optional to a user application. It allows users to plug in
+   * optional code to be invoked in different stages before/after the main processing logic is started/stopped in the
+   * application.
    * <p>
    * The provided {@code factory} instance must be {@link java.io.Serializable}.
    *
-   * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle listener
-   *                        with callback methods before and after the start/stop of each StreamProcessor in the application
+   * @param listenerFactory the user implemented {@link ProcessorLifecycleListenerFactory} that creates lifecycle
+   *                        listener with callback methods before and after the start/stop of each StreamProcessor in
+   *                        the application
    * @return this {@link ApplicationDescriptor}
    */
   S withProcessorLifecycleListenerFactory(ProcessorLifecycleListenerFactory listenerFactory);
 
   /**
-   * Sets the {@link org.apache.samza.metrics.MetricsReporterFactory}s for creating the
-   * {@link org.apache.samza.metrics.MetricsReporter}s to use for the application.
+   * Sets the {@link MetricsReporterFactory}s for creating the {@link MetricsReporter}s to use for the application.
    * <p>
    * The provided {@link MetricsReporterFactory} instances must be {@link java.io.Serializable}.
    *
-   * @param reporterFactories a map of {@link org.apache.samza.metrics.MetricsReporter} names to their factories.
+   * @param reporterFactories a map of {@link MetricsReporter} names to their factories.
    * @return this {@link ApplicationDescriptor}
    */
   S withMetricsReporterFactories(Map<String, MetricsReporterFactory> reporterFactories);

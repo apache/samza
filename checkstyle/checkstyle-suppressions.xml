@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 
 <!DOCTYPE suppressions PUBLIC
-     "-//Puppy Crawl//DTD Suppressions 1.0//EN"
-     "http://www.puppycrawl.com/dtds/suppressions_1_0.dtd">
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 
 <!--
      // Licensed to the Apache Software Foundation (ASF) under one or more
@@ -22,15 +22,10 @@
 -->
 
 <suppressions>
-<!-- example
-    <suppress checks="Indentation"
-           files="TestZkProcessorLatch.java"
-           lines="91-275"/>
-           -->
   <suppress checks="ConstantName"
             files="ApplicationStatus.java"
             lines="26-29"/>
-  <suppress checks="UnusedImports"
-            files="StreamApplication.java"/>
+  <suppress id="preventJavadocUnusedImports"
+            files=".*samza-api.*"/>
 </suppressions>
 

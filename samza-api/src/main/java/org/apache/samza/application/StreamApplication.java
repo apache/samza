@@ -18,27 +18,35 @@
  */
 package org.apache.samza.application;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.functions.ClosableFunction;
+import org.apache.samza.operators.functions.FilterFunction;
+import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.operators.functions.ScheduledFunction;
+import org.apache.samza.system.descriptors.InputDescriptor;
+import org.apache.samza.system.descriptors.OutputDescriptor;
+import org.apache.samza.system.descriptors.SystemDescriptor;
+import org.apache.samza.table.Table;
+import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.task.StreamTask;
 
 
 /**
- * A {@link StreamApplication} describes the inputs, outputs, state, configuration and the processing logic
- * in Samza's High Level API.
+ * A {@link StreamApplication} describes the inputs, outputs, state, configuration and the processing logic for the
+ * application in Samza's High Level API.
  * <p>
  * A typical {@link StreamApplication} implementation consists of the following stages:
  * <ol>
- *   <li>Configuring the inputs, outputs and state (tables) using the appropriate
- *   {@link org.apache.samza.system.descriptors.SystemDescriptor}s,
- *   {@link org.apache.samza.system.descriptors.InputDescriptor}s,
- *   {@link org.apache.samza.system.descriptors.OutputDescriptor}s and
- *   {@link org.apache.samza.table.descriptors.TableDescriptor}s
- *   <li>Obtaining the corresponding
- *   {@link org.apache.samza.operators.MessageStream}s,
- *   {@link org.apache.samza.operators.OutputStream}s and
- *   {@link org.apache.samza.table.Table}s from the provided {@link StreamApplicationDescriptor}.
+ *   <li>Configuring the inputs, outputs and state (tables) using the appropriate {@link SystemDescriptor}s,
+ *       {@link InputDescriptor}s, {@link OutputDescriptor}s and {@link TableDescriptor}s
+ *   <li>Obtaining the corresponding {@link MessageStream}s, {@link OutputStream}s and {@link Table}s from the
+ *       provided {@link StreamApplicationDescriptor}.
  *   <li>Defining the processing logic using operators and functions on the streams and tables thus obtained.
- *   E.g., {@link org.apache.samza.operators.MessageStream#filter(org.apache.samza.operators.functions.FilterFunction)}
+ *       E.g., {@link MessageStream#filter(FilterFunction)}
  * </ol>
  * <p>
  * The following example {@link StreamApplication} removes page views older than 1 hour from the input stream:
@@ -61,19 +69,17 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
  * }
  * }</pre>
  * <p>
- * All operator function implementations used in a {@link StreamApplication} must be {@link java.io.Serializable}. Any
- * context required within an operator function may be managed by implementing the
- * {@link org.apache.samza.operators.functions.InitableFunction#init} and
- * {@link org.apache.samza.operators.functions.ClosableFunction#close} methods in the function implementation.
+ * All operator function implementations used in a {@link StreamApplication} must be {@link Serializable}. Any
+ * context required within an operator function may be managed by implementing the {@link InitableFunction#init} and
+ * {@link ClosableFunction#close} methods in the function implementation.
  * <p>
- * Functions may implement the {@link org.apache.samza.operators.functions.ScheduledFunction} interface
- * to schedule and receive periodic callbacks from the Samza framework.
+ * Functions may implement the {@link ScheduledFunction} interface to schedule and receive periodic callbacks from the
+ * Samza framework.
  * <p>
- * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link org.apache.samza.task.StreamTask}
- * during execution. The execution planner will generate a serialized DAG which will be deserialized in each
- * {@link org.apache.samza.task.StreamTask} instance used for processing incoming messages. Execution is synchronous
- * and thread-safe within each {@link org.apache.samza.task.StreamTask}. Multiple tasks may process their
- * messages concurrently depending on the job parallelism configuration.
+ * Implementation Notes: Currently {@link StreamApplication}s are wrapped in a {@link StreamTask} during execution. The
+ * execution planner will generate a serialized DAG which will be deserialized in each {@link StreamTask} instance used
+ * for processing incoming messages. Execution is synchronous and thread-safe within each {@link StreamTask}. Multiple
+ * tasks may process their messages concurrently depending on the job parallelism configuration.
  */
 @InterfaceStability.Evolving
 public interface StreamApplication extends SamzaApplication<StreamApplicationDescriptor> {

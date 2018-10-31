@@ -18,6 +18,8 @@
  */
 package org.apache.samza.context;
 
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+
 /**
  * A holder for all framework and application defined contexts at runtime.
  */
@@ -52,8 +54,8 @@ public interface Context {
    * Gets the application-defined context for the current container. This context is shared by all tasks within
    * the container.
    * <p>
-   * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationContainerContextFactory}
-   * to provide a factory for this context. Cast the returned context to the concrete implementation type to use it.
+   * Use {@link ApplicationDescriptor#withApplicationContainerContextFactory} to provide a factory for this context.
+   * Cast the returned context to the concrete implementation type to use it.
    * <p>
    * Use {@link #getContainerContext()} to get the framework-provided container context.
    *
@@ -65,8 +67,8 @@ public interface Context {
   /**
    * Gets the application-defined task context for the current task. This context is unique to this task.
    * <p>
-   * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationTaskContextFactory}
-   * to provide a factory for this context. Cast the returned context to the concrete implementation type to use it.
+   * Use {@link ApplicationDescriptor#withApplicationTaskContextFactory} to provide a factory for this context.
+   * Cast the returned context to the concrete implementation type to use it.
    * <p>
    * Use {@link Context#getTaskContext()} to get the framework-provided task context.
    *

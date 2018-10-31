@@ -21,19 +21,19 @@ package org.apache.samza.system.descriptors;
 import org.apache.samza.serializers.Serde;
 
 /**
- * Interface for advanced {@code SystemDescriptor}s that constrain the type of returned {@code InputDescriptor}s to
- * their own {@code InputTransformer} function result types.
+ * Interface for advanced {@link SystemDescriptor}s that constrain the type of returned {@link InputDescriptor}s to
+ * their own {@link InputTransformer} function result types.
  *
- * @param <InputTransformerType> type of the system level {@code InputTransformer} results
+ * @param <InputTransformerType> type of the system level {@link InputTransformer} results
  */
 public interface TransformingInputDescriptorProvider<InputTransformerType> {
 
   /**
    * Gets a {@link InputDescriptor} for an input stream on this system. The stream has the provided
-   * stream level serde, and the default system level {@code InputTransformer}.
+   * stream level serde, and the default system level {@link InputTransformer}.
    * <p>
    * The type of messages in the stream is the type of messages returned by the default system level
-   * {@code InputTransformer}
+   * {@link InputTransformer}
    *
    * @param streamId id of the input stream
    * @param serde stream level serde for the input stream
