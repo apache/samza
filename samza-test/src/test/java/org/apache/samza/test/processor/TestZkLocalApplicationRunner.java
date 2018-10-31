@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.Objects;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
@@ -207,6 +208,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
         .put(TaskConfig.DROP_PRODUCER_ERROR(), "true")
         .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
+        .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
         .build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
 
@@ -666,11 +668,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
             applicationConfig1), applicationConfig1);
 
     appRunner1.run();
-
     processedMessagesLatch1.await();
-
-    // Processor-1 has finished consuming all the messages.
-    kafkaEventsConsumedLatch1.await();
 
     String jobModelVersion = zkUtils.getJobModelVersion();
     JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
@@ -682,17 +680,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Increase the partition count of input kafka topic to 100.
     AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
 
-    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
-
-    CountDownLatch kafkaEventsConsumedLatch2 = new CountDownLatch(NUM_KAFKA_EVENTS);
-    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
-
-    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-            TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch2,
-            applicationConfig2), applicationConfig2);
-
-    appRunner2.run();
-    processedMessagesLatch2.await();
+    while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
+      LOGGER.info("Waiting for new jobModel to be published");
+      Thread.sleep(1000);
+    }
 
     String newJobModelVersion = zkUtils.getJobModelVersion();
     JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
@@ -702,10 +693,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(100, ssps.size());
     appRunner1.kill();
     appRunner1.waitForFinish();
-    appRunner2.kill();
-    appRunner2.waitForFinish();
     assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
-    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner2.status());
   }
 
   private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {

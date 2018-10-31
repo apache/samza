@@ -350,10 +350,15 @@ public class ZkJobCoordinator implements JobCoordinator {
       metrics.isLeader.set(true);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
       if (!new StorageConfig(config).hasDurableStores()) {
+        // 1. Stop if there's a existing StreamPartitionCountMonitor running.
+        if (streamPartitionCountMonitor != null) {
+          streamPartitionCountMonitor.stop();
+        }
+        // 2. Start a new instance of StreamPartitionCountMonitor.
         streamPartitionCountMonitor = getPartitionCountMonitor();
         streamPartitionCountMonitor.start();
       }
-      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> doOnProcessorChange());
+      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, ZkJobCoordinator.this::doOnProcessorChange);
     }
   }
 
