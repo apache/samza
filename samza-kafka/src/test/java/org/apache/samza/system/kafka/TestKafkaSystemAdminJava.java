@@ -20,14 +20,10 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.collect.ImmutableSet;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import kafka.api.TopicMetadata;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
-import org.apache.kafka.common.PartitionInfo;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -269,13 +265,12 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     KafkaSystemAdmin admin = systemAdmin();
     String topicName = spec.getPhysicalName();
 
-    assertTrue("createStream should return true if the stream does not exist and then is created.",
-        admin.createStream(spec));
+    assertTrue("createStream should return true if the stream does not exist and then is created.", admin.createStream(spec));
     // validate topic exists
     assertTrue(admin.clearStream(spec));
 
     // validate that topic was removed
-    DescribeTopicsResult dtr = admin.newAdminClient.describeTopics(ImmutableSet.of(topicName));
+    DescribeTopicsResult dtr = admin.adminClient.describeTopics(ImmutableSet.of(topicName));
     try {
       TopicDescription td = dtr.all().get().get(topicName);
       Assert.fail("topic " + topicName + " should've been removed. td=" + td);
