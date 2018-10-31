@@ -26,16 +26,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
+import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.sql.data.SamzaSqlCompositeKey;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
-import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
@@ -207,9 +206,11 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
             String tableId = changeLogStorePrefix + "InputTable-" + ioName.replace(".", "-").replace("$", "-");
-            tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(
-                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
-                new SamzaSqlRelMessageSerdeFactory().getSerde(null, null))).withChangelogEnabled();
+            SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+                (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+            SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
+                (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
+            tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(keySerde, valueSerde)).withChangelogEnabled();
           }
           tableDescMap.put(ioName, tableDescriptor);
         }

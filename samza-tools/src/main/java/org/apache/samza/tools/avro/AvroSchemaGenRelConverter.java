@@ -28,6 +28,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.reflect.ReflectData;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.avro.AvroRelConverter;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -52,14 +53,15 @@ public class AvroSchemaGenRelConverter extends AvroRelConverter {
 
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    Schema schema = computeSchema(streamName, relMessage);
-    return convertToSamzaMessage(relMessage, schema);
+    Schema payloadSchema = computePayloadSchema(streamName, relMessage);
+    return convertToSamzaMessage(relMessage, payloadSchema);
   }
 
-  private Schema computeSchema(String streamName, SamzaSqlRelMessage relMessage) {
+  private Schema computePayloadSchema(String streamName, SamzaSqlRelMessage relMessage) {
+    SamzaSqlRelRecord relRecord = relMessage.getSamzaSqlRelRecord();
     List<Schema.Field> keyFields = new ArrayList<>();
-    List<String> fieldNames = relMessage.getSamzaSqlRelRecord().getFieldNames();
-    List<Object> values = relMessage.getSamzaSqlRelRecord().getFieldValues();
+    List<String> fieldNames = relRecord.getFieldNames();
+    List<Object> values = relRecord.getFieldValues();
 
     for (int index = 0; index < fieldNames.size(); index++) {
       if (fieldNames.get(index).equals(SamzaSqlRelMessage.KEY_NAME) || values.get(index) == null) {
