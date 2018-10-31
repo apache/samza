@@ -41,7 +41,7 @@ public class InMemoryInputDescriptor<StreamMessageType>
   }
 
   public InMemoryInputDescriptor withPhysicalName(String physicalName) {
-    withPhysicalName(physicalName);
+    super.withPhysicalName(physicalName);
     return this;
   }
 }
