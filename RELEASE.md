@@ -50,20 +50,34 @@ Alternatively, you can make a fresh clone of the repository to a separate direct
     git clone http://git-wip-us.apache.org/repos/asf/samza.git samza-release
     cd samza-release
 
-Then build the tarball:
+Then build the source and samza-tools tarballs:
 
-    ./gradlew clean sourceRelease
+    ./gradlew clean sourceRelease && ./gradlew releaseToolsTarGz
 
-Then sign it:
+Then sign them:
 
     gpg --sign --armor --detach-sig ./build/distribution/source/apache-samza-*.tgz
+    gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools-*.tgz
 
-Create MD5 signature:
+Create MD5 signatures:
+
     gpg --print-md MD5 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.md5
+    gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.md5
 
-Create SHA1 signature:
+Create SHA1 signatures:
 
     gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
+    gpg --print-md SHA1 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.sha1
+
+Upload the build artifacts to your Apache home directory:
+
+    sftp <apache-username>@home.apache.org
+    cd public_html
+    mkdir samza-$VERSION-rc0
+    cd samza-$VERSION-rc0
+    put ./build/distribution/source/apache-samza-$VERSION-src.* .
+    put ./samza-tools/build/distributions/samza-tools-$VERSION.* .
+    bye
 
 Make a signed git tag for the release candidate:
 
@@ -72,22 +86,6 @@ Make a signed git tag for the release candidate:
 Push the release tag to remote repository:
 
     git push origin release-$VERSION-rc0
-
-Build the tarball for samza-tool:
-
-    ./gradlew releaseToolsTarGz
-
-Then sign it:
-
-    gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools-*.tgz
-
-Create MD5 signature:
-
-    gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.md5
-
-Create SHA1 signature:
-
-    gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
 
 Edit `$HOME/.gradle/gradle.properties` and add your GPG key information (without the comments):
 
@@ -116,13 +114,6 @@ repository just created, and close it. This may take a minute or so. When it
 finishes, the UI shows a staging repository URL. This can be used in a project
 that depends on Samza, to test the release candidate.
 
-Upload the build artifacts to your Apache home directory:
-  sftp <username>@home.apache.org
-  mkdir samza-$VERSION-rc0
-  cd samza-$VERSION-rc0
-  put ./build/distribution/source/apache-samza-* .
-  put ./samza-tools/build/distributions/samza-tools-* .
-  bye
 
 If the VOTE has successfully passed on the release candidate, you can log in to the 
 [repository web interface](https://repository.apache.org) (same as above) and "release" 

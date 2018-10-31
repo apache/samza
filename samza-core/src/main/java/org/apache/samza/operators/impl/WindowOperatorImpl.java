@@ -379,15 +379,15 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
    * @return a list of all elements returned by the iterator
    */
   static <V>  List<V> toList(ClosableIterator<V> iterator) {
+    Preconditions.checkNotNull(iterator);
+
     List<V> values = new ArrayList<>();
     try {
       while (iterator.hasNext()) {
         values.add(iterator.next());
       }
     } finally {
-      if (iterator != null) {
         iterator.close();
-      }
     }
     return Collections.unmodifiableList(values);
   }

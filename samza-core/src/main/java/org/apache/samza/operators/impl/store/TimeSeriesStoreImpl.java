@@ -154,10 +154,13 @@ public class TimeSeriesStoreImpl<K, V> implements TimeSeriesStore<K, V> {
     List<TimeSeriesKey<K>> keysToDelete = new LinkedList<>();
 
     KeyValueIterator<TimeSeriesKey<K>, V> range = kvStore.range(fromKey, toKey);
-    while (range.hasNext()) {
-      keysToDelete.add(range.next().getKey());
+    try {
+      while (range.hasNext()) {
+        keysToDelete.add(range.next().getKey());
+      }
+    } finally {
+      range.close();
     }
-
     kvStore.deleteAll(keysToDelete);
   }
 
