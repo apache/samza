@@ -36,9 +36,9 @@ import org.apache.samza.operators.MessageStream;
  * A {@link SamzaApplication} implementation must have a no-argument constructor, which will be used by the framework to
  * create new instances and call {@link SamzaApplication#describe(ApplicationDescriptor)}.
  * <p>
- * Per container context may be managed using {@link ApplicationContainerContext} and set using {@link
- * ApplicationDescriptor#withApplicationContainerContextFactory}. Similarly, per task context may be managed using
- * {@link ApplicationTaskContext} and set using {@link ApplicationDescriptor#withApplicationTaskContextFactory}.
+ * Per container context may be managed using {@link ApplicationContainerContext} and set using
+ * {@link ApplicationDescriptor#withApplicationContainerContextFactory}. Similarly, per task context may be managed
+ * using {@link ApplicationTaskContext} and set using {@link ApplicationDescriptor#withApplicationTaskContextFactory}.
  */
 @InterfaceStability.Evolving
 public interface SamzaApplication<S extends ApplicationDescriptor> {
