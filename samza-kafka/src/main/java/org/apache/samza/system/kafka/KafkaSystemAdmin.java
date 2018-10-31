@@ -50,6 +50,8 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.ExtendedSystemAdmin;
 import org.apache.samza.system.StreamSpec;
@@ -532,14 +534,24 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   @Override
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
+    final String REPL_FACTOR = "replication.factor";
 
     KafkaStreamSpec kSpec = toKafkaSpec(streamSpec);
     String topicName = kSpec.getPhysicalName();
 
     // create topic.
     NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
+
     // specify the configs
-    newTopic.configs(streamSpec.getConfig());
+    Map<String, String> streamConfig = new HashMap(streamSpec.getConfig());
+    // HACK - replication.factor is invalid config for AdminClient.createTopics
+    if (streamConfig.containsKey(REPL_FACTOR)) {
+      String repl = streamConfig.get(REPL_FACTOR);
+      LOG.warn("replication.factor (topic={}, repl={}) is invalid config for AdminClient.createTopics. Removing it. Using kSpec repl factor {}",
+          kSpec.getPhysicalName(), repl, kSpec.getReplicationFactor());
+      streamConfig.remove(REPL_FACTOR);
+    }
+    newTopic.configs(new MapConfig(streamConfig));
     CreateTopicsResult result = newAdminClient.createTopics(ImmutableSet.of(newTopic));
     try {
       result.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
