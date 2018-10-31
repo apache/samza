@@ -31,13 +31,12 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
-import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
+import static org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter.*;
 
 
 public class TestSamzaSqlApplicationConfig {

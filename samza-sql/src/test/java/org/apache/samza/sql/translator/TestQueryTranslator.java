@@ -34,14 +34,14 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlQueryParser;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchQueryInfo;
-import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.fetchSqlFromConfig;
+import static org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter.fetchQueryInfo;
+import static org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter.fetchSqlFromConfig;
 import static org.junit.Assert.assertTrue;
 
 

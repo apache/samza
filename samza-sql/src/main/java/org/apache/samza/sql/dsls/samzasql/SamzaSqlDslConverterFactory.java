@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.dsl;
+package org.apache.samza.sql.dsls.samzasql;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.DslConverter;
