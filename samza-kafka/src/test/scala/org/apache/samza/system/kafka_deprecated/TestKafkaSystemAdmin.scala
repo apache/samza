@@ -307,45 +307,4 @@ class TestKafkaSystemAdmin {
       case e: ExponentialSleepStrategy.CallLimitReached => ()
     }
   }
-
-  @Test
-  def testGetNewestOffset {
-    createTopic(TOPIC2, 16)
-    validateTopic(TOPIC2, 16)
-
-    val sspUnderTest = new SystemStreamPartition("kafka", TOPIC2, new Partition(4))
-    val otherSsp = new SystemStreamPartition("kafka", TOPIC2, new Partition(13))
-
-    assertNull(systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
-
-    // Add a new message to one of the partitions, and verify that it works as expected.
-    assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 4, "key1".getBytes, "val1".getBytes)).get().offset().toString)
-    assertEquals("0", systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
-
-    // Again
-    assertEquals("1", producer.send(new ProducerRecord(TOPIC2, 4, "key2".getBytes, "val2".getBytes)).get().offset().toString)
-    assertEquals("1", systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
-
-    // Add a message to both partitions
-    assertEquals("2", producer.send(new ProducerRecord(TOPIC2, 4, "key3".getBytes, "val3".getBytes)).get().offset().toString)
-    assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 13, "key4".getBytes, "val4".getBytes)).get().offset().toString)
-    assertEquals("2", systemAdmin.getNewestOffset(sspUnderTest, 0))
-    assertEquals("0", systemAdmin.getNewestOffset(otherSsp, 0))
-  }
-
-  @Test (expected = classOf[LeaderNotAvailableException])
-  def testGetNewestOffsetMaxRetry {
-    val expectedRetryCount = 3
-    val systemAdmin = new KafkaSystemAdminWithTopicMetadataError
-    try {
-      systemAdmin.getNewestOffset(new SystemStreamPartition(SYSTEM, "quux", new Partition(0)), 3)
-    } catch {
-      case e: Exception =>
-        assertEquals(expectedRetryCount + 1, systemAdmin.metadataCallCount)
-        throw e
-    }
-  }
 }

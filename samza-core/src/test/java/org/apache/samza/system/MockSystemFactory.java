@@ -111,7 +111,7 @@ public class MockSystemFactory implements SystemFactory {
   }
 
   public SystemAdmin getAdmin(String systemName, Config config) {
-    return new ExtendedSystemAdmin() {
+    return new SystemAdmin() {
 
       @Override
       public Map<SystemStreamPartition, String> getOffsetsAfter(Map<SystemStreamPartition, String> offsets) {
@@ -161,12 +161,7 @@ public class MockSystemFactory implements SystemFactory {
       public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
         return getSystemStreamMetadata(streamNames);
       }
-
-      @Override
-      public String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries) {
-        return null;
-      }
-
+      
       @Override
       public boolean createStream(StreamSpec streamSpec) {
         return true;
