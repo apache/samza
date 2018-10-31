@@ -47,13 +47,14 @@ object KafkaSystemFactory extends Logging {
 
 class KafkaSystemFactory extends SystemFactory with Logging {
   def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
+    val kafkaConfig:org.apache.samza.config_deprecated.KafkaConfig = config
     val clientId = getClientId("samza-consumer", config)
     val metrics = new KafkaSystemConsumerMetrics(systemName, registry)
 
     // Kind of goofy to need a producer config for consumers, but we need metadata.
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
+    val consumerConfig = kafkaConfig.getKafkaSystemConsumerConfig(systemName, clientId)
 
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
@@ -104,10 +105,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
+    val kafkaConfig:org.apache.samza.config_deprecated.KafkaConfig = config
     val clientId = getClientId("samza-admin", config)
     val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val bootstrapServers = producerConfig.bootsrapServers
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, clientId)
+    val consumerConfig = kafkaConfig.getKafkaSystemConsumerConfig(systemName, clientId)
     val timeout = consumerConfig.socketTimeoutMs
     val bufferSize = consumerConfig.socketReceiveBufferBytes
     val zkConnect = Option(consumerConfig.zkConnect)
