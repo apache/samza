@@ -25,13 +25,16 @@ import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.sql.data.SamzaSqlCompositeKey;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.CFG_METADATA_TOPIC_PREFIX;
+import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.DEFAULT_METADATA_TOPIC_PREFIX;
 
 
 /**
@@ -54,9 +57,12 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
   private class ConfigBasedIOResolver implements SqlIOResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
+    private final String changeLogStorePrefix;
 
     public ConfigBasedIOResolver(Config config) {
       this.config = config;
+      String metadataTopicPrefix = config.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
+      this.changeLogStorePrefix = metadataTopicPrefix + (metadataTopicPrefix.isEmpty() ? "" : "_");
     }
 
     @Override
@@ -100,9 +106,10 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
       TableDescriptor tableDescriptor = null;
       if (isTable) {
-        tableDescriptor = new RocksDbTableDescriptor("InputTable-" + name, KVSerde.of(
+        String tableId = changeLogStorePrefix + "InputTable-" + name.replace(".", "-").replace("$", "-");
+        tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(
             new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
-            new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+            new SamzaSqlRelMessageSerdeFactory().getSerde(null, null))).withChangelogEnabled();
       }
 
       return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
