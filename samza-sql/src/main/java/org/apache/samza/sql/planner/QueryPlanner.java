@@ -150,7 +150,7 @@ public class QueryPlanner {
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
         List<RelDataTypeField> fieldsList = new ArrayList<>();
         fieldsList.add(new RelDataTypeFieldImpl(SamzaSqlRelMessage.KEY_NAME, 0,
-            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true)));
+            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)));
         fieldsList.addAll(relationalSchema.getFieldList());
         return new RelRecordType(fieldsList);
       }

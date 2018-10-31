@@ -61,13 +61,13 @@ import org.slf4j.LoggerFactory;
 public class AvroRelConverter implements SamzaRelConverter {
 
   protected final Config config;
-  private final Schema avroSchema;
+  private final Schema payloadSchema;
 
   private static final Logger LOG = LoggerFactory.getLogger(AvroRelConverter.class);
 
   public AvroRelConverter(SystemStream systemStream, AvroRelSchemaProvider schemaProvider, Config config) {
     this.config = config;
-    this.avroSchema = Schema.parse(schemaProvider.getSchema(systemStream));
+    this.payloadSchema = Schema.parse(schemaProvider.getSchema(systemStream));
   }
 
   /**
@@ -76,45 +76,50 @@ public class AvroRelConverter implements SamzaRelConverter {
    */
   @Override
   public SamzaSqlRelMessage convertToRelMessage(KV<Object, Object> samzaMessage) {
-    List<Object> fieldValues = new ArrayList<>();
-    List<String> fieldNames = new ArrayList<>();
+    List<String> payloadFieldNames = new ArrayList<>();
+    List<Object> payloadFieldValues = new ArrayList<>();
     Object value = samzaMessage.getValue();
     if (value instanceof IndexedRecord) {
-      IndexedRecord record = (IndexedRecord) value;
-      // Please note that record schema and cached schema could be different due to schema evolution.
-      // Always represent record schema in the form of cached schema. This approach has the side-effect
-      // of dropping the newly added fields in the scenarios where the record schema has newer version
-      // than the cached schema. [TODO: SAMZA-1679]
-      Schema recordSchema = record.getSchema();
-      fieldNames.addAll(avroSchema.getFields().stream()
-          .map(Schema.Field::name)
-          .collect(Collectors.toList()));
-      fieldValues.addAll(fieldNames.stream()
-          .map(f -> convertToJavaObject(
-              recordSchema.getField(f) != null ? record.get(recordSchema.getField(f).pos()) : null,
-              getNonNullUnionSchema(avroSchema.getField(f).schema())))
-          .collect(Collectors.toList()));
+      fetchFieldNamesAndValuesFromIndexedRecord((IndexedRecord) value, payloadFieldNames, payloadFieldValues,
+          payloadSchema);
     } else if (value == null) {
-      fieldNames.addAll(avroSchema.getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
-      IntStream.range(0, fieldNames.size()).forEach(x -> fieldValues.add(null));
+      payloadFieldNames.addAll(payloadSchema.getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
+      IntStream.range(0, payloadFieldNames.size()).forEach(x -> payloadFieldValues.add(null));
     } else {
       String msg = "Avro message converter doesn't support messages of type " + value.getClass();
       LOG.error(msg);
       throw new SamzaException(msg);
     }
 
-    return new SamzaSqlRelMessage(samzaMessage.getKey(), fieldNames, fieldValues);
+    return new SamzaSqlRelMessage(samzaMessage.getKey(), payloadFieldNames, payloadFieldValues);
+  }
+
+  public void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
+      List<Object> fieldValues, Schema cachedSchema) {
+    // Please note that record schema and cached schema could be different due to schema evolution.
+    // Always represent record schema in the form of cached schema. This approach has the side-effect
+    // of dropping the newly added fields in the scenarios where the record schema has newer version
+    // than the cached schema. [TODO: SAMZA-1679]
+    Schema recordSchema = record.getSchema();
+    fieldNames.addAll(cachedSchema.getFields().stream()
+        .map(Schema.Field::name)
+        .collect(Collectors.toList()));
+    fieldValues.addAll(fieldNames.stream()
+        .map(f -> convertToJavaObject(
+            recordSchema.getField(f) != null ? record.get(recordSchema.getField(f).pos()) : null,
+            getNonNullUnionSchema(payloadSchema.getField(f).schema())))
+        .collect(Collectors.toList()));
   }
 
   private SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord) {
-    List<Object> values = new ArrayList<>();
+    List<Object> fieldValues = new ArrayList<>();
     List<String> fieldNames = new ArrayList<>();
     if (avroRecord != null) {
       fieldNames.addAll(avroRecord.getSchema().getFields()
           .stream()
           .map(Schema.Field::name)
           .collect(Collectors.toList()));
-      values.addAll(avroRecord.getSchema().getFields()
+      fieldValues.addAll(avroRecord.getSchema().getFields()
           .stream()
           .map(f -> convertToJavaObject(avroRecord.get(avroRecord.getSchema().getField(f.name()).pos()),
               getNonNullUnionSchema(avroRecord.getSchema().getField(f.name()).schema())))
@@ -125,7 +130,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       throw new SamzaException(msg);
     }
 
-    return new SamzaSqlRelRecord(fieldNames, values);
+    return new SamzaSqlRelRecord(fieldNames, fieldValues);
   }
 
   /**
@@ -133,11 +138,11 @@ public class AvroRelConverter implements SamzaRelConverter {
    */
   @Override
   public KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage) {
-    return convertToSamzaMessage(relMessage, this.avroSchema);
+    return convertToSamzaMessage(relMessage, this.payloadSchema);
   }
 
-  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema avroSchema) {
-    return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), avroSchema));
+  protected KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage, Schema payloadSchema) {
+    return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
   }
 
   private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {

@@ -31,12 +31,14 @@ import org.codehaus.jackson.annotate.JsonProperty;
 /**
  * Samza sql relational message. Each Samza sql relational message represents a relational row in a table.
  * Each row of the relational table consists of a primary key and {@link SamzaSqlRelRecord}, which consists of a list
- * of column values and the associated column names.
+ * of column values and the associated column names. Please note that the primary key itself could be a
+ * {@link SamzaSqlRelRecord}.
  */
 public class SamzaSqlRelMessage implements Serializable {
 
   public static final String KEY_NAME = "__key__";
 
+  // key could be a record in itself.
   private final Object key;
 
   @JsonProperty("samzaSqlRelRecord")
@@ -121,5 +123,53 @@ public class SamzaSqlRelMessage implements Serializable {
       return false;
     SamzaSqlRelMessage other = (SamzaSqlRelMessage) obj;
     return Objects.equals(key, other.key) && Objects.equals(samzaSqlRelRecord, other.samzaSqlRelRecord);
+  }
+
+  @Override
+  public String toString() {
+    return "RelMessage: {" + samzaSqlRelRecord + "}";
+  }
+
+  /**
+   * Create composite key from the rel message.
+   * @param message Represents the samza sql rel message to extract the key values from.
+   * @param keyValueIdx list of key values in the form of field indices within the rel message.
+   * @param keyPartNames Represents the key field names.
+   * @return the composite key of the rel message
+   */
+  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> keyValueIdx,
+      List<String> keyPartNames) {
+    Validate.isTrue(keyValueIdx.size() == keyPartNames.size(), "Key part name and value list sizes are different");
+    ArrayList<Object> keyPartValues = new ArrayList<>();
+    for (int idx : keyValueIdx) {
+      keyPartValues.add(message.getSamzaSqlRelRecord().getFieldValues().get(idx));
+    }
+    return new SamzaSqlRelRecord(keyPartNames, keyPartValues);
+  }
+
+  /**
+   * Create composite key from the rel message.
+   * @param message Represents the samza sql rel message to extract the key values and names from.
+   * @param relIdx list of keys in the form of field indices within the rel message.
+   * @return the composite key of the rel message
+   */
+  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
+    return createSamzaSqlCompositeKey(message, relIdx,
+        getSamzaSqlCompositeKeyFieldNames(message.getSamzaSqlRelRecord().getFieldNames(), relIdx));
+  }
+
+  /**
+   * Get composite key field names.
+   * @param fieldNames list of field names to extract the key names from.
+   * @param nameIds indices within the field names.
+   * @return list of composite key field names
+   */
+  public static List<String> getSamzaSqlCompositeKeyFieldNames(List<String> fieldNames,
+      List<Integer> nameIds) {
+    List<String> keyPartNames = new ArrayList<>();
+    for (int idx : nameIds) {
+      keyPartNames.add(fieldNames.get(idx));
+    }
+    return keyPartNames;
   }
 }
