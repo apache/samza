@@ -23,9 +23,10 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
 
 /**
- * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the {@link StreamApplicationDescriptor},
- * and returns a new {@link MessageStream} with the combined results. Called when {@link StreamApplicationDescriptor#getInputStream}
- * is being used to get a {@link MessageStream} using an {@link InputDescriptor} from an expanding system descriptor.
+ * Expands the provided {@link InputDescriptor} to a sub-DAG of one or more operators on the
+ * {@link StreamApplicationDescriptor}, and returns a new {@link MessageStream} with the combined results.
+ * Called when {@link StreamApplicationDescriptor#getInputStream} is being used to get a {@link MessageStream} using an
+ * {@link InputDescriptor} from an expanding system descriptor.
  * <p>
  * This is provided by default by expanding system descriptor implementations and can not be overridden
  * or set on a per stream level.
