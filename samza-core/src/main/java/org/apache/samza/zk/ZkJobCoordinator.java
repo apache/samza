@@ -69,7 +69,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinator.class);
   // TODO: MetadataCache timeout has to be 0 for the leader so that it can always have the latest information associated
   // with locality. Since host-affinity is not yet implemented, this can be fixed as part of SAMZA-1197
-  private static final int METADATA_CACHE_TTL_MS = 10;
+  private static final int METADATA_CACHE_TTL_MS = 5000;
   private static final int NUM_VERSIONS_TO_LEAVE = 10;
 
   // Action name when the JobModel version changes

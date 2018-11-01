@@ -680,9 +680,11 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Increase the partition count of input kafka topic to 100.
     AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
 
+    long jobModelWaitTimeInMillis = 10;
     while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
       LOGGER.info("Waiting for new jobModel to be published");
-      Thread.sleep(1000);
+      Thread.sleep(jobModelWaitTimeInMillis);
+      jobModelWaitTimeInMillis = jobModelWaitTimeInMillis * 2;
     }
 
     String newJobModelVersion = zkUtils.getJobModelVersion();
