@@ -666,7 +666,7 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
     if (deleteCommittedMessages) {
       if (adminClientForDelete == null) {
-        adminClientForDelete = AdminClient.create(createAdminClientProperties());
+        adminClientForDelete = kafka.admin.AdminClient.create(createAdminClientProperties());
       }
       KafkaSystemAdminUtilsScala.deleteMessages(adminClientForDelete, offsets);
       deleteMessageCalled = true;
