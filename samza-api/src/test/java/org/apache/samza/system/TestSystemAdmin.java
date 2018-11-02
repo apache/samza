@@ -112,5 +112,5 @@ public class TestSystemAdmin {
    * Looks like Mockito 1.x does not support using thenCallRealMethod with default methods for interfaces, but it works
    * to use this placeholder abstract class.
    */
-  private abstract class MySystemAdmin implements ExtendedSystemAdmin { }
+  private abstract class MySystemAdmin implements SystemAdmin { }
 }

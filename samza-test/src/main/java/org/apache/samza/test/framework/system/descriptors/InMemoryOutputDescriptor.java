@@ -45,7 +45,7 @@ public class InMemoryOutputDescriptor<StreamMessageType>
   }
 
   public InMemoryOutputDescriptor withPhysicalName(String physicalName) {
-    withPhysicalName(physicalName);
+    super.withPhysicalName(physicalName);
     return this;
   }
 }

@@ -51,9 +51,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SystemConfig;
-import org.apache.samza.system.ExtendedSystemAdmin;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ExponentialSleepStrategy;
@@ -72,7 +72,7 @@ import scala.runtime.BoxedUnit;
 import static org.apache.samza.config.KafkaConsumerConfig.*;
 
 
-public class KafkaSystemAdmin implements ExtendedSystemAdmin {
+public class KafkaSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemAdmin.class);
 
   // Default exponential sleep strategy values
@@ -372,41 +372,6 @@ public class KafkaSystemAdmin implements ExtendedSystemAdmin {
     Map<String, SystemStreamMetadata> result =
         retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
     return result;
-  }
-
-  @Override
-  public String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries) {
-    LOG.info("Fetching newest offset for: {}", ssp);
-
-    ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
-        DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
-
-    Function1<ExponentialSleepStrategy.RetryLoop, String> fetchNewestOffset =
-        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, String>() {
-          @Override
-          public String apply(ExponentialSleepStrategy.RetryLoop loop) {
-            String result = fetchNewestOffset(ssp);
-            loop.done();
-            return result;
-          }
-        };
-
-    String offset = strategy.run(fetchNewestOffset,
-        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
-          @Override
-          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
-            if (loop.sleepCount() < maxRetries) {
-              LOG.warn(String.format("Fetching newest offset for: %s threw an exception. Retrying.", ssp), exception);
-            } else {
-              LOG.error(String.format("Fetching newest offset for: %s threw an exception.", ssp), exception);
-              loop.done();
-              throw new SamzaException("Exception while trying to get newest offset", exception);
-            }
-            return null;
-          }
-        }).get();
-
-    return offset;
   }
 
   /**

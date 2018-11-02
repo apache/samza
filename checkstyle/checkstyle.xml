@@ -34,7 +34,14 @@
   <module name="TreeWalker">
 
     <!-- code cleanup -->
-    <module name="UnusedImports"/>
+    <module name="UnusedImports">
+      <property name="id" value="allowJavadocUnusedImports"/>
+      <property name="processJavadoc" value="true"/>
+    </module>
+    <module name="UnusedImports"> <!-- suppressed for samza-api -->
+      <property name="id" value="preventJavadocUnusedImports"/>
+      <property name="processJavadoc" value="false"/>
+    </module>
     <module name="FileContentsHolder"/>
     <module name="RedundantImport"/>
     <module name="IllegalImport" />
