@@ -528,7 +528,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
         return false;
       }
 
-      throw new SamzaException("Create topic failed", e);
+      throw new SamzaException(String.format("Creation of topic: %s failed.", topicName), e);
     }
     LOG.info("Successfully created topic {}", topicName);
     DescribeTopicsResult desc = adminClient.describeTopics(ImmutableSet.of(topicName));
