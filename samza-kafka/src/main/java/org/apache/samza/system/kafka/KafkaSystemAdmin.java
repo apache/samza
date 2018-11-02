@@ -187,7 +187,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       try {
         adminClientForDelete.close();
       } catch (Exception e) {
-        LOG.warn("AdminClient.close() for system " + systemName + " failed with exception.", e);
+        LOG.warn("AdminClient.close() for system {} failed with exception {}.", systemName, e);
       }
     }
 
@@ -514,8 +514,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
     // HACK - replication.factor is invalid config for AdminClient.createTopics
     if (streamConfig.containsKey(REPL_FACTOR)) {
       String repl = streamConfig.get(REPL_FACTOR);
-      LOG.warn("replication.factor (topic={}, repl={}) is invalid config for AdminClient.createTopics. Removing it. Using kSpec repl factor {}",
-          kSpec.getPhysicalName(), repl, kSpec.getReplicationFactor());
+      LOG.warn("Configuration {}={} for topic={} is invalid. Using kSpec repl factor {}",
+          REPL_FACTOR, repl, kSpec.getPhysicalName(), kSpec.getReplicationFactor());
       streamConfig.remove(REPL_FACTOR);
     }
     newTopic.configs(new MapConfig(streamConfig));
@@ -528,7 +528,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
         return false;
       }
 
-      throw new SamzaException(String.format("Creation of topic: %s failed.", topicName), e);
+      throw new SamzaException(String.format("Creation of topic %s failed.", topicName), e);
     }
     LOG.info("Successfully created topic {}", topicName);
     DescribeTopicsResult desc = adminClient.describeTopics(ImmutableSet.of(topicName));
@@ -552,7 +552,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       DeleteTopicsResult deleteTopicsResult = adminClient.deleteTopics(ImmutableSet.of(topicName));
       deleteTopicsResult.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      LOG.error("Failed to delete topic {} with exception {} " + topicName + "\n" + e + "\n" + e.getCause());
+      LOG.error("Failed to delete topic {} with exception {}.", topicName, e);
       return false;
     }
 
