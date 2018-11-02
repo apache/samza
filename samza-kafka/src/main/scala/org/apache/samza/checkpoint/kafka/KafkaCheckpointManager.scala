@@ -22,6 +22,7 @@ package org.apache.samza.checkpoint.kafka
 import java.util.Collections
 import java.util.concurrent.TimeUnit
 
+import com.google.common.annotations.VisibleForTesting
 import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig}
@@ -54,27 +55,27 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
-  var MaxRetryDurationMs = TimeUnit.MINUTES.toMillis(15);
+  var MaxRetryDurationMs: Long = TimeUnit.MINUTES.toMillis(15)
 
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
 
   val checkpointSystem: String = checkpointSpec.getSystemName
   val checkpointTopic: String = checkpointSpec.getPhysicalName
-  val checkpointSsp = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
-  val expectedGrouperFactory = new JobConfig(config).getSystemStreamPartitionGrouperFactory
+  val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
+  val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
-  val systemProducer = systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
-  val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
-  val systemAdmin = systemFactory.getAdmin(checkpointSystem, config)
+  var systemProducer: SystemProducer = getSystemProducer()
+  val systemConsumer: SystemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
+  val systemAdmin: SystemAdmin = systemFactory.getAdmin(checkpointSystem, config)
 
-  var taskNames = Set[TaskName]()
-  var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = null
+  var taskNames: Set[TaskName] = Set[TaskName]()
+  var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = _
 
   /**
     * Create checkpoint stream prior to start.
     */
-  override def createResources = {
+  override def createResources(): Unit = {
     Preconditions.checkNotNull(systemAdmin)
 
     systemAdmin.start()
@@ -92,18 +93,19 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   /**
     * @inheritdoc
     */
-  override def start {
+  override def start(): Unit = {
     Preconditions.checkNotNull(systemProducer)
     Preconditions.checkNotNull(systemConsumer)
 
     // register and start a producer for the checkpoint topic
-    systemProducer.start
+    info("Starting the checkpoint SystemProducer")
+    systemProducer.start()
 
     // register and start a consumer for the checkpoint topic
     val oldestOffset = getOldestOffset(checkpointSsp)
-    info(s"Starting checkpoint SystemConsumer from oldest offset $oldestOffset")
+    info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
-    systemConsumer.start
+    systemConsumer.start()
   }
 
   /**
@@ -173,6 +175,15 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
           throw new SamzaException(s"Exception when writing checkpoint: $checkpoint for task: $taskName.", exception)
         } else {
           warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+          info(s"Stopping the checkpoint SystemProducer")
+          systemProducer.stop()
+          info(s"Recreating the checkpoint SystemProducer")
+          systemProducer = getSystemProducer()
+          for (taskName <- taskNames) {
+            info(s"Registering the taskName: $taskName with SystemProducer")
+            systemProducer.register(taskName.getTaskName)
+          }
+          systemProducer.start()
         }
       }
     )
@@ -181,26 +192,31 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   /**
     * @inheritdoc
     */
-  override def clearCheckpoints: Unit = {
+  override def clearCheckpoints(): Unit = {
     info("Clear checkpoint stream %s in system %s" format(checkpointTopic, checkpointSystem))
     systemAdmin.clearStream(checkpointSpec)
   }
 
-  override def stop = {
+  override def stop(): Unit = {
     systemAdmin.stop()
 
     if (systemProducer != null) {
-      systemProducer.stop
+      systemProducer.stop()
     } else {
       error("Checkpoint SystemProducer should not be null")
     }
 
     if (systemConsumer != null) {
-      systemConsumer.stop
+      systemConsumer.stop()
     } else {
       error("Checkpoint SystemConsumer should not be null")
     }
     info("CheckpointManager stopped.")
+  }
+
+  @VisibleForTesting
+  def getSystemProducer(): SystemProducer = {
+    systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
   }
 
   /**
@@ -284,11 +300,11 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       throw new SamzaException(s"Got null metadata for system:$checkpointSystem, topic:$topic")
     }
 
-    val partitionMetaData = checkpointMetadata.getSystemStreamPartitionMetadata().get(partition)
+    val partitionMetaData = checkpointMetadata.getSystemStreamPartitionMetadata.get(partition)
     if (partitionMetaData == null) {
       throw new SamzaException(s"Got a null partition metadata for system:$checkpointSystem, topic:$topic")
     }
 
-    return partitionMetaData.getOldestOffset
+    partitionMetaData.getOldestOffset
   }
 }
