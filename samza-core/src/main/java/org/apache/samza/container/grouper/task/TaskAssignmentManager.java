@@ -94,8 +94,7 @@ public class TaskAssignmentManager {
    */
   public Map<String, String> readTaskAssignment() {
     taskNameToContainerId.clear();
-    metadataStore.all().forEach((keyBytes, valueBytes) -> {
-        String taskName = keySerde.fromBytes(keyBytes);
+    metadataStore.all().forEach((taskName, valueBytes) -> {
         String containerId = valueSerde.fromBytes(valueBytes);
         if (containerId != null) {
           taskNameToContainerId.put(taskName, containerId);
@@ -120,10 +119,10 @@ public class TaskAssignmentManager {
     }
 
     if (containerId == null) {
-      metadataStore.delete(keySerde.toBytes(taskName));
+      metadataStore.delete(taskName);
       taskNameToContainerId.remove(taskName);
     } else {
-      metadataStore.put(keySerde.toBytes(taskName), valueSerde.toBytes(containerId));
+      metadataStore.put(taskName, valueSerde.toBytes(containerId));
       taskNameToContainerId.put(taskName, containerId);
     }
   }
@@ -135,7 +134,7 @@ public class TaskAssignmentManager {
    */
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
-      metadataStore.delete(keySerde.toBytes(taskName));
+      metadataStore.delete(taskName);
       taskNameToContainerId.remove(taskName);
     }
   }
