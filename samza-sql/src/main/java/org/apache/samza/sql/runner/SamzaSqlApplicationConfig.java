@@ -47,6 +47,8 @@ import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaRelConverterFactory;
+import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
+import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverterFactory;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
@@ -76,6 +78,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN = "samza.sql.relSchemaProvider.%s.";
   public static final String CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN = "samza.sql.relConverter.%s.";
+  public static final String CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN = "samza.sql.relTableKeyConverter.%s.";
 
   public static final String CFG_IO_RESOLVER = "samza.sql.ioResolver";
   public static final String CFG_FMT_SOURCE_RESOLVER_DOMAIN = "samza.sql.ioResolver.%s.";
@@ -94,6 +97,7 @@ public class SamzaSqlApplicationConfig {
 
   private final Map<String, RelSchemaProvider> relSchemaProvidersBySource;
   private final Map<String, SamzaRelConverter> samzaRelConvertersBySource;
+  private final Map<String, SamzaRelTableKeyConverter> samzaRelTableKeyConvertersBySource;
 
   private SqlIOResolver ioResolver;
   private UdfResolver udfResolver;
@@ -133,6 +137,14 @@ public class SamzaSqlApplicationConfig {
         .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
                 CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
+                    relSchemaProvidersBySource.get(x.getSource()), c))));
+
+    samzaRelTableKeyConvertersBySource = systemStreamConfigs.stream()
+        .filter(config -> config.isRemoteTable())
+        .collect(Collectors.toMap(SqlIOConfig::getSource,
+            x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
+                staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
+                (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(),
                     relSchemaProvidersBySource.get(x.getSource()), c))));
 
     udfResolver = createUdfResolver(staticConfig);
@@ -287,12 +299,12 @@ public class SamzaSqlApplicationConfig {
     return samzaRelConvertersBySource;
   }
 
-  public Map<String, RelSchemaProvider> getRelSchemaProviders() {
-    return relSchemaProvidersBySource;
+  public Map<String, SamzaRelTableKeyConverter> getSamzaRelTableKeyConverters() {
+    return samzaRelTableKeyConvertersBySource;
   }
 
-  public SqlIOResolver getIoResolver() {
-    return ioResolver;
+  public Map<String, RelSchemaProvider> getRelSchemaProviders() {
+    return relSchemaProvidersBySource;
   }
 
   public String getMetadataTopicPrefix() {

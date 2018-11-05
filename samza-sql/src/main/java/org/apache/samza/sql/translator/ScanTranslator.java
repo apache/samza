@@ -36,6 +36,7 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
+import org.apache.samza.table.remote.descriptors.RemoteTableDescriptor;
 
 
 /**
@@ -91,6 +92,15 @@ class ScanTranslator {
     final String systemName = sqlIOConfig.getSystemName();
     final String streamName = sqlIOConfig.getStreamName();
     final String source = sqlIOConfig.getSource();
+
+    final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() &&
+        (sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor);
+
+    // We don't need to define input stream descriptor for a remote table as the table descriptor is already defined by
+    // the SqlIOResolverFactory.
+    if (isRemoteTable) {
+      return;
+    }
 
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     DelegatingSystemDescriptor
