@@ -700,9 +700,6 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Validate that the input partition count is 100 in the new JobModel.
     Assert.assertEquals(100, ssps.size());
-    appRunner1.kill();
-    appRunner1.waitForFinish();
-    assertEquals(ApplicationStatus.SuccessfulFinish, appRunner1.status());
   }
 
   private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {

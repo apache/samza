@@ -166,6 +166,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
           if (taskGroup.size() < numTasksPerProcessor) {
             taskGroup.addTaskName(taskModel.getTaskName().getTaskName());
             assignedTasks.add(taskModel.getTaskName());
+            break;
           }
         }
       }
