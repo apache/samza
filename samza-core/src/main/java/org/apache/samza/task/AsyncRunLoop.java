@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,8 +87,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
       long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
-      boolean isAsyncCommitEnabled) {
-
+      boolean isAsyncCommitEnabled,
+      ScheduledExecutorService callbackTimer,
+      ThrottlingScheduler callbackExecutor,
+      ScheduledExecutorService workerTimer) {
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
     this.containerMetrics = containerMetrics;
@@ -98,11 +99,11 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
     this.maxIdleMs = maxIdleMs;
-    this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
-    this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
+    this.callbackTimer = callbackTimer;
+    this.callbackExecutor = callbackExecutor;
     this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
     this.latch = new Object();
-    this.workerTimer = Executors.newSingleThreadScheduledExecutor();
+    this.workerTimer = workerTimer;
     this.clock = clock;
     Map<TaskName, AsyncTaskWorker> workers = new HashMap<>();
     for (TaskInstance task : taskInstances.values()) {
@@ -177,7 +178,14 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     } finally {
       workerTimer.shutdown();
       callbackExecutor.shutdown();
-      if (callbackTimer != null) callbackTimer.shutdown();
+      if (callbackTimer != null) {
+        log.info("Stopping the callbackTimer thread pool.");
+        callbackTimer.shutdown();
+      }
+      if (threadPool != null) {
+        log.info("Stopping the container thread pool.");
+        threadPool.shutdown();
+      }
     }
   }
 

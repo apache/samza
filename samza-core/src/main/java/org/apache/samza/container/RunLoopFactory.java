@@ -24,11 +24,14 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.AsyncRunLoop;
 import org.apache.samza.util.HighResolutionClock;
+import org.apache.samza.util.ThrottlingScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction1;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
@@ -97,6 +100,10 @@ public class RunLoopFactory {
 
       log.info("Run loop in asynchronous mode.");
 
+      ScheduledExecutorService callbackTimer = (callbackTimeout > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
+      ThrottlingScheduler callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
+      ScheduledExecutorService workerTimer = Executors.newSingleThreadScheduledExecutor();
+
       return new AsyncRunLoop(
         JavaConverters.mapAsJavaMapConverter(taskInstances).asJava(),
         threadPool,
@@ -109,7 +116,10 @@ public class RunLoopFactory {
         maxIdleMs,
         containerMetrics,
         clock,
-        isAsyncCommitEnabled);
+        isAsyncCommitEnabled,
+        callbackTimer,
+        callbackExecutor,
+        workerTimer);
     }
   }
 
