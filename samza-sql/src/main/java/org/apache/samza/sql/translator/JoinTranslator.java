@@ -122,7 +122,6 @@ class JoinTranslator {
       log.info(streamFieldNames.get(streamKeyIds.get(i)) + " with " + tableFieldNames.get(tableKeyIds.get(i)));
     }
 
-    StreamTableJoinFunction joinFn;
     MessageStream<SamzaSqlRelMessage> outputStream;
 
     if (isRemoteTable) {
@@ -130,14 +129,14 @@ class JoinTranslator {
           .getTable()
           .getQualifiedName();
       String remoteTableName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
-      joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
+      StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), remoteTableName, join.getJoinType(), isTablePosOnRight,
           streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames, queryId);
 
       outputStream = inputStream.join(table, joinFn);
     } else {
-      joinFn = new SamzaSqlLocalTableJoinFunction(join.getJoinType(), isTablePosOnRight, streamKeyIds, streamFieldNames,
-          tableKeyIds, tableFieldNames);
+      StreamTableJoinFunction joinFn = new SamzaSqlLocalTableJoinFunction(join.getJoinType(), isTablePosOnRight,
+          streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
 
       SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
           (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
@@ -335,35 +334,26 @@ class JoinTranslator {
     Table<KV<SamzaSqlRelRecord, SamzaSqlRelMessage>> table =
         context.getStreamAppDescriptor().getTable(sourceTableConfig.getTableDescriptor().get());
 
-    if (isRemoteTable) {
-      return table;
-    } else {
-      return loadLocalTable(tableKeyIds, context, table, relNode.getId());
+    // If local table, load the table
+    if (!isRemoteTable) {
+      MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(relNode.getId());
+
+      SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+          (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+      SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde = (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null,
+          null);
+
+      // Let's always repartition by the join fields as key before sending the key and value to the table.
+      // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
+      // have the same partitioning scheme with the same partition key and number. Please note that bootstrap semantic is
+      // not propagated to the intermediate streams. Please refer SAMZA-1613 for more details on this. Subsequently, the
+      // results are consistent only after the local table is caught up.
+
+      relOutputStream
+          .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds), m -> m,
+              KVSerde.of(keySerde, valueSerde), intermediateStreamPrefix + "table_" + joinId)
+          .sendTo(table);
     }
-  }
-
-  private Table loadLocalTable(List<Integer> tableKeyIds, TranslatorContext context,
-      Table<KV<SamzaSqlRelRecord, SamzaSqlRelMessage>> table, int relNodeId) {
-
-    MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(relNodeId);
-
-    SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
-        (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
-    SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
-        (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
-
-    // Let's always repartition by the join fields as key before sending the key and value to the table.
-    // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
-    // have the same partitioning scheme with the same partition key and number. Please note that bootstrap semantic is
-    // not propagated to the intermediate streams. Please refer SAMZA-1613 for more details on this. Subsequently, the
-    // results are consistent only after the local table is caught up.
-
-    relOutputStream
-        .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds),
-            m -> m,
-            KVSerde.of(keySerde, valueSerde),
-            intermediateStreamPrefix + "table_" + joinId)
-        .sendTo(table);
 
     return table;
   }
