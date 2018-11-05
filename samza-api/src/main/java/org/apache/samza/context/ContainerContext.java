@@ -19,6 +19,7 @@
 package org.apache.samza.context;
 
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 
 
@@ -30,8 +31,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 public interface ContainerContext {
 
   /**
-   * Gets the {@link ContainerModel} for this container, which contains this container's id and
-   * its {@link org.apache.samza.job.model.TaskModel}.
+   * Gets the {@link ContainerModel} for this container, which contains this container's id and its {@link TaskModel}.
    *
    * @return the {@link ContainerModel} for this container
    */

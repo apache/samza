@@ -26,13 +26,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
+import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.sql.data.SamzaSqlCompositeKey;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
@@ -43,6 +42,9 @@ import org.apache.samza.table.descriptors.TableProvider;
 import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.descriptors.BaseTableProvider;
+
+import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.CFG_METADATA_TOPIC_PREFIX;
+import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.DEFAULT_METADATA_TOPIC_PREFIX;
 
 
 public class TestIOResolverFactory implements SqlIOResolverFactory {
@@ -179,9 +181,12 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
+    private final String changeLogStorePrefix;
 
     public TestIOResolver(Config config) {
       this.config = config;
+      String metadataTopicPrefix = config.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
+      this.changeLogStorePrefix = metadataTopicPrefix + (metadataTopicPrefix.isEmpty() ? "" : "_");
     }
 
     private SqlIOConfig fetchIOInfo(String ioName, boolean isSink) {
@@ -200,10 +205,12 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
           if (isSink) {
             tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
           } else {
-            String tableId = "InputTable-" + ioName.replace(".", "-").replace("$", "-");
-            tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(
-                new JsonSerdeV2<>(SamzaSqlCompositeKey.class),
-                new JsonSerdeV2<>(SamzaSqlRelMessage.class)));
+            String tableId = changeLogStorePrefix + "InputTable-" + ioName.replace(".", "-").replace("$", "-");
+            SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+                (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+            SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
+                (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
+            tableDescriptor = new RocksDbTableDescriptor(tableId, KVSerde.of(keySerde, valueSerde)).withChangelogEnabled();
           }
           tableDescMap.put(ioName, tableDescriptor);
         }

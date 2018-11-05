@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.config
+package org.apache.samza.config_deprecated
 
 
 import java.util
@@ -31,6 +31,7 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.config._
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.util.{Logging, StreamUtil}
 
@@ -301,6 +302,24 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
         "segment.bytes", String.valueOf(segmentBytes)))
     }
     properties
+  }
+
+  /**
+    * @deprecated  Use KafkaConsumerConfig
+    */
+  @Deprecated
+  def getKafkaSystemConsumerConfig( systemName: String,
+                                    clientId: String,
+                                    groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
+                                    injectedProps: Map[String, String] = Map()) = {
+
+    val subConf = config.subset("systems.%s.consumer." format systemName, true)
+    val consumerProps = new Properties()
+    consumerProps.putAll(subConf)
+    consumerProps.put("group.id", groupId)
+    consumerProps.put("client.id", clientId)
+    consumerProps.putAll(injectedProps.asJava)
+    new ConsumerConfig(consumerProps)
   }
 
   def getKafkaSystemProducerConfig( systemName: String,

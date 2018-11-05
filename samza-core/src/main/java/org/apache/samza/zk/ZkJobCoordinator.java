@@ -20,7 +20,6 @@ package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
@@ -38,12 +37,14 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -53,6 +54,7 @@ import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -105,9 +107,11 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
 
+  @VisibleForTesting
+  StreamPartitionCountMonitor streamPartitionCountMonitor = null;
+
   ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
-
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
 
     this.processorId = createProcessorId(config);
@@ -179,6 +183,10 @@ public class ZkJobCoordinator implements JobCoordinator {
         LOG.debug("Shutting down metrics.");
         shutdownMetrics();
 
+        if (streamPartitionCountMonitor != null) {
+          streamPartitionCountMonitor.stop();
+        }
+
         if (coordinatorListener != null) {
           coordinatorListener.onCoordinatorStop();
         }
@@ -233,13 +241,11 @@ public class ZkJobCoordinator implements JobCoordinator {
   public void onProcessorChange(List<String> processors) {
     if (leaderElector.amILeader()) {
       LOG.info("ZkJobCoordinator::onProcessorChange - list of processors changed. List size=" + processors.size());
-      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> doOnProcessorChange(processors));
+      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, this::doOnProcessorChange);
     }
   }
 
-  void doOnProcessorChange(List<String> processors) {
-    // if list of processors is empty - it means we are called from 'onBecomeLeader'
-    // TODO: Handle empty currentProcessorIds.
+  void doOnProcessorChange() {
     List<String> currentProcessorIds = zkUtils.getSortedActiveProcessorsIDs();
     Set<String> uniqueProcessorIds = new HashSet<>(currentProcessorIds);
 
@@ -320,16 +326,39 @@ public class ZkJobCoordinator implements JobCoordinator {
     return new JobModel(new MapConfig(), model.getContainers());
   }
 
+  @VisibleForTesting
+  StreamPartitionCountMonitor getPartitionCountMonitor() {
+    StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
+    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
+
+    return new StreamPartitionCountMonitor(
+            inputStreamsToMonitor,
+            streamMetadata,
+            metrics.getMetricsRegistry(),
+            new JobConfig(config).getMonitorPartitionChangeFrequency(),
+            streamsChanged -> {
+        if (leaderElector.amILeader()) {
+          debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
+        }
+      });
+  }
+
   class LeaderElectorListenerImpl implements LeaderElectorListener {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader");
       metrics.isLeader.set(true);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
-      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
-          // actual actions to do are the same as onProcessorChange
-          doOnProcessorChange(new ArrayList<>());
-        });
+      if (!new StorageConfig(config).hasDurableStores()) {
+        // 1. Stop if there's a existing StreamPartitionCountMonitor running.
+        if (streamPartitionCountMonitor != null) {
+          streamPartitionCountMonitor.stop();
+        }
+        // 2. Start a new instance of StreamPartitionCountMonitor.
+        streamPartitionCountMonitor = getPartitionCountMonitor();
+        streamPartitionCountMonitor.start();
+      }
+      debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, ZkJobCoordinator.this::doOnProcessorChange);
     }
   }
 
@@ -371,10 +400,8 @@ public class ZkJobCoordinator implements JobCoordinator {
           LOG.warn("Barrier for version " + version + " timed out.");
           if (leaderElector.amILeader()) {
             LOG.info("Leader will schedule a new job model generation");
-            debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, () -> {
-                // actual actions to do are the same as onProcessorChange
-                doOnProcessorChange(new ArrayList<>());
-              });
+            // actual actions to do are the same as onProcessorChange
+            debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, debounceTimeMs, ZkJobCoordinator.this::doOnProcessorChange);
           }
         }
       }
@@ -477,6 +504,11 @@ public class ZkJobCoordinator implements JobCoordinator {
           if (leaderElector.amILeader()) {
             leaderElector.resignLeadership();
           }
+
+          if (streamPartitionCountMonitor != null) {
+            streamPartitionCountMonitor.stop();
+          }
+
           /**
            * After this event, one amongst the following two things could potentially happen:
            * A. On successful reconnect to another zookeeper server in ensemble, this processor is going to
@@ -513,7 +545,6 @@ public class ZkJobCoordinator implements JobCoordinator {
         default:
           // received SyncConnected, ConnectedReadOnly, and SaslAuthenticated. NoOp
           LOG.info("Got ZK event " + state.toString() + " for processor=" + processorId + ". Continue");
-          return;
       }
     }
 

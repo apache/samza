@@ -188,7 +188,7 @@ public class TestAvroSystemFactory implements SystemFactory {
         // We send num Messages and an end of stream message following that.
         List<IncomingMessageEnvelope> envelopes =
             IntStream.range(curMessages, curMessages + numMessages/4)
-                .mapToObj(i -> i < numMessages ? new IncomingMessageEnvelope(ssp, null, "key" + i,
+                .mapToObj(i -> i < numMessages ? new IncomingMessageEnvelope(ssp, null, getKey(i, ssp),
                     getData(i, ssp)) : IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp))
                 .collect(Collectors.toList());
         envelopeMap.put(ssp, envelopes);
@@ -199,6 +199,10 @@ public class TestAvroSystemFactory implements SystemFactory {
       }
 
       return envelopeMap;
+    }
+
+    private Object getKey(int index, SystemStreamPartition ssp) {
+      return "key" + index;
     }
 
     private Object getData(int index, SystemStreamPartition ssp) {

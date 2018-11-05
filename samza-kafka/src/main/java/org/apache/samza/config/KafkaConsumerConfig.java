@@ -43,6 +43,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
+  private static final int FETCH_MAX_BYTES = 1024 * 1024;
 
   private final String systemName;
   /*
@@ -124,6 +125,19 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
       throw new SamzaException("client Id is not set for consumer for system=" + systemName);
     }
     return clientId;
+  }
+
+  public int fetchMessageMaxBytes() {
+    String fetchSize = (String)get("fetch.message.max.bytes");
+    if (StringUtils.isBlank(fetchSize)) {
+      return FETCH_MAX_BYTES;
+    } else  {
+      return Integer.valueOf(fetchSize);
+    }
+  }
+
+  public String getZkConnect() {
+    return (String) get(ZOOKEEPER_CONNECT);
   }
 
   // group id should be unique per job

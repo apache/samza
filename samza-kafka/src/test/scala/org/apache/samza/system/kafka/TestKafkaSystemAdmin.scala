@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka
 
+import com.google.common.collect.ImmutableSet
 import kafka.admin.AdminUtils
 import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
@@ -316,23 +317,25 @@ class TestKafkaSystemAdmin {
     val sspUnderTest = new SystemStreamPartition("kafka", TOPIC2, new Partition(4))
     val otherSsp = new SystemStreamPartition("kafka", TOPIC2, new Partition(13))
 
-    assertNull(systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+    assertNull(systemAdmin.getSSPMetadata(ImmutableSet.of(sspUnderTest)).get(sspUnderTest).getNewestOffset)
+    assertNull(systemAdmin.getSSPMetadata(ImmutableSet.of(otherSsp)).get(otherSsp).getNewestOffset)
 
     // Add a new message to one of the partitions, and verify that it works as expected.
     assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 4, "key1".getBytes, "val1".getBytes)).get().offset().toString)
-    assertEquals("0", systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+
+    assertEquals("0", systemAdmin.getSSPMetadata(ImmutableSet.of(sspUnderTest)).get(sspUnderTest).getNewestOffset)
+    assertNull(systemAdmin.getSSPMetadata(ImmutableSet.of(otherSsp)).get(otherSsp).getNewestOffset)
 
     // Again
     assertEquals("1", producer.send(new ProducerRecord(TOPIC2, 4, "key2".getBytes, "val2".getBytes)).get().offset().toString)
-    assertEquals("1", systemAdmin.getNewestOffset(sspUnderTest, 3))
-    assertNull(systemAdmin.getNewestOffset(otherSsp, 3))
+    assertEquals("1", systemAdmin.getSSPMetadata(ImmutableSet.of(sspUnderTest)).get(sspUnderTest).getNewestOffset)
+    assertNull(systemAdmin.getSSPMetadata(ImmutableSet.of(otherSsp)).get(otherSsp).getNewestOffset)
 
     // Add a message to both partitions
     assertEquals("2", producer.send(new ProducerRecord(TOPIC2, 4, "key3".getBytes, "val3".getBytes)).get().offset().toString)
     assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 13, "key4".getBytes, "val4".getBytes)).get().offset().toString)
-    assertEquals("2", systemAdmin.getNewestOffset(sspUnderTest, 0))
-    assertEquals("0", systemAdmin.getNewestOffset(otherSsp, 0))
+    assertEquals("2", systemAdmin.getSSPMetadata(ImmutableSet.of(sspUnderTest)).get(sspUnderTest).getNewestOffset)
+    assertEquals("0", systemAdmin.getSSPMetadata(ImmutableSet.of(otherSsp)).get(otherSsp).getNewestOffset)
+
   }
 }

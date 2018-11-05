@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.zk.ZkJobCoordinator.ZkSessionStateChangedListener;
@@ -35,7 +36,6 @@ import org.mockito.stubbing.Answer;
 
 import static junit.framework.Assert.assertTrue;
 import static org.mockito.Mockito.*;
-
 
 public class TestZkJobCoordinator {
   private static final String TEST_BARRIER_ROOT = "/testBarrierRoot";
@@ -89,5 +89,79 @@ public class TestZkJobCoordinator {
     verify(zkUtils).incGeneration();
     verify(mockDebounceTimer).cancelAllScheduledActions();
     verify(mockDebounceTimer).scheduleAfterDebounceTime(Mockito.eq("ZK_SESSION_EXPIRED"), Mockito.eq(0L), Mockito.any(Runnable.class));
+  }
+
+  @Test
+  public void testShouldStopPartitionCountMonitorOnSessionExpiration() {
+    ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+
+    ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+
+    ScheduleAfterDebounceTime mockDebounceTimer = Mockito.mock(ScheduleAfterDebounceTime.class);
+
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
+    StreamPartitionCountMonitor monitor = Mockito.mock(StreamPartitionCountMonitor.class);
+    zkJobCoordinator.debounceTimer = mockDebounceTimer;
+    zkJobCoordinator.streamPartitionCountMonitor = monitor;
+
+    ZkSessionStateChangedListener zkSessionStateChangedListener = zkJobCoordinator.new ZkSessionStateChangedListener();
+    zkSessionStateChangedListener.handleStateChanged(Watcher.Event.KeeperState.Expired);
+    Mockito.verify(monitor).stop();
+  }
+
+  @Test
+  public void testShouldStartPartitionCountMonitorOnBecomingLeader() {
+    ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+
+    ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+
+    ScheduleAfterDebounceTime mockDebounceTimer = Mockito.mock(ScheduleAfterDebounceTime.class);
+
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
+
+    StreamPartitionCountMonitor monitor = Mockito.mock(StreamPartitionCountMonitor.class);
+    zkJobCoordinator.debounceTimer = mockDebounceTimer;
+    zkJobCoordinator.streamPartitionCountMonitor = monitor;
+    when(zkJobCoordinator.getPartitionCountMonitor()).thenReturn(monitor);
+
+    ZkJobCoordinator.LeaderElectorListenerImpl listener = zkJobCoordinator.new LeaderElectorListenerImpl();
+
+    listener.onBecomingLeader();
+
+    Mockito.verify(monitor).start();
+  }
+
+  @Test
+  public void testShouldStopPartitionCountMonitorWhenStoppingTheJobCoordinator() {
+    ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+
+    ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+
+    ScheduleAfterDebounceTime mockDebounceTimer = Mockito.mock(ScheduleAfterDebounceTime.class);
+
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(new MapConfig(), new NoOpMetricsRegistry(), zkUtils));
+
+    StreamPartitionCountMonitor monitor = Mockito.mock(StreamPartitionCountMonitor.class);
+    zkJobCoordinator.debounceTimer = mockDebounceTimer;
+    zkJobCoordinator.streamPartitionCountMonitor = monitor;
+
+    zkJobCoordinator.stop();
+
+    Mockito.verify(monitor).stop();
   }
 }
