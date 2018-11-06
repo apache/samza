@@ -49,15 +49,58 @@ JOB_LIB_DIR="${JOB_LIB_DIR:-$base_dir/lib}"
 
 export JOB_LIB_DIR=$JOB_LIB_DIR
 
-echo JOB_LIB_DIR=$JOB_LIB_DIR
-echo BASE_LIB_DIR=$BASE_LIB_DIR
+function relative_path_from_to() {
+ # returns relative path to $2/$target from $1/$source
+ source=$1
+ target=$2
+
+ common_part=$source # for now
+ result="" # for now
+
+ while [[ "${target#$common_part}" == "${target}" ]]; do
+     # no match, means that candidate common part is not correct
+     # go up one level (reduce common part)
+     common_part="$(dirname $common_part)"
+     # and record that we went back, with correct / handling
+     if [[ -z $result ]]; then
+         result=".."
+     else
+         result="../$result"
+     fi
+ done
+
+ if [[ $common_part == "/" ]]; then
+     # special case for root (no common path)
+     result="$result/"
+ fi
+
+ # since we now have identified the common part,
+ # compute the non-common part
+ forward_part="${target#$common_part}"
+
+ # and now stick all parts together
+ if [[ -n $result ]] && [[ -n $forward_part ]]; then
+     result="$result$forward_part"
+ elif [[ -n $forward_part ]]; then
+     # extra slash removal
+     result="${forward_part:1}"
+ fi
+
+ echo "./$result"
+}
+
+
+# Get the relative path from current execution directory to base directory with jars
+RELATIVE_PATH_BASE_LIB=$(relative_path_from_to $home_dir $BASE_LIB_DIR)
+echo RELATIVE_PATH_BASE_LIB=$RELATIVE_PATH_BASE_LIB
+
 if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   # build a common classpath
   # this class path will contain all the jars from the framework and the job's libs.
   # in case of different version of the same lib - we pick the highest
 
   #all jars from the fwk
-  base_jars=`ls $BASE_LIB_DIR/*.[jw]ar`
+  base_jars=`ls $RELATIVE_PATH_BASE_LIB/*.[jw]ar`
   #all jars from the job
   job_jars=`for file in $JOB_LIB_DIR/*.[jw]ar; do name=\`basename $file\`; if [[ $base_jars != *"$name"* ]]; then echo "$file"; fi; done`
   # get all lib jars and reverse sort it by versions
@@ -71,11 +114,8 @@ if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
   echo all_jars=$all_jars
   echo generated combined CLASSPATH=$CLASSPATH
 else
-  # default behaviour
-  # Wildcarding only includes *.jar and *.JAR files in classpath
-  CLASSPATH=$CLASSPATH:"$BASE_LIB_DIR/*";
-  # We handle .war separately
-  for file in $BASE_LIB_DIR/*.war;
+ #default behavior
+  for file in $RELATIVE_PATH_BASE_LIB/*.[jw]ar;
   do
     CLASSPATH=$CLASSPATH:$file
   done
