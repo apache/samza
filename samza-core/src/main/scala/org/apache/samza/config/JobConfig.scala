@@ -77,6 +77,14 @@ object JobConfig {
   val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
+
+  // The input-regex to monitor for each input system
+  // e.g., job.coordinator.monitor-input-regex.kafka=testTopic-.*
+  // and can be different from the regex input of the job
+  val MONITOR_INPUT_REGEX = "job.coordinator.monitor-input-regex.%s"
+  val MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms"
+  val DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000
+
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
@@ -127,7 +135,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getCoordinatorSystemName = {
     val system = getCoordinatorSystemNameOrNull
     if (system == null) {
-      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution.")
+      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution." + config)
     }
     system
   }
@@ -161,6 +169,12 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
+
+  def getRegexToMonitor(systemName: String) = getOption(JobConfig.MONITOR_INPUT_REGEX format systemName)
+
+  def getMonitorInputRegexFrequency = getInt(
+    JobConfig.MONITOR_INPUT_REGEX_FREQUENCY_MS,
+    JobConfig.DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS)
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 

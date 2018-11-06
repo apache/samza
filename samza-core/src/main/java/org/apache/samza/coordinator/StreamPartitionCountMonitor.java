@@ -19,6 +19,7 @@
 package org.apache.samza.coordinator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamMetadataCache;
@@ -49,8 +52,10 @@ public class StreamPartitionCountMonitor {
   private enum State { INIT, RUNNING, STOPPED }
 
   private final Set<SystemStream> streamsToMonitor;
+  private final Map<String, Pattern> systemRegexesToMonitor;
   private final StreamMetadataCache metadataCache;
-  private final int monitorPeriodMs;
+  private final int partitionChangeMonitorPeriodMs;
+  private final int inputRegexMonitorPeriodMs;
   private final Map<SystemStream, Gauge<Integer>> gauges;
   private final Map<SystemStream, SystemStreamMetadata> initialMetadata;
   private final Callback callbackMethod;
@@ -74,6 +79,8 @@ public class StreamPartitionCountMonitor {
      * @param streamsChanged the set of {@link SystemStream}s that have partition count changes
      */
     void onSystemStreamPartitionChange(Set<SystemStream> streamsChanged);
+
+    void onNewInputStreamsDiscovered(Set<SystemStream> newInputStreams);
   }
 
 
@@ -100,18 +107,23 @@ public class StreamPartitionCountMonitor {
    * Default constructor.
    *
    * @param streamsToMonitor  a set of SystemStreams to monitor.
+   * @param systemRegexesToMonitor  map of regexes for each input system
    * @param metadataCache     the metadata cache which will be used to fetch metadata for partition counts.
    * @param metrics           the metrics registry to which the metrics should be added.
-   * @param monitorPeriodMs   the period at which the monitor will run in milliseconds.
+   * @param partitionChangeMonitorPeriodMs   the period at which the monitor will run in milliseconds.
+   * @param inputRegexMonitorPeriodMs the period at which the monitor will check each input-regex
    * @param monitorCallback   the callback method to be invoked when partition count changes are detected
    */
-  public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor, StreamMetadataCache metadataCache,
-      MetricsRegistry metrics, int monitorPeriodMs, Callback monitorCallback) {
+  public StreamPartitionCountMonitor(Set<SystemStream> streamsToMonitor, Map<String, Pattern> systemRegexesToMonitor,
+      StreamMetadataCache metadataCache, MetricsRegistry metrics, int partitionChangeMonitorPeriodMs, int inputRegexMonitorPeriodMs,
+      Callback monitorCallback) {
     this.streamsToMonitor = streamsToMonitor;
+    this.systemRegexesToMonitor = systemRegexesToMonitor;
     this.metadataCache = metadataCache;
-    this.monitorPeriodMs = monitorPeriodMs;
+    this.partitionChangeMonitorPeriodMs = partitionChangeMonitorPeriodMs;
     this.initialMetadata = getMetadata(streamsToMonitor, metadataCache);
     this.callbackMethod = monitorCallback;
+    this.inputRegexMonitorPeriodMs = inputRegexMonitorPeriodMs;
 
     // Pre-populate the gauges
     Map<SystemStream, Gauge<Integer>> mutableGauges = new HashMap<>();
@@ -122,6 +134,9 @@ public class StreamPartitionCountMonitor {
       mutableGauges.put(systemStream, gauge);
     }
     gauges = Collections.unmodifiableMap(mutableGauges);
+
+    log.info("Created {} with partitionChangeMonitorPeriodMs: {} and streamsToMonitor: {}", this.getClass().getName(),
+        this.partitionChangeMonitorPeriodMs, this.streamsToMonitor);
   }
 
   /**
@@ -131,13 +146,22 @@ public class StreamPartitionCountMonitor {
     synchronized (lock) {
       switch (state) {
         case INIT:
-          if (monitorPeriodMs > 0) {
+          if (partitionChangeMonitorPeriodMs > 0) {
             schedulerService.scheduleAtFixedRate(new Runnable() {
               @Override
               public void run() {
                 updatePartitionCountMetric();
               }
-            }, monitorPeriodMs, monitorPeriodMs, TimeUnit.MILLISECONDS);
+            }, partitionChangeMonitorPeriodMs, partitionChangeMonitorPeriodMs, TimeUnit.MILLISECONDS);
+          }
+
+          if (inputRegexMonitorPeriodMs > 0) {
+            schedulerService.scheduleAtFixedRate(new Runnable() {
+              @Override
+              public void run() {
+                monitorInputRegexes();
+              }
+            }, inputRegexMonitorPeriodMs, inputRegexMonitorPeriodMs, TimeUnit.MILLISECONDS);
           }
           state = State.RUNNING;
           break;
@@ -171,6 +195,7 @@ public class StreamPartitionCountMonitor {
    */
   @VisibleForTesting
   public void updatePartitionCountMetric() {
+    log.debug("Running updatePartitionCountMetric");
     try {
       Map<SystemStream, SystemStreamMetadata> currentMetadata = getMetadata(streamsToMonitor, metadataCache);
       Set<SystemStream> streamsChanged = new HashSet<>();
@@ -206,6 +231,42 @@ public class StreamPartitionCountMonitor {
 
     } catch (Exception e) {
       log.error("Exception while updating partition count metric.", e);
+    }
+  }
+
+  private void monitorInputRegexes() {
+    log.debug("Running monitorInputRegexes");
+
+    try {
+      // obtain the list of SysStreams that match given patterns for all systems
+      Set<SystemStream> inputStreamsMatchingPattern = new HashSet<>();
+
+      // For each input system, for which we have a regex to monitor
+      for (String systemName : this.systemRegexesToMonitor.keySet()) {
+
+        // obtain the list of SysStreams that match the regex for this system
+        // using the systemAdmin in the metadataCache
+        inputStreamsMatchingPattern.addAll(JavaConverters.setAsJavaSetConverter(this.metadataCache.getAllSystemStreams(systemName))
+            .asJava().stream()
+            .filter(x -> x.getStream().matches(this.systemRegexesToMonitor.get(systemName).pattern()))
+            .collect(Collectors.toSet()));
+      }
+
+      // if there is a stream that is in the input-Set but not in the streamsToMonitor
+      // since streamsToMonitor = task.inputs
+      if (!streamsToMonitor.containsAll(inputStreamsMatchingPattern)) {
+        log.info("New input system-streams discovered. InputStreamsMatchingPattern: {} but streamsToMonitor: {} regexes {}",
+            inputStreamsMatchingPattern, streamsToMonitor, this.systemRegexesToMonitor);
+
+        // invoke notify callback with new input streams
+        this.callbackMethod.onNewInputStreamsDiscovered(Sets.difference(inputStreamsMatchingPattern, streamsToMonitor));
+
+      } else {
+        log.info("No new input system-Streams discovered streamsToMonitor {} inputStreamsMatchingPattern {} regexes {}",
+            streamsToMonitor, inputStreamsMatchingPattern, this.systemRegexesToMonitor);
+      }
+    } catch (Exception e) {
+      log.error("Exception while monitoring input regexes.", e);
     }
   }
 
