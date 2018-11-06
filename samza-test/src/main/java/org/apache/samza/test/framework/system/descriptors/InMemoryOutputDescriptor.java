@@ -43,4 +43,9 @@ public class InMemoryOutputDescriptor<StreamMessageType>
   InMemoryOutputDescriptor(String streamId, SystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor);
   }
+
+  public InMemoryOutputDescriptor withPhysicalName(String physicalName) {
+    super.withPhysicalName(physicalName);
+    return this;
+  }
 }

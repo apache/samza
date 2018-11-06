@@ -24,5 +24,10 @@ import org.apache.samza.system.SystemStream;
 
 
 public interface AvroRelSchemaProvider extends RelSchemaProvider {
+  /**
+   * Get payload schema corresponding to the system stream.
+   * @param systemStream system stream for which payload schema needs to be obtained.
+   * @return schema in the form of string
+   */
   String getSchema(SystemStream systemStream);
 }

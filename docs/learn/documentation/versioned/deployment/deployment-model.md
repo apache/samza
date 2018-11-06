@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Deployment model
+title: Deployment options
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,40 +19,32 @@ title: Deployment model
    limitations under the License.
 -->
 
-# Overview
-One unique thing about Samza is that it provides multiple ways to deploy an application. Each deployment model comes with its own benefits, so you have flexibility in being able to choose which model best fits your needs. Samza supports “write once, run anywhere”, so application logic is the same regardless of the deployment model that you choose.
+### Overview
+A unique thing about Samza is that it provides multiple ways to run your applications. Each deployment model comes with its own benefits, so you have flexibility in choosing whichever fits your needs. Since Samza supports “Write Once, Run Anywhere”, your application logic does not change depending on where you deploy it.
 
-## YARN
-Apache YARN is a technology that manages resources, deploys applications, and monitors applications for a cluster of machines. Samza submits an application to YARN, and YARN assigns resources from across the cluster to that application. Multiple applications can run on a single YARN cluster.
+### Running Samza on YARN
+Samza integrates with [Apache YARN](learn/documentation/{{site.version}}/deployment/yarn.html) for running stream-processing as a managed service. We leverage YARN for isolation, multi-tenancy, resource-management and deployment for your applications. In this mode, you write your Samza application and submit it to be scheduled on a YARN cluster. You also specify its resource requirement - the number of containers needed, number of cores and memory required per-container. Samza then works with YARN to provision resources for your application and run it across a cluster of machines. It also handles failures of individual instances and automatically restarts them.
 
-* Provides central cluster management
-* Each application has an associated application master in YARN to coordinate processing containers
-* Enforces CPU and memory limits
-* Supports multi-tenancy for applications
-* A Samza application is run directly as its own set of processes
-* Automatically restarts containers that have failed
-* Provides centrally managed tools and dashboards
+When multiple applications share the same YARN cluster, they need to be isolated from each other. For this purpose, Samza works with YARN to enforce cpu and memory limits. Any application that uses more than its requested share of memory or cpu is automatically terminated - thereby, allowing multi-tenancy. Just like you would for any YARN-based application, you can use YARN's [web UI](/learn/documentation/{{site.version}}/deployment/yarn.html#application-master-ui) to manage your Samza jobs, view their logs etc.
 
-## Standalone
+### Running Samza in standalone mode
 
-In standalone mode, a Samza application is a library embedded into another application (similar to Kafka Streams). This means that an application owner can control the full lifecycle of the application. Samza will do the coordination between processing containers to ensure that processing is balanced and failures are handled.
+Often you want to embed and integrate Samza as a component within a larger application. To enable this, Samza supports a [standalone mode](learn/documentation/{{site.version}}/deployment/standalone.html) of deployment allowing greater control over your application's life-cycle. In this model, Samza can be used just like any library you import within your Java application. This is identical to using a [high-level Kafka consumer](https://kafka.apache.org/) to process your streams.
 
-* Application owner is free to control cluster management, CPU and memory limits, and multi-tenancy
-* Container coordination is done by Zookeeper out of the box, and container coordination can be extended to be done by a technology other than Zookeeper
-* If containers fail, then partitions will be rebalanced across remaining containers
-* Samza logic can run within the same process as non-Samza logic
-* Application owner can run tools and dashboards wherever the application is deployed
+You can increase your application's capacity by spinning up multiple instances. These instances will then dynamically coordinate with each other and distribute work among themselves. If an instance fails for some reason, the tasks running on it will be re-assigned to the remaining ones. By default, Samza uses [Zookeeper](https://zookeeper.apache.org/) for coordination across individual instances. The coordination logic by itself is pluggable and hence, can integrate with other frameworks.
 
-# Choosing a deployment model
+This mode allows you to bring any cluster-manager or hosting-environment of your choice(eg: [Kubernetes](https://kubernetes.io/), [Marathon](https://mesosphere.github.io/marathon/)) to run your application. You are also free to control memory-limits, multi-tenancy on your own - since Samza is used as a light-weight library.
 
-Here are some guidelines when choosing your deployment model.
+### Choosing a deployment model
 
-* Would you like your Samza application to be embedded as a component of a larger application?
+A common question that we get asked is - "Should I use YARN or standalone?". Here are some guidelines when choosing your deployment model. Since your application logic does not change, it is quite easy to port from one to the other.
+
+* Would you like Samza to be embedded as a component of a larger application?
     * If so, then you should use standalone.
 * Would you like to have out-of-the-box resource management (e.g. CPU/memory limits, restarts on failures)?
     * If so, then you should use YARN.
-* Would you like to have the freedom to deploy and run your application anywhere?
+* Would you like to run your application on any other cluster manager - eg: Kubernetes?
     * If so, then you should use standalone.
 * Would you like to run centrally-managed tools and dashboards?
     * If so, then you should use YARN.
-    * Note: You can still have tools and dashboards when using standalone, but you will need to run them yourself wherever you have actually deployed your application.
+    * Note: You can still have tools and dashboards when using standalone, but you will need to run them yourself wherever your application is deployed.

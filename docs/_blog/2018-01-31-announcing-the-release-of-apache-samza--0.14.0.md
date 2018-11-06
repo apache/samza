@@ -26,7 +26,10 @@ excerpt_separator: <!--more-->
 -->
 
 
-Testing the excerpt
+A major release with following highly anticipated features:  
+-   Samza SQL  
+-   Azure EventHubs producer, consumer and checkpoint provider  
+-   AWS Kinesis consumer  
 
 <!--more-->
 

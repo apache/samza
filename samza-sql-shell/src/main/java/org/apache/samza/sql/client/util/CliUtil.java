@@ -16,22 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.system;
 
-import java.util.Map;
-import java.util.Set;
+package org.apache.samza.sql.client.util;
 
 /**
- * Interface extends the more generic SystemAdmin interface
- * TODO: Merge this interface method with SystemAdmin when we upgrade to JDK 1.8
+ * Convenient utility class with static methods.
  */
-public interface ExtendedSystemAdmin extends SystemAdmin {
-  Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL);
+public class CliUtil {
+  public static boolean isNullOrEmpty(String str) {
+    return str == null || str.isEmpty();
+  }
 
-  /**
-   * Deprecated: Use {@link SystemAdmin#getSSPMetadata}, ideally combined with caching (i.e. SSPMetadataCache).
-   * Makes fewer offset requests than getSystemStreamMetadata
-   */
-  @Deprecated
-  String getNewestOffset(SystemStreamPartition ssp, Integer maxRetries);
+  public static int ceilingDiv(int x, int y) {
+    if (x < 0 || y <= 0)
+      throw new IllegalArgumentException();
+
+    return x / y + (x % y == 0 ? 0 : 1);
+  }
+
+  public static StringBuilder appendTo(StringBuilder builder, int toPos, char c) {
+    for (int i = builder.length(); i <= toPos; ++i) {
+      builder.append(c);
+    }
+    return builder;
+  }
 }

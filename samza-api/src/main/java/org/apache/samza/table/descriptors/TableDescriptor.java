@@ -19,11 +19,18 @@
 package org.apache.samza.table.descriptors;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.TaskContext;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.table.Table;
+import org.apache.samza.task.InitableTask;
 
 
 /**
- * A {@link TableDescriptor} can be used for specifying Samza and implementation-specific properties of a
- * {@link org.apache.samza.table.Table}.
+ * A {@link TableDescriptor} can be used for specifying Samza and implementation-specific properties of a {@link Table}.
  * <p>
  * Table properties provided in configuration override corresponding properties specified using a descriptor.
  * <p>
@@ -36,17 +43,12 @@ import org.apache.samza.annotation.InterfaceStability;
  *     .withConfig("some-key", "some-value");
  * }
  * </pre>
- * For High Level API {@link org.apache.samza.application.StreamApplication}s, use
- * {@link org.apache.samza.application.descriptors.StreamApplicationDescriptor#getTable(TableDescriptor)} to obtain
- * the corresponding {@link org.apache.samza.table.Table} instance that can be used with the
- * {@link org.apache.samza.operators.MessageStream} operators like
- * {@link org.apache.samza.operators.MessageStream#sendTo(org.apache.samza.table.Table)}.
- * Alternatively, use {@link org.apache.samza.context.TaskContext#getTable(String)} in
- * {@link org.apache.samza.operators.functions.InitableFunction#init} to get the table instance for use within
- * operator functions.
- * For Low Level API {@link org.apache.samza.application.TaskApplication}s, use
- * {@link org.apache.samza.context.TaskContext#getTable(String)} in
- * {@link org.apache.samza.task.InitableTask#init} to get the table instance for use within the Task.
+ * For High Level API {@link StreamApplication}s, use {@link StreamApplicationDescriptor#getTable(TableDescriptor)} to
+ * obtain the corresponding {@link Table} instance that can be used with the {@link MessageStream} operators like
+ * {@link MessageStream#sendTo(Table)}. Alternatively, use {@link TaskContext#getTable(String)} in
+ * {@link InitableFunction#init} to get the table instance for use within operator functions. For Low Level API
+ * {@link TaskApplication}s, use {@link TaskContext#getTable(String)} in {@link InitableTask#init} to get the
+ * table instance for use within the Task.
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table

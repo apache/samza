@@ -62,8 +62,8 @@ class StreamMetadataCache (
       .flatMap {
         case (systemName, systemStreams) =>
           val systemAdmin = systemAdmins.getSystemAdmin(systemName)
-          val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
+          val streamToMetadata = if (partitionsMetadataOnly) {
+            systemAdmin.getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
           } else {
             systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream).asJava)
           }

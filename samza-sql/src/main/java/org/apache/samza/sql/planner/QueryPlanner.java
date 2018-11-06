@@ -30,6 +30,7 @@ import org.apache.calcite.config.Lex;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
@@ -136,7 +137,7 @@ public class QueryPlanner {
       SqlNode sql = planner.parse(query);
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
-      LOG.info("query plan:\n" + sql.toString());
+      LOG.info("query plan:\n" + RelOptUtil.toString(relRoot.rel));
       return relRoot;
     } catch (Exception e) {
       LOG.error("Query planner failed with exception.", e);
@@ -149,7 +150,7 @@ public class QueryPlanner {
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
         List<RelDataTypeField> fieldsList = new ArrayList<>();
         fieldsList.add(new RelDataTypeFieldImpl(SamzaSqlRelMessage.KEY_NAME, 0,
-            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true)));
+            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)));
         fieldsList.addAll(relationalSchema.getFieldList());
         return new RelRecordType(fieldsList);
       }

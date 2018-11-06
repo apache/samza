@@ -86,6 +86,10 @@ a.side-navigation__group-title::after {
   transition: transform 250ms ease-in-out;
 }
 
+.section__items a::after {
+  border-bottom: none;
+}
+
 .content a:hover::after,
 .section a:hover::after,
 .content a.active::after,
@@ -735,10 +739,6 @@ footer .side-by-side > * {
 .section--brands .section__item:hover, .section--brands .section__item.is-selected  {
   transform: scale(1.2);
   border-radius: 4px;
-}
-
-.section__item-logo-bg {
-  border-radius: 100%;
 }
 
 .is-selected .section__item-logo-bg,

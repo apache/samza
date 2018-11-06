@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.avro;
 
-import com.google.common.base.Joiner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -160,8 +159,7 @@ public class TestAvroRelConversion {
     record.put("name", "name1");
 
     SamzaSqlRelMessage message = simpleRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(message.toString());
   }
 
   @Test
@@ -263,8 +261,7 @@ public class TestAvroRelConversion {
 
     SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
 
-    LOG.info(Joiner.on(",").join(relMessage.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(relMessage.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(relMessage.toString());
 
     KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
     GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
@@ -321,8 +318,7 @@ public class TestAvroRelConversion {
         Arrays.equals(((ByteString) message.getSamzaSqlRelRecord().getField("fixed_value").get()).getBytes(),
             DEFAULT_TRACKING_ID_BYTES));
 
-    LOG.info(Joiner.on(",").useForNull("null").join(message.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(message.toString());
 
     KV<Object, Object> samzaMessage = complexRecordAvroRelConverter.convertToSamzaMessage(message);
     GenericRecord record = (GenericRecord) samzaMessage.getValue();

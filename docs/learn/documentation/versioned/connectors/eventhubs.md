@@ -19,65 +19,59 @@ title: Event Hubs Connector
    limitations under the License.
 -->
 
-## Overview
+## EventHubs I/O: QuickStart
 
-The Samza Event Hubs connector provides access to [Azure Event Hubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft’s data streaming service on Azure. An event hub is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data).
+The Samza EventHubs connector provides access to [Azure EventHubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft’s data streaming service on Azure. An eventhub is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data). 
 
-## Consuming from Event Hubs
+The [hello-samza](https://github.com/apache/samza-hello-samza) project includes an [example](../../../tutorials/versioned/samza-event-hubs-standalone.md) of reading and writing to EventHubs.
 
-Samza’s [EventHubSystemConsumer](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubSystemConsumer.java) wraps the EventData into an [EventHubIncomingMessageEnvelope](https://github.com/apache/samza/blob/master/samza-azure/src/main/java/org/apache/samza/system/eventhub/consumer/EventHubIncomingMessageEnvelope.java). Samza's Event Hubs consumer wraps each message from Event Hubs into an EventHubMessageEnvelope. The envelope has two fields of interest - the key, which is set to the event's partition key and the message, which is set to the actual data in the event.
+### Concepts
 
-You can configure your Samza jobs to process data from Azure Event Hubs. To configure Samza to consume from Event Hubs streams:
+####EventHubsSystemDescriptor
 
-{% highlight jproperties %}
-# define an event hub system factory with your identifier. eg: eh-system
-systems.eh-system.samza.factory=org.apache.samza.system.eventhub.EventHubSystemFactory
-
-# define your streams
-systems.eh-system.stream.list=eh-input-stream
-streams.eh-stream.samza.system=eh-system
-
-# define required properties for your streams
-streams.eh-input-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
-streams.eh-input-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
-streams.eh-input-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
-streams.eh-input-stream.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
+Samza refers to any IO source (eg: Kafka) it interacts with as a _system_, whose properties are set using a corresponding `SystemDescriptor`. The `EventHubsSystemDescriptor` allows you to configure various properties for the `EventHubsClient` used by Samza.
+{% highlight java %}
+ 1  EventHubsSystemDescriptor eventHubsSystemDescriptor = new EventHubsSystemDescriptor("eventhubs").withNumClientThreads(5);
 {% endhighlight %}
 
-It is required to provide values for YOUR-STREAM-NAMESPACE, YOUR-ENTITY-NAME, YOUR-SAS-KEY-NAME, YOUR-SAS-KEY-TOKEN to read or write to the stream.
+####EventHubsInputDescriptor
 
-## Producing to Event Hubs
-
-Similarly, you can also configure your Samza job to write to Event Hubs. Follow the same configs defined in the Consuming from Event Hubs section to write to Event Hubs:
-
-{% highlight jproperties %}
-# define an event hub system factory with your identifier. eg: eh-system
-systems.eh-system.samza.factory=org.apache.samza.system.eventhub.EventHubSystemFactory
-
-# define your streams
-systems.eh-system.stream.list=eh-output-stream
-streams.eh-stream.samza.system=eh-system
-
-streams.eh-output-stream.eventhubs.namespace=YOUR-STREAM-NAMESPACE
-streams.eh-output-stream.eventhubs.entitypath=YOUR-ENTITY-NAME
-streams.eh-output-stream.eventhubs.sas.keyname=YOUR-SAS-KEY-NAME
-streams.eh-output-stream.eventhubs.sas.token=YOUR-SAS-KEY-TOKEN
-{% endhighlight %}
-
-Then you can create and produce a message to Event Hubs in your code as below:
+The EventHubsInputDescriptor allows you to specify the properties of each EventHubs stream your application should read from. For each of your input streams, you should create a corresponding instance of EventHubsInputDescriptor by providing a topic-name and a serializer.
 
 {% highlight java %}
-OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(new SystemStream("eh-system", "output0"), key, message); 
-collector.send(envelope);
+    EventHubsInputDescriptor<KV<String, String>> inputDescriptor = 
+        systemDescriptor.getInputDescriptor(streamId, "eventhubs-namespace", "eventhubs-name", new StringSerde())
+          .withSasKeyName("secretkey")
+          .withSasKey("sasToken-123")
+          .withConsumerGroup("$notdefault");
 {% endhighlight %}
 
-Each [OutgoingMessageEnvelope](https://samza.apache.org/learn/documentation/latest/api/javadocs/org/apache/samza/system/OutgoingMessageEnvelope.html) is converted into an [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data) instance whose body is set to the message in the envelope. Additionally, the key and the produce timestamp are set as properties in the EventData before sending it to Event Hubs.
+By default, messages are sent and received as byte arrays. Samza then de-serializes them to typed objects using your provided Serde. For example, the above uses a `StringSerde` to de-serialize messages.
 
-## Advanced configuration
+
+####EventHubsOutputDescriptor
+
+Similarly, the `EventHubsOutputDescriptor` allows you to specify the output streams for your application. For each output stream you write to in EventHubs, you should create an instance of `EventHubsOutputDescriptor`.
+
+{% highlight java %}
+    EventHubsOutputDescriptor<KV<String, String>> outputDescriptor =
+        systemDescriptor.getOutputDescriptor(OUTPUT_STREAM_ID, EVENTHUBS_NAMESPACE, EVENTHUBS_OUTPUT_ENTITY, new StringSerde();)
+            .withSasKeyName(..)
+            .withSasKey(..);
+{% endhighlight %}
+
+####Security Model
+Each EventHubs stream is scoped to a container called a _namespace_, which uniquely identifies an EventHubs in a region. EventHubs's [security model](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-authentication-and-security-model-overview) is based on Shared Access Signatures(SAS). 
+Hence, you should also provide your SAS keys and tokens to access the stream. You can generate your SAS tokens using the 
+
+####Data Model
+Each event produced and consumed from an EventHubs stream is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data), which wraps a byte-array payload. When producing to EventHubs, Samza serializes your object into an `EventData` payload before sending it over the wire. Likewise, when consuming messages from EventHubs, messages are de-serialized into typed objects using the provided Serde. 
+
+## Configuration
 
 ###Producer partitioning
 
-The partition.method property determines how outgoing messages are partitioned. Valid values for this config are EVENT\_HUB\_HASHING, PARTITION\_KEY\_AS_PARTITION or ROUND\_ROBIN.
+You can use `#withPartitioningMethod` to control how outgoing messages are partitioned. The following partitioning schemes are supported:
 
 1. EVENT\_HUB\_HASHING: By default, Samza computes the partition for an outgoing message based on the hash of its partition-key. This ensures that events with the same key are sent to the same partition. If this option is chosen, the partition key should be a string. If the partition key is not set, the key in the message is used for partitioning.
 
@@ -85,31 +79,71 @@ The partition.method property determines how outgoing messages are partitioned. 
 
 3. ROUND\_ROBIN: In this method, outgoing messages are distributed in a round-robin across all partitions. The key and the partition key in the message are ignored.
 
-{% highlight jproperties %}
-systems.eh-system.partition.method = EVENT_HUB_HASHING
+{% highlight java %}
+EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor("eventhubs")
+        .withPartitioningMethod(PartitioningMethod.EVENT_HUB_HASHING);
 {% endhighlight %}
+
 
 ### Consumer groups
 
-Event Hubs supports the notion of [consumer groups](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features#consumer-groups) which enable multiple applications to have their own view of the event stream. Each partition is exclusively consumed by one consumer in the consumer group. Each event hub stream has a pre-defined consumer group named $Default. You can define your own consumer group for your job by configuring an Event Hubs.consumer.group
+Event Hubs supports the notion of [consumer groups](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features#consumer-groups) which enable multiple applications to have their own view of the event stream. Each partition is exclusively consumed by one consumer in the group. Each event hub stream has a pre-defined consumer group named $Default. You can define your own consumer group for your job using `withConsumerGroup`.
 
-{% highlight jproperties %}
-streams.eh-input-stream.eventhubs.consumer.group = my-group
+{% highlight java %}
+EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor("eventhubs");
+EventHubsInputDescriptor<KV<String, String>> inputDescriptor =
+        systemDescriptor.getInputDescriptor(INPUT_STREAM_ID, EVENTHUBS_NAMESPACE, EVENTHUBS_INPUT_ENTITY, serde)
+            .withConsumerGroup("my-group");
 {% endhighlight %}
 
-### Serde
-
-By default, the messages from Event Hubs are sent and received as byte arrays. You can configure a serializer and deserializer for your message by setting a value for msg.serde for your stream.
-
-{% highlight jproperties %}
-streams.input0.samza.msg.serde = json
-streams.output0.samza.msg.serde = json
-{% endhighlight %}
 
 ### Consumer buffer size
 
-When the consumer reads a message from event hubs, it appends them to a shared producer-consumer queue corresponding to its partition. This config determines the per-partition queue size. Setting a higher value for this config typically achieves a higher throughput at the expense of increased on-heap memory.
+When the consumer reads a message from EventHubs, it appends them to a shared producer-consumer queue corresponding to its partition. This config determines the per-partition queue size. Setting a higher value for this config typically achieves a higher throughput at the expense of increased on-heap memory.
 
-{% highlight jproperties %}
-systems.eh-system.eventhubs.receive.queue.size = 10
+{% highlight java %}
+ EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor("eventhubs")
+        .withReceiveQueueSize(10);
 {% endhighlight %}
+
+### Code walkthrough
+
+In this section, we will walk through a simple pipeline that reads from one EventHubs stream and copies each message to another output stream. 
+
+{% highlight java %}
+1    EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor("eventhubs").withNumClientThreads(5);
+
+2    EventHubsInputDescriptor<KV<String, String>> inputDescriptor =
+        systemDescriptor.getInputDescriptor(INPUT_STREAM_ID, EVENTHUBS_NAMESPACE, EVENTHUBS_INPUT_ENTITY, new StringSerde())
+            .withSasKeyName(..)
+            .withSasKey(..));
+
+3    EventHubsOutputDescriptor<KV<String, String>> outputDescriptor =
+        systemDescriptor.getOutputDescriptor(OUTPUT_STREAM_ID, EVENTHUBS_NAMESPACE, EVENTHUBS_OUTPUT_ENTITY, serde)
+            .withSasKeyName(..))
+            .withSasKey(..));
+
+4    MessageStream<KV<String, String>> eventhubInput = appDescriptor.getInputStream(inputDescriptor);
+5    OutputStream<KV<String, String>> eventhubOutput = appDescriptor.getOutputStream(outputDescriptor);
+
+    // Define the execution flow with the high-level API
+6    eventhubInput
+7        .map((message) -> {
+8          System.out.println("Received Key: " + message.getKey());
+9          System.out.println("Received Message: " + message.getValue());
+10          return message;
+11        })
+12        .sendTo(eventhubOutput);
+{% endhighlight %}
+
+-Line 1 instantiates an `EventHubsSystemDescriptor` configuring an EventHubsClient with 5 threads. To consume from other input sources like Kafka, you can define their corresponding descriptors. 
+
+-Line 2 creates an `EventHubsInputDescriptor` with a String serde for its values. Recall that Samza follows a KV data-model for input messages. In the case of EventHubs, the key is a string which is set to the [partitionKey](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data._system_properties.getpartitionkey?view=azure-java-stable#com_microsoft_azure_eventhubs__event_data__system_properties_getPartitionKey__) in the message. Hence, no separate key serde is required. 
+
+-Line 3 creates an `EventHubsOutputDescriptor` to write to an EventHubs stream with the given credentials.
+
+-Line 4 obtains a `MessageStream` from the input descriptor that you can later chain operations on. 
+
+-Line 5 creates an `OutputStream` with the previously defined `EventHubsOutputDescriptor` that you can send messages to.
+
+-Line 7-12 define a simple pipeline that copies message from one EventHubs stream to another

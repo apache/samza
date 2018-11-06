@@ -45,3 +45,6 @@ mv -f $DIR/_site/startup/hello-samza/versioned $DIR/_site/startup/hello-samza/$v
 
 echo "replaced startup/quick-start/versioned to startup/quick-start/"$version
 mv -f $DIR/_site/startup/quick-start/versioned $DIR/_site/startup/quick-start/$version
+
+echo "replaced startup/code-examples/versioned to startup/code-examples/"$version
+mv -f $DIR/_site/startup/code-examples/versioned $DIR/_site/startup/code-examples/$version

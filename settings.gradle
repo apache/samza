@@ -27,6 +27,7 @@ include \
   'samza-rest',
   'samza-shell',
   'samza-sql',
+  'samza-sql-shell',
   'samza-tools'
 
 def scalaModules = [

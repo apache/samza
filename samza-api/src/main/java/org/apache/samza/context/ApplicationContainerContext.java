@@ -19,26 +19,28 @@
 package org.apache.samza.context;
 
 
+import java.io.Serializable;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+
 /**
- * An {@link ApplicationContainerContext} instance can be used for holding per-container runtime state and objects
- * and managing their lifecycle. This context is shared across all tasks in the container.
+ * An {@link ApplicationContainerContext} instance can be used for holding per-container runtime state and objects and
+ * managing their lifecycle. This context is shared across all tasks in the container.
  * <p>
- * Use {@link org.apache.samza.application.descriptors.ApplicationDescriptor#withApplicationContainerContextFactory}
- * to provide the {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to
- * get the created {@link ApplicationContainerContext} instance for the current container.
+ * Use {@link ApplicationDescriptor#withApplicationContainerContextFactory} to provide the
+ * {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to get the created
+ * {@link ApplicationContainerContext} instance for the current container.
  * <p>
- * A unique instance of {@link ApplicationContainerContext} is created in each container. If the
- * container moves or the container model changes (e.g. due to failure or re-balancing), a new instance is created.
+ * A unique instance of {@link ApplicationContainerContext} is created in each container. If the container moves or the
+ * container model changes (e.g. due to failure or re-balancing), a new instance is created.
  * <p>
  * Use the {@link ApplicationContainerContextFactory} to create any runtime state and objects, and the
- * {@link ApplicationContainerContext#start()} and {@link ApplicationContainerContext#stop()} methods to
- * manage their lifecycle.
+ * {@link ApplicationContainerContext#start()} and {@link ApplicationContainerContext#stop()} methods to manage their
+ * lifecycle.
  * <p>
- * Use {@link ApplicationTaskContext} to hold unique runtime state and objects for each task within a container.
- * Use {@link ContainerContext} to access framework-provided context for a container.
+ * Use {@link ApplicationTaskContext} to hold unique runtime state and objects for each task within a container. Use
+ * {@link ContainerContext} to access framework-provided context for a container.
  * <p>
- * Unlike its {@link ApplicationContainerContextFactory}, an implementation does not need to be
- * {@link java.io.Serializable}.
+ * Unlike its {@link ApplicationContainerContextFactory}, an implementation does not need to be {@link Serializable}.
  */
 public interface ApplicationContainerContext {
   /**

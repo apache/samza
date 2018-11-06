@@ -5,6 +5,7 @@ title: Air Traffic Controller with Samza at LinkedIn
 study_domain: linkedin.com # just the domain, not the protocol
 priority: 4
 menu_title: LinkedIn # what shows up in the menu
+logo_url: https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png
 excerpt_separator: <!--more-->
 ---
 <!--
