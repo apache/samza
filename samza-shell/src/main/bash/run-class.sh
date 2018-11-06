@@ -51,12 +51,13 @@ export JOB_LIB_DIR=$JOB_LIB_DIR
 
 function relative_path_from_to() {
  # returns relative path to $2/$target from $1/$source
- source=$1
- target=$2
+ source=$1 # This is $home_dir for this case
+ target=$2 # This is $BASE_LIB_DIR where JARS are
 
  common_part=$source # for now
  result="" # for now
 
+ # This calculates the longest common prefix
  while [[ "${target#$common_part}" == "${target}" ]]; do
      # no match, means that candidate common part is not correct
      # go up one level (reduce common part)
@@ -89,9 +90,13 @@ function relative_path_from_to() {
  echo "./$result"
 }
 
-
 # Get the relative path from current execution directory to base directory with jars
 RELATIVE_PATH_BASE_LIB=$(relative_path_from_to $home_dir $BASE_LIB_DIR)
+# If the relative path directory does not exist, resolve to absolute path
+if [ ! -d "$RELATIVE_PATH_BASE_LIB" ]; then
+   echo "Resolving to absolute path, $RELATIVE_PATH_BASE_LIB does not exist"
+   RELATIVE_PATH_BASE_LIB=$BASE_LIB_DIR
+fi
 echo RELATIVE_PATH_BASE_LIB=$RELATIVE_PATH_BASE_LIB
 
 if [ -d "$JOB_LIB_DIR" ] && [ "$JOB_LIB_DIR" != "$BASE_LIB_DIR" ]; then
