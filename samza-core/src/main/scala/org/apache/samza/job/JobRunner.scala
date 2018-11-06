@@ -75,7 +75,7 @@ class JobRunner(config: Config) extends Logging {
    * @return The job submitted
    */
   def run(resetJobConfig: Boolean = true) = {
-    info("config: %s" format (config))
+    debug("config: %s" format (config))
     val jobFactory: StreamJobFactory = getJobFactory
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
