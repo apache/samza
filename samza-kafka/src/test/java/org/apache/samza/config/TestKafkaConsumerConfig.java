@@ -233,7 +233,7 @@ public class TestKafkaConsumerConfig {
     kafkaConsumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
 
-    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    Assert.assertEquals("earliest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
 
     // stream default should override it
     props.remove(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
@@ -243,5 +243,28 @@ public class TestKafkaConsumerConfig {
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
 
     Assert.assertEquals("earliest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+  }
+
+  @Test
+  public void testKafkaAutoResetValue() {
+    Assert.assertEquals("latest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("latest", "oldest"));
+    Assert.assertEquals("latest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("someValue", "oldest"));
+    Assert.assertEquals("earliest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("earliest", "upcoming"));
+    Assert.assertEquals("none",
+        KafkaConsumerConfig.getAutoOffsetResetValue("none", "oldest"));
+    Assert.assertEquals("latest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("largest", "oldest"));
+    Assert.assertEquals("earliest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("smallest", "upcoming"));
+
+    Assert.assertEquals("latest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("", "oldest"));
+    Assert.assertEquals("earliest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("", "upcoming"));
+    Assert.assertEquals("latest",
+        KafkaConsumerConfig.getAutoOffsetResetValue("", "whatever"));
   }
 }

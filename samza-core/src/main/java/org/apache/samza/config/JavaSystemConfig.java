@@ -40,6 +40,9 @@ public class JavaSystemConfig extends MapConfig {
   private static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_PREFIX + "%s" + ".default.stream.";
   private static final String EMPTY = "";
 
+  public static final String SAMZA_SYSTEM_OFFSET_UPCOMING = "upcoming";
+  public static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
+
   public JavaSystemConfig(Config config) {
     super(config);
   }
@@ -124,10 +127,10 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
-   * Get default system reset offset value
-   * Check two places - system default and stream system default (takes precedence)
-   * @param systemName
-   * @return value of system reset of null if not set
+   * Get default PER-SYSTEM reset offset value.
+   * Check two places - system default and stream system default (takes precedence).
+   * @param systemName get config value for this system
+   * @return value of system reset or default ("upcoming") if none set
    */
   public String getDefaultSystemResetOffset(String systemName) {
     String perSystemResetValue = get(String.format("systems.%s.default.stream.samza.offset.default", systemName));
@@ -137,6 +140,11 @@ public class JavaSystemConfig extends MapConfig {
       perSystemResetValue = get(String.format("systems.%s.samza.offset.default", systemName));
     }
 
-    return perSystemResetValue;
+    if (StringUtils.isBlank(perSystemResetValue)) {
+      return SAMZA_SYSTEM_OFFSET_UPCOMING;
+    } else {
+      return perSystemResetValue;
+
+    }
   }
 }
