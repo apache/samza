@@ -41,7 +41,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestBaseLocalStoreBackedTableProvider {
+public class TestBaseLocalTableProvider {
 
   @Test
   public void testInit() {
@@ -127,7 +127,7 @@ public class TestBaseLocalStoreBackedTableProvider {
   }
 
   private TableProvider createTableProvider(TableSpec tableSpec) {
-    return new BaseLocalStoreBackedTableProvider(tableSpec) {
+    return new BaseLocalTableProvider(tableSpec) {
       @Override
       public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
         return generateCommonStoreConfig(jobConfig, generatedConfig);
@@ -135,8 +135,8 @@ public class TestBaseLocalStoreBackedTableProvider {
     };
   }
 
-  private BaseLocalStoreBackedTableDescriptor createTableDescriptor(String tableId) {
-    return new BaseLocalStoreBackedTableDescriptor(tableId) {
+  private BaseLocalTableDescriptor createTableDescriptor(String tableId) {
+    return new BaseLocalTableDescriptor(tableId) {
       @Override
       public TableSpec getTableSpec() {
         validate();
