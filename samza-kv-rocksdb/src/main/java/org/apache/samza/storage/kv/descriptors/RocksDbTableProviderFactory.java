@@ -18,8 +18,8 @@
  */
 package org.apache.samza.storage.kv.descriptors;
 
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 
 

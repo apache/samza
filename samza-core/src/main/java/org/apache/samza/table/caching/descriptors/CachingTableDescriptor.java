@@ -25,10 +25,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.samza.table.caching.CachingTableProvider;
+import org.apache.samza.table.caching.CachingTableProviderFactory;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
+import org.apache.samza.table.descriptors.HybridTableDescriptor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -39,7 +41,7 @@ import com.google.common.base.Preconditions;
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
+public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
   private Duration readTtl;
   private Duration writeTtl;
   private long cacheSize;

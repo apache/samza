@@ -16,13 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table.descriptors;
+package org.apache.samza.table;
 
 import java.util.Map;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.Table;
 
 /**
  * A table provider provides the implementation for a table. It ensures a table is

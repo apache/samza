@@ -22,6 +22,8 @@ package org.apache.samza.table.caching.guava.descriptors;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.table.caching.guava.GuavaCacheTableProvider;
+import org.apache.samza.table.caching.guava.GuavaCacheTableProviderFactory;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.SerdeUtils;

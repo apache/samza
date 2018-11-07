@@ -16,19 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.table.descriptors;
 
-package org.apache.samza.table.caching.descriptors;
-
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
+import java.util.List;
 
 /**
- * Table provider factory for {@link org.apache.samza.table.caching.CachingTable}.
+ * Base class for hybrid table descriptors. A hybrid table consists of one or more
+ * table descriptors, and it orchestrates operations between them to achieve more advanced
+ * functionality.
+ *
+ * @param <K> the type of the key
+ * @param <V> the type of the value
+ * @param <D> the type of this table descriptor
  */
-public class CachingTableProviderFactory implements TableProviderFactory {
-  @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new CachingTableProvider(tableSpec);
+abstract public class HybridTableDescriptor<K, V, D extends HybridTableDescriptor<K, V, D>>
+    extends BaseTableDescriptor<K, V, D> {
+
+  /**
+   * {@inheritDoc}
+   */
+  public HybridTableDescriptor(String tableId) {
+    super(tableId);
   }
+
+  /**
+   * Get tables contained within this table.
+   * @return list of tables
+   */
+  abstract public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors();
+
 }

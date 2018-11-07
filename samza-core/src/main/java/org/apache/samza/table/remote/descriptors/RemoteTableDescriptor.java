@@ -25,6 +25,8 @@ import java.util.Map;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.remote.RemoteTableProvider;
+import org.apache.samza.table.remote.RemoteTableProviderFactory;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;

@@ -38,10 +38,10 @@ import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.utils.descriptors.BaseTableProvider;
+import org.apache.samza.table.BaseTableProvider;
 
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.CFG_METADATA_TOPIC_PREFIX;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.DEFAULT_METADATA_TOPIC_PREFIX;

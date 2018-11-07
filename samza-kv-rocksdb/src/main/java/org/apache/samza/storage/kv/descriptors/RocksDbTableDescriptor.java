@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 
 
 /**
@@ -31,7 +32,7 @@ import org.apache.samza.table.TableSpec;
  * @param <K> the type of the key
  * @param <V> the type of the value
  */
-public class RocksDbTableDescriptor<K, V> extends BaseLocalTableDescriptor<K, V, RocksDbTableDescriptor<K, V>> {
+public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, RocksDbTableDescriptor<K, V>> {
 
   static final public String WRITE_BATCH_SIZE = "write.batch.size";
   static final public String OBJECT_CACHE_SIZE = "object.cache.size";
