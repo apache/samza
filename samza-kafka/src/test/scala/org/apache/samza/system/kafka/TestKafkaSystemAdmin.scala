@@ -62,7 +62,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   var systemAdmin: KafkaSystemAdmin = null
 
   override def generateConfigs(): Seq[KafkaConfig] = {
-    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
+    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, enableDeleteTopic = true)
     props.map(KafkaConfig.fromProps)
   }
 

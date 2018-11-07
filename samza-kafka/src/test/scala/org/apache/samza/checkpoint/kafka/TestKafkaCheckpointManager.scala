@@ -77,6 +77,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm1.createResources
     kcm1.start
     kcm1.stop
+
     // check that start actually creates the topic with log compaction enabled
     val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
     val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
