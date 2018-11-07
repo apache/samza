@@ -65,12 +65,12 @@ object JobModelManager extends Logging {
   /**
    * Does the following actions for a job.
    * a) Reads the jobModel from coordinator stream using the job's configuration.
-   * b) Recomputes changelog partition mapping based on jobModel and job's configuration.
+   * b) Recomputes the changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
-   * @param config Config from the coordinator stream.
-   * @param changelogPartitionMapping The changelog partition-to-task mapping.
+   * @param config config from the coordinator stream.
+   * @param changelogPartitionMapping changelog partition-to-task mapping of the samza job.
    * @param metricsRegistry metrics registry for reporting custom metrics.
-   * @return JobModelManager
+   * @return the built JobModelManager.
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
     val localityManager = new LocalityManager(config, metricsRegistry)
@@ -150,8 +150,8 @@ object JobModelManager extends Logging {
   }
 
   /**
-    * 1. Deletes the existing task assignments if the partition-task grouping has changed.
-    * 2. Saves the newly generated task assignments through the {@param TaskAssignementManager}.
+    * 1. Deletes the existing task assignments if the partition-task grouping has changed from the previous run of the job.
+    * 2. Saves the newly generated task assignments to the storage layer through the {@param TaskAssignementManager}.
     *
     * @param jobModel              represents the {@see JobModel} of the samza job.
     * @param taskAssignmentManager required to persist the processor to task assignments to the storage layer.

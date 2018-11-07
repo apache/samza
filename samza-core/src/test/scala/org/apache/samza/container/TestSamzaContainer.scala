@@ -271,7 +271,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
-  def testShouldInvokeLocalityManagerToStoreContainerLocality():Unit = {
+  def testStoreContainerLocality():Unit = {
     val localityManager: LocalityManager = Mockito.mock[LocalityManager](classOf[LocalityManager])
     val containerContext: ContainerContext = Mockito.mock[ContainerContext](classOf[ContainerContext])
     val containerModel: ContainerModel = Mockito.mock[ContainerModel](classOf[ContainerModel])
