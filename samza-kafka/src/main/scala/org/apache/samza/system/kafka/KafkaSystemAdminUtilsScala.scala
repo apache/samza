@@ -22,21 +22,18 @@ package org.apache.samza.system.kafka
 import java.util
 import java.util.Properties
 
-import kafka.admin.{AdminClient, AdminUtils}
-import kafka.utils.{Logging, ZkUtils}
+import kafka.admin.AdminClient
+import kafka.utils.Logging
 import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.slf4j.{Logger, LoggerFactory}
+import org.apache.samza.system.{SystemStreamMetadata, SystemStreamPartition}
 
 import scala.collection.JavaConverters._
 
 /**
-  * A helper class that is used to construct the changelog stream specific information
+  * A helper class for KafkaSystemAdmin
   *
   * @param replicationFactor The number of replicas for the changelog stream
   * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
@@ -46,88 +43,6 @@ case class ChangelogInfo(var replicationFactor: Int, var kafkaProps: Properties)
 
 // TODO move to org.apache.kafka.clients.admin.AdminClien from the kafka.admin.AdminClient
 object KafkaSystemAdminUtilsScala extends Logging {
-
-  val CLEAR_STREAM_RETRIES = 3
-  val CREATE_STREAM_RETRIES = 10
-
-  /**
-    * @inheritdoc
-    *
-    * Delete a stream in Kafka. Deleting topics works only when the broker is configured with "delete.topic.enable=true".
-    * Otherwise it's a no-op.
-    */
-  def clearStream(spec: StreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Unit = {
-    info("Deleting topic %s for system %s" format(spec.getPhysicalName, spec.getSystemName))
-    val kSpec = KafkaStreamSpec.fromSpec(spec)
-    var retries = CLEAR_STREAM_RETRIES
-    new ExponentialSleepStrategy().run(
-      loop => {
-        val zkClient = connectZk.get()
-        try {
-          AdminUtils.deleteTopic(
-            zkClient,
-            kSpec.getPhysicalName)
-        } finally {
-          zkClient.close
-        }
-
-        loop.done
-      },
-
-      (exception, loop) => {
-        if (retries > 0) {
-          warn("Exception while trying to delete topic %s. Retrying." format (spec.getPhysicalName), exception)
-          retries -= 1
-        } else {
-          warn("Fail to delete topic %s." format (spec.getPhysicalName), exception)
-          loop.done
-          throw exception
-        }
-      })
-  }
-
-
-  def createStream(kSpec: KafkaStreamSpec, connectZk: java.util.function.Supplier[ZkUtils]): Boolean = {
-    info("Creating topic %s for system %s" format(kSpec.getPhysicalName, kSpec.getSystemName))
-    var streamCreated = false
-    var retries = CREATE_STREAM_RETRIES
-
-    new ExponentialSleepStrategy(initialDelayMs = 500).run(
-      loop => {
-        val zkClient = connectZk.get()
-        try {
-          AdminUtils.createTopic(
-            zkClient,
-            kSpec.getPhysicalName,
-            kSpec.getPartitionCount,
-            kSpec.getReplicationFactor,
-            kSpec.getProperties)
-        } finally {
-          zkClient.close
-        }
-
-        streamCreated = true
-        loop.done
-      },
-
-      (exception, loop) => {
-        exception match {
-          case e: TopicExistsException =>
-            streamCreated = false
-            loop.done
-          case e: Exception =>
-            if (retries > 0) {
-              warn("Failed to create topic %s. Retrying." format (kSpec.getPhysicalName), exception)
-              retries -= 1
-            } else {
-              error("Failed to create topic %s. Bailing out." format (kSpec.getPhysicalName), exception)
-              throw exception
-            }
-        }
-      })
-
-    streamCreated
-  }
 
   /**
     * A helper method that takes oldest, newest, and upcoming offsets for each
