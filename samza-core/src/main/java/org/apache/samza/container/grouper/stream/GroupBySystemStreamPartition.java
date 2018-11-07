@@ -29,20 +29,16 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
-public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
-  private TaskConfigJava taskConfig = null;
-  private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
+public class GroupBySystemStreamPartition extends AbstractSystemStreamPartitionGrouper {
+  private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
 
   /**
-   * A constructor that accepts job config as the parameter
-   *
-   * @param config job config
+   * @param config the configuration of the job.
    */
   public GroupBySystemStreamPartition(Config config) {
-    if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
-      taskConfig = new TaskConfigJava(config);
-      broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
-    }
+    super(config);
+    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    broadcastSystemStreamPartitions = taskConfig.getBroadcastSystemStreamPartitions();
   }
 
   @Override
@@ -50,7 +46,7 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
 
     for (SystemStreamPartition ssp : ssps) {
-      if (broadcastStreams.contains(ssp)) {
+      if (broadcastSystemStreamPartitions.contains(ssp)) {
         continue;
       }
 
@@ -60,15 +56,12 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     }
 
     // assign the broadcast streams to all the taskNames
-    if (!broadcastStreams.isEmpty()) {
+    if (!broadcastSystemStreamPartitions.isEmpty()) {
       for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        for (SystemStreamPartition ssp : broadcastStreams) {
-          value.add(ssp);
-        }
+        value.addAll(broadcastSystemStreamPartitions);
       }
     }
 
     return groupedMap;
   }
-
 }
