@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.storage.kv.descriptors.BaseLocalStoreBackedTableProvider;
+import org.apache.samza.storage.kv.descriptors.BaseLocalTableProvider;
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory;
 import org.apache.samza.table.TableSpec;
 
@@ -32,7 +32,7 @@ import org.apache.samza.table.TableSpec;
 /**
  * Table provider of an in-memory table
  */
-public class InMemoryTableProvider extends BaseLocalStoreBackedTableProvider {
+public class InMemoryTableProvider extends BaseLocalTableProvider {
 
   public InMemoryTableProvider(TableSpec tableSpec) {
     super(tableSpec);

@@ -80,7 +80,7 @@ public class TestRocksDbTableDescriptor {
     Assert.assertEquals("snappy", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_COMPRESSION));
     Assert.assertEquals("fifo", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE));
     Assert.assertEquals("xyz", getConfig(tableSpec, "abc"));
-    Assert.assertEquals("false", tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    Assert.assertEquals("false", tableSpec.getConfig().get(BaseLocalTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
   }
 
   @Test
@@ -91,9 +91,9 @@ public class TestRocksDbTableDescriptor {
         .withChangelogReplicationFactor(10)
         .getTableSpec();
 
-    Assert.assertEquals("10", tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR));
-    Assert.assertEquals("changelog-$tream", tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM));
-    Assert.assertEquals("true", tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    Assert.assertEquals("10", tableSpec.getConfig().get(BaseLocalTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR));
+    Assert.assertEquals("changelog-$tream", tableSpec.getConfig().get(BaseLocalTableDescriptor.INTERNAL_CHANGELOG_STREAM));
+    Assert.assertEquals("true", tableSpec.getConfig().get(BaseLocalTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
   }
 
   private String getConfig(TableSpec tableSpec, String key) {
