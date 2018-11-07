@@ -127,8 +127,8 @@ object SamzaContainer extends Logging {
     taskFactory: TaskFactory[_],
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
-    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
-  ) = {
+    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
@@ -742,6 +742,7 @@ object SamzaContainer extends Logging {
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
+      localityManager = localityManager,
       offsetManager = offsetManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -997,8 +998,7 @@ class SamzaContainer(
 
   def storeContainerLocality {
     val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(config).getHostAffinityEnabled
-    if (isHostAffinityEnabled) {
-      val localityManager: LocalityManager = new LocalityManager(config, containerContext.getContainerMetricsRegistry)
+    if (isHostAffinityEnabled && localityManager != null) {
       val containerId = containerContext.getContainerModel.getId
       val containerName = "SamzaContainer-" + containerId
       info("Registering %s with metadata store" format containerName)
