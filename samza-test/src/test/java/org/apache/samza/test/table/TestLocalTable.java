@@ -51,7 +51,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
+import org.apache.samza.storage.kv.LocalReadWriteTable;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.table.ReadWriteTable;
@@ -359,7 +359,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
   @Test
   public void testAsyncOperation() throws Exception {
     KeyValueStore kvStore = mock(KeyValueStore.class);
-    LocalStoreBackedReadWriteTable<String, String> table = new LocalStoreBackedReadWriteTable<>("table1", kvStore);
+    LocalReadWriteTable<String, String> table = new LocalReadWriteTable<>("table1", kvStore);
     Context context = mock(Context.class);
     TaskContext taskContext = mock(TaskContext.class);
     when(context.getTaskContext()).thenReturn(taskContext);

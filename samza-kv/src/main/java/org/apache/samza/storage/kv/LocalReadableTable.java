@@ -33,7 +33,7 @@ import org.apache.samza.table.utils.DefaultTableReadMetrics;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> {
+public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
 
   protected final KeyValueStore<K, V> kvStore;
   protected final String tableId;
@@ -41,11 +41,11 @@ public class LocalStoreBackedReadableTable<K, V> implements ReadableTable<K, V> 
   protected DefaultTableReadMetrics readMetrics;
 
   /**
-   * Constructs an instance of {@link LocalStoreBackedReadableTable}
+   * Constructs an instance of {@link LocalReadableTable}
    * @param tableId the table Id
    * @param kvStore the backing store
    */
-  public LocalStoreBackedReadableTable(String tableId, KeyValueStore<K, V> kvStore) {
+  public LocalReadableTable(String tableId, KeyValueStore<K, V> kvStore) {
     Preconditions.checkArgument(tableId != null & !tableId.isEmpty() , "invalid tableId");
     Preconditions.checkNotNull(kvStore, "null KeyValueStore");
     this.tableId = tableId;

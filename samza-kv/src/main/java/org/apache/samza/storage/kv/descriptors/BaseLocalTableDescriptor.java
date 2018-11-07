@@ -35,7 +35,7 @@ import org.apache.samza.storage.SideInputsProcessor;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
-abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
+abstract public class BaseLocalTableDescriptor<K, V, D extends BaseLocalTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
 
   static final public String INTERNAL_ENABLE_CHANGELOG = "internal.enable.changelog";
@@ -52,7 +52,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    * Constructs a table descriptor instance
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
-  public BaseLocalStoreBackedTableDescriptor(String tableId) {
+  public BaseLocalTableDescriptor(String tableId) {
     super(tableId);
   }
 
@@ -61,7 +61,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
-  public BaseLocalStoreBackedTableDescriptor(String tableId, KVSerde<K, V> serde) {
+  public BaseLocalTableDescriptor(String tableId, KVSerde<K, V> serde) {
     super(tableId, serde);
   }
 
