@@ -49,12 +49,13 @@ JOB_LIB_DIR="${JOB_LIB_DIR:-$home_dir/lib}"
 
 export JOB_LIB_DIR=$JOB_LIB_DIR
 
+# Usage: relative_path_from_to $source $target
+# Purpose: Given two absolute paths return relative path from $source to $destination
 function relative_path_from_to() {
- # returns relative path to $2/$target from $1/$source
- source=$1 # This is $home_dir for this case
- target=$2 # This is $BASE_LIB_DIR where JARS are
+ source=${1%/} # This is $home_dir for this case
+ target=${2%/} # This is $BASE_LIB_DIR where JARS are
 
- common_part=$source # for now
+ common_part=$source # start with common_part as source and iterate until common_part becomes $target
  result="" # for now
 
  # This calculates the longest common prefix
