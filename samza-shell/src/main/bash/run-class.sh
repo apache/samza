@@ -56,7 +56,7 @@ function relative_path_from_to() {
  target=${2%/} # This is $BASE_LIB_DIR where JARS are
 
  common_part=$source # start with common_part as source and iterate until common_part becomes $target
- result="" # for now
+ result=""
 
  # This calculates the longest common prefix
  while [[ "${target#$common_part}" == "${target}" ]]; do
