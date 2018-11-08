@@ -35,9 +35,8 @@ import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
-import org.apache.samza.table.caching.descriptors.CachingTableDescriptor;
-import org.apache.samza.table.caching.guava.descriptors.GuavaCacheTableDescriptor;
-import org.apache.samza.table.caching.guava.GuavaCacheTableProvider;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
+import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -78,7 +77,7 @@ public class TestCachingTable {
     GuavaCacheTableDescriptor guavaTableDesc = new GuavaCacheTableDescriptor("guavaCacheId");
     guavaTableDesc.withCache(CacheBuilder.newBuilder().build());
     TableSpec spec = guavaTableDesc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(GuavaCacheTableProvider.GUAVA_CACHE));
+    Assert.assertTrue(spec.getConfig().containsKey(GuavaCacheTableDescriptor.GUAVA_CACHE));
     doTestSerialize(guavaTableDesc);
   }
 
@@ -97,16 +96,16 @@ public class TestCachingTable {
     desc.withWriteAround();
 
     TableSpec spec = desc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.REAL_TABLE_ID));
+    Assert.assertTrue(spec.getConfig().containsKey(CachingTableDescriptor.REAL_TABLE_ID));
 
     if (cache == null) {
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.READ_TTL_MS));
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.WRITE_TTL_MS));
+      Assert.assertTrue(spec.getConfig().containsKey(CachingTableDescriptor.READ_TTL_MS));
+      Assert.assertTrue(spec.getConfig().containsKey(CachingTableDescriptor.WRITE_TTL_MS));
     } else {
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.CACHE_TABLE_ID));
+      Assert.assertTrue(spec.getConfig().containsKey(CachingTableDescriptor.CACHE_TABLE_ID));
     }
 
-    Assert.assertEquals("true", spec.getConfig().get(CachingTableProvider.WRITE_AROUND));
+    Assert.assertEquals("true", spec.getConfig().get(CachingTableDescriptor.WRITE_AROUND));
 
     desc.validate();
   }

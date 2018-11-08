@@ -27,6 +27,7 @@ import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.BaseTableProvider;
 
@@ -37,13 +38,6 @@ import com.google.common.cache.CacheBuilder;
  */
 public class CachingTableProvider extends BaseTableProvider {
 
-  public static final String REAL_TABLE_ID = "realTableId";
-  public static final String CACHE_TABLE_ID = "cacheTableId";
-  public static final String READ_TTL_MS = "readTtl";
-  public static final String WRITE_TTL_MS = "writeTtl";
-  public static final String CACHE_SIZE = "cacheSize";
-  public static final String WRITE_AROUND = "writeAround";
-
   // Store the cache instances created by default
   private final List<ReadWriteTable> defaultCaches = new ArrayList<>();
 
@@ -53,10 +47,10 @@ public class CachingTableProvider extends BaseTableProvider {
 
   @Override
   public Table getTable() {
-    String realTableId = tableSpec.getConfig().get(REAL_TABLE_ID);
+    String realTableId = tableSpec.getConfig().get(CachingTableDescriptor.REAL_TABLE_ID);
     ReadableTable table = (ReadableTable) this.context.getTaskContext().getTable(realTableId);
 
-    String cacheTableId = tableSpec.getConfig().get(CACHE_TABLE_ID);
+    String cacheTableId = tableSpec.getConfig().get(CachingTableDescriptor.CACHE_TABLE_ID);
     ReadWriteTable cache;
 
     if (cacheTableId != null) {
@@ -66,7 +60,7 @@ public class CachingTableProvider extends BaseTableProvider {
       defaultCaches.add(cache);
     }
 
-    boolean isWriteAround = Boolean.parseBoolean(tableSpec.getConfig().get(WRITE_AROUND));
+    boolean isWriteAround = Boolean.parseBoolean(tableSpec.getConfig().get(CachingTableDescriptor.WRITE_AROUND));
     CachingTable cachingTable = new CachingTable(tableSpec.getId(), table, cache, isWriteAround);
     cachingTable.init(this.context);
     return cachingTable;
@@ -78,9 +72,9 @@ public class CachingTableProvider extends BaseTableProvider {
   }
 
   private ReadWriteTable createDefaultCacheTable(String tableId) {
-    long readTtlMs = Long.parseLong(tableSpec.getConfig().getOrDefault(READ_TTL_MS, "-1"));
-    long writeTtlMs = Long.parseLong(tableSpec.getConfig().getOrDefault(WRITE_TTL_MS, "-1"));
-    long cacheSize = Long.parseLong(tableSpec.getConfig().getOrDefault(CACHE_SIZE, "-1"));
+    long readTtlMs = Long.parseLong(tableSpec.getConfig().getOrDefault(CachingTableDescriptor.READ_TTL_MS, "-1"));
+    long writeTtlMs = Long.parseLong(tableSpec.getConfig().getOrDefault(CachingTableDescriptor.WRITE_TTL_MS, "-1"));
+    long cacheSize = Long.parseLong(tableSpec.getConfig().getOrDefault(CachingTableDescriptor.CACHE_SIZE, "-1"));
 
     CacheBuilder cacheBuilder = CacheBuilder.newBuilder();
     if (readTtlMs != -1) {
