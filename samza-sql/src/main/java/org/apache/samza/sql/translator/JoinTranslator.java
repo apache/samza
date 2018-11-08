@@ -124,6 +124,17 @@ class JoinTranslator {
     MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(streamRelNode.getId());
     Table table = getTable(tableRelNode, tableKeyIds, isRemoteTable, context);
 
+    MessageStream<SamzaSqlRelMessage> outputStream =
+        joinStreamWithTable(inputStream, table, streamRelNode, tableRelNode, streamKeyIds, tableKeyIds,
+            isTablePosOnRight, isRemoteTable, join, context);
+
+    context.registerMessageStream(join.getId(), outputStream);
+  }
+
+  private MessageStream<SamzaSqlRelMessage> joinStreamWithTable(MessageStream<SamzaSqlRelMessage> inputStream,
+      Table table, RelNode streamRelNode, RelNode tableRelNode, List<Integer> streamKeyIds,  List<Integer> tableKeyIds,
+      boolean isTablePosOnRight, boolean isRemoteTable, LogicalJoin join, TranslatorContext context) {
+
     List<String> streamFieldNames = new ArrayList<>(streamRelNode.getRowType().getFieldNames());
     List<String> tableFieldNames = new ArrayList<>(tableRelNode.getRowType().getFieldNames());
     Validate.isTrue(streamKeyIds.size() == tableKeyIds.size());
@@ -133,15 +144,13 @@ class JoinTranslator {
       log.info(streamFieldNames.get(streamKeyIds.get(i)) + " with " + tableFieldNames.get(tableKeyIds.get(i)));
     }
 
-    MessageStream<SamzaSqlRelMessage> outputStream;
-
     if (isRemoteTable) {
       String remoteTableName = SqlIOConfig.getSourceFromSourceParts(tableRelNode.getTable().getQualifiedName());
       StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), remoteTableName, join.getJoinType(), isTablePosOnRight,
           streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames, queryId);
 
-      outputStream = inputStream.join(table, joinFn);
+      return inputStream.join(table, joinFn);
     } else {
       StreamTableJoinFunction joinFn = new SamzaSqlLocalTableJoinFunction(join.getJoinType(), isTablePosOnRight,
           streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
@@ -154,15 +163,14 @@ class JoinTranslator {
       // Always re-partition the messages from the input stream by the composite key and then join the messages
       // with the table. For the composite key, provide the corresponding table names in the key instead of using
       // the names from the stream as the lookup needs to be done based on what is stored in the local table.
-      outputStream = inputStream
-          .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
+      return
+          inputStream
+              .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
               getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)), m -> m, KVSerde.of(keySerde, valueSerde),
-          intermediateStreamPrefix + "stream_" + joinId)
-          .map(KV::getValue)
-          .join(table, joinFn);
+              intermediateStreamPrefix + "stream_" + joinId)
+              .map(KV::getValue)
+              .join(table, joinFn);
     }
-
-    context.registerMessageStream(join.getId(), outputStream);
   }
 
   private void validateJoinQuery(LogicalJoin join, TableType tableTypeOnLeft, TableType tableTypeOnRight) {
