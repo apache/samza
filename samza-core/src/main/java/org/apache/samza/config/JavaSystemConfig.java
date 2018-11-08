@@ -127,24 +127,25 @@ public class JavaSystemConfig extends MapConfig {
   }
 
   /**
-   * Get default PER-SYSTEM reset offset value.
-   * Check two places - system default and stream system default (takes precedence).
+   * Get SYSTEM reset offset value.
+   * Check two places - system default and stream system default.
+   * Stream default system is the right way to set it.
+   * systems.<system>.samza.offset.defautl is the deprecated setting, but needs to be checked for backward compatibility
    * @param systemName get config value for this system
    * @return value of system reset or default ("upcoming") if none set
    */
-  public String getDefaultSystemResetOffset(String systemName) {
+  public String getSystemOffsetDefault(String systemName) {
+    // first check stream system default
     String perSystemResetValue = get(String.format("systems.%s.default.stream.samza.offset.default", systemName));
 
-    // check if per system reset value is defined
+    // if not set, check the deprecated setting
     if (StringUtils.isBlank(perSystemResetValue)) {
       perSystemResetValue = get(String.format("systems.%s.samza.offset.default", systemName));
+      if (StringUtils.isBlank(perSystemResetValue)) {
+        return SAMZA_SYSTEM_OFFSET_UPCOMING;
+      }
     }
 
-    if (StringUtils.isBlank(perSystemResetValue)) {
-      return SAMZA_SYSTEM_OFFSET_UPCOMING;
-    } else {
-      return perSystemResetValue;
-
-    }
+    return perSystemResetValue;
   }
 }

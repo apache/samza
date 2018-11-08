@@ -296,7 +296,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   @Override
   public String toString() {
-    return String.format("%s:%s@%s", systemName, clientId, Integer.toHexString(hashCode()));
+    return String.format("%s:%s", systemName, clientId);
   }
 
   @Override
