@@ -75,10 +75,10 @@ class JoinTranslator {
   private int joinId;
   private final String intermediateStreamPrefix;
   private final int queryId;
-  enum TableType {
-    NONE, // Not a table == a stream
-    LOCAL, // local table
-    REMOTE // remote table
+  enum InputType {
+    STREAM,
+    LOCAL_TABLE,
+    REMOTE_TABLE
   }
 
   JoinTranslator(int joinId, String intermediateStreamPrefix, int queryId) {
@@ -88,15 +88,16 @@ class JoinTranslator {
   }
 
   void translate(final LogicalJoin join, final TranslatorContext context) {
-    TableType tableTypeOnLeft = getTableType(join.getLeft(), context);
-    TableType tableTypeOnRight = getTableType(join.getRight(), context);
+    InputType inputTypeOnLeft = getInputType(join.getLeft(), context);
+    InputType inputTypeOnRight = getInputType(join.getRight(), context);
 
     // Do the validation of join query
-    validateJoinQuery(join, tableTypeOnLeft, tableTypeOnRight);
+    validateJoinQuery(join, inputTypeOnLeft, inputTypeOnRight);
 
     // At this point, one of the sides is a table. Let's figure out if it is on left or right side.
-    boolean isTablePosOnRight = (tableTypeOnRight != TableType.NONE);
+    boolean isTablePosOnRight = (inputTypeOnRight != InputType.STREAM);
 
+    // stream and table keyIds are used to extract the names and values out of the stream and table records.
     List<Integer> streamKeyIds = new LinkedList<>();
     List<Integer> tableKeyIds = new LinkedList<>();
 
@@ -110,13 +111,13 @@ class JoinTranslator {
     if (isTablePosOnRight) {
       tableRelNode = join.getRight();
       streamRelNode = join.getLeft();
-      if (tableTypeOnRight == TableType.REMOTE) {
+      if (inputTypeOnRight == InputType.REMOTE_TABLE) {
         isRemoteTable = true;
       }
     } else {
       tableRelNode = join.getLeft();
       streamRelNode = join.getRight();
-      if (tableTypeOnLeft == TableType.REMOTE) {
+      if (inputTypeOnLeft == InputType.REMOTE_TABLE) {
         isRemoteTable = true;
       }
     }
@@ -173,7 +174,7 @@ class JoinTranslator {
     }
   }
 
-  private void validateJoinQuery(LogicalJoin join, TableType tableTypeOnLeft, TableType tableTypeOnRight) {
+  private void validateJoinQuery(LogicalJoin join, InputType inputTypeOnLeft, InputType inputTypeOnRight) {
     JoinRelType joinRelType = join.getJoinType();
 
     if (joinRelType.compareTo(JoinRelType.INNER) != 0 && joinRelType.compareTo(JoinRelType.LEFT) != 0
@@ -181,8 +182,8 @@ class JoinTranslator {
       throw new SamzaException("Query with only INNER and LEFT/RIGHT OUTER join are supported.");
     }
 
-    boolean isTablePosOnLeft = (tableTypeOnLeft != TableType.NONE);
-    boolean isTablePosOnRight = (tableTypeOnRight != TableType.NONE);
+    boolean isTablePosOnLeft = (inputTypeOnLeft != InputType.STREAM);
+    boolean isTablePosOnRight = (inputTypeOnRight != InputType.STREAM);
 
     if (!isTablePosOnLeft && !isTablePosOnRight) {
       throw new SamzaException("Invalid query with both sides of join being denoted as 'stream'. "
@@ -313,7 +314,7 @@ class JoinTranslator {
     return sourceConfig;
   }
 
-  private TableType getTableType(RelNode relNode, TranslatorContext context) {
+  private InputType getInputType(RelNode relNode, TranslatorContext context) {
     // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
     // stream-table-table join, the left side of the join is join output, which we always
     // assume to be a stream. The intermediate stream won't be an instance of EnumerableTableScan.
@@ -321,14 +322,14 @@ class JoinTranslator {
     if (relNode instanceof EnumerableTableScan || relNode instanceof LogicalProject) {
       SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode, context);
       if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
-        return TableType.NONE;
+        return InputType.STREAM;
       } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor) {
-        return TableType.REMOTE;
+        return InputType.REMOTE_TABLE;
       } else {
-        return TableType.LOCAL;
+        return InputType.LOCAL_TABLE;
       }
     } else {
-      return TableType.NONE;
+      return InputType.STREAM;
     }
   }
 
