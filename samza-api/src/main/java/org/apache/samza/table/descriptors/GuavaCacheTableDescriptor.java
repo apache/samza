@@ -17,12 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.table.caching.guava.descriptors;
+package org.apache.samza.table.descriptors;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.utils.SerdeUtils;
 
@@ -31,11 +30,16 @@ import com.google.common.cache.Cache;
 
 
 /**
- * Table descriptor for {@link org.apache.samza.table.caching.guava.GuavaCacheTable}.
+ * Table descriptor for Guava-based caching table.
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
 public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, GuavaCacheTableDescriptor<K, V>> {
+
+  public static final String PROVIDER_FACTORY_CLASS_NAME = "org.apache.samza.table.caching.guava.GuavaCacheTableProviderFactory";
+
+  public static final String GUAVA_CACHE = "guavaCache";
+
   private Cache<K, V> cache;
 
   /**
@@ -52,9 +56,9 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
     Map<String, String> tableSpecConfig = new HashMap<>();
     generateTableSpecConfig(tableSpecConfig);
 
-    tableSpecConfig.put(GuavaCacheTableProvider.GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache));
+    tableSpecConfig.put(GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache));
 
-    return new TableSpec(tableId, serde, GuavaCacheTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
   }
 
   /**
