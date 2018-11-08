@@ -27,6 +27,9 @@ import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverterFactory;
 import org.apache.samza.system.SystemStream;
 
 
+/**
+ * A sample {@link SamzaRelTableKeyConverterFactory} used in tests to create {@link SampleRelTableKeyConverter}.
+ */
 public class SampleRelTableKeyConverterFactory implements SamzaRelTableKeyConverterFactory {
 
   private final HashMap<SystemStream, SamzaRelTableKeyConverter> relConverters = new HashMap<>();

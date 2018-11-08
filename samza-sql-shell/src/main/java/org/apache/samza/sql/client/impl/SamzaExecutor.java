@@ -390,9 +390,6 @@ public class SamzaExecutor implements SqlExecutor {
     String avroSamzaToRelMsgConverterDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
 
-    String avroSamzaToRelTableKeyConverterDomain =
-        String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN, "avro");
-
     staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
         AvroSchemaGenRelConverterFactory.class.getName());
 

@@ -44,8 +44,8 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
   private final JoinRelType joinRelType;
   private final boolean isTablePosOnRight;
   private final ArrayList<Integer> streamFieldIds;
-  // Table field names are used in the outer join when the table record is not found.
   private final ArrayList<Integer> tableKeyIds;
+  // Table field names are used in the outer join when the table record is not found.
   private final ArrayList<String> tableFieldNames;
   private final ArrayList<String> outFieldNames;
 
@@ -54,18 +54,21 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
       List<String> tableFieldNames) {
     this.joinRelType = joinRelType;
     this.isTablePosOnRight = isTablePosOnRight;
+
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
         (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
         joinRelType.compareTo(JoinRelType.INNER) == 0);
+
     this.streamFieldIds = new ArrayList<>(streamFieldIds);
     this.tableKeyIds = new ArrayList<>(tableKeyIds);
     this.tableFieldNames = new ArrayList<>(tableFieldNames);
+
     this.outFieldNames = new ArrayList<>();
     if (isTablePosOnRight) {
       outFieldNames.addAll(streamFieldNames);
-    }
-    outFieldNames.addAll(tableFieldNames);
-    if (!isTablePosOnRight) {
+      outFieldNames.addAll(tableFieldNames);
+    } else {
+      outFieldNames.addAll(tableFieldNames);
       outFieldNames.addAll(streamFieldNames);
     }
   }

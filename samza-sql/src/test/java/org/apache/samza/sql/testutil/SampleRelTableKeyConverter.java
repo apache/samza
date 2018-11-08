@@ -24,6 +24,9 @@ import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 
 
+/**
+ * A sample {@link SamzaRelTableKeyConverter} used in tests to convert the join key to table format.
+ */
 public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
 
   @Override

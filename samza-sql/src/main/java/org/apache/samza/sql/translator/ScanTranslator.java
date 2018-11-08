@@ -96,8 +96,10 @@ class ScanTranslator {
     final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() &&
         (sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor);
 
-    // We don't need to define input stream descriptor for a remote table as the table descriptor is already defined by
-    // the SqlIOResolverFactory.
+    // For remote table, we don't have an input stream descriptor. The table descriptor is already defined by the
+    // SqlIOResolverFactory.
+    // For local table, even though table descriptor is already defined, we still need to create the input stream
+    // descriptor to load the local table.
     if (isRemoteTable) {
       return;
     }

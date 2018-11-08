@@ -97,8 +97,6 @@ class JoinTranslator {
     // At this point, one of the sides is a table. Let's figure out if it is on left or right side.
     boolean isTablePosOnRight = (tableTypeOnRight != TableType.NONE);
 
-    boolean isRemoteTable = ((isTablePosOnRight ? tableTypeOnRight : tableTypeOnLeft) == TableType.REMOTE);
-
     List<Integer> streamKeyIds = new LinkedList<>();
     List<Integer> tableKeyIds = new LinkedList<>();
 
@@ -106,17 +104,30 @@ class JoinTranslator {
     populateStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
         tableKeyIds);
 
-    Table table = getTable(isTablePosOnRight, isRemoteTable, tableKeyIds, join, context);
+    RelNode tableRelNode;
+    RelNode streamRelNode;
+    boolean isRemoteTable = false;
+    if (isTablePosOnRight) {
+      tableRelNode = join.getRight();
+      streamRelNode = join.getLeft();
+      if (tableTypeOnRight == TableType.REMOTE) {
+        isRemoteTable = true;
+      }
+    } else {
+      tableRelNode = join.getLeft();
+      streamRelNode = join.getRight();
+      if (tableTypeOnLeft == TableType.REMOTE) {
+        isRemoteTable = true;
+      }
+    }
 
-    MessageStream<SamzaSqlRelMessage> inputStream =
-        isTablePosOnRight ?
-            context.getMessageStream(join.getLeft().getId()) : context.getMessageStream(join.getRight().getId());
+    MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(streamRelNode.getId());
+    Table table = getTable(tableRelNode, tableKeyIds, isRemoteTable, context);
 
-    List<String> streamFieldNames =
-        new ArrayList<>((isTablePosOnRight ? join.getLeft() : join.getRight()).getRowType().getFieldNames());
-    List<String> tableFieldNames =
-        new ArrayList<>((isTablePosOnRight ? join.getRight() : join.getLeft()).getRowType().getFieldNames());
+    List<String> streamFieldNames = new ArrayList<>(streamRelNode.getRowType().getFieldNames());
+    List<String> tableFieldNames = new ArrayList<>(tableRelNode.getRowType().getFieldNames());
     Validate.isTrue(streamKeyIds.size() == tableKeyIds.size());
+
     log.info("Joining on the following Stream and Table field(s): ");
     for (int i = 0; i < streamKeyIds.size(); i++) {
       log.info(streamFieldNames.get(streamKeyIds.get(i)) + " with " + tableFieldNames.get(tableKeyIds.get(i)));
@@ -125,10 +136,7 @@ class JoinTranslator {
     MessageStream<SamzaSqlRelMessage> outputStream;
 
     if (isRemoteTable) {
-      List<String> tableNameParts = (isTablePosOnRight ? join.getRight() : join.getLeft())
-          .getTable()
-          .getQualifiedName();
-      String remoteTableName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
+      String remoteTableName = SqlIOConfig.getSourceFromSourceParts(tableRelNode.getTable().getQualifiedName());
       StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), remoteTableName, join.getJoinType(), isTablePosOnRight,
           streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames, queryId);
@@ -289,7 +297,6 @@ class JoinTranslator {
     }
 
     String sourceName = SqlIOConfig.getSourceFromSourceParts(relNode.getTable().getQualifiedName());
-    //String.join(".", relNode.getTable().getQualifiedName());
     SqlIOConfig sourceConfig =
         context.getExecutionContext().getSamzaSqlApplicationConfig().getInputSystemStreamConfigBySource().get(sourceName);
     if (sourceConfig == null) {
@@ -317,43 +324,46 @@ class JoinTranslator {
     }
   }
 
-  private Table getTable(boolean isTablePosOnRight, boolean isRemoteTable, List<Integer> tableKeyIds, LogicalJoin join,
+  private Table getTable(RelNode tableRelNode, List<Integer> tableKeyIds, boolean isRemoteTable,
       TranslatorContext context) {
-    RelNode relNode = isTablePosOnRight ? join.getRight() : join.getLeft();
 
-    SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode, context);
+    SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(tableRelNode, context);
 
     if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
-      String errMsg = "Failed to resolve table source in join operation: node=" + relNode;
+      String errMsg = "Failed to resolve table source in join operation: node=" + tableRelNode;
       log.error(errMsg);
       throw new SamzaException(errMsg);
     }
 
-    // Create a table backed by RocksDb store with the fields in the join condition as composite key and relational
-    // message as the value. Send the messages from the input stream denoted as 'table' to the created table store.
     Table<KV<SamzaSqlRelRecord, SamzaSqlRelMessage>> table =
         context.getStreamAppDescriptor().getTable(sourceTableConfig.getTableDescriptor().get());
 
-    // If local table, load the table
-    if (!isRemoteTable) {
-      MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(relNode.getId());
-
-      SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
-          (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
-      SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde = (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null,
-          null);
-
-      // Let's always repartition by the join fields as key before sending the key and value to the table.
-      // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
-      // have the same partitioning scheme with the same partition key and number. Please note that bootstrap semantic is
-      // not propagated to the intermediate streams. Please refer SAMZA-1613 for more details on this. Subsequently, the
-      // results are consistent only after the local table is caught up.
-
-      relOutputStream
-          .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds), m -> m,
-              KVSerde.of(keySerde, valueSerde), intermediateStreamPrefix + "table_" + joinId)
-          .sendTo(table);
+    if (isRemoteTable) {
+      return table;
     }
+
+    // If local table, load the table.
+
+    // Load the local table with the fields in the join condition as composite key and relational message as the value.
+    // Send the messages from the input stream denoted as 'table' to the created table store.
+
+    MessageStream<SamzaSqlRelMessage> relOutputStream = context.getMessageStream(tableRelNode.getId());
+
+    SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
+        (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
+    SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde valueSerde =
+        (SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde) new SamzaSqlRelMessageSerdeFactory().getSerde(null, null);
+
+    // Let's always repartition by the join fields as key before sending the key and value to the table.
+    // We need to repartition the stream denoted as table to ensure that both the stream and table that are joined
+    // have the same partitioning scheme with the same partition key and number. Please note that bootstrap semantic is
+    // not propagated to the intermediate streams. Please refer SAMZA-1613 for more details on this. Subsequently, the
+    // results are consistent only after the local table is caught up.
+
+    relOutputStream
+        .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds), m -> m,
+            KVSerde.of(keySerde, valueSerde), intermediateStreamPrefix + "table_" + joinId)
+        .sendTo(table);
 
     return table;
   }
