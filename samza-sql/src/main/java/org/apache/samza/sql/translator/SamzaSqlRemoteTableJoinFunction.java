@@ -42,13 +42,12 @@ public class SamzaSqlRemoteTableJoinFunction
   private final int queryId;
 
   SamzaSqlRemoteTableJoinFunction(SamzaRelConverter msgConverter, SamzaRelTableKeyConverter tableKeyConverter,
-      String tableName, JoinRelType joinRelType, boolean isTablePosOnRight, List<Integer> streamFieldIds,
-      List<String> streamFieldNames, List<Integer> tableKeyIds, List<String> tableFieldNames, int queryId) {
-    super(joinRelType, isTablePosOnRight, streamFieldIds, streamFieldNames, tableKeyIds, tableFieldNames);
+      JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType, int queryId) {
+    super(streamNode, tableNode, joinRelType);
 
     this.msgConverter = msgConverter;
     this.relTableKeyConverter = tableKeyConverter;
-    this.tableName = tableName;
+    this.tableName = tableNode.getSourceName();
     this.queryId = queryId;
   }
 

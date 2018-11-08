@@ -40,6 +40,8 @@ import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.powermock.api.mockito.PowerMockito.*;
+
 
 public class TestSamzaSqlRemoteTableJoinFunction {
 
@@ -72,10 +74,20 @@ public class TestSamzaSqlRemoteTableJoinFunction {
     List<Integer> tableKeyIds = Arrays.asList(0);
     KV<Object, GenericRecord> record = KV.of(tableRecord.get("id"), tableRecord);
 
+    JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
+    when(mockTableInputNode.getKeyIds()).thenReturn(tableKeyIds);
+    when(mockTableInputNode.isPosOnRight()).thenReturn(true);
+    when(mockTableInputNode.getFieldNames()).thenReturn(tableMsg.getSamzaSqlRelRecord().getFieldNames());
+    when(mockTableInputNode.getSourceName()).thenReturn(remoteTableName);
+
+    JoinInputNode mockStreamInputNode = mock(JoinInputNode.class);
+    when(mockStreamInputNode.getKeyIds()).thenReturn(streamKeyIds);
+    when(mockStreamInputNode.isPosOnRight()).thenReturn(false);
+    when(mockStreamInputNode.getFieldNames()).thenReturn(streamFieldNames);
+
     SamzaSqlRemoteTableJoinFunction joinFn =
-        new SamzaSqlRemoteTableJoinFunction(relConverter, relTableKeyConverter, remoteTableName,
-            joinRelType, true, streamKeyIds, streamFieldNames, tableKeyIds,
-            tableMsg.getSamzaSqlRelRecord().getFieldNames(), 0);
+        new SamzaSqlRemoteTableJoinFunction(relConverter, relTableKeyConverter, mockStreamInputNode, mockTableInputNode,
+            joinRelType, 0);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
@@ -84,6 +96,8 @@ public class TestSamzaSqlRemoteTableJoinFunction {
     expectedFieldNames.addAll(tableMsg.getSamzaSqlRelRecord().getFieldNames());
     List<Object> expectedFieldValues = new ArrayList<>(streamFieldValues);
     expectedFieldValues.addAll(tableMsg.getSamzaSqlRelRecord().getFieldValues());
+
+    Assert.assertEquals(expectedFieldNames, outMsg.getSamzaSqlRelRecord().getFieldNames());
     Assert.assertEquals(expectedFieldValues, outMsg.getSamzaSqlRelRecord().getFieldValues());
   }
 }

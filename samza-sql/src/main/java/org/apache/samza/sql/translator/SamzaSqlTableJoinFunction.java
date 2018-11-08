@@ -49,27 +49,25 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
   private final ArrayList<String> tableFieldNames;
   private final ArrayList<String> outFieldNames;
 
-  SamzaSqlTableJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
-      List<Integer> streamFieldIds, List<String> streamFieldNames, List<Integer> tableKeyIds,
-      List<String> tableFieldNames) {
+  SamzaSqlTableJoinFunction(JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType) {
     this.joinRelType = joinRelType;
-    this.isTablePosOnRight = isTablePosOnRight;
+    this.isTablePosOnRight = tableNode.isPosOnRight();
 
     Validate.isTrue((joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnRight) ||
         (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && !isTablePosOnRight) ||
         joinRelType.compareTo(JoinRelType.INNER) == 0);
 
-    this.streamFieldIds = new ArrayList<>(streamFieldIds);
-    this.tableKeyIds = new ArrayList<>(tableKeyIds);
-    this.tableFieldNames = new ArrayList<>(tableFieldNames);
+    this.streamFieldIds = new ArrayList<>(streamNode.getKeyIds());
+    this.tableKeyIds = new ArrayList<>(tableNode.getKeyIds());
+    this.tableFieldNames = new ArrayList<>(tableNode.getFieldNames());
 
     this.outFieldNames = new ArrayList<>();
     if (isTablePosOnRight) {
-      outFieldNames.addAll(streamFieldNames);
+      outFieldNames.addAll(streamNode.getFieldNames());
       outFieldNames.addAll(tableFieldNames);
     } else {
       outFieldNames.addAll(tableFieldNames);
-      outFieldNames.addAll(streamFieldNames);
+      outFieldNames.addAll(streamNode.getFieldNames());
     }
   }
 

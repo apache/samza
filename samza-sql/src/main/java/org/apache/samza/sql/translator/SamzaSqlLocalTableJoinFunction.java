@@ -33,10 +33,8 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 public class SamzaSqlLocalTableJoinFunction
     extends SamzaSqlTableJoinFunction<SamzaSqlRelRecord, KV<SamzaSqlRelRecord, SamzaSqlRelMessage>> {
 
-  SamzaSqlLocalTableJoinFunction(JoinRelType joinRelType, boolean isTablePosOnRight,
-      List<Integer> streamFieldIds, List<String> streamFieldNames, List<Integer> tableKeyIds,
-      List<String> tableFieldNames) {
-    super(joinRelType, isTablePosOnRight, streamFieldIds, streamFieldNames, tableKeyIds, tableFieldNames);
+  SamzaSqlLocalTableJoinFunction(JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType) {
+    super(streamNode, tableNode, joinRelType);
   }
 
   @Override
