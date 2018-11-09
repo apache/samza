@@ -25,6 +25,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.storage.kv.LocalTableProvider;
 import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
 import org.apache.samza.table.TableSpec;
 
@@ -32,7 +33,7 @@ import org.apache.samza.table.TableSpec;
 /**
  * Table provider for tables backed by RocksDb.
  */
-public class RocksDbTableProvider extends BaseLocalStoreBackedTableProvider {
+public class RocksDbTableProvider extends LocalTableProvider {
 
   public RocksDbTableProvider(TableSpec tableSpec) {
     super(tableSpec);

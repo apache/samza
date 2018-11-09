@@ -16,14 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.storage.kv.descriptors;
+package org.apache.samza.table.descriptors;
 
 import com.google.common.base.Preconditions;
 
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.SideInputsProcessor;
 
@@ -35,7 +34,7 @@ import org.apache.samza.storage.SideInputsProcessor;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
-abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLocalStoreBackedTableDescriptor<K, V, D>>
+abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
 
   static final public String INTERNAL_ENABLE_CHANGELOG = "internal.enable.changelog";
@@ -52,7 +51,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    * Constructs a table descriptor instance
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
-  public BaseLocalStoreBackedTableDescriptor(String tableId) {
+  public LocalTableDescriptor(String tableId) {
     super(tableId);
   }
 
@@ -61,7 +60,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
-  public BaseLocalStoreBackedTableDescriptor(String tableId, KVSerde<K, V> serde) {
+  public LocalTableDescriptor(String tableId, KVSerde<K, V> serde) {
     super(tableId, serde);
   }
 
@@ -148,6 +147,7 @@ abstract public class BaseLocalStoreBackedTableDescriptor<K, V, D extends BaseLo
   /**
    * Validate that this table descriptor is constructed properly
    */
+  @Override
   protected void validate() {
     super.validate();
     if (sideInputs != null || sideInputsProcessor != null) {

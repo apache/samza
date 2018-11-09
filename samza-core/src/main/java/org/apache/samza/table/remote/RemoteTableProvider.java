@@ -17,19 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.table.remote.descriptors;
+package org.apache.samza.table.remote;
 
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
-import org.apache.samza.table.remote.RemoteReadableTable;
-import org.apache.samza.table.remote.TableRateLimiter;
-import org.apache.samza.table.remote.TableReadFunction;
-import org.apache.samza.table.remote.TableWriteFunction;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
-import org.apache.samza.table.utils.descriptors.BaseTableProvider;
+import org.apache.samza.table.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.util.RateLimiter;
@@ -48,14 +44,6 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class RemoteTableProvider extends BaseTableProvider {
 
-  static final String READ_FN = "io.read.func";
-  static final String WRITE_FN = "io.write.func";
-  static final String RATE_LIMITER = "io.ratelimiter";
-  static final String READ_CREDIT_FN = "io.read.credit.func";
-  static final String WRITE_CREDIT_FN = "io.write.credit.func";
-  static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
-  static final String READ_RETRY_POLICY = "io.read.retry.policy";
-  static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
 
   private final boolean readOnly;
   private final List<RemoteReadableTable<?, ?>> tables = new ArrayList<>();
@@ -71,7 +59,7 @@ public class RemoteTableProvider extends BaseTableProvider {
 
   public RemoteTableProvider(TableSpec tableSpec) {
     super(tableSpec);
-    this.readOnly = !tableSpec.getConfig().containsKey(WRITE_FN);
+    this.readOnly = !tableSpec.getConfig().containsKey(RemoteTableDescriptor.WRITE_FN);
   }
 
   /**
@@ -83,17 +71,17 @@ public class RemoteTableProvider extends BaseTableProvider {
     String tableId = tableSpec.getId();
 
     TableReadFunction readFn = getReadFn();
-    RateLimiter rateLimiter = deserializeObject(RATE_LIMITER);
+    RateLimiter rateLimiter = deserializeObject(RemoteTableDescriptor.RATE_LIMITER);
     if (rateLimiter != null) {
       rateLimiter.init(this.context);
     }
-    TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(READ_CREDIT_FN);
+    TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(RemoteTableDescriptor.READ_CREDIT_FN);
     TableRateLimiter readRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, readCreditFn, RemoteTableDescriptor.RL_READ_TAG);
 
     TableRateLimiter.CreditFunction<?, ?> writeCreditFn;
     TableRateLimiter writeRateLimiter = null;
 
-    TableRetryPolicy readRetryPolicy = deserializeObject(READ_RETRY_POLICY);
+    TableRetryPolicy readRetryPolicy = deserializeObject(RemoteTableDescriptor.READ_RETRY_POLICY);
     TableRetryPolicy writeRetryPolicy = null;
 
     if ((readRetryPolicy != null || writeRetryPolicy != null) && retryExecutor == null) {
@@ -113,17 +101,17 @@ public class RemoteTableProvider extends BaseTableProvider {
 
     boolean isRateLimited = readRateLimiter.isRateLimited();
     if (!readOnly) {
-      writeCreditFn = deserializeObject(WRITE_CREDIT_FN);
+      writeCreditFn = deserializeObject(RemoteTableDescriptor.WRITE_CREDIT_FN);
       writeRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_WRITE_TAG);
       isRateLimited |= writeRateLimiter.isRateLimited();
-      writeRetryPolicy = deserializeObject(WRITE_RETRY_POLICY);
+      writeRetryPolicy = deserializeObject(RemoteTableDescriptor.WRITE_RETRY_POLICY);
       if (writeRetryPolicy != null) {
         writeFn = new RetriableWriteFunction(writeRetryPolicy, writeFn, retryExecutor);
       }
     }
 
     // Optional executor for future callback/completion. Shared by both read and write operations.
-    int callbackPoolSize = Integer.parseInt(tableSpec.getConfig().get(ASYNC_CALLBACK_POOL_SIZE));
+    int callbackPoolSize = Integer.parseInt(tableSpec.getConfig().get(RemoteTableDescriptor.ASYNC_CALLBACK_POOL_SIZE));
     if (callbackPoolSize > 0) {
       callbackExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newFixedThreadPool(callbackPoolSize, (runnable) -> {
@@ -184,7 +172,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   }
 
   private TableReadFunction<?, ?> getReadFn() {
-    TableReadFunction<?, ?> readFn = deserializeObject(READ_FN);
+    TableReadFunction<?, ?> readFn = deserializeObject(RemoteTableDescriptor.READ_FN);
     if (readFn != null) {
       readFn.init(this.context);
     }
@@ -192,7 +180,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   }
 
   private TableWriteFunction<?, ?> getWriteFn() {
-    TableWriteFunction<?, ?> writeFn = deserializeObject(WRITE_FN);
+    TableWriteFunction<?, ?> writeFn = deserializeObject(RemoteTableDescriptor.WRITE_FN);
     if (writeFn != null) {
       writeFn.init(this.context);
     }

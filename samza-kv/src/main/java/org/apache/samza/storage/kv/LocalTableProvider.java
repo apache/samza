@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.storage.kv.descriptors;
+package org.apache.samza.storage.kv;
 
 import com.google.common.base.Preconditions;
 import java.util.HashMap;
@@ -32,12 +32,11 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.storage.kv.LocalStoreBackedReadWriteTable;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.utils.descriptors.BaseTableProvider;
+import org.apache.samza.table.BaseTableProvider;
 import org.apache.samza.table.utils.SerdeUtils;
 
 
@@ -48,12 +47,12 @@ import org.apache.samza.table.utils.SerdeUtils;
  * the table provider will not manage the lifecycle of the backing
  * stores.
  */
-abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvider {
+abstract public class LocalTableProvider extends BaseTableProvider {
   public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   protected KeyValueStore kvStore;
 
-  public BaseLocalStoreBackedTableProvider(TableSpec tableSpec) {
+  public LocalTableProvider(TableSpec tableSpec) {
     super(tableSpec);
   }
 
@@ -78,7 +77,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
     if (kvStore == null) {
       throw new SamzaException("Store not initialized for table " + tableSpec.getId());
     }
-    ReadableTable table = new LocalStoreBackedReadWriteTable(tableSpec.getId(), kvStore);
+    ReadableTable table = new LocalReadWriteTable(tableSpec.getId(), kvStore);
     table.init(this.context);
     return table;
   }
@@ -115,9 +114,9 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
 
     // Changelog configuration
     Boolean enableChangelog = Boolean.valueOf(
-        tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+        tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
     if (enableChangelog) {
-      String changelogStream = tableSpec.getConfig().get(BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_STREAM);
+      String changelogStream = tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_CHANGELOG_STREAM);
       if (StringUtils.isEmpty(changelogStream)) {
         changelogStream = String.format("%s-%s-table-%s", mergedJobConfig.getName().get(), mergedJobConfig.getJobId(),
             tableSpec.getId());
@@ -128,7 +127,7 @@ abstract public class BaseLocalStoreBackedTableProvider extends BaseTableProvide
       storeConfig.put(String.format(StorageConfig.CHANGELOG_STREAM(), tableSpec.getId()), changelogStream);
 
       String changelogReplicationFactor = tableSpec.getConfig().get(
-          BaseLocalStoreBackedTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR);
+          LocalTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR);
       if (changelogReplicationFactor != null) {
         storeConfig.put(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), tableSpec.getId()),
             changelogReplicationFactor);

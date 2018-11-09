@@ -36,7 +36,7 @@ import com.google.common.collect.Iterables;
 
 
 /**
- * A function object to be used with a {@link RemoteReadWriteTable} implementation. It encapsulates the functionality
+ * A function object to be used with a remote read/write table implementation. It encapsulates the functionality
  * of writing table record(s) for a provided set of key(s) to the store.
  *
  * <p> Instances of {@link TableWriteFunction} are meant to be serializable. ie. any non-serializable state

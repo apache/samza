@@ -31,17 +31,17 @@ import org.apache.samza.table.utils.DefaultTableWriteMetrics;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class LocalStoreBackedReadWriteTable<K, V> extends LocalStoreBackedReadableTable<K, V>
+public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
     implements ReadWriteTable<K, V> {
 
   protected DefaultTableWriteMetrics writeMetrics;
 
   /**
-   * Constructs an instance of {@link LocalStoreBackedReadWriteTable}
+   * Constructs an instance of {@link LocalReadWriteTable}
    * @param tableId the table Id
    * @param kvStore the backing store
    */
-  public LocalStoreBackedReadWriteTable(String tableId, KeyValueStore kvStore) {
+  public LocalReadWriteTable(String tableId, KeyValueStore kvStore) {
     super(tableId, kvStore);
   }
 

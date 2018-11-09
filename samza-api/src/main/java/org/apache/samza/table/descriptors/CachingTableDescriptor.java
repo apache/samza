@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.table.caching.descriptors;
+package org.apache.samza.table.descriptors;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -25,21 +25,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
-import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 
 /**
- * Table descriptor for {@link org.apache.samza.table.caching.CachingTable}.
+ * Table descriptor for a caching table.
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
+public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, CachingTableDescriptor<K, V>> {
+
+  public static final String PROVIDER_FACTORY_CLASS_NAME = "org.apache.samza.table.caching.CachingTableProviderFactory";
+
+  public static final String REAL_TABLE_ID = "realTableId";
+  public static final String CACHE_TABLE_ID = "cacheTableId";
+  public static final String READ_TTL_MS = "readTtl";
+  public static final String WRITE_TTL_MS = "writeTtl";
+  public static final String CACHE_SIZE = "cacheSize";
+  public static final String WRITE_AROUND = "writeAround";
+
   private Duration readTtl;
   private Duration writeTtl;
   private long cacheSize;
@@ -61,7 +68,7 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
   /**
    * Constructs a table descriptor instance and specify a cache (as Table descriptor)
    * to be used for caching. Cache get is not synchronized with put for better parallelism
-   * in the read path of {@link org.apache.samza.table.caching.CachingTable}. As such, cache table implementation is
+   * in the read path of caching table. As such, cache table implementation is
    * expected to be thread-safe for concurrent accesses.
    *
    * @param tableId Id of the table, it must conform to pattern { @literal [\\d\\w-_]+ }
@@ -89,23 +96,23 @@ public class CachingTableDescriptor<K, V> extends BaseHybridTableDescriptor<K, V
     generateTableSpecConfig(tableSpecConfig);
 
     if (cache != null) {
-      tableSpecConfig.put(CachingTableProvider.CACHE_TABLE_ID, ((BaseTableDescriptor) cache).getTableSpec().getId());
+      tableSpecConfig.put(CACHE_TABLE_ID, ((BaseTableDescriptor) cache).getTableSpec().getId());
     } else {
       if (readTtl != null) {
-        tableSpecConfig.put(CachingTableProvider.READ_TTL_MS, String.valueOf(readTtl.toMillis()));
+        tableSpecConfig.put(READ_TTL_MS, String.valueOf(readTtl.toMillis()));
       }
       if (writeTtl != null) {
-        tableSpecConfig.put(CachingTableProvider.WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()));
+        tableSpecConfig.put(WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()));
       }
       if (cacheSize > 0) {
-        tableSpecConfig.put(CachingTableProvider.CACHE_SIZE, String.valueOf(cacheSize));
+        tableSpecConfig.put(CACHE_SIZE, String.valueOf(cacheSize));
       }
     }
 
-    tableSpecConfig.put(CachingTableProvider.REAL_TABLE_ID, ((BaseTableDescriptor) table).getTableSpec().getId());
-    tableSpecConfig.put(CachingTableProvider.WRITE_AROUND, String.valueOf(isWriteAround));
+    tableSpecConfig.put(REAL_TABLE_ID, ((BaseTableDescriptor) table).getTableSpec().getId());
+    tableSpecConfig.put(WRITE_AROUND, String.valueOf(isWriteAround));
 
-    return new TableSpec(tableId, serde, CachingTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
   }
 
   /**

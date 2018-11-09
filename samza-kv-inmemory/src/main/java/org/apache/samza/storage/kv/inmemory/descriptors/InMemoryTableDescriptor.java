@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.storage.kv.descriptors.BaseLocalStoreBackedTableDescriptor;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.TableSpec;
 
 
@@ -32,7 +32,7 @@ import org.apache.samza.table.TableSpec;
  * @param <K> the type of the key
  * @param <V> the type of the value
  */
-public class InMemoryTableDescriptor<K, V> extends BaseLocalStoreBackedTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
+public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, InMemoryTableDescriptor<K, V>> {
 
   /**
    * Constructs a table descriptor instance

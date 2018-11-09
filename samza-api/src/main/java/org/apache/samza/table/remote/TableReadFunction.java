@@ -35,7 +35,7 @@ import com.google.common.collect.Iterables;
 
 
 /**
- * A function object to be used with a {@link RemoteReadableTable} implementation. It encapsulates the functionality
+ * A function object to be used with a remote readable table implementation. It encapsulates the functionality
  * of reading table record(s) for a provided set of key(s).
  *
  * <p> Instances of {@link TableReadFunction} are meant to be serializable. ie. any non-serializable state
