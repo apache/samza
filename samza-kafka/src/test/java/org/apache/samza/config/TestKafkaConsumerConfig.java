@@ -211,11 +211,14 @@ public class TestKafkaConsumerConfig {
     // someval -> latest
     props.put(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "someval");
 
-    kafkaConsumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
-
-    Assert.assertEquals("latest", kafkaConsumerConfig.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
-
+    try {
+      kafkaConsumerConfig =
+          KafkaConsumerConfig.getKafkaSystemConsumerConfig(new MapConfig(props), SYSTEM_NAME, "client1");
+      Assert.fail("Should've failed for invalid value for default offset reset");
+    } catch (Exception e) {
+      // expected
+    }
+    
     // no value -> latest
     props.remove(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
 

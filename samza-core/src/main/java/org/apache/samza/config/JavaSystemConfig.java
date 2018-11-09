@@ -136,16 +136,16 @@ public class JavaSystemConfig extends MapConfig {
    */
   public String getSystemOffsetDefault(String systemName) {
     // first check stream system default
-    String perSystemResetValue = get(String.format("systems.%s.default.stream.samza.offset.default", systemName));
+    String systemOffsetDefault = get(String.format("systems.%s.default.stream.samza.offset.default", systemName));
 
     // if not set, check the deprecated setting
-    if (StringUtils.isBlank(perSystemResetValue)) {
-      perSystemResetValue = get(String.format("systems.%s.samza.offset.default", systemName));
-      if (StringUtils.isBlank(perSystemResetValue)) {
+    if (StringUtils.isBlank(systemOffsetDefault)) {
+      systemOffsetDefault = get(String.format("systems.%s.samza.offset.default", systemName));
+      if (StringUtils.isBlank(systemOffsetDefault)) {
         return SAMZA_SYSTEM_OFFSET_UPCOMING;
       }
     }
 
-    return perSystemResetValue;
+    return systemOffsetDefault;
   }
 }
