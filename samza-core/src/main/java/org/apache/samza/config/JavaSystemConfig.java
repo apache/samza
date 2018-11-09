@@ -130,7 +130,7 @@ public class JavaSystemConfig extends MapConfig {
    * Get SYSTEM reset offset value.
    * Check two places - system default and stream system default.
    * Stream default system is the right way to set it.
-   * systems.<system>.samza.offset.defautl is the deprecated setting, but needs to be checked for backward compatibility
+   * systems.system.samza.offset.defautl is the deprecated setting, but needs to be checked for backward compatibility
    * @param systemName get config value for this system
    * @return value of system reset or default ("upcoming") if none set
    */

@@ -218,7 +218,7 @@ public class TestKafkaConsumerConfig {
     } catch (Exception e) {
       // expected
     }
-    
+
     // no value -> latest
     props.remove(String.format("systems.%s.consumer.%s", SYSTEM_NAME, ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
 
@@ -252,8 +252,13 @@ public class TestKafkaConsumerConfig {
   public void testKafkaAutoResetValue() {
     Assert.assertEquals("latest",
         KafkaConsumerConfig.getAutoOffsetResetValue("latest", "oldest"));
-    Assert.assertEquals("latest",
-        KafkaConsumerConfig.getAutoOffsetResetValue("someValue", "oldest"));
+
+    try {
+      KafkaConsumerConfig.getAutoOffsetResetValue("someValue", "oldest");
+      Assert.fail("Invalid value should've triggered an exception");
+    } catch (Exception e) {
+      // expected
+    }
     Assert.assertEquals("earliest",
         KafkaConsumerConfig.getAutoOffsetResetValue("earliest", "upcoming"));
     Assert.assertEquals("none",
@@ -263,11 +268,15 @@ public class TestKafkaConsumerConfig {
     Assert.assertEquals("earliest",
         KafkaConsumerConfig.getAutoOffsetResetValue("smallest", "upcoming"));
 
-    Assert.assertEquals("latest",
-        KafkaConsumerConfig.getAutoOffsetResetValue("", "oldest"));
     Assert.assertEquals("earliest",
-        KafkaConsumerConfig.getAutoOffsetResetValue("", "upcoming"));
+        KafkaConsumerConfig.getAutoOffsetResetValue("", "oldest"));
     Assert.assertEquals("latest",
-        KafkaConsumerConfig.getAutoOffsetResetValue("", "whatever"));
+        KafkaConsumerConfig.getAutoOffsetResetValue("", "upcoming"));
+    try {
+      KafkaConsumerConfig.getAutoOffsetResetValue("", "whatever");
+      Assert.fail("Invalid value should've triggered an exception");
+    } catch (Exception e) {
+      //expected
+    }
   }
 }
