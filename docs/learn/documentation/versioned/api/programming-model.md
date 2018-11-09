@@ -71,7 +71,7 @@ Descriptors let you specify the properties of various aspects of your applicatio
 [InputDescriptor](javadocs/org/apache/samza/system/descriptors/InputDescriptor.html)s and [OutputDescriptor](javadocs/org/apache/samza/system/descriptors/OutputDescriptor.html)s can be used for specifying Samza and implementation-specific properties of the streaming inputs and outputs for your application. You can obtain InputDescriptors and OutputDescriptors using a [SystemDescriptor](javadocs/org/apache/samza/system/descriptors/SystemDescriptor.html) for your system. This SystemDescriptor can be used for specify Samza and implementation-specific properties of the producer and consumers for your I/O system. Most Samza system implementations come with their own SystemDescriptors, but if one isn't available, you 
 can use the [GenericSystemDescriptor](javadocs/org/apache/samza/system/descriptors/GenericSystemDescriptor.html).
 
-A [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html) can be used for specifying Samza and implementation-specific properties of a [Table](javadocs/org/apache/samza/table/Table.html). You can use a Local TableDescriptor (e.g. [RocksDbTableDescriptor](javadocs/org/apache/samza/storage/kv/descriptors/RocksDbTableDescriptor.html) or a [RemoteTableDescriptor](javadocs/org/apache/samza/table/remote/descriptors/RemoteTableDescriptor).
+A [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html) can be used for specifying Samza and implementation-specific properties of a [Table](javadocs/org/apache/samza/table/Table.html). You can use a Local TableDescriptor (e.g. [RocksDbTableDescriptor](javadocs/org/apache/samza/storage/kv/descriptors/RocksDbTableDescriptor.html) or a [RemoteTableDescriptor](javadocs/org/apache/samza/table/descriptors/RemoteTableDescriptor).
 
 
 The following example illustrates how you can use input and output descriptors for a Kafka system, and a table descriptor for a local RocksDB table within your application:
@@ -89,8 +89,8 @@ The following example illustrates how you can use input and output descriptors f
         KafkaOutputDescriptor<DecoratedPageView> kod = 
             ksd.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
 
-        TableDescriptor<String, Integer> td = 
-            new RocksDBTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new IntegerSerde()));
+        RocksDbTableDescriptor<String, Integer> td = 
+            new RocksDbTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new IntegerSerde()));
             
         // Implement your processing logic here
       }
@@ -114,7 +114,7 @@ High Level Streams API allows you to describe the processing logic in a connecte
         KafkaSystemDescriptor ksd = new KafkaSystemDescriptor();
         InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
         OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-        TableDescriptor<String, Integer> viewCountTable = new RocksDBTableDescriptor(
+        RocksDbTableDescriptor<String, Integer> viewCountTable = new RocksDbTableDescriptor(
             “pageViewCountTable”, KVSerde.of(new StringSerde(), new IntegerSerde()));
 
         // Now, implement your main processing logic
@@ -137,7 +137,7 @@ Low Level Task API allows you to describe the processing logic in a customized S
         KafkaSystemDescriptor kafka = new KafkaSystemDescriptor();
         InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
         OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-        TableDescriptor<String, Integer> viewCountTable = new RocksDBTableDescriptor(
+        RocksDbTableDescriptor<String, Integer> viewCountTable = new RocksDbTableDescriptor(
             “pageViewCountTable”, KVSerde.of(new StringSerde(), new IntegerSerde()));
 
         // Now, implement your main processing logic

@@ -80,8 +80,8 @@ The following example TaskApplication removes page views with "bad URLs" from th
             ksd.getInputDescriptor("pageViewEvent", new JsonSerdeV2<>(PageViewEvent.class));
         KafkaOutputDescriptor<PageViewEvent>> kod = 
             ksd.getOutputDescriptor("goodPageViewEvent", new JsonSerdeV2<>(PageViewEvent.class)));
-        RocksDBTableDescriptor badUrls = 
-            new RocksDBTableDescriptor(“badUrls”, KVSerde.of(new StringSerde(), new IntegerSerde());
+        RocksDbTableDescriptor badUrls = 
+            new RocksDbTableDescriptor(“badUrls”, KVSerde.of(new StringSerde(), new IntegerSerde());
             
         // Step 2: Add input, output streams and tables
         appDescriptor
