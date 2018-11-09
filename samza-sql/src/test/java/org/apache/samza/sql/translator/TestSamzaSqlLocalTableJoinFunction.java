@@ -30,8 +30,10 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.junit.Assert;
 import org.junit.Test;
 
+import static org.powermock.api.mockito.PowerMockito.*;
 
-public class TestSamzaSqlRelMessageJoinFunction {
+
+public class TestSamzaSqlLocalTableJoinFunction {
 
   private List<String> streamFieldNames = Arrays.asList("field1", "field2", "field3", "field4");
   private List<Object> streamFieldValues = Arrays.asList("value1", 1, null, "value4");
@@ -48,8 +50,18 @@ public class TestSamzaSqlRelMessageJoinFunction {
     SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
     KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
-    SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
+    JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
+    when(mockTableInputNode.getKeyIds()).thenReturn(tableKeyIds);
+    when(mockTableInputNode.isPosOnRight()).thenReturn(true);
+    when(mockTableInputNode.getFieldNames()).thenReturn(tableFieldNames);
+
+    JoinInputNode mockStreamInputNode = mock(JoinInputNode.class);
+    when(mockStreamInputNode.getKeyIds()).thenReturn(streamKeyIds);
+    when(mockStreamInputNode.isPosOnRight()).thenReturn(false);
+    when(mockStreamInputNode.getFieldNames()).thenReturn(streamFieldNames);
+
+    SamzaSqlLocalTableJoinFunction joinFn =
+        new SamzaSqlLocalTableJoinFunction(mockStreamInputNode, mockTableInputNode, joinRelType);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
@@ -71,9 +83,18 @@ public class TestSamzaSqlRelMessageJoinFunction {
     SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
     KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
-    SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, false, streamKeyIds, streamFieldNames,
-            tableKeyIds, tableFieldNames);
+    JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
+    when(mockTableInputNode.getKeyIds()).thenReturn(tableKeyIds);
+    when(mockTableInputNode.isPosOnRight()).thenReturn(false);
+    when(mockTableInputNode.getFieldNames()).thenReturn(tableFieldNames);
+
+    JoinInputNode mockStreamInputNode = mock(JoinInputNode.class);
+    when(mockStreamInputNode.getKeyIds()).thenReturn(streamKeyIds);
+    when(mockStreamInputNode.isPosOnRight()).thenReturn(true);
+    when(mockStreamInputNode.getFieldNames()).thenReturn(streamFieldNames);
+
+    SamzaSqlLocalTableJoinFunction joinFn =
+        new SamzaSqlLocalTableJoinFunction(mockStreamInputNode, mockTableInputNode, joinRelType);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, record);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),
@@ -92,8 +113,18 @@ public class TestSamzaSqlRelMessageJoinFunction {
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(2, 3);
 
-    SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames, tableKeyIds, tableFieldNames);
+    JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
+    when(mockTableInputNode.getKeyIds()).thenReturn(tableKeyIds);
+    when(mockTableInputNode.isPosOnRight()).thenReturn(true);
+    when(mockTableInputNode.getFieldNames()).thenReturn(tableFieldNames);
+
+    JoinInputNode mockStreamInputNode = mock(JoinInputNode.class);
+    when(mockStreamInputNode.getKeyIds()).thenReturn(streamKeyIds);
+    when(mockStreamInputNode.isPosOnRight()).thenReturn(false);
+    when(mockStreamInputNode.getFieldNames()).thenReturn(streamFieldNames);
+
+    SamzaSqlLocalTableJoinFunction joinFn =
+        new SamzaSqlLocalTableJoinFunction(mockStreamInputNode, mockTableInputNode, joinRelType);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, null);
     Assert.assertNull(outMsg);
   }
@@ -105,9 +136,18 @@ public class TestSamzaSqlRelMessageJoinFunction {
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(2, 3);
 
-    SamzaSqlRelMessageJoinFunction joinFn =
-        new SamzaSqlRelMessageJoinFunction(joinRelType, true, streamKeyIds, streamFieldNames,
-            tableKeyIds, tableFieldNames);
+    JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
+    when(mockTableInputNode.getKeyIds()).thenReturn(tableKeyIds);
+    when(mockTableInputNode.isPosOnRight()).thenReturn(true);
+    when(mockTableInputNode.getFieldNames()).thenReturn(tableFieldNames);
+
+    JoinInputNode mockStreamInputNode = mock(JoinInputNode.class);
+    when(mockStreamInputNode.getKeyIds()).thenReturn(streamKeyIds);
+    when(mockStreamInputNode.isPosOnRight()).thenReturn(false);
+    when(mockStreamInputNode.getFieldNames()).thenReturn(streamFieldNames);
+
+    SamzaSqlLocalTableJoinFunction joinFn =
+        new SamzaSqlLocalTableJoinFunction(mockStreamInputNode, mockTableInputNode, joinRelType);
     SamzaSqlRelMessage outMsg = joinFn.apply(streamMsg, null);
 
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues().size(),

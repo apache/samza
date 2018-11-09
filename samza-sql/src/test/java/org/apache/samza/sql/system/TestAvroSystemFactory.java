@@ -141,10 +141,10 @@ public class TestAvroSystemFactory implements SystemFactory {
     private final int numMessages;
     private final boolean includeNullForeignKeys;
     private final long sleepBetweenPollsMs;
-    private final Set<SystemStreamPartition> simpleRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> profileRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> companyRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> pageViewRecordMap = new HashSet<>();
+    private final Set<SystemStreamPartition> simpleRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> profileRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> companyRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> pageViewRecordSsps = new HashSet<>();
     private final Map<SystemStreamPartition, Integer> curMessagesPerSsp = new HashMap<>();
 
     public TestAvroSystemConsumer(String systemName, Config config) {
@@ -165,16 +165,16 @@ public class TestAvroSystemFactory implements SystemFactory {
     @Override
     public void register(SystemStreamPartition systemStreamPartition, String offset) {
       if (systemStreamPartition.getStream().toLowerCase().contains("simple1")) {
-        simpleRecordMap.add(systemStreamPartition);
+        simpleRecordSsps.add(systemStreamPartition);
       }
       if (systemStreamPartition.getStream().toLowerCase().contains("profile")) {
-        profileRecordMap.add(systemStreamPartition);
+        profileRecordSsps.add(systemStreamPartition);
       }
       if (systemStreamPartition.getStream().toLowerCase().contains("company")) {
-        companyRecordMap.add(systemStreamPartition);
+        companyRecordSsps.add(systemStreamPartition);
       }
       if (systemStreamPartition.getStream().toLowerCase().contains("pageview")) {
-        pageViewRecordMap.add(systemStreamPartition);
+        pageViewRecordSsps.add(systemStreamPartition);
       }
       curMessagesPerSsp.put(systemStreamPartition, 0);
     }
@@ -202,17 +202,20 @@ public class TestAvroSystemFactory implements SystemFactory {
     }
 
     private Object getKey(int index, SystemStreamPartition ssp) {
+      if (profileRecordSsps.contains(ssp) || companyRecordSsps.contains(ssp)) {
+        return index; // Keep this value the same as the profile/company record's "id" field.
+      }
       return "key" + index;
     }
 
     private Object getData(int index, SystemStreamPartition ssp) {
-      if (simpleRecordMap.contains(ssp)) {
+      if (simpleRecordSsps.contains(ssp)) {
         return createSimpleRecord(index);
-      } else if (profileRecordMap.contains(ssp)) {
+      } else if (profileRecordSsps.contains(ssp)) {
         return createProfileRecord(index);
-      } else if (companyRecordMap.contains(ssp)) {
+      } else if (companyRecordSsps.contains(ssp)) {
         return createCompanyRecord(index);
-      } else if (pageViewRecordMap.contains(ssp)) {
+      } else if (pageViewRecordSsps.contains(ssp)) {
         return createPageViewRecord(index);
       } else {
         return createComplexRecord(index);

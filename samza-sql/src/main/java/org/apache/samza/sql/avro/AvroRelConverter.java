@@ -145,7 +145,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
   }
 
-  private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
+  static public GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();
@@ -160,7 +160,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     return record;
   }
 
-  public Object convertToAvroObject(Object relObj, Schema schema) {
+  static public Object convertToAvroObject(Object relObj, Schema schema) {
     if (relObj == null) {
       return null;
     }
@@ -188,6 +188,19 @@ public class AvroRelConverter implements SamzaRelConverter {
       default:
         return relObj;
     }
+  }
+
+  // Two non-nullable types in a union is not yet supported.
+  static public Schema getNonNullUnionSchema(Schema schema) {
+    if (schema.getType().equals(Schema.Type.UNION)) {
+      if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
+        return schema.getTypes().get(0);
+      }
+      if (schema.getTypes().get(1).getType() != Schema.Type.NULL) {
+        return schema.getTypes().get(1);
+      }
+    }
+    return schema;
   }
 
   // Not doing any validations of data types with Avro schema considering the resource cost per message.
@@ -237,18 +250,5 @@ public class AvroRelConverter implements SamzaRelConverter {
       default:
         return avroObj;
     }
-  }
-
-  // Two non-nullable types in a union is not yet supported.
-  public Schema getNonNullUnionSchema(Schema schema) {
-    if (schema.getType().equals(Schema.Type.UNION)) {
-      if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(0);
-      }
-      if (schema.getTypes().get(1).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(1);
-      }
-    }
-    return schema;
   }
 }

@@ -29,6 +29,7 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.SystemStream;
 
@@ -39,6 +40,7 @@ import org.apache.samza.system.SystemStream;
 public class SqlIOConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
+  public static final String CFG_SAMZA_REL_TABLE_KEY_CONVERTER = "samzaRelTableKeyConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
 
   private final String systemName;
@@ -46,6 +48,7 @@ public class SqlIOConfig {
   private final String streamName;
 
   private final String samzaRelConverterName;
+  private final String samzaRelTableKeyConverterName;
   private final SystemStream systemStream;
 
   private final String source;
@@ -78,6 +81,14 @@ public class SqlIOConfig {
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
         String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+
+    if (isRemoteTable()) {
+      samzaRelTableKeyConverterName = streamConfigs.get(CFG_SAMZA_REL_TABLE_KEY_CONVERTER);
+      Validate.notEmpty(samzaRelTableKeyConverterName,
+          String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+    } else {
+      samzaRelTableKeyConverterName = "";
+    }
 
     relSchemaProviderName = streamConfigs.get(CFG_REL_SCHEMA_PROVIDER);
 
@@ -114,6 +125,10 @@ public class SqlIOConfig {
     return samzaRelConverterName;
   }
 
+  public String getSamzaRelTableKeyConverterName() {
+    return samzaRelTableKeyConverterName;
+  }
+
   public String getRelSchemaProviderName() {
     return relSchemaProviderName;
   }
@@ -132,5 +147,9 @@ public class SqlIOConfig {
 
   public Optional<TableDescriptor> getTableDescriptor() {
     return tableDescriptor;
+  }
+
+  public boolean isRemoteTable() {
+    return tableDescriptor.isPresent() && tableDescriptor.get() instanceof RemoteTableDescriptor;
   }
 }
