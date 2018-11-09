@@ -84,11 +84,11 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
     Assert.assertEquals("testavro", outputSystem);
-    Assert.assertEquals("outputTopic", outputPhysicalName);
+    Assert.assertEquals("testavro-outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
 
     Assert.assertEquals("testavro", inputSystem);
-    Assert.assertEquals("SIMPLE1", inputPhysicalName);
+    Assert.assertEquals("testavro-SIMPLE1", inputPhysicalName);
   }
 
   @Test
@@ -121,10 +121,10 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
     Assert.assertEquals("testavro", outputSystem);
-    Assert.assertEquals("outputTopic", outputPhysicalName);
+    Assert.assertEquals("testavro-outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
     Assert.assertEquals("testavro", inputSystem);
-    Assert.assertEquals("COMPLEX1", inputPhysicalName);
+    Assert.assertEquals("testavro-COMPLEX1", inputPhysicalName);
   }
 
   @Test
@@ -158,10 +158,10 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(1, specGraph.getOutputStreams().size());
     Assert.assertEquals("testavro", outputSystem);
-    Assert.assertEquals("outputTopic", outputPhysicalName);
+    Assert.assertEquals("testavro-outputTopic", outputPhysicalName);
     Assert.assertEquals(1, specGraph.getInputOperators().size());
     Assert.assertEquals("testavro", inputSystem);
-    Assert.assertEquals("COMPLEX1", inputPhysicalName);
+    Assert.assertEquals("testavro-COMPLEX1", inputPhysicalName);
   }
 
   @Test (expected = SamzaException.class)
@@ -512,13 +512,13 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", output2System);
     Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_stream_1", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
-    Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
+    Assert.assertEquals("testavro-enrichedPageViewTopic", output3PhysicalName);
 
     Assert.assertEquals(4, specGraph.getInputOperators().size());
     Assert.assertEquals("testavro", input1System);
-    Assert.assertEquals("PAGEVIEW", input1PhysicalName);
+    Assert.assertEquals("testavro-PAGEVIEW", input1PhysicalName);
     Assert.assertEquals("testavro", input2System);
-    Assert.assertEquals("PROFILE", input2PhysicalName);
+    Assert.assertEquals("testavro-PROFILE", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
@@ -580,13 +580,13 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", output2System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
-    Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
+    Assert.assertEquals("testavro-enrichedPageViewTopic", output3PhysicalName);
 
     Assert.assertEquals(4, specGraph.getInputOperators().size());
     Assert.assertEquals("testavro", input1System);
-    Assert.assertEquals("PAGEVIEW", input1PhysicalName);
+    Assert.assertEquals("testavro-PAGEVIEW", input1PhysicalName);
     Assert.assertEquals("testavro", input2System);
-    Assert.assertEquals("PROFILE", input2PhysicalName);
+    Assert.assertEquals("testavro-PROFILE", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
@@ -647,13 +647,13 @@ public class TestQueryTranslator {
     Assert.assertEquals("kafka", output2System);
     Assert.assertEquals("sql-job-1-partition_by-stream_1", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
-    Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
+    Assert.assertEquals("testavro-enrichedPageViewTopic", output3PhysicalName);
 
     Assert.assertEquals(4, specGraph.getInputOperators().size());
     Assert.assertEquals("testavro", input1System);
-    Assert.assertEquals("PROFILE", input1PhysicalName);
+    Assert.assertEquals("testavro-PROFILE", input1PhysicalName);
     Assert.assertEquals("testavro", input2System);
-    Assert.assertEquals("PAGEVIEW", input2PhysicalName);
+    Assert.assertEquals("testavro-PAGEVIEW", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
     Assert.assertEquals("sql-job-1-partition_by-table_1", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);

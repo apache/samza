@@ -45,7 +45,7 @@ public class SqlIOConfig {
 
   private final String systemName;
 
-  private final String streamName;
+  private final String streamId;
 
   private final String samzaRelConverterName;
   private final String samzaRelTableKeyConverterName;
@@ -72,7 +72,7 @@ public class SqlIOConfig {
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
     this.systemName = systemName;
-    this.streamName = streamName;
+    this.streamId = String.format("%s-%s", systemName, streamName);
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
@@ -98,8 +98,8 @@ public class SqlIOConfig {
 
     // Currently, only local table is supported. And it is assumed that all tables are local tables.
     if (tableDescriptor != null) {
-      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamName), "true");
-      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamName), "oldest");
+      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
+      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
     }
 
     config = new MapConfig(streamConfigs);
@@ -117,8 +117,8 @@ public class SqlIOConfig {
     return systemName;
   }
 
-  public String getStreamName() {
-    return streamName;
+  public String getStreamId() {
+    return streamId;
   }
 
   public String getSamzaRelConverterName() {
