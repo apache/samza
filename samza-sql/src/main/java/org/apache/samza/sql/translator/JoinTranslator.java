@@ -92,7 +92,8 @@ class JoinTranslator {
     // At this point, one of the sides is a table. Let's figure out if it is on left or right side.
     boolean isTablePosOnRight = (inputTypeOnRight != JoinInputNode.InputType.STREAM);
 
-    // stream and table keyIds are used to extract the key names and key values out of the stream and table records.
+    // stream and table keyIds are used to extract the join condition field (key) names and values out of the stream
+    // and table records.
     List<Integer> streamKeyIds = new LinkedList<>();
     List<Integer> tableKeyIds = new LinkedList<>();
 
