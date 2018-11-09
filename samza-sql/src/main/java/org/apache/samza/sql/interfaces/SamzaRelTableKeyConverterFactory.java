@@ -32,9 +32,8 @@ public interface SamzaRelTableKeyConverterFactory {
    * Create a {@link SamzaRelTableKeyConverter}. This method is called when the framework wants to create the
    * {@link SamzaRelTableKeyConverter} corresponding to the system.
    * @param systemStream the systemStream to create a key converter for
-   * @param relSchemaProvider the relational schema provider, if there is one
    * @param config config that is used to create the object
    * @return the object created.
    */
-  SamzaRelTableKeyConverter create(SystemStream systemStream, RelSchemaProvider relSchemaProvider, Config config);
+  SamzaRelTableKeyConverter create(SystemStream systemStream, Config config);
 }

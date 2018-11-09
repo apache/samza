@@ -144,8 +144,7 @@ public class SamzaSqlApplicationConfig {
         .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
                 staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
-                (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(),
-                    relSchemaProvidersBySource.get(x.getSource()), c))));
+                (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(), c))));
 
     udfResolver = createUdfResolver(staticConfig);
     udfMetadata = udfResolver.getUdfs();

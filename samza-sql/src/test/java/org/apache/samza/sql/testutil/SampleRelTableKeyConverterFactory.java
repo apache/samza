@@ -35,8 +35,7 @@ public class SampleRelTableKeyConverterFactory implements SamzaRelTableKeyConver
   private final HashMap<SystemStream, SamzaRelTableKeyConverter> relConverters = new HashMap<>();
 
   @Override
-  public SamzaRelTableKeyConverter create(SystemStream systemStream, RelSchemaProvider schemaProvider, Config config) {
-    return relConverters.computeIfAbsent(systemStream,
-        ss -> new SampleRelTableKeyConverter());
+  public SamzaRelTableKeyConverter create(SystemStream systemStream, Config config) {
+    return relConverters.computeIfAbsent(systemStream, ss -> new SampleRelTableKeyConverter());
   }
 }
