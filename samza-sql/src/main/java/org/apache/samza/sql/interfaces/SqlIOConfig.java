@@ -60,19 +60,20 @@ public class SqlIOConfig {
 
   private final Optional<TableDescriptor> tableDescriptor;
 
-  public SqlIOConfig(String systemName, String streamName, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, null);
+  public SqlIOConfig(String systemName, String streamName, boolean isSink, Config systemConfig) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), isSink, systemConfig, null);
   }
 
-  public SqlIOConfig(String systemName, String streamName, Config systemConfig, TableDescriptor tableDescriptor) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, tableDescriptor);
+  public SqlIOConfig(String systemName, String streamName, boolean isSink, Config systemConfig,
+      TableDescriptor tableDescriptor) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), isSink, systemConfig, tableDescriptor);
   }
 
-  public SqlIOConfig(String systemName, String streamName, List<String> sourceParts,
+  public SqlIOConfig(String systemName, String streamName, List<String> sourceParts, boolean isSink,
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
     this.systemName = systemName;
-    this.streamId = String.format("%s-%s", systemName, streamName);
+    this.streamId = String.format("%s-%s-%s", systemName, streamName, isSink ? "sink" : "source");
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);

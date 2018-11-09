@@ -130,7 +130,6 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(new ArrayList<>(outMessagesSet)));
   }
 
-  @Ignore
   @Test
   public void testEndToEndMultiSqlStmtsWithSameSystemStreamAsInputAndOutput() {
     int numMessages = 20;
