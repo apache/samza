@@ -154,7 +154,7 @@ class KafkaSystemAdmin(
   /**
    * Whether deleteMessages() API can be used
    */
-  deleteCommittedMessages: Boolean = false) extends ExtendedSystemAdmin with Logging {
+  deleteCommittedMessages: Boolean = false) extends SystemAdmin with Logging {
 
   import KafkaSystemAdmin._
 
@@ -300,70 +300,6 @@ class KafkaSystemAdmin(
         debug("Exception detail:", exception)
         metadataTTL = 5000 // Revert to the default cache expiration
       }).getOrElse(throw new SamzaException("Failed to get system stream metadata"))
-  }
-
-  /**
-   * Returns the newest offset for the specified SSP.
-   * This method is fast and targeted. It minimizes the number of kafka requests.
-   * It does not retry indefinitely if there is any failure.
-   * It returns null if the topic is empty. To get the offsets for *all*
-   * partitions, it would be more efficient to call getSystemStreamMetadata
-   */
-  override def getNewestOffset(ssp: SystemStreamPartition, maxRetries: Integer) = {
-    debug("Fetching newest offset for: %s" format ssp)
-    var offset: String = null
-    var metadataTTL = Long.MaxValue // Trust the cache until we get an exception
-    var retries = maxRetries
-    new ExponentialSleepStrategy().run(
-      loop => {
-        val metadata = TopicMetadataCache.getTopicMetadata(
-          Set(ssp.getStream),
-          systemName,
-          getTopicMetadata,
-          metadataTTL)
-        debug("Got metadata for streams: %s" format metadata)
-
-        val brokersToTopicPartitions = getTopicsAndPartitionsByBroker(metadata)
-        val topicAndPartition = new TopicAndPartition(ssp.getStream, ssp.getPartition.getPartitionId)
-        val broker = brokersToTopicPartitions.filter((e) => e._2.contains(topicAndPartition)).head._1
-
-        // Get oldest, newest, and upcoming offsets for each topic and partition.
-        debug("Fetching offset for %s:%s: %s" format (broker.host, broker.port, topicAndPartition))
-        val consumer = new SimpleConsumer(broker.host, broker.port, timeout, bufferSize, clientId)
-        try {
-          offset = getOffsets(consumer, Set(topicAndPartition), OffsetRequest.LatestTime).head._2
-
-          // Kafka's "latest" offset is always last message in stream's offset +
-          // 1, so get newest message in stream by subtracting one. this is safe
-          // even for key-deduplicated streams, since the last message will
-          // never be deduplicated.
-          if (offset.toLong <= 0) {
-            debug("Stripping newest offsets for %s because the topic appears empty." format topicAndPartition)
-            offset = null
-          } else {
-            offset = (offset.toLong - 1).toString
-          }
-        } finally {
-          consumer.close
-        }
-
-        debug("Got offset %s for %s." format(offset, ssp))
-        loop.done
-      },
-
-      (exception, loop) => {
-        if (retries > 0) {
-          warn("Exception while trying to get offset for %s: %s. Retrying." format(ssp, exception))
-          metadataTTL = 0L // Force metadata refresh
-          retries -= 1
-        } else {
-          warn("Exception while trying to get offset for %s" format(ssp), exception)
-          loop.done
-          throw exception
-        }
-      })
-
-     offset
   }
 
   /**

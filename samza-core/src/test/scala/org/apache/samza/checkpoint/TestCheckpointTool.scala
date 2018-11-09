@@ -82,7 +82,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     ).asJava)
     TestCheckpointTool.checkpointManager = mock[CheckpointManager]
     TestCheckpointTool.systemAdmin = mock[SystemAdmin]
-    when(TestCheckpointTool.systemAdmin.getSystemStreamMetadata(Set("foo").asJava))
+    when(TestCheckpointTool.systemAdmin.getSystemStreamPartitionCounts(Set("foo").asJava, 0))
       .thenReturn(Map("foo" -> metadata).asJava)
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
       .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))

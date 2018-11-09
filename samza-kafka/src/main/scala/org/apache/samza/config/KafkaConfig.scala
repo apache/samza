@@ -303,24 +303,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     properties
   }
 
-  /**
-    * @deprecated Use KafkaConsumerConfig
-    */
-  @Deprecated
-  def getKafkaSystemConsumerConfig( systemName: String,
-                                    clientId: String,
-                                    groupId: String = "undefined-samza-consumer-group-%s" format UUID.randomUUID.toString,
-                                    injectedProps: Map[String, String] = Map()) = {
-
-    val subConf = config.subset("systems.%s.consumer." format systemName, true)
-    val consumerProps = new Properties()
-    consumerProps.putAll(subConf)
-    consumerProps.put("group.id", groupId)
-    consumerProps.put("client.id", clientId)
-    consumerProps.putAll(injectedProps.asJava)
-    new ConsumerConfig(consumerProps)
-  }
-
   def getKafkaSystemProducerConfig( systemName: String,
                                     clientId: String,
                                     injectedProps: Map[String, String] = Map()) = {

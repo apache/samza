@@ -18,26 +18,31 @@
  */
 package org.apache.samza.application;
 
+import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.descriptors.StreamDescriptor;
+import org.apache.samza.system.descriptors.SystemDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.task.AsyncStreamTask;
+import org.apache.samza.task.StreamTask;
+import org.apache.samza.task.TaskFactory;
 
 
 /**
- * A {@link TaskApplication} describes the inputs, outputs, state, configuration and the processing logic
- * in Samza's Low Level API.
+ * A {@link TaskApplication} describes the inputs, outputs, state, configuration and the processing logic for the
+ * application in Samza's Low Level API.
+ * <p>
  * A typical {@link TaskApplication} implementation consists of the following stages:
  * <ol>
  *   <li>Configuring the inputs, outputs and state (tables) using the appropriate
- *   {@link org.apache.samza.system.descriptors.SystemDescriptor}s,
- *   {@link org.apache.samza.system.descriptors.StreamDescriptor}s and
- *   {@link org.apache.samza.table.descriptors.TableDescriptor}s
+ *       {@link SystemDescriptor}s, {@link StreamDescriptor}s and {@link TableDescriptor}s
  *   <li>Adding these descriptors to the provided {@link TaskApplicationDescriptor}.
- *   <li>Defining the processing logic by implementing a {@link org.apache.samza.task.StreamTask} or
- *   {@link org.apache.samza.task.AsyncStreamTask} that operates on each
- *   {@link org.apache.samza.system.IncomingMessageEnvelope} one at a time.
- *   <li>Setting a {@link org.apache.samza.task.TaskFactory} using
- *   {@link TaskApplicationDescriptor#withTaskFactory(org.apache.samza.task.TaskFactory)} that creates instances of the
- *   task above. The {@link org.apache.samza.task.TaskFactory} implementation must be {@link java.io.Serializable}.
+ *   <li>Defining the processing logic by implementing a {@link StreamTask} or {@link AsyncStreamTask} that operates
+ *       on each {@link IncomingMessageEnvelope} one at a time.
+ *   <li>Setting a {@link TaskFactory} using {@link TaskApplicationDescriptor#withTaskFactory} that creates
+ *       instances of the task above. The {@link TaskFactory} implementation must be {@link Serializable}.
  * </ol>
  * <p>
  * The following example {@link TaskApplication} removes page views older than 1 hour from the input stream:

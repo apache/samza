@@ -144,4 +144,16 @@ public interface SystemAdmin {
 
   }
 
+  /**
+   * Get partitions counts only. Should be more efficient then getSystemStreamMetadata, but if not implemented
+   * revert to getSystemStreamMetadata.
+   * @param streamNames set of streams to query.
+   * @param cacheTTL cacheTTL to use if caching the values.
+   * @return A map from stream name to SystemStreamMetadata for each stream
+   *        requested in the parameter set.
+   */
+  default Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
+    return getSystemStreamMetadata(streamNames);
+  }
+
 }

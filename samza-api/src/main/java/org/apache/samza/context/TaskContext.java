@@ -24,6 +24,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 
 
@@ -64,9 +66,8 @@ public interface TaskContext {
    * Gets the {@link Table} corresponding to the {@code tableId} for this task.
    *
    * The returned table should be cast with the concrete type parameters based on the configured table serdes, and
-   * whether it is {@link org.apache.samza.table.ReadWriteTable} or {@link org.apache.samza.table.ReadableTable}.
-   * E.g., if using string key and integer value serde for a writable table, it should be cast to a
-   * {@code ReadWriteTable<String, Integer>}.
+   * whether it is {@link ReadWriteTable} or {@link ReadableTable}. E.g., if using string key and integer value
+   * serde for a writable table, it should be cast to a {@code ReadWriteTable<String, Integer>}.
    *
    * @param tableId id of the {@link Table} to get
    * @return the {@link Table} associated with {@code tableId} for this task
@@ -91,8 +92,8 @@ public interface TaskContext {
    *
    * NOTE: this feature is experimental, and the API may change in a future release.
    *
-   * @param systemStreamPartition {@link org.apache.samza.system.SystemStreamPartition} whose offset should be set
-   * @param offset to set for the given {@link org.apache.samza.system.SystemStreamPartition}
+   * @param systemStreamPartition {@link SystemStreamPartition} whose offset should be set
+   * @param offset to set for the given {@link SystemStreamPartition}
    */
   @InterfaceStability.Evolving
   void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset);
