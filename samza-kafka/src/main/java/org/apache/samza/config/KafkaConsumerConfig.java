@@ -86,6 +86,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
     // Translate samza config value to kafka config value
     String autoOffsetReset = getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), systemOffsetDefault);
+    LOG.info("setting auto.offset.reset for system {} to {}", systemName, autoOffsetReset);
     consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
 
     // if consumer bootstrap servers are not configured, get them from the producer configs
@@ -203,10 +204,10 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
           LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, KAFKA_OFFSET_EARLIEST);
           break;
         default:
-          throw new SamzaException("Using invalid value for kafka consumer config auto.offset.reset " + autoOffsetReset + ". See samza config for the correct values.");
+          throw new SamzaException("Using invalid value for kafka consumer config auto.offset.reset " + autoOffsetReset + ". See KafkaConsumer config for the correct values.");
       }
 
-      LOG.info("AutoOffsetReset value converted from {} to {}", autoOffsetReset, newAutoOffsetReset);
+      LOG.info("Auto offset reset value converted from {} to {}", autoOffsetReset, newAutoOffsetReset);
       return newAutoOffsetReset;
     }
 
@@ -223,7 +224,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
         default:
           throw new SamzaException("Using invalid value for samza default offset config " + autoOffsetReset + ". See samza config for the correct values");
       }
-      LOG.info("AutoOffsetReset value for converted from samza's {} to {}", samzaOffsetDefault, newAutoOffsetReset);
+      LOG.info("Auto offset reset value for KafkaConsumer for system {} converted from {}(samza) to {}", samzaOffsetDefault, newAutoOffsetReset);
     }
 
     return newAutoOffsetReset;
