@@ -68,7 +68,7 @@ Below are some of the sql queries that you can execute using the samza-sql-conso
 
 # Running Samza SQL on YARN
 
-The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the low level task API, high level API as well as Samza SQL.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the Low Level  Task API, High Level Streams API as well as Samza SQL.
 
 This tutorial demonstrates a simple Samza application that uses SQL to perform stream processing.
 
