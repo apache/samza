@@ -36,7 +36,7 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.table.remote.descriptors.RemoteTableDescriptor;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 
 
 /**
