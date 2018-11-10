@@ -196,11 +196,11 @@ public class GroupByContainerIds implements TaskNameGrouper {
   /**
    * Converts the {@link TaskGroup} list to a set of ContainerModel.
    *
-   * @param tasks             the TaskModels to assign to the ContainerModels.
-   * @param containerTasks    the TaskGroups defining how the tasks should be grouped.
-   * @return                  a mutable set of ContainerModels.
+   * @param tasks         the TaskModels to assign to the ContainerModels.
+   * @param taskGroups    the TaskGroups defining how the tasks should be grouped.
+   * @return              a set of ContainerModels.
    */
-  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, Collection<TaskGroup> containerTasks) {
+  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, Collection<TaskGroup> taskGroups) {
     // Map task names to models
     Map<String, TaskModel> taskNameToModel = new HashMap<>();
     for (TaskModel model : tasks) {
@@ -209,15 +209,15 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
     // Build container models
     Set<ContainerModel> containerModels = new HashSet<>();
-    for (TaskGroup container : containerTasks) {
+    for (TaskGroup container : taskGroups) {
       Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
       for (String taskName : container.taskNames) {
         TaskModel model = taskNameToModel.get(taskName);
         containerTaskModels.put(model.getTaskName(), model);
       }
-      containerModels.add(
-              new ContainerModel(container.containerId, containerTaskModels));
+      containerModels.add(new ContainerModel(container.containerId, containerTaskModels));
     }
+
     return Collections.unmodifiableSet(containerModels);
   }
 }

@@ -116,8 +116,6 @@ object JobModelManager extends Logging {
     for ((taskName, processorId) <- taskAssignment) {
       if (processorLocality.containsKey(processorId)) {
         taskLocality.put(new TaskName(taskName), processorLocality.get(processorId))
-      } else {
-        taskLocality.put(new TaskName(taskName), new LocationId("ANY_HOST"))
       }
     }
     val grouperContext = new GrouperContext(processorLocality, taskLocality, new util.HashMap[TaskName, util.List[SystemStreamPartition]](), taskNameToProcessorId)
