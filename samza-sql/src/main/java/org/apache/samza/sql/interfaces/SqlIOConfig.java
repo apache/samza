@@ -96,10 +96,12 @@ public class SqlIOConfig {
     streamConfigs.remove(CFG_SAMZA_REL_CONVERTER);
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
 
-    streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
+    if (!isRemoteTable()) {
+      streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
+    }
 
-    // Currently, only local table is supported. And it is assumed that all tables are local tables.
-    if (tableDescriptor != null) {
+    if (tableDescriptor != null && !isRemoteTable()) {
+      // For local table, set the bootstrap config and default offset to oldest
       streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
       streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
     }
