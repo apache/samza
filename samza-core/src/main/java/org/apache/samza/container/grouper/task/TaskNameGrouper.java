@@ -45,27 +45,34 @@ import java.util.Set;
 public interface TaskNameGrouper {
 
   /**
-   * Groups the tasks into containers.
+   * Groups the taskModels into set of {@link ContainerModel} using the provided grouperContext.
    *
-   * @param taskModels represents the set of tasks to group into containers.
-   * @param grouperContext represents the existing task metadata of the job.
-   * @return a set of containers, which contain the tasks that were passed in.
+   * @param taskModels the set of tasks to group into containers.
+   * @param grouperContext the existing historical metadata of the samza job.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
    */
   default Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperContext grouperContext) {
     return group(taskModels);
   }
 
   /**
-   * Group tasks into the containers they will share.
+   * Group the taskModels into set of {@link ContainerModel}.
    *
-   * @param tasks Set of tasks to group into containers.
-   * @return Set of containers, which contain the tasks that were passed in.
+   * @param taskModels the set of {@link TaskModel} to group into containers.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
    */
   @Deprecated
-  Set<ContainerModel> group(Set<TaskModel> tasks);
+  Set<ContainerModel> group(Set<TaskModel> taskModels);
 
+  /**
+   * Group the taskModels into set of {@link ContainerModel}.
+   *
+   * @param taskModels the set of {@link TaskModel} to group into containers.
+   * @param containersIds the list of container ids that has to be used in the {@link ContainerModel}.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
+   */
   @Deprecated
-  default Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
-    return group(tasks);
+  default Set<ContainerModel> group(Set<TaskModel> taskModels, List<String> containersIds) {
+    return group(taskModels);
   }
 }

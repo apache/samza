@@ -55,7 +55,6 @@ import scala.collection.JavaConversions._
  */
 object JobModelManager extends Logging {
 
-  val SOURCE = "JobModelManager"
   /**
    * a volatile value to store the current instantiated <code>JobModelManager</code>
    */
@@ -63,14 +62,14 @@ object JobModelManager extends Logging {
   val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
 
   /**
-   * Does the following actions for a job.
+   * Does the following:
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes the changelog partition mapping based on jobModel and job's configuration.
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
    * @param config config from the coordinator stream.
    * @param changelogPartitionMapping changelog partition-to-task mapping of the samza job.
-   * @param metricsRegistry metrics registry for reporting custom metrics.
-   * @return the built JobModelManager.
+   * @param metricsRegistry the registry for reporting metrics.
+   * @return the instantiated {@see JobModelManager}.
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
     val localityManager = new LocalityManager(config, metricsRegistry)
@@ -103,7 +102,7 @@ object JobModelManager extends Logging {
     * @param config represents the configurations defined by the user.
     * @param localityManager provides the processor to host mapping persisted to the metadata store.
     * @param taskAssignmentManager provides the processor to task assignments persisted to the metadata store.
-    * @return the built grouper context.
+    * @return the instantiated {@see GrouperContext}.
     */
   private def getGrouperContext(config: Config, localityManager: LocalityManager, taskAssignmentManager: TaskAssignmentManager) = {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
@@ -150,6 +149,7 @@ object JobModelManager extends Logging {
   }
 
   /**
+    * This method does the following:
     * 1. Deletes the existing task assignments if the partition-task grouping has changed from the previous run of the job.
     * 2. Saves the newly generated task assignments to the storage layer through the {@param TaskAssignementManager}.
     *
@@ -185,9 +185,12 @@ object JobModelManager extends Logging {
   }
 
   /**
-   * For each input stream specified in config, exactly determine its
-   * partitions, returning a set of SystemStreamPartitions containing them all.
-   */
+    * Computes the input system stream partitions of a samza job using the provided {@param config}
+    * and {@param streamMetadataCache}.
+    * @param config the configuration of the job.
+    * @param streamMetadataCache to query the partition metadata of the input streams.
+    * @return the input {@see SystemStreamPartition} of the samza job.
+    */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
     val inputSystemStreams = config.getInputStreams
 
@@ -206,7 +209,7 @@ object JobModelManager extends Logging {
 
   /**
     * Builds the input {@see SystemStreamPartition} based upon the {@param config} defined by the user.
-    * @param config configuration required to fetch the metadata of the input streams.
+    * @param config configuration to fetch the metadata of the input streams.
     * @param streamMetadataCache required to query the partition metadata of the input streams.
     * @return the input SystemStreamPartitions of the job.
     */
@@ -230,8 +233,11 @@ object JobModelManager extends Logging {
   }
 
   /**
-   * Gets a SystemStreamPartitionGrouper object from the configuration.
-   */
+    * Finds the {@see SystemStreamPartitionGrouperFactory} from the {@param config}. Instantiates the  {@see SystemStreamPartitionGrouper}
+    * object through the factory.
+    * @param config the configuration of the samza job.
+    * @return the instantiated {@see SystemStreamPartitionGrouper}.
+    */
   private def getSystemStreamPartitionGrouper(config: Config) = {
     val factoryString = config.getSystemStreamPartitionGrouperFactory
     val factory = Util.getObj(factoryString, classOf[SystemStreamPartitionGrouperFactory])
@@ -240,6 +246,7 @@ object JobModelManager extends Logging {
 
 
   /**
+    * Does the following:
     * 1. Fetches metadata of the input streams defined in configuration through {@param streamMetadataCache}.
     * 2. Applies the {@see SystemStreamPartitionGrouper}, {@see TaskNameGrouper} defined in the configuration
     * to build the {@see JobModel}.

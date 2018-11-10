@@ -56,6 +56,9 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     this.containerCount = containerCount;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
     validateTasks(tasks);
@@ -83,6 +86,9 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     return Collections.unmodifiableSet(containerModels);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks, GrouperContext grouperContext) {
     validateTasks(tasks);
@@ -130,7 +136,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * Reads the task-container mapping from the provided {@link GrouperContext} and returns a
    * list of TaskGroups, ordered ascending by containerId.
    *
-   * @param grouperContext  will be used to retrieve the previous task to container assignments.
+   * @param grouperContext  the {@link GrouperContext} will be used to retrieve the previous task to container assignments.
    * @param taskCount       the number of tasks, for validation against the persisted tasks.
    * @return                a list of TaskGroups, ordered ascending by containerId or {@code null}
    *                        if the previous mapping doesn't exist or isn't usable.

@@ -129,7 +129,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
     Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
     if (MapUtils.isEmpty(grouperContext.getProcessorLocality())) {
-      LOG.info("ProcessorLocality has size: {}. Generating with the default group method.", grouperContext.getProcessorLocality().size());
+      LOG.info("ProcessorLocality is empty. Generating with the default group method.");
       return group(taskModels, new ArrayList<>());
     }
 
@@ -194,8 +194,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
 
   /**
-   * Translates the list of TaskGroup instances to a set of ContainerModel instances, using the
-   * set of TaskModel instances.
+   * Converts the {@link TaskGroup} list to a set of ContainerModel.
    *
    * @param tasks             the TaskModels to assign to the ContainerModels.
    * @param containerTasks    the TaskGroups defining how the tasks should be grouped.
