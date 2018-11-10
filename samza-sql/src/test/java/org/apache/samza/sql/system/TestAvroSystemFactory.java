@@ -230,7 +230,6 @@ public class TestAvroSystemFactory implements SystemFactory {
       } else if (pageViewRecordSsps.contains(ssp)) {
         return createPageViewRecord(index);
       } else {
-        // Assert.assertTrue(ssp.getStream().toLowerCase().equals("complex1"));
         return createComplexRecord(index);
       }
     }
