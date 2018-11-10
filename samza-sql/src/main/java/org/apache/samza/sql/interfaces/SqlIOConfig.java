@@ -60,20 +60,19 @@ public class SqlIOConfig {
 
   private final Optional<TableDescriptor> tableDescriptor;
 
-  public SqlIOConfig(String systemName, String streamName, boolean isSink, Config systemConfig) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), isSink, systemConfig, null);
+  public SqlIOConfig(String systemName, String streamName, Config systemConfig) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, null);
   }
 
-  public SqlIOConfig(String systemName, String streamName, boolean isSink, Config systemConfig,
-      TableDescriptor tableDescriptor) {
-    this(systemName, streamName, Arrays.asList(systemName, streamName), isSink, systemConfig, tableDescriptor);
+  public SqlIOConfig(String systemName, String streamName, Config systemConfig, TableDescriptor tableDescriptor) {
+    this(systemName, streamName, Arrays.asList(systemName, streamName), systemConfig, tableDescriptor);
   }
 
-  public SqlIOConfig(String systemName, String streamName, List<String> sourceParts, boolean isSink,
+  public SqlIOConfig(String systemName, String streamName, List<String> sourceParts,
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
     this.systemName = systemName;
-    this.streamId = String.format("%s-%s-%s", systemName, streamName, isSink ? "sink" : "source");
+    this.streamId = String.format("%s-%s", systemName, streamName);
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
@@ -96,6 +95,8 @@ public class SqlIOConfig {
     // Removing the Samza SQL specific configs to get the remaining Samza configs.
     streamConfigs.remove(CFG_SAMZA_REL_CONVERTER);
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
+
+    streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
 
     // Currently, only local table is supported. And it is assumed that all tables are local tables.
     if (tableDescriptor != null) {

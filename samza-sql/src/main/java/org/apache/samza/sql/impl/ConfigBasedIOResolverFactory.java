@@ -116,7 +116,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
             .withChangelogEnabled();
       }
 
-      return new SqlIOConfig(systemName, streamName, isSink, fetchSystemConfigs(systemName), tableDescriptor);
+      return new SqlIOConfig(systemName, streamName, fetchSystemConfigs(systemName), tableDescriptor);
     }
 
     @Override

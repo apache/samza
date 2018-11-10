@@ -131,7 +131,7 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
 
       Config systemConfigs = config.subset(sourceComponents[systemIdx] + ".");
       return new SqlIOConfig(sourceComponents[systemIdx], sourceComponents[streamIdx],
-          Arrays.asList(sourceComponents), isSink, systemConfigs, tableDescriptor);
+          Arrays.asList(sourceComponents), systemConfigs, tableDescriptor);
     }
 
     @Override
