@@ -43,8 +43,6 @@ public class SqlIOConfig {
   public static final String CFG_SAMZA_REL_TABLE_KEY_CONVERTER = "samzaRelTableKeyConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
 
-  private final String systemName;
-
   private final String streamId;
 
   private final String samzaRelConverterName;
@@ -71,12 +69,15 @@ public class SqlIOConfig {
   public SqlIOConfig(String systemName, String streamName, List<String> sourceParts,
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
-    this.systemName = systemName;
-    this.streamId = String.format("%s-%s", systemName, streamName);
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
     this.tableDescriptor = Optional.ofNullable(tableDescriptor);
+
+    // Remote table has no backing stream associated with it and hence streamId does not make sense. But let's keep it
+    // for uniformity. Remote table has table descriptor defined.
+    // Local table has both backing stream and a tableDescriptor defined.
+    this.streamId = String.format("%s-%s", systemName, streamName);
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
@@ -97,6 +98,7 @@ public class SqlIOConfig {
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
 
     if (!isRemoteTable()) {
+      // The below config is required for local table and streams but not for remote table.
       streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
     }
 
@@ -118,7 +120,7 @@ public class SqlIOConfig {
   }
 
   public String getSystemName() {
-    return systemName;
+    return systemStream.getSystem();
   }
 
   public String getStreamId() {
