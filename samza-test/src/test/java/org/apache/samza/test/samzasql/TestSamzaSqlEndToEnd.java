@@ -141,6 +141,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
     String sql1 = "Insert into testavro.SIMPLE1 select * from testavro.SIMPLE2";
     String sql2 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1, sql2);
+
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
     runner.runAndWaitForFinish();
