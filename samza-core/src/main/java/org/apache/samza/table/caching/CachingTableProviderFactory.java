@@ -16,21 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table.descriptors;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.caching;
+
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 
-
 /**
- * Factory of a table provider object
+ * Table provider factory for {@link org.apache.samza.table.caching.CachingTable}.
  */
-@InterfaceStability.Unstable
-public interface TableProviderFactory {
-  /**
-   * Constructs an instances of the table provider based on a given table spec
-   * @param tableSpec the table spec
-   * @return the table provider
-   */
-  TableProvider getTableProvider(TableSpec tableSpec);
+public class CachingTableProviderFactory implements TableProviderFactory {
+  @Override
+  public TableProvider getTableProvider(TableSpec tableSpec) {
+    return new CachingTableProvider(tableSpec);
+  }
 }

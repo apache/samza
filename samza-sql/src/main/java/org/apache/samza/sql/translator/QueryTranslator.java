@@ -104,15 +104,13 @@ public class QueryTranslator {
    * For unit testing only
    */
   @VisibleForTesting
-  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc) {
+  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc, int queryId) {
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getSystemStreamConfigsBySource(),
             sqlConfig.getUdfMetadata());
     final RelRoot relRoot = planner.plan(queryInfo.getSql());
-    int queryId = 1;
     SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
-    Map<String, SamzaRelConverter> converters = sqlConfig.getSamzaRelConverters();
-    TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext, converters);
+    TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext);
     translate(relRoot, translatorContext, queryId);
     Map<Integer, TranslatorContext> translatorContexts = new HashMap<>();
     translatorContexts.put(queryId, translatorContext.clone());
@@ -124,7 +122,6 @@ public class QueryTranslator {
   }
 
   public void translate(RelRoot relRoot, TranslatorContext translatorContext, int queryId) {
-    final SqlIOResolver ioResolver = translatorContext.getExecutionContext().getSamzaSqlApplicationConfig().getIoResolver();
     final RelNode node = relRoot.project();
     ScanTranslator scanTranslator =
         new ScanTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getInputSystemStreamConfigBySource(), queryId);
@@ -177,7 +174,7 @@ public class QueryTranslator {
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
         joinId++;
-        new JoinTranslator(joinId, ioResolver, sqlConfig.getMetadataTopicPrefix())
+        new JoinTranslator(joinId, sqlConfig.getMetadataTopicPrefix(), queryId)
             .translate(join, translatorContext);
         return node;
       }
@@ -212,7 +209,7 @@ public class QueryTranslator {
       String systemName = sinkConfig.getSystemName();
       DelegatingSystemDescriptor
           sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
-      GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamName(), noOpKVSerde);
+      GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamId(), noOpKVSerde);
       if (OutputMapFunction.logOutputStream == null) {
         OutputMapFunction.logOutputStream = appDesc.getOutputStream(osd);
       }

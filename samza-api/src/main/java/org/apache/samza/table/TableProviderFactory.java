@@ -16,33 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.table.descriptors;
+package org.apache.samza.table;
 
-import java.util.List;
+import org.apache.samza.annotation.InterfaceStability;
+
 
 /**
- * Base class for hybrid table descriptors. A hybrid table consists of one or more
- * table descriptors, and it orchestrates operations between them to achieve more advanced
- * functionality.
- *
- * @param <K> the type of the key
- * @param <V> the type of the value
- * @param <D> the type of this table descriptor
+ * Factory of a table provider object
  */
-abstract public class BaseHybridTableDescriptor<K, V, D extends BaseHybridTableDescriptor<K, V, D>>
-    extends BaseTableDescriptor<K, V, D> {
-
+@InterfaceStability.Unstable
+public interface TableProviderFactory {
   /**
-   * {@inheritDoc}
+   * Constructs an instances of the table provider based on a given table spec
+   * @param tableSpec the table spec
+   * @return the table provider
    */
-  public BaseHybridTableDescriptor(String tableId) {
-    super(tableId);
-  }
-
-  /**
-   * Get tables contained within this table.
-   * @return list of tables
-   */
-  abstract public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors();
-
+  TableProvider getTableProvider(TableSpec tableSpec);
 }

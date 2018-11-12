@@ -32,7 +32,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.RemoteTableProvider;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -69,9 +71,9 @@ public class TestRemoteTableDescriptor {
       desc.withWriteRateLimit(200);
     }
     TableSpec spec = desc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableProvider.RATE_LIMITER));
-    Assert.assertEquals(readCredFn != null, spec.getConfig().containsKey(RemoteTableProvider.READ_CREDIT_FN));
-    Assert.assertEquals(writeCredFn != null, spec.getConfig().containsKey(RemoteTableProvider.WRITE_CREDIT_FN));
+    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableDescriptor.RATE_LIMITER));
+    Assert.assertEquals(readCredFn != null, spec.getConfig().containsKey(RemoteTableDescriptor.READ_CREDIT_FN));
+    Assert.assertEquals(writeCredFn != null, spec.getConfig().containsKey(RemoteTableDescriptor.WRITE_CREDIT_FN));
   }
 
   @Test
@@ -104,15 +106,15 @@ public class TestRemoteTableDescriptor {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
     desc.withReadFunction(mock(TableReadFunction.class));
     TableSpec spec = desc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableProvider.READ_FN));
-    Assert.assertFalse(spec.getConfig().containsKey(RemoteTableProvider.WRITE_FN));
+    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableDescriptor.READ_FN));
+    Assert.assertFalse(spec.getConfig().containsKey(RemoteTableDescriptor.WRITE_FN));
   }
 
   @Test(expected = NullPointerException.class)
   public void testSerializeNullReadFunction() {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
     TableSpec spec = desc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableProvider.READ_FN));
+    Assert.assertTrue(spec.getConfig().containsKey(RemoteTableDescriptor.READ_FN));
   }
 
   @Test(expected = IllegalArgumentException.class)

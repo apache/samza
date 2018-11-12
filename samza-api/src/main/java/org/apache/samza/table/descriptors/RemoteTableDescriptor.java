@@ -17,12 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.table.remote.descriptors;
+package org.apache.samza.table.descriptors;
 
+import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -30,7 +31,6 @@ import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.table.utils.SerdeUtils;
-import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
@@ -43,6 +43,11 @@ import com.google.common.base.Preconditions;
  * @param <V> the type of the value
  */
 public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, RemoteTableDescriptor<K, V>> {
+
+  public static final String PROVIDER_FACTORY_CLASS_NAME = "org.apache.samza.table.remote.RemoteTableProviderFactory";
+
+  public static final String DEFAULT_RATE_LIMITER_CLASS_NAME = "org.apache.samza.util.EmbeddedTaggedRateLimiter";
+
   /**
    * Tag to be used for provision credits for rate limiting read operations from the remote table.
    * Caller must pre-populate the credits with this tag when specifying a custom rate limiter instance
@@ -58,6 +63,15 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * TableRateLimiter.CreditFunction)} and it needs the write functionality.
    */
   public static final String RL_WRITE_TAG = "writeTag";
+
+  public static final String READ_FN = "io.read.func";
+  public static final String WRITE_FN = "io.write.func";
+  public static final String RATE_LIMITER = "io.ratelimiter";
+  public static final String READ_CREDIT_FN = "io.read.credit.func";
+  public static final String WRITE_CREDIT_FN = "io.write.credit.func";
+  public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
+  public static final String READ_RETRY_POLICY = "io.read.retry.policy";
+  public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
 
   // Input support for a specific remote store (required)
   private TableReadFunction<K, V> readFn;
@@ -106,43 +120,50 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     generateTableSpecConfig(tableSpecConfig);
 
     // Serialize and store reader/writer functions
-    tableSpecConfig.put(RemoteTableProvider.READ_FN, SerdeUtils.serialize("read function", readFn));
+    tableSpecConfig.put(READ_FN, SerdeUtils.serialize("read function", readFn));
 
     if (writeFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.WRITE_FN, SerdeUtils.serialize("write function", writeFn));
+      tableSpecConfig.put(WRITE_FN, SerdeUtils.serialize("write function", writeFn));
     }
 
     if (!tagCreditsMap.isEmpty()) {
-      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, SerdeUtils.serialize("rate limiter",
-          new EmbeddedTaggedRateLimiter(tagCreditsMap)));
+      RateLimiter defaultRateLimiter;
+      try {
+        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
+        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
+      } catch (Exception ex) {
+        throw new SamzaException("Failed to create default rate limiter", ex);
+      }
+      tableSpecConfig.put(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter));
     } else if (rateLimiter != null) {
-      tableSpecConfig.put(RemoteTableProvider.RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter));
+      tableSpecConfig.put(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter));
     }
 
     // Serialize the readCredit functions
     if (readCreditFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.READ_CREDIT_FN, SerdeUtils.serialize(
+      tableSpecConfig.put(READ_CREDIT_FN, SerdeUtils.serialize(
           "read credit function", readCreditFn));
     }
     // Serialize the writeCredit functions
     if (writeCreditFn != null) {
-      tableSpecConfig.put(RemoteTableProvider.WRITE_CREDIT_FN, SerdeUtils.serialize(
+      tableSpecConfig.put(WRITE_CREDIT_FN, SerdeUtils.serialize(
           "write credit function", writeCreditFn));
     }
 
     if (readRetryPolicy != null) {
-      tableSpecConfig.put(RemoteTableProvider.READ_RETRY_POLICY, SerdeUtils.serialize(
+      tableSpecConfig.put(READ_RETRY_POLICY, SerdeUtils.serialize(
           "read retry policy", readRetryPolicy));
     }
 
     if (writeRetryPolicy != null) {
-      tableSpecConfig.put(RemoteTableProvider.WRITE_RETRY_POLICY, SerdeUtils.serialize(
+      tableSpecConfig.put(WRITE_RETRY_POLICY, SerdeUtils.serialize(
           "write retry policy", writeRetryPolicy));
     }
 
-    tableSpecConfig.put(RemoteTableProvider.ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize));
+    tableSpecConfig.put(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize));
 
-    return new TableSpec(tableId, serde, RemoteTableProviderFactory.class.getName(), tableSpecConfig);
+    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
   }
 
   /**

@@ -31,8 +31,10 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContext;
 import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.table.descriptors.TableProvider;
+import org.apache.samza.storage.kv.LocalTableProvider;
+import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
 
@@ -41,7 +43,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TestBaseLocalTableProvider {
+public class TestLocalTableProvider {
 
   @Test
   public void testInit() {
@@ -127,7 +129,7 @@ public class TestBaseLocalTableProvider {
   }
 
   private TableProvider createTableProvider(TableSpec tableSpec) {
-    return new BaseLocalTableProvider(tableSpec) {
+    return new LocalTableProvider(tableSpec) {
       @Override
       public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
         return generateCommonStoreConfig(jobConfig, generatedConfig);
@@ -135,8 +137,8 @@ public class TestBaseLocalTableProvider {
     };
   }
 
-  private BaseLocalTableDescriptor createTableDescriptor(String tableId) {
-    return new BaseLocalTableDescriptor(tableId) {
+  private LocalTableDescriptor createTableDescriptor(String tableId) {
+    return new LocalTableDescriptor(tableId) {
       @Override
       public TableSpec getTableSpec() {
         validate();

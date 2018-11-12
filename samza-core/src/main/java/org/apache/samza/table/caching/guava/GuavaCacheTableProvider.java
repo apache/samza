@@ -17,15 +17,15 @@
  * under the License.
  */
 
-package org.apache.samza.table.caching.guava.descriptors;
+package org.apache.samza.table.caching.guava;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.samza.table.Table;
 import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.caching.guava.GuavaCacheTable;
-import org.apache.samza.table.utils.descriptors.BaseTableProvider;
+import org.apache.samza.table.BaseTableProvider;
+import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.utils.SerdeUtils;
 
 import com.google.common.cache.Cache;
@@ -36,8 +36,6 @@ import com.google.common.cache.Cache;
  */
 public class GuavaCacheTableProvider extends BaseTableProvider {
 
-  public static final String GUAVA_CACHE = "guavaCache";
-
   private List<GuavaCacheTable> guavaTables = new ArrayList<>();
 
   public GuavaCacheTableProvider(TableSpec tableSpec) {
@@ -46,7 +44,8 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
 
   @Override
   public Table getTable() {
-    Cache guavaCache = SerdeUtils.deserialize(GUAVA_CACHE, tableSpec.getConfig().get(GUAVA_CACHE));
+    Cache guavaCache = SerdeUtils.deserialize(GuavaCacheTableDescriptor.GUAVA_CACHE,
+        tableSpec.getConfig().get(GuavaCacheTableDescriptor.GUAVA_CACHE));
     GuavaCacheTable table = new GuavaCacheTable(tableSpec.getId(), guavaCache);
     table.init(this.context);
     guavaTables.add(table);

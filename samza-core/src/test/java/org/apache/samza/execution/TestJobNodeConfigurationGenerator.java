@@ -41,8 +41,8 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
+import org.apache.samza.table.TableProvider;
+import org.apache.samza.table.TableProviderFactory;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 

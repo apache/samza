@@ -39,7 +39,7 @@ import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
 /**
  * Wrapper for a {@link TableReadFunction} instance to add common retry
  * support with a {@link TableRetryPolicy}. This wrapper is created by
- * {@link org.apache.samza.table.remote.descriptors.RemoteTableProvider} when a retry
+ * {@link org.apache.samza.table.remote.RemoteTableProvider} when a retry
  * policy is specified together with the {@link TableReadFunction}.
  *
  * Actual retry mechanism is provided by the failsafe library. Retry is

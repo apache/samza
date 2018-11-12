@@ -28,7 +28,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory;
-import org.apache.samza.table.descriptors.TableProvider;
+import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
