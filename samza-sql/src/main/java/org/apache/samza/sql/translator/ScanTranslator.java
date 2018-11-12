@@ -90,7 +90,7 @@ class ScanTranslator {
     Validate.isTrue(relMsgConverters.containsKey(sourceName), String.format("Unknown source %s", sourceName));
     SqlIOConfig sqlIOConfig = systemStreamConfig.get(sourceName);
     final String systemName = sqlIOConfig.getSystemName();
-    final String streamName = sqlIOConfig.getStreamName();
+    final String streamId = sqlIOConfig.getStreamId();
     final String source = sqlIOConfig.getSource();
 
     final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() &&
@@ -107,7 +107,7 @@ class ScanTranslator {
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     DelegatingSystemDescriptor
         sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
-    GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamName, noOpKVSerde);
+    GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamId, noOpKVSerde);
 
     MessageStream<KV<Object, Object>> inputStream = inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName, queryId));

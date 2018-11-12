@@ -49,6 +49,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,17 +165,28 @@ public class TestAvroSystemFactory implements SystemFactory {
 
     @Override
     public void register(SystemStreamPartition systemStreamPartition, String offset) {
-      if (systemStreamPartition.getStream().toLowerCase().contains("simple1")) {
-        simpleRecordSsps.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("profile")) {
-        profileRecordSsps.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("company")) {
-        companyRecordSsps.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("pageview")) {
-        pageViewRecordSsps.add(systemStreamPartition);
+      switch (systemStreamPartition.getStream().toLowerCase()) {
+        case "simple1":
+          simpleRecordSsps.add(systemStreamPartition);
+          break;
+        case "profile":
+          profileRecordSsps.add(systemStreamPartition);
+          break;
+        case "company":
+          companyRecordSsps.add(systemStreamPartition);
+          break;
+        case "pageview":
+          pageViewRecordSsps.add(systemStreamPartition);
+          break;
+        case "complex1":
+          break;
+        case "simple2":
+          break;
+        case "simple3":
+          break;
+        default:
+          Assert.assertTrue(String.format("ssp %s is not recognized", systemStreamPartition), false);
+          break;
       }
       curMessagesPerSsp.put(systemStreamPartition, 0);
     }

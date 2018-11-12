@@ -209,7 +209,7 @@ public class QueryTranslator {
       String systemName = sinkConfig.getSystemName();
       DelegatingSystemDescriptor
           sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
-      GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamName(), noOpKVSerde);
+      GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamId(), noOpKVSerde);
       if (OutputMapFunction.logOutputStream == null) {
         OutputMapFunction.logOutputStream = appDesc.getOutputStream(osd);
       }

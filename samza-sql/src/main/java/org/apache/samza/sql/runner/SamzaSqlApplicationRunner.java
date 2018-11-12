@@ -94,14 +94,14 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     // Populate stream to system mapping config for input and output system streams
     for (String source : inputSystemStreams) {
       SqlIOConfig inputSystemStreamConfig = ioResolver.fetchSourceInfo(source);
-      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamName()),
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, inputSystemStreamConfig.getStreamId()),
           inputSystemStreamConfig.getSystemName());
       newConfig.putAll(inputSystemStreamConfig.getConfig());
     }
 
     for (String sink : outputSystemStreams) {
       SqlIOConfig outputSystemStreamConfig = ioResolver.fetchSinkInfo(sink);
-      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamName()),
+      newConfig.put(String.format(CFG_FMT_SAMZA_STREAM_SYSTEM, outputSystemStreamConfig.getStreamId()),
           outputSystemStreamConfig.getSystemName());
       newConfig.putAll(outputSystemStreamConfig.getConfig());
     }
