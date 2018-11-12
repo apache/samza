@@ -100,12 +100,11 @@ public class SqlIOConfig {
     if (!isRemoteTable()) {
       // The below config is required for local table and streams but not for remote table.
       streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
-    }
-
-    if (tableDescriptor != null && !isRemoteTable()) {
-      // For local table, set the bootstrap config and default offset to oldest
-      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
-      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
+      if (tableDescriptor != null) {
+        // For local table, set the bootstrap config and default offset to oldest
+        streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
+        streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
+      }
     }
 
     config = new MapConfig(streamConfigs);

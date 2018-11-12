@@ -68,10 +68,10 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
     @Override
     public SqlIOConfig fetchSourceInfo(String source) {
-      return fetchSystemInfo(source, false);
+      return fetchSystemInfo(source);
     }
 
-    private SqlIOConfig fetchSystemInfo(String name, boolean isSink) {
+    private SqlIOConfig fetchSystemInfo(String name) {
       String[] sourceComponents = name.split("\\.");
       boolean isTable = isTable(sourceComponents);
 
@@ -121,7 +121,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
 
     @Override
     public SqlIOConfig fetchSinkInfo(String sink) {
-      return fetchSystemInfo(sink, true);
+      return fetchSystemInfo(sink);
     }
 
     private boolean isTable(String[] sourceComponents) {
