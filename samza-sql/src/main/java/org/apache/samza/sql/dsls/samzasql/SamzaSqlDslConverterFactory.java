@@ -24,6 +24,9 @@ import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 
 
+/**
+ * Dsl converter factory for Samza SQL dialect.
+ */
 public class SamzaSqlDslConverterFactory implements DslConverterFactory {
 
   @Override

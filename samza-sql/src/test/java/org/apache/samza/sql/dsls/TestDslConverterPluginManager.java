@@ -26,11 +26,14 @@ import java.util.Map;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.apache.samza.sql.dsls.DslConverterPluginManager.CFG_DSL_FORMAT_CONVERTER_FACTORY;
 
 
 public class TestDslConverterPluginManager {
@@ -50,9 +53,36 @@ public class TestDslConverterPluginManager {
   public void testDslConverterCreation() {
     Map<String, String> config = new HashMap<>();
     config.put(SamzaSqlApplicationConfig.CFG_SQL_FILE, "samza.test");
-    config.put(String.format(SamzaSqlApplicationConfig.CFG_DSL_FORMAT_FACTORY, "test"),
+    config.put(String.format(CFG_DSL_FORMAT_CONVERTER_FACTORY, "test"),
         TestDslConverterFactory.class.getName());
     DslConverter dslConverter = DslConverterPluginManager.create(new MapConfig(config));
     Assert.assertTrue(dslConverter instanceof TestDslConverter);
   }
+
+  @Test
+  public void testDslConverterCreationWithNoDslFormatConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_FILE, "samza.test");
+    DslConverter dslConverter = DslConverterPluginManager.create(new MapConfig(config));
+    Assert.assertTrue(dslConverter instanceof SamzaSqlDslConverter);
+  }
+
+  @Test
+  public void testDslConverterCreationWithNoSqlFileConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put(String.format(CFG_DSL_FORMAT_CONVERTER_FACTORY, "test"),
+        TestDslConverterFactory.class.getName());
+    DslConverter dslConverter = DslConverterPluginManager.create(new MapConfig(config));
+    Assert.assertTrue(dslConverter instanceof SamzaSqlDslConverter);
+  }
+
+  @Test
+  public void testDslConverterCreationWithNoSqlFileButWithSqlFileFormatConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put(String.format(CFG_DSL_FORMAT_CONVERTER_FACTORY, "sql"),
+        TestDslConverterFactory.class.getName());
+    DslConverter dslConverter = DslConverterPluginManager.create(new MapConfig(config));
+    Assert.assertTrue(dslConverter instanceof TestDslConverter);
+  }
+
 }

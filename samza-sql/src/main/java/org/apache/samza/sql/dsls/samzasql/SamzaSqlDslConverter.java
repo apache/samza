@@ -36,6 +36,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Dsl converter for Samza SQL dialect.
+ */
 public class SamzaSqlDslConverter implements DslConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlDslConverter.class);

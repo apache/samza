@@ -25,32 +25,48 @@ import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
- * Dsl converter plugin manager creates the DslConverter based on the format of the dsl file.
+ * Dsl converter plugin manager creates the {@link DslConverter} based on the dsl file extension.
  */
 public class DslConverterPluginManager {
 
+  public static final String CFG_DSL_FORMAT_CONVERTER_FACTORY = "samza.sql.format.%s.dslConverterFactory";
+
+  private static final Logger LOG = LoggerFactory.getLogger(DslConverterPluginManager.class);
+
   /**
-   * Create dsl converter.
+   * Create dsl converter based on the file extension and the {@link DslConverterFactory} configured for that file
+   * extension. If such configuration does not exist, the default
+   * {@link org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter} is created.
    *
    * @param config the config
-   * @return the dsl converter
+   * @return the {@link DslConverter}
    */
   static public DslConverter create(Config config) {
-    // default dsl file format is sql.
-    String dslFileFormat = "sql";
+    // Default dsl file extension is sql. The default is applied when the sqlFile config is not set.
+    String dslFileExtension = "sql";
 
     if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_FILE)) {
       String dslFilePath[] = config.get(SamzaSqlApplicationConfig.CFG_SQL_FILE).split("\\.");
-      dslFileFormat = dslFilePath[dslFilePath.length - 1];
+      dslFileExtension = dslFilePath[dslFilePath.length - 1];
     }
 
-    // default coverter factory is SamzaSqlDslConverterFactory
-    String dslConverterFactoryClass =
-        config.get(String.format(SamzaSqlApplicationConfig.CFG_DSL_FORMAT_FACTORY, dslFileFormat),
-            SamzaSqlDslConverterFactory.class.getName());
+    String dslFormatConfigName = String.format(CFG_DSL_FORMAT_CONVERTER_FACTORY, dslFileExtension);
+    String dslConverterFactoryClass = config.get(dslFormatConfigName);
+
+    if (dslConverterFactoryClass == null || dslConverterFactoryClass.isEmpty()) {
+      // Default converter factory is SamzaSqlDslConverterFactory
+      dslConverterFactoryClass = SamzaSqlDslConverterFactory.class.getName();
+      LOG.warn("Config {} is not set. Hence, using the default factory {}", dslFormatConfigName,
+          dslConverterFactoryClass);
+    }
+
+    LOG.info("Using dsl converter factory {} to create logical plan.", dslConverterFactoryClass);
+
     DslConverterFactory dslConverterFactory;
     try {
       Class<?> clazz = Class.forName(dslConverterFactoryClass);

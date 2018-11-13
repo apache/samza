@@ -72,7 +72,6 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_SQL_STMT = "samza.sql.stmt";
   public static final String CFG_SQL_STMTS_JSON = "samza.sql.stmts.json";
   public static final String CFG_SQL_FILE = "samza.sql.sqlFile";
-  public static final String CFG_DSL_FORMAT_FACTORY = "samza.sql.format.%s.dslConverterFactory";
 
   public static final String CFG_UDF_CONFIG_DOMAIN = "samza.sql.udf";
 
