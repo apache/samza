@@ -22,6 +22,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.TaskModel;
@@ -105,14 +106,16 @@ public abstract class OperatorImpl<M, RM> {
     registeredOperators = new HashSet<>();
     prevOperators = new HashSet<>();
     inputStreams = new HashSet<>();
-    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
-    TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
-    MetricsRegistry metricsRegistry = taskContext.getTaskMetricsRegistry();
+
+    final ContainerContext containerContext = context.getContainerContext();
+    final MetricsRegistry metricsRegistry = containerContext.getContainerMetricsRegistry();
     this.numMessage = metricsRegistry.newCounter(METRICS_GROUP, opId + "-messages");
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
-    this.taskName = taskContext.getTaskModel().getTaskName();
 
+    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
+    final TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    this.taskName = taskContext.getTaskModel().getTaskName();
     this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
     this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
@@ -495,7 +498,9 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   private HighResolutionClock createHighResClock(Config config) {
-    if (new MetricsConfig(config).getMetricsTimerEnabled()) {
+    MetricsConfig metricsConfig = new MetricsConfig(config);
+    // The timer metrics calculation here is only enabled for debugging
+    if (metricsConfig.getMetricsTimerDebugEnabled()) {
       return System::nanoTime;
     } else {
       return () -> 0;
