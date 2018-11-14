@@ -181,7 +181,7 @@ join with a table and finally write the output to another table.
 
 # Using Table with Samza Low Level API
 
-The code snippet below illustrates the usage of table in Samza low level API.
+The code snippet below illustrates the usage of table in Samza Low Level Task API.
 
 {% highlight java %}
  1  class SamzaTaskApplication implements TaskApplication {
@@ -273,8 +273,7 @@ The table below summarizes table metrics:
 
 [`RemoteTable`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteTableDescriptor.java) 
 provides a unified abstraction for Samza applications to access any remote data 
-store through stream-table join in high-level API or direct access in low-level 
-API. Remote Table is a store-agnostic abstraction that can be customized to 
+store through stream-table join in High Level Streams API or direct access in Low Level Task API. Remote Table is a store-agnostic abstraction that can be customized to 
 access new types of stores by writing pluggable I/O "Read/Write" functions, 
 implementations of 
 [`TableReadFunction`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/TableReadFunction.java) and 
@@ -283,7 +282,7 @@ interfaces. Remote Table also provides common functionality, eg. rate limiting
 (built-in) and caching (hybrid).
 
 The async APIs in Remote Table are recommended over the sync versions for higher 
-throughput. They can be used with Samza with low-level API to achieve the maximum 
+throughput. They can be used with Samza with Low Level Task API to achieve the maximum 
 throughput. 
 
 Remote Tables are represented by class 
@@ -420,7 +419,7 @@ created during instantiation of Samza container.
 The life of a table goes through a few phases
 
 1. **Declaration** - at first one declares the table by creating a `TableDescriptor`. In both 
-   Samza high level and low level API, the `TableDescriptor` is registered with stream 
+   Samza High Level Streams API and Low Level Task API, the `TableDescriptor` is registered with stream 
    graph, internally converted to `TableSpec` and in return a reference to a `Table` 
    object is obtained that can participate in the building of the DAG.
 2. **Instantiation** - during planning stage, configuration is 
@@ -436,7 +435,7 @@ The life of a table goes through a few phases
    * In Samza high level API, all table instances can be retrieved from `TaskContext` using 
      table-id during initialization of a 
      [`InitableFunction`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/functions/InitableFunction.java).
-   * In Samza low level API, all table instances can be retrieved from `TaskContext` using 
+   * In Samza Low Level Task API, all table instances can be retrieved from `TaskContext` using 
      table-id during initialization of a 
    [`InitableTask`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/task/InitableTask.java).
 4. **Cleanup** - 
