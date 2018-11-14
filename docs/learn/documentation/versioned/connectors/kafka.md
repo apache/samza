@@ -24,9 +24,9 @@ Samza offers built-in integration with Apache Kafka for stream processing. A com
 
 The `hello-samza` project includes multiple examples on interacting with Kafka from your Samza jobs. Each example also includes instructions on how to run them and view results. 
 
-- [High-level API Example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) with a corresponding [tutorial](/learn/documentation/{{site.version}}/deployment/yarn.html#starting-your-application-on-yarn)
+- [High Level Streams API Example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) with a corresponding [tutorial](/learn/documentation/{{site.version}}/deployment/yarn.html#starting-your-application-on-yarn)
 
-- [Low-level API Example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/wikipedia/task/application/WikipediaParserTaskApplication.java) with a corresponding [tutorial](https://github.com/apache/samza-hello-samza#hello-samza)
+- [Low Level Task API Example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/wikipedia/task/application/WikipediaParserTaskApplication.java) with a corresponding [tutorial](https://github.com/apache/samza-hello-samza#hello-samza)
 
 
 ### Concepts
@@ -105,7 +105,7 @@ The above example configures Samza to ignore checkpointed offsets for `page-view
 
  
 
-### Code walkthrough: High-level API
+### Code walkthrough: High Level Streams API
 
 In this section, we walk through a complete example that reads from a Kafka topic, filters a few messages and writes them to another topic.
 

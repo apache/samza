@@ -18,74 +18,81 @@ title: Programming Model
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-# Introduction
-Samza provides different sets of programming APIs to meet requirements from different sets of users. The APIs are listed below:
+### Introduction
+Samza provides multiple programming APIs to fit your use case:
 
-1. Java programming APIs: Samza provides Java programming APIs for users who are familiar with imperative programming languages. The overall programming model to create a Samza application in Java will be described here. Samza also provides two sets of APIs to describe user processing logic:
-    1. [High-level API](high-level-api.md): this API allows users to describe the end-to-end stream processing pipeline in a connected DAG (Directional Acyclic Graph). It also provides a rich set of build-in operators to help users implementing common transformation logic, such as filter, map, join, and window.
-    2. [Task API](low-level-api.md): this is low-level Java API which provides “bare-metal” programming interfaces to the users. Task API allows users to explicitly access physical implementation details in the system, such as accessing the physical system stream partition of an incoming message and explicitly controlling the thread pool to execute asynchronous processing method.
-2. [Samza SQL](samza-sql.md): Samza provides SQL for users who are familiar with declarative query languages, which allows the users to focus on data manipulation via SQL predicates and UDFs, not the physical implementation details.
-3. Beam API: Samza also provides a [Beam runner](https://beam.apache.org/documentation/runners/capability-matrix/) to run applications written in Beam API. This is considered as an extension to existing operators supported by the high-level API in Samza.
+1. Java APIs: Samza's provides two Java programming APIs that are ideal for building advanced Stream Processing applications. 
+    1. [High Level Streams API](high-level-api.md): Samza's flexible High Level Streams API lets you describe your complex stream processing pipeline in the form of a Directional Acyclic Graph (DAG) of operations on message streams. It provides a rich set of built-in operators that simplify common stream processing operations such as filtering, projection, repartitioning, joins, and windows.
+    2. [Low Level Task API](low-level-api.md): Samza's powerful Low Level Task API lets you write your application in terms of processing logic for each incoming message. 
+2. [Samza SQL](samza-sql.md): Samza SQL provides a declarative query language for describing your stream processing logic. It lets you manipulate streams using SQL predicates and UDFs instead of working with the physical implementation details.
+3. Apache Beam API: Samza also provides a [Apache Beam runner](https://beam.apache.org/documentation/runners/capability-matrix/) to run applications written using the Apache Beam API. This is considered as an extension to the operators supported by the High Level Streams API in Samza.
 
-The following sections will be focused on Java programming APIs.
 
-# Key Concepts for a Samza Java Application
-To write a Samza Java application, you will typically follow the steps below:
-1. Define your input and output streams and tables
-2. Define your main processing logic
-
+### Key Concepts
 The following sections will talk about key concepts in writing your Samza applications in Java.
 
-## Samza Applications
-When writing your stream processing application using Java API in Samza, you implement either a [StreamApplication](javadocs/org/apache/samza/application/StreamApplication.html) or [TaskApplication](javadocs/org/apache/samza/application/TaskApplication.html) and define your processing logic in the describe method.
-- For StreamApplication:
+#### Samza Applications
+A [SamzaApplication](javadocs/org/apache/samza/application/SamzaApplication.html) describes the inputs, outputs, state, configuration and the logic for processing data from one or more streaming sources. 
+
+You can implement a 
+[StreamApplication](javadocs/org/apache/samza/application/StreamApplication.html) and use the provided [StreamApplicationDescriptor](javadocs/org/apache/samza/application/descriptors/StreamApplicationDescriptor) to describe the processing logic using Samza's High Level Streams API in terms of [MessageStream](javadocs/org/apache/samza/operators/MessageStream.html) operators. 
 
 {% highlight java %}
-    
-    public void describe(StreamApplicationDescriptor appDesc) { … }
+
+    public class MyStreamApplication implements StreamApplication {
+        @Override
+        public void describe(StreamApplicationDescriptor appDesc) {
+            // Describe your application here 
+        }
+    }
 
 {% endhighlight %}
+
+Alternatively, you can implement a [TaskApplication](javadocs/org/apache/samza/application/TaskApplication.html) and use the provided [TaskApplicationDescriptor](javadocs/org/apache/samza/application/descriptors/TaskApplicationDescriptor) to describe it using Samza's Low Level API in terms of per-message processing logic.
+
+
 - For TaskApplication:
 
 {% highlight java %}
     
-    public void describe(TaskApplicationDescriptor appDesc) { … }
-
-{% endhighlight %}
-
-## Descriptors for Data Streams and Tables
-There are three different types of descriptors in Samza: [InputDescriptor](javadocs/org/apache/samza/system/descriptors/InputDescriptor.html), [OutputDescriptor](javadocs/org/apache/samza/system/descriptors/OutputDescriptor.html), and [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html). The InputDescriptor and OutputDescriptor are used to describe the physical sources and destinations of a stream, while a TableDescriptor is used to describe the physical dataset and IO functions for a table.
-Usually, you will obtain InputDescriptor and OutputDescriptor from a [SystemDescriptor](javadocs/org/apache/samza/system/descriptors/SystemDescriptor.html), which include all information about producer and consumers to a physical system. The following code snippet illustrate how you will obtain InputDescriptor and OutputDescriptor from a SystemDescriptor.
-
-{% highlight java %}
-    
-    public class BadPageViewFilter implements StreamApplication {
-      @Override
-      public void describe(StreamApplicationDescriptor appDesc) {
-        KafkaSystemDescriptor kafka = new KafkaSystemDescriptor();
-        InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
-        OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-
-        // Now, implement your main processing logic
-      }
+    public class MyTaskApplication implements TaskApplication {
+        @Override
+        public void describe(TaskApplicationDescriptor appDesc) {
+            // Describe your application here
+        }
     }
-    
+
 {% endhighlight %}
 
-You can also add a TableDescriptor to your application.
+
+#### Streams and Table Descriptors
+Descriptors let you specify the properties of various aspects of your application from within it. 
+
+[InputDescriptor](javadocs/org/apache/samza/system/descriptors/InputDescriptor.html)s and [OutputDescriptor](javadocs/org/apache/samza/system/descriptors/OutputDescriptor.html)s can be used for specifying Samza and implementation-specific properties of the streaming inputs and outputs for your application. You can obtain InputDescriptors and OutputDescriptors using a [SystemDescriptor](javadocs/org/apache/samza/system/descriptors/SystemDescriptor.html) for your system. This SystemDescriptor can be used for specify Samza and implementation-specific properties of the producer and consumers for your I/O system. Most Samza system implementations come with their own SystemDescriptors, but if one isn't available, you 
+can use the [GenericSystemDescriptor](javadocs/org/apache/samza/system/descriptors/GenericSystemDescriptor.html).
+
+A [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html) can be used for specifying Samza and implementation-specific properties of a [Table](javadocs/org/apache/samza/table/Table.html). You can use a Local TableDescriptor (e.g. [RocksDbTableDescriptor](javadocs/org/apache/samza/storage/kv/descriptors/RocksDbTableDescriptor.html) or a [RemoteTableDescriptor](javadocs/org/apache/samza/table/descriptors/RemoteTableDescriptor).
+
+
+The following example illustrates how you can use input and output descriptors for a Kafka system, and a table descriptor for a local RocksDB table within your application:
 
 {% highlight java %}
-     
-    public class BadPageViewFilter implements StreamApplication {
+    
+    public class MyStreamApplication implements StreamApplication {
       @Override
-      public void describe(StreamApplicationDescriptor appDesc) {
-        KafkaSystemDescriptor kafka = new KafkaSystemDescriptor();
-        InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
-        OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-        TableDescriptor<String, Integer> viewCountTable = new RocksDBTableDescriptor(
-            “pageViewCountTable”, KVSerde.of(new StringSerde(), new IntegerSerde()));
+      public void describe(StreamApplicationDescriptor appDescriptor) {
+        KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("kafka")
+            .withConsumerZkConnect(ImmutableList.of("..."))
+            .withProducerBootstrapServers(ImmutableList.of("...", "..."));
+        KafkaInputDescriptor<PageView> kid = 
+            ksd.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
+        KafkaOutputDescriptor<DecoratedPageView> kod = 
+            ksd.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
 
-        // Now, implement your main processing logic
+        RocksDbTableDescriptor<String, Integer> td = 
+            new RocksDbTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new IntegerSerde()));
+            
+        // Implement your processing logic here
       }
     }
     
@@ -93,21 +100,21 @@ You can also add a TableDescriptor to your application.
 
 The same code in the above describe method applies to TaskApplication as well.
 
-## Stream Processing Logic
+#### Stream Processing Logic
 
-Samza provides two sets of APIs to define the main stream processing logic, high-level API and Task API, via StreamApplication and TaskApplication, respectively. 
+Samza provides two sets of APIs to define the main stream processing logic, High Level Streams API and Low Level Task API, via StreamApplication and TaskApplication, respectively. 
 
-High-level API allows you to describe the processing logic in a connected DAG of transformation operators, like the example below:
+High Level Streams API allows you to describe the processing logic in a connected DAG of transformation operators, like the example below:
 
 {% highlight java %}
 
     public class BadPageViewFilter implements StreamApplication {
       @Override
       public void describe(StreamApplicationDescriptor appDesc) {
-        KafkaSystemDescriptor kafka = new KafkaSystemDescriptor();
+        KafkaSystemDescriptor ksd = new KafkaSystemDescriptor();
         InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
         OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-        TableDescriptor<String, Integer> viewCountTable = new RocksDBTableDescriptor(
+        RocksDbTableDescriptor<String, Integer> viewCountTable = new RocksDbTableDescriptor(
             “pageViewCountTable”, KVSerde.of(new StringSerde(), new IntegerSerde()));
 
         // Now, implement your main processing logic
@@ -120,7 +127,7 @@ High-level API allows you to describe the processing logic in a connected DAG of
     
 {% endhighlight %}
 
-Task API allows you to describe the processing logic in a customized StreamTaskFactory or AsyncStreamTaskFactory, like the example below:
+Low Level Task API allows you to describe the processing logic in a customized StreamTaskFactory or AsyncStreamTaskFactory, like the example below:
 
 {% highlight java %}
 
@@ -130,7 +137,7 @@ Task API allows you to describe the processing logic in a customized StreamTaskF
         KafkaSystemDescriptor kafka = new KafkaSystemDescriptor();
         InputDescriptor<PageView> pageViewInput = kafka.getInputDescriptor(“page-views”, new JsonSerdeV2<>(PageView.class));
         OutputDescriptor<DecoratedPageView> pageViewOutput = kafka.getOutputDescriptor(“decorated-page-views”, new JsonSerdeV2<>(DecoratedPageView.class));
-        TableDescriptor<String, Integer> viewCountTable = new RocksDBTableDescriptor(
+        RocksDbTableDescriptor<String, Integer> viewCountTable = new RocksDbTableDescriptor(
             “pageViewCountTable”, KVSerde.of(new StringSerde(), new IntegerSerde()));
 
         // Now, implement your main processing logic
@@ -142,11 +149,10 @@ Task API allows you to describe the processing logic in a customized StreamTaskF
     
 {% endhighlight %}
 
-Details for [high-level API](high-level-api.md) and [Task API](low-level-api.md) are explained later.
+#### Configuration for a Samza Application
 
-## Configuration for a Samza Application
+To deploy a Samza application, you need to specify the implementation class for your application and the ApplicationRunner to launch your application. The following is an incomplete example of minimum required configuration to set up the Samza application and the runner. For additional configuration, see the Configuration Reference.
 
-To deploy a Samza application, you will need to specify the implementation class for your application and the ApplicationRunner to launch your application. The following is an incomplete example of minimum required configuration to set up the Samza application and the runner:
 {% highlight jproperties %}
     
     # This is the class implementing StreamApplication

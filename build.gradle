@@ -203,7 +203,7 @@ project(":samza-core_$scalaVersion") {
   }
 }
 
-project(':samza-azure') {
+project(":samza-azure_$scalaVersion") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -227,7 +227,7 @@ project(':samza-azure') {
   }
 }
 
-project(':samza-aws') {
+project(":samza-aws_$scalaVersion") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -298,7 +298,7 @@ project(":samza-autoscaling_$scalaVersion") {
   }
 }
 
-project(':samza-elasticsearch') {
+project(":samza-elasticsearch_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {
@@ -314,7 +314,7 @@ project(':samza-elasticsearch') {
   }
 }
 
-project(':samza-sql') {
+project(":samza-sql_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {
@@ -336,16 +336,16 @@ project(':samza-sql') {
   }
 }
 
-project(':samza-sql-shell') {
+project(":samza-sql-shell_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {
-    compile project(':samza-sql')
-    compile project(':samza-tools')
+    compile project(":samza-sql_$scalaVersion")
+    compile project(":samza-tools_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
     compile project(':samza-api')
     compile project(":samza-kafka_$scalaVersion")
-    compile project(':samza-azure')
+    compile project(":samza-azure_$scalaVersion")
     compile "net.java.dev.jna:jna:$jnaVersion"
     compile "org.jline:jline:$jlineVersion"
 
@@ -364,13 +364,13 @@ project(':samza-sql-shell') {
   }
 }
 
-project(':samza-tools') {
+project(":samza-tools_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {
-    compile project(':samza-sql')
+    compile project(":samza-sql_$scalaVersion")
     compile project(':samza-api')
-    compile project(':samza-azure')
+    compile project(":samza-azure_$scalaVersion")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "commons-cli:commons-cli:$commonsCliVersion"
     compile "org.apache.avro:avro:$avroVersion"
@@ -442,7 +442,7 @@ project(":samza-kafka_$scalaVersion") {
   }
 }
 
-project(':samza-log4j') {
+project(":samza-log4j_$scalaVersion") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -461,7 +461,7 @@ project(':samza-log4j') {
   }
 }
 
-project(':samza-log4j2') {
+project(":samza-log4j2_$scalaVersion") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -715,7 +715,7 @@ project(":samza-hdfs_$scalaVersion") {
   }
 }
 
-project(":samza-rest") {
+project(":samza-rest_$scalaVersion") {
   apply plugin: 'java'
 
   dependencies {
@@ -799,9 +799,9 @@ project(":samza-test_$scalaVersion") {
     compile project(":samza-kv-rocksdb_$scalaVersion")
     compile project(":samza-core_$scalaVersion")
     compile project(":samza-kafka_$scalaVersion")
-    compile project(":samza-sql")
-    runtime project(":samza-log4j")
-    runtime project(":samza-log4j2")
+    compile project(":samza-sql_$scalaVersion")
+    runtime project(":samza-log4j_$scalaVersion")
+    runtime project(":samza-log4j2_$scalaVersion")
     runtime project(":samza-yarn_$scalaVersion")
     runtime project(":samza-hdfs_$scalaVersion")
     compile "org.scala-lang:scala-library:$scalaLibVersion"
@@ -816,7 +816,7 @@ project(":samza-test_$scalaVersion") {
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
-    testCompile project(":samza-sql").sourceSets.test.output
+    testCompile project(":samza-sql_$scalaVersion").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"

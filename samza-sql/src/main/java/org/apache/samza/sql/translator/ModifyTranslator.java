@@ -99,13 +99,13 @@ class ModifyTranslator {
     SqlIOConfig sinkConfig = systemStreamConfig.get(targetName);
 
     final String systemName = sinkConfig.getSystemName();
-    final String streamName = sinkConfig.getStreamName();
+    final String streamId = sinkConfig.getStreamId();
     final String source = sinkConfig.getSource();
 
     KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     DelegatingSystemDescriptor
         sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
-    GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(streamName, noOpKVSerde);
+    GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(streamId, noOpKVSerde);
 
     MessageStreamImpl<SamzaSqlRelMessage> stream =
         (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(tableModify.getInput().getId());

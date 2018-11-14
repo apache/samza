@@ -19,12 +19,19 @@
 
 package org.apache.samza.task;
 
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationTaskContext;
+
 /**
  * A ClosableTask augments {@link org.apache.samza.task.StreamTask}, allowing the method implementer to specify
  * code that will be called when the StreamTask is being shut down by the framework, providing to emit final metrics,
  * clean or close resources, etc.  The close method is not guaranteed to be called in event of crash or hard kill
  * of the process.
+ *
+ * Deprecated: It's recommended to manage the lifecycle of any runtime objects using
+ * {@link ApplicationContainerContext} and {@link ApplicationTaskContext} instead.
  */
+@Deprecated
 public interface ClosableTask {
   void close() throws Exception;
 }

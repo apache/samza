@@ -40,13 +40,13 @@ public class TestSamzaSqlApplicationRunner {
     MapConfig samzaConfig = new MapConfig(configs);
     Config newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(true, samzaConfig);
     Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), LocalApplicationRunner.class.getName());
-    // Check whether three new configs added.
-    Assert.assertEquals(newConfigs.size(), configs.size() + 3);
+    // Check whether five new configs added.
+    Assert.assertEquals(newConfigs.size(), configs.size() + 5);
 
     newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(false, samzaConfig);
     Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), RemoteApplicationRunner.class.getName());
 
-    // Check whether three new configs added.
-    Assert.assertEquals(newConfigs.size(), configs.size() + 3);
+    // Check whether five new configs added.
+    Assert.assertEquals(newConfigs.size(), configs.size() + 5);
   }
 }

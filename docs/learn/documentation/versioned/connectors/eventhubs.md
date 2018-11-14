@@ -126,7 +126,7 @@ In this section, we will walk through a simple pipeline that reads from one Even
 4    MessageStream<KV<String, String>> eventhubInput = appDescriptor.getInputStream(inputDescriptor);
 5    OutputStream<KV<String, String>> eventhubOutput = appDescriptor.getOutputStream(outputDescriptor);
 
-    // Define the execution flow with the high-level API
+    // Define the execution flow with the High Level Streams API
 6    eventhubInput
 7        .map((message) -> {
 8          System.out.println("Received Key: " + message.getKey());

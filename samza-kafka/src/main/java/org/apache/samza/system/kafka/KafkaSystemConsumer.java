@@ -305,6 +305,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
     // check if the proxy is running
     if (!proxy.isRunning()) {
+      LOG.info("{}: KafkaConsumerProxy is not running. Stopping the consumer.", this);
       stop();
       String message = String.format("%s: KafkaConsumerProxy has stopped.", this);
       throw new SamzaException(message, proxy.getFailureCause());
