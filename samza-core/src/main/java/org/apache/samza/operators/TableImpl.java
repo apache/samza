@@ -20,22 +20,26 @@ package org.apache.samza.operators;
 
 import java.io.Serializable;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.TableDescriptor;
 
 
 /**
- * This class is the holder of a {@link TableSpec}
+ * This class is the holder of a table Id
  */
 public class TableImpl implements Table, Serializable {
 
-  private final TableSpec tableSpec;
+  private final String tableId;
 
-  public TableImpl(TableSpec tableSpec) {
-    this.tableSpec = tableSpec;
+  public TableImpl(String tableId) {
+    this.tableId = tableId;
   }
 
-  public TableSpec getTableSpec() {
-    return tableSpec;
+  public TableImpl(TableDescriptor tableDescriptor) {
+    this.tableId = tableDescriptor.getTableId();
+  }
+
+  public String getTableId() {
+    return tableId;
   }
 
 }

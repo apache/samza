@@ -18,9 +18,9 @@ title: Hello Samza High Level API - YARN Deployment
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the low level task API as well as the high level API.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project is an example project designed to help you run your first Samza application. It has examples of applications using the Low Level Task API as well as the High Level Streams API.
 
-This tutorial demonstrates a simple wikipedia application created with the high level API. The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) is the low-level analog to this tutorial. It demonstrates the same logic but is created with the task API. The tutorials are designed to be as similar as possible. The primary differences are that with the high level API we accomplish the equivalent of 3 separate low-level jobs with a single application, we skip the intermediate topics for simplicity, and we can visualize the execution plan after we start the application.
+This tutorial demonstrates a simple wikipedia application created with the High Level Streams API. The [Hello Samza tutorial] (/startup/hello-samza/{{site.version}}/index.html) is the Low Level Task API analog to this tutorial. It demonstrates the same logic but is created with the Low Level Task API. The tutorials are designed to be as similar as possible. The primary differences are that with the High Level Streams API we accomplish the equivalent of 3 separate Low Level Task API jobs with a single application, we skip the intermediate topics for simplicity, and we can visualize the execution plan after we start the application.
 
 ### Get the Code
 

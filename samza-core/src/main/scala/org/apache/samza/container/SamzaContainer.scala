@@ -637,7 +637,7 @@ object SamzaContainer extends Logging {
           new SystemClock)
       }
 
-      val tableManager = new TableManager(config, serdes.asJava)
+      val tableManager = new TableManager(config)
 
       info("Got table manager")
 

@@ -19,10 +19,9 @@
 
 package org.apache.samza.table.descriptors;
 
-import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.config.Config;
 import org.apache.samza.table.utils.SerdeUtils;
 
 import com.google.common.base.Preconditions;
@@ -49,18 +48,6 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
     super(tableId);
   }
 
-  @Override
-  public TableSpec getTableSpec() {
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    tableSpecConfig.put(GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache));
-
-    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
-  }
-
   /**
    * Specify a pre-configured Guava cache instance to be used for caching table.
    * @param cache Guava cache instance
@@ -69,6 +56,17 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
   public GuavaCacheTableDescriptor withCache(Cache<K, V> cache) {
     this.cache = cache;
     return this;
+  }
+
+  @Override
+  public String getProviderFactoryClassName() {
+    return PROVIDER_FACTORY_CLASS_NAME;
+  }
+
+  @Override
+  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+    super.generateConfig(jobConfig, tableConfig);
+    addTableConfig(GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache), tableConfig);
   }
 
   @Override

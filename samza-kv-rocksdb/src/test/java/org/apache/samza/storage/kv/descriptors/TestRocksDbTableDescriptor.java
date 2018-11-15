@@ -18,39 +18,49 @@
  */
 package org.apache.samza.storage.kv.descriptors;
 
+import java.util.HashMap;
+import java.util.Map;
 import junit.framework.Assert;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.descriptors.LocalTableDescriptor;
+import org.apache.samza.storage.kv.LocalTableProviderFactory;
+import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
 import org.junit.Test;
-
 
 public class TestRocksDbTableDescriptor {
 
+  private static final String TABLE_ID = "t1";
+
   @Test
   public void testMinimal() {
-    RocksDbTableDescriptor tableDescriptor = new RocksDbTableDescriptor("1");
-    tableDescriptor.getTableSpec();
-    tableDescriptor.getTableSpec();
+    Map<String, String> tableConfig = createTableDescriptor()
+        .toConfig(createJobConfig());
+    Assert.assertNotNull(tableConfig);
+    Assert.assertEquals(4, tableConfig.size());
   }
 
   @Test
-  public void testSerde() {
-    TableSpec tableSpec = new RocksDbTableDescriptor("1",
-            KVSerde.of(new IntegerSerde(), new StringSerde()))
-        .getTableSpec();
-    Assert.assertNotNull(tableSpec.getSerde());
-    Assert.assertEquals(tableSpec.getSerde().getKeySerde().getClass(), IntegerSerde.class);
-    Assert.assertEquals(tableSpec.getSerde().getValueSerde().getClass(), StringSerde.class);
+  public void testTableProviderFactoryConfig() {
+    Map<String, String> tableConfig = createTableDescriptor()
+        .toConfig(createJobConfig());
+    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(LocalTableProviderFactory.class.getName(),
+        tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
+    Assert.assertEquals(RocksDbKeyValueStorageEngineFactory.class.getName(),
+        tableConfig.get(String.format(StorageConfig.FACTORY(), TABLE_ID)));
   }
 
   @Test
-  public void testTableSpec() {
+  public void testRocksDbConfig() {
 
-    TableSpec tableSpec = new RocksDbTableDescriptor<Integer, String>("1",
-            KVSerde.of(new IntegerSerde(), new StringSerde()))
+    Map<String, String> tableConfig = new RocksDbTableDescriptor<Integer, String>(
+            TABLE_ID, KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withBlockSize(1)
         .withCacheSize(2)
         .withCompactionStyle("fifo")
@@ -62,41 +72,39 @@ public class TestRocksDbTableDescriptor {
         .withTtl(7)
         .withWriteBatchSize(8)
         .withWriteBufferSize(9)
-        .withConfig("rocksdb.abc", "xyz")
-        .getTableSpec();
+        .withConfig("abc", "xyz")
+        .toConfig(createJobConfig());
 
-    Assert.assertNotNull(tableSpec.getSerde());
-    Assert.assertNotNull(tableSpec.getSerde().getKeySerde());
-    Assert.assertNotNull(tableSpec.getSerde().getValueSerde());
-    Assert.assertEquals("1", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_BLOCK_SIZE_BYTES));
-    Assert.assertEquals("2", getConfig(tableSpec, RocksDbTableDescriptor.CONTAINER_CACHE_SIZE_BYTES));
-    Assert.assertEquals("3", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_MAX_LOG_FILE_SIZE_BYTES));
-    Assert.assertEquals("4", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_KEEP_LOG_FILE_NUM));
-    Assert.assertEquals("5", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_NUM_WRITE_BUFFERS));
-    Assert.assertEquals("6", getConfig(tableSpec, RocksDbTableDescriptor.OBJECT_CACHE_SIZE));
-    Assert.assertEquals("7", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_TTL_MS));
-    Assert.assertEquals("8", getConfig(tableSpec, RocksDbTableDescriptor.WRITE_BATCH_SIZE));
-    Assert.assertEquals("9", getConfig(tableSpec, RocksDbTableDescriptor.CONTAINER_WRITE_BUFFER_SIZE_BYTES));
-    Assert.assertEquals("snappy", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_COMPRESSION));
-    Assert.assertEquals("fifo", getConfig(tableSpec, RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE));
-    Assert.assertEquals("xyz", getConfig(tableSpec, "abc"));
-    Assert.assertEquals("false", tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+    assertEquals("1", RocksDbTableDescriptor.ROCKSDB_BLOCK_SIZE_BYTES, tableConfig);
+    assertEquals("2", RocksDbTableDescriptor.CONTAINER_CACHE_SIZE_BYTES, tableConfig);
+    assertEquals("3", RocksDbTableDescriptor.ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, tableConfig);
+    assertEquals("4", RocksDbTableDescriptor.ROCKSDB_KEEP_LOG_FILE_NUM, tableConfig);
+    assertEquals("5", RocksDbTableDescriptor.ROCKSDB_NUM_WRITE_BUFFERS, tableConfig);
+    assertEquals("6", RocksDbTableDescriptor.OBJECT_CACHE_SIZE, tableConfig);
+    assertEquals("7", RocksDbTableDescriptor.ROCKSDB_TTL_MS, tableConfig);
+    assertEquals("8", RocksDbTableDescriptor.WRITE_BATCH_SIZE, tableConfig);
+    assertEquals("9", RocksDbTableDescriptor.CONTAINER_WRITE_BUFFER_SIZE_BYTES, tableConfig);
+    assertEquals("snappy", RocksDbTableDescriptor.ROCKSDB_COMPRESSION, tableConfig);
+    assertEquals("fifo", RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE, tableConfig);
+    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), TABLE_ID)));
+    Assert.assertEquals("xyz", tableConfig.get("abc"));
   }
 
-  @Test
-  public void testTableSpecWithChangelogEnabled() {
-
-    TableSpec tableSpec = new RocksDbTableDescriptor("1", KVSerde.of(new IntegerSerde(), new StringSerde()))
-        .withChangelogStream("changelog-$tream")
-        .withChangelogReplicationFactor(10)
-        .getTableSpec();
-
-    Assert.assertEquals("10", tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_CHANGELOG_REPLICATION_FACTOR));
-    Assert.assertEquals("changelog-$tream", tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_CHANGELOG_STREAM));
-    Assert.assertEquals("true", tableSpec.getConfig().get(LocalTableDescriptor.INTERNAL_ENABLE_CHANGELOG));
+  private void assertEquals(String expectedValue, String key, Map<String, String> config) {
+    String realKey = String.format("stores.%s.%s", TABLE_ID, key);
+    Assert.assertEquals(expectedValue, config.get(realKey));
   }
 
-  private String getConfig(TableSpec tableSpec, String key) {
-    return tableSpec.getConfig().get("rocksdb." + key);
+  private Config createJobConfig() {
+    Map<String, String> jobConfig = new HashMap<>();
+    jobConfig.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID), "serde-key");
+    jobConfig.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID), "serde-value");
+    return new MapConfig(jobConfig);
+  }
+
+  private RocksDbTableDescriptor createTableDescriptor() {
+    return new RocksDbTableDescriptor(TABLE_ID,
+        new KVSerde(new NoOpSerde(), new NoOpSerde()));
   }
 }

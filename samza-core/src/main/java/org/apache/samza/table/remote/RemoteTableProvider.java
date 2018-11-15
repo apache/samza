@@ -19,8 +19,9 @@
 
 package org.apache.samza.table.remote;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
@@ -37,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
 
 /**
  * Provide for remote table instances
@@ -57,9 +57,10 @@ public class RemoteTableProvider extends BaseTableProvider {
   private static Map<String, ExecutorService> callbackExecutors = new ConcurrentHashMap<>();
   private static ScheduledExecutorService retryExecutor;
 
-  public RemoteTableProvider(TableSpec tableSpec) {
-    super(tableSpec);
-    this.readOnly = !tableSpec.getConfig().containsKey(RemoteTableDescriptor.WRITE_FN);
+  public RemoteTableProvider(String tableId, Config config) {
+    super(tableId, config);
+    JavaTableConfig tableConfig = new JavaTableConfig(config);
+    this.readOnly = tableConfig.getForTable(tableId, RemoteTableDescriptor.WRITE_FN) == null;
   }
 
   /**
@@ -68,20 +69,21 @@ public class RemoteTableProvider extends BaseTableProvider {
   @Override
   public Table getTable() {
     RemoteReadableTable table;
-    String tableId = tableSpec.getId();
 
-    TableReadFunction readFn = getReadFn();
-    RateLimiter rateLimiter = deserializeObject(RemoteTableDescriptor.RATE_LIMITER);
+    JavaTableConfig tableConfig = new JavaTableConfig(config);
+
+    TableReadFunction readFn = getReadFn(tableConfig);
+    RateLimiter rateLimiter = deserializeObject(tableConfig, RemoteTableDescriptor.RATE_LIMITER);
     if (rateLimiter != null) {
       rateLimiter.init(this.context);
     }
-    TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(RemoteTableDescriptor.READ_CREDIT_FN);
-    TableRateLimiter readRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, readCreditFn, RemoteTableDescriptor.RL_READ_TAG);
+    TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.READ_CREDIT_FN);
+    TableRateLimiter readRateLimiter = new TableRateLimiter(tableId, rateLimiter, readCreditFn, RemoteTableDescriptor.RL_READ_TAG);
 
     TableRateLimiter.CreditFunction<?, ?> writeCreditFn;
     TableRateLimiter writeRateLimiter = null;
 
-    TableRetryPolicy readRetryPolicy = deserializeObject(RemoteTableDescriptor.READ_RETRY_POLICY);
+    TableRetryPolicy readRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.READ_RETRY_POLICY);
     TableRetryPolicy writeRetryPolicy = null;
 
     if ((readRetryPolicy != null || writeRetryPolicy != null) && retryExecutor == null) {
@@ -97,21 +99,21 @@ public class RemoteTableProvider extends BaseTableProvider {
       readFn = new RetriableReadFunction<>(readRetryPolicy, readFn, retryExecutor);
     }
 
-    TableWriteFunction writeFn = getWriteFn();
+    TableWriteFunction writeFn = getWriteFn(tableConfig);
 
     boolean isRateLimited = readRateLimiter.isRateLimited();
     if (!readOnly) {
-      writeCreditFn = deserializeObject(RemoteTableDescriptor.WRITE_CREDIT_FN);
-      writeRateLimiter = new TableRateLimiter(tableSpec.getId(), rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_WRITE_TAG);
+      writeCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_CREDIT_FN);
+      writeRateLimiter = new TableRateLimiter(tableId, rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_WRITE_TAG);
       isRateLimited |= writeRateLimiter.isRateLimited();
-      writeRetryPolicy = deserializeObject(RemoteTableDescriptor.WRITE_RETRY_POLICY);
+      writeRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_RETRY_POLICY);
       if (writeRetryPolicy != null) {
         writeFn = new RetriableWriteFunction(writeRetryPolicy, writeFn, retryExecutor);
       }
     }
 
     // Optional executor for future callback/completion. Shared by both read and write operations.
-    int callbackPoolSize = Integer.parseInt(tableSpec.getConfig().get(RemoteTableDescriptor.ASYNC_CALLBACK_POOL_SIZE));
+    int callbackPoolSize = Integer.parseInt(tableConfig.getForTable(tableId, RemoteTableDescriptor.ASYNC_CALLBACK_POOL_SIZE, "-1"));
     if (callbackPoolSize > 0) {
       callbackExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newFixedThreadPool(callbackPoolSize, (runnable) -> {
@@ -133,10 +135,10 @@ public class RemoteTableProvider extends BaseTableProvider {
     }
 
     if (readOnly) {
-      table = new RemoteReadableTable(tableSpec.getId(), readFn, readRateLimiter,
+      table = new RemoteReadableTable(tableId, readFn, readRateLimiter,
           tableExecutors.get(tableId), callbackExecutors.get(tableId));
     } else {
-      table = new RemoteReadWriteTable(tableSpec.getId(), readFn, writeFn, readRateLimiter,
+      table = new RemoteReadWriteTable(tableId, readFn, writeFn, readRateLimiter,
           writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
     }
 
@@ -158,29 +160,30 @@ public class RemoteTableProvider extends BaseTableProvider {
    */
   @Override
   public void close() {
+    super.close();
     tables.forEach(t -> t.close());
     tableExecutors.values().forEach(e -> e.shutdown());
     callbackExecutors.values().forEach(e -> e.shutdown());
   }
 
-  private <T> T deserializeObject(String key) {
-    String entry = tableSpec.getConfig().getOrDefault(key, "");
+  private <T> T deserializeObject(JavaTableConfig tableConfig, String key) {
+    String entry = tableConfig.getForTable(tableId, key, "");
     if (entry.isEmpty()) {
       return null;
     }
     return SerdeUtils.deserialize(key, entry);
   }
 
-  private TableReadFunction<?, ?> getReadFn() {
-    TableReadFunction<?, ?> readFn = deserializeObject(RemoteTableDescriptor.READ_FN);
+  private TableReadFunction<?, ?> getReadFn(JavaTableConfig tableConfig) {
+    TableReadFunction<?, ?> readFn = deserializeObject(tableConfig, RemoteTableDescriptor.READ_FN);
     if (readFn != null) {
       readFn.init(this.context);
     }
     return readFn;
   }
 
-  private TableWriteFunction<?, ?> getWriteFn() {
-    TableWriteFunction<?, ?> writeFn = deserializeObject(RemoteTableDescriptor.WRITE_FN);
+  private TableWriteFunction<?, ?> getWriteFn(JavaTableConfig tableConfig) {
+    TableWriteFunction<?, ?> writeFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_FN);
     if (writeFn != null) {
       writeFn.init(this.context);
     }

@@ -19,6 +19,7 @@
 package org.apache.samza.table;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
 
 
 /**
@@ -26,10 +27,5 @@ import org.apache.samza.annotation.InterfaceStability;
  */
 @InterfaceStability.Unstable
 public interface TableProviderFactory {
-  /**
-   * Constructs an instances of the table provider based on a given table spec
-   * @param tableSpec the table spec
-   * @return the table provider
-   */
-  TableProvider getTableProvider(TableSpec tableSpec);
+  TableProvider getTableProvider(String tableId, Config config);
 }

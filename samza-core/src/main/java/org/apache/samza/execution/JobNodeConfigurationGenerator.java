@@ -50,7 +50,8 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.Util;
@@ -93,7 +94,7 @@ import org.slf4j.LoggerFactory;
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
     Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
-    Map<String, TableSpec> reachableTables = getReachableTables(reachableOperators, jobNode);
+    Map<String, TableDescriptor> reachableTables = getReachableTables(reachableOperators, jobNode);
 
     // config passed by the JobPlanner. user-provided + system-stream descriptor config + misc. other config
     Config originalConfig = jobNode.getConfig();
@@ -141,7 +142,7 @@ import org.slf4j.LoggerFactory;
     return new JobConfig(mergeConfig(originalConfig, generatedConfig));
   }
 
-  private Map<String, TableSpec> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
+  private Map<String, TableDescriptor> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
     // TODO: Fix this in SAMZA-1893. For now, returning all tables for single-job execution plan
     return jobNode.getTables();
   }
@@ -207,22 +208,25 @@ import org.slf4j.LoggerFactory;
   }
 
   private void configureTables(Map<String, String> generatedConfig, Config originalConfig,
-      Map<String, TableSpec> tables, Set<String> inputs) {
+      Map<String, TableDescriptor> tables, Set<String> inputs) {
     generatedConfig.putAll(
-        TableConfigGenerator.generateConfigsForTableSpecs(
+        TableConfigGenerator.generate(
             new MapConfig(generatedConfig), new ArrayList<>(tables.values())));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
-    tables.values().forEach(tableSpec -> {
-        List<String> sideInputs = tableSpec.getSideInputs();
-        if (sideInputs != null && !sideInputs.isEmpty()) {
-          sideInputs.stream()
-              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
-              .forEach(systemStream -> {
-                  inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                  generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
-                      systemStream.getSystem(), systemStream.getStream()), "true");
-                });
+    tables.values().forEach(tableDescriptor -> {
+        if (tableDescriptor instanceof LocalTableDescriptor) {
+          LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+          List<String> sideInputs = localTableDescriptor.getSideInputs();
+          if (sideInputs != null && !sideInputs.isEmpty()) {
+            sideInputs.stream()
+                .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
+                .forEach(systemStream -> {
+                    inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
+                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                        systemStream.getSystem(), systemStream.getStream()), "true");
+                  });
+          }
         }
       });
   }

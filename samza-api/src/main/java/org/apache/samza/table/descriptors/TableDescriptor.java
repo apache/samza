@@ -18,10 +18,13 @@
  */
 package org.apache.samza.table.descriptors;
 
+import java.util.Map;
+
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.context.TaskContext;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -72,4 +75,15 @@ public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
    */
   D withConfig(String key, String value);
 
+  /**
+   * Generate configuration for this table descriptor.
+   *
+   * Note: although the serdes may have already been set in this instance, their corresponding configuration needs
+   * to be generated centrally for consistency and efficiency reasons. Therefore the serde configuration for this table
+   * is expected to have already been generated and stored in the {@code jobConfig}.
+   *
+   * @param jobConfig job configuration
+   * @return table configuration
+   */
+  Map<String, String> toConfig(Config jobConfig);
 }

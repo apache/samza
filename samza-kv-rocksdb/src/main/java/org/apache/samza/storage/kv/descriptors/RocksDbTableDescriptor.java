@@ -18,11 +18,13 @@
  */
 package org.apache.samza.storage.kv.descriptors;
 
-import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.storage.kv.LocalTableProviderFactory;
+import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 
 
@@ -57,14 +59,6 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
   private Integer numLogFilesToKeep;
   private String compressionType;
   private String compactionStyle;
-
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   */
-  public RocksDbTableDescriptor(String tableId) {
-    super(tableId);
-  }
 
   /**
    * Constructs a table descriptor instance
@@ -277,64 +271,52 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     return this;
   }
 
-  /**
-   * Create a table spec based on this table description
-   * @return the table spec
-   */
   @Override
-  public TableSpec getTableSpec() {
-
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    return new TableSpec(tableId, serde, RocksDbTableProviderFactory.class.getName(), tableSpecConfig,
-        sideInputs, sideInputsProcessor);
+  public String getProviderFactoryClassName() {
+    return LocalTableProviderFactory.class.getName();
   }
 
   @Override
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
+  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
-    super.generateTableSpecConfig(tableSpecConfig);
+    super.generateConfig(jobConfig, tableConfig);
+
+    // Store factory configuration
+    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+        RocksDbKeyValueStorageEngineFactory.class.getName());
 
     if (writeBatchSize != null) {
-      addRocksDbConfig(tableSpecConfig, WRITE_BATCH_SIZE, writeBatchSize.toString());
+      addStoreConfig(tableConfig, WRITE_BATCH_SIZE, writeBatchSize.toString());
     }
     if (objectCacheSize != null) {
-      addRocksDbConfig(tableSpecConfig, OBJECT_CACHE_SIZE, objectCacheSize.toString());
+      addStoreConfig(tableConfig,OBJECT_CACHE_SIZE, objectCacheSize.toString());
     }
     if (cacheSize != null) {
-      addRocksDbConfig(tableSpecConfig, CONTAINER_CACHE_SIZE_BYTES, cacheSize.toString());
+      addStoreConfig(tableConfig,CONTAINER_CACHE_SIZE_BYTES, cacheSize.toString());
     }
     if (writeBufferSize != null) {
-      addRocksDbConfig(tableSpecConfig, CONTAINER_WRITE_BUFFER_SIZE_BYTES, writeBufferSize.toString());
+      addStoreConfig(tableConfig,CONTAINER_WRITE_BUFFER_SIZE_BYTES, writeBufferSize.toString());
     }
     if (compressionType != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_COMPRESSION, compressionType);
+      addStoreConfig(tableConfig,ROCKSDB_COMPRESSION, compressionType);
     }
     if (blockSize != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_BLOCK_SIZE_BYTES, blockSize.toString());
+      addStoreConfig(tableConfig,ROCKSDB_BLOCK_SIZE_BYTES, blockSize.toString());
     }
     if (ttl != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_TTL_MS, ttl.toString());
+      addStoreConfig(tableConfig,ROCKSDB_TTL_MS, ttl.toString());
     }
     if (compactionStyle != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_COMPACTION_STYLE, compactionStyle);
+      addStoreConfig(tableConfig,ROCKSDB_COMPACTION_STYLE, compactionStyle);
     }
     if (numWriteBuffers != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_NUM_WRITE_BUFFERS, numWriteBuffers.toString());
+      addStoreConfig(tableConfig,ROCKSDB_NUM_WRITE_BUFFERS, numWriteBuffers.toString());
     }
     if (maxLogFileSize != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, maxLogFileSize.toString());
+      addStoreConfig(tableConfig,ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, maxLogFileSize.toString());
     }
     if (numLogFilesToKeep != null) {
-      addRocksDbConfig(tableSpecConfig, ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString());
+      addStoreConfig(tableConfig,ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString());
     }
   }
-
-  private void addRocksDbConfig(Map<String, String> map, String key, String value) {
-    map.put("rocksdb." + key, value);
-  }
-
 }

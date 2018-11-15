@@ -48,6 +48,8 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.table.descriptors.TestLocalTableDescriptor;
 import org.apache.samza.testUtils.StreamTestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hamcrest.Matchers;
@@ -76,6 +78,8 @@ public class TestJobGraphJsonGenerator {
   private GenericInputDescriptor<KV<String, Object>> input1Descriptor;
   private GenericInputDescriptor<KV<String, Object>> input2Descriptor;
   private GenericOutputDescriptor<KV<String, Object>> outputDescriptor;
+  private TableDescriptor<String, Object, ?> table1Descriptor;
+  private TableDescriptor<String, Object, ?> table2Descriptor;
 
   @Before
   public void setUp() {
@@ -93,6 +97,8 @@ public class TestJobGraphJsonGenerator {
     input1Descriptor = inputSystemDescriptor.getInputDescriptor("input1", defaultSerde);
     input2Descriptor = inputSystemDescriptor.getInputDescriptor("input2", defaultSerde);
     outputDescriptor = outputSystemDescriptor.getOutputDescriptor("output", defaultSerde);
+    table1Descriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor("table1", defaultSerde);
+    table2Descriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor("table2", defaultSerde);
 
     Map<String, String> configs = new HashMap<>();
     configs.put(JobConfig.JOB_NAME(), "jobName");
@@ -117,6 +123,11 @@ public class TestJobGraphJsonGenerator {
     when(mockJobNode.getJobName()).thenReturn("jobName");
     when(mockJobNode.getJobId()).thenReturn("jobId");
     when(mockJobNode.getJobNameAndId()).thenReturn(JobNode.createJobNameAndId("jobName", "jobId"));
+
+    Map<String, TableDescriptor> tables = new HashMap<>();
+    tables.put(table1Descriptor.getTableId(), table1Descriptor);
+    tables.put(table2Descriptor.getTableId(), table2Descriptor);
+    when(mockJobNode.getTables()).thenReturn(tables);
   }
 
   @Test
@@ -305,6 +316,8 @@ public class TestJobGraphJsonGenerator {
     when(mockJobGraph.getInputStreams()).thenReturn(inEdges);
     when(mockJobGraph.getOutputStreams()).thenReturn(outEdges);
     when(mockJobGraph.getIntermediateStreamEdges()).thenReturn(intermediateEdges);
+    Set<TableDescriptor> tables = new HashSet<>(mockJobNode.getTables().values());
+    when(mockJobGraph.getTables()).thenReturn(tables);
     when(mockJobGraph.getJobNodes()).thenReturn(Collections.singletonList(mockJobNode));
     String graphJson = jsonGenerator.toJson(mockJobGraph);
     ObjectMapper objectMapper = new ObjectMapper();
@@ -317,6 +330,8 @@ public class TestJobGraphJsonGenerator {
     assertThat(jsonObject.sinkStreams.keySet(), Matchers.containsInAnyOrder(outStreamIds.toArray()));
     Set<String> intStreamIds = intermediateEdges.stream().map(stream -> stream.getStreamSpec().getId()).collect(Collectors.toSet());
     assertThat(jsonObject.intermediateStreams.keySet(), Matchers.containsInAnyOrder(intStreamIds.toArray()));
+    Set<String> tableIds = tables.stream().map(t -> t.getTableId()).collect(Collectors.toSet());
+    assertThat(jsonObject.tables.keySet(), Matchers.containsInAnyOrder(tableIds.toArray()));
     JobGraphJsonGenerator.JobNodeJson expectedNodeJson = new JobGraphJsonGenerator.JobNodeJson();
     expectedNodeJson.jobId = mockJobNode.getJobId();
     expectedNodeJson.jobName = mockJobNode.getJobName();

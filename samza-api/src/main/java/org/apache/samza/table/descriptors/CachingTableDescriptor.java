@@ -21,11 +21,10 @@ package org.apache.samza.table.descriptors;
 
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.config.Config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -88,33 +87,6 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
         : Arrays.asList(table);
   }
 
-  @Override
-  public TableSpec getTableSpec() {
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    if (cache != null) {
-      tableSpecConfig.put(CACHE_TABLE_ID, ((BaseTableDescriptor) cache).getTableSpec().getId());
-    } else {
-      if (readTtl != null) {
-        tableSpecConfig.put(READ_TTL_MS, String.valueOf(readTtl.toMillis()));
-      }
-      if (writeTtl != null) {
-        tableSpecConfig.put(WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()));
-      }
-      if (cacheSize > 0) {
-        tableSpecConfig.put(CACHE_SIZE, String.valueOf(cacheSize));
-      }
-    }
-
-    tableSpecConfig.put(REAL_TABLE_ID, ((BaseTableDescriptor) table).getTableSpec().getId());
-    tableSpecConfig.put(WRITE_AROUND, String.valueOf(isWriteAround));
-
-    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
-  }
-
   /**
    * Specify the TTL for each read access, ie. record is expired after
    * the TTL duration since last read access of each key.
@@ -156,6 +128,34 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
   public CachingTableDescriptor<K, V> withWriteAround() {
     this.isWriteAround = true;
     return this;
+  }
+
+  @Override
+  public String getProviderFactoryClassName() {
+    return PROVIDER_FACTORY_CLASS_NAME;
+  }
+
+  @Override
+  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+
+    super.generateConfig(jobConfig, tableConfig);
+
+    if (cache != null) {
+      addTableConfig(CACHE_TABLE_ID, cache.getTableId(), tableConfig);
+    } else {
+      if (readTtl != null) {
+        addTableConfig(READ_TTL_MS, String.valueOf(readTtl.toMillis()), tableConfig);
+      }
+      if (writeTtl != null) {
+        addTableConfig(WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()), tableConfig);
+      }
+      if (cacheSize > 0) {
+        addTableConfig(CACHE_SIZE, String.valueOf(cacheSize), tableConfig);
+      }
+    }
+
+    addTableConfig(REAL_TABLE_ID, table.getTableId(), tableConfig);
+    addTableConfig(WRITE_AROUND, String.valueOf(isWriteAround), tableConfig);
   }
 
   @Override

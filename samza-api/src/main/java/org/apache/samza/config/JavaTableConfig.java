@@ -20,6 +20,7 @@ package org.apache.samza.config;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,7 +43,7 @@ public class JavaTableConfig extends MapConfig {
   public static final String TABLE_VALUE_SERDE = String.format("%s.value.serde", TABLE_ID_PREFIX);
 
 
-  public JavaTableConfig(Config config) {
+  public JavaTableConfig(Map<String, String> config) {
     super(config);
   }
 
@@ -84,5 +85,17 @@ public class JavaTableConfig extends MapConfig {
    */
   public String getValueSerde(String tableId) {
     return get(String.format(TABLE_VALUE_SERDE, tableId), null);
+  }
+
+  public String getForTable(String tableId, String key, String defaultValue) {
+    return get(buildKey(tableId, key), defaultValue);
+  }
+
+  public String getForTable(String tableId, String key) {
+    return getForTable(tableId, key, null);
+  }
+
+  static public String buildKey(String tableId, String key) {
+    return String.format(TABLE_ID_PREFIX + ".%s", tableId, key);
   }
 }

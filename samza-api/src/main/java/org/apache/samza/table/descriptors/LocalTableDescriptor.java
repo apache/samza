@@ -19,13 +19,15 @@
 package org.apache.samza.table.descriptors;
 
 import com.google.common.base.Preconditions;
-
 import java.util.List;
 import java.util.Map;
-
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.SideInputsProcessor;
-
+import org.apache.samza.table.utils.SerdeUtils;
 
 /**
  * Table descriptor for store backed tables.
@@ -37,9 +39,9 @@ import org.apache.samza.storage.SideInputsProcessor;
 abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
 
-  static final public String INTERNAL_ENABLE_CHANGELOG = "internal.enable.changelog";
-  static final public String INTERNAL_CHANGELOG_STREAM = "internal.changelog.stream";
-  static final public String INTERNAL_CHANGELOG_REPLICATION_FACTOR = "internal.changelog.replication.factor";
+  public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
+
+  protected final KVSerde<K, V> serde;
 
   protected List<String> sideInputs;
   protected SideInputsProcessor sideInputsProcessor;
@@ -50,18 +52,11 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   /**
    * Constructs a table descriptor instance
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   */
-  public LocalTableDescriptor(String tableId) {
-    super(tableId);
-  }
-
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   public LocalTableDescriptor(String tableId, KVSerde<K, V> serde) {
-    super(tableId, serde);
+    super(tableId);
+    this.serde = serde;
   }
 
   public D withSideInputs(List<String> sideInputs) {
@@ -130,18 +125,62 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   }
 
   @Override
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    super.generateTableSpecConfig(tableSpecConfig);
+  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
-    tableSpecConfig.put(INTERNAL_ENABLE_CHANGELOG, String.valueOf(enableChangelog));
+    super.generateConfig(jobConfig, tableConfig);
+
+    JavaTableConfig javaTableConfig = new JavaTableConfig(jobConfig);
+
+    String keySerde = javaTableConfig.getKeySerde(tableId);
+    Preconditions.checkNotNull(keySerde, String.format("Key serde for table %s not found", tableId));
+    addStoreConfig(tableConfig, "key.serde", keySerde);
+
+    String valueSerde = javaTableConfig.getValueSerde(tableId);
+    Preconditions.checkNotNull(valueSerde, String.format("Value serde for table %s not found", tableId));
+    addStoreConfig(tableConfig, "msg.serde", valueSerde);
+
+    if (sideInputs != null && !sideInputs.isEmpty()) {
+      sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(
+          "Side input stream %s doesn't confirm to pattern %s", si, SYSTEM_STREAM_NAME_PATTERN)));
+      String formattedSideInputs = String.join(",", sideInputs);
+      addStoreConfig(tableConfig, "side.inputs", formattedSideInputs);
+      addStoreConfig(tableConfig, "side.inputs.processor.serialized.instance",
+          SerdeUtils.serialize("Side Inputs Processor", sideInputsProcessor));
+    }
+
+    // Changelog configuration
     if (enableChangelog) {
-      if (changelogStream != null) {
-        tableSpecConfig.put(INTERNAL_CHANGELOG_STREAM, changelogStream);
+      if (StringUtils.isEmpty(changelogStream)) {
+        String jobName = jobConfig.containsKey("job.name")
+            ? jobConfig.get("job.name")
+            : "unknown";
+        String jobId = jobConfig.containsKey("job.id")
+            ? jobConfig.get("job.id")
+            : "unknown";
+        changelogStream = String.format("%s-%s-table-%s", jobName, jobId, tableId);
       }
+
+      Preconditions.checkState(isValidSystemStreamName(changelogStream), String.format(
+          "Changelog stream %s doesn't confirm to pattern %s", changelogStream, SYSTEM_STREAM_NAME_PATTERN));
+      addStoreConfig(tableConfig, "changelog", changelogStream);
+
       if (changelogReplicationFactor != null) {
-        tableSpecConfig.put(INTERNAL_CHANGELOG_REPLICATION_FACTOR, String.valueOf(changelogReplicationFactor));
+        addStoreConfig(tableConfig, "changelog.replication.factor", changelogReplicationFactor.toString());
       }
     }
+  }
+
+  public List<String> getSideInputs() {
+    return sideInputs;
+  }
+
+  /**
+   * Get the serde assigned to this {@link TableDescriptor}
+   *
+   * @return {@link KVSerde} used by this table
+   */
+  public KVSerde<K, V> getSerde() {
+    return serde;
   }
 
   /**
@@ -163,6 +202,14 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
           String.format("Invalid changelog configuration for table: %s. Changelog " +
               "must be enabled, when changelog replication factor is provided", tableId));
     }
+  }
+
+  protected void addStoreConfig(Map<String, String> map, String key, String value) {
+    map.put(String.format("stores.%s.%s", tableId, key), value);
+  }
+
+  private boolean isValidSystemStreamName(String name) {
+    return StringUtils.isNotBlank(name) && SYSTEM_STREAM_NAME_PATTERN.matcher(name).matches();
   }
 
 }

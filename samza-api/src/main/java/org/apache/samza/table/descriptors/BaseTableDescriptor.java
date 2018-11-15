@@ -19,13 +19,15 @@
 
 package org.apache.samza.table.descriptors;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * Base class for all table descriptor implementations.
@@ -39,8 +41,6 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
 
   protected final String tableId;
 
-  protected KVSerde<K, V> serde = KVSerde.of(new NoOpSerde(), new NoOpSerde());
-
   protected final Map<String, String> config = new HashMap<>();
 
   /**
@@ -49,16 +49,6 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
    */
   protected BaseTableDescriptor(String tableId) {
     this.tableId = tableId;
-  }
-
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   * @param serde the serde for key and value
-   */
-  protected BaseTableDescriptor(String tableId, KVSerde<K, V> serde) {
-    this.tableId = tableId;
-    this.serde = serde;
   }
 
   /**
@@ -78,21 +68,28 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     return tableId;
   }
 
-  /**
-   * Get the serde assigned to this {@link TableDescriptor}
-   *
-   * @return {@link KVSerde} used by this table
-   */
-  public KVSerde<K, V> getSerde() {
-    return serde;
+  @Override
+  public Map<String, String> toConfig(Config jobConfig) {
+
+    validate();
+
+    Map<String, String> tableConfig = new HashMap<>(config);
+    tableConfig.put(
+        String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId),
+        getProviderFactoryClassName());
+    generateConfig(jobConfig, tableConfig);
+    return Collections.unmodifiableMap(tableConfig);
   }
 
-  /**
-   * Generate config for {@link TableSpec}; this method is used internally.
-   * @param tableSpecConfig configuration for the {@link TableSpec}
-   */
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    tableSpecConfig.putAll(config);
+  public String getProviderFactoryClassName() {
+    throw new SamzaException("Not implemented");
+  }
+
+  protected void addTableConfig(String key, String value, Map<String, String> tableConfig) {
+    tableConfig.put(JavaTableConfig.buildKey(tableId, key), value);
+  }
+
+  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
   }
 
   /**
@@ -100,11 +97,4 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
    */
   protected void validate() {
   }
-
-  /**
-   * Create a {@link TableSpec} from this table descriptor; this method is used internally.
-   *
-   * @return the {@link TableSpec}
-   */
-  abstract public TableSpec getTableSpec();
 }
