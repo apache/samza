@@ -35,7 +35,7 @@ cd hello-samza
 git checkout latest
 {% endhighlight %}
 
-This project already contains implementations of the wikipedia application using both the low-level task API and the high-level API. The low-level task implementations are in the `samza.examples.wikipedia.task` package. The high-level application implementation is in the `samza.examples.wikipedia.application` package.
+This project already contains implementations of the wikipedia application using both the Low Level Task API and the High Level Streams API. The Low Level Task API implementations are in the `samza.examples.wikipedia.task` package. The High Level Streams API implementation is in the `samza.examples.wikipedia.application` package.
 
 This tutorial will provide step by step instructions to recreate the existing wikipedia application.
 

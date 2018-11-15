@@ -37,8 +37,8 @@ Like any other production software, it is critical to monitor the health of our 
   + [A.3 Creating a Custom MetricsReporter](#customreporter)
 * [B. Metric Types in Samza](#metrictypes)
 * [C. Adding User-Defined Metrics](#userdefinedmetrics)
-  + [Low-level API](#lowlevelapi)
-  + [High-Level API](#highlevelapi)
+  + [Low Level Task API](#lowlevelapi)
+  + [High Level Streams API](#highlevelapi)
 * [D. Key Internal Samza Metrics](#keyinternalsamzametrics)
   + [D.1 Vital Metrics](#vitalmetrics)
   + [D.2 Store Metrics](#storemetrics)
@@ -232,7 +232,7 @@ To add a new metric, you can simply use the _MetricsRegistry_ in the provided Ta
 the init() method to register new metrics. The code snippets below show examples of registering and updating a user-defined
  Counter metric. Timers and gauges can similarly be used from within your task class.
 
-### <a name="lowlevelapi"></a> Low-level API
+### <a name="lowlevelapi"></a> Low Level Task API
 
 Simply have your task implement the InitableTask interface and access the MetricsRegistry from the TaskContext.
 
@@ -252,9 +252,9 @@ public class MyJavaStreamTask implements StreamTask, InitableTask {
 }
 ```
 
-### <a name="highlevelapi"></a> High-Level API
+### <a name="highlevelapi"></a> High Level Streams API
 
-In the high-level API, you can define a ContextManager and access the MetricsRegistry from the TaskContext, using which you can add and update your metrics.
+In the High Level Streams API, you can define a ContextManager and access the MetricsRegistry from the TaskContext, using which you can add and update your metrics.
 
 ```
 public class MyJavaStreamApp implements StreamApplication {
