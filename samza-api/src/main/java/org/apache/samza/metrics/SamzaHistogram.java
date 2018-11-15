@@ -60,30 +60,6 @@ public class SamzaHistogram {
     gauges.get(percentile).set(values.getValue(percentile / 100));
   }
 
-  public double getMedian() {
-    return histogram.getSnapshot().getMedian();
-  }
-
-  public double getMax() {
-    return histogram.getSnapshot().getMax();
-  }
-
-  public double getMin() {
-    return histogram.getSnapshot().getMin();
-  }
-
-  public double getMean() {
-    return histogram.getSnapshot().getMean();
-  }
-
-  public double getStdDev() {
-    return histogram.getSnapshot().getStdDev();
-  }
-
-  public long getCount() {
-    return histogram.getCount();
-  }
-
   /**
    * Custom gauge whose value is set based on the underlying Histogram
    */
