@@ -40,7 +40,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.eventhub.EventHubConfig;
-import org.apache.samza.system.eventhub.metrics.SamzaHistogram;
+import org.apache.samza.metrics.SamzaHistogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

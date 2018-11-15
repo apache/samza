@@ -131,6 +131,7 @@ public class QueryTranslator {
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
       int joinId = 0;
+      int opid = 0;
 
       @Override
       public RelNode visit(RelNode relNode) {
@@ -166,7 +167,8 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
-        new ProjectTranslator(queryId).translate(project, translatorContext);
+        String logicalOpId = "sql" + Integer.toString(queryId) + "_project" + Integer.toString(opid++);
+        new ProjectTranslator(queryId).translate(project, logicalOpId, translatorContext);
         return node;
       }
 
