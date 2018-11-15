@@ -164,17 +164,6 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Verify mapFn.apply() updates the MetricsRegistry metrics
     assertEquals(1, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
-    assertEquals(1, ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getCount());
-    double mean = ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getMean();
-    double median = ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getMedian();
-    double max = ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getMax();
-    double min = ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getMin();
-    double stdDev = ((ProjectTranslator.ProjectMapFunction) mapFn).getProcessingTimeHistogram().getStdDev();
-    assertNotEquals(0D, mean);
-    assertEquals(mean, median, 0D);
-    assertEquals(mean, max, 0D);
-    assertEquals(min, max, 0D);
-    assertEquals(0D, stdDev, 0D);
 
   }
 
