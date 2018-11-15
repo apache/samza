@@ -56,7 +56,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
-  var MaxRetryDurationMs: Long = TimeUnit.MINUTES.toMillis(15)
+  var MaxRetryDurationInMillis: Long = TimeUnit.MINUTES.toMillis(15)
 
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
@@ -73,6 +73,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = _
 
   val producerRef: AtomicReference[SystemProducer] = new AtomicReference[SystemProducer](getSystemProducer())
+  val producerCreationLock: Object = new Object
 
   /**
     * Create checkpoint stream prior to start.
@@ -96,8 +97,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     * @inheritdoc
     */
   override def start(): Unit = {
-    Preconditions.checkNotNull(systemConsumer)
-
     // register and start a producer for the checkpoint topic
     info("Starting the checkpoint SystemProducer")
     producerRef.get().start()
@@ -160,10 +159,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     val envelope = new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
 
+    // Used for exponential backoff retries on failure in sending messages through producer.
     val startTimeInMillis: Long = System.currentTimeMillis()
-    var sleepTimeInMillis: Long = 2
+    var sleepTimeInMillis: Long = 1000
+    val maxSleepTimeInMillis: Long = 10000
     var producerException: Exception = null
-    while ((System.currentTimeMillis() - startTimeInMillis) <= MaxRetryDurationMs) {
+    while ((System.currentTimeMillis() - startTimeInMillis) <= MaxRetryDurationInMillis) {
       val currentProducer = producerRef.get()
       try {
         currentProducer.send(taskName.getTaskName, envelope)
@@ -174,22 +175,29 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
         case exception: Exception => {
           producerException = exception
           warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+          // TODO: Remove this producer recreation logic after SAMZA-1393.
           val newProducer: SystemProducer = getSystemProducer()
-          if (producerRef.compareAndSet(currentProducer, newProducer)) {
-            info(s"Stopping the checkpoint SystemProducer")
-            currentProducer.stop()
-            info(s"Recreating the checkpoint SystemProducer")
-            for (taskName <- taskNames) {
-              info(s"Registering the taskName: $taskName with SystemProducer")
-              newProducer.register(taskName.getTaskName)
-            }
-            newProducer.start()
-          } else {
+          producerCreationLock.synchronized {
+            if (producerRef.compareAndSet(currentProducer, newProducer)) {
+              info(s"Stopping the checkpoint SystemProducer")
+              currentProducer.stop()
+              info(s"Recreating the checkpoint SystemProducer")
+              // SystemProducer contract is that clients call register(taskName) followed by start
+              // before invoking writeCheckpoint, readCheckpoint API. Hence list of taskName are not
+              // expected to change during the producer recreation.
+              for (taskName <- taskNames) {
+                debug(s"Registering the taskName: $taskName with SystemProducer")
+                newProducer.register(taskName.getTaskName)
+              }
+              newProducer.start()
+            } else {
               info("Producer instance was recreated by other thread. Retrying with it.")
+              newProducer.stop()
             }
+          }
         }
       }
-      sleepTimeInMillis = sleepTimeInMillis * 2
+      sleepTimeInMillis = Math.min(sleepTimeInMillis * 2, maxSleepTimeInMillis)
       Thread.sleep(sleepTimeInMillis)
     }
     throw new SamzaException(s"Exception when writing checkpoint: $checkpoint for task: $taskName.", producerException)

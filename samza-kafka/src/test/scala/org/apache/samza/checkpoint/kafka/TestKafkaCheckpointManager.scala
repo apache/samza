@@ -85,7 +85,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
     val checkPointManager = Mockito.spy(new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry))
     val newKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
-    checkPointManager.MaxRetryDurationMs = 1
+    checkPointManager.MaxRetryDurationInMillis = 1
 
     Mockito.doReturn(newKafkaProducer).when(checkPointManager).getSystemProducer()
 
@@ -146,7 +146,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
     val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
-    checkPointManager.MaxRetryDurationMs = 1
+    checkPointManager.MaxRetryDurationInMillis = 1
 
     checkPointManager.register(taskName)
     checkPointManager.start
