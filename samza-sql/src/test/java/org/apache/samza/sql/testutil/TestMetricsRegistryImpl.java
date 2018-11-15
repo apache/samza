@@ -28,7 +28,11 @@ import org.apache.samza.metrics.ListGauge;
 import org.apache.samza.metrics.Timer;
 
 
-public class MetricsRegistry implements org.apache.samza.metrics.MetricsRegistry {
+/**
+ * TestMetricsRegistryImpl implements the MetricRegistry interface and adds get APIs
+ * for testing Translators.
+ */
+public class TestMetricsRegistryImpl implements org.apache.samza.metrics.MetricsRegistry {
   private Map<String, List<Counter>> counters = new HashMap<>();
   private Map<String, List<Timer>> timers = new HashMap<>();
   private Map<String, List<Gauge<?>>> gauges = new HashMap<>();
@@ -49,6 +53,10 @@ public class MetricsRegistry implements org.apache.samza.metrics.MetricsRegistry
     return counter;
   }
 
+  /**
+   * retrieves the Map of Counters
+   * @return counters
+   */
   public Map<String, List<Counter>> getCounters() {
     return counters;
   }
@@ -68,6 +76,10 @@ public class MetricsRegistry implements org.apache.samza.metrics.MetricsRegistry
     return timer;
   }
 
+  /**
+   * retrieves the Map of Timers
+   * @return timers
+   */
   public Map<String, List<Timer>> getTimers() {
     return timers;
   }
@@ -87,6 +99,10 @@ public class MetricsRegistry implements org.apache.samza.metrics.MetricsRegistry
     return gauge;
   }
 
+  /**
+   * retrieves the Map of Gauges
+   * @return gauges
+   */
   public Map<String, List<Gauge<?>>> getGauges() {
     return gauges;
   }

@@ -45,7 +45,6 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
@@ -131,7 +130,7 @@ public class QueryTranslator {
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
       int joinId = 0;
-      int opid = 0;
+      int opId = 0;
 
       @Override
       public RelNode visit(RelNode relNode) {
@@ -167,7 +166,7 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
-        String logicalOpId = "sql" + Integer.toString(queryId) + "_project" + Integer.toString(opid++);
+        String logicalOpId = "sql" + Integer.toString(queryId) + "_project" + Integer.toString(opId++);
         new ProjectTranslator(queryId).translate(project, logicalOpId, translatorContext);
         return node;
       }
@@ -175,8 +174,8 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
-        joinId++;
-        new JoinTranslator(joinId, sqlConfig.getMetadataTopicPrefix(), queryId)
+        String logicalOpId = "sql" + Integer.toString(queryId) + "_join" + Integer.toString(opId++);
+        new JoinTranslator(logicalOpId, sqlConfig.getMetadataTopicPrefix(), queryId)
             .translate(join, translatorContext);
         return node;
       }
@@ -184,8 +183,8 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalAggregate aggregate) {
         RelNode node = super.visit(aggregate);
-        windowId++;
-        new LogicalAggregateTranslator(windowId, sqlConfig.getMetadataTopicPrefix())
+        String logicalOpId = "sql" + Integer.toString(queryId) + "_window" + Integer.toString(opId++);
+        new LogicalAggregateTranslator(logicalOpId, sqlConfig.getMetadataTopicPrefix())
             .translate(aggregate, translatorContext);
         return node;
       }

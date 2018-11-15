@@ -48,7 +48,7 @@ import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.sql.testutil.MetricsRegistry;
+import org.apache.samza.sql.testutil.TestMetricsRegistryImpl;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,7 +80,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     Context mockContext = mock(Context.class);
     ContainerContext mockContainerContext = mock(ContainerContext.class);
     TranslatorContext mockTranslatorContext = mock(TranslatorContext.class);
-    MetricsRegistry metricsRegistry = new MetricsRegistry();
+    TestMetricsRegistryImpl testMetricsRegistryImpl = new TestMetricsRegistryImpl();
 
     RelNode mockInput = mock(RelNode.class);
     List<RelNode> inputs = new ArrayList<>();
@@ -106,7 +106,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     Expression mockExpr = mock(Expression.class);
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
     when(mockContext.getContainerContext()).thenReturn(mockContainerContext);
-    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
+    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(testMetricsRegistryImpl);
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
     ProjectTranslator projectTranslator = new ProjectTranslator(1);
@@ -128,15 +128,15 @@ public class TestProjectTranslator extends TranslatorTestBase {
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
 
     assertNotNull(mapFn);
-    assertEquals(mockTranslatorContext, Whitebox.getInternalState(mapFn, "context"));
+    assertEquals(mockTranslatorContext, Whitebox.getInternalState(mapFn, "translatorContext"));
     assertEquals(mockProject, Whitebox.getInternalState(mapFn, "project"));
     assertEquals(mockExpr, Whitebox.getInternalState(mapFn, "expr"));
-    // Verify MetricsRegistry works with Project
-    assertEquals(1, metricsRegistry.getGauges().size());
-    assertEquals(2, metricsRegistry.getGauges().get(LOGICAL_OP_ID).size());
-    assertEquals(1, metricsRegistry.getCounters().size());
-    assertEquals(1, metricsRegistry.getCounters().get(LOGICAL_OP_ID).size());
-    assertEquals(0, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    // Verify TestMetricsRegistryImpl works with Project
+    assertEquals(1, testMetricsRegistryImpl.getGauges().size());
+    assertEquals(2, testMetricsRegistryImpl.getGauges().get(LOGICAL_OP_ID).size());
+    assertEquals(1, testMetricsRegistryImpl.getCounters().size());
+    assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).size());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
 
     // Calling mapFn.apply() to verify the filter function is correctly applied to the input message
     SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>());
@@ -162,8 +162,8 @@ public class TestProjectTranslator extends TranslatorTestBase {
           this.add(mockFieldObj);
         }});
 
-    // Verify mapFn.apply() updates the MetricsRegistry metrics
-    assertEquals(1, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    // Verify mapFn.apply() updates the TestMetricsRegistryImpl metrics
+    assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
 
   }
 
@@ -276,7 +276,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     projectSpec.getTransformFn().init(mockContext);
     MapFunction mapFn = (MapFunction) Whitebox.getInternalState(projectSpec, "mapFn");
     assertNotNull(mapFn);
-    assertEquals(mockTranslatorContext, Whitebox.getInternalState(mapFn, "context"));
+    assertEquals(mockTranslatorContext, Whitebox.getInternalState(mapFn, "translatorContext"));
     assertEquals(mockProject, Whitebox.getInternalState(mapFn, "project"));
     assertEquals(mockExpr, Whitebox.getInternalState(mapFn, "expr"));
 
