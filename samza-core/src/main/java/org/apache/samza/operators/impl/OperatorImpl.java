@@ -500,7 +500,8 @@ public abstract class OperatorImpl<M, RM> {
   private HighResolutionClock createHighResClock(Config config) {
     MetricsConfig metricsConfig = new MetricsConfig(config);
     // The timer metrics calculation here is only enabled for debugging
-    if (metricsConfig.getMetricsTimerEnabled() && metricsConfig.getMetricsTimerDebugEnabled()) {
+    if (metricsConfig.getMetricsTimerEnabled()
+        && metricsConfig.getMetricsTimerDebugEnabled()) {
       return System::nanoTime;
     } else {
       return () -> 0;
