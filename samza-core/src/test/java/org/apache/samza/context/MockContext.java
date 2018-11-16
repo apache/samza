@@ -22,6 +22,8 @@ package org.apache.samza.context;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 
+import java.util.Collections;
+
 import static org.mockito.Mockito.*;
 
 
@@ -36,7 +38,9 @@ public class MockContext implements Context {
   private final ApplicationTaskContext applicationTaskContext = mock(ApplicationTaskContext.class);
 
   public MockContext() {
-    this(new MapConfig());
+    this(new MapConfig(
+        Collections.singletonMap("metrics.timer.debug.enabled", "true")
+    ));
   }
 
   /**
