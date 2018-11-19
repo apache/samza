@@ -21,6 +21,7 @@ package org.apache.samza.table.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import java.util.Objects;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Timer;
@@ -129,8 +130,14 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     Preconditions.checkNotNull(key);
     readMetrics.numGets.inc();
     return execute(readRateLimiter, key, readFn::getAsync, readMetrics.getNs)
-        .exceptionally(e -> {
-            throw new SamzaException("Failed to get the record for " + key, e);
+        .handle((result, e) -> {
+            if (e != null) {
+              throw new SamzaException("Failed to get the records for " + key, e);
+            }
+            if (result == null) {
+              readMetrics.numMissedLookups.inc();
+            }
+            return result;
           });
   }
 
@@ -159,6 +166,7 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + keys, e);
             }
+            result.values().stream().filter(Objects::isNull).map(v -> readMetrics.numMissedLookups.inc());
             return result;
           });
   }
