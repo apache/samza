@@ -83,6 +83,10 @@ public class EpochTimeScheduler {
 
   void registerListener(TimerListener listener) {
     timerListener = listener;
+
+    if (!readyTimers.isEmpty()) {
+      timerListener.onTimer();
+    }
   }
 
   public Map<TimerKey<?>, ScheduledCallback> removeReadyTimers() {
