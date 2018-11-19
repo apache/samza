@@ -20,6 +20,8 @@
 package org.apache.samza.sql.translator;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -34,7 +36,11 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.SamzaHistogram;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -43,6 +49,7 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
@@ -53,6 +60,8 @@ import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -66,16 +75,24 @@ public class QueryTranslator {
   private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
   private final Map<String, MessageStream<KV<Object, Object>>> inputMsgStreams;
   private final Map<String, OutputStream> outputMsgStreams;
+  private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
+
 
   private static class OutputMapFunction implements MapFunction<SamzaSqlRelMessage, KV<Object, Object>> {
     private transient SamzaRelConverter samzaMsgConverter;
+    private transient MetricsRegistry metricsRegistry;
+    private transient SamzaHistogram latency; // milli-seconds
+    private transient Counter outputEvents;
     private final String outputTopic;
     private final int queryId;
     static OutputStream logOutputStream;
+    private String queryLogicalId;
+
 
     OutputMapFunction(String outputTopic, int queryId) {
       this.outputTopic = outputTopic;
       this.queryId = queryId;
+      queryLogicalId = String.format(TranslatorConstants.LOGSQLID_TEMPLATE, queryId);
     }
 
     @Override
@@ -83,12 +100,33 @@ public class QueryTranslator {
       TranslatorContext translatorContext =
           ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.samzaMsgConverter = translatorContext.getMsgConverter(outputTopic);
+      ContainerContext containerContext = context.getContainerContext();
+      metricsRegistry = containerContext.getContainerMetricsRegistry();
+      latency = new SamzaHistogram(metricsRegistry, queryLogicalId, TranslatorConstants.LATENCY_NAME);
+      outputEvents = metricsRegistry.newCounter(queryLogicalId, TranslatorConstants.OUTPUT_EVENTS_NAME);
+      outputEvents.clear();
     }
 
     @Override
     public KV<Object, Object> apply(SamzaSqlRelMessage message) {
-      return this.samzaMsgConverter.convertToSamzaMessage(message);
+      if (!message.hasMeatadata()) {
+        LOG.warn("Output message with no Metadata: " + message);
+        message.setSamzaSqlRelMsgMetadata(new SamzaSqlRelMsgMetadata(Instant.now().toString()));
+      }
+      KV<Object, Object> retKV = this.samzaMsgConverter.convertToSamzaMessage(message);
+      updateMetrics(message.getSamzaSqlRelMsgMetadata().getEventTime(), Instant.now());
+      return  retKV;
     }
+
+    /**
+     * Updates the Diagnostics Metrics (processing time and number of events)
+     * @param outputTime output message output time (=end of processing in this operator)
+     */
+    private void updateMetrics(String eventTime, Instant outputTime) {
+      outputEvents.inc();
+      latency.update(Duration.between(Instant.parse(eventTime), outputTime).toMillis());
+    }
+
   }
 
   public QueryTranslator(StreamApplicationDescriptor appDesc, SamzaSqlApplicationConfig sqlConfig) {
@@ -128,8 +166,6 @@ public class QueryTranslator {
         new ModifyTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getOutputSystemStreamConfigsBySource(), queryId);
 
     node.accept(new RelShuttleImpl() {
-      int windowId = 0;
-      int joinId = 0;
       int opId = 0;
 
       @Override
@@ -145,28 +181,31 @@ public class QueryTranslator {
           throw new SamzaException("Not a supported operation: " + modify.toString());
         }
         RelNode node = super.visit(modify);
-        modifyTranslator.translate(modify, translatorContext, systemDescriptors, outputMsgStreams);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "modify", opId++);
+        modifyTranslator.translate(logicalOpId, modify, translatorContext, systemDescriptors, outputMsgStreams);
         return node;
       }
 
       @Override
       public RelNode visit(TableScan scan) {
         RelNode node = super.visit(scan);
-        scanTranslator.translate(scan, translatorContext, systemDescriptors, inputMsgStreams);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "scan", opId++);
+        scanTranslator.translate(scan, logicalOpId, translatorContext, systemDescriptors, inputMsgStreams);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalFilter filter) {
         RelNode node = visitChild(filter, 0, filter.getInput());
-        new FilterTranslator(queryId).translate(filter, translatorContext);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "filter", opId++);
+        new FilterTranslator(queryId).translate(filter, logicalOpId, translatorContext);
         return node;
       }
 
       @Override
       public RelNode visit(LogicalProject project) {
         RelNode node = super.visit(project);
-        String logicalOpId = "sql" + Integer.toString(queryId) + "_project" + Integer.toString(opId++);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "project", opId++);
         new ProjectTranslator(queryId).translate(project, logicalOpId, translatorContext);
         return node;
       }
@@ -174,7 +213,7 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalJoin join) {
         RelNode node = super.visit(join);
-        String logicalOpId = "sql" + Integer.toString(queryId) + "_join" + Integer.toString(opId++);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "join", opId++);
         new JoinTranslator(logicalOpId, sqlConfig.getMetadataTopicPrefix(), queryId)
             .translate(join, translatorContext);
         return node;
@@ -183,7 +222,7 @@ public class QueryTranslator {
       @Override
       public RelNode visit(LogicalAggregate aggregate) {
         RelNode node = super.visit(aggregate);
-        String logicalOpId = "sql" + Integer.toString(queryId) + "_window" + Integer.toString(opId++);
+        String logicalOpId = String.format(TranslatorConstants.LOGOPID_TEMPLATE, queryId, "window", opId++);
         new LogicalAggregateTranslator(logicalOpId, sqlConfig.getMetadataTopicPrefix())
             .translate(aggregate, translatorContext);
         return node;
@@ -200,9 +239,9 @@ public class QueryTranslator {
     );
   }
 
-  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, int queryId) {
+  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext translatorContext, RelNode node, int queryId) {
     SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG);
-    MessageStream<SamzaSqlRelMessage> stream = context.getMessageStream(node.getId());
+    MessageStream<SamzaSqlRelMessage> stream = translatorContext.getMessageStream(node.getId());
     MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG, queryId));
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {

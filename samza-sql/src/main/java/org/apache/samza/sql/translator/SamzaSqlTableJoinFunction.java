@@ -105,7 +105,7 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
       outFieldValues.addAll(message.getSamzaSqlRelRecord().getFieldValues());
     }
 
-    return new SamzaSqlRelMessage(outFieldNames, outFieldValues);
+    return new SamzaSqlRelMessage(outFieldNames, outFieldValues, message.getSamzaSqlRelMsgMetadata());
   }
 
   protected abstract List<Object> getTableRelRecordFieldValues(R record);

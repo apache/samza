@@ -82,9 +82,9 @@ class JoinTranslator {
     this.queryId = queryId;
   }
 
-  void translate(final LogicalJoin join, final TranslatorContext context) {
-    JoinInputNode.InputType inputTypeOnLeft = getInputType(join.getLeft(), context);
-    JoinInputNode.InputType inputTypeOnRight = getInputType(join.getRight(), context);
+  void translate(final LogicalJoin join, final TranslatorContext translatorContext) {
+    JoinInputNode.InputType inputTypeOnLeft = getInputType(join.getLeft(), translatorContext);
+    JoinInputNode.InputType inputTypeOnRight = getInputType(join.getRight(), translatorContext);
 
     // Do the validation of join query
     validateJoinQuery(join, inputTypeOnLeft, inputTypeOnRight);
@@ -107,13 +107,13 @@ class JoinTranslator {
     JoinInputNode tableNode = new JoinInputNode(isTablePosOnRight ? join.getRight() : join.getLeft(), tableKeyIds,
         isTablePosOnRight ? inputTypeOnRight : inputTypeOnLeft, isTablePosOnRight);
 
-    MessageStream<SamzaSqlRelMessage> inputStream = context.getMessageStream(streamNode.getRelNode().getId());
-    Table table = getTable(tableNode, context);
+    MessageStream<SamzaSqlRelMessage> inputStream = translatorContext.getMessageStream(streamNode.getRelNode().getId());
+    Table table = getTable(tableNode, translatorContext);
 
     MessageStream<SamzaSqlRelMessage> outputStream =
-        joinStreamWithTable(inputStream, table, streamNode, tableNode, join, context);
+        joinStreamWithTable(inputStream, table, streamNode, tableNode, join, translatorContext);
 
-    context.registerMessageStream(join.getId(), outputStream);
+    translatorContext.registerMessageStream(join.getId(), outputStream);
   }
 
   private MessageStream<SamzaSqlRelMessage> joinStreamWithTable(MessageStream<SamzaSqlRelMessage> inputStream,
