@@ -193,16 +193,16 @@ public class QueryTranslator {
     sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
         key -> {
           if (key.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            sendToOutputStream(streamAppDescriptor, translatorContext, node, queryId);
+            sendToOutputStream(key, streamAppDescriptor, translatorContext, node, queryId);
           }
         }
     );
   }
 
-  private void sendToOutputStream(StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, int queryId) {
-    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG);
+  private void sendToOutputStream(String sinkStream, StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, int queryId) {
+    SqlIOConfig sinkConfig = sqlConfig.getOutputSystemStreamConfigsBySource().get(sinkStream);
     MessageStream<SamzaSqlRelMessage> stream = context.getMessageStream(node.getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG, queryId));
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(sinkStream, queryId));
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
       KVSerde<Object, Object> noOpKVSerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
