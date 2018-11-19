@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class SchedulerFunctionTest {
+public class TestSchedulerFunction {
   static AtomicBoolean timerFired = new AtomicBoolean(false);
 
   @Test
@@ -52,7 +52,7 @@ public class SchedulerFunctionTest {
       public void describe(StreamApplicationDescriptor appDescriptor) {
 
         appDescriptor.getInputStream(imid)
-            .map(new TestSchedulerFunction());
+            .map(new TestFunction());
       }
     };
 
@@ -64,8 +64,7 @@ public class SchedulerFunctionTest {
     assertTrue(timerFired.get());
   }
 
-  static class TestSchedulerFunction implements MapFunction<String, Void>, ScheduledFunction<String, Void> {
-
+  private static class TestFunction implements MapFunction<String, Void>, ScheduledFunction<String, Void> {
 
     @Override
     public Void apply(String message) {
