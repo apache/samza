@@ -272,6 +272,49 @@ public class TestAvroRelConversion {
     }
   }
 
+  @Test
+  public void testRecordConversionWithNullPayload() throws IOException {
+    GenericData.Record record = null;
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    Assert.assertTrue(recordPostConversion == null);
+  }
+
+  @Test
+  public void testNestedRecordConversionWithSubRecordsBeingNull() throws IOException {
+    GenericData.Record record = new GenericData.Record(Profile.SCHEMA$);
+    record.put("id", 1);
+    record.put("name", "name1");
+    record.put("companyId", 0);
+    GenericData.Record addressRecord = null;
+    record.put("address", addressRecord);
+    record.put("selfEmployed", "True");
+
+
+    List<GenericData.Record> phoneNumbers = null;
+    record.put("phoneNumbers", phoneNumbers);
+
+    HashMap<String, IndexedRecord> mapValues = null;
+    record.put("mapValues", mapValues);
+
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    for (Schema.Field field : Profile.SCHEMA$.getFields()) {
+      // equals() on GenericRecord does the nested record equality check as well.
+      Assert.assertEquals(record.get(field.name()), recordPostConversion.get(field.name()));
+    }
+  }
+
   private static <T> T genericRecordFromBytes(byte[] bytes, Schema schema) throws IOException {
     BinaryDecoder binDecoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes, null);
     GenericDatumReader<T> reader = new GenericDatumReader<>(schema);

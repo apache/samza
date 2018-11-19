@@ -59,6 +59,7 @@ public class TestAvroSystemFactory implements SystemFactory {
 
   public static final String CFG_NUM_MESSAGES = "numMessages";
   public static final String CFG_INCLUDE_NULL_FOREIGN_KEYS = "includeNullForeignKeys";
+  public static final String CFG_INCLUDE_NULL_SIMPLE_RECORDS = "includeNullSimpleRecords";
   public static final String CFG_SLEEP_BETWEEN_POLLS_MS = "sleepBetweenPollsMs";
 
   private static final String[] profileNames = {"John", "Mike", "Mary", "Joe", "Brad", "Jennifer"};
@@ -70,6 +71,7 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
   public static final byte[] DEFAULT_TRACKING_ID_BYTES =
       {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+  public static final int NULL_RECORD_FREQUENCY = 5;
 
 
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
@@ -141,6 +143,7 @@ public class TestAvroSystemFactory implements SystemFactory {
     public static final int DEFAULT_NUM_EVENTS = 10;
     private final int numMessages;
     private final boolean includeNullForeignKeys;
+    private final boolean includeNullSimpleRecords;
     private final long sleepBetweenPollsMs;
     private final Set<SystemStreamPartition> simpleRecordSsps = new HashSet<>();
     private final Set<SystemStreamPartition> profileRecordSsps = new HashSet<>();
@@ -152,6 +155,8 @@ public class TestAvroSystemFactory implements SystemFactory {
       numMessages = config.getInt(String.format("systems.%s.%s", systemName, CFG_NUM_MESSAGES), DEFAULT_NUM_EVENTS);
       includeNullForeignKeys = config.getBoolean(String.format("systems.%s.%s", systemName,
           CFG_INCLUDE_NULL_FOREIGN_KEYS), false);
+      includeNullSimpleRecords = config.getBoolean(String.format("systems.%s.%s", systemName,
+          CFG_INCLUDE_NULL_SIMPLE_RECORDS), false);
       sleepBetweenPollsMs = config.getLong(String.format("systems.%s.%s", systemName, CFG_SLEEP_BETWEEN_POLLS_MS), 0);
     }
 
@@ -222,7 +227,7 @@ public class TestAvroSystemFactory implements SystemFactory {
 
     private Object getData(int index, SystemStreamPartition ssp) {
       if (simpleRecordSsps.contains(ssp)) {
-        return createSimpleRecord(index);
+        return createSimpleRecord(index, includeNullSimpleRecords);
       } else if (profileRecordSsps.contains(ssp)) {
         return createProfileRecord(index);
       } else if (companyRecordSsps.contains(ssp)) {
@@ -234,7 +239,11 @@ public class TestAvroSystemFactory implements SystemFactory {
       }
     }
 
-    private Object createSimpleRecord(int index) {
+    private Object createSimpleRecord(int index, boolean includeNullRecords) {
+      if (includeNullRecords && index % NULL_RECORD_FREQUENCY == 0) {
+        return null;
+      }
+
       GenericRecord record = new GenericData.Record(SimpleRecord.SCHEMA$);
       record.put("id", index);
       record.put("name", "Name" + index);

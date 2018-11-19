@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import java.util.Objects;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.*;
 
 
 /**
@@ -135,7 +137,12 @@ class JoinTranslator {
       StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
 
-      return inputStream.join(table, joinFn);
+      return
+          inputStream
+              //.filter(m ->
+              //    !getMessageKeyRelRecord(m, streamKeyIds, tableFieldNames, tableKeyIds).getFieldValues().stream()
+              //        .allMatch(Objects::isNull)) // Filter null stream join key records
+              .join(table, joinFn);
     }
 
     // Join with the local table
@@ -156,6 +163,7 @@ class JoinTranslator {
             getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)), m -> m, KVSerde.of(keySerde, valueSerde),
             intermediateStreamPrefix + "stream_" + joinId)
             .map(KV::getValue)
+            //.filter(m -> m.getKey() != null) // Filter null stream join keys
             .join(table, joinFn);
   }
 

@@ -20,6 +20,7 @@
 package org.apache.samza.sql.e2e;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ import org.junit.Test;
 
 public class TestSamzaSqlRemoteTable {
   @Test
-  public void testSinkEndToEndWithKey() throws Exception {
+  public void testSinkEndToEndWithKey() {
     int numMessages = 20;
 
     RemoteStoreIOResolverTestFactory.records.clear();
@@ -53,8 +54,28 @@ public class TestSamzaSqlRemoteTable {
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
+  @Test
+  public void testSinkEndToEndWithKeyWithNullRecords() {
+    int numMessages = 20;
+
+    RemoteStoreIOResolverTestFactory.records.clear();
+
+    Map<String, String> props = new HashMap<>();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(props, numMessages, false, true);
+
+    String sql = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    appRunnable.runAndWaitForFinish();
+
+    Assert.assertEquals(numMessages - ((numMessages - 1) / TestAvroSystemFactory.NULL_RECORD_FREQUENCY + 1),
+        RemoteStoreIOResolverTestFactory.records.size());
+  }
+
   @Test (expected = AssertionError.class)
-  public void testSinkEndToEndWithoutKey() throws Exception {
+  public void testSinkEndToEndWithoutKey() {
     int numMessages = 20;
 
     RemoteStoreIOResolverTestFactory.records.clear();
@@ -70,7 +91,7 @@ public class TestSamzaSqlRemoteTable {
   }
 
   @Test
-  public void testSourceEndToEndWithKey() throws Exception {
+  public void testSourceEndToEndWithKey() {
     int numMessages = 20;
 
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
@@ -96,6 +117,37 @@ public class TestSamzaSqlRemoteTable {
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameJoin(numMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
+
+  @Test
+  public void testSourceEndToEndWithKeyWithNullForeignKeys() {
+    int numMessages = 20;
+
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    populateProfileTable(staticConfigs);
+
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    appRunnable.runAndWaitForFinish();
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+            + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+            ((GenericRecord) x.getMessage()).get("profileName").toString()))
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages / 2, outMessages.size());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameJoinWithNullForeignKeys(numMessages);
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
