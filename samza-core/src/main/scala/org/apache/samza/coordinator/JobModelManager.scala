@@ -62,6 +62,7 @@ object JobModelManager extends Logging {
   val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
 
   /**
+   * Currently used only in the ApplicationMaster for yarn deployment model.
    * Does the following:
    * a) Reads the jobModel from coordinator stream using the job's configuration.
    * b) Recomputes the changelog partition mapping based on jobModel and job's configuration.

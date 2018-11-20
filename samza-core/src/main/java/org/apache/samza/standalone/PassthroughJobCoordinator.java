@@ -41,7 +41,6 @@ import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.Collections;
-import java.util.HashMap;
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -130,7 +129,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     systemAdmins.start();
     try {
       String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
-      GrouperContext grouperContext = new GrouperContext(ImmutableMap.of(String.valueOf(containerId), locationId), new HashMap<>(), new HashMap<>(), new HashMap<>());
+      GrouperContext grouperContext = new GrouperContext(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
       return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperContext);
     } finally {
       systemAdmins.stop();

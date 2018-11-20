@@ -34,28 +34,28 @@ import java.util.Map;
  */
 @InterfaceStability.Evolving
 public class GrouperContext {
-  private Map<String, LocationId> processorLocality;
-  private Map<TaskName, LocationId> taskLocality;
-  private Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment;
-  private Map<TaskName, String> previousTaskToContainerAssignment;
+  private final Map<String, LocationId> processorLocality;
+  private final Map<TaskName, LocationId> taskLocality;
+  private final Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment;
+  private final Map<TaskName, String> previousTaskToContainerAssignment;
 
   public GrouperContext(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToContainerAssignment) {
-    this.processorLocality = processorLocality;
-    this.taskLocality = taskLocality;
-    this.previousTaskToSSPAssignment = previousTaskToSSPAssignments;
-    this.previousTaskToContainerAssignment = previousTaskToContainerAssignment;
+    this.processorLocality = Collections.unmodifiableMap(processorLocality);
+    this.taskLocality = Collections.unmodifiableMap(taskLocality);
+    this.previousTaskToSSPAssignment = Collections.unmodifiableMap(previousTaskToSSPAssignments);
+    this.previousTaskToContainerAssignment = Collections.unmodifiableMap(previousTaskToContainerAssignment);
   }
 
   public Map<String, LocationId> getProcessorLocality() {
-    return Collections.unmodifiableMap(processorLocality);
+    return processorLocality;
   }
 
   public Map<TaskName, LocationId> getTaskLocality() {
-    return Collections.unmodifiableMap(taskLocality);
+    return taskLocality;
   }
 
   public Map<TaskName, List<SystemStreamPartition>> getPreviousTaskToSSPAssignment() {
-    return Collections.unmodifiableMap(previousTaskToSSPAssignment);
+    return previousTaskToSSPAssignment;
   }
 
   public List<String> getProcessorIds() {
@@ -63,6 +63,6 @@ public class GrouperContext {
   }
 
   public Map<TaskName, String> getPreviousTaskToContainerAssignment() {
-    return Collections.unmodifiableMap(this.previousTaskToContainerAssignment);
+    return this.previousTaskToContainerAssignment;
   }
 }

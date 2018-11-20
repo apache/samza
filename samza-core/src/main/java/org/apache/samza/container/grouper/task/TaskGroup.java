@@ -18,9 +18,11 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
+
+import java.util.*;
 
 /**
  * A mutable group of tasks and an associated container id.
@@ -45,11 +47,39 @@ class TaskGroup {
     taskNames.add(taskName);
   }
 
-  public String removeTask() {
+  public String removeLastTask() {
     return taskNames.remove(taskNames.size() - 1);
   }
 
   public int size() {
     return taskNames.size();
+  }
+
+  /**
+   * Converts the {@link TaskGroup} list to a set of ContainerModel.
+   *
+   * @param taskModels    the TaskModels to assign to the ContainerModels.
+   * @param taskGroups    the TaskGroups defining how the tasks should be grouped.
+   * @return              a set of ContainerModels.
+   */
+  public static Set<ContainerModel> buildContainerModels(Set<TaskModel> taskModels, Collection<TaskGroup> taskGroups) {
+    // Map task names to models
+    Map<String, TaskModel> taskNameToModel = new HashMap<>();
+    for (TaskModel model : taskModels) {
+      taskNameToModel.put(model.getTaskName().getTaskName(), model);
+    }
+
+    // Build container models
+    Set<ContainerModel> containerModels = new HashSet<>();
+    for (TaskGroup container : taskGroups) {
+      Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
+      for (String taskName : container.taskNames) {
+        TaskModel model = taskNameToModel.get(taskName);
+        containerTaskModels.put(model.getTaskName(), model);
+      }
+      containerModels.add(new ContainerModel(container.containerId, containerTaskModels));
+    }
+
+    return Collections.unmodifiableSet(containerModels);
   }
 }

@@ -20,7 +20,6 @@ package org.apache.samza.container.grouper.task;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -103,7 +102,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     int containerDelta = containerCount - prevContainerCount;
     if (containerDelta == 0) {
       LOG.info("Container count has not changed. Reusing previous container models.");
-      return buildContainerModels(tasks, containers);
+      return TaskGroup.buildContainerModels(tasks, containers);
     }
     LOG.info("Container count changed from {} to {}. Balancing tasks.", prevContainerCount, containerCount);
 
@@ -115,7 +114,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     for (int i = 0; i < prevContainerCount; i++) {
       TaskGroup taskGroup = containers.get(i);
       while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
-        taskNamesToReassign.add(taskGroup.removeTask());
+        taskNamesToReassign.add(taskGroup.removeLastTask());
       }
     }
 
@@ -129,7 +128,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
 
     assignTasksToContainers(expectedTaskCountPerContainer, taskNamesToReassign, containers);
 
-    return buildContainerModels(tasks, containers);
+    return TaskGroup.buildContainerModels(tasks, containers);
   }
 
   /**
@@ -243,35 +242,6 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
       }
     }
     return newTaskCountPerContainer;
-  }
-
-  /**
-   * Translates the list of TaskGroup instances to a set of ContainerModel instances, using the
-   * set of TaskModel instances.
-   *
-   * @param tasks             the TaskModels to assign to the ContainerModels.
-   * @param containerTasks    the TaskGroups defining how the tasks should be grouped.
-   * @return                  a mutable set of ContainerModels.
-   */
-  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, Collection<TaskGroup> containerTasks) {
-    // Map task names to models
-    Map<String, TaskModel> taskNameToModel = new HashMap<>();
-    for (TaskModel model : tasks) {
-      taskNameToModel.put(model.getTaskName().getTaskName(), model);
-    }
-
-    // Build container models
-    Set<ContainerModel> containerModels = new HashSet<>();
-    for (TaskGroup container : containerTasks) {
-      Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
-      for (String taskName : container.taskNames) {
-        TaskModel model = taskNameToModel.get(taskName);
-        containerTaskModels.put(model.getTaskName(), model);
-      }
-      containerModels.add(
-          new ContainerModel(container.containerId, containerTaskModels));
-    }
-    return Collections.unmodifiableSet(containerModels);
   }
 
   /**

@@ -59,7 +59,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -366,7 +365,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     }
 
     // Generate the new JobModel
-    GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    GrouperContext grouperContext = new GrouperContext(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperContext);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 

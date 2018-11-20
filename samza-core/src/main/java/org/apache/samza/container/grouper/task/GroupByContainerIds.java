@@ -133,16 +133,13 @@ public class GroupByContainerIds implements TaskNameGrouper {
       return group(taskModels, new ArrayList<>());
     }
 
-    Map<String, LocationId> processorLocality;
+    Map<String, LocationId> processorLocality = grouperContext.getProcessorLocality();
     if (grouperContext.getProcessorLocality().size() > taskModels.size()) {
-      processorLocality = grouperContext.getProcessorLocality()
-                                        .entrySet()
-                                        .stream()
-                                        .sorted(Comparator.comparing(Map.Entry::getKey))
-                                        .limit(taskModels.size())
-                                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    } else {
-      processorLocality = grouperContext.getProcessorLocality();
+      processorLocality = processorLocality.entrySet()
+                                           .stream()
+                                           .sorted(Comparator.comparing(Map.Entry::getKey))
+                                           .limit(taskModels.size())
+                                           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     Map<LocationId, List<String>> locationIdToProcessors = new HashMap<>();
@@ -157,6 +154,13 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
     int numTasksPerProcessor = taskModels.size() / processorLocality.size();
     Set<TaskName> assignedTasks = new HashSet<>();
+
+    /**
+     * When the are `t`  tasks and `p` processors, where t >= p, a fair task distribution should assign
+     * (t / p) tasks to each processor. In addition to guaranteeing fair distribution, this grouper
+     * generates a locationId aware task assignment to processors where it makes best efforts in assigning
+     * the tasks to a processors with the same locality.
+     */
     for (TaskModel taskModel : taskModels) {
       LocationId taskLocationId = taskLocality.get(taskModel.getTaskName());
       if (taskLocationId != null) {
@@ -172,6 +176,11 @@ public class GroupByContainerIds implements TaskNameGrouper {
       }
     }
 
+    /**
+     * In some scenarios, either the task might not have any previous locality or the task might not have any
+     * existing processor that maps to its previous locality. This cyclic processorId's iterator helps us to
+     * assign the processorIds to these kind of tasks in a round robin fashion.
+     */
     Iterator<String> processorIdsCyclicIterator = Iterators.cycle(processorLocality.keySet());
     Collection<TaskGroup> taskGroups = processorIdToTaskGroup.values();
     for (TaskModel taskModel : taskModels) {
@@ -189,35 +198,6 @@ public class GroupByContainerIds implements TaskNameGrouper {
       }
     }
 
-    return buildContainerModels(taskModels, taskGroups);
-  }
-
-
-  /**
-   * Converts the {@link TaskGroup} list to a set of ContainerModel.
-   *
-   * @param tasks         the TaskModels to assign to the ContainerModels.
-   * @param taskGroups    the TaskGroups defining how the tasks should be grouped.
-   * @return              a set of ContainerModels.
-   */
-  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, Collection<TaskGroup> taskGroups) {
-    // Map task names to models
-    Map<String, TaskModel> taskNameToModel = new HashMap<>();
-    for (TaskModel model : tasks) {
-      taskNameToModel.put(model.getTaskName().getTaskName(), model);
-    }
-
-    // Build container models
-    Set<ContainerModel> containerModels = new HashSet<>();
-    for (TaskGroup container : taskGroups) {
-      Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
-      for (String taskName : container.taskNames) {
-        TaskModel model = taskNameToModel.get(taskName);
-        containerTaskModels.put(model.getTaskName(), model);
-      }
-      containerModels.add(new ContainerModel(container.containerId, containerTaskModels));
-    }
-
-    return Collections.unmodifiableSet(containerModels);
+    return TaskGroup.buildContainerModels(taskModels, taskGroups);
   }
 }
