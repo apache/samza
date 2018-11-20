@@ -372,6 +372,7 @@ public class TestAvroRelConversion {
       } else {
         Object expected = complexRecordValue.get(field.name());
         if (expected instanceof Float) {
+          // AvroRelConverter converts float to double to be in sync with what Calcite does in JavaTypeFactoryImpl
           expected = Double.parseDouble(Float.toString((Float) expected));
         }
         Assert.assertEquals(expected, record.get(field.name()));
