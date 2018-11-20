@@ -24,6 +24,7 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.ScheduledFunction;
+import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
@@ -45,7 +46,7 @@ public class TestSchedulerFunction {
   @Test
   public void testImmediateTimer() {
     final InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
-    final InMemoryInputDescriptor<String> imid = isd.getInputDescriptor("test-input", new StringSerde());
+    final InMemoryInputDescriptor<Integer> imid = isd.getInputDescriptor("test-input", new IntegerSerde());
 
     StreamApplication app = new StreamApplication() {
       @Override
@@ -58,16 +59,21 @@ public class TestSchedulerFunction {
 
     TestRunner
         .of(app)
-        .addInputStream(imid, Arrays.asList("a"))
+        .addInputStream(imid, Arrays.asList(1, 2, 3))
         .run(Duration.ofSeconds(1));
 
     assertTrue(timerFired.get());
   }
 
-  private static class TestFunction implements MapFunction<String, Void>, ScheduledFunction<String, Void> {
+  private static class TestFunction implements MapFunction<Integer, Void>, ScheduledFunction<String, Void> {
 
     @Override
-    public Void apply(String message) {
+    public Void apply(Integer message) {
+      try {
+        // This is to avoid the container shutdown before the timer fired
+        Thread.sleep(1);
+      } catch (Exception e) {
+      }
       return null;
     }
 
