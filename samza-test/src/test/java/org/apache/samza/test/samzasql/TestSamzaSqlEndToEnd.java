@@ -91,26 +91,6 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndWithDifferentSystemSameStream() {
-    int numMessages = 20;
-
-    TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    String sql = "Insert into testavro2.SIMPLE1 select * from testavro.SIMPLE1";
-    List<String> sqlStmts = Arrays.asList(sql);
-    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    runner.runAndWaitForFinish();
-
-    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
-        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
-        .sorted()
-        .collect(Collectors.toList());
-    Assert.assertEquals(numMessages, outMessages.size());
-    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(outMessages));
-  }
-
-  @Test
   public void testEndToEndWithNullRecords() {
     int numMessages = 20;
 

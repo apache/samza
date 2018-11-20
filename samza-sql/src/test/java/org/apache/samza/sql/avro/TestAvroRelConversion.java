@@ -342,7 +342,7 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), floatValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
     Assert.assertTrue(
         arrayValue.stream()
@@ -370,7 +370,11 @@ public class TestAvroRelConversion {
       if (field.name().equals("array_values")) {
         Assert.assertTrue(record.get(field.name()).equals(complexRecordValue.get(field.name())));
       } else {
-        Assert.assertEquals(record.get(field.name()), complexRecordValue.get(field.name()));
+        Object expected = complexRecordValue.get(field.name());
+        if (expected instanceof Float) {
+          expected = Double.parseDouble(Float.toString((Float) expected));
+        }
+        Assert.assertEquals(expected, record.get(field.name()));
       }
     }
   }
