@@ -2239,6 +2239,23 @@
                         60 seconds.
                     </td>
                 </tr>
+                <tr>
+                    <td class="property" id="metrics-timer-enabled">metrics.timer.enabled</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        This setting enables the common timer metrics for your job, which include container metrics
+                        such as process-ns, window-ns, commit-ns, and block-ns, as well as key-value storage engine
+                        metrics such as get-ns, put-ns and range-ns.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="metrics-timer-debug-eanbled">metrics.timer.debug.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This setting enables the additional timer metrics for debugging of your job. These metrics
+                        include operator metrics such as handle-message-ns and handle-timer-ns.
+                    </td>
+                </tr>
 
                 <tr>
                     <th colspan="3" class="section" id="hdfs-system-producer"><a href="../hdfs/producer.html">Writing to HDFS</a></th>
