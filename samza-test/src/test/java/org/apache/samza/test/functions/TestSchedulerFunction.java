@@ -25,7 +25,6 @@ import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.serializers.IntegerSerde;
-import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
@@ -59,7 +58,7 @@ public class TestSchedulerFunction {
 
     TestRunner
         .of(app)
-        .addInputStream(imid, Arrays.asList(1, 2, 3))
+        .addInputStream(imid, Arrays.asList(1, 2, 3, 4, 5))
         .run(Duration.ofSeconds(1));
 
     assertTrue(timerFired.get());
