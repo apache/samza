@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
@@ -80,7 +79,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     tableConfig.put(
         String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId),
         getProviderFactoryClassName());
-    generateConfig(jobConfig, tableConfig);
+
     return Collections.unmodifiableMap(tableConfig);
   }
 
@@ -88,19 +87,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
    * Return the fully qualified class name of the {@link org.apache.samza.table.TableProviderFactory}
    * @return class name of the {@link org.apache.samza.table.TableProviderFactory}
    */
-  public String getProviderFactoryClassName() {
-    throw new SamzaException("Not implemented");
-  }
-
-  /**
-   * Generate configuration for this table, this method is internally called by
-   * {@link #toConfig(Config)}
-   *
-   * @param jobConfig job configuration
-   * @param tableConfig table configuration
-   */
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
-  }
+  abstract public String getProviderFactoryClassName();
 
   /**
    * Validate that this table descriptor is constructed properly; this method is used internally.

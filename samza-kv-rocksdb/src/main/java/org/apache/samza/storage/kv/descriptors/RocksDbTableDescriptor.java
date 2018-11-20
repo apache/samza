@@ -18,6 +18,8 @@
  */
 package org.apache.samza.storage.kv.descriptors;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
@@ -283,9 +285,9 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+  public Map<String, String> toConfig(Config jobConfig) {
 
-    super.generateConfig(jobConfig, tableConfig);
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     // Store factory configuration
     tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
@@ -324,5 +326,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     if (numLogFilesToKeep != null) {
       addStoreConfig(ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString(), tableConfig);
     }
+
+    return Collections.unmodifiableMap(tableConfig);
   }
 }

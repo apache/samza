@@ -42,7 +42,7 @@ public class TestBaseTableDescriptor {
     Map<String, String> tableConfig = createTableDescriptor(TABLE_ID)
         .toConfig(new MapConfig());
     Assert.assertEquals(1, tableConfig.size());
-    assertEquals("my-factory", "provider.factory", TABLE_ID, tableConfig);
+    assertEquals("my.factory", "provider.factory", TABLE_ID, tableConfig);
   }
 
   @Test
@@ -57,7 +57,7 @@ public class TestBaseTableDescriptor {
   private BaseTableDescriptor createTableDescriptor(String tableId) {
     return new BaseTableDescriptor(tableId) {
       public String getProviderFactoryClassName() {
-        return "my-factory";
+        return "my.factory";
       }
     };
   }

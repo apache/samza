@@ -19,9 +19,13 @@
 package org.apache.samza.table.descriptors;
 
 import com.google.common.base.Preconditions;
+
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
@@ -132,9 +136,9 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+  public Map<String, String> toConfig(Config jobConfig) {
 
-    super.generateConfig(jobConfig, tableConfig);
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     JavaTableConfig javaTableConfig = new JavaTableConfig(jobConfig);
 
@@ -158,12 +162,10 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
     // Changelog configuration
     if (enableChangelog) {
       if (StringUtils.isEmpty(changelogStream)) {
-        String jobName = jobConfig.containsKey("job.name")
-            ? jobConfig.get("job.name")
-            : "unknown";
-        String jobId = jobConfig.containsKey("job.id")
-            ? jobConfig.get("job.id")
-            : "unknown";
+        String jobName = jobConfig.get("job.name");
+        Preconditions.checkNotNull(jobName, "job.name not found in job config");
+        String jobId = jobConfig.get("job.id");
+        Preconditions.checkNotNull(jobId, "job.id not found in job config");
         changelogStream = String.format("%s-%s-table-%s", jobName, jobId, tableId);
       }
 
@@ -175,6 +177,8 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
         addStoreConfig("changelog.replication.factor", changelogReplicationFactor.toString(), tableConfig);
       }
     }
+
+    return Collections.unmodifiableMap(tableConfig);
   }
 
   /**

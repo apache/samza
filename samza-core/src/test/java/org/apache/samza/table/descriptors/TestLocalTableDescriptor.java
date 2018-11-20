@@ -119,21 +119,22 @@ public class TestLocalTableDescriptor {
         tableConfig.get(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), TABLE_ID))));
   }
 
-  @Test
-  public void testChangelogWithJobNameAndJobId() {
+  @Test(expected = NullPointerException.class)
+  public void testChangelogWithoutJobName() {
     Map<String, String> jobConfig = new HashMap<>();
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID),
-        String.format("serde-key-for-table-%s", TABLE_ID));
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID),
-        String.format("serde-msg-for-table-%s", TABLE_ID));
-    Map<String, String> tableConfig = createTableDescriptor()
+    jobConfig.put("job.id", JOB_ID);
+    createTableDescriptor()
         .withChangelogEnabled()
         .toConfig(new MapConfig(jobConfig));
-    Assert.assertEquals(4, tableConfig.size());
-    Assert.assertEquals("unknown-unknown-table-t1", String.format(
-        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID))));
+  }
+
+  @Test(expected = NullPointerException.class)
+  public void testChangelogWithoutJobId() {
+    Map<String, String> jobConfig = new HashMap<>();
+    jobConfig.put("job.name", JOB_NAME);
+    createTableDescriptor()
+        .withChangelogEnabled()
+        .toConfig(new MapConfig(jobConfig));
   }
 
   private Config createJobConfig() {

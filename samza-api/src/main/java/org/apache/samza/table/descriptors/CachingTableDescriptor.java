@@ -21,6 +21,8 @@ package org.apache.samza.table.descriptors;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -144,9 +146,9 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+  public Map<String, String> toConfig(Config jobConfig) {
 
-    super.generateConfig(jobConfig, tableConfig);
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     if (cache != null) {
       addTableConfig(CACHE_TABLE_ID, cache.getTableId(), tableConfig);
@@ -164,6 +166,8 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
 
     addTableConfig(REAL_TABLE_ID, table.getTableId(), tableConfig);
     addTableConfig(WRITE_AROUND, String.valueOf(isWriteAround), tableConfig);
+
+    return Collections.unmodifiableMap(tableConfig);
   }
 
   /**

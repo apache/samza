@@ -20,6 +20,7 @@
 package org.apache.samza.table.descriptors;
 
 import java.lang.reflect.Constructor;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -230,9 +231,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
+  public Map<String, String> toConfig(Config jobConfig) {
 
-    super.generateConfig(jobConfig, tableConfig);
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     // Serialize and store reader/writer functions
     addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
@@ -273,6 +274,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     }
 
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
+
+    return Collections.unmodifiableMap(tableConfig);
   }
 
   /**

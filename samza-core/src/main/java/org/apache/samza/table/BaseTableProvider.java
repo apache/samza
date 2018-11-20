@@ -60,6 +60,7 @@ abstract public class BaseTableProvider implements TableProvider {
   /**
    * {@inheritDoc}
    */
+  @Override
   public void close() {
     logger.info("Closing table provider for table " + tableId);
   }

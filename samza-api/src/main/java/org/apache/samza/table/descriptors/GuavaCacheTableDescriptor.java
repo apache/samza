@@ -19,6 +19,8 @@
 
 package org.apache.samza.table.descriptors;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
@@ -69,9 +71,10 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
-    super.generateConfig(jobConfig, tableConfig);
+  public Map<String, String> toConfig(Config jobConfig) {
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
     addTableConfig(GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache), tableConfig);
+    return Collections.unmodifiableMap(tableConfig);
   }
 
   /**

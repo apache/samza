@@ -18,6 +18,8 @@
  */
 package org.apache.samza.storage.kv.inmemory.descriptors;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
@@ -56,10 +58,11 @@ public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, In
    * {@inheritDoc}
    */
   @Override
-  protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
-    super.generateConfig(jobConfig, tableConfig);
+  public Map<String, String> toConfig(Config jobConfig) {
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
     // Store factory configuration
     tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
         InMemoryKeyValueStorageEngineFactory.class.getName());
+    return Collections.unmodifiableMap(tableConfig);
   }
 }
