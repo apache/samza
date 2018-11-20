@@ -195,7 +195,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockIOConfig.getTableDescriptor()).thenReturn(Optional.of(mockTableDesc));
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
-    JoinTranslator joinTranslator = new JoinTranslator(3, "", 0);
+    JoinTranslator joinTranslator = new JoinTranslator("sql0_join3", "", 0);
     joinTranslator.translate(mockJoin, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerMessageStream(3, this.getRegisteredMessageStream(3));

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.system.eventhub.metrics;
+package org.apache.samza.metrics;
 
 import com.codahale.metrics.ExponentiallyDecayingReservoir;
 import com.codahale.metrics.Histogram;
@@ -27,10 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsVisitor;
-
 
 /**
  * Creates a {@link Histogram} metric using {@link ExponentiallyDecayingReservoir}
