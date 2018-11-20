@@ -97,6 +97,7 @@ public class TestOperatorImplGraph {
     when(taskModel.getTaskName()).thenReturn(new TaskName("task 0"));
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
   @After

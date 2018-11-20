@@ -311,6 +311,7 @@ public class TestJoinOperator {
             new SystemStreamPartition("insystem", "instream2", new Partition(0))));
     when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();
     TimestampedValueSerde timestampedValueSerde = new TimestampedValueSerde(new KVSerde(integerSerde, integerSerde));
