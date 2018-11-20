@@ -61,12 +61,12 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
     }
 
     K key = joinOpSpec.getJoinFn().getMessageKey(message);
+    Object recordValue = null;
 
-    if (key == null) {
-      return Collections.emptyList();
+    if (key != null) {
+      recordValue = table.get(key);
     }
 
-    Object recordValue = table.get(key);
     R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
     JM output = joinOpSpec.getJoinFn().apply(message, record);
 
