@@ -34,6 +34,7 @@ public class DefaultTableReadMetrics {
   public final Counter numGets;
   public final Counter numGetAlls;
   public final Timer getCallbackNs;
+  public final Counter numMissedLookups;
 
   /**
    * Constructor based on container and task container context
@@ -49,6 +50,7 @@ public class DefaultTableReadMetrics {
     numGets = tableMetricsUtil.newCounter("num-gets");
     numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
     getCallbackNs = tableMetricsUtil.newTimer("get-callback-ns");
+    numMissedLookups = tableMetricsUtil.newCounter("num-missed-lookups");
   }
 
 }

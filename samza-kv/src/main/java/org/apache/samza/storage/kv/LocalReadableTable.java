@@ -21,6 +21,7 @@ package org.apache.samza.storage.kv;
 import com.google.common.base.Preconditions;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadableTable;
@@ -66,6 +67,9 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
     long startNs = System.nanoTime();
     V result = kvStore.get(key);
     readMetrics.getNs.update(System.nanoTime() - startNs);
+    if (result == null) {
+      readMetrics.numMissedLookups.inc();
+    }
     return result;
   }
 
@@ -86,6 +90,7 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
     long startNs = System.nanoTime();
     Map<K, V> result = kvStore.getAll(keys);
     readMetrics.getAllNs.update(System.nanoTime() - startNs);
+    result.values().stream().filter(Objects::isNull).map(v -> readMetrics.numMissedLookups.inc());
     return result;
   }
 
