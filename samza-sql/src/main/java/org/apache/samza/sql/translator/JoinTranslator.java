@@ -137,12 +137,7 @@ class JoinTranslator {
       StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
 
-      return
-          inputStream
-              //.filter(m ->
-              //    !getMessageKeyRelRecord(m, streamKeyIds, tableFieldNames, tableKeyIds).getFieldValues().stream()
-              //        .allMatch(Objects::isNull)) // Filter null stream join key records
-              .join(table, joinFn);
+      return inputStream.join(table, joinFn);
     }
 
     // Join with the local table
@@ -163,7 +158,6 @@ class JoinTranslator {
             getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)), m -> m, KVSerde.of(keySerde, valueSerde),
             intermediateStreamPrefix + "stream_" + joinId)
             .map(KV::getValue)
-            //.filter(m -> m.getKey() != null) // Filter null stream join keys
             .join(table, joinFn);
   }
 
