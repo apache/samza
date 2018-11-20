@@ -76,10 +76,13 @@ public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
   D withConfig(String key, String value);
 
   /**
-   * Generate configuration for this table descriptor.
+   * Generate configuration for this table descriptor, the generated configuration
+   * should be the complete configuration for this table that can be directly
+   * included in the job configuration.
    *
-   * Note: although the serdes may have already been set in this instance, their corresponding configuration needs
-   * to be generated centrally for consistency and efficiency reasons. Therefore the serde configuration for this table
+   * Note: although the serdes may have already been set in this instance, their
+   * corresponding configuration needs to be generated centrally for consistency
+   * and efficiency reasons. Therefore the serde configuration for this table
    * is expected to have already been generated and stored in the {@code jobConfig}.
    *
    * @param jobConfig job configuration

@@ -27,7 +27,6 @@ import org.apache.samza.table.utils.SerdeUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 
-
 /**
  * Table descriptor for Guava-based caching table.
  * @param <K> type of the key in the cache
@@ -58,17 +57,26 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
     return this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
     super.generateConfig(jobConfig, tableConfig);
     addTableConfig(GUAVA_CACHE, SerdeUtils.serialize("Guava cache", cache), tableConfig);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void validate() {
     super.validate();

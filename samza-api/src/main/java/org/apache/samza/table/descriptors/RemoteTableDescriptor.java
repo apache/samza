@@ -34,7 +34,6 @@ import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
 
-
 /**
  * Table descriptor for remote store backed tables
  *
@@ -219,11 +218,17 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     return this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
@@ -270,6 +275,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void validate() {
     super.validate();

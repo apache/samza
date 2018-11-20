@@ -31,11 +31,13 @@ import org.slf4j.LoggerFactory;
  * Helper class to generate table configs.
  */
 public class TableConfigGenerator {
+
   private static final Logger LOG = LoggerFactory.getLogger(TableConfigGenerator.class);
 
   static public Map<String, String> generate(Config jobConfig, List<TableDescriptor> tableDescriptors) {
     Map<String, String> tableConfig = new HashMap<>();
     tableDescriptors.forEach(tableDescriptor -> tableConfig.putAll(tableDescriptor.toConfig(jobConfig)));
+    LOG.info("TableConfigGenerator has generated configs {}", tableConfig);
     return tableConfig;
   }
 

@@ -46,6 +46,9 @@ public class CachingTableProvider extends BaseTableProvider {
     super(tableId, config);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Table getTable() {
     JavaTableConfig tableConfig = new JavaTableConfig(config);
@@ -68,6 +71,9 @@ public class CachingTableProvider extends BaseTableProvider {
     return cachingTable;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void close() {
     super.close();

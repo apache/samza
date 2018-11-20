@@ -44,11 +44,17 @@ public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, In
     super(tableId, serde);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getProviderFactoryClassName() {
     return LocalTableProviderFactory.class.getName();
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
     super.generateConfig(jobConfig, tableConfig);

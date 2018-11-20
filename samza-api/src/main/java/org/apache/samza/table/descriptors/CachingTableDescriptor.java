@@ -26,9 +26,7 @@ import java.util.Map;
 
 import org.apache.samza.config.Config;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 
 /**
  * Table descriptor for a caching table.
@@ -80,6 +78,10 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     this.cache = cache;
   }
 
+  /**
+   * Retrieve user-defined table descriptors contained in this table
+   * @return table descriptors
+   */
   @Override
   public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors() {
     return cache != null
@@ -130,11 +132,17 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     return this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
@@ -158,9 +166,11 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     addTableConfig(WRITE_AROUND, String.valueOf(isWriteAround), tableConfig);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
-  @VisibleForTesting
-  public void validate() {
+  protected void validate() {
     super.validate();
     Preconditions.checkNotNull(table, "Actual table is required.");
     if (cache == null) {

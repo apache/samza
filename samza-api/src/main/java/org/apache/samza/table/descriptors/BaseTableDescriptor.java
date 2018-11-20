@@ -24,10 +24,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 
 /**
  * Base class for all table descriptor implementations.
@@ -36,6 +35,7 @@ import org.apache.samza.serializers.NoOpSerde;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
+@InterfaceStability.Unstable
 abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K, V, D>>
     implements TableDescriptor<K, V, D> {
 
@@ -68,6 +68,9 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     return tableId;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
 
@@ -81,14 +84,21 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     return Collections.unmodifiableMap(tableConfig);
   }
 
+  /**
+   * Return the fully qualified class name of the {@link org.apache.samza.table.TableProviderFactory}
+   * @return class name of the {@link org.apache.samza.table.TableProviderFactory}
+   */
   public String getProviderFactoryClassName() {
     throw new SamzaException("Not implemented");
   }
 
-  protected void addTableConfig(String key, String value, Map<String, String> tableConfig) {
-    tableConfig.put(JavaTableConfig.buildKey(tableId, key), value);
-  }
-
+  /**
+   * Generate configuration for this table, this method is internally called by
+   * {@link #toConfig(Config)}
+   *
+   * @param jobConfig job configuration
+   * @param tableConfig table configuration
+   */
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
   }
 
@@ -97,4 +107,15 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
    */
   protected void validate() {
   }
+
+  /**
+   * Helper method to add a config item to table configuration
+   * @param key key of the config item
+   * @param value value of the config item
+   * @param tableConfig table configuration
+   */
+  protected void addTableConfig(String key, String value, Map<String, String> tableConfig) {
+    tableConfig.put(JavaTableConfig.buildKey(tableId, key), value);
+  }
+
 }

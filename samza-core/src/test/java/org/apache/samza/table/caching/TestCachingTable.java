@@ -67,7 +67,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-
 public class TestCachingTable {
   @Test
   public void testSerializeSimple() {
@@ -110,8 +109,6 @@ public class TestCachingTable {
     }
 
     assertEquals("true", CachingTableDescriptor.WRITE_AROUND, "1", tableConfig);
-
-    desc.validate();
   }
 
   private static Pair<ReadWriteTable<String, String>, Map<String, String>> getMockCache() {

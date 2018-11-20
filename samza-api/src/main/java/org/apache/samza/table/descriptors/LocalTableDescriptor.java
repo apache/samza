@@ -41,13 +41,17 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
 
   public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
+  // Serde's for this table
   protected final KVSerde<K, V> serde;
 
-  protected List<String> sideInputs;
-  protected SideInputsProcessor sideInputsProcessor;
-  protected boolean enableChangelog;
+  // changelog parameters
+  protected boolean enableChangelog; // Disabled by default
   protected String changelogStream;
   protected Integer changelogReplicationFactor;
+
+  // Side input parameters
+  protected List<String> sideInputs;
+  protected SideInputsProcessor sideInputsProcessor;
 
   /**
    * Constructs a table descriptor instance
@@ -124,6 +128,9 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
     return (D) this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
@@ -133,19 +140,19 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
 
     String keySerde = javaTableConfig.getKeySerde(tableId);
     Preconditions.checkNotNull(keySerde, String.format("Key serde for table %s not found", tableId));
-    addStoreConfig(tableConfig, "key.serde", keySerde);
+    addStoreConfig("key.serde", keySerde, tableConfig);
 
     String valueSerde = javaTableConfig.getValueSerde(tableId);
     Preconditions.checkNotNull(valueSerde, String.format("Value serde for table %s not found", tableId));
-    addStoreConfig(tableConfig, "msg.serde", valueSerde);
+    addStoreConfig("msg.serde", valueSerde, tableConfig);
 
     if (sideInputs != null && !sideInputs.isEmpty()) {
       sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(
           "Side input stream %s doesn't confirm to pattern %s", si, SYSTEM_STREAM_NAME_PATTERN)));
       String formattedSideInputs = String.join(",", sideInputs);
-      addStoreConfig(tableConfig, "side.inputs", formattedSideInputs);
-      addStoreConfig(tableConfig, "side.inputs.processor.serialized.instance",
-          SerdeUtils.serialize("Side Inputs Processor", sideInputsProcessor));
+      addStoreConfig("side.inputs", formattedSideInputs, tableConfig);
+      addStoreConfig("side.inputs.processor.serialized.instance",
+          SerdeUtils.serialize("Side Inputs Processor", sideInputsProcessor), tableConfig);
     }
 
     // Changelog configuration
@@ -162,14 +169,18 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
 
       Preconditions.checkState(isValidSystemStreamName(changelogStream), String.format(
           "Changelog stream %s doesn't confirm to pattern %s", changelogStream, SYSTEM_STREAM_NAME_PATTERN));
-      addStoreConfig(tableConfig, "changelog", changelogStream);
+      addStoreConfig("changelog", changelogStream, tableConfig);
 
       if (changelogReplicationFactor != null) {
-        addStoreConfig(tableConfig, "changelog.replication.factor", changelogReplicationFactor.toString());
+        addStoreConfig("changelog.replication.factor", changelogReplicationFactor.toString(), tableConfig);
       }
     }
   }
 
+  /**
+   * Get side input stream names
+   * @return side inputs
+   */
   public List<String> getSideInputs() {
     return sideInputs;
   }
@@ -184,7 +195,7 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   }
 
   /**
-   * Validate that this table descriptor is constructed properly
+   * {@inheritDoc}
    */
   @Override
   protected void validate() {
@@ -204,8 +215,14 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
     }
   }
 
-  protected void addStoreConfig(Map<String, String> map, String key, String value) {
-    map.put(String.format("stores.%s.%s", tableId, key), value);
+  /**
+   * Helper method to add a store level config item to table configuration
+   * @param key key of the config item
+   * @param value value of the config item
+   * @param tableConfig table configuration
+   */
+  protected void addStoreConfig(String key, String value, Map<String, String> tableConfig) {
+    tableConfig.put(String.format("stores.%s.%s", tableId, key), value);
   }
 
   private boolean isValidSystemStreamName(String name) {

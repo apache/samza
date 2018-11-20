@@ -27,5 +27,11 @@ import org.apache.samza.config.Config;
  */
 @InterfaceStability.Unstable
 public interface TableProviderFactory {
+  /**
+   * Construct a table provider based on job configuration
+   * @param tableId Id of the table
+   * @param config Job configuration
+   * @return the constructed table provider
+   */
   TableProvider getTableProvider(String tableId, Config config);
 }

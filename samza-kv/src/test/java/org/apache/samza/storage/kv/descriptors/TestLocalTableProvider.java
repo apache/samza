@@ -20,7 +20,6 @@
 package org.apache.samza.storage.kv.descriptors;
 
 import junit.framework.Assert;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContext;
@@ -49,7 +48,7 @@ public class TestLocalTableProvider {
     Assert.assertNotNull(tableProvider.getTable());
   }
 
-  @Test(expected = SamzaException.class)
+  @Test(expected = NullPointerException.class)
   public void testInitFail() {
     TableProvider tableProvider = createTableProvider("t1");
     Assert.assertNotNull(tableProvider.getTable());

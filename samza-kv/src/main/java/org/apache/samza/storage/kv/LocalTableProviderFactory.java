@@ -24,6 +24,9 @@ import org.apache.samza.table.TableProviderFactory;
 
 
 public class LocalTableProviderFactory implements TableProviderFactory {
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public TableProvider getTableProvider(String tableId, Config config) {
     return new LocalTableProvider(tableId, config);

@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
 /**
  * A helper class for handling table configuration
  */
@@ -61,7 +60,7 @@ public class JavaTableConfig extends MapConfig {
   }
 
   /**
-   * Get the {@link org.apache.samza.table.TableProviderFactory} class for a table
+   * Get the {@link org.apache.samza.table.TableProviderFactory} class name for a table
    * @param tableId Id of the table
    * @return the {@link org.apache.samza.table.TableProviderFactory} class name
    */
@@ -87,14 +86,33 @@ public class JavaTableConfig extends MapConfig {
     return get(String.format(TABLE_VALUE_SERDE, tableId), null);
   }
 
+  /**
+   * Get table config value for a key
+   * @param tableId Id of the table
+   * @param key Key for the config item
+   * @param defaultValue default value if absent in config
+   * @return config value for the key
+   */
   public String getForTable(String tableId, String key, String defaultValue) {
     return get(buildKey(tableId, key), defaultValue);
   }
 
+  /**
+   * Get table config value for a key
+   * @param tableId Id of the table
+   * @param key Key for the config item
+   * @return config value for the key
+   */
   public String getForTable(String tableId, String key) {
     return getForTable(tableId, key, null);
   }
 
+  /**
+   * Build complete config key for a config item
+   * @param tableId Id of the table
+   * @param key Key for the config item
+   * @return the complete config key
+   */
   static public String buildKey(String tableId, String key) {
     return String.format(TABLE_ID_PREFIX + ".%s", tableId, key);
   }

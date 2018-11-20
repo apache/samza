@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.samza.SamzaException;
@@ -211,7 +212,7 @@ public class ExecutionPlanner {
             jobGraph.getApplicationDescriptorImpl().getInputOperators().values());
 
     Map<String, TableDescriptor> tableDescMap = jobGraph.getTables().stream()
-        .collect(Collectors.toMap(TableDescriptor::getTableId, desc -> desc));
+        .collect(Collectors.toMap(TableDescriptor::getTableId, Function.identity()));
 
     // Convert every group of input operator specs into a group of corresponding stream edges.
     List<StreamSet> streamSets = new ArrayList<>();

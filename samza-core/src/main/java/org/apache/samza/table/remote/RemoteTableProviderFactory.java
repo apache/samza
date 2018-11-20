@@ -27,6 +27,9 @@ import org.apache.samza.table.TableProviderFactory;
  * Factory class for a remote table provider
  */
 public class RemoteTableProviderFactory implements TableProviderFactory {
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public TableProvider getTableProvider(String tableId, Config config) {
     return new RemoteTableProvider(tableId, config);

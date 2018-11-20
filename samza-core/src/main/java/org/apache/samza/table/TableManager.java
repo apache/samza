@@ -52,7 +52,7 @@ import java.util.Map;
  */
 public class TableManager {
 
-  static public class TableCtx {
+  static class TableCtx {
     private TableProvider tableProvider;
     private Table table;
   }
@@ -88,12 +88,11 @@ public class TableManager {
     if (tableContexts.containsKey(tableId)) {
       throw new SamzaException("Table " + tableId + " already exists");
     }
-    TableCtx ctx = new TableCtx();
-
     JavaTableConfig tableConfig = new JavaTableConfig(config);
-    String providerFactoryClassName = tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId));
+    String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
         Util.getObj(providerFactoryClassName, TableProviderFactory.class);
+    TableCtx ctx = new TableCtx();
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableId, config);
     tableContexts.put(tableId, ctx);
   }

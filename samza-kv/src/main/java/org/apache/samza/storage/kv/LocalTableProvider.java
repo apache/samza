@@ -19,8 +19,6 @@
 package org.apache.samza.storage.kv;
 
 import com.google.common.base.Preconditions;
-import java.util.regex.Pattern;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.ReadableTable;
@@ -35,7 +33,6 @@ import org.apache.samza.table.BaseTableProvider;
  * stores.
  */
 public class LocalTableProvider extends BaseTableProvider {
-  public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
   protected KeyValueStore kvStore;
 
@@ -43,27 +40,28 @@ public class LocalTableProvider extends BaseTableProvider {
     super(tableId, config);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void init(Context context) {
     super.init(context);
 
     Preconditions.checkNotNull(this.context, "Must specify context for local tables.");
 
-    kvStore = (KeyValueStore) this.context.getTaskContext().getStore(tableId);
-
-    if (kvStore == null) {
-      throw new SamzaException(String.format(
-          "Backing store for table %s was not injected by SamzaContainer", tableId));
-    }
+    kvStore = this.context.getTaskContext().getStore(tableId);
+    Preconditions.checkNotNull(kvStore, String.format(
+        "Backing store for table %s was not injected by SamzaContainer", tableId));
 
     logger.info("Initialized backing store for table " + tableId);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Table getTable() {
-    if (kvStore == null) {
-      throw new SamzaException("Store not initialized for table " + tableId);
-    }
+    Preconditions.checkNotNull(kvStore, "Store not initialized for table " + tableId);
     ReadableTable table = new LocalReadWriteTable(tableId, kvStore);
     table.init(this.context);
     return table;

@@ -271,11 +271,17 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     return this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public String getProviderFactoryClassName() {
     return LocalTableProviderFactory.class.getName();
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   protected void generateConfig(Config jobConfig, Map<String, String> tableConfig) {
 
@@ -286,37 +292,37 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
         RocksDbKeyValueStorageEngineFactory.class.getName());
 
     if (writeBatchSize != null) {
-      addStoreConfig(tableConfig, WRITE_BATCH_SIZE, writeBatchSize.toString());
+      addStoreConfig(WRITE_BATCH_SIZE, writeBatchSize.toString(), tableConfig);
     }
     if (objectCacheSize != null) {
-      addStoreConfig(tableConfig,OBJECT_CACHE_SIZE, objectCacheSize.toString());
+      addStoreConfig(OBJECT_CACHE_SIZE, objectCacheSize.toString(), tableConfig);
     }
     if (cacheSize != null) {
-      addStoreConfig(tableConfig,CONTAINER_CACHE_SIZE_BYTES, cacheSize.toString());
+      addStoreConfig(CONTAINER_CACHE_SIZE_BYTES, cacheSize.toString(), tableConfig);
     }
     if (writeBufferSize != null) {
-      addStoreConfig(tableConfig,CONTAINER_WRITE_BUFFER_SIZE_BYTES, writeBufferSize.toString());
+      addStoreConfig(CONTAINER_WRITE_BUFFER_SIZE_BYTES, writeBufferSize.toString(), tableConfig);
     }
     if (compressionType != null) {
-      addStoreConfig(tableConfig,ROCKSDB_COMPRESSION, compressionType);
+      addStoreConfig(ROCKSDB_COMPRESSION, compressionType, tableConfig);
     }
     if (blockSize != null) {
-      addStoreConfig(tableConfig,ROCKSDB_BLOCK_SIZE_BYTES, blockSize.toString());
+      addStoreConfig(ROCKSDB_BLOCK_SIZE_BYTES, blockSize.toString(), tableConfig);
     }
     if (ttl != null) {
-      addStoreConfig(tableConfig,ROCKSDB_TTL_MS, ttl.toString());
+      addStoreConfig(ROCKSDB_TTL_MS, ttl.toString(), tableConfig);
     }
     if (compactionStyle != null) {
-      addStoreConfig(tableConfig,ROCKSDB_COMPACTION_STYLE, compactionStyle);
+      addStoreConfig(ROCKSDB_COMPACTION_STYLE, compactionStyle, tableConfig);
     }
     if (numWriteBuffers != null) {
-      addStoreConfig(tableConfig,ROCKSDB_NUM_WRITE_BUFFERS, numWriteBuffers.toString());
+      addStoreConfig(ROCKSDB_NUM_WRITE_BUFFERS, numWriteBuffers.toString(), tableConfig);
     }
     if (maxLogFileSize != null) {
-      addStoreConfig(tableConfig,ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, maxLogFileSize.toString());
+      addStoreConfig(ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, maxLogFileSize.toString(), tableConfig);
     }
     if (numLogFilesToKeep != null) {
-      addStoreConfig(tableConfig,ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString());
+      addStoreConfig(ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString(), tableConfig);
     }
   }
 }
