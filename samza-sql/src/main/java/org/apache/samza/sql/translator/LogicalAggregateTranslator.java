@@ -44,11 +44,11 @@ import org.slf4j.LoggerFactory;
 class LogicalAggregateTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
-  private int windowId;
+  private String logicalOpId;
   private String changeLogStorePrefix;
 
-  LogicalAggregateTranslator(int windowId, String changeLogStorePrefix) {
-    this.windowId = windowId;
+  LogicalAggregateTranslator(String logicalOpId, String changeLogStorePrefix) {
+    this.logicalOpId = logicalOpId;
     this.changeLogStorePrefix = changeLogStorePrefix + (changeLogStorePrefix.isEmpty() ? "" : "_");
   }
 
@@ -72,7 +72,7 @@ class LogicalAggregateTranslator {
                 new SamzaSqlRelMessageSerdeFactory.SamzaSqlRelMessageSerde(),
                 new LongSerde())
                 .setAccumulationMode(
-                    AccumulationMode.DISCARDING), changeLogStorePrefix + "_tumblingWindow_" + windowId)
+                    AccumulationMode.DISCARDING), changeLogStorePrefix + "_tumblingWindow_" + logicalOpId)
             .map(windowPane -> {
                 List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
                 List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();

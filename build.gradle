@@ -145,6 +145,7 @@ project(':samza-api') {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "com.google.guava:guava:$guavaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "io.dropwizard.metrics:metrics-core:3.1.2"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
   }

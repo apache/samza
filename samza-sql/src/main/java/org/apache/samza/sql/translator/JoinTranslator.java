@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import java.util.Objects;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.*;
 
 
 /**
@@ -72,12 +74,12 @@ import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlComposi
 class JoinTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
-  private int joinId;
+  private String logicalOpId;
   private final String intermediateStreamPrefix;
   private final int queryId;
 
-  JoinTranslator(int joinId, String intermediateStreamPrefix, int queryId) {
-    this.joinId = joinId;
+  JoinTranslator(String logicalOpId, String intermediateStreamPrefix, int queryId) {
+    this.logicalOpId = logicalOpId;
     this.intermediateStreamPrefix = intermediateStreamPrefix + (intermediateStreamPrefix.isEmpty() ? "" : "_");
     this.queryId = queryId;
   }
@@ -154,7 +156,7 @@ class JoinTranslator {
         inputStream
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
             getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)), m -> m, KVSerde.of(keySerde, valueSerde),
-            intermediateStreamPrefix + "stream_" + joinId)
+            intermediateStreamPrefix + "stream_" + logicalOpId)
             .map(KV::getValue)
             .join(table, joinFn);
   }
@@ -361,7 +363,7 @@ class JoinTranslator {
 
     relOutputStream
         .partitionBy(m -> createSamzaSqlCompositeKey(m, tableKeyIds), m -> m,
-            KVSerde.of(keySerde, valueSerde), intermediateStreamPrefix + "table_" + joinId)
+            KVSerde.of(keySerde, valueSerde), intermediateStreamPrefix + "table_" + logicalOpId)
         .sendTo(table);
 
     return table;

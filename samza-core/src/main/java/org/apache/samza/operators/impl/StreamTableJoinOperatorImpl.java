@@ -56,8 +56,17 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
 
   @Override
   public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    if (message == null) {
+      return Collections.emptyList();
+    }
+
     K key = joinOpSpec.getJoinFn().getMessageKey(message);
-    Object recordValue = table.get(key);
+    Object recordValue = null;
+
+    if (key != null) {
+      recordValue = table.get(key);
+    }
+
     R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
     JM output = joinOpSpec.getJoinFn().apply(message, record);
 
