@@ -46,7 +46,7 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
 
   StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec, Context context) {
     this.joinOpSpec = joinOpSpec;
-    this.table = (ReadableTable) context.getTaskContext().getTable(joinOpSpec.getTableSpec().getId());
+    this.table = (ReadableTable) context.getTaskContext().getTable(joinOpSpec.getTableId());
   }
 
   @Override

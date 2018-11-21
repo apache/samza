@@ -103,9 +103,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     this.logger = LoggerFactory.getLogger(getClass().getName() + "-" + tableId);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     readMetrics = new DefaultTableReadMetrics(context, this, tableId);
@@ -113,9 +110,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public V get(K key) {
     try {
@@ -141,9 +135,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
           });
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<K, V> getAll(List<K> keys) {
     readMetrics.numGetAlls.inc();
@@ -297,9 +288,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     return ioFuture;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() {
     readFn.close();

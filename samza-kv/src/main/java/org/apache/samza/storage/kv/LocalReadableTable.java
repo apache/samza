@@ -53,9 +53,6 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
     this.kvStore = kvStore;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     readMetrics = new DefaultTableReadMetrics(context, this, tableId);

@@ -36,7 +36,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
   private final Set<StreamEdge> outputStreams = new HashSet<>();
   private final Set<StreamEdge> intermediateStreams = new HashSet<>();
   private final Set<StreamEdge> sideInputStreams = new HashSet<>();
-  private final Set<TableSpec> tables = new HashSet<>();
+  private final Set<TableDescriptor> tables = new HashSet<>();
   private final Config config;
   private final JobGraphJsonGenerator jsonGenerator;
   private final JobNodeConfigurationGenerator configGenerator;
@@ -150,9 +150,9 @@ import org.slf4j.LoggerFactory;
     intermediateStreams.add(edge);
   }
 
-  void addTable(TableSpec tableSpec, JobNode node) {
-    tables.add(tableSpec);
-    node.addTable(tableSpec);
+  void addTable(TableDescriptor tableDescriptor, JobNode node) {
+    tables.add(tableDescriptor);
+    node.addTable(tableDescriptor);
   }
 
   /**
@@ -237,9 +237,9 @@ import org.slf4j.LoggerFactory;
 
   /**
    * Returns the tables in the graph
-   * @return unmodifiable set of {@link TableSpec}
+   * @return unmodifiable set of {@link TableDescriptor}
    */
-  Set<TableSpec> getTables() {
+  Set<TableDescriptor> getTables() {
     return Collections.unmodifiableSet(tables);
   }
 

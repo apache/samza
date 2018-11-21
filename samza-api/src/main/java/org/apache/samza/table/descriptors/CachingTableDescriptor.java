@@ -21,15 +21,14 @@ package org.apache.samza.table.descriptors;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.config.Config;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 
 /**
  * Table descriptor for a caching table.
@@ -81,38 +80,15 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     this.cache = cache;
   }
 
+  /**
+   * Retrieve user-defined table descriptors contained in this table
+   * @return table descriptors
+   */
   @Override
   public List<? extends TableDescriptor<K, V, ?>> getTableDescriptors() {
     return cache != null
         ? Arrays.asList(cache, table)
         : Arrays.asList(table);
-  }
-
-  @Override
-  public TableSpec getTableSpec() {
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    if (cache != null) {
-      tableSpecConfig.put(CACHE_TABLE_ID, ((BaseTableDescriptor) cache).getTableSpec().getId());
-    } else {
-      if (readTtl != null) {
-        tableSpecConfig.put(READ_TTL_MS, String.valueOf(readTtl.toMillis()));
-      }
-      if (writeTtl != null) {
-        tableSpecConfig.put(WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()));
-      }
-      if (cacheSize > 0) {
-        tableSpecConfig.put(CACHE_SIZE, String.valueOf(cacheSize));
-      }
-    }
-
-    tableSpecConfig.put(REAL_TABLE_ID, ((BaseTableDescriptor) table).getTableSpec().getId());
-    tableSpecConfig.put(WRITE_AROUND, String.valueOf(isWriteAround));
-
-    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
   }
 
   /**
@@ -159,9 +135,37 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
   }
 
   @Override
-  @VisibleForTesting
-  public void validate() {
-    super.validate();
+  public String getProviderFactoryClassName() {
+    return PROVIDER_FACTORY_CLASS_NAME;
+  }
+
+  @Override
+  public Map<String, String> toConfig(Config jobConfig) {
+
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
+
+    if (cache != null) {
+      addTableConfig(CACHE_TABLE_ID, cache.getTableId(), tableConfig);
+    } else {
+      if (readTtl != null) {
+        addTableConfig(READ_TTL_MS, String.valueOf(readTtl.toMillis()), tableConfig);
+      }
+      if (writeTtl != null) {
+        addTableConfig(WRITE_TTL_MS, String.valueOf(writeTtl.toMillis()), tableConfig);
+      }
+      if (cacheSize > 0) {
+        addTableConfig(CACHE_SIZE, String.valueOf(cacheSize), tableConfig);
+      }
+    }
+
+    addTableConfig(REAL_TABLE_ID, table.getTableId(), tableConfig);
+    addTableConfig(WRITE_AROUND, String.valueOf(isWriteAround), tableConfig);
+
+    return Collections.unmodifiableMap(tableConfig);
+  }
+
+  @Override
+  protected void validate() {
     Preconditions.checkNotNull(table, "Actual table is required.");
     if (cache == null) {
       Preconditions.checkNotNull(readTtl, "readTtl must be specified.");

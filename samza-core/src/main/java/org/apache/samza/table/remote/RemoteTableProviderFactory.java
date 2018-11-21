@@ -19,20 +19,16 @@
 
 package org.apache.samza.table.remote;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
-
-import com.google.common.base.Preconditions;
-
 
 /**
  * Factory class for a remote table provider
  */
 public class RemoteTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    Preconditions.checkNotNull(tableSpec, "null table spec");
-    return new RemoteTableProvider(tableSpec);
+  public TableProvider getTableProvider(String tableId, Config config) {
+    return new RemoteTableProvider(tableId, config);
   }
 }
