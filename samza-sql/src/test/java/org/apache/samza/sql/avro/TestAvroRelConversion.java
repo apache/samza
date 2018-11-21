@@ -272,6 +272,49 @@ public class TestAvroRelConversion {
     }
   }
 
+  @Test
+  public void testRecordConversionWithNullPayload() throws IOException {
+    GenericData.Record record = null;
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    Assert.assertTrue(recordPostConversion == null);
+  }
+
+  @Test
+  public void testNestedRecordConversionWithSubRecordsBeingNull() throws IOException {
+    GenericData.Record record = new GenericData.Record(Profile.SCHEMA$);
+    record.put("id", 1);
+    record.put("name", "name1");
+    record.put("companyId", 0);
+    GenericData.Record addressRecord = null;
+    record.put("address", addressRecord);
+    record.put("selfEmployed", "True");
+
+
+    List<GenericData.Record> phoneNumbers = null;
+    record.put("phoneNumbers", phoneNumbers);
+
+    HashMap<String, IndexedRecord> mapValues = null;
+    record.put("mapValues", mapValues);
+
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    for (Schema.Field field : Profile.SCHEMA$.getFields()) {
+      // equals() on GenericRecord does the nested record equality check as well.
+      Assert.assertEquals(record.get(field.name()), recordPostConversion.get(field.name()));
+    }
+  }
+
   private static <T> T genericRecordFromBytes(byte[] bytes, Schema schema) throws IOException {
     BinaryDecoder binDecoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes, null);
     GenericDatumReader<T> reader = new GenericDatumReader<>(schema);
@@ -299,7 +342,7 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), floatValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
     Assert.assertTrue(
         arrayValue.stream()
@@ -327,7 +370,12 @@ public class TestAvroRelConversion {
       if (field.name().equals("array_values")) {
         Assert.assertTrue(record.get(field.name()).equals(complexRecordValue.get(field.name())));
       } else {
-        Assert.assertEquals(record.get(field.name()), complexRecordValue.get(field.name()));
+        Object expected = complexRecordValue.get(field.name());
+        if (expected instanceof Float) {
+          // AvroRelConverter converts float to double to be in sync with what Calcite does in JavaTypeFactoryImpl
+          expected = Double.parseDouble(Float.toString((Float) expected));
+        }
+        Assert.assertEquals(expected, record.get(field.name()));
       }
     }
   }
