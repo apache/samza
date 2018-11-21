@@ -22,8 +22,9 @@ package org.apache.samza.table.caching.guava;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.BaseTableProvider;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.utils.SerdeUtils;
@@ -38,15 +39,16 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
 
   private List<GuavaCacheTable> guavaTables = new ArrayList<>();
 
-  public GuavaCacheTableProvider(TableSpec tableSpec) {
-    super(tableSpec);
+  public GuavaCacheTableProvider(String tableId, Config config) {
+    super(tableId, config);
   }
 
   @Override
   public Table getTable() {
+    JavaTableConfig tableConfig = new JavaTableConfig(config);
     Cache guavaCache = SerdeUtils.deserialize(GuavaCacheTableDescriptor.GUAVA_CACHE,
-        tableSpec.getConfig().get(GuavaCacheTableDescriptor.GUAVA_CACHE));
-    GuavaCacheTable table = new GuavaCacheTable(tableSpec.getId(), guavaCache);
+        tableConfig.getForTable(tableId, GuavaCacheTableDescriptor.GUAVA_CACHE));
+    GuavaCacheTable table = new GuavaCacheTable(tableId, guavaCache);
     table.init(this.context);
     guavaTables.add(table);
     return table;
@@ -54,6 +56,7 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
 
   @Override
   public void close() {
+    super.close();
     guavaTables.forEach(t -> t.close());
   }
 }

@@ -19,16 +19,16 @@
 
 package org.apache.samza.table.caching.guava;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
 
 /**
  * Table provider factory for {@link org.apache.samza.table.caching.guava.GuavaCacheTable}.
  */
 public class GuavaCacheTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new GuavaCacheTableProvider(tableSpec);
+  public TableProvider getTableProvider(String tableId, Config config) {
+    return new GuavaCacheTableProvider(tableId, config);
   }
 }

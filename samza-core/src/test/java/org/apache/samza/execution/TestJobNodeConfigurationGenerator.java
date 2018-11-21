@@ -19,6 +19,7 @@
 package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
+import java.util.Arrays;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -28,38 +29,31 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.context.Context;
+import org.apache.samza.storage.SideInputsProcessor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
+import org.apache.samza.table.descriptors.TestLocalTableDescriptor.MockLocalTableDescriptor;
+import org.apache.samza.table.descriptors.TestLocalTableDescriptor.MockTableProviderFactory;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.operators.impl.store.TimestampedValueSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.table.Table;
-import org.apache.samza.table.TableProvider;
-import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -161,17 +155,10 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
     // add table to the RepartitionJoinStreamApplication
     GenericInputDescriptor<KV<String, Object>> sideInput1 = inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde);
-    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
-    TableSpec mockTableSpec = mock(TableSpec.class);
-    when(mockTableSpec.getId()).thenReturn("testTable");
-    when(mockTableSpec.getSerde()).thenReturn((KVSerde) defaultSerde);
-    when(mockTableSpec.getTableProviderFactoryClassName()).thenReturn(MockTableProviderFactory.class.getName());
-    List<String> sideInputs = new ArrayList<>();
-    sideInputs.add(sideInput1.getStreamId());
-    when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
-    when(mockTableDescriptor.getTableId()).thenReturn("testTable");
-    when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
-    when(mockTableDescriptor.getSerde()).thenReturn(defaultSerde);
+    BaseTableDescriptor mockTableDescriptor = new MockLocalTableDescriptor("testTable", defaultSerde)
+        .withSideInputs(Arrays.asList(sideInput1.getStreamId()))
+        .withSideInputsProcessor(mock(SideInputsProcessor.class, withSettings().serializable()))
+        .withConfig("mock.table.provider.config", "mock.config.value");
     // add side input and terminate at table in the appplication
     mockStreamAppDesc.getInputStream(sideInput1).sendTo(mockStreamAppDesc.getTable(mockTableDescriptor));
     StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
@@ -198,17 +185,10 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   public void testTaskApplicationWithTableAndSideInput() {
     // add table to the RepartitionJoinStreamApplication
     GenericInputDescriptor<KV<String, Object>> sideInput1 = inputSystemDescriptor.getInputDescriptor("sideInput1", defaultSerde);
-    BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
-    TableSpec mockTableSpec = mock(TableSpec.class);
-    when(mockTableSpec.getId()).thenReturn("testTable");
-    when(mockTableSpec.getSerde()).thenReturn((KVSerde) defaultSerde);
-    when(mockTableSpec.getTableProviderFactoryClassName()).thenReturn(MockTableProviderFactory.class.getName());
-    List<String> sideInputs = new ArrayList<>();
-    sideInputs.add(sideInput1.getStreamId());
-    when(mockTableSpec.getSideInputs()).thenReturn(sideInputs);
-    when(mockTableDescriptor.getTableId()).thenReturn("testTable");
-    when(mockTableDescriptor.getTableSpec()).thenReturn(mockTableSpec);
-    when(mockTableDescriptor.getSerde()).thenReturn(defaultSerde);
+    BaseTableDescriptor mockTableDescriptor = new MockLocalTableDescriptor("testTable", defaultSerde)
+        .withSideInputs(Arrays.asList(sideInput1.getStreamId()))
+        .withSideInputsProcessor(mock(SideInputsProcessor.class, withSettings().serializable()))
+        .withConfig("mock.table.provider.config", "mock.config.value");
     StreamEdge sideInputEdge = new StreamEdge(new StreamSpec(sideInput1.getStreamId(), "sideInput1",
         inputSystemDescriptor.getSystemName()), false, false, mockConfig);
     // need to put the sideInput related stream configuration to the original config
@@ -260,9 +240,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
       TableDescriptor tableDescriptor) {
     Config tableConfig = jobConfig.subset(String.format("tables.%s.", tableDescriptor.getTableId()));
     assertEquals(MockTableProviderFactory.class.getName(), tableConfig.get("provider.factory"));
-    MockTableProvider mockTableProvider =
-        (MockTableProvider) new MockTableProviderFactory().getTableProvider(((BaseTableDescriptor) tableDescriptor).getTableSpec());
-    assertEquals(mockTableProvider.configMap.get("mock.table.provider.config"), jobConfig.get("mock.table.provider.config"));
+    assertEquals("mock.config.value", jobConfig.get("mock.table.provider.config"));
     validateTableSerdeConfigure(tableDescriptor.getTableId(), jobConfig, deserializedSerdes);
   }
 
@@ -316,9 +294,9 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   }
 
   private void validateTableSerdeConfigure(String tableId, Config config, Map<String, Serde> deserializedSerdes) {
-    Config streamConfig = config.subset(String.format("tables.%s.", tableId));
+    Config streamConfig = config.subset(String.format("stores.%s.", tableId));
     String keySerdeName = streamConfig.get("key.serde");
-    String valueSerdeName = streamConfig.get("value.serde");
+    String valueSerdeName = streamConfig.get("msg.serde");
     assertTrue(String.format("Serialized serdes should contain %s key serde", tableId), deserializedSerdes.containsKey(keySerdeName));
     assertTrue(String.format("Serialized %s key serde should be a StringSerde", tableId), keySerdeName.startsWith(StringSerde.class.getSimpleName()));
     assertTrue(String.format("Serialized serdes should contain %s value serde", tableId), deserializedSerdes.containsKey(valueSerdeName));
@@ -387,46 +365,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals("3600000", joinStoreConfig.get("rocksdb.ttl.ms"));
   }
 
-  private static class MockTableProvider implements TableProvider {
-    private final Map<String, String> configMap;
-
-    MockTableProvider(Map<String, String> configMap) {
-      this.configMap = configMap;
-    }
-
-    @Override
-    public void init(Context context) {
-
-    }
-
-    @Override
-    public Table getTable() {
-      return null;
-    }
-
-    @Override
-    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
-      return configMap;
-    }
-
-    @Override
-    public void close() {
-
-    }
-  }
-
-  public static class MockTableProviderFactory implements TableProviderFactory {
-
-    @Override
-    public TableProvider getTableProvider(TableSpec tableSpec) {
-      Map<String, String> configMap = new HashMap<>();
-      configMap.put("mock.table.provider.config", "mock.config.value");
-      return new MockTableProvider(configMap);
-    }
-  }
-
   public static class MockConfigRewriter implements ConfigRewriter {
-
     @Override
     public Config rewrite(String name, Config config) {
       Map<String, String> configMap = new HashMap<>(config);
@@ -434,4 +373,5 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
       return new MapConfig(configMap);
     }
   }
+
 }

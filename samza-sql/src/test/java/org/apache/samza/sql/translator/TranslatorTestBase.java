@@ -24,12 +24,6 @@ import java.util.Map;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.operators.TableImpl;
-import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.storage.kv.descriptors.RocksDbTableProvider;
-import org.apache.samza.table.TableSpec;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -55,10 +49,9 @@ public class TranslatorTestBase {
   Answer getRegisteredTableAnswer() {
     return (InvocationOnMock x) -> {
       TableDescriptor descriptor = x.getArgumentAt(0, TableDescriptor.class);
-      TableSpec mockTableSpec = new TableSpec(descriptor.getTableId(), KVSerde.of(new StringSerde(),
-          new JsonSerdeV2<SamzaSqlRelMessage>()), RocksDbTableProvider.class.getCanonicalName(), new HashMap<>());
+      String tableId = "t1";
       TableImpl mockTable = mock(TableImpl.class);
-      when(mockTable.getTableSpec()).thenReturn(mockTableSpec);
+      when(mockTable.getTableId()).thenReturn(tableId);
       this.registeredTables.putIfAbsent(descriptor.getTableId(), mockTable);
       return this.registeredTables.get(descriptor.getTableId());
     };

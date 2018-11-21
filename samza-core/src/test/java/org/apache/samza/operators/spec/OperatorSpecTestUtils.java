@@ -31,7 +31,6 @@ import org.apache.samza.operators.TableImpl;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.SerializableSerde;
-import org.apache.samza.table.TableSpec;
 
 import static org.junit.Assert.*;
 
@@ -90,17 +89,9 @@ public class OperatorSpecTestUtils {
     assertNotEquals(scheduledFn, scheduledFn1);
   }
 
-  private static void assertClonedTables(Map<TableSpec, TableImpl> originalTables, Map<TableSpec, TableImpl> clonedTables) {
-    assertEquals(originalTables.size(), clonedTables.size());
-    assertEquals(originalTables.keySet(), clonedTables.keySet());
-    Iterator<TableImpl> oIter = originalTables.values().iterator();
-    Iterator<TableImpl> nIter = clonedTables.values().iterator();
-    oIter.forEachRemaining(oTable -> assertClonedTableImpl(oTable, nIter.next()));
-  }
-
   private static void assertClonedTableImpl(TableImpl oTable, TableImpl nTable) {
     assertNotEquals(oTable, nTable);
-    assertEquals(oTable.getTableSpec(), nTable.getTableSpec());
+    assertEquals(oTable.getTableId(), nTable.getTableId());
   }
 
   private static void assertClonedOutputs(Map<String, OutputStreamImpl> originalOutputs,

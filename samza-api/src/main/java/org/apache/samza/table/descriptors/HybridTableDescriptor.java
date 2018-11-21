@@ -33,7 +33,8 @@ abstract public class HybridTableDescriptor<K, V, D extends HybridTableDescripto
     extends BaseTableDescriptor<K, V, D> {
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   public HybridTableDescriptor(String tableId) {
     super(tableId);

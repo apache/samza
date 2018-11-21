@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.samza.SamzaException;
@@ -43,12 +44,12 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -122,8 +123,7 @@ public class ExecutionPlanner {
     Set<StreamSpec> inputStreams = Sets.difference(sourceStreams, intermediateStreams);
     Set<StreamSpec> outputStreams = Sets.difference(sinkStreams, intermediateStreams);
 
-    Set<TableSpec> tables = appDesc.getTableDescriptors().stream()
-        .map(tableDescriptor -> ((BaseTableDescriptor) tableDescriptor).getTableSpec()).collect(Collectors.toSet());
+    Set<TableDescriptor> tables = appDesc.getTableDescriptors();
 
     // For this phase, we have a single job node for the whole DAG
     String jobName = config.get(JobConfig.JOB_NAME());
@@ -140,12 +140,15 @@ public class ExecutionPlanner {
     intermediateStreams.forEach(spec -> jobGraph.addIntermediateStream(spec, node, node));
 
     // Add tables
-    for (TableSpec table : tables) {
+    for (TableDescriptor table : tables) {
       jobGraph.addTable(table, node);
       // Add side-input streams (if any)
-      Iterable<String> sideInputs = ListUtils.emptyIfNull(table.getSideInputs());
-      for (String sideInput : sideInputs) {
-        jobGraph.addSideInputStream(getStreamSpec(sideInput, streamConfig));
+      if (table instanceof LocalTableDescriptor) {
+        LocalTableDescriptor localTable = (LocalTableDescriptor) table;
+        Iterable<String> sideInputs = ListUtils.emptyIfNull(localTable.getSideInputs());
+        for (String sideInput : sideInputs) {
+          jobGraph.addSideInputStream(getStreamSpec(sideInput, streamConfig));
+        }
       }
     }
 
@@ -208,6 +211,9 @@ public class ExecutionPlanner {
         OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(
             jobGraph.getApplicationDescriptorImpl().getInputOperators().values());
 
+    Map<String, TableDescriptor> tableDescriptors = jobGraph.getTables().stream()
+        .collect(Collectors.toMap(TableDescriptor::getTableId, Function.identity()));
+
     // Convert every group of input operator specs into a group of corresponding stream edges.
     List<StreamSet> streamSets = new ArrayList<>();
     for (OperatorSpec joinOpSpec : joinOpSpecToInputOpSpecs.keySet()) {
@@ -218,11 +224,14 @@ public class ExecutionPlanner {
       // streams associated with the joined table (if any).
       if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
         StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
-
-        Collection<String> sideInputs = ListUtils.emptyIfNull(streamTableJoinOperatorSpec.getTableSpec().getSideInputs());
-        Iterable<StreamEdge> sideInputStreams = sideInputs.stream().map(jobGraph::getStreamEdge)::iterator;
-        Iterable<StreamEdge> streams = streamSet.getStreamEdges();
-        streamSet = new StreamSet(streamSet.getSetId(), Iterables.concat(streams, sideInputStreams));
+        TableDescriptor tableDescriptor = tableDescriptors.get(streamTableJoinOperatorSpec.getTableId());
+        if (tableDescriptor instanceof LocalTableDescriptor) {
+          LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+          Collection<String> sideInputs = ListUtils.emptyIfNull(localTableDescriptor.getSideInputs());
+          Iterable<StreamEdge> sideInputStreams = sideInputs.stream().map(jobGraph::getStreamEdge)::iterator;
+          Iterable<StreamEdge> streams = streamSet.getStreamEdges();
+          streamSet = new StreamSet(streamSet.getSetId(), Iterables.concat(streams, sideInputStreams));
+        }
       }
 
       streamSets.add(streamSet);

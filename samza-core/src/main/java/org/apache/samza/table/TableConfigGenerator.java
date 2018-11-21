@@ -19,80 +19,26 @@
 
 package org.apache.samza.table;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.operators.TableImpl;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Helper class to generate table configs.
  */
 public class TableConfigGenerator {
+
   private static final Logger LOG = LoggerFactory.getLogger(TableConfigGenerator.class);
 
-  /**
-   * Generate table configurations given a list of table descriptors
-   * @param config the job configuration
-   * @param tableDescriptors the list of tableDescriptors
-   * @return configuration for the tables
-   */
-  static public Map<String, String> generateConfigsForTableDescs(Config config, List<TableDescriptor> tableDescriptors) {
-    return generateConfigsForTableSpecs(config, getTableSpecs(tableDescriptors));
+  static public Map<String, String> generate(Config jobConfig, List<TableDescriptor> tableDescriptors) {
+    Map<String, String> tableConfig = new HashMap<>();
+    tableDescriptors.forEach(tableDescriptor -> tableConfig.putAll(tableDescriptor.toConfig(jobConfig)));
+    LOG.info("TableConfigGenerator has generated configs {}", tableConfig);
+    return tableConfig;
   }
 
-  /**
-   * Generate table configurations given a list of table specs
-   * @param config the job configuration
-   * @param tableSpecs the list of tableSpecs
-   * @return configuration for the tables
-   */
-  static public Map<String, String> generateConfigsForTableSpecs(Config config, List<TableSpec> tableSpecs) {
-    Map<String, String> tableConfigs = new HashMap<>();
-
-    tableSpecs.forEach(tableSpec -> {
-        // Add table provider factory config
-        tableConfigs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
-            tableSpec.getTableProviderFactoryClassName());
-
-        // Generate additional configuration
-        TableProviderFactory tableProviderFactory =
-            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        tableConfigs.putAll(tableProvider.generateConfig(config, tableConfigs));
-      });
-
-    LOG.info("TableConfigGenerator has generated configs {}", tableConfigs);
-    return tableConfigs;
-  }
-
-  /**
-   * Get list of table specs given a list of table descriptors.
-   * @param tableDescs the list of tableDescriptors
-   * @return list of tableSpecs
-   */
-  static public List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
-    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
-
-    tableDescs.forEach(tableDesc -> {
-        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
-
-        if (tableSpecs.containsKey(tableSpec)) {
-          throw new IllegalStateException(
-              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
-        }
-        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
-      });
-    return new ArrayList<>(tableSpecs.keySet());
-  }
 }
