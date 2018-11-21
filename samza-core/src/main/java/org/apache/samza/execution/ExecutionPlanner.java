@@ -211,7 +211,7 @@ public class ExecutionPlanner {
         OperatorSpecGraphAnalyzer.getJoinToInputOperatorSpecs(
             jobGraph.getApplicationDescriptorImpl().getInputOperators().values());
 
-    Map<String, TableDescriptor> tableDescMap = jobGraph.getTables().stream()
+    Map<String, TableDescriptor> tableDescriptors = jobGraph.getTables().stream()
         .collect(Collectors.toMap(TableDescriptor::getTableId, Function.identity()));
 
     // Convert every group of input operator specs into a group of corresponding stream edges.
@@ -224,7 +224,7 @@ public class ExecutionPlanner {
       // streams associated with the joined table (if any).
       if (joinOpSpec instanceof StreamTableJoinOperatorSpec) {
         StreamTableJoinOperatorSpec streamTableJoinOperatorSpec = (StreamTableJoinOperatorSpec) joinOpSpec;
-        TableDescriptor tableDescriptor = tableDescMap.get(streamTableJoinOperatorSpec.getTableId());
+        TableDescriptor tableDescriptor = tableDescriptors.get(streamTableJoinOperatorSpec.getTableId());
         if (tableDescriptor instanceof LocalTableDescriptor) {
           LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
           Collection<String> sideInputs = ListUtils.emptyIfNull(localTableDescriptor.getSideInputs());

@@ -18,7 +18,6 @@
  */
 package org.apache.samza.storage.kv.descriptors;
 
-import java.util.HashMap;
 import java.util.Map;
 import junit.framework.Assert;
 import org.apache.samza.config.Config;
@@ -42,14 +41,14 @@ public class TestRocksDbTableDescriptor {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
-    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(2, tableConfig.size());
   }
 
   @Test
   public void testTableProviderFactoryConfig() {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
-    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(RocksDbKeyValueStorageEngineFactory.class.getName(),
@@ -75,6 +74,7 @@ public class TestRocksDbTableDescriptor {
         .withConfig("abc", "xyz")
         .toConfig(createJobConfig());
 
+    Assert.assertEquals(14, tableConfig.size());
     assertEquals("1", RocksDbTableDescriptor.ROCKSDB_BLOCK_SIZE_BYTES, tableConfig);
     assertEquals("2", RocksDbTableDescriptor.CONTAINER_CACHE_SIZE_BYTES, tableConfig);
     assertEquals("3", RocksDbTableDescriptor.ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, tableConfig);
@@ -97,10 +97,7 @@ public class TestRocksDbTableDescriptor {
   }
 
   private Config createJobConfig() {
-    Map<String, String> jobConfig = new HashMap<>();
-    jobConfig.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID), "serde-key");
-    jobConfig.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID), "serde-value");
-    return new MapConfig(jobConfig);
+    return new MapConfig();
   }
 
   private RocksDbTableDescriptor createTableDescriptor() {

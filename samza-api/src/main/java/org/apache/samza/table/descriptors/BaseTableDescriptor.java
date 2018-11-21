@@ -50,26 +50,17 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     this.tableId = tableId;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public D withConfig(String key, String value) {
     config.put(key, value);
     return (D) this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getTableId() {
     return tableId;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
 
@@ -92,8 +83,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
   /**
    * Validate that this table descriptor is constructed properly; this method is used internally.
    */
-  protected void validate() {
-  }
+  abstract protected void validate();
 
   /**
    * Helper method to add a config item to table configuration

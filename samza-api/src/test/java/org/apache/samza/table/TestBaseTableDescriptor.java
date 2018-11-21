@@ -56,8 +56,12 @@ public class TestBaseTableDescriptor {
 
   private BaseTableDescriptor createTableDescriptor(String tableId) {
     return new BaseTableDescriptor(tableId) {
+      @Override
       public String getProviderFactoryClassName() {
         return "my.factory";
+      }
+      @Override
+      protected void validate() {
       }
     };
   }

@@ -45,7 +45,7 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
 
   public static final Pattern SYSTEM_STREAM_NAME_PATTERN = Pattern.compile("[\\d\\w-_.]+");
 
-  // Serde's for this table
+  // Serdes for this table
   protected final KVSerde<K, V> serde;
 
   // changelog parameters
@@ -134,6 +134,9 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
 
   /**
    * {@inheritDoc}
+   *
+   * Note: Serdes are expected to be generated during configuration generation
+   * of the job node, which is not handled here.
    */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
@@ -141,14 +144,6 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     JavaTableConfig javaTableConfig = new JavaTableConfig(jobConfig);
-
-    String keySerde = javaTableConfig.getKeySerde(tableId);
-    Preconditions.checkNotNull(keySerde, String.format("Key serde for table %s not found", tableId));
-    addStoreConfig("key.serde", keySerde, tableConfig);
-
-    String valueSerde = javaTableConfig.getValueSerde(tableId);
-    Preconditions.checkNotNull(valueSerde, String.format("Value serde for table %s not found", tableId));
-    addStoreConfig("msg.serde", valueSerde, tableConfig);
 
     if (sideInputs != null && !sideInputs.isEmpty()) {
       sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(
@@ -198,12 +193,8 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
     return serde;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected void validate() {
-    super.validate();
     if (sideInputs != null || sideInputsProcessor != null) {
       Preconditions.checkArgument(sideInputs != null && !sideInputs.isEmpty() && sideInputsProcessor != null,
           String.format("Invalid side input configuration for table: %s. " +

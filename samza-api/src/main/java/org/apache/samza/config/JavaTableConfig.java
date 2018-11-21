@@ -38,9 +38,8 @@ public class JavaTableConfig extends MapConfig {
 
   // Config keys
   public static final String TABLE_PROVIDER_FACTORY = String.format("%s.provider.factory", TABLE_ID_PREFIX);
-  public static final String TABLE_KEY_SERDE = String.format("%s.key.serde", TABLE_ID_PREFIX);
-  public static final String TABLE_VALUE_SERDE = String.format("%s.value.serde", TABLE_ID_PREFIX);
-
+  public static final String STORE_KEY_SERDE = "stores.%s.key.serde";
+  public static final String STORE_MSG_SERDE = "stores.%s.msg.serde";
 
   public JavaTableConfig(Map<String, String> config) {
     super(config);
@@ -74,7 +73,7 @@ public class JavaTableConfig extends MapConfig {
    * @return serde retistry key
    */
   public String getKeySerde(String tableId) {
-    return get(String.format(TABLE_KEY_SERDE, tableId), null);
+    return get(String.format(STORE_KEY_SERDE, tableId), null);
   }
 
   /**
@@ -83,7 +82,7 @@ public class JavaTableConfig extends MapConfig {
    * @return serde retistry key
    */
   public String getValueSerde(String tableId) {
-    return get(String.format(TABLE_VALUE_SERDE, tableId), null);
+    return get(String.format(STORE_MSG_SERDE, tableId), null);
   }
 
   /**

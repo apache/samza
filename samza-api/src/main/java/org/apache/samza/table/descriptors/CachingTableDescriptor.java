@@ -134,17 +134,11 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     return this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
 
@@ -170,12 +164,8 @@ public class CachingTableDescriptor<K, V> extends HybridTableDescriptor<K, V, Ca
     return Collections.unmodifiableMap(tableConfig);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected void validate() {
-    super.validate();
     Preconditions.checkNotNull(table, "Actual table is required.");
     if (cache == null) {
       Preconditions.checkNotNull(readTtl, "readTtl must be specified.");

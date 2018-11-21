@@ -44,17 +44,17 @@ public class TestLocalTableDescriptor {
   @Test
   public void testMinimal() {
     Config jobConfig = createJobConfig();
-    Assert.assertEquals(4, jobConfig.size());
+    Assert.assertEquals(2, jobConfig.size());
     Map<String, String> tableConfig = createTableDescriptor().toConfig(jobConfig);
     Assert.assertNotNull(tableConfig);
-    Assert.assertEquals(3, tableConfig.size());
+    Assert.assertEquals(1, tableConfig.size());
   }
 
   @Test
   public void testTableProviderFactoryConfig() {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
-    Assert.assertEquals(3, tableConfig.size());
+    Assert.assertEquals(1, tableConfig.size());
     Assert.assertEquals(MockTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
   }
@@ -63,36 +63,14 @@ public class TestLocalTableDescriptor {
   public void testStoreConfig() {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
-    Assert.assertEquals(3, tableConfig.size());
-    Assert.assertEquals("serde-key-for-table-t1", tableConfig.get("stores.t1.key.serde"));
-    Assert.assertEquals("serde-msg-for-table-t1", tableConfig.get("stores.t1.msg.serde"));
-  }
-
-  @Test (expected = NullPointerException.class)
-  public void testStoreConfigWithBadJobConfig1() {
-    Map<String, String> jobConfig = new HashMap<>();
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID),
-        String.format("serde-msg-for-table-%s", TABLE_ID));
-    Map<String, String> tableConfig = createTableDescriptor()
-        .toConfig(new MapConfig(jobConfig));
-  }
-
-  @Test (expected = NullPointerException.class)
-  public void testStoreConfigWithBadJobConfig2() {
-    Map<String, String> jobConfig = new HashMap<>();
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID),
-        String.format("serde-key-for-table-%s", TABLE_ID));
-    Map<String, String> tableConfig = createTableDescriptor()
-        .toConfig(new MapConfig(jobConfig));
+    Assert.assertEquals(1, tableConfig.size());
   }
 
   @Test
   public void testChangelogDisabled() {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
-    Assert.assertEquals(3, tableConfig.size());
+    Assert.assertEquals(1, tableConfig.size());
     Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID)));
   }
 
@@ -101,7 +79,7 @@ public class TestLocalTableDescriptor {
     Map<String, String> tableConfig = createTableDescriptor()
         .withChangelogEnabled()
         .toConfig(createJobConfig());
-    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals("test-job-10-table-t1", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID))));
   }
@@ -112,7 +90,7 @@ public class TestLocalTableDescriptor {
         .withChangelogStream("my-stream")
         .withChangelogReplicationFactor(100)
         .toConfig(createJobConfig());
-    Assert.assertEquals(5, tableConfig.size());
+    Assert.assertEquals(3, tableConfig.size());
     Assert.assertEquals("my-stream", String.format(
         tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID))));
     Assert.assertEquals("100", String.format(
@@ -141,12 +119,6 @@ public class TestLocalTableDescriptor {
     Map<String, String> jobConfig = new HashMap<>();
     jobConfig.put("job.name", JOB_NAME);
     jobConfig.put("job.id", JOB_ID);
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID),
-        String.format("serde-key-for-table-%s", TABLE_ID));
-    jobConfig.put(
-        String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID),
-        String.format("serde-msg-for-table-%s", TABLE_ID));
     return new MapConfig(jobConfig);
   }
 

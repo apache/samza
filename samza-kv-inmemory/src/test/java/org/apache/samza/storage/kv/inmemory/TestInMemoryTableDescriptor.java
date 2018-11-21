@@ -18,7 +18,6 @@
  */
 package org.apache.samza.storage.kv.inmemory;
 
-import java.util.HashMap;
 import java.util.Map;
 import junit.framework.Assert;
 import org.apache.samza.config.Config;
@@ -41,14 +40,14 @@ public class TestInMemoryTableDescriptor {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
-    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(2, tableConfig.size());
   }
 
   @Test
   public void testTableProviderFactoryConfig() {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
-    Assert.assertEquals(4, tableConfig.size());
+    Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(InMemoryKeyValueStorageEngineFactory.class.getName(),
@@ -56,10 +55,7 @@ public class TestInMemoryTableDescriptor {
   }
 
   private Config createJobConfig() {
-    Map<String, String> jobConfig = new HashMap<>();
-    jobConfig.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID), "serde-key");
-    jobConfig.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID), "serde-value");
-    return new MapConfig(jobConfig);
+    return new MapConfig();
   }
 
   private InMemoryTableDescriptor createTableDescriptor() {

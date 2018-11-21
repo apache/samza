@@ -310,12 +310,12 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for stores to the serde names generated above
     tableKeySerdes.forEach((tableId, serde) -> {
-        String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
+        String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     tableMsgSerdes.forEach((tableId, serde) -> {
-        String valueSerdeConfigKey = String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId);
+        String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
         configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
   }

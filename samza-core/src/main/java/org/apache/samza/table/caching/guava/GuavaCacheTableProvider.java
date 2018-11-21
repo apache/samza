@@ -43,9 +43,6 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
     super(tableId, config);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Table getTable() {
     JavaTableConfig tableConfig = new JavaTableConfig(config);
@@ -57,9 +54,6 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
     return table;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() {
     super.close();

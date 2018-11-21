@@ -27,9 +27,6 @@ import org.apache.samza.table.TableProviderFactory;
  * Table provider factory for {@link org.apache.samza.table.caching.guava.GuavaCacheTable}.
  */
 public class GuavaCacheTableProviderFactory implements TableProviderFactory {
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public TableProvider getTableProvider(String tableId, Config config) {
     return new GuavaCacheTableProvider(tableId, config);

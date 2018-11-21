@@ -63,9 +63,6 @@ public class RemoteTableProvider extends BaseTableProvider {
     this.readOnly = tableConfig.getForTable(tableId, RemoteTableDescriptor.WRITE_FN) == null;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Table getTable() {
     RemoteReadableTable table;
@@ -155,9 +152,6 @@ public class RemoteTableProvider extends BaseTableProvider {
     return table;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() {
     super.close();

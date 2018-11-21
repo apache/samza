@@ -48,9 +48,6 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
     this.cache = cache;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);

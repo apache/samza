@@ -43,7 +43,8 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
   private Cache<K, V> cache;
 
   /**
-   * {@inheritDoc}
+   * Constructs a table descriptor instance
+   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    */
   public GuavaCacheTableDescriptor(String tableId) {
     super(tableId);
@@ -59,17 +60,11 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
     return this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
@@ -77,12 +72,8 @@ public class GuavaCacheTableDescriptor<K, V> extends BaseTableDescriptor<K, V, G
     return Collections.unmodifiableMap(tableConfig);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected void validate() {
-    super.validate();
     Preconditions.checkArgument(cache != null, "Must provide a Guava cache instance.");
   }
 }

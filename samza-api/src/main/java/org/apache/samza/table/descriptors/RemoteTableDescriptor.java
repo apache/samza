@@ -219,17 +219,11 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     return this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
 
@@ -278,12 +272,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     return Collections.unmodifiableMap(tableConfig);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   protected void validate() {
-    super.validate();
     Preconditions.checkNotNull(readFn, "TableReadFunction is required.");
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");

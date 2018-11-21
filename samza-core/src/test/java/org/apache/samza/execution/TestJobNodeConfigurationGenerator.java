@@ -294,9 +294,9 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   }
 
   private void validateTableSerdeConfigure(String tableId, Config config, Map<String, Serde> deserializedSerdes) {
-    Config streamConfig = config.subset(String.format("tables.%s.", tableId));
+    Config streamConfig = config.subset(String.format("stores.%s.", tableId));
     String keySerdeName = streamConfig.get("key.serde");
-    String valueSerdeName = streamConfig.get("value.serde");
+    String valueSerdeName = streamConfig.get("msg.serde");
     assertTrue(String.format("Serialized serdes should contain %s key serde", tableId), deserializedSerdes.containsKey(keySerdeName));
     assertTrue(String.format("Serialized %s key serde should be a StringSerde", tableId), keySerdeName.startsWith(StringSerde.class.getSimpleName()));
     assertTrue(String.format("Serialized serdes should contain %s value serde", tableId), deserializedSerdes.containsKey(valueSerdeName));

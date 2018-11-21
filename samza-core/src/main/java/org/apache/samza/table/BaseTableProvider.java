@@ -48,18 +48,12 @@ abstract public class BaseTableProvider implements TableProvider {
     this.config = config;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     this.context = context;
     logger.info("Initializing table provider for table " + tableId);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() {
     logger.info("Closing table provider for table " + tableId);

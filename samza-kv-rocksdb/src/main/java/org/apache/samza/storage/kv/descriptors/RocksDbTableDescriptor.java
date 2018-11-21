@@ -273,17 +273,11 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     return this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getProviderFactoryClassName() {
     return LocalTableProviderFactory.class.getName();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
 

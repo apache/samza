@@ -40,9 +40,6 @@ public class LocalTableProvider extends BaseTableProvider {
     super(tableId, config);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     super.init(context);
@@ -56,9 +53,6 @@ public class LocalTableProvider extends BaseTableProvider {
     logger.info("Initialized backing store for table " + tableId);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Table getTable() {
     Preconditions.checkNotNull(kvStore, "Store not initialized for table " + tableId);
