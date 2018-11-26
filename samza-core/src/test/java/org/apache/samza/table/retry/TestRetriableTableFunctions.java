@@ -35,7 +35,7 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.table.remote.TestRemoteTable;
+import org.apache.samza.table.remote.TestRemoteReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.junit.Test;
 
@@ -54,7 +54,7 @@ public class TestRetriableTableFunctions {
 
   public TableMetricsUtil getMetricsUtil(String tableId) {
     Table table = mock(Table.class);
-    Context context = TestRemoteTable.getMockContext();
+    Context context = TestRemoteReadWriteTable.getMockContext();
     return new TableMetricsUtil(context, table, tableId);
   }
 

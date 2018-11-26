@@ -38,7 +38,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContext;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -72,7 +72,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 
@@ -248,10 +247,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(new Counter("")).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(new Timer("")).when(metricsRegistry).newTimer(anyString(), anyString());
-    Context context = mock(Context.class);
-    TaskContext taskContext = mock(TaskContext.class);
-    when(context.getTaskContext()).thenReturn(taskContext);
-    doReturn(metricsRegistry).when(taskContext).getTaskMetricsRegistry();
+    Context context = new MockContext();
+    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
     return context;
   }
 

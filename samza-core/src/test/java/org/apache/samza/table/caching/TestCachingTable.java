@@ -22,7 +22,6 @@ package org.apache.samza.table.caching;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
@@ -159,9 +158,6 @@ public class TestCachingTable {
       desc.withWriteAround();
     }
 
-    Config config = new MapConfig(desc.toConfig(new MapConfig()));
-    CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableId(), config);
-
     Context context = new MockContext();
     final ReadWriteTable cacheTable = getMockCache().getLeft();
 
@@ -189,6 +185,10 @@ public class TestCachingTable {
 
     when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
+    Map<String, String> tableConfig = desc.toConfig(new MapConfig());
+    when(context.getJobContext().getConfig()).thenReturn(new MapConfig(tableConfig));
+
+    CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableId());
     tableProvider.init(context);
 
     CachingTable cachingTable = (CachingTable) tableProvider.getTable();
