@@ -22,13 +22,17 @@ import com.google.common.base.Preconditions;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamPartition;
 
-public class DefaultStreamPartitionMapper implements StreamPartitionMapper {
+/**
+ * A StreamPartitionMapper that uses the hash based partitioning to map a {@link SystemStreamPartition} to a
+ * correct previous {@link SystemStreamPartition} after the stream expansion.
+ */
+public class HashStreamPartitionMapper implements StreamPartitionMapper {
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public SystemStreamPartition getSSPBeforeExpansion(SystemStreamPartition currentSystemStreamPartition, int partitionCountBeforeExpansion, int partitionCountAfterExpansion) {
+  public SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition, int partitionCountBeforeExpansion, int partitionCountAfterExpansion) {
     Preconditions.checkNotNull(currentSystemStreamPartition);
     Preconditions.checkArgument(partitionCountAfterExpansion % partitionCountBeforeExpansion == 0,
                                 String.format("New partition count: %d should be a multiple of previous partition count: %d.", partitionCountAfterExpansion, partitionCountBeforeExpansion));

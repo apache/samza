@@ -28,14 +28,14 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
-public class GroupByPartition extends AbstractSystemStreamPartitionGrouper {
+public class GroupByPartition implements SystemStreamPartitionGrouper {
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
 
   /**
+   * Builds the {@link GroupByPartition}  based upon the provided configuration.
    * @param config the configuration of the job.
    */
   public GroupByPartition(Config config) {
-    super(config);
     TaskConfigJava taskConfig = new TaskConfigJava(config);
     this.broadcastSystemStreamPartitions = taskConfig.getBroadcastSystemStreamPartitions();
   }
@@ -70,5 +70,4 @@ public class GroupByPartition extends AbstractSystemStreamPartitionGrouper {
 
     return groupedMap;
   }
-
 }

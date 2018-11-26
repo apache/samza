@@ -22,5 +22,5 @@ import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
 public interface StreamPartitionMapperFactory {
-  StreamPartitionMapper getPartitionExpansionAlgorithm(Config config, MetricsRegistry metricsRegistry);
+  StreamPartitionMapper getStreamPartitionMapper(Config config, MetricsRegistry metricsRegistry);
 }

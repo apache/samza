@@ -23,7 +23,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 
 public class DefaultStreamPartitionMapperFactory implements StreamPartitionMapperFactory {
   @Override
-  public StreamPartitionMapper getPartitionExpansionAlgorithm(Config config, MetricsRegistry metricsRegistry) {
-    return new DefaultStreamPartitionMapper();
+  public StreamPartitionMapper getStreamPartitionMapper(Config config, MetricsRegistry metricsRegistry) {
+    return new HashStreamPartitionMapper();
   }
 }

@@ -33,34 +33,43 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * An abstract implementation of {@link SystemStreamPartitionGrouper} that provides a stream expansion
- * aware task to partition assignments.
+ * Provides a stream expansion aware task to partition assignments on top of a custom implementation
+ * of the {@link SystemStreamPartitionGrouper}.
  */
 @InterfaceStability.Evolving
-public abstract class AbstractSystemStreamPartitionGrouper implements SystemStreamPartitionGrouper {
+public class SSPGrouperProxy {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(AbstractSystemStreamPartitionGrouper.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(SSPGrouperProxy.class);
 
   private final StreamPartitionMapper streamPartitionMapper;
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
+  private final SystemStreamPartitionGrouper grouper;
 
-  public AbstractSystemStreamPartitionGrouper(Config config) {
+  /**
+   * Builds the {@link SSPGrouperProxy} based upon the provided configuration and the
+   * system stream grouper implementation.
+   * @param config the configuration of the job.
+   * @param grouper an implementation of {@link SystemStreamPartitionGrouper} interface.
+   */
+  public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper) {
     Preconditions.checkNotNull(config);
+    Preconditions.checkNotNull(grouper);
+    this.grouper = grouper;
     this.broadcastSystemStreamPartitions = new TaskConfigJava(config).getBroadcastSystemStreamPartitions();
-    this.streamPartitionMapper = getPartitionExpansionAlgorithm(config);
+    this.streamPartitionMapper = getStreamPartitionMapper(config);
   }
 
   /**
-   * {@inheritDoc}
-   *
    * 1. Invokes the sub-class {@link org.apache.samza.container.grouper.task.TaskNameGrouper#group(Set)} method to generate the task to partition assignments.
    * 2. Uses the {@link StreamPartitionMapper} to compute the previous {@link SystemStreamPartition} for every partition of the expanded streams.
    * 3. Uses the previous, current task to partition assignments and result of {@link StreamPartitionMapper} to redistribute the expanded {@link SystemStreamPartition}'s
-   * to correct tasks after the stream expansion.
+   * to correct tasks after the stream expansion or contraction.
+   * @param ssps the input system stream partitions of the job.
+   * @param grouperContext the grouper context holding metadata for the previous job execution.
+   * @return the grouped {@link TaskName} to {@link SystemStreamPartition} assignments.
    */
-  @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps, GrouperContext grouperContext) {
-    Map<TaskName, Set<SystemStreamPartition>> currentTaskAssignments = group(ssps);
+    Map<TaskName, Set<SystemStreamPartition>> currentTaskAssignments = grouper.group(ssps);
 
     if (grouperContext.getPreviousTaskToSSPAssignment().isEmpty()) {
       LOGGER.info("Previous task to partition assignment does not exist. Using the result from the group method.");
@@ -86,17 +95,18 @@ public abstract class AbstractSystemStreamPartitionGrouper implements SystemStre
           Integer previousStreamPartitionCount = previousStreamToPartitionCount.getOrDefault(systemStream, 0);
           Integer currentStreamPartitionCount = currentStreamToPartitionCount.getOrDefault(systemStream, 0);
 
-          if (previousStreamPartitionCount > 0 && previousStreamPartitionCount < currentStreamPartitionCount
-              && currentStreamPartitionCount % previousStreamPartitionCount == 0) {
-            LOGGER.info("SystemStream: {} has expanded from: {} to: {}. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
+          if (previousStreamPartitionCount > 0 && currentStreamPartitionCount % previousStreamPartitionCount == 0) {
+            LOGGER.info("SystemStream: {} is expanded from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
 
-            SystemStreamPartition previousSystemStreamPartition = streamPartitionMapper.getSSPBeforeExpansion(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
+            SystemStreamPartition previousSystemStreamPartition = streamPartitionMapper.getSSPAfterPartitionChange(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
             TaskName previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
 
             LOGGER.info("Moving systemStreamPartition: {} from task: {} to task: {}.", currentSystemStreamPartition, currentlyAssignedTask, previouslyAssignedTask);
 
             taskToPartitionGroup.get(currentlyAssignedTask).removeSSP(currentSystemStreamPartition);
             taskToPartitionGroup.get(previouslyAssignedTask).addSSP(currentSystemStreamPartition);
+          } else {
+            LOGGER.warn("SystemStream: {} is disproportionately expanded from: {} to: {} partitions. Skipping partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
           }
         }
       }
@@ -147,22 +157,21 @@ public abstract class AbstractSystemStreamPartitionGrouper implements SystemStre
   }
 
   /**
-   * Creates a instance of {@link StreamPartitionMapper} using the partition expansion factory class
+   * Creates a instance of {@link StreamPartitionMapper} using the stream partition expansion factory class
    * defined in the {@param config}.
    * @param config the configuration of the samza job.
    * @return the instantiated {@link StreamPartitionMapper} object.
    */
-  private StreamPartitionMapper getPartitionExpansionAlgorithm(Config config) {
+  private StreamPartitionMapper getStreamPartitionMapper(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String partitionExpansionAlgorithmClass = jobConfig.getStreamPartitionMapperFactory();
-    StreamPartitionMapperFactory
-        expansionAlgorithmFactory = Util.getObj(partitionExpansionAlgorithmClass, StreamPartitionMapperFactory.class);
-    return expansionAlgorithmFactory.getPartitionExpansionAlgorithm(config, new MetricsRegistryMap());
+    String streamPartitionMapperClass = jobConfig.getStreamPartitionMapperFactory();
+    StreamPartitionMapperFactory streamPartitionMapperFactory = Util.getObj(streamPartitionMapperClass, StreamPartitionMapperFactory.class);
+    return streamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 
   /**
    * A mutable group of {@link SystemStreamPartition} and {@link TaskName}.
-   * Used to hold the interim result until the final task assignments are known.
+   * Used to hold the interim results until the final task assignments are known.
    */
   private static class PartitionGroup {
     private TaskName taskName;

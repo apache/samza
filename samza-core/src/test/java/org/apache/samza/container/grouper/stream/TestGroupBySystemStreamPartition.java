@@ -99,7 +99,7 @@ public class TestGroupBySystemStreamPartition {
                     new SystemStreamPartition("kafka", "PVE", new Partition(6))))
             .build();
 
-    GroupBySystemStreamPartition groupBySystemStreamPartition = new GroupBySystemStreamPartition(new MapConfig());
+    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
     GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), prevGroupingWithSingleStream, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperContext);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -147,7 +147,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
             .build();
 
-    GroupBySystemStreamPartition groupBySystemStreamPartition = new GroupBySystemStreamPartition(new MapConfig());
+    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
     GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperContext);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -181,7 +181,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
             .build();
 
-    GroupBySystemStreamPartition groupBySystemStreamPartition = new GroupBySystemStreamPartition(new MapConfig());
+    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
     GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperContext);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -225,7 +225,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
             .build();
 
-    GroupBySystemStreamPartition groupBySystemStreamPartition = new GroupBySystemStreamPartition(new MapConfig());
+    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
     GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperContext);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -277,7 +277,7 @@ public class TestGroupBySystemStreamPartition {
                                                                                         new SystemStreamPartition("kafka", "URE", new Partition(4))))
             .build();
 
-    GroupBySystemStreamPartition groupBySystemStreamPartition = new GroupBySystemStreamPartition(new MapConfig());
+    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
     GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperContext);
     Assert.assertEquals(expectedGrouping, finalGrouping);

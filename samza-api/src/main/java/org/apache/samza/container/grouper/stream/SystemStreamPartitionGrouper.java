@@ -36,9 +36,11 @@ import org.apache.samza.system.SystemStreamPartition;
  * the TaskNames.
  */
 public interface SystemStreamPartitionGrouper {
-  Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> systemStreamPartitions);
 
-  default Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> systemStreamPartitions, GrouperContext grouperContext) {
-    return group(systemStreamPartitions);
-  }
+  /**
+   * Groups the input systemStreamPartitions into the logical taskNames.
+   * @param systemStreamPartitions the input system stream partitions.
+   * @return the grouped {@link TaskName} to {@link SystemStreamPartition} assignments.
+   */
+  Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> systemStreamPartitions);
 }

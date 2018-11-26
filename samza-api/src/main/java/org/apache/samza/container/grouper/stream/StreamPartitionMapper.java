@@ -36,6 +36,6 @@ public interface StreamPartitionMapper {
    * @param partitionCountAfterExpansion the partition count of the stream after the stream expansion.
    * @return the mapped {@link SystemStreamPartition}.
    */
-  SystemStreamPartition getSSPBeforeExpansion(SystemStreamPartition currentSystemStreamPartition,
-                                              int partitionCountBeforeExpansion, int partitionCountAfterExpansion);
+  SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition,
+                                                   int partitionCountBeforeExpansion, int partitionCountAfterExpansion);
 }
