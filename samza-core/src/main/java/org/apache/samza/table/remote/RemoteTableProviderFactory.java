@@ -19,7 +19,6 @@
 
 package org.apache.samza.table.remote;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 
@@ -28,7 +27,7 @@ import org.apache.samza.table.TableProviderFactory;
  */
 public class RemoteTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(String tableId, Config config) {
-    return new RemoteTableProvider(tableId, config);
+  public TableProvider getTableProvider(String tableId) {
+    return new RemoteTableProvider(tableId);
   }
 }
