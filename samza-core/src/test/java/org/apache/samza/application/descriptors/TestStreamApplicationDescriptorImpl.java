@@ -54,7 +54,6 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.junit.Test;
 
@@ -514,16 +513,14 @@ public class TestStreamApplicationDescriptorImpl {
   public void testGetTable() throws Exception {
     Config mockConfig = getConfig();
 
+    String tableId = "t1";
     BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
-    TableSpec testTableSpec = new TableSpec("t1", KVSerde.of(new NoOpSerde(), new NoOpSerde()), "", new HashMap<>());
-    when(mockTableDescriptor.getTableSpec()).thenReturn(testTableSpec);
-    when(mockTableDescriptor.getTableId()).thenReturn(testTableSpec.getId());
-    when(mockTableDescriptor.getSerde()).thenReturn(testTableSpec.getSerde());
+    when(mockTableDescriptor.getTableId()).thenReturn(tableId);
     AtomicReference<TableImpl> table = new AtomicReference<>();
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
         table.set((TableImpl) appDesc.getTable(mockTableDescriptor));
       }, mockConfig);
-    assertEquals(testTableSpec.getId(), table.get().getTableSpec().getId());
+    assertEquals(tableId, table.get().getTableId());
   }
 
   @Test

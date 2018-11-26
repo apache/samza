@@ -50,7 +50,6 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -147,9 +146,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   public <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
       StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.JOIN);
-    TableSpec tableSpec = ((TableImpl) table).getTableSpec();
     StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
-        tableSpec, (StreamTableJoinFunction<K, M, R, JM>) joinFn, opId);
+        ((TableImpl) table).getTableId(), (StreamTableJoinFunction<K, M, R, JM>) joinFn, opId);
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.streamAppDesc, joinOpSpec);
   }
@@ -183,7 +181,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   public <K, V> void sendTo(Table<KV<K, V>> table) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     SendToTableOperatorSpec<K, V> op =
-        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableSpec(), opId);
+        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableId(), opId);
     this.operatorSpec.registerNextOperatorSpec(op);
   }
 

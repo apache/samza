@@ -20,12 +20,12 @@
 package org.apache.samza.table.descriptors;
 
 import java.lang.reflect.Constructor;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.config.Config;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -34,7 +34,6 @@ import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
-
 
 /**
  * Table descriptor for remote store backed tables
@@ -101,69 +100,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    */
   public RemoteTableDescriptor(String tableId) {
     super(tableId);
-  }
-
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   * @param serde the serde for key and value
-   */
-  public RemoteTableDescriptor(String tableId, KVSerde<K, V> serde) {
-    super(tableId, serde);
-  }
-
-  @Override
-  public TableSpec getTableSpec() {
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    // Serialize and store reader/writer functions
-    tableSpecConfig.put(READ_FN, SerdeUtils.serialize("read function", readFn));
-
-    if (writeFn != null) {
-      tableSpecConfig.put(WRITE_FN, SerdeUtils.serialize("write function", writeFn));
-    }
-
-    if (!tagCreditsMap.isEmpty()) {
-      RateLimiter defaultRateLimiter;
-      try {
-        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
-        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
-        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
-      } catch (Exception ex) {
-        throw new SamzaException("Failed to create default rate limiter", ex);
-      }
-      tableSpecConfig.put(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter));
-    } else if (rateLimiter != null) {
-      tableSpecConfig.put(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter));
-    }
-
-    // Serialize the readCredit functions
-    if (readCreditFn != null) {
-      tableSpecConfig.put(READ_CREDIT_FN, SerdeUtils.serialize(
-          "read credit function", readCreditFn));
-    }
-    // Serialize the writeCredit functions
-    if (writeCreditFn != null) {
-      tableSpecConfig.put(WRITE_CREDIT_FN, SerdeUtils.serialize(
-          "write credit function", writeCreditFn));
-    }
-
-    if (readRetryPolicy != null) {
-      tableSpecConfig.put(READ_RETRY_POLICY, SerdeUtils.serialize(
-          "read retry policy", readRetryPolicy));
-    }
-
-    if (writeRetryPolicy != null) {
-      tableSpecConfig.put(WRITE_RETRY_POLICY, SerdeUtils.serialize(
-          "write retry policy", writeRetryPolicy));
-    }
-
-    tableSpecConfig.put(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize));
-
-    return new TableSpec(tableId, serde, PROVIDER_FACTORY_CLASS_NAME, tableSpecConfig);
   }
 
   /**
@@ -284,8 +220,60 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   }
 
   @Override
+  public String getProviderFactoryClassName() {
+    return PROVIDER_FACTORY_CLASS_NAME;
+  }
+
+  @Override
+  public Map<String, String> toConfig(Config jobConfig) {
+
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
+
+    // Serialize and store reader/writer functions
+    addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
+
+    if (writeFn != null) {
+      addTableConfig(WRITE_FN, SerdeUtils.serialize("write function", writeFn), tableConfig);
+    }
+
+    if (!tagCreditsMap.isEmpty()) {
+      RateLimiter defaultRateLimiter;
+      try {
+        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
+        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
+      } catch (Exception ex) {
+        throw new SamzaException("Failed to create default rate limiter", ex);
+      }
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
+    } else if (rateLimiter != null) {
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
+    }
+
+    // Serialize the readCredit functions
+    if (readCreditFn != null) {
+      addTableConfig(READ_CREDIT_FN, SerdeUtils.serialize("read credit function", readCreditFn), tableConfig);
+    }
+    // Serialize the writeCredit functions
+    if (writeCreditFn != null) {
+      addTableConfig(WRITE_CREDIT_FN, SerdeUtils.serialize("write credit function", writeCreditFn), tableConfig);
+    }
+
+    if (readRetryPolicy != null) {
+      addTableConfig(READ_RETRY_POLICY, SerdeUtils.serialize("read retry policy", readRetryPolicy), tableConfig);
+    }
+
+    if (writeRetryPolicy != null) {
+      addTableConfig(WRITE_RETRY_POLICY, SerdeUtils.serialize("write retry policy", writeRetryPolicy), tableConfig);
+    }
+
+    addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
+
+    return Collections.unmodifiableMap(tableConfig);
+  }
+
+  @Override
   protected void validate() {
-    super.validate();
     Preconditions.checkNotNull(readFn, "TableReadFunction is required.");
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");

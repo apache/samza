@@ -45,9 +45,6 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
     super(tableId, kvStore);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     super.init(context);

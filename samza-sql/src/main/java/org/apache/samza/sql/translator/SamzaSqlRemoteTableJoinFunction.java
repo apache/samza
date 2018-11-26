@@ -20,9 +20,11 @@
 package org.apache.samza.sql.translator;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
+import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
@@ -68,8 +70,13 @@ public class SamzaSqlRemoteTableJoinFunction
 
   @Override
   public Object getMessageKey(SamzaSqlRelMessage message) {
+    SamzaSqlRelRecord keyRecord = getMessageKeyRelRecord(message);
+    // If all the message key rel record values are null, return null message key.
+    if (keyRecord.getFieldValues().stream().allMatch(Objects::isNull)) {
+      return null;
+    }
     // Using the table key converter, convert message key from rel format to the record key format.
-    return relTableKeyConverter.convertToTableKeyFormat(getMessageKeyRelRecord(message));
+    return relTableKeyConverter.convertToTableKeyFormat(keyRecord);
   }
 
   @Override

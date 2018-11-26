@@ -35,7 +35,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +56,7 @@ public class JobNode {
   private final Map<String, StreamEdge> inEdges = new HashMap<>();
   private final Map<String, StreamEdge> outEdges = new HashMap<>();
   // Similarly, tables uses tableId as the key
-  private final Map<String, TableSpec> tables = new HashMap<>();
+  private final Map<String, TableDescriptor> tables = new HashMap<>();
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
 
   JobNode(String jobName, String jobId, Config config, ApplicationDescriptorImpl appDesc,
@@ -97,8 +97,8 @@ public class JobNode {
     outEdges.put(out.getStreamSpec().getId(), out);
   }
 
-  void addTable(TableSpec tableSpec) {
-    tables.put(tableSpec.getId(), tableSpec);
+  void addTable(TableDescriptor tableDescriptor) {
+    tables.put(tableDescriptor.getTableId(), tableDescriptor);
   }
 
   Map<String, StreamEdge> getInEdges() {
@@ -109,7 +109,7 @@ public class JobNode {
     return outEdges;
   }
 
-  Map<String, TableSpec> getTables() {
+  Map<String, TableDescriptor> getTables() {
     return tables;
   }
 

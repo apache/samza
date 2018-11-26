@@ -19,13 +19,13 @@
 
 package org.apache.samza.table.descriptors;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.table.TableSpec;
-
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 
 /**
  * Base class for all table descriptor implementations.
@@ -34,12 +34,11 @@ import org.apache.samza.table.TableSpec;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
+@InterfaceStability.Unstable
 abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K, V, D>>
     implements TableDescriptor<K, V, D> {
 
   protected final String tableId;
-
-  protected KVSerde<K, V> serde = KVSerde.of(new NoOpSerde(), new NoOpSerde());
 
   protected final Map<String, String> config = new HashMap<>();
 
@@ -51,60 +50,49 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     this.tableId = tableId;
   }
 
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   * @param serde the serde for key and value
-   */
-  protected BaseTableDescriptor(String tableId, KVSerde<K, V> serde) {
-    this.tableId = tableId;
-    this.serde = serde;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public D withConfig(String key, String value) {
     config.put(key, value);
     return (D) this;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public String getTableId() {
     return tableId;
   }
 
-  /**
-   * Get the serde assigned to this {@link TableDescriptor}
-   *
-   * @return {@link KVSerde} used by this table
-   */
-  public KVSerde<K, V> getSerde() {
-    return serde;
+  @Override
+  public Map<String, String> toConfig(Config jobConfig) {
+
+    validate();
+
+    Map<String, String> tableConfig = new HashMap<>(config);
+    tableConfig.put(
+        String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId),
+        getProviderFactoryClassName());
+
+    return Collections.unmodifiableMap(tableConfig);
   }
 
   /**
-   * Generate config for {@link TableSpec}; this method is used internally.
-   * @param tableSpecConfig configuration for the {@link TableSpec}
+   * Return the fully qualified class name of the {@link org.apache.samza.table.TableProviderFactory}
+   * @return class name of the {@link org.apache.samza.table.TableProviderFactory}
    */
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    tableSpecConfig.putAll(config);
-  }
+  abstract public String getProviderFactoryClassName();
 
   /**
    * Validate that this table descriptor is constructed properly; this method is used internally.
    */
-  protected void validate() {
-  }
+  abstract protected void validate();
 
   /**
-   * Create a {@link TableSpec} from this table descriptor; this method is used internally.
-   *
-   * @return the {@link TableSpec}
+   * Helper method to add a config item to table configuration
+   * @param key key of the config item
+   * @param value value of the config item
+   * @param tableConfig table configuration
    */
-  abstract public TableSpec getTableSpec();
+  protected void addTableConfig(String key, String value, Map<String, String> tableConfig) {
+    tableConfig.put(JavaTableConfig.buildKey(tableId, key), value);
+  }
+
 }

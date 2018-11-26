@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -87,6 +88,32 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(outMessages));
+  }
+
+  @Test
+  public void testEndToEndWithNullRecords() {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, true);
+    String sql = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    runner.runAndWaitForFinish();
+
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> x.getMessage() == null ? null : Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .filter(Objects::nonNull)
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages - ((numMessages - 1) / TestAvroSystemFactory.NULL_RECORD_FREQUENCY + 1),
+        outMessages.size());
+    Assert.assertEquals(IntStream.range(0, numMessages)
+        .boxed()
+        .filter(x -> x % TestAvroSystemFactory.NULL_RECORD_FREQUENCY != 0)
+        .collect(Collectors.toList()), outMessages);
   }
 
   @Test
@@ -664,7 +691,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs =
-        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, windowDurationMs);
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, false, windowDurationMs);
     staticConfigs.putAll(configs);
     String sql =
         "Insert into testavro.pageViewCountTopic"

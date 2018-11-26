@@ -85,9 +85,6 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
     this.isWriteAround = isWriteAround;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     readMetrics = new DefaultTableReadMetrics(context, this, tableId);

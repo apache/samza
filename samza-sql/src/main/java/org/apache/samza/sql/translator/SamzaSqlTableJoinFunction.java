@@ -111,6 +111,11 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
   protected abstract List<Object> getTableRelRecordFieldValues(R record);
 
   protected SamzaSqlRelRecord getMessageKeyRelRecord(SamzaSqlRelMessage message) {
+    return getMessageKeyRelRecord(message, streamFieldIds, tableFieldNames, tableKeyIds);
+  }
+
+  public static SamzaSqlRelRecord getMessageKeyRelRecord(SamzaSqlRelMessage message, List<Integer> streamFieldIds,
+      List<String> tableFieldNames, List<Integer> tableKeyIds) {
     return createSamzaSqlCompositeKey(message, streamFieldIds,
         getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds));
   }
