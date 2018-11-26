@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
@@ -32,6 +31,7 @@ import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.BaseTableProvider;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 
 /**
@@ -42,13 +42,15 @@ public class CachingTableProvider extends BaseTableProvider {
   // Store the cache instances created by default
   private final List<ReadWriteTable> defaultCaches = new ArrayList<>();
 
-  public CachingTableProvider(String tableId, Config config) {
-    super(tableId, config);
+  public CachingTableProvider(String tableId) {
+    super(tableId);
   }
 
   @Override
   public Table getTable() {
-    JavaTableConfig tableConfig = new JavaTableConfig(config);
+    Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
+
+    JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
     String realTableId = tableConfig.getForTable(tableId, CachingTableDescriptor.REAL_TABLE_ID);
     ReadableTable table = (ReadableTable) this.context.getTaskContext().getTable(realTableId);
 
@@ -58,7 +60,7 @@ public class CachingTableProvider extends BaseTableProvider {
     if (cacheTableId != null) {
       cache = (ReadWriteTable) this.context.getTaskContext().getTable(cacheTableId);
     } else {
-      cache = createDefaultCacheTable(realTableId);
+      cache = createDefaultCacheTable(realTableId, tableConfig);
       defaultCaches.add(cache);
     }
 
@@ -74,8 +76,7 @@ public class CachingTableProvider extends BaseTableProvider {
     defaultCaches.forEach(c -> c.close());
   }
 
-  private ReadWriteTable createDefaultCacheTable(String tableId) {
-    JavaTableConfig tableConfig = new JavaTableConfig(config);
+  private ReadWriteTable createDefaultCacheTable(String tableId, JavaTableConfig tableConfig) {
     long readTtlMs = Long.parseLong(tableConfig.getForTable(tableId, CachingTableDescriptor.READ_TTL_MS, "-1"));
     long writeTtlMs = Long.parseLong(tableConfig.getForTable(tableId, CachingTableDescriptor.WRITE_TTL_MS, "-1"));
     long cacheSize = Long.parseLong(tableConfig.getForTable(tableId, CachingTableDescriptor.CACHE_SIZE, "-1"));

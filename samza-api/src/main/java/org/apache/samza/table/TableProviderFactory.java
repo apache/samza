@@ -19,7 +19,6 @@
 package org.apache.samza.table;
 
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
 
 
 /**
@@ -30,8 +29,7 @@ public interface TableProviderFactory {
   /**
    * Construct a table provider based on job configuration
    * @param tableId Id of the table
-   * @param config Job configuration
    * @return the constructed table provider
    */
-  TableProvider getTableProvider(String tableId, Config config);
+  TableProvider getTableProvider(String tableId);
 }

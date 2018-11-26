@@ -19,8 +19,9 @@
 
 package org.apache.samza.table.remote;
 
-import org.apache.samza.config.Config;
+import com.google.common.base.Preconditions;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.context.Context;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.RetriableReadFunction;
@@ -44,9 +45,9 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class RemoteTableProvider extends BaseTableProvider {
 
-
-  private final boolean readOnly;
   private final List<RemoteReadableTable<?, ?>> tables = new ArrayList<>();
+
+  private boolean readOnly;
 
   /**
    * Map of tableId -> executor service for async table IO and callbacks. The same executors
@@ -57,17 +58,25 @@ public class RemoteTableProvider extends BaseTableProvider {
   private static Map<String, ExecutorService> callbackExecutors = new ConcurrentHashMap<>();
   private static ScheduledExecutorService retryExecutor;
 
-  public RemoteTableProvider(String tableId, Config config) {
-    super(tableId, config);
-    JavaTableConfig tableConfig = new JavaTableConfig(config);
+  public RemoteTableProvider(String tableId) {
+    super(tableId);
+  }
+
+  @Override
+  public void init(Context context) {
+    super.init(context);
+    JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
     this.readOnly = tableConfig.getForTable(tableId, RemoteTableDescriptor.WRITE_FN) == null;
   }
 
   @Override
   public Table getTable() {
+
+    Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
+
     RemoteReadableTable table;
 
-    JavaTableConfig tableConfig = new JavaTableConfig(config);
+    JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
 
     TableReadFunction readFn = getReadFn(tableConfig);
     RateLimiter rateLimiter = deserializeObject(tableConfig, RemoteTableDescriptor.RATE_LIMITER);

@@ -18,7 +18,6 @@
  */
 package org.apache.samza.table;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,19 +32,14 @@ abstract public class BaseTableProvider implements TableProvider {
 
   final protected String tableId;
 
-  // Job config
-  final protected Config config;
-
   protected Context context;
 
   /**
    * Construct the table provider using table Id and job configuration
    * @param tableId Id of the table
-   * @param config job configuration
    */
-  public BaseTableProvider(String tableId, Config config) {
+  public BaseTableProvider(String tableId) {
     this.tableId = tableId;
-    this.config = config;
   }
 
   @Override

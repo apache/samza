@@ -20,7 +20,6 @@
 package org.apache.samza.storage.kv.descriptors;
 
 import junit.framework.Assert;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.TaskContext;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -55,7 +54,7 @@ public class TestLocalTableProvider {
   }
 
   private TableProvider createTableProvider(String tableId) {
-    return new LocalTableProvider(tableId, new MapConfig()) {
+    return new LocalTableProvider(tableId) {
     };
   }
 }
