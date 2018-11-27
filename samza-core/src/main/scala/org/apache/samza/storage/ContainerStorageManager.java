@@ -1,10 +1,32 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.samza.storage;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
+import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.metrics.Gauge;
@@ -13,6 +35,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ *  ContainerStorageManager is a per-container abstraction that instruments
+ *  the restore of per-task partitions.
+ *
+ *  It is responsible for
+ *  a) performing all container-level serializable actions for restore, initializing and shutting down
+ *  taskStorage managers, starting and stopping consumers, etc.
+ *
+ *  b) performing parallelized taskStorageManager restores.
+ *
+ */
 public class ContainerStorageManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
@@ -23,7 +56,10 @@ public class ContainerStorageManager {
   private Map<String, SystemConsumer> systemConsumers;
 
   // Size of thread-pool to be used for parallel restores
-  private int parallelRestoreThreadPoolSize;
+  private final int parallelRestoreThreadPoolSize;
+
+  // Naming convention to be used for restore threads
+  private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
 
   public ContainerStorageManager(Map<TaskInstance, TaskStorageManager> taskStorageManagers,
       Map<String, SystemConsumer> systemConsumers, SamzaContainerMetrics samzaContainerMetrics) {
@@ -35,7 +71,8 @@ public class ContainerStorageManager {
     this.parallelRestoreThreadPoolSize = taskStorageManagers.size();
   }
 
-  public void start() throws InterruptedException {
+  public void start() throws SamzaException {
+    LOG.info("Restore started");
 
     // initialize each TaskStorageManager
     this.taskStorageManagers.values().forEach(taskStorageManager -> taskStorageManager.init());
@@ -45,33 +82,52 @@ public class ContainerStorageManager {
 
     // Create a thread pool for parallel restores
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
-        new ThreadFactoryBuilder().setNameFormat("Samza Restore Thread-%d").build());
+        new ThreadFactoryBuilder().setNameFormat(RESTORE_THREAD_NAME).build());
 
+    List<Future> futureList = new ArrayList<>(this.taskStorageManagers.entrySet().size());
+
+    // Submit restore callable for each taskInstance
     this.taskStorageManagers.entrySet().forEach(task -> {
-      executorService.submit(new TaskRestoreRunnable(this.samzaContainerMetrics, task.getKey(), task.getValue()));
-    });
+        futureList.add(
+            executorService.submit(new TaskRestoreRunnable(this.samzaContainerMetrics, task.getKey(), task.getValue())));
+      });
+
+    // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
+    // as samza exceptions
+    for (Future future : futureList) {
+      try {
+        future.get();
+      } catch (Exception e) {
+        LOG.error("Exception when restoring ", e);
+        throw new SamzaException("Exception when restoring ", e);
+      }
+    }
 
     executorService.shutdown();
 
-    // Wait forever for all threads to finish (java-suggested pattern)
-    executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);
-
     // Stop consumers
     this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
+
+    LOG.info("Restore complete");
   }
 
   public void shutdown() {
     this.taskStorageManagers.forEach((taskInstance, taskStorageManager) -> {
-      if (taskStorageManager != null) {
-        LOG.debug("Shutting down storage manager for taskName: {} ", taskInstance);
-        taskStorageManager.stopStores();
-      } else {
-        LOG.debug("Skipping storage manager shutdown for taskName: {}", taskInstance);
-      }
-    });
+        if (taskStorageManager != null) {
+          LOG.debug("Shutting down task storage manager for taskName: {} ", taskInstance);
+          taskStorageManager.stop();
+        } else {
+          LOG.debug("Skipping task storage manager shutdown for taskName: {}", taskInstance);
+        }
+      });
+
+    LOG.info("Shutdown complete");
   }
 
-  private class TaskRestoreRunnable implements Runnable {
+  /** Callable for performing the restoreStores on a taskStorage manager and emitting task-restoration metric.
+   *
+   */
+  private class TaskRestoreRunnable implements Callable {
 
     private TaskInstance taskInstance;
     private TaskStorageManager taskStorageManager;
@@ -85,7 +141,7 @@ public class ContainerStorageManager {
     }
 
     @Override
-    public void run() {
+    public Object call() {
       long startTime = System.currentTimeMillis();
       LOG.info("Starting stores in task instance {}", this.taskInstance.taskName().getTaskName());
       taskStorageManager.restoreStores();
@@ -96,6 +152,8 @@ public class ContainerStorageManager {
       if (taskGauge != null) {
         taskGauge.set(timeToRestore);
       }
+
+      return null;
     }
   }
 }
