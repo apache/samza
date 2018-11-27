@@ -81,7 +81,7 @@ public class JavaTableConfig extends MapConfig {
    * @param tableId Id of the table
    * @return serde retistry key
    */
-  public String getValueSerde(String tableId) {
+  public String getMsgSerde(String tableId) {
     return get(String.format(STORE_MSG_SERDE, tableId), null);
   }
 

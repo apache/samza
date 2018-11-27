@@ -122,7 +122,9 @@ public class TableRateLimiter<K, V> {
 
     long startNs = System.nanoTime();
     rateLimiter.acquire(Collections.singletonMap(tag, credits));
-    waitTimeMetric.update(System.nanoTime() - startNs);
+    if (waitTimeMetric != null) {
+      waitTimeMetric.update(System.nanoTime() - startNs);
+    }
   }
 
   /**

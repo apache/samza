@@ -20,12 +20,12 @@
 package org.apache.samza.table.remote.descriptors;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -35,6 +35,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.table.remote.RemoteTableProvider;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -48,7 +49,6 @@ import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.Matchers;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -129,16 +129,19 @@ public class TestRemoteTableDescriptor {
     desc.toConfig(new MapConfig());
   }
 
-  private Context createMockContext() {
+  private Context createMockContext(TableDescriptor tableDescriptor) {
     Context context = mock(Context.class);
+
+    ContainerContext containerContext = mock(ContainerContext.class);
+    when(context.getContainerContext()).thenReturn(containerContext);
+
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    when(metricsRegistry.newTimer(anyString(), anyString())).thenReturn(mock(Timer.class));
+    when(metricsRegistry.newCounter(anyString(), anyString())).thenReturn(mock(Counter.class));
+    when(containerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
 
     TaskContextImpl taskContext = mock(TaskContextImpl.class);
     when(context.getTaskContext()).thenReturn(taskContext);
-
-    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
-    when(metricsRegistry.newTimer(Matchers.anyString(), Matchers.anyString())).thenReturn(mock(Timer.class));
-    when(metricsRegistry.newCounter(Matchers.anyString(), Matchers.anyString())).thenReturn(mock(Counter.class));
-    when(taskContext.getTaskMetricsRegistry()).thenReturn(metricsRegistry);
 
     TaskName taskName = new TaskName("MyTask");
     TaskModel taskModel = mock(TaskModel.class);
@@ -147,15 +150,16 @@ public class TestRemoteTableDescriptor {
 
     ContainerModel containerModel = mock(ContainerModel.class);
     when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
-
-    ContainerContext containerContext = mock(ContainerContext.class);
     when(containerContext.getContainerModel()).thenReturn(containerModel);
-    when(context.getContainerContext()).thenReturn(containerContext);
 
     String containerId = "container-1";
     JobModel jobModel = mock(JobModel.class);
     when(taskContext.getJobModel()).thenReturn(jobModel);
     when(jobModel.getContainers()).thenReturn(ImmutableMap.of(containerId, containerModel));
+
+    JobContext jobContext = mock(JobContext.class);
+    when(jobContext.getConfig()).thenReturn(new MapConfig(tableDescriptor.toConfig(new MapConfig())));
+    when(context.getJobContext()).thenReturn(jobContext);
 
     return context;
   }
@@ -201,9 +205,8 @@ public class TestRemoteTableDescriptor {
       }
     }
 
-    Config config = new MapConfig(desc.toConfig(new MapConfig()));
-    RemoteTableProvider provider = new RemoteTableProvider(desc.getTableId(), config);
-    provider.init(createMockContext());
+    RemoteTableProvider provider = new RemoteTableProvider(desc.getTableId());
+    provider.init(createMockContext(desc));
     Table table = provider.getTable();
     Assert.assertTrue(table instanceof RemoteReadWriteTable);
     RemoteReadWriteTable rwTable = (RemoteReadWriteTable) table;

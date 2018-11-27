@@ -20,11 +20,11 @@
 package org.apache.samza.test.table;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
@@ -34,12 +34,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContext;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
-import org.apache.samza.metrics.Counter;
-import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
@@ -49,9 +44,6 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.storage.kv.LocalReadWriteTable;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.table.ReadWriteTable;
@@ -65,6 +57,7 @@ import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -74,16 +67,9 @@ import static org.apache.samza.test.table.TestTableData.PageViewJsonSerde;
 import static org.apache.samza.test.table.TestTableData.PageViewJsonSerdeFactory;
 import static org.apache.samza.test.table.TestTableData.Profile;
 import static org.apache.samza.test.table.TestTableData.ProfileJsonSerde;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyList;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 
 /**
@@ -354,50 +340,6 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     public static MyMapFunction getMapFunctionByTask(String taskName) {
       return taskToMapFunctionMap.get(taskName);
     }
-  }
-
-  @Test
-  public void testAsyncOperation() throws Exception {
-    KeyValueStore kvStore = mock(KeyValueStore.class);
-    LocalReadWriteTable<String, String> table = new LocalReadWriteTable<>("table1", kvStore);
-    Context context = mock(Context.class);
-    TaskContext taskContext = mock(TaskContext.class);
-    when(context.getTaskContext()).thenReturn(taskContext);
-    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
-    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
-    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
-    doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
-    doReturn(metricsRegistry).when(taskContext).getTaskMetricsRegistry();
-
-    table.init(context);
-
-    // GET
-    doReturn("bar").when(kvStore).get(anyString());
-    Assert.assertEquals("bar", table.getAsync("foo").get());
-
-    // GET-ALL
-    Map<String, String> recordMap = new HashMap<>();
-    recordMap.put("foo1", "bar1");
-    recordMap.put("foo2", "bar2");
-    doReturn(recordMap).when(kvStore).getAll(anyList());
-    Assert.assertEquals(recordMap, table.getAllAsync(Arrays.asList("foo1", "foo2")).get());
-
-    // PUT
-    table.putAsync("foo1", "bar1").get();
-    verify(kvStore, times(1)).put(anyString(), anyString());
-
-    // PUT-ALL
-    List<Entry<String, String>> records = Arrays.asList(new Entry<>("foo1", "bar1"), new Entry<>("foo2", "bar2"));
-    table.putAllAsync(records).get();
-    verify(kvStore, times(1)).putAll(anyList());
-
-    // DELETE
-    table.deleteAsync("foo").get();
-    verify(kvStore, times(1)).delete(anyString());
-
-    // DELETE-ALL
-    table.deleteAllAsync(Arrays.asList("foo1", "foo2")).get();
-    verify(kvStore, times(1)).deleteAll(anyList());
   }
 
   @Test

@@ -154,7 +154,7 @@ public class TestLocalTableDescriptor {
 
   public static class MockTableProviderFactory implements TableProviderFactory {
     @Override
-    public TableProvider getTableProvider(String tableId, Config config) {
+    public TableProvider getTableProvider(String tableId) {
       return new MockTableProvider();
     }
   }

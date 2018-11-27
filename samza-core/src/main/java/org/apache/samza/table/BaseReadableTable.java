@@ -18,38 +18,49 @@
  */
 package org.apache.samza.table;
 
+import com.google.common.base.Preconditions;
 import org.apache.samza.context.Context;
+import org.apache.samza.table.utils.TableReadMetrics;
+import org.apache.samza.table.utils.TableWriteMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 /**
- * Base class for all table provider implementations.
+ * Base class for all readable tables
+ *
+ * @param <K> the type of the key in this table
+ * @param <V> the type of the value in this table
  */
-abstract public class BaseTableProvider implements TableProvider {
+abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
 
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  protected final Logger logger;
 
   protected final String tableId;
 
-  protected Context context;
+  protected TableReadMetrics readMetrics;
+  protected TableWriteMetrics writeMetrics;
 
   /**
-   * Construct the table provider using table Id and job configuration
+   * Construct an instance
    * @param tableId Id of the table
    */
-  public BaseTableProvider(String tableId) {
+  public BaseReadableTable(String tableId) {
+    Preconditions.checkArgument(tableId != null & !tableId.isEmpty(),
+        String.format("Invalid table Id: %s", tableId));
     this.tableId = tableId;
+    this.logger = LoggerFactory.getLogger(getClass().getName() + "." + tableId);
   }
 
   @Override
   public void init(Context context) {
-    this.context = context;
-    logger.info("Initializing table provider for table " + tableId);
+    readMetrics = new TableReadMetrics(context, this, tableId);
+    if (this instanceof ReadWriteTable) {
+      writeMetrics = new TableWriteMetrics(context, this, tableId);
+    }
   }
 
-  @Override
-  public void close() {
-    logger.info("Closing table provider for table " + tableId);
+  public String getTableId() {
+    return tableId;
   }
 }

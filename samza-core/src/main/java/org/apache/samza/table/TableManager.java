@@ -94,7 +94,7 @@ public class TableManager {
     TableProviderFactory tableProviderFactory =
         Util.getObj(providerFactoryClassName, TableProviderFactory.class);
     TableCtx ctx = new TableCtx();
-    ctx.tableProvider = tableProviderFactory.getTableProvider(tableId, config);
+    ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
     tableContexts.put(tableId, ctx);
   }
 

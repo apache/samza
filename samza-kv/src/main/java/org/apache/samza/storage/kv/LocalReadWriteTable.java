@@ -20,9 +20,12 @@ package org.apache.samza.storage.kv;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.samza.context.Context;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.utils.DefaultTableWriteMetrics;
+
+import static org.apache.samza.table.utils.TableMetricsUtil.incCounter;
+import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 
 /**
@@ -34,8 +37,6 @@ import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
     implements ReadWriteTable<K, V> {
 
-  protected DefaultTableWriteMetrics writeMetrics;
-
   /**
    * Constructs an instance of {@link LocalReadWriteTable}
    * @param tableId the table Id
@@ -46,18 +47,9 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
   }
 
   @Override
-  public void init(Context context) {
-    super.init(context);
-    writeMetrics = new DefaultTableWriteMetrics(context, this, tableId);
-  }
-
-  @Override
   public void put(K key, V value) {
     if (value != null) {
-      writeMetrics.numPuts.inc();
-      long startNs = System.nanoTime();
-      kvStore.put(key, value);
-      writeMetrics.putNs.update(System.nanoTime() - startNs);
+      instrument(writeMetrics.numPuts, writeMetrics.putNs, () -> kvStore.put(key, value));
     } else {
       delete(key);
     }
@@ -77,10 +69,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    writeMetrics.numPutAlls.inc();
-    long startNs = System.nanoTime();
-    kvStore.putAll(entries);
-    writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+    instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(entries));
   }
 
   @Override
@@ -97,10 +86,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void delete(K key) {
-    writeMetrics.numDeletes.inc();
-    long startNs = System.nanoTime();
-    kvStore.delete(key);
-    writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+    instrument(writeMetrics.numDeletes, writeMetrics.deleteNs, () -> kvStore.delete(key));
   }
 
   @Override
@@ -117,10 +103,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void deleteAll(List<K> keys) {
-    writeMetrics.numDeleteAlls.inc();
-    long startNs = System.nanoTime();
-    kvStore.deleteAll(keys);
-    writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+    instrument(writeMetrics.numDeleteAlls, writeMetrics.deleteAllNs, () -> kvStore.deleteAll(keys));
   }
 
   @Override
@@ -137,10 +120,18 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void flush() {
-    writeMetrics.numFlushes.inc();
+    instrument(writeMetrics.numFlushes, writeMetrics.flushNs, () -> kvStore.flush());
+  }
+
+  private interface Func0 {
+    void apply();
+  }
+
+  private void instrument(Counter counter, Timer timer, Func0 func) {
+    incCounter(counter);
     long startNs = System.nanoTime();
-    kvStore.flush();
-    writeMetrics.flushNs.update(System.nanoTime() - startNs);
+    func.apply();
+    updateTimer(timer, System.nanoTime() - startNs);
   }
 
 }
