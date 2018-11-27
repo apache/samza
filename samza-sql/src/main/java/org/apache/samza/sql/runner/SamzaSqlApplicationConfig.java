@@ -108,7 +108,8 @@ public class SamzaSqlApplicationConfig {
   private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
 
-  // Output system streams in the order of SQL query statements. Please note that there could be duplicate entries
+  // There could only be one output system stream per samza sql statement. The below list datastructure stores the
+  // output system streams in the order of SQL query statements. Please note that there could be duplicate entries
   // in it during a fan-in scenario (e.g. two sql statements with two different input streams but same output stream).
   private final List<String> outputSystemStreams;
 
@@ -122,7 +123,7 @@ public class SamzaSqlApplicationConfig {
 
     this.outputSystemStreams = new LinkedList<>(outputSystemStreams);
 
-    // There could be duplicate streams in different queries. Let's dedupe them.
+    // There could be duplicate streams across different queries. Let's dedupe them.
     Set<String> inputSystemStreamSet = new HashSet<>(inputSystemStreams);
     Set<String> outputSystemStreamSet = new HashSet<>(outputSystemStreams);
 
