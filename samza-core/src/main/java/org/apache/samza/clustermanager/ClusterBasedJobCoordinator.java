@@ -324,7 +324,8 @@ public class ClusterBasedJobCoordinator {
   private Optional<InputStreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
 
     // if input regex monitor is not enabled return empty
-    if(!new JobConfig(config).getMonitorInputRegexEnabled()) {
+    if (new JobConfig(config).getMonitorInputRegexFrequency() <= 0) {
+      log.info("InputStreamRegexMonitor is disabled.");
       return Optional.empty();
     }
 
