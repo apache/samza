@@ -22,10 +22,10 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -36,6 +36,7 @@ import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.InputStreamRegexMonitor;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.PartitionChangeException;
@@ -54,6 +55,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Option;
 
 
 /**
@@ -140,6 +142,11 @@ public class ClusterBasedJobCoordinator {
   private final StreamPartitionCountMonitor partitionMonitor;
 
   /**
+   * The input stream regex monitor
+   */
+  private final Optional<InputStreamRegexMonitor> inputStreamRegexMonitor;
+
+  /**
    * Metrics to track stats around container failures, needed containers etc.
    */
   private final MetricsRegistryMap metrics;
@@ -186,6 +193,7 @@ public class ClusterBasedJobCoordinator {
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
+    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins);
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
 
@@ -241,6 +249,7 @@ public class ClusterBasedJobCoordinator {
       containerProcessManager.start();
       systemAdmins.start();
       partitionMonitor.start();
+      inputStreamRegexMonitor.ifPresent(monitor -> monitor.start());
 
       boolean isInterrupted = false;
 
@@ -275,6 +284,7 @@ public class ClusterBasedJobCoordinator {
 
     try {
       partitionMonitor.stop();
+      inputStreamRegexMonitor.ifPresent(monitor -> monitor.stop());
       systemAdmins.stop();
       containerProcessManager.stop();
       coordinatorStreamManager.stop();
@@ -300,36 +310,70 @@ public class ClusterBasedJobCoordinator {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
 
-    // Compile a map of each input-system to its corresponding input-monitor-regex patterns if one is defined in config
-    // else ignore that input-system
-    Map<String, Pattern> inputRegexesToMonitor = inputStreamsToMonitor.stream()
-        .collect(Collectors.toMap(x -> x.getSystem(), x -> new JobConfig(config).getRegexToMonitor(x.getSystem())))
-        .entrySet()
-        .stream()
-        .filter(x -> x.getValue().isDefined())
-        .collect(Collectors.toMap(Map.Entry::getKey, x -> Pattern.compile(x.getValue().get())));
+    return new StreamPartitionCountMonitor(inputStreamsToMonitor, streamMetadata, metrics,
+        new JobConfig(config).getMonitorPartitionChangeFrequency(), streamsChanged -> {
+      // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
+        if (hasDurableStores) {
+          log.error("Input topic partition count changed in a job with durable state. Failing the job.");
+          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+        }
+        coordinatorException = new PartitionChangeException("Input topic partition count changes detected.");
+      });
+  }
 
-    return new StreamPartitionCountMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
-        new JobConfig(config).getMonitorPartitionChangeFrequency(),
-        new JobConfig(config).getMonitorInputRegexFrequency(), new StreamPartitionCountMonitor.Callback() {
-          @Override
-          public void onSystemStreamPartitionChange(Set<SystemStream> streamsChanged) {
-            // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
-            if (hasDurableStores) {
-              log.error("Input topic partition count changed in a job with durable state. Failing the job.");
-              state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-            }
-            coordinatorException = new PartitionChangeException("Input topic partition count changes detected.");
+  private Optional<InputStreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+    StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
+    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
+    if (inputStreamsToMonitor.isEmpty()) {
+      throw new SamzaException("Input streams to a job can not be empty.");
+    }
+
+    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
+    Map<String, Pattern> inputRegexesToMonitor = new HashMap<>();
+
+    // First list all rewriters
+    Option<String> rewritersList = new JobConfig(config).getConfigRewriters();
+
+    // if no rewriter is defined, there is nothing to monitor
+    if (rewritersList.isDefined()) {
+
+      String[] rewriters = rewritersList.get().split(",");
+
+      // iterate over each rewriter and obtain the system and regex for it
+      for (String rewriterName : rewriters) {
+        Option<String> rewriterSystem = new JobConfig(config).getRegexResolvedSystem(rewriterName);
+        Option<String> rewriterRegex = new JobConfig(config).getRegexResolvedStreams(rewriterName);
+
+        if (rewriterSystem.isDefined() && rewriterRegex.isDefined()) {
+          Pattern patternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
+
+          // create a pattern for the rewriter's regex and add it to the map
+          if (patternForSystem == null) {
+            patternForSystem = Pattern.compile(rewriterRegex.get());
+          } else {
+
+            // if multiple rewriters (and hence multiple regexes) are specified for the same system
+            // then combine the regexes using a logical OR i.e. a pipe
+            patternForSystem = Pattern.compile(patternForSystem.pattern() + "|" + rewriterRegex.get());
           }
 
-          @Override
-          public void onNewInputStreamsDiscovered(Set<SystemStream> newStreams) {
-            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newStreams,
+          inputRegexesToMonitor.put(rewriterSystem.get(), patternForSystem);
+        }
+      }
+
+      return Optional.of(
+          new InputStreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
+              new JobConfig(config).getMonitorInputRegexFrequency(), newInputStreams -> {
+            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
                 " Existing input streams:", inputStreamsToMonitor);
+
             state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-            coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newStreams);
-          }
-        });
+            coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newInputStreams);
+          }));
+    } else {
+      log.warn("No config rewriters are defined. No InputStreamRegexMonitor created.");
+      return Optional.empty();
+    }
   }
 
   // The following two methods are package-private and for testing only
@@ -363,6 +407,6 @@ public class ClusterBasedJobCoordinator {
     }
     ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);
     jc.run();
-    log.info("Finishing");
+    log.info("Finished ClusterBasedJobCoordinator run");
   }
 }

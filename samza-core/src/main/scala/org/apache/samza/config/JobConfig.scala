@@ -78,12 +78,12 @@ object JobConfig {
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
 
-  // The input-regex to monitor for each input system
-  // e.g., job.coordinator.monitor-input-regex.kafka=testTopic-.*
-  // and can be different from the regex input of the job
-  val MONITOR_INPUT_REGEX = "job.coordinator.monitor-input-regex.%s"
   val MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms"
   val DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000
+  val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
+  val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
+  val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
+
 
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
@@ -170,11 +170,16 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
 
-  def getRegexToMonitor(systemName: String) = getOption(JobConfig.MONITOR_INPUT_REGEX format systemName)
-
   def getMonitorInputRegexFrequency = getInt(
     JobConfig.MONITOR_INPUT_REGEX_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS)
+
+  // regex-related config methods duplicated from KafkaConfig to avoid module dependency
+  def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
+
+  def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
+
+
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 

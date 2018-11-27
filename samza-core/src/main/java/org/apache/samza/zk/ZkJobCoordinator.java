@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.checkpoint.CheckpointManager;
@@ -333,41 +331,16 @@ public class ZkJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
 
-    // Compile a map of each input-system to its corresponding input-monitor-regex patterns if one is defined in config
-    // else ignore that input-system
-    Map<String, Pattern> inputRegexesToMonitor = inputStreamsToMonitor.stream()
-        .collect(Collectors.toMap(x -> x.getSystem(), x -> new JobConfig(config).getRegexToMonitor(x.getSystem())))
-        .entrySet()
-        .stream()
-        .filter(x -> x.getValue().isDefined())
-        .collect(Collectors.toMap(Map.Entry::getKey, x -> Pattern.compile(x.getValue().get())));
-
-    return new StreamPartitionCountMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata,
-        metrics.getMetricsRegistry(), new JobConfig(config).getMonitorPartitionChangeFrequency(),
-        new JobConfig(config).getMonitorInputRegexFrequency(), new StreamPartitionCountMonitorCallback(this));
-  }
-
-  class StreamPartitionCountMonitorCallback implements StreamPartitionCountMonitor.Callback {
-    private ZkJobCoordinator zkJobCoordinator;
-    public StreamPartitionCountMonitorCallback(ZkJobCoordinator zkJobCoordinator) {
-      this.zkJobCoordinator = zkJobCoordinator;
-    }
-
-    private void scheduleDebounce() {
-      if (leaderElector.amILeader()) {
-        debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this.zkJobCoordinator::doOnProcessorChange);
-      }
-    }
-
-    @Override
-    public void onSystemStreamPartitionChange(Set<SystemStream> streamsChanged) {
-      scheduleDebounce();
-    }
-
-    @Override
-    public void onNewInputStreamsDiscovered(Set<SystemStream> newInputStreams) {
-      scheduleDebounce();
-    }
+    return new StreamPartitionCountMonitor(
+            inputStreamsToMonitor,
+            streamMetadata,
+            metrics.getMetricsRegistry(),
+            new JobConfig(config).getMonitorPartitionChangeFrequency(),
+            streamsChanged -> {
+        if (leaderElector.amILeader()) {
+          debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
+        }
+      });
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {

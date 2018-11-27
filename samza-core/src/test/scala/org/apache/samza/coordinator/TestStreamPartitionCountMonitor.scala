@@ -77,10 +77,8 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     val partitionCountMonitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
-      inputRegexMap,
       mockMetadataCache,
       metrics,
-      5,
       5,
       mockCallback
     )
@@ -104,7 +102,6 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
   def testStreamPartitionCountException(): Unit = {
     val mockMetadataCache = mock[StreamMetadataCache]
     val inputSystemStream = new SystemStream("test-system", "test-stream")
-    val inputRegexMap : java.util.Map[String, Pattern] = HashMap("test-system"-> Pattern.compile(".*")).asJava
     val inputExceptionStream = new SystemStream("test-system", "test-exception-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream, inputExceptionStream)
 
@@ -145,10 +142,8 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     val partitionCountMonitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
-      inputRegexMap,
       mockMetadataCache,
       metrics,
-      5,
       5,
       mockCallback
     )
@@ -173,14 +168,11 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
   def testStartStopBehavior(): Unit = {
     val mockMetadataCache = new MockStreamMetadataCache
     val inputSystemStream = new SystemStream("test-system", "test-stream")
-    val inputRegexMap : java.util.Map[String, Pattern] = HashMap("test-system"-> Pattern.compile(".*")).asJava
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
     val monitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
-      inputRegexMap,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50,
       50,
       null
     )
@@ -226,10 +218,8 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
 
     val monitor = new StreamPartitionCountMonitor(
       inputSystemStreamSet.asJava,
-      inputRegexMap,
       mockMetadataCache,
       new MetricsRegistryMap(),
-      50,
       50,
       null
     ) {
