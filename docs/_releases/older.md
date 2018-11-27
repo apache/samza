@@ -1,4 +1,5 @@
 ---
+exclude_from_loop: true # useful for drafts
 version: '-1000'
 order: -1000
 layout: page
