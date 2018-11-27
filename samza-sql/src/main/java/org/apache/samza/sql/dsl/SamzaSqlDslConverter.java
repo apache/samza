@@ -55,8 +55,8 @@ public class SamzaSqlDslConverter implements DslConverter {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config,
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),

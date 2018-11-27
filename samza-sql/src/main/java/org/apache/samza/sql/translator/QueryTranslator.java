@@ -32,9 +32,9 @@ import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
-import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -103,7 +103,7 @@ public class QueryTranslator {
    * For unit testing only
    */
   @VisibleForTesting
-  public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc, int queryId) {
+  void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc, int queryId) {
     QueryPlanner planner =
         new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());
@@ -120,12 +120,18 @@ public class QueryTranslator {
         new SamzaSqlApplicationContext(translatorContexts));
   }
 
+  /**
+   * Translate Calcite plan to Samza stream operators.
+   * @param relRoot Calcite plan in the form of {@link RelRoot}.
+   * @param translatorContext Context maintained across translations.
+   * @param queryId query index of the sql statement corresponding to the Calcite plan in multi SQL statement scenario
+   *                starting with index 0.
+   */
   public void translate(RelRoot relRoot, TranslatorContext translatorContext, int queryId) {
     final RelNode node = relRoot.project();
+
     ScanTranslator scanTranslator =
         new ScanTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getInputSystemStreamConfigBySource(), queryId);
-    ModifyTranslator modifyTranslator =
-        new ModifyTranslator(sqlConfig.getSamzaRelConverters(), sqlConfig.getOutputSystemStreamConfigsBySource(), queryId);
 
     node.accept(new RelShuttleImpl() {
       int windowId = 0;
@@ -133,19 +139,9 @@ public class QueryTranslator {
 
       @Override
       public RelNode visit(RelNode relNode) {
-        if (relNode instanceof TableModify) {
-          return visit((TableModify) relNode);
-        }
+        // There should never be a TableModify in the calcite plan.
+        Validate.isTrue(!(relNode instanceof TableModify));
         return super.visit(relNode);
-      }
-
-      private RelNode visit(TableModify modify) {
-        if (!modify.isInsert()) {
-          throw new SamzaException("Not a supported operation: " + modify.toString());
-        }
-        RelNode node = super.visit(modify);
-        modifyTranslator.translate(modify, translatorContext, systemDescriptors, outputMsgStreams);
-        return node;
       }
 
       @Override
@@ -188,10 +184,8 @@ public class QueryTranslator {
       }
     });
 
-    // the snippet below will be performed only when sql is a query statement
-    sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
-        key -> sendToOutputStream(key, streamAppDescriptor, translatorContext, node, queryId)
-    );
+    sendToOutputStream(sqlConfig.getOutputSystemStreams().get(queryId), streamAppDescriptor, translatorContext, node,
+        queryId);
   }
 
   private void sendToOutputStream(String sinkStream, StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, int queryId) {

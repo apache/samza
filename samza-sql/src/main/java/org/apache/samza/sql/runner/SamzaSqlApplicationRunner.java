@@ -21,10 +21,9 @@ package org.apache.samza.sql.runner;
 
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
@@ -83,8 +82,8 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
-    Set<String> inputSystemStreams = new HashSet<>();
-    Set<String> outputSystemStreams = new HashSet<>();
+    List<String> inputSystemStreams = new LinkedList<>();
+    List<String> outputSystemStreams = new LinkedList<>();
 
     SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config, inputSystemStreams,
         outputSystemStreams);

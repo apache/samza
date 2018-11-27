@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -108,18 +109,28 @@ public class SamzaSqlApplicationConfig {
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
   private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
 
+  // Output system streams in the order of SQL query statements. Please note that there could be duplicate entries
+  // in it during a fan-in scenario (e.g. two sql statements with two different input streams but same output stream).
+  private final List<String> outputSystemStreams;
+
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
 
-  public SamzaSqlApplicationConfig(Config staticConfig, Set<String> inputSystemStreams,
-      Set<String> outputSystemStreams) {
+  public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
+      List<String> outputSystemStreams) {
 
     ioResolver = createIOResolver(staticConfig);
 
-    inputSystemStreamConfigBySource = inputSystemStreams.stream()
+    this.outputSystemStreams = new LinkedList<>(outputSystemStreams);
+
+    // There could be duplicate streams in different queries. Let's dedupe them.
+    Set<String> inputSystemStreamSet = new HashSet<>(inputSystemStreams);
+    Set<String> outputSystemStreamSet = new HashSet<>(outputSystemStreams);
+
+    inputSystemStreamConfigBySource = inputSystemStreamSet.stream()
          .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
 
-    outputSystemStreamConfigsBySource = outputSystemStreams.stream()
+    outputSystemStreamConfigsBySource = outputSystemStreamSet.stream()
          .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
 
     systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
@@ -222,31 +233,35 @@ public class SamzaSqlApplicationConfig {
   }
 
   public static Collection<RelRoot> populateSystemStreamsAndGetRelRoots(List<String> dslStmts, Config config,
-      Set<String> inputSystemStreams, Set<String> outputSystemStreams) {
+      List<String> inputSystemStreams, List<String> outputSystemStreams) {
     // TODO: Get the converter factory based on the file type. Create abstraction around this.
     DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
     DslConverter dslConverter = dslConverterFactory.create(config);
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    // FIXME: the snippet below dose not work when sql is a query
+    // RelRoot does not have sink node for Samza SQL dsl, so we can not traverse the relRoot tree to get
+    // "outputSystemStreams"
+    // FIXME: the snippet below does not work for Samza SQL dsl but is required for other dsls. Future fix could be
+    // for samza sql to build TableModify for sink and stick it to the relRoot, so we could get output stream out of it.
+
     // for (RelRoot relRoot : relRoots) {
     //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
     // }
 
-    // RelRoot does not have sink node (aka. log.outputStream) when Sql statement is a query, so we
-    // can not traverse the tree of relRoot to get "outputSystemStreams"
+    // The below code is specific to Samza SQL dsl and should be removed once Samza SQL includes sink as part of
+    // relRoot and the above code in uncommented.
     List<String> sqlStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(sqlStmts);
     inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-          .collect(Collectors.toSet()));
-    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+          .collect(Collectors.toList()));
+    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     return relRoots;
   }
 
-  private static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
-      Set<String> outputSystemStreams) {
+  private static void populateSystemStreams(RelNode relNode, List<String> inputSystemStreams,
+      List<String> outputSystemStreams) {
     if (relNode instanceof TableModify) {
       outputSystemStreams.add(getSystemStreamName(relNode));
     } else {
@@ -273,6 +288,10 @@ public class SamzaSqlApplicationConfig {
 
   public Collection<UdfMetadata> getUdfMetadata() {
     return udfMetadata;
+  }
+
+  public List<String> getOutputSystemStreams() {
+    return outputSystemStreams;
   }
 
   public Map<String, SqlIOConfig> getInputSystemStreamConfigBySource() {
