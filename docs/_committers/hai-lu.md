@@ -1,10 +1,14 @@
 ---
-exclude_from_loop: true # useful for drafts
-version: '-1000'
-order: -1000
-layout: page
-menu_title: 'View Older'
-title: Older Releases
+name: Hai Lu
+website: 
+linkedin: https://www.linkedin.com/in/hai-lu-a9a80857
+twitter:
+image: 
+github: lhaiesp
+pmc_member: false
+job_title:
+samza_title: 
+order: 90
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -22,12 +26,3 @@ title: Older Releases
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-
-### 0.8
-
-### 0.9
-
-### 0.7.0
-
-

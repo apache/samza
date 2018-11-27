@@ -27,7 +27,6 @@ import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.TableSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -43,11 +42,9 @@ public class TestStreamTableJoinOperatorImpl {
   public void testHandleMessage() {
 
     String tableId = "t1";
-    TableSpec tableSpec = mock(TableSpec.class);
-    when(tableSpec.getId()).thenReturn(tableId);
 
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
-    when(mockJoinOpSpec.getTableSpec()).thenReturn(tableSpec);
+    when(mockJoinOpSpec.getTableId()).thenReturn(tableId);
     when(mockJoinOpSpec.getJoinFn()).thenReturn(
         new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
           @Override

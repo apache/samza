@@ -52,7 +52,6 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.operators.windows.Windows;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -292,8 +291,7 @@ public class TestMessageStreamImpl {
     OperatorSpec inputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source = new MessageStreamImpl<>(mockGraph, inputOpSpec);
 
-    TableSpec tableSpec = new TableSpec();
-    TableImpl table = new TableImpl(tableSpec);
+    TableImpl table = new TableImpl("t1");
 
     source.sendTo(table);
 
@@ -305,7 +303,7 @@ public class TestMessageStreamImpl {
     SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) registeredOpSpec;
 
     assertEquals(OpCode.SEND_TO, sendToTableOperatorSpec.getOpCode());
-    assertEquals(tableSpec, sendToTableOperatorSpec.getTableSpec());
+    assertEquals(table.getTableId(), sendToTableOperatorSpec.getTableId());
   }
 
   @Test
@@ -316,8 +314,7 @@ public class TestMessageStreamImpl {
     OperatorSpec rightInputOpSpec = mock(OperatorSpec.class);
     MessageStreamImpl<TestMessageEnvelope> source2 = new MessageStreamImpl<>(mockGraph, rightInputOpSpec);
 
-    TableSpec tableSpec = new TableSpec();
-    TableImpl table = new TableImpl(tableSpec);
+    TableImpl table = new TableImpl("t1");
 
     source2.sendTo(table);
 
@@ -333,7 +330,7 @@ public class TestMessageStreamImpl {
     StreamTableJoinOperatorSpec joinOpSpec = (StreamTableJoinOperatorSpec) leftRegisteredOpSpec;
     assertEquals(OpCode.JOIN, joinOpSpec.getOpCode());
     assertEquals(mockJoinFn, joinOpSpec.getJoinFn());
-    assertEquals(tableSpec, joinOpSpec.getTableSpec());
+    assertEquals(table.getTableId(), joinOpSpec.getTableId());
   }
 
   @Test

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import java.util.Objects;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.*;
 
 
 /**

@@ -53,7 +53,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 
-public class TestRemoteTable {
+public class TestRemoteReadWriteTable {
   private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
 
   public static Context getMockContext() {

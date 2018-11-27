@@ -21,14 +21,14 @@ package org.apache.samza.table.caching;
 
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
 
 /**
  * Table provider factory for {@link org.apache.samza.table.caching.CachingTable}.
  */
 public class CachingTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new CachingTableProvider(tableSpec);
+  public TableProvider getTableProvider(String tableId) {
+    return new CachingTableProvider(tableId);
   }
+
 }

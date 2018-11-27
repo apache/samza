@@ -233,7 +233,7 @@ public class QueryTranslator {
     sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
         key -> {
           if (key.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            sendToOutputStream(streamAppDescriptor, translatorContext, node, queryId);
+            sendToOutputStream(key, streamAppDescriptor, translatorContext, node, queryId);
           }
         }
     );

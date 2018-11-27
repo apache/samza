@@ -66,11 +66,16 @@ public class SamzaSqlTestConfig {
 
   public static Map<String, String> fetchStaticConfigsWithFactories(Map<String, String> props, int numberOfMessages,
       boolean includeNullForeignKeys) {
-    return fetchStaticConfigsWithFactories(props, numberOfMessages, includeNullForeignKeys, 0);
+    return fetchStaticConfigsWithFactories(props, numberOfMessages, includeNullForeignKeys, false, 0);
   }
 
   public static Map<String, String> fetchStaticConfigsWithFactories(Map<String, String> props, int numberOfMessages,
-      boolean includeNullForeignKeys, long windowDurationMs) {
+      boolean includeNullForeignKeys, boolean includeNullSimpleRecords) {
+    return fetchStaticConfigsWithFactories(props, numberOfMessages, includeNullForeignKeys, includeNullSimpleRecords, 0);
+  }
+
+  public static Map<String, String> fetchStaticConfigsWithFactories(Map<String, String> props, int numberOfMessages,
+      boolean includeNullForeignKeys, boolean includeNullSimpleRecords, long windowDurationMs) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
     staticConfigs.put(JobConfig.JOB_NAME(), "sql-job");
@@ -100,6 +105,8 @@ public class SamzaSqlTestConfig {
         String.valueOf(numberOfMessages));
     staticConfigs.put(avroSystemConfigPrefix + TestAvroSystemFactory.CFG_INCLUDE_NULL_FOREIGN_KEYS,
         includeNullForeignKeys ? "true" : "false");
+    staticConfigs.put(avroSystemConfigPrefix + TestAvroSystemFactory.CFG_INCLUDE_NULL_SIMPLE_RECORDS,
+        includeNullSimpleRecords ? "true" : "false");
     staticConfigs.put(avroSystemConfigPrefix + TestAvroSystemFactory.CFG_SLEEP_BETWEEN_POLLS_MS,
         String.valueOf(windowDurationMs / 2));
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_GROUPBY_WINDOW_DURATION_MS, String.valueOf(windowDurationMs));

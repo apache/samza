@@ -16,16 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.storage.kv.descriptors;
+package org.apache.samza.storage.kv;
 
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
 
 
-public class RocksDbTableProviderFactory implements TableProviderFactory {
+public class LocalTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new RocksDbTableProvider(tableSpec);
+  public TableProvider getTableProvider(String tableId) {
+    return new LocalTableProvider(tableId);
   }
 }
