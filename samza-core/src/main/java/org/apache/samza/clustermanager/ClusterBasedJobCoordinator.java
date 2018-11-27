@@ -322,6 +322,12 @@ public class ClusterBasedJobCoordinator {
   }
 
   private Optional<InputStreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+
+    // if input regex monitor is not enabled return empty
+    if(!new JobConfig(config).getMonitorInputRegexEnabled()) {
+      return Optional.empty();
+    }
+
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {

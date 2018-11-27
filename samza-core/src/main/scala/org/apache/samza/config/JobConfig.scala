@@ -80,6 +80,7 @@ object JobConfig {
 
   val MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms"
   val DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000
+  val MONITOR_INPUT_REGEX_ENABLED = "job.coordinator.monitor-input-regex.enabled"
   val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
   val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
   val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
@@ -165,6 +166,8 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
         }
     }
   }
+
+  def getMonitorInputRegexEnabled = { getBoolean(JobConfig.MONITOR_INPUT_REGEX_ENABLED, true) }
 
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
