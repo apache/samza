@@ -19,10 +19,10 @@
 
 package org.apache.samza.table.caching.guava;
 
+import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.BaseTableProvider;
@@ -39,13 +39,14 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
 
   private List<GuavaCacheTable> guavaTables = new ArrayList<>();
 
-  public GuavaCacheTableProvider(String tableId, Config config) {
-    super(tableId, config);
+  public GuavaCacheTableProvider(String tableId) {
+    super(tableId);
   }
 
   @Override
   public Table getTable() {
-    JavaTableConfig tableConfig = new JavaTableConfig(config);
+    Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
+    JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
     Cache guavaCache = SerdeUtils.deserialize(GuavaCacheTableDescriptor.GUAVA_CACHE,
         tableConfig.getForTable(tableId, GuavaCacheTableDescriptor.GUAVA_CACHE));
     GuavaCacheTable table = new GuavaCacheTable(tableId, guavaCache);

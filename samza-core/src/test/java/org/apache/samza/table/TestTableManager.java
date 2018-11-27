@@ -20,7 +20,6 @@ package org.apache.samza.table;
 
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
@@ -54,7 +53,7 @@ public class TestTableManager {
     static TableProvider tableProvider;
 
     @Override
-    public TableProvider getTableProvider(String tableId, Config config) {
+    public TableProvider getTableProvider(String tableId) {
       table = mock(ReadableTable.class);
       tableProvider = mock(TableProvider.class);
       when(tableProvider.getTable()).thenReturn(table);

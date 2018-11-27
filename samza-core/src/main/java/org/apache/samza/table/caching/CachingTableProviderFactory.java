@@ -19,7 +19,6 @@
 
 package org.apache.samza.table.caching;
 
-import org.apache.samza.config.Config;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 
@@ -28,8 +27,8 @@ import org.apache.samza.table.TableProviderFactory;
  */
 public class CachingTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(String tableId, Config config) {
-    return new CachingTableProvider(tableId, config);
+  public TableProvider getTableProvider(String tableId) {
+    return new CachingTableProvider(tableId);
   }
 
 }
