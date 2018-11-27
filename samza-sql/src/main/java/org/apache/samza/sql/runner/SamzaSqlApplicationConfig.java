@@ -140,7 +140,7 @@ public class SamzaSqlApplicationConfig {
                     relSchemaProvidersBySource.get(x.getSource()), c))));
 
     samzaRelTableKeyConvertersBySource = systemStreamConfigs.stream()
-        .filter(config -> config.isRemoteTable())
+        .filter(SqlIOConfig::isRemoteTable)
         .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
                 staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
@@ -152,13 +152,6 @@ public class SamzaSqlApplicationConfig {
     metadataTopicPrefix =
         staticConfig.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
-
-    // remove the SqlIOConfigs of outputs whose system is "log" out of systemStreamConfigsBySource
-    outputSystemStreamConfigsBySource.forEach((k, v) -> {
-        if (k.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            systemStreamConfigsBySource.remove(k);
-        }
-    });
   }
 
   public static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,

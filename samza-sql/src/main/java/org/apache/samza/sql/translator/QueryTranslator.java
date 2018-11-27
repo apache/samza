@@ -34,6 +34,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -45,7 +46,6 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
@@ -72,7 +72,6 @@ public class QueryTranslator {
     private transient SamzaRelConverter samzaMsgConverter;
     private final String outputTopic;
     private final int queryId;
-    static OutputStream logOutputStream;
 
     OutputMapFunction(String outputTopic, int queryId) {
       this.outputTopic = outputTopic;
@@ -106,9 +105,9 @@ public class QueryTranslator {
   @VisibleForTesting
   public void translate(SamzaSqlQueryParser.QueryInfo queryInfo, StreamApplicationDescriptor appDesc, int queryId) {
     QueryPlanner planner =
-        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getSystemStreamConfigsBySource(),
+        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());
-    final RelRoot relRoot = planner.plan(queryInfo.getSql());
+    final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
     TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext);
     translate(relRoot, translatorContext, queryId);
@@ -191,11 +190,7 @@ public class QueryTranslator {
 
     // the snippet below will be performed only when sql is a query statement
     sqlConfig.getOutputSystemStreamConfigsBySource().keySet().forEach(
-        key -> {
-          if (key.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            sendToOutputStream(key, streamAppDescriptor, translatorContext, node, queryId);
-          }
-        }
+        key -> sendToOutputStream(key, streamAppDescriptor, translatorContext, node, queryId)
     );
   }
 
@@ -210,10 +205,8 @@ public class QueryTranslator {
       DelegatingSystemDescriptor
           sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
       GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamId(), noOpKVSerde);
-      if (OutputMapFunction.logOutputStream == null) {
-        OutputMapFunction.logOutputStream = appDesc.getOutputStream(osd);
-      }
-      outputStream.sendTo(OutputMapFunction.logOutputStream);
+      OutputStream stm = outputMsgStreams.computeIfAbsent(sinkConfig.getSource(), v -> appDesc.getOutputStream(osd));
+      outputStream.sendTo(stm);
     } else {
       Table outputTable = appDesc.getTable(tableDescriptor.get());
       if (outputTable == null) {
