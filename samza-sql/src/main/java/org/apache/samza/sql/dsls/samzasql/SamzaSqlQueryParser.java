@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.dsls.samzasql;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

@@ -17,12 +17,13 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.dsls.samzasql;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
+import org.apache.samza.sql.dsls.samzasql.SqlFileParser;
 import org.junit.Assert;
 import org.junit.Test;
 

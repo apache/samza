@@ -34,7 +34,7 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.runtime.RemoteApplicationRunner;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.slf4j.Logger;
@@ -79,7 +79,7 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     // TODO: Introduce an API to return a dsl string containing one or more sql statements
     List<String> dslStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
 
-    // This is needed because the SQL file may not be available in all the node managers.
+    // This is needed because the SQL file will not be available in all the node managers.
     String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 

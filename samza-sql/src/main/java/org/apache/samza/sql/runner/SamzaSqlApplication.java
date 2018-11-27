@@ -29,7 +29,7 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter;
 import org.apache.samza.sql.translator.QueryTranslator;
 import org.apache.samza.sql.translator.TranslatorContext;
 import org.slf4j.Logger;

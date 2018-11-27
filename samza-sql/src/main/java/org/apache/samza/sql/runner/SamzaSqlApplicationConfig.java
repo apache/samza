@@ -38,8 +38,9 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
+import org.apache.samza.sql.dsls.DslConverterPluginManager;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverter;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
@@ -56,7 +57,7 @@ import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.ReflectionUtils;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.dsls.samzasql.SamzaSqlQueryParser;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,21 +231,19 @@ public class SamzaSqlApplicationConfig {
 
   public static Collection<RelRoot> populateSystemStreamsAndGetRelRoots(List<String> dslStmts, Config config,
       Set<String> inputSystemStreams, Set<String> outputSystemStreams) {
-    // TODO: Get the converter factory based on the file type. Create abstraction around this.
-    DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
-    DslConverter dslConverter = dslConverterFactory.create(config);
+
+    DslConverter dslConverter = DslConverterPluginManager.create(config);
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    // FIXME: the snippet below dose not work when sql is a query
+    // FIXME: the snippet below does not work when sql is a query
     // for (RelRoot relRoot : relRoots) {
     //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
     // }
 
     // RelRoot does not have sink node (aka. log.outputStream) when Sql statement is a query, so we
     // can not traverse the tree of relRoot to get "outputSystemStreams"
-    List<String> sqlStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(sqlStmts);
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(dslStmts);
     inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
           .collect(Collectors.toSet()));
     outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));

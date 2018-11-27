@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.dsl;
+package org.apache.samza.sql.dsls.samzasql;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,12 +32,13 @@ import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
-import org.apache.samza.sql.testutil.SqlFileParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Dsl converter for Samza SQL dialect.
+ */
 public class SamzaSqlDslConverter implements DslConverter {
 
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlDslConverter.class);

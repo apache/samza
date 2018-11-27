@@ -17,13 +17,16 @@
 * under the License.
 */
 
-package org.apache.samza.sql.dsl;
+package org.apache.samza.sql.dsls.samzasql;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 
 
+/**
+ * Dsl converter factory for Samza SQL dialect.
+ */
 public class SamzaSqlDslConverterFactory implements DslConverterFactory {
 
   @Override
