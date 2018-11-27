@@ -19,11 +19,11 @@
 
 package org.apache.samza.table.descriptors;
 
+import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 
@@ -34,7 +34,6 @@ import org.apache.samza.config.JavaTableConfig;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
-@InterfaceStability.Unstable
 abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K, V, D>>
     implements TableDescriptor<K, V, D> {
 
@@ -50,7 +49,13 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
     this.tableId = tableId;
   }
 
-  @Override
+  /**
+   * Add a configuration entry for the table
+   *
+   * @param key the key
+   * @param value the value
+   * @return this table descriptor instance
+   */
   public D withConfig(String key, String value) {
     config.put(key, value);
     return (D) this;
@@ -63,6 +68,8 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
 
   @Override
   public Map<String, String> toConfig(Config jobConfig) {
+
+    Preconditions.checkNotNull(jobConfig, "Job config is null");
 
     validate();
 

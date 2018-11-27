@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.SideInputsProcessor;
 import org.apache.samza.table.utils.SerdeUtils;
@@ -142,8 +141,6 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   public Map<String, String> toConfig(Config jobConfig) {
 
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
-
-    JavaTableConfig javaTableConfig = new JavaTableConfig(jobConfig);
 
     if (sideInputs != null && !sideInputs.isEmpty()) {
       sideInputs.forEach(si -> Preconditions.checkState(isValidSystemStreamName(si), String.format(

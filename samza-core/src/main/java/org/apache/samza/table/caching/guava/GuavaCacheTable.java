@@ -23,6 +23,7 @@ import com.google.common.cache.Cache;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.BaseReadableTable;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
@@ -39,17 +40,19 @@ import java.util.concurrent.CompletableFuture;
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
-  private final String tableId;
+public class GuavaCacheTable<K, V> extends BaseReadableTable<K, V>
+    implements ReadWriteTable<K, V> {
+
   private final Cache<K, V> cache;
 
   public GuavaCacheTable(String tableId, Cache<K, V> cache) {
-    this.tableId = tableId;
+    super(tableId);
     this.cache = cache;
   }
 
   @Override
   public void init(Context context) {
+    super.init(context);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     // hit- and miss-rate are provided by CachingTable.
     tableMetricsUtil.newGauge("evict-count", () -> cache.stats().evictionCount());

@@ -53,7 +53,7 @@ public class TableMetricsUtil {
     Preconditions.checkNotNull(table);
     Preconditions.checkNotNull(tableId);
 
-    this.metricsRegistry = context.getTaskContext().getTaskMetricsRegistry();
+    this.metricsRegistry = context.getContainerContext().getContainerMetricsRegistry();
     this.groupName = table.getClass().getSimpleName();
     this.tableId = tableId;
   }
@@ -85,6 +85,18 @@ public class TableMetricsUtil {
    */
   public <T> Gauge<T> newGauge(String name, Supplier<T> supplier) {
     return metricsRegistry.newGauge(groupName, new SupplierGauge(getMetricFullName(name), supplier));
+  }
+
+  public static void incCounter(Counter counter) {
+    if (counter != null) {
+      counter.inc();
+    }
+  }
+
+  public static void updateTimer(Timer timer, long duration) {
+    if (timer != null) {
+      timer.update(duration);
+    }
   }
 
   private String getMetricFullName(String name) {
