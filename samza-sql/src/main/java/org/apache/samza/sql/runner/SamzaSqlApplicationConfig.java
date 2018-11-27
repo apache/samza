@@ -107,7 +107,6 @@ public class SamzaSqlApplicationConfig {
 
   private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
-  private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
 
   // Output system streams in the order of SQL query statements. Please note that there could be duplicate entries
   // in it during a fan-in scenario (e.g. two sql statements with two different input streams but same output stream).
@@ -133,7 +132,7 @@ public class SamzaSqlApplicationConfig {
     outputSystemStreamConfigsBySource = outputSystemStreamSet.stream()
          .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
 
-    systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
+    Map<String, SqlIOConfig> systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
     systemStreamConfigsBySource.putAll(outputSystemStreamConfigsBySource);
 
     Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(systemStreamConfigsBySource.values());
@@ -300,10 +299,6 @@ public class SamzaSqlApplicationConfig {
 
   public Map<String, SqlIOConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
-  }
-
-  public Map<String, SqlIOConfig> getSystemStreamConfigsBySource() {
-    return systemStreamConfigsBySource;
   }
 
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {
