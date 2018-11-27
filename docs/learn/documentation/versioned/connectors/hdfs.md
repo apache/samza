@@ -19,17 +19,17 @@ title: HDFS Connector
    limitations under the License.
 -->
 
-## Overview
+### Overview
 
 The HDFS connector allows your Samza jobs to read data stored in HDFS files. Likewise, you can write processed results to HDFS. 
 To interact with HDFS, Samza requires your job to run on the same YARN cluster.
 
-## Consuming from HDFS
-### Input Partitioning
+### Consuming from HDFS
+#### Input Partitioning
 
 Partitioning works at the level of individual directories and files. Each directory is treated as its own stream and each of its files is treated as a _partition_. For example, Samza creates 5 partitions when it's reading from a directory containing 5 files. There is no way to parallelize the consumption when reading from a single file - you can only have one container to process the file.
 
-### Input Event format
+#### Input Event format
 Samza supports avro natively, and it's easy to extend to other serialization formats. Each avro record read from HDFS is wrapped into a message-envelope. The [envelope](../api/javadocs/org/apache/samza/system/IncomingMessageEnvelope.html) contains these 3 fields:
 
 - The key, which is empty
@@ -40,12 +40,12 @@ Samza supports avro natively, and it's easy to extend to other serialization for
 
 To support non-avro input formats, you can implement the [SingleFileHdfsReader](https://github.com/apache/samza/blob/master/samza-hdfs/src/main/java/org/apache/samza/system/hdfs/reader/SingleFileHdfsReader.java) interface.
 
-### EndOfStream
+#### EndOfStream
 
 While streaming sources like Kafka are unbounded, files on HDFS have finite data and have a notion of EOF. When reading from HDFS, your Samza job automatically exits after consuming all the data. You can implement [EndOfStreamListenerTask](../api/javadocs/org/apache/samza/task/EndOfStreamListenerTask.html) to get a callback once EOF has been reached. 
 
 
-### Defining streams
+#### Defining streams
 
 Samza uses the notion of a _system_ to describe any I/O source it interacts with. To consume from HDFS, you should create a new system that points to - `HdfsSystemFactory`. You can then associate multiple streams with this _system_. Each stream should have a _physical name_, which should be set to the name of the directory on HDFS.
 
@@ -68,7 +68,7 @@ systems.hdfs.partitioner.defaultPartitioner.blacklist=somefile.avro
 {% endhighlight %}
 
 
-## Producing to HDFS
+### Producing to HDFS
 
 #### Output format
 
@@ -104,7 +104,7 @@ systems.hdfs.producer.hdfs.write.batch.size.bytes=134217728
 systems.hdfs.producer.hdfs.write.batch.size.records=10000
 {% endhighlight %}
 
-## Security 
+### Security 
 
 You can access Kerberos-enabled HDFS clusters by providing your principal and the path to your key-tab file. Samza takes care of automatically creating and renewing your Kerberos tokens periodically. 
 
