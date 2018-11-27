@@ -19,7 +19,7 @@ title: Kinesis Connector
    limitations under the License.
 -->
 
-## Kinesis I/O: Quickstart
+### Kinesis I/O: Quickstart
 
 The Samza Kinesis connector allows you to interact with [Amazon Kinesis Data Streams](https://aws.amazon.com/kinesis/data-streams),
 Amazon’s data streaming service. The `hello-samza` project includes an example of processing Kinesis streams using Samza. Here is the complete [source code](https://github.com/apache/samza-hello-samza/blob/master/src/main/java/samza/examples/kinesis/KinesisHelloSamza.java) and [configs](https://github.com/apache/samza-hello-samza/blob/master/src/main/config/kinesis-hello-samza.properties).
@@ -32,9 +32,9 @@ Each message consumed from the stream is an instance of a Kinesis [Record](http:
 Samza’s [KinesisSystemConsumer](https://github.com/apache/samza/blob/master/samza-aws/src/main/java/org/apache/samza/system/kinesis/consumer/KinesisSystemConsumer.java)
 wraps the Record into a [KinesisIncomingMessageEnvelope](https://github.com/apache/samza/blob/master/samza-aws/src/main/java/org/apache/samza/system/kinesis/consumer/KinesisIncomingMessageEnvelope.java).
 
-## Consuming from Kinesis
+### Consuming from Kinesis
 
-### Basic Configuration
+#### Basic Configuration
 
 Here is the required configuration for consuming messages from Kinesis. 
 

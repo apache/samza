@@ -20,11 +20,10 @@ title: Run on YARN
 -->
 
 - [Introduction](#introduction)
-- [Starting your application on YARN](#starting-your-application-on-yarn)
+- [Running on YARN: Quickstart](#starting-your-application-on-yarn)
     - [Setting up a single node YARN cluster](#setting-up-a-single-node-yarn-cluster-optional)
     - [Submitting the application to YARN](#submitting-the-application-to-yarn)
 - [Application Master UI](#application-master-ui)
-- [Viewing logs](#viewing-logs)
 - [Configuration](#configuration)
     - [Configuring parallelism](#configuring-parallelism)
     - [Configuring resources](#configuring-resources)
@@ -45,13 +44,13 @@ title: Run on YARN
 - [Coordinator Internals](#coordinator-internals)
 
 
-## Introduction
+### Introduction
 
 Apache YARN is part of the Hadoop project and provides the ability to run distributed applications on a cluster. A YARN cluster minimally consists of a Resource Manager (RM) and multiple Node Managers (NM). The RM is responsible for managing the resources in the cluster and allocating them to applications. Every node in the cluster has an NM (Node Manager), which is responsible for managing containers on that node - starting them, monitoring their resource usage and reporting the same to the RM. 
 
 Applications are run on the cluster by implementing a coordinator called an ApplicationMaster (AM). The AM is responsible for requesting resources including CPU, memory from the Resource Manager (RM) on behalf of the application. Samza provides its own implementation of the AM for each job.
 
-## Running on YARN: Quickstart
+### Running on YARN: Quickstart
 
 We will demonstrate running a Samza application on YARN by using the `hello-samza` example. Lets first checkout our repository.
 
@@ -61,7 +60,7 @@ cd samza-hello-samza
 git checkout latest
 ```
 
-### Set up a single node YARN cluster
+#### Set up a single node YARN cluster
 
 You can use the `grid` script included as part of the [hello-samza](https://github.com/apache/samza-hello-samza/) repository to setup a single-node cluster. The script also starts Zookeeper and Kafka locally.
 
@@ -104,7 +103,7 @@ $ ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factori
 Congratulations, you've successfully submitted your first job to YARN! You can view the YARN Web UI to view its status. 
 
 
-## Application Master UI
+### Application Master UI
 
 The YARN RM provides a Web UI to view the status of applications in the cluster, their containers and logs. By default, it can be accessed from `localhost:8088` on the RM host. 
 ![diagram-medium](/img/{{site.version}}/learn/documentation/yarn/yarn-am-ui.png)
@@ -127,7 +126,7 @@ Samza's Application Master UI provides you the ability to view:
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-runtime-configs.png)
 
 
-### Configurations
+### Configuration
 
 In this section, we'll look at configuring your jobs when running on YARN.
 
