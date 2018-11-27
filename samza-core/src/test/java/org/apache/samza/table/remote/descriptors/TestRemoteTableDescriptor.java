@@ -132,13 +132,16 @@ public class TestRemoteTableDescriptor {
   private Context createMockContext(TableDescriptor tableDescriptor) {
     Context context = mock(Context.class);
 
-    TaskContextImpl taskContext = mock(TaskContextImpl.class);
-    when(context.getTaskContext()).thenReturn(taskContext);
+    ContainerContext containerContext = mock(ContainerContext.class);
+    when(context.getContainerContext()).thenReturn(containerContext);
 
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     when(metricsRegistry.newTimer(anyString(), anyString())).thenReturn(mock(Timer.class));
     when(metricsRegistry.newCounter(anyString(), anyString())).thenReturn(mock(Counter.class));
-    when(taskContext.getTaskMetricsRegistry()).thenReturn(metricsRegistry);
+    when(containerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
+
+    TaskContextImpl taskContext = mock(TaskContextImpl.class);
+    when(context.getTaskContext()).thenReturn(taskContext);
 
     TaskName taskName = new TaskName("MyTask");
     TaskModel taskModel = mock(TaskModel.class);
@@ -147,10 +150,7 @@ public class TestRemoteTableDescriptor {
 
     ContainerModel containerModel = mock(ContainerModel.class);
     when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
-
-    ContainerContext containerContext = mock(ContainerContext.class);
     when(containerContext.getContainerModel()).thenReturn(containerModel);
-    when(context.getContainerContext()).thenReturn(containerContext);
 
     String containerId = "container-1";
     JobModel jobModel = mock(JobModel.class);

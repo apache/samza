@@ -19,14 +19,19 @@
 package org.apache.samza.storage.kv;
 
 import com.google.common.base.Preconditions;
+
+import com.google.common.base.Supplier;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.samza.context.Context;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.DefaultTableReadMetrics;
 
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.table.BaseReadableTable;
+
+import static org.apache.samza.table.utils.TableMetricsUtil.incCounter;
+import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 /**
  * A store backed readable table
@@ -34,12 +39,9 @@ import org.apache.samza.table.utils.DefaultTableReadMetrics;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
+public class LocalReadableTable<K, V> extends BaseReadableTable<K, V> {
 
   protected final KeyValueStore<K, V> kvStore;
-  protected final String tableId;
-
-  protected DefaultTableReadMetrics readMetrics;
 
   /**
    * Constructs an instance of {@link LocalReadableTable}
@@ -47,25 +49,16 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
    * @param kvStore the backing store
    */
   public LocalReadableTable(String tableId, KeyValueStore<K, V> kvStore) {
-    Preconditions.checkArgument(tableId != null & !tableId.isEmpty() , "invalid tableId");
+    super(tableId);
     Preconditions.checkNotNull(kvStore, "null KeyValueStore");
-    this.tableId = tableId;
     this.kvStore = kvStore;
   }
 
   @Override
-  public void init(Context context) {
-    readMetrics = new DefaultTableReadMetrics(context, this, tableId);
-  }
-
-  @Override
   public V get(K key) {
-    readMetrics.numGets.inc();
-    long startNs = System.nanoTime();
-    V result = kvStore.get(key);
-    readMetrics.getNs.update(System.nanoTime() - startNs);
+    V result = instrument(readMetrics.numGets, readMetrics.getNs, () -> kvStore.get(key));
     if (result == null) {
-      readMetrics.numMissedLookups.inc();
+      incCounter(readMetrics.numMissedLookups);
     }
     return result;
   }
@@ -83,11 +76,8 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    readMetrics.numGetAlls.inc();
-    long startNs = System.nanoTime();
-    Map<K, V> result = kvStore.getAll(keys);
-    readMetrics.getAllNs.update(System.nanoTime() - startNs);
-    result.values().stream().filter(Objects::isNull).map(v -> readMetrics.numMissedLookups.inc());
+    Map<K, V> result = instrument(readMetrics.numGetAlls, readMetrics.getAllNs, () -> kvStore.getAll(keys));
+    result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(readMetrics.numMissedLookups));
     return result;
   }
 
@@ -106,5 +96,13 @@ public class LocalReadableTable<K, V> implements ReadableTable<K, V> {
   public void close() {
     // The KV store is not closed here as it may still be needed by downstream operators,
     // it will be closed by the SamzaContainer
+  }
+
+  private <T> T instrument(Counter counter, Timer timer, Supplier<T> func) {
+    incCounter(counter);
+    long startNs = System.nanoTime();
+    T result = func.get();
+    updateTimer(timer, System.nanoTime() - startNs);
+    return result;
   }
 }

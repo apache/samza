@@ -17,13 +17,14 @@
  * under the License.
  */
 
-package org.apache.samza.storage.kv.descriptors;
+package org.apache.samza.storage.kv;
 
 import junit.framework.Assert;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.context.TaskContext;
-import org.apache.samza.storage.kv.KeyValueStore;
-import org.apache.samza.storage.kv.LocalTableProvider;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
@@ -37,10 +38,15 @@ public class TestLocalTableProvider {
   @Test
   public void testInit() {
     Context context = mock(Context.class);
+    JobContext jobContext = mock(JobContext.class);
+    when(context.getJobContext()).thenReturn(jobContext);
+    when(jobContext.getConfig()).thenReturn(new MapConfig());
+    ContainerContext containerContext = mock(ContainerContext.class);
+    when(context.getContainerContext()).thenReturn(containerContext);
+    when(containerContext.getContainerMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
     TaskContext taskContext = mock(TaskContext.class);
     when(context.getTaskContext()).thenReturn(taskContext);
     when(taskContext.getStore(any())).thenReturn(mock(KeyValueStore.class));
-    when(taskContext.getTaskMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
     TableProvider tableProvider = createTableProvider("t1");
     tableProvider.init(context);

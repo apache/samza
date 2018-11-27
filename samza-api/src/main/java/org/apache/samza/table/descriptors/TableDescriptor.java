@@ -67,15 +67,6 @@ public interface TableDescriptor<K, V, D extends TableDescriptor<K, V, D>> {
   String getTableId();
 
   /**
-   * Add a configuration entry for the table
-   *
-   * @param key the key
-   * @param value the value
-   * @return this table descriptor instance
-   */
-  D withConfig(String key, String value);
-
-  /**
    * Generate configuration for this table descriptor, the generated configuration
    * should be the complete configuration for this table that can be directly
    * included in the job configuration.

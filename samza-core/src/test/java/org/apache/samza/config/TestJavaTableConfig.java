@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.common.collect.Sets;
@@ -49,10 +50,30 @@ public class TestJavaTableConfig {
   @Test
   public void testGetTableProperties() {
     Map<String, String> map = new HashMap<>();
-    map.put("tables.t1.spec", "t1-spec");
+    map.put("stores.t1.key.serde", "key-serde");
+    map.put("stores.t1.msg.serde", "msg-serde");
     map.put("tables.t1.provider.factory", "t1-provider-factory");
     JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(map));
     assertEquals("t1-provider-factory", tableConfig.getTableProviderFactory("t1"));
+    assertEquals("key-serde", tableConfig.getKeySerde("t1"));
+    assertEquals("msg-serde", tableConfig.getMsgSerde("t1"));
   }
 
+  @Test
+  public void testBuildKey() {
+    String key = JavaTableConfig.buildKey("t1", "abc");
+    Assert.assertEquals("tables.t1.abc", key);
+  }
+
+  @Test
+  public void testGetForTable() {
+    Map<String, String> map = new HashMap<>();
+    map.put(JavaTableConfig.buildKey("t1", "abc"), "xyz");
+    JavaTableConfig tableConfig = new JavaTableConfig(new MapConfig(map));
+    Assert.assertEquals("xyz", tableConfig.getForTable("t1", "abc"));
+    Assert.assertNull(tableConfig.getForTable("t1", "aaa"));
+    Assert.assertEquals("xyz", tableConfig.getForTable("t1", "aaa", "xyz"));
+    Assert.assertNull(tableConfig.getForTable("tt", "abc"));
+    Assert.assertEquals("xyz", tableConfig.getForTable("tt", "abc", "xyz"));
+  }
 }
