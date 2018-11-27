@@ -71,7 +71,7 @@ public class SamzaSqlApplication implements StreamApplication {
         LOG.info("Translating relRoot {} to samza stream graph with queryId {}", relRoot, queryId);
         TranslatorContext translatorContext = new TranslatorContext(appDescriptor, relRoot, executionContext);
         translatorContextMap.put(queryId, translatorContext);
-        queryTranslator.translate(relRoot, translatorContext, queryId);
+        queryTranslator.translate(relRoot, sqlConfig.getOutputSystemStreams().get(queryId), translatorContext, queryId);
         queryId++;
       }
 

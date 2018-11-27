@@ -110,7 +110,7 @@ public class QueryTranslator {
     final RelRoot relRoot = planner.plan(queryInfo.getSelectQuery());
     SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
     TranslatorContext translatorContext = new TranslatorContext(appDesc, relRoot, executionContext);
-    translate(relRoot, translatorContext, queryId);
+    translate(relRoot, sqlConfig.getOutputSystemStreams().get(queryId), translatorContext, queryId);
     Map<Integer, TranslatorContext> translatorContexts = new HashMap<>();
     translatorContexts.put(queryId, translatorContext.clone());
     appDesc.withApplicationTaskContextFactory((jobContext,
@@ -122,12 +122,13 @@ public class QueryTranslator {
 
   /**
    * Translate Calcite plan to Samza stream operators.
-   * @param relRoot Calcite plan in the form of {@link RelRoot}.
+   * @param relRoot Calcite plan in the form of {@link RelRoot}. RelRoot should not include the sink ({@link TableModify})
+   * @param outputSystemStream Sink associated with the Calcite plan.
    * @param translatorContext Context maintained across translations.
    * @param queryId query index of the sql statement corresponding to the Calcite plan in multi SQL statement scenario
    *                starting with index 0.
    */
-  public void translate(RelRoot relRoot, TranslatorContext translatorContext, int queryId) {
+  public void translate(RelRoot relRoot, String outputSystemStream, TranslatorContext translatorContext, int queryId) {
     final RelNode node = relRoot.project();
 
     ScanTranslator scanTranslator =
@@ -184,8 +185,7 @@ public class QueryTranslator {
       }
     });
 
-    sendToOutputStream(sqlConfig.getOutputSystemStreams().get(queryId), streamAppDescriptor, translatorContext, node,
-        queryId);
+    sendToOutputStream(outputSystemStream, streamAppDescriptor, translatorContext, node, queryId);
   }
 
   private void sendToOutputStream(String sinkStream, StreamApplicationDescriptor appDesc, TranslatorContext context, RelNode node, int queryId) {
