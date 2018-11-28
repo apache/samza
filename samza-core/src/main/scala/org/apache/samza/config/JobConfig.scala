@@ -19,11 +19,11 @@
 
 package org.apache.samza.config
 
-
 import java.io.File
 import java.util.regex.Pattern
 
-import org.apache.samza.container.grouper.stream.{HashStreamPartitionMapperFactory, GroupByPartitionFactory}
+import org.apache.samza.container.grouper.stream.HashStreamPartitionMapperFactory
+import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
