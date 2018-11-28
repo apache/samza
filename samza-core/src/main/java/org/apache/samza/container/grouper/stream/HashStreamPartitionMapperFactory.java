@@ -22,7 +22,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
 /**
- * Factory that instantiates the {@link HashStreamPartitionMapper} based upon the provided
+ * Instantiates the {@link HashStreamPartitionMapper} based upon the provided
  * config and the metricsRegistry.
  */
 public class HashStreamPartitionMapperFactory implements StreamPartitionMapperFactory {
