@@ -138,7 +138,7 @@ object JobModelManager extends Logging {
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,
       // set the locality of newly added containers to any_host.
       var locationId: LocationId = new LocationId("ANY_HOST")
-      if (localityMapping != null) {
+      if (localityMapping != null && localityMapping.containsKey(SetContainerHostMapping.HOST_KEY)) {
         locationId = new LocationId(localityMapping.get(SetContainerHostMapping.HOST_KEY))
       }
       containerToLocationId.put(containerId.toString, locationId)
@@ -164,7 +164,7 @@ object JobModelManager extends Logging {
         taskNames.add(taskModel.getTaskName.getTaskName)
       }
     }
-    val taskToContainerId = grouperContext.getPreviousTaskToContainerAssignment
+    val taskToContainerId = grouperContext.getPreviousTaskToProcessorAssignment
     if (taskNames.size() != taskToContainerId.size()) {
       warn("Current task count {} does not match saved task count {}. Stateful jobs may observe misalignment of keys!",
            taskNames.size(), taskToContainerId.size())

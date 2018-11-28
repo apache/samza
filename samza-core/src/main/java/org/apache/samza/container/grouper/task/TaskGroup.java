@@ -35,8 +35,8 @@ class TaskGroup {
 
   TaskGroup(String containerId, List<String> taskNames) {
     this.containerId = containerId;
-    Collections.sort(taskNames); // For consistency because the taskNames came from a Map
     this.taskNames.addAll(taskNames);
+    Collections.sort(this.taskNames); // For consistency because the taskNames came from a Map
   }
 
   public String getContainerId() {
@@ -47,7 +47,7 @@ class TaskGroup {
     taskNames.add(taskName);
   }
 
-  public String removeLastTask() {
+  public String removeLastTaskName() {
     return taskNames.remove(taskNames.size() - 1);
   }
 

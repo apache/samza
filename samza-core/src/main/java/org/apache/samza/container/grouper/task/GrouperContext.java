@@ -34,16 +34,24 @@ import java.util.Map;
  */
 @InterfaceStability.Evolving
 public class GrouperContext {
-  private final Map<String, LocationId> processorLocality;
-  private final Map<TaskName, LocationId> taskLocality;
-  private final Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment;
-  private final Map<TaskName, String> previousTaskToContainerAssignment;
 
-  public GrouperContext(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToContainerAssignment) {
+  // Map of processorId to LocationId.
+  private final Map<String, LocationId> processorLocality;
+
+  // Map of TaskName to LocationId.
+  private final Map<TaskName, LocationId> taskLocality;
+
+  // Map of TaskName to a list of the input SystemStreamPartition's assigned to it.
+  private final Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment;
+
+  // Map of TaskName to ProcessorId.
+  private final Map<TaskName, String> previousTaskToProcessorAssignment;
+
+  public GrouperContext(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToProcessorAssignment) {
     this.processorLocality = Collections.unmodifiableMap(processorLocality);
     this.taskLocality = Collections.unmodifiableMap(taskLocality);
     this.previousTaskToSSPAssignment = Collections.unmodifiableMap(previousTaskToSSPAssignments);
-    this.previousTaskToContainerAssignment = Collections.unmodifiableMap(previousTaskToContainerAssignment);
+    this.previousTaskToProcessorAssignment = Collections.unmodifiableMap(previousTaskToProcessorAssignment);
   }
 
   public Map<String, LocationId> getProcessorLocality() {
@@ -62,7 +70,7 @@ public class GrouperContext {
     return new ArrayList<>(processorLocality.keySet());
   }
 
-  public Map<TaskName, String> getPreviousTaskToContainerAssignment() {
-    return this.previousTaskToContainerAssignment;
+  public Map<TaskName, String> getPreviousTaskToProcessorAssignment() {
+    return this.previousTaskToProcessorAssignment;
   }
 }

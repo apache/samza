@@ -114,7 +114,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     for (int i = 0; i < prevContainerCount; i++) {
       TaskGroup taskGroup = containers.get(i);
       while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
-        taskNamesToReassign.add(taskGroup.removeLastTask());
+        taskNamesToReassign.add(taskGroup.removeLastTaskName());
       }
     }
 
@@ -141,7 +141,7 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    *                        if the previous mapping doesn't exist or isn't usable.
    */
   private List<TaskGroup> getPreviousContainers(GrouperContext grouperContext, int taskCount) {
-    Map<TaskName, String> taskToContainerId = grouperContext.getPreviousTaskToContainerAssignment();
+    Map<TaskName, String> taskToContainerId = grouperContext.getPreviousTaskToProcessorAssignment();
     taskToContainerId.values().forEach(id -> {
         try {
           int intId = Integer.parseInt(id);
