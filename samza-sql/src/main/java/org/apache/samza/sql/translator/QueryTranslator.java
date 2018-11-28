@@ -220,7 +220,6 @@ public class QueryTranslator {
 
     /* update input metrics */
     String queryLogicalId = String.format(TranslatorConstants.LOGSQLID_TEMPLATE, queryId);
-    //new InputMetricsMapFunction(queryLogicalId));
 
     opId = 0;
 

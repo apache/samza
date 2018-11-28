@@ -19,11 +19,11 @@
 
 package org.apache.samza.sql.translator;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import java.util.Objects;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -55,7 +55,6 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
-import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.*;
 
 
 /**
@@ -77,11 +76,15 @@ class JoinTranslator {
   private String logicalOpId;
   private final String intermediateStreamPrefix;
   private final int queryId;
+  private final TranslatorInputMetricsMapFunction inputMetricsMF;
+  private final TranslatorOutputMetricsMapFunction outputMetricsMF;
 
   JoinTranslator(String logicalOpId, String intermediateStreamPrefix, int queryId) {
     this.logicalOpId = logicalOpId;
     this.intermediateStreamPrefix = intermediateStreamPrefix + (intermediateStreamPrefix.isEmpty() ? "" : "_");
     this.queryId = queryId;
+    this.inputMetricsMF = new TranslatorInputMetricsMapFunction(logicalOpId);
+    this.outputMetricsMF = new TranslatorOutputMetricsMapFunction(logicalOpId);
   }
 
   void translate(final LogicalJoin join, final TranslatorContext translatorContext) {
@@ -116,6 +119,8 @@ class JoinTranslator {
         joinStreamWithTable(inputStream, table, streamNode, tableNode, join, translatorContext);
 
     translatorContext.registerMessageStream(join.getId(), outputStream);
+
+    outputStream.map(outputMetricsMF);
   }
 
   private MessageStream<SamzaSqlRelMessage> joinStreamWithTable(MessageStream<SamzaSqlRelMessage> inputStream,
@@ -137,7 +142,9 @@ class JoinTranslator {
       StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
           context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
 
-      return inputStream.join(table, joinFn);
+      return inputStream
+          .map(inputMetricsMF)
+          .join(table, joinFn);
     }
 
     // Join with the local table
@@ -154,6 +161,7 @@ class JoinTranslator {
     // the names from the stream as the lookup needs to be done based on what is stored in the local table.
     return
         inputStream
+            .map(inputMetricsMF)
             .partitionBy(m -> createSamzaSqlCompositeKey(m, streamKeyIds,
             getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds)), m -> m, KVSerde.of(keySerde, valueSerde),
             intermediateStreamPrefix + "stream_" + logicalOpId)
@@ -368,4 +376,11 @@ class JoinTranslator {
 
     return table;
   }
+
+  @VisibleForTesting
+  public TranslatorInputMetricsMapFunction getInputMetricsMF() { return this.inputMetricsMF; }
+
+  @VisibleForTesting
+  public TranslatorOutputMetricsMapFunction getOutputMetricsMF() { return this.outputMetricsMF; }
+
 }

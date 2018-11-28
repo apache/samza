@@ -67,6 +67,7 @@ class LogicalAggregateTranslator {
 
     MessageStream<SamzaSqlRelMessage> outputStream =
         inputStream
+            .map(new TranslatorInputMetricsMapFunction(logicalOpId))
             .window(Windows.keyedTumblingWindow(m -> m,
                 Duration.ofMillis(context.getExecutionContext().getSamzaSqlApplicationConfig().getWindowDurationMs()),
                 initialValue,
@@ -83,6 +84,7 @@ class LogicalAggregateTranslator {
                 return new SamzaSqlRelMessage(fieldNames, fieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
               });
     context.registerMessageStream(aggregate.getId(), outputStream);
+    outputStream.map(new TranslatorOutputMetricsMapFunction(logicalOpId));
   }
 
   private ArrayList<String> getAggFieldNames(LogicalAggregate aggregate) {

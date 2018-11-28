@@ -36,6 +36,12 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
   public boolean isNewInputMessage = true;
 
   /**
+   *
+   */
+  public String operatorBeginProcessingInstant = null;
+
+
+  /**
    * The timestamp of when the events actually happened
    * set by and copied from the event source
    * TODO: copy eventTime through from source to RelMessage
