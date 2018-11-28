@@ -23,7 +23,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamPartition;
 
 /**
- * A StreamPartitionMapper that uses the hash based partitioning function to map a {@link SystemStreamPartition} to a
+ * A StreamPartitionMapper that uses the hash based partitioning function to map a {@link SystemStreamPartition} to
  * correct previous {@link SystemStreamPartition} after the stream expansion.
  */
 public class HashStreamPartitionMapper implements StreamPartitionMapper {
