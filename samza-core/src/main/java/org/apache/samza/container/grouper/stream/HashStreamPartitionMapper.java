@@ -32,14 +32,14 @@ public class HashStreamPartitionMapper implements StreamPartitionMapper {
    * {@inheritDoc}
    */
   @Override
-  public SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition, int partitionCountBeforeExpansion, int partitionCountAfterExpansion) {
+  public SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int afterPartitionCount) {
     Preconditions.checkNotNull(currentSystemStreamPartition);
-    Preconditions.checkArgument(partitionCountAfterExpansion % partitionCountBeforeExpansion == 0,
-                                String.format("New partition count: %d should be a multiple of previous partition count: %d.", partitionCountAfterExpansion, partitionCountBeforeExpansion));
+    Preconditions.checkArgument(afterPartitionCount % previousPartitionCount == 0,
+                                String.format("New partition count: %d should be a multiple of previous partition count: %d.", afterPartitionCount, previousPartitionCount));
     Partition partition = currentSystemStreamPartition.getPartition();
     Preconditions.checkNotNull(partition, String.format("SystemStreamPartition: %s cannot have null partition", currentSystemStreamPartition));
     int currentPartitionId = partition.getPartitionId();
-    int previousPartitionId = currentPartitionId % partitionCountBeforeExpansion;
+    int previousPartitionId = currentPartitionId % previousPartitionCount;
     return new SystemStreamPartition(currentSystemStreamPartition.getSystemStream(), new Partition(previousPartitionId));
   }
 }
