@@ -40,7 +40,7 @@ import scala.collection.JavaConversions$;
 
 public class TestInputRegexMonitor {
 
-  private InputStreamRegexMonitor inputStreamRegexMonitor;
+  private StreamRegexMonitor streamRegexMonitor;
   private CountDownLatch callbackCount;
 
   private int inputRegexMs = 10;
@@ -61,51 +61,55 @@ public class TestInputRegexMonitor {
     MetricsRegistry metrics = Mockito.mock(MetricsRegistry.class);
     this.callbackCount = new CountDownLatch(expectedNumberOfCallbacks);
 
-    // Creating an inputStreamRegexMonitor with empty-input set and test-.* regex input
-    this.inputStreamRegexMonitor =
-        new InputStreamRegexMonitor(new HashSet<>(), patternMap, mockStreamMetadataCache, metrics, inputRegexMs,
-            newInputStreams -> {
-        this.callbackCount.countDown();
-        this.inputStreamsDiscovered.addAll(newInputStreams);
+    // Creating an streamRegexMonitor with empty-input set and test-.* regex input
+    this.streamRegexMonitor =
+        new StreamRegexMonitor(new HashSet<>(), patternMap, mockStreamMetadataCache, metrics, inputRegexMs,
+            new StreamRegexMonitor.Callback() {
+        @Override
+        public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
+            Map<String, Pattern> regexesMonitored) {
+          callbackCount.countDown();
+          inputStreamsDiscovered.addAll(newInputStreams);
 
-        // Check that the newInputStream discovered is "kafka" "Test-1"
-        Assert.assertTrue(inputStreamsDiscovered.size() == 1);
-        Assert.assertTrue(inputStreamsDiscovered.contains(sampleStream));
+          // Check that the newInputStream discovered is "kafka" "Test-1"
+          Assert.assertTrue(inputStreamsDiscovered.size() == 1);
+          Assert.assertTrue(inputStreamsDiscovered.contains(sampleStream));
+        }
       });
   }
 
   @Test
   public void testStartStop() throws InterruptedException {
-    Assert.assertFalse(inputStreamRegexMonitor.isRunning());
+    Assert.assertFalse(streamRegexMonitor.isRunning());
 
     // Normal start
-    inputStreamRegexMonitor.start();
-    Assert.assertTrue(inputStreamRegexMonitor.isRunning());
+    streamRegexMonitor.start();
+    Assert.assertTrue(streamRegexMonitor.isRunning());
 
     // Start ought to be idempotent
-    inputStreamRegexMonitor.start();
-    Assert.assertTrue(inputStreamRegexMonitor.isRunning());
+    streamRegexMonitor.start();
+    Assert.assertTrue(streamRegexMonitor.isRunning());
 
     // Normal stop
-    inputStreamRegexMonitor.stop();
-    Assert.assertTrue(inputStreamRegexMonitor.awaitTermination(1, TimeUnit.SECONDS));
-    Assert.assertFalse(inputStreamRegexMonitor.isRunning());
+    streamRegexMonitor.stop();
+    Assert.assertTrue(streamRegexMonitor.awaitTermination(1, TimeUnit.SECONDS));
+    Assert.assertFalse(streamRegexMonitor.isRunning());
 
     try {
-      inputStreamRegexMonitor.start();
+      streamRegexMonitor.start();
     } catch (Exception e) {
       Assert.assertTrue(e.getClass().equals(IllegalStateException.class));
     }
 
     // Stop ought to be idempotent
-    Assert.assertFalse(inputStreamRegexMonitor.isRunning());
-    inputStreamRegexMonitor.stop();
-    Assert.assertFalse(inputStreamRegexMonitor.isRunning());
+    Assert.assertFalse(streamRegexMonitor.isRunning());
+    streamRegexMonitor.stop();
+    Assert.assertFalse(streamRegexMonitor.isRunning());
   }
 
   @Test
   public void testSchedulingAndInputAddition() throws Exception {
-    this.inputStreamRegexMonitor.start();
+    this.streamRegexMonitor.start();
     try {
       if (!callbackCount.await(1, TimeUnit.SECONDS)) {
         throw new Exception(
@@ -113,7 +117,7 @@ public class TestInputRegexMonitor {
       }
     } finally {
       System.out.println("CallbackCount is " + callbackCount.getCount());
-      this.inputStreamRegexMonitor.stop();
+      this.streamRegexMonitor.stop();
     }
   }
 

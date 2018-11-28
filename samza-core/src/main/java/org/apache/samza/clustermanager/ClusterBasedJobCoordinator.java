@@ -36,11 +36,11 @@ import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.InputStreamRegexMonitor;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.PartitionChangeException;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.StreamRegexMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -56,6 +56,7 @@ import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
+import scala.collection.JavaConverters;
 
 
 /**
@@ -139,12 +140,12 @@ public class ClusterBasedJobCoordinator {
   /**
    * The input topic partition count monitor
    */
-  private final StreamPartitionCountMonitor partitionMonitor;
+  private final Optional<StreamPartitionCountMonitor> partitionMonitor;
 
   /**
    * The input stream regex monitor
    */
-  private final Optional<InputStreamRegexMonitor> inputStreamRegexMonitor;
+  private final Optional<StreamRegexMonitor> inputStreamRegexMonitor;
 
   /**
    * Metrics to track stats around container failures, needed containers etc.
@@ -248,7 +249,7 @@ public class ClusterBasedJobCoordinator {
 
       containerProcessManager.start();
       systemAdmins.start();
-      partitionMonitor.start();
+      partitionMonitor.ifPresent(monitor -> monitor.start());
       inputStreamRegexMonitor.ifPresent(monitor -> monitor.start());
 
       boolean isInterrupted = false;
@@ -283,7 +284,7 @@ public class ClusterBasedJobCoordinator {
   private void onShutDown() {
 
     try {
-      partitionMonitor.stop();
+      partitionMonitor.ifPresent(monitor -> monitor.stop());
       inputStreamRegexMonitor.ifPresent(monitor -> monitor.stop());
       systemAdmins.stop();
       containerProcessManager.stop();
@@ -303,14 +304,14 @@ public class ClusterBasedJobCoordinator {
     }
   }
 
-  private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
+  private Optional<StreamPartitionCountMonitor> getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
 
-    return new StreamPartitionCountMonitor(inputStreamsToMonitor, streamMetadata, metrics,
+    return Optional.of(new StreamPartitionCountMonitor(inputStreamsToMonitor, streamMetadata, metrics,
         new JobConfig(config).getMonitorPartitionChangeFrequency(), streamsChanged -> {
       // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
         if (hasDurableStores) {
@@ -318,14 +319,14 @@ public class ClusterBasedJobCoordinator {
           state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
         }
         coordinatorException = new PartitionChangeException("Input topic partition count changes detected.");
-      });
+      }));
   }
 
-  private Optional<InputStreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
 
     // if input regex monitor is not enabled return empty
-    if (new JobConfig(config).getMonitorInputRegexFrequency() <= 0) {
-      log.info("InputStreamRegexMonitor is disabled.");
+    if (new JobConfig(config).getMonitorRegexEnabled()) {
+      log.info("StreamRegexMonitor is disabled.");
       return Optional.empty();
     }
 
@@ -335,52 +336,31 @@ public class ClusterBasedJobCoordinator {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
 
-    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
-    Map<String, Pattern> inputRegexesToMonitor = new HashMap<>();
-
     // First list all rewriters
     Option<String> rewritersList = new JobConfig(config).getConfigRewriters();
 
     // if no rewriter is defined, there is nothing to monitor
-    if (rewritersList.isDefined()) {
-
-      String[] rewriters = rewritersList.get().split(",");
-
-      // iterate over each rewriter and obtain the system and regex for it
-      for (String rewriterName : rewriters) {
-        Option<String> rewriterSystem = new JobConfig(config).getRegexResolvedSystem(rewriterName);
-        Option<String> rewriterRegex = new JobConfig(config).getRegexResolvedStreams(rewriterName);
-
-        if (rewriterSystem.isDefined() && rewriterRegex.isDefined()) {
-          Pattern patternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
-
-          // create a pattern for the rewriter's regex and add it to the map
-          if (patternForSystem == null) {
-            patternForSystem = Pattern.compile(rewriterRegex.get());
-          } else {
-
-            // if multiple rewriters (and hence multiple regexes) are specified for the same system
-            // then combine the regexes using a logical OR i.e. a pipe
-            patternForSystem = Pattern.compile(patternForSystem.pattern() + "|" + rewriterRegex.get());
-          }
-
-          inputRegexesToMonitor.put(rewriterSystem.get(), patternForSystem);
-        }
-      }
-
-      return Optional.of(
-          new InputStreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
-              new JobConfig(config).getMonitorInputRegexFrequency(), newInputStreams -> {
-            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
-                " Existing input streams:", inputStreamsToMonitor);
-
-            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-            coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newInputStreams);
-          }));
-    } else {
-      log.warn("No config rewriters are defined. No InputStreamRegexMonitor created.");
+    if (!rewritersList.isDefined()) {
+      log.warn("No config rewriters are defined. No StreamRegexMonitor created.");
       return Optional.empty();
     }
+
+    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
+    Map<String, Pattern> inputRegexesToMonitor =
+        JavaConverters.mapAsJavaMapConverter(new JobConfig(config).getMonitorRegexPatternMap(rewritersList.get()))
+            .asJava();
+
+    return Optional.of(new StreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
+        new JobConfig(config).getMonitorRegexFrequency(), new StreamRegexMonitor.Callback() {
+          @Override
+          public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
+              Map<String, Pattern> regexesMonitored) {
+            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
+                " Existing input streams:", inputStreamsToMonitor);
+            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+            coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newInputStreams);
+          }
+        }));
   }
 
   // The following two methods are package-private and for testing only
@@ -393,7 +373,7 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionMonitor() {
-    return partitionMonitor;
+    return partitionMonitor.get();
   }
 
   /**

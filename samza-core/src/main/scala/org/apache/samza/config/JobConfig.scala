@@ -21,11 +21,15 @@ package org.apache.samza.config
 
 
 import java.io.File
+import java.util.regex.Pattern
 
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
+
+import scala.collection.mutable
+
 
 object JobConfig {
   // job config constants
@@ -167,13 +171,36 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
   }
 
+  // StreamRegexMonitor is disabled if the MonitorRegexFRequency is <= 0
+  def getMonitorRegexEnabled = (getMonitorRegexFrequency <= 0)
+
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
 
-  def getMonitorInputRegexFrequency = getInt(
+  def getMonitorRegexFrequency = getInt(
     JobConfig.MONITOR_INPUT_REGEX_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS)
+
+  def getMonitorRegexPatternMap(rewritersList : String) : mutable.HashMap[String, Pattern] = {
+    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
+    val inputRegexesToMonitor: mutable.HashMap[String, Pattern] = mutable.HashMap[String, Pattern]()
+    val rewriters: Array[String] = rewritersList.split(",")
+    // iterate over each rewriter and obtain the system and regex for it
+    for (rewriterName <- rewriters) {
+      val rewriterSystem: Option[String] = new JobConfig(config).getRegexResolvedSystem(rewriterName)
+      val rewriterRegex: Option[String] = new JobConfig(config).getRegexResolvedStreams(rewriterName)
+      if (rewriterSystem.isDefined && rewriterRegex.isDefined) {
+        var patternForSystem: Option[Pattern] = inputRegexesToMonitor.get(rewriterSystem.get)
+        patternForSystem =
+          if (patternForSystem == None) Some(Pattern.compile(rewriterRegex.get))
+          else
+            Some(Pattern.compile(String.join("|", patternForSystem.get.pattern(), rewriterRegex.get)))
+        inputRegexesToMonitor.put(rewriterSystem.get, patternForSystem.get)
+      }
+    }
+    inputRegexesToMonitor
+  }
 
   // regex-related config methods duplicated from KafkaConfig to avoid module dependency
   def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)

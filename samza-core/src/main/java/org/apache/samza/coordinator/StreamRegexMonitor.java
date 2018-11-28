@@ -20,6 +20,7 @@ package org.apache.samza.coordinator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,7 +30,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.samza.metrics.Gauge;
@@ -45,8 +45,8 @@ import scala.collection.JavaConverters;
 /**
  * Periodically monitors input regexes
  */
-public class InputStreamRegexMonitor {
-  private static final Logger log = LoggerFactory.getLogger(InputStreamRegexMonitor.class);
+public class StreamRegexMonitor {
+  private static final Logger log = LoggerFactory.getLogger(StreamRegexMonitor.class);
 
   private enum State { INIT, RUNNING, STOPPED }
 
@@ -62,20 +62,27 @@ public class InputStreamRegexMonitor {
 
   // Used to guard write access to state.
   private final Object lock = new Object();
-  private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryImpl();
+
+  // Factory of daemon-threads to create the single threaded executor pool
+  private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder().setDaemon(true)
+      .setNameFormat("Samza-" + StreamRegexMonitor.class.getSimpleName())
+      .build();
   private final ScheduledExecutorService schedulerService = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
 
   private volatile State state = State.INIT;
 
   /**
-   * A callback that is invoked when the {@link InputStreamRegexMonitor} detects a new input stream matching given regex.
+   * A callback that is invoked when the {@link StreamRegexMonitor} detects a new input stream matching given regex.
    */
   public interface Callback {
     /**
      * Method to be called when new input streams are detected.
-     * @param newInputStreams
+     * @param initialInputSet The initial set of input streams
+     * @param newInputStreams The set of new input streams discovered
+     * @param regexesMonitored The set of regexes being monitored
      */
-    void onNewInputStreamsDiscovered(Set<SystemStream> newInputStreams);
+    void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
+        Map<String, Pattern> regexesMonitored);
   }
 
   /**
@@ -103,7 +110,7 @@ public class InputStreamRegexMonitor {
    * @param inputRegexMonitorPeriodMs the period at which the monitor will check each input-regex
    * @param monitorCallback   the callback method to be invoked when new input stream matching regex is detected
    */
-  public InputStreamRegexMonitor(Set<SystemStream> streamsToMonitor, Map<String, Pattern> systemRegexesToMonitor,
+  public StreamRegexMonitor(Set<SystemStream> streamsToMonitor, Map<String, Pattern> systemRegexesToMonitor,
       StreamMetadataCache metadataCache, MetricsRegistry metrics, int inputRegexMonitorPeriodMs,
       Callback monitorCallback) {
     this.streamsToMonitor = streamsToMonitor;
@@ -147,7 +154,7 @@ public class InputStreamRegexMonitor {
           return;
 
         case STOPPED:
-          throw new IllegalStateException("InputStreamRegexMonitor was stopped and cannot be restarted.");
+          throw new IllegalStateException("StreamRegexMonitor was stopped and cannot be restarted.");
       }
     }
   }
@@ -184,7 +191,6 @@ public class InputStreamRegexMonitor {
                   .stream()
                   .filter(x -> x.getStream().matches(this.systemRegexesToMonitor.get(systemName).pattern()))
                   .collect(Collectors.toSet()));
-
         } catch (UnsupportedOperationException e) {
           log.error("UnsupportedOperationException while monitoring input regexes for system {}", systemName, e);
         }
@@ -197,7 +203,8 @@ public class InputStreamRegexMonitor {
             inputStreamsMatchingPattern, streamsToMonitor);
 
         // invoke notify callback with new input streams
-        this.callbackMethod.onNewInputStreamsDiscovered(Sets.difference(inputStreamsMatchingPattern, streamsToMonitor));
+        this.callbackMethod.onInputStreamsChanged(streamsToMonitor,
+            Sets.difference(inputStreamsMatchingPattern, streamsToMonitor), systemRegexesToMonitor);
       } else {
         log.info("No new input system-Streams discovered streamsToMonitor {} inputStreamsMatchingPattern {}",
             streamsToMonitor, inputStreamsMatchingPattern);
@@ -205,14 +212,6 @@ public class InputStreamRegexMonitor {
     } catch (Exception e) {
       log.error("Exception while monitoring input regexes.", e);
     }
-  }
-
-  /**
-   * For testing. Returns the metrics.
-   */
-  @VisibleForTesting
-  Map<String, Gauge<Integer>> getGauges() {
-    return gauges;
   }
 
   @VisibleForTesting
@@ -229,14 +228,5 @@ public class InputStreamRegexMonitor {
   @VisibleForTesting
   boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
     return schedulerService.awaitTermination(timeout, unit);
-  }
-
-  private static class ThreadFactoryImpl implements ThreadFactory {
-    private static final String PREFIX = "Samza-" + InputStreamRegexMonitor.class.getSimpleName() + "-";
-    private static final AtomicInteger INSTANCE_NUM = new AtomicInteger();
-
-    public Thread newThread(Runnable runnable) {
-      return new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
-    }
   }
 }
