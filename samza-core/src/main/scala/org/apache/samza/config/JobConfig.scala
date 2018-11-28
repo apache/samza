@@ -23,7 +23,7 @@ package org.apache.samza.config
 import java.io.File
 import java.util.regex.Pattern
 
-import org.apache.samza.container.grouper.stream.{DefaultStreamPartitionMapperFactory, GroupByPartitionFactory}
+import org.apache.samza.container.grouper.stream.{HashStreamPartitionMapperFactory, GroupByPartitionFactory}
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
@@ -267,6 +267,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * @return the partition expansion algorithm factory defined in the config.
    */
   def getStreamPartitionMapperFactory: String = {
-    get(JobConfig.STREAM_PARTITION_MAPPER_FACTORY, classOf[DefaultStreamPartitionMapperFactory].getCanonicalName)
+    get(JobConfig.STREAM_PARTITION_MAPPER_FACTORY, classOf[HashStreamPartitionMapperFactory].getCanonicalName)
   }
 }
