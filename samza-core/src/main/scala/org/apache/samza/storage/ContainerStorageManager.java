@@ -89,7 +89,7 @@ public class ContainerStorageManager {
     // Submit restore callable for each taskInstance
     this.taskStorageManagers.forEach((taskInstance, taskStorageManager) -> {
         futureList.add(
-            executorService.submit(new TaskRestoreRunnable(this.samzaContainerMetrics, taskInstance,taskStorageManager)));
+            executorService.submit(new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance,taskStorageManager)));
       });
 
     // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
@@ -127,13 +127,13 @@ public class ContainerStorageManager {
   /** Callable for performing the restoreStores on a taskStorage manager and emitting task-restoration metric.
    *
    */
-  private class TaskRestoreRunnable implements Callable<Void> {
+  private class TaskRestoreCallable implements Callable<Void> {
 
     private TaskInstance taskInstance;
     private TaskStorageManager taskStorageManager;
     private SamzaContainerMetrics samzaContainerMetrics;
 
-    public TaskRestoreRunnable(SamzaContainerMetrics samzaContainerMetrics, TaskInstance taskInstance,
+    public TaskRestoreCallable(SamzaContainerMetrics samzaContainerMetrics, TaskInstance taskInstance,
         TaskStorageManager taskStorageManager) {
       this.samzaContainerMetrics = samzaContainerMetrics;
       this.taskInstance = taskInstance;

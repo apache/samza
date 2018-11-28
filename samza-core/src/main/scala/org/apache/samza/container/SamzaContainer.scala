@@ -502,21 +502,16 @@ object SamzaContainer extends Logging {
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
-    // Create a map of storeName to store's SystemName
-    val storeSystems: Map[String, String] = changeLogSystemStreams.mapValues {
-      case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
-    }
-
-    info("Got store systems: %s" format storeSystems)
-
     // Create one SystemConsumer for each storeSystem in use
-    // Create a map of SystemName to its respective SystemConsumer
-    val storeSystemConsumers: Map[String, SystemConsumer] = storeSystems.values.toSet.map {
-      systemName : String => (systemName, systemFactories
-        .getOrElse(systemName,
-          throw new SamzaException("Changelog system %s for stores %s does not " +
-            "exist in the config." format (systemName, storeSystems.filter(_._2.equals(systemName)))))
-        .getConsumer(systemName, config, samzaContainerMetrics.registry))
+    // so we create a map of SystemName to its respective SystemConsumer
+    val storeSystemConsumers: Map[String, SystemConsumer] = changeLogSystemStreams.mapValues {
+      case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
+    }.values.toSet.map {
+      systemName: String =>
+        (systemName, systemFactories
+          .getOrElse(systemName,
+            throw new SamzaException("Changelog system %s exist in the config." format (systemName)))
+          .getConsumer(systemName, config, samzaContainerMetrics.registry))
     }.toMap
 
     info("Created store system consumers: %s" format storeSystemConsumers)
