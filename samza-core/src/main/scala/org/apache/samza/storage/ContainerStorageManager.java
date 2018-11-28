@@ -49,11 +49,11 @@ import org.slf4j.LoggerFactory;
 public class ContainerStorageManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
-  private Map<TaskInstance, TaskStorageManager> taskStorageManagers;
-  private SamzaContainerMetrics samzaContainerMetrics;
+  private final Map<TaskInstance, TaskStorageManager> taskStorageManagers;
+  private final SamzaContainerMetrics samzaContainerMetrics;
 
   // Mapping of from storeSystemNames to SystemConsumers
-  private Map<String, SystemConsumer> systemConsumers;
+  private final Map<String, SystemConsumer> systemConsumers;
 
   // Size of thread-pool to be used for parallel restores
   private final int parallelRestoreThreadPoolSize;
@@ -87,9 +87,9 @@ public class ContainerStorageManager {
     List<Future> futureList = new ArrayList<>(this.taskStorageManagers.entrySet().size());
 
     // Submit restore callable for each taskInstance
-    this.taskStorageManagers.entrySet().forEach(task -> {
+    this.taskStorageManagers.forEach((taskInstance, taskStorageManager) -> {
         futureList.add(
-            executorService.submit(new TaskRestoreRunnable(this.samzaContainerMetrics, task.getKey(), task.getValue())));
+            executorService.submit(new TaskRestoreRunnable(this.samzaContainerMetrics, taskInstance,taskStorageManager)));
       });
 
     // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
@@ -127,7 +127,7 @@ public class ContainerStorageManager {
   /** Callable for performing the restoreStores on a taskStorage manager and emitting task-restoration metric.
    *
    */
-  private class TaskRestoreRunnable implements Callable {
+  private class TaskRestoreRunnable implements Callable<Void> {
 
     private TaskInstance taskInstance;
     private TaskStorageManager taskStorageManager;
@@ -141,7 +141,7 @@ public class ContainerStorageManager {
     }
 
     @Override
-    public Object call() {
+    public Void call() {
       long startTime = System.currentTimeMillis();
       LOG.info("Starting stores in task instance {}", this.taskInstance.taskName().getTaskName());
       taskStorageManager.restoreStores();

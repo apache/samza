@@ -503,10 +503,9 @@ object SamzaContainer extends Logging {
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
     // Create a map of storeName to store's SystemName
-    val storeSystems: Map[String, String] = changeLogSystemStreams.
-      map {
-        case (storeName, changeLogSystemStream) => (storeName, changeLogSystemStream.getSystem)
-      }
+    val storeSystems: Map[String, String] = changeLogSystemStreams.mapValues {
+      case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
+    }
 
     info("Got store systems: %s" format storeSystems)
 
@@ -523,8 +522,6 @@ object SamzaContainer extends Logging {
     info("Created store system consumers: %s" format storeSystemConsumers)
 
     var taskStorageManagers : Map[TaskInstance, TaskStorageManager] = Map()
-    var taskSideInputManagers : Map[TaskInstance, TaskSideInputStorageManager] = Map()
-
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
@@ -689,7 +686,6 @@ object SamzaContainer extends Logging {
       val taskInstance = createTaskInstance(task)
 
       taskStorageManagers += taskInstance -> storageManager
-      taskSideInputManagers += taskInstance -> sideInputStorageManager
       (taskName, taskInstance)
     }).toMap
 
