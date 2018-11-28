@@ -71,13 +71,11 @@ class ProjectTranslator {
     private transient TranslatorContext translatorContext;
     private transient MetricsRegistry metricsRegistry;
     private transient SamzaHistogram processingTime; // milli-seconds
-    private transient Counter numEvents;
+    private transient Counter inputEvents;
 
     private final int queryId;
     private final int projectId;
     private final String logicalOpId;
-    private final String PROCESSING_TIME_NAME = "processingTime";
-    private final String NUM_EVENTS_NAME = "numEvents";
 
     ProjectMapFunction(int projectId, int queryId, String logicalOpId) {
       this.projectId = projectId;
@@ -96,9 +94,9 @@ class ProjectTranslator {
       this.expr = this.translatorContext.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
       ContainerContext containerContext = context.getContainerContext();
       metricsRegistry = containerContext.getContainerMetricsRegistry();
-      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, PROCESSING_TIME_NAME);
-      numEvents = metricsRegistry.newCounter(logicalOpId, NUM_EVENTS_NAME);
-      numEvents.clear();
+      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
+      inputEvents = metricsRegistry.newCounter(logicalOpId, TranslatorConstants.INPUT_EVENTS_NAME);
+      inputEvents.clear();
     }
 
     /**
@@ -118,7 +116,7 @@ class ProjectTranslator {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
       updateMetrics(arrivalTime, Instant.now());
-      return new SamzaSqlRelMessage(names, Arrays.asList(output));
+      return new SamzaSqlRelMessage(names, Arrays.asList(output), message.getSamzaSqlRelMsgMetadata());
     }
 
     /**
@@ -127,8 +125,8 @@ class ProjectTranslator {
      * @param outputTime output message output time (=end of processing in this operator)
      */
     private void updateMetrics(Instant arrivalTime, Instant outputTime) {
-      numEvents.inc();
-      processingTime.update(Duration.between(arrivalTime, outputTime).toNanos() / 1000L);
+      inputEvents.inc();
+      processingTime.update(Duration.between(arrivalTime, outputTime).toMillis());
     }
 
   }
@@ -143,7 +141,7 @@ class ProjectTranslator {
         for (Object fieldValue : (List) field) {
           List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues));
+          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues, message.getSamzaSqlRelMsgMetadata()));
         }
         return outMessages;
       } else {

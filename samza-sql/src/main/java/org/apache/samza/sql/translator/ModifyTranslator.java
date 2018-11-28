@@ -19,6 +19,8 @@
 
 package org.apache.samza.sql.translator;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,14 +28,15 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.OutputStream;
-import org.apache.samza.system.descriptors.GenericOutputDescriptor;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.SamzaHistogram;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
-import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -41,7 +44,10 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
+import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.table.Table;
+import org.apache.samza.table.descriptors.TableDescriptor;
 
 
 /**
@@ -66,12 +72,18 @@ class ModifyTranslator {
     // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
     // initialization.
     private transient SamzaRelConverter samzaMsgConverter;
+    private transient MetricsRegistry metricsRegistry;
+    private transient SamzaHistogram processingTime; // milli-seconds
+    private transient Counter inputEvents;
+
     private final String outputTopic;
     private final int queryId;
+    private final String logicalOpId;
 
-    OutputMapFunction(String outputTopic, int queryId) {
+    OutputMapFunction(String outputTopic, int queryId, String logicalOpId) {
       this.outputTopic = outputTopic;
       this.queryId = queryId;
+      this.logicalOpId = logicalOpId;
     }
 
     @Override
@@ -79,15 +91,36 @@ class ModifyTranslator {
       TranslatorContext translatorContext =
           ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.samzaMsgConverter = translatorContext.getMsgConverter(outputTopic);
+      ContainerContext containerContext = context.getContainerContext();
+      metricsRegistry = containerContext.getContainerMetricsRegistry();
+      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
+      inputEvents = metricsRegistry.newCounter(logicalOpId, TranslatorConstants.INPUT_EVENTS_NAME);
+      inputEvents.clear();
+
     }
 
     @Override
     public KV<Object, Object> apply(SamzaSqlRelMessage message) {
-      return this.samzaMsgConverter.convertToSamzaMessage(message);
+      Instant startProcessing = Instant.now();
+      KV<Object, Object> retKV = this.samzaMsgConverter.convertToSamzaMessage(message);
+      updateMetrics(startProcessing, Instant.now());
+      return retKV;
+
     }
+
+    /**
+     * Updates the MetricsRegistery of this operator
+     * @param startProcessing = begin processing of the message
+     * @param endProcessing = end of processing
+     */
+    private void updateMetrics(Instant startProcessing, Instant endProcessing) {
+      inputEvents.inc();
+      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
+    }
+
   }
 
-  void translate(final TableModify tableModify, final TranslatorContext context, Map<String, DelegatingSystemDescriptor> systemDescriptors,
+  void translate(String logicalOpId, final TableModify tableModify, final TranslatorContext context, Map<String, DelegatingSystemDescriptor> systemDescriptors,
       Map<String, OutputStream> outputMsgStreams) {
 
     StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
@@ -109,7 +142,7 @@ class ModifyTranslator {
 
     MessageStreamImpl<SamzaSqlRelMessage> stream =
         (MessageStreamImpl<SamzaSqlRelMessage>) context.getMessageStream(tableModify.getInput().getId());
-    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(targetName, queryId));
+    MessageStream<KV<Object, Object>> outputStream = stream.map(new OutputMapFunction(targetName, queryId, logicalOpId));
 
     Optional<TableDescriptor> tableDescriptor = sinkConfig.getTableDescriptor();
     if (!tableDescriptor.isPresent()) {
