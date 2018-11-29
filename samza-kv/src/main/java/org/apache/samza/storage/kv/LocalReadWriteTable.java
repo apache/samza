@@ -80,7 +80,10 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
         }
       });
 
-    instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(toPut));
+    if (!toPut.isEmpty()) {
+      instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(toPut));
+    }
+
     if (!toDelete.isEmpty()) {
       deleteAll(toDelete);
     }

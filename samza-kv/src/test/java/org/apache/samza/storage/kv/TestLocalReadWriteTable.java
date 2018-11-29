@@ -217,7 +217,7 @@ public class TestLocalReadWriteTable {
     verify(metricsRegistry, times(0)).newGauge(anyString(), any());
     Assert.assertEquals(1, numFlushes.getCount());
     Assert.assertEquals(2, numPuts.getCount());
-    Assert.assertEquals(2, numPutAlls.getCount());
+    Assert.assertEquals(0, numPutAlls.getCount());
     Assert.assertEquals(2, numDeletes.getCount());
     Assert.assertEquals(2, numDeleteAlls.getCount());
     Assert.assertEquals(0, flushNs.getSnapshot().getAverage(), 0.001);
