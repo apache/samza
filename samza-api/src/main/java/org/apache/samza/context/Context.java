@@ -76,4 +76,13 @@ public interface Context {
    * @throws IllegalStateException if no {@link ApplicationTaskContextFactory} was provided for the application
    */
   ApplicationTaskContext getApplicationTaskContext();
+
+  /**
+   * Gets the {@link ExternalContext} that was created outside of the application.
+   * <p>
+   * Use {@link org.apache.samza.runtime.ApplicationRunner#run(ExternalContext)} to provide this context.
+   *
+   * @return the external context provided for the application
+   */
+  ExternalContext getExternalContext();
 }

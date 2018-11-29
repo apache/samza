@@ -56,7 +56,8 @@ object StreamProcessorTestUtils {
       jobContext = Mockito.mock(classOf[JobContext]),
       containerContext = containerContext,
       applicationContainerContextOption = None,
-      applicationTaskContextFactoryOption = None)
+      applicationTaskContextFactoryOption = None,
+      externalContextOption = None)
 
     val container = new SamzaContainer(
       config = config,
@@ -67,7 +68,8 @@ object StreamProcessorTestUtils {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
       containerContext = containerContext,
-      applicationContainerContextOption = None)
+      applicationContainerContextOption = None,
+      externalContextOption = None)
     container
   }
 }

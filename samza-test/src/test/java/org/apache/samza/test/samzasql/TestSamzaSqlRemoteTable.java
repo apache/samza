@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.e2e;
+package org.apache.samza.test.samzasql;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
@@ -36,7 +35,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 
-public class TestSamzaSqlRemoteTable {
+public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   @Test
   public void testSinkEndToEndWithKey() {
     int numMessages = 20;
@@ -48,8 +47,7 @@ public class TestSamzaSqlRemoteTable {
     String sql = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
@@ -67,8 +65,7 @@ public class TestSamzaSqlRemoteTable {
     String sql = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     Assert.assertEquals(numMessages - ((numMessages - 1) / TestAvroSystemFactory.NULL_RECORD_FREQUENCY + 1),
         RemoteStoreIOResolverTestFactory.records.size());
@@ -84,8 +81,7 @@ public class TestSamzaSqlRemoteTable {
     String sql = "Insert into testRemoteStore.testTable.`$table`(id,name) select id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
@@ -109,8 +105,7 @@ public class TestSamzaSqlRemoteTable {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -142,8 +137,7 @@ public class TestSamzaSqlRemoteTable {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -175,8 +169,7 @@ public class TestSamzaSqlRemoteTable {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -196,8 +189,7 @@ public class TestSamzaSqlRemoteTable {
     String sql = "Insert into testRemoteStore.Profile.`$table` select * from testavro.PROFILE";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }

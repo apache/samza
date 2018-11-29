@@ -28,6 +28,13 @@ import java.util.Set;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.context.JobContext;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.translator.QueryTranslator;
@@ -82,11 +89,14 @@ public class SamzaSqlApplication implements StreamApplication {
        * container, so it does not need to be serialized. Therefore, the translatorContext is recreated in each container
        * and does not need to be serialized.
        */
-      appDescriptor.withApplicationTaskContextFactory((jobContext,
-          containerContext,
-          taskContext,
-          applicationContainerContext) ->
-          new SamzaSqlApplicationContext(translatorContextMap));
+      appDescriptor.withApplicationTaskContextFactory(new ApplicationTaskContextFactory<SamzaSqlApplicationContext>() {
+        @Override
+        public SamzaSqlApplicationContext create(ExternalContext externalContext, JobContext jobContext,
+            ContainerContext containerContext, TaskContext taskContext,
+            ApplicationContainerContext applicationContainerContext) {
+          return new SamzaSqlApplicationContext(translatorContextMap);
+        }
+      });
     } catch (RuntimeException e) {
       LOG.error("SamzaSqlApplication threw exception.", e);
       throw e;

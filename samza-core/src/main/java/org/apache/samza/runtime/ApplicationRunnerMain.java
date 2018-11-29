@@ -23,9 +23,11 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
+import java.util.Optional;
 
 /**
  * This class contains the main() method used by run-app.sh.
@@ -59,7 +61,7 @@ public class ApplicationRunnerMain {
 
     switch (op) {
       case RUN:
-        appRunner.run();
+        appRunner.run(buildExternalContext(config).orElse(null));
         break;
       case KILL:
         appRunner.kill();
@@ -70,5 +72,14 @@ public class ApplicationRunnerMain {
       default:
         throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
+  }
+
+  private static Optional<ExternalContext> buildExternalContext(Config config) {
+    /*
+     * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
+     * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components
+     * like the application descriptor may not be available.
+     */
+    return Optional.empty();
   }
 }

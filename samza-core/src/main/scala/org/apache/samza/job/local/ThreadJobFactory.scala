@@ -25,7 +25,7 @@ import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
-import org.apache.samza.context.JobContextImpl
+import org.apache.samza.context.{ExternalContext, JobContextImpl}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
@@ -121,7 +121,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         taskFactory,
         JobContextImpl.fromConfigWithDefaults(config),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
-        Option(appDesc.getApplicationTaskContextFactory.orElse(null))
+        Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
+        buildExternalContext(config)
       )
       container.setContainerListener(containerListener)
 
@@ -134,5 +135,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         jmxServer.stop
       }
     }
+  }
+
+  private def buildExternalContext(config: Config): Option[ExternalContext] = {
+    /*
+     * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
+     * a non-empty ExternalContext to SamzaContainer. Only config should be used to build the external context. In the
+     * future, components like the application descriptor may not be available.
+     */
+    None
   }
 }

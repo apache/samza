@@ -260,7 +260,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
         previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
-        appRunner2.run();
+        executeRun(appRunner2, localTestConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
           secondProcessorRegistered.await();
@@ -276,7 +276,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
         TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic, null,
         callback, kafkaEventsConsumedLatch, localTestConfig1), localTestConfig1);
-    appRunner1.run();
+    executeRun(appRunner1, localTestConfig1);
 
     kafkaEventsConsumedLatch.await();
 
@@ -342,7 +342,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
         previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
-        appRunner2.run();
+        executeRun(appRunner2, testAppConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
           secondProcessorRegistered.await();
@@ -360,7 +360,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
         TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null, streamApplicationCallback,
         kafkaEventsConsumedLatch, testAppConfig1), testAppConfig1);
-    appRunner1.run();
+    executeRun(appRunner1, testAppConfig1);
 
     kafkaEventsConsumedLatch.await();
 
@@ -421,8 +421,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
         applicationConfig3), applicationConfig3);
 
-    appRunner1.run();
-    appRunner2.run();
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
 
     // Wait until all processors have processed a message.
     processedMessagesLatch1.await();
@@ -448,7 +448,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     kafkaEventsConsumedLatch.await();
     publishKafkaEvents(inputKafkaTopic, 0, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    appRunner3.run();
+    executeRun(appRunner3, applicationConfig3);
     processedMessagesLatch3.await();
 
     // Verifications after killing the leader.
@@ -486,8 +486,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         applicationConfig2), applicationConfig2);
 
     // Run stream applications.
-    appRunner1.run();
-    appRunner2.run();
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
 
     // Wait for message processing to run in both the processors.
     processedMessagesLatch1.await();
@@ -502,7 +502,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Fail when the duplicate processor joins.
     expectedException.expect(SamzaException.class);
     try {
-      appRunner3.run();
+      executeRun(appRunner3, applicationConfig2);
     } finally {
       appRunner1.kill();
       appRunner2.kill();
@@ -542,8 +542,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         applicationConfig2), applicationConfig2);
 
     // Run stream application.
-    appRunner1.run();
-    appRunner2.run();
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
 
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
@@ -568,7 +568,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
         TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
-    appRunner3.run();
+    executeRun(appRunner3, applicationConfig1);
 
     processedMessagesLatch1.await();
 
@@ -612,8 +612,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
 
-    appRunner1.run();
-    appRunner2.run();
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
 
     processedMessagesLatch1.await();
     processedMessagesLatch2.await();
@@ -633,7 +633,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
         TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
         applicationConfig3), applicationConfig3);
-    appRunner3.run();
+    executeRun(appRunner3, applicationConfig3);
 
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
@@ -671,7 +671,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
             TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
             applicationConfig1), applicationConfig1);
 
-    appRunner1.run();
+    executeRun(appRunner1, applicationConfig1);
     processedMessagesLatch1.await();
 
     String jobModelVersion = zkUtils.getJobModelVersion();

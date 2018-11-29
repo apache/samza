@@ -19,6 +19,7 @@
 package org.apache.samza.context;
 
 import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 
@@ -35,14 +36,42 @@ import org.apache.samza.application.descriptors.ApplicationDescriptor;
  *
  * @param <T> concrete type of {@link ApplicationContainerContext} created by this factory
  */
+@InterfaceStability.Evolving
 public interface ApplicationContainerContextFactory<T extends ApplicationContainerContext> extends Serializable {
-
   /**
    * Creates an instance of the application-defined {@link ApplicationContainerContext}.
+   * <p>
+   * Applications should implement this to provide a context for container initialization.
    *
+   * @param externalContext external context provided for the application; null if it was not provided
    * @param jobContext framework-provided job context
    * @param containerContext framework-provided container context
    * @return a new instance of the application-defined {@link ApplicationContainerContext}
    */
-  T create(JobContext jobContext, ContainerContext containerContext);
+  default T create(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext) {
+    return create(jobContext, containerContext);
+  }
+
+  /**
+   * New implementations should not implement this directly. Implement
+   * {@link #create(ExternalContext, JobContext, ContainerContext)} instead.
+   * <p>
+   * This is the same as {@link #create(ExternalContext, JobContext, ContainerContext)}, except it does not provide
+   * access to external context.
+   * <p>
+   * This is being left here for backwards compatibility.
+   *
+   * @param jobContext framework-provided job context
+   * @param containerContext framework-provided container context
+   * @return a new instance of the application-defined {@link ApplicationContainerContext}
+   *
+   * Deprecated: Applications should implement {@link #create(ExternalContext, JobContext, ContainerContext)} directly.
+   * This is being left here for backwards compatibility.
+   */
+  @Deprecated
+  default T create(JobContext jobContext, ContainerContext containerContext) {
+    // adding this here so that new apps do not need to implement this
+    throw new UnsupportedOperationException("Please implement #create(ExternalContext, JobContext, ContainerContext) "
+        + "directly, or at least override this version of create.");
+  }
 }
