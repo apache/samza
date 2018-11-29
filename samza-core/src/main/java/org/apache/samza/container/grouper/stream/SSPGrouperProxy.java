@@ -18,6 +18,10 @@
  */
 package org.apache.samza.container.grouper.stream;
 
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -29,7 +33,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.*;
 
 /**
  * Provides a stream expansion aware task to partition assignments on top of a custom implementation
@@ -87,8 +90,8 @@ public class SSPGrouperProxy {
           Integer previousStreamPartitionCount = previousStreamToPartitionCount.getOrDefault(systemStream, 0);
           Integer currentStreamPartitionCount = currentStreamToPartitionCount.getOrDefault(systemStream, 0);
 
-          if (previousStreamPartitionCount > 0 && currentStreamPartitionCount % previousStreamPartitionCount == 0) {
-            LOGGER.info("SystemStream: {} is expanded from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
+          if (previousStreamPartitionCount > 0 && !currentStreamPartitionCount.equals(previousStreamPartitionCount)) {
+            LOGGER.info("Partition count of system stream: {} had changed from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
 
             SystemStreamPartition previousSystemStreamPartition = systemStreamPartitionMapper.getSSPAfterPartitionChange(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
             TaskName previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
@@ -98,7 +101,7 @@ public class SSPGrouperProxy {
             taskToPartitionGroup.get(currentlyAssignedTask).removeSSP(currentSystemStreamPartition);
             taskToPartitionGroup.get(previouslyAssignedTask).addSSP(currentSystemStreamPartition);
           } else {
-            LOGGER.warn("SystemStream: {} is disproportionately expanded from: {} to: {} partitions. Skipping partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
+            LOGGER.debug("No partition change in SystemStream: {}. Skipping partition reassignment.", systemStream);
           }
         }
       }
