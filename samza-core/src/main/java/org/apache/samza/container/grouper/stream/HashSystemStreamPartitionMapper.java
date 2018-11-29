@@ -29,7 +29,7 @@ import org.apache.samza.system.SystemStreamPartition;
 public class HashSystemStreamPartitionMapper implements SystemStreamPartitionMapper {
 
   @Override
-  public SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int afterPartitionCount) {
+  public SystemStreamPartition getPreviousSSP(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int afterPartitionCount) {
     Preconditions.checkNotNull(currentSystemStreamPartition);
     Preconditions.checkArgument(afterPartitionCount % previousPartitionCount == 0,
                                 String.format("New partition count: %d should be a multiple of previous partition count: %d.", afterPartitionCount, previousPartitionCount));

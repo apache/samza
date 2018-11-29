@@ -93,7 +93,7 @@ public class SSPGrouperProxy {
           if (previousStreamPartitionCount > 0 && !currentStreamPartitionCount.equals(previousStreamPartitionCount)) {
             LOGGER.info("Partition count of system stream: {} had changed from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
 
-            SystemStreamPartition previousSystemStreamPartition = systemStreamPartitionMapper.getSSPAfterPartitionChange(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
+            SystemStreamPartition previousSystemStreamPartition = systemStreamPartitionMapper.getPreviousSSP(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
             TaskName previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
 
             LOGGER.info("Moving systemStreamPartition: {} from task: {} to task: {}.", currentSystemStreamPartition, currentlyAssignedTask, previouslyAssignedTask);

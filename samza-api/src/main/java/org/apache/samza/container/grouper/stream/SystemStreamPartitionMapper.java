@@ -36,6 +36,6 @@ public interface SystemStreamPartitionMapper {
    * @param afterPartitionCount the partition count of the stream after the stream partition count change.
    * @return the mapped {@link SystemStreamPartition}.
    */
-  SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition,
-                                                   int previousPartitionCount, int afterPartitionCount);
+  SystemStreamPartition getPreviousSSP(SystemStreamPartition currentSystemStreamPartition,
+                                       int previousPartitionCount, int afterPartitionCount);
 }
