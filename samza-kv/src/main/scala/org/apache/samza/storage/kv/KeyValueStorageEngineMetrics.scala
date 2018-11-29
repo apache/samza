@@ -19,13 +19,15 @@
 
 package org.apache.samza.storage.kv
 
+import org.apache.samza.config.{MapConfig, MetricsConfig}
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 
 class KeyValueStorageEngineMetrics(
   val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val registry: MetricsRegistry = new MetricsRegistryMap,
+  val config : MapConfig = new MapConfig) extends MetricsHelper {
 
   val gets = newCounter("gets")
   val getAlls = newCounter("get-alls")
@@ -38,16 +40,18 @@ class KeyValueStorageEngineMetrics(
   val ranges = newCounter("ranges")
   val snapshots = newCounter("snapshots")
 
-  val getNs = newTimer("get-ns")
-  val getAllNs = newTimer("get-all-ns")
-  val putNs = newTimer("put-ns")
-  val putAllNs = newTimer("put-all-ns")
-  val deleteNs = newTimer("delete-ns")
-  val deleteAllNs = newTimer("delete-all-ns")
+  val timerEnabled = new MetricsConfig(config).getMetricsTimerEnabled
+
+  val getNs = if (timerEnabled) newTimer("get-ns") else null
+  val getAllNs = if (timerEnabled) newTimer("get-all-ns") else null
+  val putNs = if (timerEnabled) newTimer("put-ns") else null
+  val putAllNs = if (timerEnabled) newTimer("put-all-ns") else null
+  val deleteNs = if (timerEnabled) newTimer("delete-ns") else null
+  val deleteAllNs = if (timerEnabled) newTimer("delete-all-ns") else null
   val flushNs = newTimer("flush-ns")
-  val allNs = newTimer("all-ns")
+  val allNs = if (timerEnabled) newTimer("all-ns") else null
   val rangeNs = newTimer("range-ns")
-  val snapshotNs = newTimer("snapshot-ns")
+  val snapshotNs = if (timerEnabled) newTimer("snapshot-ns") else null
 
   val restoredMessages = newCounter("messages-restored") //Deprecated
   val restoredMessagesGauge = newGauge("restored-messages", 0)

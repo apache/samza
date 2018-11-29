@@ -23,12 +23,16 @@ import java.io.File
 import java.util.Arrays
 
 import org.apache.samza.Partition
-import org.apache.samza.container.TaskName
+import org.apache.samza.config.{MapConfig, MetricsConfig}
+import org.apache.samza.metrics.{Counter, Timer, MetricsRegistry}
 import org.apache.samza.storage.StoreProperties
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.mockito.Mockito._
+import org.mockito.Matchers._
+
+import scala.collection.JavaConversions._
 
 class TestKeyValueStorageEngine {
   var engine: KeyValueStorageEngine[String, String] = null
@@ -147,6 +151,24 @@ class TestKeyValueStorageEngine {
 
     assertEquals(3, metrics.restoredMessagesGauge.getValue)
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
+  }
+
+  @Test
+  def testTimerDisabled(): Unit = {
+    val wrapperKv = new MockKeyValueStore()
+    val rawKv = mock(classOf[KeyValueStore[Array[Byte], Array[Byte]]])
+    val storeName = "test-storeName"
+    val storeDir = mock(classOf[File])
+    val properties = mock(classOf[StoreProperties])
+    val metricsRegistry = mock(classOf[MetricsRegistry])
+    when(metricsRegistry.newCounter(any(), anyString())).thenReturn(mock(classOf[Counter]))
+    when(metricsRegistry.newTimer(any(), anyString())).thenReturn(mock(classOf[Timer]))
+    val config : MapConfig = new MapConfig(mapAsJavaMap(List(MetricsConfig.METRICS_TIMER_ENABLED -> "false").toMap))
+    metrics = new KeyValueStorageEngineMetrics(storeName, metricsRegistry, config)
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    verify(metricsRegistry, atLeastOnce()).newCounter(any(), anyString())
+    // Only 2 timer created: range and flush
+    verify(metricsRegistry, times(2)).newTimer(any(), anyString())
   }
 
   def getNextTimestamp(): Long = {

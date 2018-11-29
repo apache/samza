@@ -143,7 +143,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
-    val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
+    val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry, jobContext.getConfig)
     val clock = if (jobContext.getConfig.getMetricsTimerEnabled) {
       new HighResolutionClock {
         override def nanoTime(): Long = System.nanoTime()

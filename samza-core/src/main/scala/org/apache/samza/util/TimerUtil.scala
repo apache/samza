@@ -33,10 +33,14 @@ trait TimerUtil {
    * It updates the Timer instance with the duration of running code block.
    */
   def updateTimer[T](timer: Timer)(runCodeBlock: => T): T = {
-    val startingTime = clock()
-    val returnValue = runCodeBlock
-    timer.update(clock() - startingTime)
-    returnValue
+    if (timer != null) {
+      val startingTime = clock()
+      val returnValue = runCodeBlock
+      timer.update(clock() - startingTime)
+      returnValue
+    } else {
+      runCodeBlock
+    }
   }
 
   /**
@@ -50,7 +54,9 @@ trait TimerUtil {
     val startingTime = clock()
     runCodeBlock(startingTime)
     val duration = clock() - startingTime
-    timer.update(duration)
+    if (timer != null) {
+      timer.update(duration)
+    }
     duration
   }
 }
