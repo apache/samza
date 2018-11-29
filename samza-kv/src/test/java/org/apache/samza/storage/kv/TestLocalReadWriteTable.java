@@ -18,9 +18,11 @@
  */
 package org.apache.samza.storage.kv;
 
-import java.util.Collections;
+import java.util.Arrays;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
@@ -99,15 +101,17 @@ public class TestLocalReadWriteTable {
     ReadWriteTable table = createTable(false);
     table.put("k1", "v1");
     table.putAsync("k2", "v2").get();
+    table.putAsync("k3", null).get();
     verify(kvStore, times(2)).put(any(), any());
+    verify(kvStore, times(1)).delete(any());
     Assert.assertEquals(2, numPuts.getCount());
+    Assert.assertEquals(1, numDeletes.getCount());
     Assert.assertTrue(putNs.getSnapshot().getAverage() > 0);
+    Assert.assertTrue(deleteNs.getSnapshot().getAverage() > 0);
     Assert.assertEquals(0, putAllNs.getSnapshot().getAverage(), 0.001);
-    Assert.assertEquals(0, deleteNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, deleteAllNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, flushNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, numPutAlls.getCount());
-    Assert.assertEquals(0, numDeletes.getCount());
     Assert.assertEquals(0, numDeleteAlls.getCount());
     Assert.assertEquals(0, numFlushes.getCount());
     Assert.assertEquals(0, putCallbackNs.getSnapshot().getAverage(), 0.001);
@@ -117,18 +121,20 @@ public class TestLocalReadWriteTable {
   @Test
   public void testPutAll() throws Exception {
     ReadWriteTable table = createTable(false);
-    table.putAll(Collections.emptyList());
-    table.putAllAsync(Collections.emptyList()).get();
+    List<Entry> entries = Arrays.asList(new Entry("k1", "v1"), new Entry("k2", null));
+    table.putAll(entries);
+    table.putAllAsync(entries).get();
     verify(kvStore, times(2)).putAll(any());
+    verify(kvStore, times(2)).deleteAll(any());
     Assert.assertEquals(2, numPutAlls.getCount());
+    Assert.assertEquals(2, numDeleteAlls.getCount());
     Assert.assertTrue(putAllNs.getSnapshot().getAverage() > 0);
+    Assert.assertTrue(deleteAllNs.getSnapshot().getAverage() > 0);
     Assert.assertEquals(0, putNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, deleteNs.getSnapshot().getAverage(), 0.001);
-    Assert.assertEquals(0, deleteAllNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, flushNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, numPuts.getCount());
     Assert.assertEquals(0, numDeletes.getCount());
-    Assert.assertEquals(0, numDeleteAlls.getCount());
     Assert.assertEquals(0, numFlushes.getCount());
     Assert.assertEquals(0, putCallbackNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, deleteCallbackNs.getSnapshot().getAverage(), 0.001);
@@ -211,7 +217,7 @@ public class TestLocalReadWriteTable {
     verify(metricsRegistry, times(0)).newGauge(anyString(), any());
     Assert.assertEquals(1, numFlushes.getCount());
     Assert.assertEquals(2, numPuts.getCount());
-    Assert.assertEquals(2, numPutAlls.getCount());
+    Assert.assertEquals(0, numPutAlls.getCount());
     Assert.assertEquals(2, numDeletes.getCount());
     Assert.assertEquals(2, numDeleteAlls.getCount());
     Assert.assertEquals(0, flushNs.getSnapshot().getAverage(), 0.001);

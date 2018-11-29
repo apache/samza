@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage.kv;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.samza.metrics.Counter;
@@ -69,7 +70,23 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void putAll(List<Entry<K, V>> entries) {
-    instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(entries));
+    List<Entry<K, V>> toPut = new LinkedList<>();
+    List<K> toDelete = new LinkedList<>();
+    entries.forEach(e -> {
+        if (e.getValue() != null) {
+          toPut.add(e);
+        } else {
+          toDelete.add(e.getKey());
+        }
+      });
+
+    if (!toPut.isEmpty()) {
+      instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(toPut));
+    }
+
+    if (!toDelete.isEmpty()) {
+      deleteAll(toDelete);
+    }
   }
 
   @Override
