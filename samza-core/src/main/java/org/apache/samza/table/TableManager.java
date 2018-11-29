@@ -23,10 +23,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,12 +33,12 @@ import java.util.Map;
 
 /**
  * A {@link TableManager} manages tables within a Samza task. For each table, it maintains
- * the {@link TableSpec}, the {@link TableProvider} and the {@link Table} instance.
+ * the {@link TableProvider} and the {@link Table} instance.
  * It is used at execution for {@link org.apache.samza.container.TaskInstance} to retrieve
  * table instances for read/write operations.
  *
- * A {@link TableManager} is constructed from job configuration, the {@link TableSpec}
- * and {@link TableProvider} are constructed by processing the job configuration
+ * A {@link TableManager} is constructed from job configuration, the
+ * {@link TableProvider} are constructed by processing the job configuration
  * during initialization. The {@link Table} is constructed when {@link #getTable(String)}
  * is called and cached.
  *
@@ -56,8 +52,7 @@ import java.util.Map;
  */
 public class TableManager {
 
-  static public class TableCtx {
-    private TableSpec tableSpec;
+  static class TableCtx {
     private TableProvider tableProvider;
     private Table table;
   }
@@ -72,27 +67,13 @@ public class TableManager {
   /**
    * Construct a table manager instance
    * @param config job configuration
-   * @param serdes Serde instances for tables
    */
-  public TableManager(Config config, Map<String, Serde<Object>> serdes) {
+  public TableManager(Config config) {
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
-
-        // Construct the table provider
-        String tableProviderFactory = config.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableId));
-
-        // Construct the KVSerde
-        JavaTableConfig tableConfig = new JavaTableConfig(config);
-        KVSerde serde = KVSerde.of(
-            serdes.get(tableConfig.getKeySerde(tableId)),
-            serdes.get(tableConfig.getValueSerde(tableId)));
-
-        TableSpec tableSpec = new TableSpec(tableId, serde, tableProviderFactory,
-            config.subset(String.format(JavaTableConfig.TABLE_ID_PREFIX, tableId) + "."));
-
-        addTable(tableSpec);
-
-        logger.info("Added table " + tableSpec.getId());
+        addTable(tableId, config);
+        logger.debug("Added table " + tableId);
       });
+    logger.info(String.format("Added %d tables", tableContexts.size()));
   }
 
   /**
@@ -104,20 +85,17 @@ public class TableManager {
     initialized = true;
   }
 
-  /**
-   * Add a table to the table manager
-   * @param tableSpec the table spec
-   */
-  private void addTable(TableSpec tableSpec) {
-    if (tableContexts.containsKey(tableSpec.getId())) {
-      throw new SamzaException("Table " + tableSpec.getId() + " already exists");
+  private void addTable(String tableId, Config config) {
+    if (tableContexts.containsKey(tableId)) {
+      throw new SamzaException("Table " + tableId + " already exists");
     }
-    TableCtx ctx = new TableCtx();
+    JavaTableConfig tableConfig = new JavaTableConfig(config);
+    String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
-        Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-    ctx.tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-    ctx.tableSpec = tableSpec;
-    tableContexts.put(tableSpec.getId(), ctx);
+        Util.getObj(providerFactoryClassName, TableProviderFactory.class);
+    TableCtx ctx = new TableCtx();
+    ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
+    tableContexts.put(tableId, ctx);
   }
 
   /**

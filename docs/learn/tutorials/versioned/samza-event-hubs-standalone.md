@@ -18,7 +18,7 @@ title: Samza Event Hubs Connectors Example
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-The [hello-samza](https://github.com/apache/samza-hello-samza) project has an example that uses the Samza high-level API to consume and produce from [Event Hubs](../../documentation/versioned/connectors/eventhubs.html) using the Zookeeper deployment model.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project has an example that uses the Samza High Level Streams API to consume and produce from [Event Hubs](../../documentation/versioned/connectors/eventhubs.html) using the Zookeeper deployment model.
 
 #### Get the Code
 

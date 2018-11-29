@@ -20,9 +20,7 @@ package org.apache.samza.operators.spec;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.data.TestMessageEnvelope;
@@ -36,19 +34,13 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.table.TableSpec;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 /**
@@ -305,32 +297,28 @@ public class TestOperatorSpec {
   public void testStreamTableJoinOperatorSpec() {
     StreamTableJoinFunction<String, Object, Object, TestOutputMessageEnvelope> joinFn = new TestStreamTableJoinFunction();
 
-    TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
-        new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
+    String tableId = "t1";
 
     StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOperatorSpec =
-        new StreamTableJoinOperatorSpec<>(tableSpec, joinFn, "join-3");
+        new StreamTableJoinOperatorSpec<>(tableId, joinFn, "join-3");
 
     StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpSpecCopy =
         (StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(joinOperatorSpec);
     assertNotEquals(joinOpSpecCopy, joinOperatorSpec);
     assertEquals(joinOpSpecCopy.getOpId(), joinOperatorSpec.getOpId());
-    assertTrue(joinOpSpecCopy.getTableSpec() != joinOperatorSpec.getTableSpec());
-    assertEquals(joinOpSpecCopy.getTableSpec().getId(), joinOperatorSpec.getTableSpec().getId());
-    assertEquals(joinOpSpecCopy.getTableSpec().getTableProviderFactoryClassName(), joinOperatorSpec.getTableSpec().getTableProviderFactoryClassName());
+    assertEquals(joinOpSpecCopy.getTableId(), joinOperatorSpec.getTableId());
   }
 
   @Test
   public void testSendToTableOperatorSpec() {
-    TableSpec tableSpec = new TableSpec("table-0", KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>()), "my.table.provider.class",
-        new MapConfig(new HashMap<String, String>() { { this.put("config1", "value1"); this.put("config2", "value2"); } }));
+    String tableId = "t1";
     SendToTableOperatorSpec<String, Integer> sendOpSpec =
-        new SendToTableOperatorSpec<>(tableSpec, "output-1");
+        new SendToTableOperatorSpec<>(tableId, "output-1");
     SendToTableOperatorSpec<String, Integer> sendToCopy = (SendToTableOperatorSpec<String, Integer>) OperatorSpecTestUtils
         .copyOpSpec(sendOpSpec);
     assertNotEquals(sendToCopy, sendOpSpec);
     assertEquals(sendToCopy.getOpId(), sendOpSpec.getOpId());
-    assertTrue(sendToCopy.getTableSpec() != sendOpSpec.getTableSpec() && sendToCopy.getTableSpec().equals(sendOpSpec.getTableSpec()));
+    assertTrue(sendToCopy.getTableId().equals(sendOpSpec.getTableId()));
   }
 
   @Test

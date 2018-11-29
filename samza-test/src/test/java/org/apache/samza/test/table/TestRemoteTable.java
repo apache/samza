@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import com.google.common.cache.CacheBuilder;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.time.Duration;
@@ -33,12 +34,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContext;
+import org.apache.samza.context.MockContext;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -49,17 +51,18 @@ import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.caching.descriptors.CachingTableDescriptor;
-import org.apache.samza.table.caching.guava.descriptors.GuavaCacheTableDescriptor;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
+import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.table.remote.RemoteReadableTable;
-import org.apache.samza.table.remote.descriptors.RemoteTableDescriptor;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -68,11 +71,11 @@ import static org.apache.samza.test.table.TestTableData.PageView;
 import static org.apache.samza.test.table.TestTableData.Profile;
 import static org.apache.samza.test.table.TestTableData.generatePageViews;
 import static org.apache.samza.test.table.TestTableData.generateProfiles;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 
@@ -248,10 +251,9 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(new Counter("")).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(new Timer("")).when(metricsRegistry).newTimer(anyString(), anyString());
-    Context context = mock(Context.class);
-    TaskContext taskContext = mock(TaskContext.class);
-    when(context.getTaskContext()).thenReturn(taskContext);
-    doReturn(metricsRegistry).when(taskContext).getTaskMetricsRegistry();
+    Context context = new MockContext();
+    doReturn(new MapConfig()).when(context.getJobContext()).getConfig();
+    doReturn(metricsRegistry).when(context.getContainerContext()).getContainerMetricsRegistry();
     return context;
   }
 

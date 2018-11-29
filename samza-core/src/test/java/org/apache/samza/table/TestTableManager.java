@@ -24,8 +24,6 @@ import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.context.MockContext;
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
@@ -55,7 +53,7 @@ public class TestTableManager {
     static TableProvider tableProvider;
 
     @Override
-    public TableProvider getTableProvider(TableSpec tableSpec) {
+    public TableProvider getTableProvider(String tableId) {
       table = mock(ReadableTable.class);
       tableProvider = mock(TableProvider.class);
       when(tableProvider.getTable()).thenReturn(table);
@@ -81,47 +79,16 @@ public class TestTableManager {
     doTestInit(map);
   }
 
-  @Test(expected = Exception.class)
-  public void testInitFailsWithoutKeySerde() {
-    Map<String, String> map = new HashMap<>();
-    map.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID), DummyTableProviderFactory.class.getName());
-    addValueSerde(map);
-    doTestInit(map);
-  }
-
-  @Test(expected = Exception.class)
-  public void testInitFailsWithoutValueSerde() {
-    Map<String, String> map = new HashMap<>();
-    map.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID), DummyTableProviderFactory.class.getName());
-    addValueSerde(map);
-    doTestInit(map);
-  }
-
   @Test(expected = IllegalStateException.class)
-  public void testInitFailsWithoutInitializingLocalTables() {
-    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()), new HashMap<>());
+  public void testInitFailsWithoutInitializingLocalStores() {
+    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()));
     tableManager.getTable("dummy");
   }
 
   private void doTestInit(Map<String, String> map) {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
     storageEngines.put(TABLE_ID, mock(StorageEngine.class));
-
-    Map<String, Serde<Object>> serdeMap = new HashMap<>();
-    SerializableSerde<Serde> serializableSerde = new SerializableSerde();
-    map.keySet().stream()
-        .filter(k -> k.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX()))
-        .forEach(k -> {
-            String serdeName = k
-                .replace(String.format(SerializerConfig.SERIALIZER_PREFIX(), ""), "")
-                .replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), "");
-            String serializedSerde = map.get(k);
-            byte[] bytes = Base64.getDecoder().decode(serializedSerde);
-            Serde serde = serializableSerde.fromBytes(bytes);
-            serdeMap.put(serdeName, serde);
-          });
-
-    TableManager tableManager = new TableManager(new MapConfig(map), serdeMap);
+    TableManager tableManager = new TableManager(new MapConfig(map));
     tableManager.init(new MockContext());
 
     for (int i = 0; i < 2; i++) {
@@ -133,13 +100,7 @@ public class TestTableManager {
 
     Map<String, TableManager.TableCtx> ctxMap = getFieldValue(tableManager, "tableContexts");
     TableManager.TableCtx ctx = ctxMap.get(TABLE_ID);
-
-    TableSpec tableSpec = getFieldValue(ctx, "tableSpec");
-    Assert.assertEquals(TABLE_ID, tableSpec.getId());
-    Assert.assertEquals(DummyTableProviderFactory.class.getName(), tableSpec.getTableProviderFactoryClassName());
-    Assert.assertEquals(IntegerSerde.class, tableSpec.getSerde().getKeySerde().getClass());
-    Assert.assertEquals(StringSerde.class, tableSpec.getSerde().getValueSerde().getClass());
-    Assert.assertEquals("xyz", tableSpec.getConfig().get("some.config"));
+    Assert.assertEquals(TABLE_ID, ctxMap.keySet().iterator().next());
 
     TableProvider tableProvider = getFieldValue(ctx, "tableProvider");
     Assert.assertNotNull(tableProvider);
@@ -149,14 +110,14 @@ public class TestTableManager {
     String serdeId = "key-serde";
     map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
         serializeSerde(new IntegerSerde()));
-    map.put(String.format(JavaTableConfig.TABLE_KEY_SERDE, TABLE_ID), serdeId);
+    map.put(String.format(JavaTableConfig.STORE_KEY_SERDE, TABLE_ID), serdeId);
   }
 
   private void addValueSerde(Map<String, String> map) {
     String serdeId = "value-serde";
     map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
             serializeSerde(new StringSerde("UTF-8")));
-    map.put(String.format(JavaTableConfig.TABLE_VALUE_SERDE, TABLE_ID), serdeId);
+    map.put(String.format(JavaTableConfig.STORE_MSG_SERDE, TABLE_ID), serdeId);
   }
 
   private String serializeSerde(Serde serde) {

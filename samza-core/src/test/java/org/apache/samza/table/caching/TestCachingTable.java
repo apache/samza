@@ -22,6 +22,9 @@ package org.apache.samza.table.caching;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
 import org.apache.samza.metrics.Counter;
@@ -33,12 +36,9 @@ import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.TableSpec;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
-import org.apache.samza.table.caching.descriptors.CachingTableDescriptor;
-import org.apache.samza.table.caching.descriptors.CachingTableProvider;
-import org.apache.samza.table.caching.guava.descriptors.GuavaCacheTableDescriptor;
-import org.apache.samza.table.caching.guava.descriptors.GuavaCacheTableProvider;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
+import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.remote.RemoteReadWriteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -60,15 +60,13 @@ import java.util.concurrent.Executors;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestCachingTable {
+
+  private MetricsRegistry metricsRegistry;
+
   @Test
   public void testSerializeSimple() {
     doTestSerialize(null);
@@ -76,10 +74,11 @@ public class TestCachingTable {
 
   @Test
   public void testSerializeWithCacheInstance() {
-    GuavaCacheTableDescriptor guavaTableDesc = new GuavaCacheTableDescriptor("guavaCacheId");
-    guavaTableDesc.withCache(CacheBuilder.newBuilder().build());
-    TableSpec spec = guavaTableDesc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(GuavaCacheTableProvider.GUAVA_CACHE));
+    String tableId = "guavaCacheId";
+    GuavaCacheTableDescriptor guavaTableDesc = new GuavaCacheTableDescriptor(tableId)
+        .withCache(CacheBuilder.newBuilder().build());
+    Map<String, String> tableConfig = guavaTableDesc.toConfig(new MapConfig());
+    assertExists(GuavaCacheTableDescriptor.GUAVA_CACHE, tableId, tableConfig);
     doTestSerialize(guavaTableDesc);
   }
 
@@ -87,29 +86,28 @@ public class TestCachingTable {
     CachingTableDescriptor desc;
     TableDescriptor table = createDummyTableDescriptor("2");
     if (cache == null) {
-      desc = new CachingTableDescriptor("1", table);
-      desc.withReadTtl(Duration.ofMinutes(3));
-      desc.withWriteTtl(Duration.ofMinutes(3));
-      desc.withCacheSize(1000);
+      desc = new CachingTableDescriptor("1", table)
+          .withReadTtl(Duration.ofMinutes(3))
+          .withWriteTtl(Duration.ofMinutes(4))
+          .withCacheSize(1000);
     } else {
       desc = new CachingTableDescriptor("1", table, cache);
     }
 
     desc.withWriteAround();
 
-    TableSpec spec = desc.getTableSpec();
-    Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.REAL_TABLE_ID));
+    Map<String, String> tableConfig = desc.toConfig(new MapConfig());
+
+    assertEquals("2", CachingTableDescriptor.REAL_TABLE_ID, "1", tableConfig);
 
     if (cache == null) {
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.READ_TTL_MS));
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.WRITE_TTL_MS));
+      assertEquals("180000", CachingTableDescriptor.READ_TTL_MS, "1", tableConfig);
+      assertEquals("240000", CachingTableDescriptor.WRITE_TTL_MS, "1", tableConfig);
     } else {
-      Assert.assertTrue(spec.getConfig().containsKey(CachingTableProvider.CACHE_TABLE_ID));
+      assertEquals(cache.getTableId(), CachingTableDescriptor.CACHE_TABLE_ID, "1", tableConfig);
     }
 
-    Assert.assertEquals("true", spec.getConfig().get(CachingTableProvider.WRITE_AROUND));
-
-    desc.validate();
+    assertEquals("true", CachingTableDescriptor.WRITE_AROUND, "1", tableConfig);
   }
 
   private static Pair<ReadWriteTable<String, String>, Map<String, String>> getMockCache() {
@@ -141,15 +139,23 @@ public class TestCachingTable {
   }
 
   private void initTables(ReadableTable ... tables) {
+    initTables(false, tables);
+  }
+
+  private void initTables(boolean isTimerMetricsDisabled, ReadableTable ... tables) {
+    Map<String, String> config = new HashMap<>();
+    if (isTimerMetricsDisabled) {
+      config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
+    }
     Context context = new MockContext();
-    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    doReturn(new MapConfig(config)).when(context.getJobContext()).getConfig();
+    metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(mock(Gauge.class)).when(metricsRegistry).newGauge(anyString(), any());
-    when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(metricsRegistry);
-    for (ReadableTable table : tables) {
-      table.init(context);
-    }
+    doReturn(metricsRegistry).when(context.getContainerContext()).getContainerMetricsRegistry();
+
+    Arrays.asList(tables).forEach(t -> t.init(context));
   }
 
   private void doTestCacheOps(boolean isWriteAround) {
@@ -159,7 +165,6 @@ public class TestCachingTable {
     if (isWriteAround) {
       desc.withWriteAround();
     }
-    CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableSpec());
 
     Context context = new MockContext();
     final ReadWriteTable cacheTable = getMockCache().getLeft();
@@ -186,8 +191,12 @@ public class TestCachingTable {
         return null;
       }).when(context.getTaskContext()).getTable(anyString());
 
-    when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
+    when(context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
+    Map<String, String> tableConfig = desc.toConfig(new MapConfig());
+    when(context.getJobContext().getConfig()).thenReturn(new MapConfig(tableConfig));
+
+    CachingTableProvider tableProvider = new CachingTableProvider(desc.getTableId());
     tableProvider.init(context);
 
     CachingTable cachingTable = (CachingTable) tableProvider.getTable();
@@ -283,6 +292,20 @@ public class TestCachingTable {
 
     initTables(cachingTable, guavaTable, remoteTable);
 
+    // 3 per readable table (9)
+    // 5 per read/write table (15)
+    verify(metricsRegistry, times(24)).newCounter(any(), anyString());
+
+    // 3 per readable table (9)
+    // 7 per read/write table (21)
+    // 1 per remote readable table (1)
+    // 1 per remote read/write table (1)
+    verify(metricsRegistry, times(32)).newTimer(any(), anyString());
+
+    // 1 per guava table (1)
+    // 3 per caching table (2)
+    verify(metricsRegistry, times(4)).newGauge(anyString(), any());
+
     // GET
     doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any());
     Assert.assertEquals(cachingTable.getAsync("foo").get(), "bar");
@@ -363,11 +386,63 @@ public class TestCachingTable {
     Assert.assertNull(guavaCache.getIfPresent("foo3"));
   }
 
+  @Test
+  public void testTimerDisabled() throws Exception {
+    String tableId = "testTimerDisabled";
+
+    Cache<String, String> guavaCache = CacheBuilder.newBuilder().initialCapacity(100).build();
+    final ReadWriteTable<String, String> guavaTable = new GuavaCacheTable<>(tableId, guavaCache);
+
+    TableRateLimiter<String, String> rateLimitHelper = mock(TableRateLimiter.class);
+
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    doReturn(CompletableFuture.completedFuture("")).when(readFn).getAsync(any());
+
+    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
+
+    final RemoteReadWriteTable<String, String> remoteTable = new RemoteReadWriteTable<>(
+        tableId, readFn, writeFn, rateLimitHelper, rateLimitHelper,
+        Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+
+    final CachingTable<String, String> cachingTable = new CachingTable<>(
+        tableId, remoteTable, guavaTable, false);
+
+    initTables(true, cachingTable, guavaTable, remoteTable);
+
+    cachingTable.get("");
+    cachingTable.getAsync("").get();
+    cachingTable.getAll(Collections.emptyList());
+    cachingTable.getAllAsync(Collections.emptyList());
+    cachingTable.flush();
+    cachingTable.put("", "");
+    cachingTable.putAsync("", "");
+    cachingTable.putAll(Collections.emptyList());
+    cachingTable.putAllAsync(Collections.emptyList());
+    cachingTable.delete("");
+    cachingTable.deleteAsync("");
+    cachingTable.deleteAll(Collections.emptyList());
+    cachingTable.deleteAllAsync(Collections.emptyList());
+
+    verify(metricsRegistry, atLeast(1)).newCounter(any(), anyString());
+    verify(metricsRegistry, atLeast(1)).newGauge(anyString(), any());
+    verify(metricsRegistry, times(0)).newTimer(any(), anyString());
+  }
+
   private TableDescriptor createDummyTableDescriptor(String tableId) {
     BaseTableDescriptor tableDescriptor = mock(BaseTableDescriptor.class);
     when(tableDescriptor.getTableId()).thenReturn(tableId);
-    when(tableDescriptor.getTableSpec()).thenReturn(
-        new TableSpec(tableId, null, null, new HashMap<>()));
     return tableDescriptor;
+  }
+
+  private void assertExists(String key, String tableId, Map<String, String> config) {
+    String realKey = JavaTableConfig.buildKey(tableId, key);
+    Assert.assertTrue(config.containsKey(realKey));
+  }
+
+  private void assertEquals(String expectedValue, String key, String tableId, Map<String, String> config) {
+    String realKey = JavaTableConfig.buildKey(tableId, key);
+    Assert.assertEquals(expectedValue, config.get(realKey));
   }
 }

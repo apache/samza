@@ -29,6 +29,7 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.SystemStream;
 
@@ -39,13 +40,13 @@ import org.apache.samza.system.SystemStream;
 public class SqlIOConfig {
 
   public static final String CFG_SAMZA_REL_CONVERTER = "samzaRelConverterName";
+  public static final String CFG_SAMZA_REL_TABLE_KEY_CONVERTER = "samzaRelTableKeyConverterName";
   public static final String CFG_REL_SCHEMA_PROVIDER = "relSchemaProviderName";
 
-  private final String systemName;
-
-  private final String streamName;
+  private final String streamId;
 
   private final String samzaRelConverterName;
+  private final String samzaRelTableKeyConverterName;
   private final SystemStream systemStream;
 
   private final String source;
@@ -68,16 +69,27 @@ public class SqlIOConfig {
   public SqlIOConfig(String systemName, String streamName, List<String> sourceParts,
       Config systemConfig, TableDescriptor tableDescriptor) {
     HashMap<String, String> streamConfigs = new HashMap<>(systemConfig);
-    this.systemName = systemName;
-    this.streamName = streamName;
     this.source = getSourceFromSourceParts(sourceParts);
     this.sourceParts = sourceParts;
     this.systemStream = new SystemStream(systemName, streamName);
     this.tableDescriptor = Optional.ofNullable(tableDescriptor);
 
+    // Remote table has no backing stream associated with it and hence streamId does not make sense. But let's keep it
+    // for uniformity. Remote table has table descriptor defined.
+    // Local table has both backing stream and a tableDescriptor defined.
+    this.streamId = String.format("%s-%s", systemName, streamName);
+
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
     Validate.notEmpty(samzaRelConverterName,
         String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+
+    if (isRemoteTable()) {
+      samzaRelTableKeyConverterName = streamConfigs.get(CFG_SAMZA_REL_TABLE_KEY_CONVERTER);
+      Validate.notEmpty(samzaRelTableKeyConverterName,
+          String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+    } else {
+      samzaRelTableKeyConverterName = "";
+    }
 
     relSchemaProviderName = streamConfigs.get(CFG_REL_SCHEMA_PROVIDER);
 
@@ -85,10 +97,14 @@ public class SqlIOConfig {
     streamConfigs.remove(CFG_SAMZA_REL_CONVERTER);
     streamConfigs.remove(CFG_REL_SCHEMA_PROVIDER);
 
-    // Currently, only local table is supported. And it is assumed that all tables are local tables.
-    if (tableDescriptor != null) {
-      streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamName), "true");
-      streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamName), "oldest");
+    if (!isRemoteTable()) {
+      // The below config is required for local table and streams but not for remote table.
+      streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
+      if (tableDescriptor != null) {
+        // For local table, set the bootstrap config and default offset to oldest
+        streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
+        streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
+      }
     }
 
     config = new MapConfig(streamConfigs);
@@ -103,15 +119,19 @@ public class SqlIOConfig {
   }
 
   public String getSystemName() {
-    return systemName;
+    return systemStream.getSystem();
   }
 
-  public String getStreamName() {
-    return streamName;
+  public String getStreamId() {
+    return streamId;
   }
 
   public String getSamzaRelConverterName() {
     return samzaRelConverterName;
+  }
+
+  public String getSamzaRelTableKeyConverterName() {
+    return samzaRelTableKeyConverterName;
   }
 
   public String getRelSchemaProviderName() {
@@ -132,5 +152,9 @@ public class SqlIOConfig {
 
   public Optional<TableDescriptor> getTableDescriptor() {
     return tableDescriptor;
+  }
+
+  public boolean isRemoteTable() {
+    return tableDescriptor.isPresent() && tableDescriptor.get() instanceof RemoteTableDescriptor;
   }
 }

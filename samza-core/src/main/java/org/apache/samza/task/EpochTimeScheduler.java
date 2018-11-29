@@ -48,7 +48,7 @@ public class EpochTimeScheduler {
   private final ScheduledExecutorService executor;
   private final Map<Object, ScheduledFuture> scheduledFutures = new ConcurrentHashMap<>();
   private final Map<TimerKey<?>, ScheduledCallback> readyTimers = new ConcurrentHashMap<>();
-  private TimerListener timerListener;
+  private volatile TimerListener timerListener;
 
   public static EpochTimeScheduler create(ScheduledExecutorService executor) {
     return new EpochTimeScheduler(executor);
@@ -83,6 +83,10 @@ public class EpochTimeScheduler {
 
   void registerListener(TimerListener listener) {
     timerListener = listener;
+
+    if (!readyTimers.isEmpty()) {
+      timerListener.onTimer();
+    }
   }
 
   public Map<TimerKey<?>, ScheduledCallback> removeReadyTimers() {

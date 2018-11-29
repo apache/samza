@@ -27,7 +27,10 @@ object MetricsConfig {
   // metrics config constants
   val METRICS_REPORTERS = "metrics.reporters"
   val METRICS_REPORTER_FACTORY = "metrics.reporter.%s.class"
+  // This flag enables the common timer metrics, e.g. process_ns
   val METRICS_TIMER_ENABLED= "metrics.timer.enabled"
+  // This flag enables more timer metrics, e.g. handle-message-ns in an operator, for debugging purpose
+  val METRICS_TIMER_DEBUG_ENABLED= "metrics.timer.debug.enabled"
 
   // The following configs are applicable only to {@link MetricsSnapshotReporter}
   // added here only to maintain backwards compatibility of config
@@ -70,4 +73,12 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
    * @return Boolean flag to enable the timer metrics
    */
   def getMetricsTimerEnabled: Boolean = getBoolean(MetricsConfig.METRICS_TIMER_ENABLED, true)
+
+  /**
+    * Returns the flag to enable the debug timer metrics. These metrics
+    * are turned off by default for better performance.
+    * @return Boolean
+    */
+  def getMetricsTimerDebugEnabled: Boolean = getBoolean(MetricsConfig.METRICS_TIMER_DEBUG_ENABLED, false)
+
 }

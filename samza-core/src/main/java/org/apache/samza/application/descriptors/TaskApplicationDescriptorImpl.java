@@ -22,7 +22,7 @@ import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
@@ -67,8 +67,10 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   @Override
   public TaskApplicationDescriptor withTable(TableDescriptor tableDescriptor) {
     addTableDescriptor(tableDescriptor);
-    BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
-    getOrCreateTableSerdes(baseTableDescriptor.getTableId(), baseTableDescriptor.getSerde());
+    if (tableDescriptor instanceof LocalTableDescriptor) {
+      LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+      getOrCreateTableSerdes(localTableDescriptor.getTableId(), localTableDescriptor.getSerde());
+    }
     return this;
   }
 
