@@ -30,11 +30,8 @@ import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * An implementation of {@link SystemStreamPartitionGrouper} that groups the input stream partitions according to their partition number.
- *
  * This leads to a single task processing all the messages of a single partition(e.g. partition 0) across all the input streams.
- *
  * Using this strategy, if two input streams have a partition 0, then all the messages from both partitions will be routed to a single task.
- *
  * This partitioning strategy is useful for joining and aggregating input streams.
  */
 public class GroupByPartition implements SystemStreamPartitionGrouper {
