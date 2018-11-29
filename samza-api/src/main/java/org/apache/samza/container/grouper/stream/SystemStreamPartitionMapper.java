@@ -26,7 +26,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * of a input stream after the stream expansion or contraction. This will be used in {@link SystemStreamPartitionGrouper}
  * implementations to generate partition expansion aware task assignments.
  */
-public interface StreamPartitionMapper {
+public interface SystemStreamPartitionMapper {
 
   /**
    * Determines the previous {@link SystemStreamPartition} for a {@link SystemStreamPartition}

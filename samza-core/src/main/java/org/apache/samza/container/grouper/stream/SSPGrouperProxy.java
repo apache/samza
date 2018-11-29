@@ -39,7 +39,7 @@ public class SSPGrouperProxy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SSPGrouperProxy.class);
 
-  private final StreamPartitionMapper streamPartitionMapper;
+  private final SystemStreamPartitionMapper systemStreamPartitionMapper;
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
   private final SystemStreamPartitionGrouper grouper;
 
@@ -48,13 +48,13 @@ public class SSPGrouperProxy {
     Preconditions.checkNotNull(grouper);
     this.grouper = grouper;
     this.broadcastSystemStreamPartitions = new TaskConfigJava(config).getBroadcastSystemStreamPartitions();
-    this.streamPartitionMapper = getStreamPartitionMapper(config);
+    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config);
   }
 
   /**
    * 1. Invokes the sub-class {@link org.apache.samza.container.grouper.task.TaskNameGrouper#group(Set)} method to generate the task to partition assignments.
-   * 2. Uses the {@link StreamPartitionMapper} to compute the previous {@link SystemStreamPartition} for every partition of the expanded streams.
-   * 3. Uses the previous, current task to partition assignments and result of {@link StreamPartitionMapper} to redistribute the expanded {@link SystemStreamPartition}'s
+   * 2. Uses the {@link SystemStreamPartitionMapper} to compute the previous {@link SystemStreamPartition} for every partition of the expanded or contracted streams.
+   * 3. Uses the previous, current task to partition assignments and result of {@link SystemStreamPartitionMapper} to redistribute the expanded {@link SystemStreamPartition}'s
    * to correct tasks after the stream expansion or contraction.
    * @param ssps the input system stream partitions of the job.
    * @param grouperContext the grouper context holding metadata for the previous job execution.
@@ -73,8 +73,8 @@ public class SSPGrouperProxy {
     Map<TaskName, PartitionGroup> taskToPartitionGroup = new HashMap<>();
     currentTaskAssignments.forEach((taskName, systemStreamPartitions) -> taskToPartitionGroup.put(taskName, new PartitionGroup(taskName, systemStreamPartitions)));
 
-    Map<SystemStream, Integer> previousStreamToPartitionCount = getStreamToPartitionCount(grouperContext.getPreviousTaskToSSPAssignment());
-    Map<SystemStream, Integer> currentStreamToPartitionCount = getStreamToPartitionCount(currentTaskAssignments);
+    Map<SystemStream, Integer> previousStreamToPartitionCount = getSystemStreamToPartitionCount(grouperContext.getPreviousTaskToSSPAssignment());
+    Map<SystemStream, Integer> currentStreamToPartitionCount = getSystemStreamToPartitionCount(currentTaskAssignments);
 
     for (Map.Entry<TaskName, Set<SystemStreamPartition>> entry : currentTaskAssignments.entrySet()) {
       TaskName currentlyAssignedTask = entry.getKey();
@@ -90,7 +90,7 @@ public class SSPGrouperProxy {
           if (previousStreamPartitionCount > 0 && currentStreamPartitionCount % previousStreamPartitionCount == 0) {
             LOGGER.info("SystemStream: {} is expanded from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
 
-            SystemStreamPartition previousSystemStreamPartition = streamPartitionMapper.getSSPAfterPartitionChange(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
+            SystemStreamPartition previousSystemStreamPartition = systemStreamPartitionMapper.getSSPAfterPartitionChange(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
             TaskName previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
 
             LOGGER.info("Moving systemStreamPartition: {} from task: {} to task: {}.", currentSystemStreamPartition, currentlyAssignedTask, previouslyAssignedTask);
@@ -114,20 +114,20 @@ public class SSPGrouperProxy {
   }
 
   /**
-   * Computes a mapping from the stream name to partition count using the provided {@param taskToSSPAssignment}.
+   * Computes a mapping from system stream to partition count using the provided {@param taskToSSPAssignment}.
    * @param taskToSSPAssignment the {@link TaskName} to {@link SystemStreamPartition}'s assignment of the job.
    * @return a mapping from {@link SystemStream} to the number of partitions of the stream.
    */
-  private Map<SystemStream, Integer> getStreamToPartitionCount(Map<TaskName, Set<SystemStreamPartition>> taskToSSPAssignment) {
-    Map<SystemStream, Integer> streamToPartitionCount = new HashMap<>();
+  private Map<SystemStream, Integer> getSystemStreamToPartitionCount(Map<TaskName, Set<SystemStreamPartition>> taskToSSPAssignment) {
+    Map<SystemStream, Integer> systemStreamToPartitionCount = new HashMap<>();
     taskToSSPAssignment.forEach((taskName, systemStreamPartitions) -> {
         systemStreamPartitions.forEach(systemStreamPartition -> {
             SystemStream systemStream = systemStreamPartition.getSystemStream();
-            streamToPartitionCount.put(systemStream, streamToPartitionCount.getOrDefault(systemStream, 0) + 1);
+            systemStreamToPartitionCount.put(systemStream, systemStreamToPartitionCount.getOrDefault(systemStream, 0) + 1);
           });
       });
 
-    return streamToPartitionCount;
+    return systemStreamToPartitionCount;
   }
 
   /**
@@ -149,16 +149,16 @@ public class SSPGrouperProxy {
   }
 
   /**
-   * Creates a instance of {@link StreamPartitionMapper} using the stream partition expansion factory class
+   * Creates a instance of {@link SystemStreamPartitionMapper} using the stream partition expansion factory class
    * defined in the {@param config}.
    * @param config the configuration of the samza job.
-   * @return the instantiated {@link StreamPartitionMapper} object.
+   * @return the instantiated {@link SystemStreamPartitionMapper} object.
    */
-  private StreamPartitionMapper getStreamPartitionMapper(Config config) {
+  private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String streamPartitionMapperClass = jobConfig.getStreamPartitionMapperFactoryClass();
-    StreamPartitionMapperFactory streamPartitionMapperFactory = Util.getObj(streamPartitionMapperClass, StreamPartitionMapperFactory.class);
-    return streamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
+    String systemStreamPartitionMapperClass = jobConfig.getSystemStreamPartitionMapperFactoryName();
+    SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory = Util.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
+    return systemStreamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 
   /**

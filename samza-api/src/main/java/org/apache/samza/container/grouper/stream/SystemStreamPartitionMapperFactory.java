@@ -21,13 +21,6 @@ package org.apache.samza.container.grouper.stream;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
-/**
- * Instantiates the {@link HashStreamPartitionMapper} based upon the provided
- * config and the metricsRegistry.
- */
-public class HashStreamPartitionMapperFactory implements StreamPartitionMapperFactory {
-  @Override
-  public StreamPartitionMapper getStreamPartitionMapper(Config config, MetricsRegistry metricsRegistry) {
-    return new HashStreamPartitionMapper();
-  }
+public interface SystemStreamPartitionMapperFactory {
+  SystemStreamPartitionMapper getStreamPartitionMapper(Config config, MetricsRegistry metricsRegistry);
 }
