@@ -28,28 +28,30 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
+/**
+ * An implementation of {@link SystemStreamPartitionGrouper} that groups the input stream partitions according to their partition number.
+ *
+ * This leads to a single task processing all the messages of a single partition(e.g. partition 0) across all the input streams.
+ *
+ * Using this strategy, if two input streams have a partition 0, then all the messages from both partitions will be routed to a single task.
+ *
+ * This partitioning strategy is useful for joining and aggregating input streams.
+ */
 public class GroupByPartition implements SystemStreamPartitionGrouper {
-  private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
+  private final Set<SystemStreamPartition> broadcastStreams;
 
-  /**
-   * Builds the {@link GroupByPartition}  based upon the provided configuration.
-   * @param config the configuration of the job.
-   */
   public GroupByPartition(Config config) {
     TaskConfigJava taskConfig = new TaskConfigJava(config);
-    this.broadcastSystemStreamPartitions = taskConfig.getBroadcastSystemStreamPartitions();
+    this.broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<>();
 
     for (SystemStreamPartition ssp : ssps) {
       // Broadcast streams are part of all the tasks. They are added to each task at the end.
-      if (broadcastSystemStreamPartitions.contains(ssp)) {
+      if (broadcastStreams.contains(ssp)) {
         continue;
       }
 
@@ -62,9 +64,9 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
     }
 
     // assign the broadcast streams to all the taskNames
-    if (!broadcastSystemStreamPartitions.isEmpty()) {
+    if (!broadcastStreams.isEmpty()) {
       for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        value.addAll(broadcastSystemStreamPartitions);
+        value.addAll(broadcastStreams);
       }
     }
 

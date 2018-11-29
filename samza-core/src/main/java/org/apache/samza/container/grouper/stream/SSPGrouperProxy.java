@@ -19,7 +19,6 @@
 package org.apache.samza.container.grouper.stream;
 
 import com.google.common.base.Preconditions;
-import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfigJava;
@@ -36,7 +35,6 @@ import java.util.*;
  * Provides a stream expansion aware task to partition assignments on top of a custom implementation
  * of the {@link SystemStreamPartitionGrouper}.
  */
-@InterfaceStability.Evolving
 public class SSPGrouperProxy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SSPGrouperProxy.class);
@@ -45,12 +43,6 @@ public class SSPGrouperProxy {
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
   private final SystemStreamPartitionGrouper grouper;
 
-  /**
-   * Builds the {@link SSPGrouperProxy} based upon the provided configuration and the
-   * system stream grouper implementation.
-   * @param config the configuration of the job.
-   * @param grouper an implementation of {@link SystemStreamPartitionGrouper} interface.
-   */
   public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(grouper);
@@ -164,7 +156,7 @@ public class SSPGrouperProxy {
    */
   private StreamPartitionMapper getStreamPartitionMapper(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String streamPartitionMapperClass = jobConfig.getStreamPartitionMapperFactory();
+    String streamPartitionMapperClass = jobConfig.getStreamPartitionMapperFactoryClass();
     StreamPartitionMapperFactory streamPartitionMapperFactory = Util.getObj(streamPartitionMapperClass, StreamPartitionMapperFactory.class);
     return streamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }

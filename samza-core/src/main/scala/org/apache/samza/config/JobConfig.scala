@@ -263,10 +263,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
   }
 
-  /**
-   * @return the partition expansion algorithm factory defined in the config.
-   */
-  def getStreamPartitionMapperFactory: String = {
+  def getStreamPartitionMapperFactoryClass: String = {
     get(JobConfig.STREAM_PARTITION_MAPPER_FACTORY, classOf[HashStreamPartitionMapperFactory].getCanonicalName)
   }
 }

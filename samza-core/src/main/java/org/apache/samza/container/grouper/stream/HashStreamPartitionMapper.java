@@ -28,9 +28,6 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class HashStreamPartitionMapper implements StreamPartitionMapper {
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public SystemStreamPartition getSSPAfterPartitionChange(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int afterPartitionCount) {
     Preconditions.checkNotNull(currentSystemStreamPartition);

@@ -29,27 +29,27 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
+/**
+ * An implementation of {@link SystemStreamPartitionGrouper} that assigns each input {@link SystemStreamPartition} to a separate task.
+ *
+ * Provides increased parallelism in message processing. Allows greater number of tasks to be divided up amongst the containers.
+ *
+ * This partitioning strategy is used for supporting remote I/O message processing scenarios in samza.
+ */
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
-  private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
+  private final Set<SystemStreamPartition> broadcastStreams;
 
-  /**
-   * Builds the {@link GroupBySystemStreamPartition} based upon the provided configuration.
-   * @param config the configuration of the job.
-   */
   public GroupBySystemStreamPartition(Config config) {
     TaskConfigJava taskConfig = new TaskConfigJava(config);
-    broadcastSystemStreamPartitions = taskConfig.getBroadcastSystemStreamPartitions();
+    broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps) {
     Map<TaskName, Set<SystemStreamPartition>> groupedMap = new HashMap<TaskName, Set<SystemStreamPartition>>();
 
     for (SystemStreamPartition ssp : ssps) {
-      if (broadcastSystemStreamPartitions.contains(ssp)) {
+      if (broadcastStreams.contains(ssp)) {
         continue;
       }
 
@@ -59,9 +59,9 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     }
 
     // assign the broadcast streams to all the taskNames
-    if (!broadcastSystemStreamPartitions.isEmpty()) {
+    if (!broadcastStreams.isEmpty()) {
       for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        value.addAll(broadcastSystemStreamPartitions);
+        value.addAll(broadcastStreams);
       }
     }
 
