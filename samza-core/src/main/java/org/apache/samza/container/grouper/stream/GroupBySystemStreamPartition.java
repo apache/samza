@@ -31,7 +31,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * An implementation of {@link SystemStreamPartitionGrouper} that assigns the input {@link SystemStreamPartition} to a separate task.
- * Provides increased parallelism in message processing. This partitioning strategy is used for supporting remote I/O message processing scenarios.
+ * Provides increased parallelism in message processing within a container. Useful in message processing scenarios involving remote I/O.
  */
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
   private final Set<SystemStreamPartition> broadcastStreams;
