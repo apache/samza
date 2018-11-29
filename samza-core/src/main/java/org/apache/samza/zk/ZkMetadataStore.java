@@ -18,7 +18,6 @@
  */
 package org.apache.samza.zk;
 
-import java.nio.charset.Charset;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +63,7 @@ public class ZkMetadataStore implements MetadataStore {
    * {@inheritDoc}
    */
   @Override
-  public byte[] get(byte[] key) {
+  public byte[] get(String key) {
     return zkClient.readData(getZkPathForKey(key), true);
   }
 
@@ -72,7 +71,7 @@ public class ZkMetadataStore implements MetadataStore {
    * {@inheritDoc}
    */
   @Override
-  public void put(byte[] key, byte[] value) {
+  public void put(String key, byte[] value) {
     String zkPath = getZkPathForKey(key);
     zkClient.createPersistent(zkPath, true);
     zkClient.writeData(zkPath, value);
@@ -82,7 +81,7 @@ public class ZkMetadataStore implements MetadataStore {
    * {@inheritDoc}
    */
   @Override
-  public void delete(byte[] key) {
+  public void delete(String key) {
     zkClient.delete(getZkPathForKey(key));
   }
 
@@ -91,15 +90,15 @@ public class ZkMetadataStore implements MetadataStore {
    * @throws SamzaException if there're exceptions reading data from zookeeper.
    */
   @Override
-  public Map<byte[], byte[]> all() {
+  public Map<String, byte[]> all() {
     try {
       List<String> zkSubDirectories = zkClient.getChildren(zkBaseDir);
-      Map<byte[], byte[]> result = new HashMap<>();
+      Map<String, byte[]> result = new HashMap<>();
       for (String zkSubDir : zkSubDirectories) {
         String completeZkPath = String.format("%s/%s", zkBaseDir, zkSubDir);
         byte[] value = zkClient.readData(completeZkPath, true);
         if (value != null) {
-          result.put(completeZkPath.getBytes("UTF-8"), value);
+          result.put(zkSubDir, value);
         }
       }
       return result;
@@ -126,7 +125,7 @@ public class ZkMetadataStore implements MetadataStore {
     zkClient.close();
   }
 
-  private String getZkPathForKey(byte[] key) {
-    return String.format("%s/%s", zkBaseDir, new String(key, Charset.forName("UTF-8")));
+  private String getZkPathForKey(String key) {
+    return String.format("%s/%s", zkBaseDir, key);
   }
 }

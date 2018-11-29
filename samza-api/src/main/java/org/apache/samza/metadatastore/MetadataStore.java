@@ -39,7 +39,7 @@ public interface MetadataStore {
    * @param key the key with which the associated value is to be fetched.
    * @return if found, the value associated with the specified {@code key}; otherwise, {@code null}.
    */
-  byte[] get(byte[] key);
+  byte[] get(String key);
 
   /**
    * Updates the mapping of the specified key-value pair.
@@ -47,21 +47,21 @@ public interface MetadataStore {
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
    */
-  void put(byte[] key, byte[] value);
+  void put(String key, byte[] value);
 
   /**
    * Deletes the mapping for the specified {@code key} from this metadata store (if such mapping exists).
    *
    * @param key the key for which the mapping is to be deleted.
    */
-  void delete(byte[] key);
+  void delete(String key);
 
   /**
    * Returns all the entries in this metadata store.
    *
    * @return all entries in this metadata store.
    */
-  Map<byte[], byte[]> all();
+  Map<String, byte[]> all();
 
   /**
    * Flushes the metadata store, if applicable.
