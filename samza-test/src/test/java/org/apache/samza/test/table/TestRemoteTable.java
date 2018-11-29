@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,9 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.SamzaContainerContext;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
@@ -54,9 +57,7 @@ import org.junit.Test;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 
 public class TestRemoteTable extends AbstractIntegrationTestHarness {
@@ -150,13 +151,12 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     Assert.assertTrue(writtenRecords.get(0) instanceof TestTableData.EnrichedPageView);
   }
 
-  private TaskContext createMockTaskContext() {
+  private SamzaContainerContext createMockContainerContext() {
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
-    doReturn(new Counter("")).when(metricsRegistry).newCounter(anyString(), anyString());
-    doReturn(new Timer("")).when(metricsRegistry).newTimer(anyString(), anyString());
-    TaskContext context = mock(TaskContext.class);
-    doReturn(metricsRegistry).when(context).getMetricsRegistry();
-    return context;
+    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
+    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
+    return new SamzaContainerContext("1", new MapConfig(), Arrays.asList(new TaskName("task-1")),
+        metricsRegistry);
   }
 
   @Test(expected = SamzaException.class)
@@ -164,7 +164,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     TableReadFunction<String, ?> reader = mock(TableReadFunction.class);
     doThrow(new RuntimeException("Expected test exception")).when(reader).get(anyString());
     RemoteReadableTable<String, ?> table = new RemoteReadableTable<>("table1", reader, null, null);
-    table.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    table.init(createMockContainerContext(), mock(TaskContext.class));
     table.get("abc");
   }
 
@@ -174,7 +174,104 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     TableWriteFunction<String, String> writer = mock(TableWriteFunction.class);
     doThrow(new RuntimeException("Expected test exception")).when(writer).put(anyString(), any());
     RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<>("table1", reader, writer, null, null, null);
-    table.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    table.init(createMockContainerContext(), mock(TaskContext.class));
     table.put("abc", "efg");
   }
+
+  @Test
+  public void testMetrics() {
+    List<String> keys = Arrays.asList("k1", "k2");
+
+    Map<String, String> values = new HashMap<>();
+    values.put("k1", "v1");
+    values.put("k2", null);
+
+    TableReadFunction<String, ?> reader = mock(TableReadFunction.class);
+    doReturn("v1").when(reader).get("k1");
+    doReturn("v2").when(reader).get("k2");
+    doReturn(values).when(reader).getAll(keys);
+
+    TableWriteFunction<String, ?> writer = mock(TableWriteFunction.class);
+
+    Map<String, String> config = new HashMap<>();
+    config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    // From remote readable table
+    Timer getNs = mock(Timer.class);
+    Timer getThrottleNs = mock(Timer.class);
+    Counter numGets = mock(Counter.class);
+    doReturn(getNs).when(metricsRegistry).newTimer(any(), eq("t1-get-ns"));
+    doReturn(getThrottleNs).when(metricsRegistry).newTimer(any(), eq("t1-get-throttle-ns"));
+    doReturn(numGets).when(metricsRegistry).newCounter(any(), eq("t1-num-gets"));
+    // From remote read/write table
+    Timer putNs = mock(Timer.class);
+    Timer deleteNs = mock(Timer.class);
+    Timer flushNs = mock(Timer.class);
+    Timer putThrottleNs = mock(Timer.class);
+    Counter numPuts = mock(Counter.class);
+    Counter numDeletes = mock(Counter.class);
+    Counter numFlushes = mock(Counter.class);
+    doReturn(putNs).when(metricsRegistry).newTimer(any(), eq("t1-put-ns"));
+    doReturn(deleteNs).when(metricsRegistry).newTimer(any(), eq("t1-delete-ns"));
+    doReturn(flushNs).when(metricsRegistry).newTimer(any(), eq("t1-flush-ns"));
+    doReturn(putThrottleNs).when(metricsRegistry).newTimer(any(), eq("t1-put-throttle-ns"));
+    doReturn(numPuts).when(metricsRegistry).newCounter(any(), eq("t1-num-puts"));
+    doReturn(numDeletes).when(metricsRegistry).newCounter(any(), eq("t1-num-deletes"));
+    doReturn(numFlushes).when(metricsRegistry).newCounter(any(), eq("t1-num-flushes"));
+
+    // With timers disabled
+    //
+    SamzaContainerContext containerContext1 = new SamzaContainerContext("1", new MapConfig(config),
+        Arrays.asList(new TaskName("task-1")), metricsRegistry);
+
+    RemoteReadableTable<String, ?> roTable1 = new RemoteReadableTable<>(
+        "t1", reader, null, null);
+    roTable1.init(containerContext1, mock(TaskContext.class));
+    verify(metricsRegistry, atLeastOnce()).newCounter(any(), anyString());
+    verify(metricsRegistry, times(0)).newTimer(any(), anyString());
+
+    RemoteReadWriteTable<String, String> rwTable1 = new RemoteReadWriteTable<>(
+        "t1", reader, writer, null, null, null);
+    rwTable1.init(containerContext1, mock(TaskContext.class));
+    verify(metricsRegistry, atLeastOnce()).newCounter(any(), anyString());
+    verify(metricsRegistry, times(0)).newTimer(any(), anyString());
+
+    // With timers enabled
+    //
+    SamzaContainerContext containerContext2 = new SamzaContainerContext("1", new MapConfig(),
+        Arrays.asList(new TaskName("task-1")), metricsRegistry);
+
+    RemoteReadableTable<String, ?> roTable2 = new RemoteReadableTable<>(
+        "t1", reader, null, null);
+    roTable2.init(containerContext2, mock(TaskContext.class));
+    Assert.assertEquals("v1", roTable2.get("k1"));
+    Assert.assertEquals("v2", roTable2.get("k2"));
+    Assert.assertEquals(values, roTable2.getAll(keys));
+    verify(numGets, times(2)).inc();
+    verify(getNs, times(2)).update(anyLong());
+    verify(getThrottleNs, times(0)).update(anyLong());
+
+    RemoteReadWriteTable<String, String> rwTable2 = new RemoteReadWriteTable<>(
+        "t1", reader, writer, null, null, null);
+    rwTable2.init(containerContext2, mock(TaskContext.class));
+    rwTable2.put("k1", "v1");
+    rwTable2.put("k2", "v2");
+    Assert.assertEquals("v1", rwTable2.get("k1"));
+    Assert.assertEquals("v2", rwTable2.get("k2"));
+    rwTable2.delete("k1");
+    rwTable2.delete("k2");
+    rwTable2.flush();
+    rwTable2.flush();
+    verify(numGets, times(4)).inc();
+    verify(getNs, times(4)).update(anyLong());
+    verify(getThrottleNs, times(0)).update(anyLong());
+    verify(numPuts, times(2)).inc();
+    verify(putNs, times(2)).update(anyLong());
+    verify(putThrottleNs, times(0)).update(anyLong());
+    verify(numDeletes, times(2)).inc();
+    verify(deleteNs, times(2)).update(anyLong());
+    verify(numFlushes, times(2)).inc();
+    verify(flushNs, times(2)).update(anyLong());
+  }
+
 }

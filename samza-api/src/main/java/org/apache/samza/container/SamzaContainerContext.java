@@ -52,4 +52,8 @@ public class SamzaContainerContext {
     this.taskNames = Collections.unmodifiableCollection(taskNames);
     this.metricsRegistry = metricsRegistry;
   }
+
+  public MetricsRegistry getMetricsRegistry() {
+    return metricsRegistry;
+  }
 }

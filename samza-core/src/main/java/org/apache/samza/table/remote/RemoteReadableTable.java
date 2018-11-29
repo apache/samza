@@ -24,8 +24,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadableTable;
@@ -37,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Preconditions;
 
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_READ_TAG;
+import static org.apache.samza.table.utils.TableMetricsUtil.*;
 
 
 /**
@@ -101,9 +104,18 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    */
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
-    getNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-ns");
-    getThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-get-throttle-ns");
-    numGets = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-gets");
+
+    MetricsRegistry metricsRegistry = containerContext.getMetricsRegistry();
+    numGets = metricsRegistry.newCounter(groupName, tableId + "-num-gets");
+
+    MetricsConfig metricsConfig = new MetricsConfig(containerContext.config);
+    if (metricsConfig.getMetricsTimerEnabled()) {
+      getNs = metricsRegistry.newTimer(groupName, tableId + "-get-ns");
+      getThrottleNs = metricsRegistry.newTimer(groupName, tableId + "-get-throttle-ns");
+    } else {
+      getNs = null;
+      getThrottleNs = null;
+    }
   }
 
   /**
@@ -112,13 +124,13 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public V get(K key) {
     try {
-      numGets.inc();
+      incCounter(numGets);
       if (rateLimitReads) {
         throttle(key, null, RL_READ_TAG, readCreditFn, getThrottleNs);
       }
       long startNs = System.nanoTime();
       V result = readFn.get(key);
-      getNs.update(System.nanoTime() - startNs);
+      updateTimer(getNs, System.nanoTime() - startNs);
       return result;
     } catch (Exception e) {
       String errMsg = String.format("Failed to get a record, key=%s", key);
@@ -176,6 +188,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     long startNs = System.nanoTime();
     int credits = (creditFn == null) ? 1 : creditFn.apply(KV.of(key, value));
     rateLimiter.acquire(Collections.singletonMap(tag, credits));
-    timer.update(System.nanoTime() - startNs);
+    updateTimer(timer, System.nanoTime() - startNs);
   }
 }

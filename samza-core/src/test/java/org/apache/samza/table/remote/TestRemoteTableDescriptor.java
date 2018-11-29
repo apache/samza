@@ -19,10 +19,11 @@
 
 package org.apache.samza.table.remote;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.Counter;
@@ -117,15 +118,21 @@ public class TestRemoteTableDescriptor {
     desc.getTableSpec();
   }
 
-  private TaskContext createMockTaskContext() {
+  private SamzaContainerContext createMockContainerContext() {
+    MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
+    doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
+    doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
+    return new SamzaContainerContext("1", new MapConfig(), Arrays.asList(new TaskName("task-1")),
+        metricsRegistry);
+  }
+
+  private TaskContext createMockTaskContext(SamzaContainerContext containerContext) {
     MetricsRegistry metricsRegistry = mock(MetricsRegistry.class);
     doReturn(mock(Timer.class)).when(metricsRegistry).newTimer(anyString(), anyString());
     doReturn(mock(Counter.class)).when(metricsRegistry).newCounter(anyString(), anyString());
     TaskContext taskContext = mock(TaskContext.class);
     doReturn(metricsRegistry).when(taskContext).getMetricsRegistry();
-    SamzaContainerContext containerCtx = new SamzaContainerContext(
-        "1", null, Collections.singleton(new TaskName("MyTask")), null);
-    doReturn(containerCtx).when(taskContext).getSamzaContainerContext();
+    doReturn(containerContext).when(taskContext).getSamzaContainerContext();
     return taskContext;
   }
 
@@ -168,7 +175,8 @@ public class TestRemoteTableDescriptor {
 
     TableSpec spec = desc.getTableSpec();
     RemoteTableProvider provider = new RemoteTableProvider(spec);
-    provider.init(mock(SamzaContainerContext.class), createMockTaskContext());
+    SamzaContainerContext containerContext = createMockContainerContext();
+    provider.init(containerContext, createMockTaskContext(containerContext));
     Table table = provider.getTable();
     Assert.assertTrue(table instanceof RemoteReadWriteTable);
     RemoteReadWriteTable rwTable = (RemoteReadWriteTable) table;

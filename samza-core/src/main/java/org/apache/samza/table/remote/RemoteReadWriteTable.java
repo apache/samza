@@ -22,8 +22,10 @@ package org.apache.samza.table.remote;
 import java.util.List;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.SamzaContainerContext;
 import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
@@ -33,6 +35,7 @@ import org.apache.samza.util.RateLimiter;
 import com.google.common.base.Preconditions;
 
 import static org.apache.samza.table.remote.RemoteTableDescriptor.RL_WRITE_TAG;
+import static org.apache.samza.table.utils.TableMetricsUtil.*;
 
 
 /**
@@ -70,13 +73,24 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void init(SamzaContainerContext containerContext, TaskContext taskContext) {
     super.init(containerContext, taskContext);
-    putNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-ns");
-    putThrottleNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-put-throttle-ns");
-    deleteNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-delete-ns");
-    flushNs = taskContext.getMetricsRegistry().newTimer(groupName, tableId + "-flush-ns");
-    numPuts = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-puts");
-    numDeletes = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-deletes");
-    numFlushes = taskContext.getMetricsRegistry().newCounter(groupName, tableId + "-num-flushes");
+
+    MetricsRegistry metricsRegistry = containerContext.getMetricsRegistry();
+    numPuts = metricsRegistry.newCounter(groupName, tableId + "-num-puts");
+    numDeletes = metricsRegistry.newCounter(groupName, tableId + "-num-deletes");
+    numFlushes = metricsRegistry.newCounter(groupName, tableId + "-num-flushes");
+
+    MetricsConfig metricsConfig = new MetricsConfig(containerContext.config);
+    if (metricsConfig.getMetricsTimerEnabled()) {
+      putNs = metricsRegistry.newTimer(groupName, tableId + "-put-ns");
+      putThrottleNs = metricsRegistry.newTimer(groupName, tableId + "-put-throttle-ns");
+      deleteNs = metricsRegistry.newTimer(groupName, tableId + "-delete-ns");
+      flushNs = metricsRegistry.newTimer(groupName, tableId + "-flush-ns");
+    } else {
+      putNs = null;
+      putThrottleNs = null;
+      deleteNs = null;
+      flushNs = null;
+    }
   }
 
   /**
@@ -85,13 +99,13 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void put(K key, V value) {
     try {
-      numPuts.inc();
+      incCounter(numPuts);
       if (rateLimitWrites) {
         throttle(key, value, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
       }
       long startNs = System.nanoTime();
       writeFn.put(key, value);
-      putNs.update(System.nanoTime() - startNs);
+      updateTimer(putNs, System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = String.format("Failed to put a record, key=%s, value=%s", key, value);
       logger.error(errMsg, e);
@@ -119,13 +133,13 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void delete(K key) {
     try {
-      numDeletes.inc();
+      incCounter(numDeletes);
       if (rateLimitWrites) {
         throttle(key, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
       }
       long startNs = System.nanoTime();
       writeFn.delete(key);
-      deleteNs.update(System.nanoTime() - startNs);
+      updateTimer(deleteNs, System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = String.format("Failed to delete a record, key=%s", key);
       logger.error(errMsg, e);
@@ -153,13 +167,13 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V> implem
   @Override
   public void flush() {
     try {
-      numFlushes.inc();
+      incCounter(numFlushes);
       if (rateLimitWrites) {
         throttle(null, null, RL_WRITE_TAG, writeCreditFn, putThrottleNs);
       }
       long startNs = System.nanoTime();
       writeFn.flush();
-      flushNs.update(System.nanoTime() - startNs);
+      updateTimer(flushNs, System.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = "Failed to flush remote store";
       logger.error(errMsg, e);
