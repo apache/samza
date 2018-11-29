@@ -138,7 +138,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
   @Test
   public void testEndToEndMultiSqlStmts() {
-    int numMessages = 20;
+    int numMessages = 4;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
@@ -205,7 +205,7 @@ public class TestSamzaSqlEndToEnd extends AbstractIntegrationTestHarness {
 
   @Test
   public void testEndToEndFanOut() {
-    int numMessages = 20;
+    int numMessages = 4;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql1 = "Insert into testavro.SIMPLE2 select * from testavro.SIMPLE1";
