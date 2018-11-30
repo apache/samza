@@ -420,6 +420,29 @@ public class TestExecutionPlanner {
       }, config);
   }
 
+  private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoinAndSendToSameTable() {
+    /**
+     * A special example of stream-table join where a stream is joined with a table, and the result is
+     * sent to the same table. This example is necessary to ensure {@link ExecutionPlanner} does not
+     * end up traversing the virtual cycle between stream-table-join and send-to-table operator specs.
+     *
+     * The reason such virtual cycle is present is to support computing partitions of intermediate
+     * streams participating in stream-table joins. Please, refer to SAMZA SEP-16 for more details.
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
+      Table table = appDesc.getTable(tableDescriptor);
+
+      messageStream1
+          .join(table, mock(StreamTableJoinFunction.class))
+          .sendTo(table);
+
+    }, config);
+  }
+
   @Before
   public void setup() {
     Map<String, String> configMap = new HashMap<>();
@@ -584,6 +607,15 @@ public class TestExecutionPlanner {
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertEquals(64, edge.getPartitionCount());
       });
+  }
+
+  @Test
+  public void testHandlesVirtualStreamTableJoinCycles() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamTableJoinAndSendToSameTable();
+
+    // Just make sure planning terminates.
+    planner.plan(graphSpec);
   }
 
   @Test
