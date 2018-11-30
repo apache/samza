@@ -86,7 +86,18 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
       Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs) {
     visitor.accept(startOpSpec);
     for (OperatorSpec nextOpSpec : getNextOpSpecs.apply(startOpSpec)) {
-      traverse(nextOpSpec, visitor, getNextOpSpecs);
+      traverseHelper(startOpSpec, visitor, getNextOpSpecs, new HashSet<>());
+    }
+  }
+
+  private static void traverseHelper(OperatorSpec startOpSpec, Consumer<OperatorSpec> visitor,
+      Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs, Set<OperatorSpec> visitedOpSpecs) {
+    visitor.accept(startOpSpec);
+    for (OperatorSpec nextOpSpec : getNextOpSpecs.apply(startOpSpec)) {
+      // Make sure we do not end up endlessly traversing cycles.
+      if (visitedOpSpecs.add(nextOpSpec)) {
+        traverseHelper(nextOpSpec, visitor, getNextOpSpecs, visitedOpSpecs);
+      }
     }
   }
 
