@@ -130,7 +130,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
       return CompletableFuture.completedFuture(value);
     }
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     missCount.incrementAndGet();
 
     return rdTable.getAsync(key).handle((result, e) -> {
@@ -140,7 +140,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
           if (result != null) {
             cache.put(key, result);
           }
-          updateTimer(readMetrics.getNs, System.nanoTime() - startNs);
+          updateTimer(readMetrics.getNs, clock.nanoTime() - startNs);
           return result;
         }
       });
@@ -168,7 +168,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
       return CompletableFuture.completedFuture(getAllResult);
     }
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     return rdTable.getAllAsync(missingKeys).handle((records, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get records for " + keys, e);
@@ -179,7 +179,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
                 .collect(Collectors.toList()));
             getAllResult.putAll(records);
           }
-          updateTimer(readMetrics.getAllNs, System.nanoTime() - startNs);
+          updateTimer(readMetrics.getAllNs, clock.nanoTime() - startNs);
           return getAllResult;
         }
       });
@@ -201,7 +201,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
     incCounter(writeMetrics.numPuts);
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     return rwTable.putAsync(key, value).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
@@ -212,7 +212,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
             cache.put(key, value);
           }
         }
-        updateTimer(writeMetrics.putNs, System.nanoTime() - startNs);
+        updateTimer(writeMetrics.putNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -231,7 +231,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
     incCounter(writeMetrics.numPutAlls);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     return rwTable.putAllAsync(records).handle((result, e) -> {
         if (e != null) {
@@ -240,7 +240,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
           cache.putAll(records);
         }
 
-        updateTimer(writeMetrics.putAllNs, System.nanoTime() - startNs);
+        updateTimer(writeMetrics.putAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -259,7 +259,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   @Override
   public CompletableFuture<Void> deleteAsync(K key) {
     incCounter(writeMetrics.numDeletes);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     return rwTable.deleteAsync(key).handle((result, e) -> {
         if (e != null) {
@@ -267,7 +267,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
         } else if (!isWriteAround) {
           cache.delete(key);
         }
-        updateTimer(writeMetrics.deleteNs, System.nanoTime() - startNs);
+        updateTimer(writeMetrics.deleteNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -284,7 +284,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
     incCounter(writeMetrics.numDeleteAlls);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     return rwTable.deleteAllAsync(keys).handle((result, e) -> {
         if (e != null) {
@@ -292,7 +292,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
         } else if (!isWriteAround) {
           cache.deleteAll(keys);
         }
-        updateTimer(writeMetrics.deleteAllNs, System.nanoTime() - startNs);
+        updateTimer(writeMetrics.deleteAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -300,10 +300,10 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   @Override
   public synchronized void flush() {
     incCounter(writeMetrics.numFlushes);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
     rwTable.flush();
-    updateTimer(writeMetrics.flushNs, System.nanoTime() - startNs);
+    updateTimer(writeMetrics.flushNs, clock.nanoTime() - startNs);
   }
 
   @Override

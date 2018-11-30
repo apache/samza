@@ -212,9 +212,6 @@ public class TestLocalReadWriteTable {
     table.deleteAll(Collections.emptyList());
     table.deleteAllAsync(Collections.emptyList()).get();
     table.flush();
-    verify(metricsRegistry, atLeast(1)).newCounter(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newTimer(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newGauge(anyString(), any());
     Assert.assertEquals(1, numFlushes.getCount());
     Assert.assertEquals(2, numPuts.getCount());
     Assert.assertEquals(0, numPutAlls.getCount());

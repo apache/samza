@@ -146,9 +146,9 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   private void instrument(Counter counter, Timer timer, Func0 func) {
     incCounter(counter);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     func.apply();
-    updateTimer(timer, System.nanoTime() - startNs);
+    updateTimer(timer, clock.nanoTime() - startNs);
   }
 
 }
