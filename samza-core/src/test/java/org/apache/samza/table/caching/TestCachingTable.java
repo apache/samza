@@ -277,14 +277,14 @@ public class TestCachingTable {
   public void testGuavaCacheAndRemoteTable() throws Exception {
     String tableId = "testGuavaCacheAndRemoteTable";
     Cache<String, String> guavaCache = CacheBuilder.newBuilder().initialCapacity(100).build();
-    final ReadWriteTable<String, String> guavaTable = new GuavaCacheTable<>(tableId, guavaCache);
+    final ReadWriteTable<String, String> guavaTable = new GuavaCacheTable<>(tableId + "-cache", guavaCache);
 
     // It is okay to share rateLimitHelper and async helper for read/write in test
     TableRateLimiter<String, String> rateLimitHelper = mock(TableRateLimiter.class);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     final RemoteReadWriteTable<String, String> remoteTable = new RemoteReadWriteTable<>(
-        tableId, readFn, writeFn, rateLimitHelper, rateLimitHelper,
+        tableId + "-remote", readFn, writeFn, rateLimitHelper, rateLimitHelper,
         Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
@@ -296,11 +296,11 @@ public class TestCachingTable {
     // 5 per read/write table (15)
     verify(metricsRegistry, times(24)).newCounter(any(), anyString());
 
-    // 3 per readable table (9)
-    // 7 per read/write table (21)
+    // 2 per readable table (6)
+    // 5 per read/write table (15)
     // 1 per remote readable table (1)
     // 1 per remote read/write table (1)
-    verify(metricsRegistry, times(32)).newTimer(any(), anyString());
+    verify(metricsRegistry, times(23)).newTimer(any(), anyString());
 
     // 1 per guava table (1)
     // 3 per caching table (2)
@@ -424,10 +424,6 @@ public class TestCachingTable {
     cachingTable.deleteAsync("");
     cachingTable.deleteAll(Collections.emptyList());
     cachingTable.deleteAllAsync(Collections.emptyList());
-
-    verify(metricsRegistry, atLeast(1)).newCounter(any(), anyString());
-    verify(metricsRegistry, atLeast(1)).newGauge(anyString(), any());
-    verify(metricsRegistry, times(0)).newTimer(any(), anyString());
   }
 
   private TableDescriptor createDummyTableDescriptor(String tableId) {

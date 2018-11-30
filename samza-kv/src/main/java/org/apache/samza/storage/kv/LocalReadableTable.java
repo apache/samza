@@ -100,9 +100,9 @@ public class LocalReadableTable<K, V> extends BaseReadableTable<K, V> {
 
   private <T> T instrument(Counter counter, Timer timer, Supplier<T> func) {
     incCounter(counter);
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     T result = func.get();
-    updateTimer(timer, System.nanoTime() - startNs);
+    updateTimer(timer, clock.nanoTime() - startNs);
     return result;
   }
 }
