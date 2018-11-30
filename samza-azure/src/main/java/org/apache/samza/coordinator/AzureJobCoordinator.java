@@ -42,6 +42,7 @@ import org.apache.samza.coordinator.scheduler.LivenessCheckScheduler;
 import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
 import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
@@ -101,10 +102,10 @@ public class AzureJobCoordinator implements JobCoordinator {
    * Creates an instance of Azure job coordinator, along with references to Azure leader elector, Azure Blob and Azure Table.
    * @param config User defined config
    */
-  public AzureJobCoordinator(Config config) {
+  public AzureJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     //TODO: Cleanup previous values in the table when barrier times out.
+    this.processorId = processorId;
     this.config = config;
-    processorId = createProcessorId(config);
     currentJMVersion = new AtomicReference<>(INITIAL_STATE);
     AzureConfig azureConfig = new AzureConfig(config);
     AzureClient client = new AzureClient(azureConfig.getAzureConnectionString());

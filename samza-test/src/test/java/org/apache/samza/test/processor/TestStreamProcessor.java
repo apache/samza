@@ -59,6 +59,9 @@ import static org.mockito.Mockito.mock;
 
 
 public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
+
+  public static final String PROCESSOR_ID = "1";
+
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
@@ -136,7 +139,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output4";
     final int messageCount = 20;
 
-    final Map<String, String> configMap = createConfigs("1", testSystem, inputTopic, outputTopic, messageCount);
+    final Map<String, String> configMap = createConfigs(PROCESSOR_ID, testSystem, inputTopic, outputTopic, messageCount);
     configMap.remove("task.class");
     final Config configs = new MapConfig(configMap);
     final TestStubs stubs = new TestStubs(configs, (StreamTaskFactory) null, bootstrapServers());
@@ -243,12 +246,12 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
 
     TestStubs(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor(config, "1", new HashMap<>(), taskFactory, listener);
     }
 
     TestStubs(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor(config, "1", new HashMap<>(), taskFactory, listener);
     }
 
     private void initConsumer(String bootstrapServer) {

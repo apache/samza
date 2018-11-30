@@ -38,6 +38,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
@@ -45,6 +46,7 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,11 +166,34 @@ public class LocalApplicationRunner implements ApplicationRunner {
       StreamProcessor.StreamProcessorLifecycleListenerFactory listenerFactory) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
-    // TODO: the null processorId has to be fixed after SAMZA-1835
+    String processorId = createProcessorId(new ApplicationConfig(config));
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
-        reporters.put(name, factory.getMetricsReporter(name, null, config)));
-    return new StreamProcessor(config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
+        reporters.put(name, factory.getMetricsReporter(name, processorId, config)));
+    return new StreamProcessor(config, processorId, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
         appDesc.getApplicationTaskContextFactory(), listenerFactory, null);
+  }
+
+  /**
+   * Generates a unique logical identifier for the stream processor using the provided {@param appConfig}.
+   * 1. If the processorId is defined in the configuration, then returns the value defined in the configuration.
+   * 2. Else if the {@linkplain ProcessorIdGenerator} class is defined the configuration, then uses the {@linkplain ProcessorIdGenerator}
+   * to generate the unique processorId.
+   * 3. Else throws the {@see ConfigException} back to the caller.
+   * @param appConfig the configuration of the samza application.
+   * @throws ConfigException if neither processor.id nor app.processor-id-generator.class is defined in the configuration.
+   * @return the generated processor identifier.
+   */
+  @VisibleForTesting
+  static String createProcessorId(ApplicationConfig appConfig) {
+    if (appConfig.getProcessorId() != null) {
+      return appConfig.getProcessorId();
+    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
+      ProcessorIdGenerator idGenerator = Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      return idGenerator.generateProcessorId(appConfig);
+    } else {
+      throw new ConfigException(String.format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
+              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
+    }
   }
 
   /**

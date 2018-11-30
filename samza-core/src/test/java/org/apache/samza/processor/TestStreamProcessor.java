@@ -92,7 +92,7 @@ public class TestStreamProcessor {
         ProcessorLifecycleListener processorListener,
         JobCoordinator jobCoordinator,
         SamzaContainer container) {
-      super(config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
+      super(config, "TEST_PROCESSOR_ID", customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
       this.container = container;
     }
 
@@ -324,7 +324,7 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     Mockito.doNothing().when(mockJobCoordinator).start();
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
-    StreamProcessor streamProcessor = new StreamProcessor(new MapConfig(), new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor(new MapConfig(), "TestProcessorId", new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
     assertEquals(State.NEW, streamProcessor.getState());
     streamProcessor.start();
 
@@ -343,7 +343,7 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor(config, "TestProcessorId", new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
 
     /**
      * Without a SamzaContainer running in StreamProcessor and current StreamProcessor state is STARTED,
@@ -411,7 +411,7 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
+    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor(config, "TestProcessorId", new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
 
     Mockito.doNothing().when(mockJobCoordinator).stop();
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
@@ -433,7 +433,7 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor(config, "TestProcessorId", new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
 
     Exception failureException = new Exception("dummy exception");
 
@@ -454,7 +454,7 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor(config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor(config, "TestProcessorId", new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
 
     streamProcessor.state = State.RUNNING;
     streamProcessor.jobCoordinatorListener.onCoordinatorStop();
@@ -467,7 +467,7 @@ public class TestStreamProcessor {
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
     StreamProcessor streamProcessor =
-        new StreamProcessor(mock(Config.class), new HashMap<>(), mock(TaskFactory.class), null, null,
+        new StreamProcessor(mock(Config.class), "TestProcessorId", new HashMap<>(), mock(TaskFactory.class), null, null,
             sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
             mock(JobCoordinator.class));
     assertEquals(streamProcessor, mockListener.get().processor);

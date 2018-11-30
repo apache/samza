@@ -29,14 +29,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.ZkConfig;
@@ -67,6 +63,7 @@ import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkUtils.ProcessorNode;
+import org.apache.samza.util.SystemClock;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +97,6 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final Config config;
   private final ZkBarrierForVersionUpgrade barrier;
   private final ZkJobCoordinatorMetrics metrics;
-  private final Map<String, MetricsReporter> reporters;
   private final ZkLeaderElector leaderElector;
   private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
   private final StreamMetadataCache streamMetadataCache;
@@ -120,11 +116,11 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor streamPartitionCountMonitor = null;
 
-  ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
+  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
 
-    this.processorId = createProcessorId(config);
+    this.processorId = processorId;
     this.zkUtils = zkUtils;
     // setup a listener for a session state change
     // we are mostly interested in "session closed" and "new session created" events
@@ -132,7 +128,6 @@ public class ZkJobCoordinator implements JobCoordinator {
     leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
-    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
     debounceTimer = new ScheduleAfterDebounceTime(processorId);
     debounceTimer.setScheduledTaskCallback(throwable -> {
         LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
@@ -152,7 +147,6 @@ public class ZkJobCoordinator implements JobCoordinator {
     zkUtils.validateZkVersion();
     zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix(), keyBuilder.getTaskLocalityPath()});
 
-    startMetrics();
     systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
@@ -192,9 +186,6 @@ public class ZkJobCoordinator implements JobCoordinator {
         LOG.debug("Shutting down system admins.");
         systemAdmins.stop();
 
-        LOG.debug("Shutting down metrics.");
-        shutdownMetrics();
-
         if (streamPartitionCountMonitor != null) {
           streamPartitionCountMonitor.stop();
         }
@@ -214,19 +205,6 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
     } else {
       LOG.info("Job Coordinator shutdown is in progress!");
-    }
-  }
-
-  private void startMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
-      reporter.register("job-coordinator-" + processorId, (ReadableMetricsRegistry) metrics.getMetricsRegistry());
-      reporter.start();
-    }
-  }
-
-  private void shutdownMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
-      reporter.stop();
     }
   }
 
@@ -305,22 +283,6 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
 
     debounceTimer.scheduleAfterDebounceTime(ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
-  }
-
-  private String createProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
-      ProcessorIdGenerator idGenerator =
-          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
   }
 
   /**
