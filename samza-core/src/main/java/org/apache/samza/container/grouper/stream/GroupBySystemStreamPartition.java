@@ -30,7 +30,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
 /**
- * An implementation of {@link SystemStreamPartitionGrouper} that assigns the input {@link SystemStreamPartition} to a separate task.
+ * An implementation of {@link SystemStreamPartitionGrouper} that assigns each input {@link SystemStreamPartition} to a separate task.
  * Provides increased parallelism in message processing within a container. Useful in message processing scenarios involving remote I/O.
  */
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {

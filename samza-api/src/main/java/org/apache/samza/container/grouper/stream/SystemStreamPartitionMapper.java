@@ -23,8 +23,7 @@ import org.apache.samza.system.SystemStreamPartition;
 /**
  * Input streams of a samza job can be either expanded or contracted by the user.
  * This abstraction determines the previous {@link SystemStreamPartition} for a {@link SystemStreamPartition}
- * of a input stream after the stream expansion or contraction. This will be used in {@link SystemStreamPartitionGrouper}
- * implementations to generate partition expansion aware task assignments.
+ * of a input stream after the stream expansion or contraction.
  */
 public interface SystemStreamPartitionMapper {
 
@@ -33,9 +32,9 @@ public interface SystemStreamPartitionMapper {
    * of a input stream after the stream expansion or contraction.
    * @param currentSystemStreamPartition denotes the current partition after the stream partition count change.
    * @param previousPartitionCount the partition count of the stream before the stream partition count change.
-   * @param afterPartitionCount the partition count of the stream after the stream partition count change.
+   * @param currentPartitionCount the partition count of the stream after the stream partition count change.
    * @return the mapped {@link SystemStreamPartition}.
    */
   SystemStreamPartition getPreviousSSP(SystemStreamPartition currentSystemStreamPartition,
-                                       int previousPartitionCount, int afterPartitionCount);
+                                       int previousPartitionCount, int currentPartitionCount);
 }

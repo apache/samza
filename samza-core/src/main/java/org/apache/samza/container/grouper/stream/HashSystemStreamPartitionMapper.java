@@ -29,10 +29,10 @@ import org.apache.samza.system.SystemStreamPartition;
 public class HashSystemStreamPartitionMapper implements SystemStreamPartitionMapper {
 
   @Override
-  public SystemStreamPartition getPreviousSSP(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int afterPartitionCount) {
+  public SystemStreamPartition getPreviousSSP(SystemStreamPartition currentSystemStreamPartition, int previousPartitionCount, int currentPartitionCount) {
     Preconditions.checkNotNull(currentSystemStreamPartition);
-    Preconditions.checkArgument(afterPartitionCount % previousPartitionCount == 0,
-                                String.format("New partition count: %d should be a multiple of previous partition count: %d.", afterPartitionCount, previousPartitionCount));
+    Preconditions.checkArgument(currentPartitionCount % previousPartitionCount == 0,
+        String.format("New partition count: %d should be a multiple of previous partition count: %d.", currentPartitionCount, previousPartitionCount));
     Partition partition = currentSystemStreamPartition.getPartition();
     Preconditions.checkNotNull(partition, String.format("SystemStreamPartition: %s cannot have null partition", currentSystemStreamPartition));
     int currentPartitionId = partition.getPartitionId();

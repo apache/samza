@@ -263,6 +263,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   def getSystemStreamPartitionMapperFactoryName: String = {
-    get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getCanonicalName)
+    get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
 }

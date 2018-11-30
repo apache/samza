@@ -19,8 +19,6 @@
 
 package org.apache.samza.container.grouper.stream;
 
-import static org.junit.Assert.*;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -37,6 +35,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class TestGroupByPartition {
   private SystemStreamPartition aa0 = new SystemStreamPartition("SystemA", "StreamA", new Partition(0));
