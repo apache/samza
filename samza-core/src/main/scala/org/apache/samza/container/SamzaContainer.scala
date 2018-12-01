@@ -502,8 +502,7 @@ object SamzaContainer extends Logging {
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
-    // Create one SystemConsumer for each storeSystem in use
-    // so we create a map of SystemName to its respective SystemConsumer
+    // We create a map of store SystemName to its respective SystemConsumer
     val storeSystemConsumers: Map[String, SystemConsumer] = changeLogSystemStreams.mapValues {
       case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
     }.values.toSet.map {

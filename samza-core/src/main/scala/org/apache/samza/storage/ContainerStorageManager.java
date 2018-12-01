@@ -36,14 +36,14 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- *  ContainerStorageManager is a per-container abstraction that instruments
+ *  ContainerStorageManager is a per-container object that manages
  *  the restore of per-task partitions.
  *
  *  It is responsible for
- *  a) performing all container-level serializable actions for restore, initializing and shutting down
- *  taskStorage managers, starting and stopping consumers, etc.
+ *  a) performing all container-level actions for restore such as, initializing and shutting down
+ *  taskStorage managers, starting, registering and stopping consumers, etc.
  *
- *  b) performing parallelized taskStorageManager restores.
+ *  b) performing individual taskStorageManager restores in parallel.
  *
  */
 public class ContainerStorageManager {
@@ -84,17 +84,17 @@ public class ContainerStorageManager {
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
         new ThreadFactoryBuilder().setNameFormat(RESTORE_THREAD_NAME).build());
 
-    List<Future> futureList = new ArrayList<>(this.taskStorageManagers.entrySet().size());
+    List<Future> taskRestoreFutures = new ArrayList<>(this.taskStorageManagers.entrySet().size());
 
     // Submit restore callable for each taskInstance
     this.taskStorageManagers.forEach((taskInstance, taskStorageManager) -> {
-        futureList.add(
+        taskRestoreFutures.add(
             executorService.submit(new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskStorageManager)));
       });
 
     // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
     // as samza exceptions
-    for (Future future : futureList) {
+    for (Future future : taskRestoreFutures) {
       try {
         future.get();
       } catch (Exception e) {
