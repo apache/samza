@@ -36,19 +36,29 @@ import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 
 
 /**
- * Periodically monitors input regexes
+ * A single-thread based monitor that periodically monitors the given set of stream regexes, and matches them to
+ * the given set of streams. If a stream matching a given regex that is not in the corresponding stream set is detected,
+ * it invokes a {@link StreamRegexMonitor.Callback} with the initial input set, the new input stream set, and the regexes
+ * being monitored.
  */
 public class StreamRegexMonitor {
   private static final Logger log = LoggerFactory.getLogger(StreamRegexMonitor.class);
 
-  private enum State { INIT, RUNNING, STOPPED }
+  // Factory of daemon-threads to create the single threaded executor pool
+  private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder().setDaemon(true)
+      .setNameFormat("Samza-" + StreamRegexMonitor.class.getSimpleName())
+      .build();
+
+  // Enum to describe the state of the regexMonitor
+  private enum State {
+    INIT, RUNNING, STOPPED
+  }
 
   private final Set<SystemStream> streamsToMonitor;
   private final Map<String, Pattern> systemRegexesToMonitor;
@@ -63,10 +73,6 @@ public class StreamRegexMonitor {
   // Used to guard write access to state.
   private final Object lock = new Object();
 
-  // Factory of daemon-threads to create the single threaded executor pool
-  private static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder().setDaemon(true)
-      .setNameFormat("Samza-" + StreamRegexMonitor.class.getSimpleName())
-      .build();
   private final ScheduledExecutorService schedulerService = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
 
   private volatile State state = State.INIT;
@@ -83,21 +89,6 @@ public class StreamRegexMonitor {
      */
     void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
         Map<String, Pattern> regexesMonitored);
-  }
-
-  /**
-   * Gets the metadata for all the specified system streams from the provided metadata cache.
-   * Handles scala-java conversions.
-   *
-   * @param streamsToMonitor  the set of system streams for which the metadata is needed.
-   * @param metadataCache     the metadata cache which will be used to fetch metadata.
-   * @return a map from each system stream to its metadata.
-   */
-  private static Map<SystemStream, SystemStreamMetadata> getMetadata(Set<SystemStream> streamsToMonitor,
-      StreamMetadataCache metadataCache) {
-    return JavaConverters.mapAsJavaMapConverter(
-        metadataCache.getStreamMetadata(JavaConverters.asScalaSetConverter(streamsToMonitor).asScala().toSet(), true))
-        .asJava();
   }
 
   /**

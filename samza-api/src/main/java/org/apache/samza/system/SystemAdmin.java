@@ -157,8 +157,8 @@ public interface SystemAdmin {
   }
 
   /**
-   * Fetch the set of all existing SystemStreams
-   * @return Set of all system-streams
+   * Fetch the set of all available streams
+   * @return The set of all available SystemStreams.
    */
   default Set<SystemStream> getAllSystemStreams() {
     throw new UnsupportedOperationException();
