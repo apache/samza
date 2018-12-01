@@ -17,7 +17,9 @@
  * under the License.
  */
 
-package org.apache.samza;
+package org.apache.samza.coordinator;
+
+import org.apache.samza.SamzaException;
 
 
 /**
