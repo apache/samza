@@ -74,9 +74,7 @@ class TaskStorageManager(
     cleanBaseDirs()
     setupBaseDirs()
     validateChangelogStreams()
-    startConsumers()
-    restoreStores()
-    stopConsumers()
+    registerSSPs()
   }
 
   private def cleanBaseDirs() {
@@ -159,7 +157,7 @@ class TaskStorageManager(
     info("Assigning oldest change log offsets for taskName %s: %s" format (taskName, changeLogOldestOffsets))
   }
 
-  private def startConsumers() {
+  private def registerSSPs() {
     debug("Starting consumers for stores.")
 
     for ((storeName, systemStream) <- changeLogSystemStreams) {
@@ -176,8 +174,6 @@ class TaskStorageManager(
         taskStoresToRestore -= storeName
       }
     }
-
-    storeConsumers.values.foreach(_.start)
   }
 
   /**
@@ -202,7 +198,7 @@ class TaskStorageManager(
     StorageManagerUtil.getStartingOffset(systemStreamPartition, admin, fileOffset, oldestOffset)
   }
 
-  private def restoreStores() {
+  def restoreStores() {
     debug("Restoring stores for task: %s." format taskName.getTaskName)
 
     for ((storeName, store) <- taskStoresToRestore) {
@@ -214,12 +210,6 @@ class TaskStorageManager(
         store.restore(systemConsumerIterator)
       }
     }
-  }
-
-  private def stopConsumers() {
-    debug("Stopping consumers for stores.")
-
-    storeConsumers.values.foreach(_.stop)
   }
 
   def flush() {
