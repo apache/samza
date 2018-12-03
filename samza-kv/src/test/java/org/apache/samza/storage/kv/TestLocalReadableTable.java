@@ -124,13 +124,10 @@ public class TestLocalReadableTable {
     ReadableTable table = createTable(true);
     table.get("");
     table.getAsync("").get();
-    table.getAll(Collections.emptyList());
-    table.getAllAsync(Collections.emptyList()).get();
-    verify(metricsRegistry, atLeast(1)).newCounter(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newTimer(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newGauge(anyString(), any());
+    table.getAll(keys);
+    table.getAllAsync(keys).get();
     Assert.assertEquals(2, numGets.getCount());
-    Assert.assertEquals(2, numMissedLookups.getCount());
+    Assert.assertEquals(4, numMissedLookups.getCount());
     Assert.assertEquals(2, numGetAlls.getCount());
     Assert.assertEquals(0, getNs.getSnapshot().getAverage(), 0.001);
     Assert.assertEquals(0, getAllNs.getSnapshot().getAverage(), 0.001);

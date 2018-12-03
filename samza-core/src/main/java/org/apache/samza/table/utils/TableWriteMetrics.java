@@ -18,7 +18,6 @@
  */
 package org.apache.samza.table.utils;
 
-import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
@@ -27,18 +26,16 @@ import org.apache.samza.table.Table;
 
 public class TableWriteMetrics {
 
-  public final Timer putNs;
-  public final Timer putAllNs;
-  public final Timer deleteNs;
-  public final Timer deleteAllNs;
-  public final Timer flushNs;
   public final Counter numPuts;
+  public final Timer putNs;
   public final Counter numPutAlls;
+  public final Timer putAllNs;
   public final Counter numDeletes;
+  public final Timer deleteNs;
   public final Counter numDeleteAlls;
+  public final Timer deleteAllNs;
   public final Counter numFlushes;
-  public final Timer putCallbackNs;
-  public final Timer deleteCallbackNs;
+  public final Timer flushNs;
 
   /**
    * Utility class that contains the default set of write metrics.
@@ -50,28 +47,14 @@ public class TableWriteMetrics {
   public TableWriteMetrics(Context context, Table table, String tableId) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
     numPuts = tableMetricsUtil.newCounter("num-puts");
+    putNs = tableMetricsUtil.newTimer("put-ns");
     numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
+    putAllNs = tableMetricsUtil.newTimer("putAll-ns");
     numDeletes = tableMetricsUtil.newCounter("num-deletes");
+    deleteNs = tableMetricsUtil.newTimer("delete-ns");
     numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
+    deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
     numFlushes = tableMetricsUtil.newCounter("num-flushes");
-
-    MetricsConfig metricsConfig = new MetricsConfig(context.getJobContext().getConfig());
-    if (metricsConfig.getMetricsTimerEnabled()) {
-      putNs = tableMetricsUtil.newTimer("put-ns");
-      putAllNs = tableMetricsUtil.newTimer("putAll-ns");
-      deleteNs = tableMetricsUtil.newTimer("delete-ns");
-      deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
-      flushNs = tableMetricsUtil.newTimer("flush-ns");
-      putCallbackNs = tableMetricsUtil.newTimer("put-callback-ns");
-      deleteCallbackNs = tableMetricsUtil.newTimer("delete-callback-ns");
-    } else {
-      putNs = null;
-      putAllNs = null;
-      deleteNs = null;
-      deleteAllNs = null;
-      flushNs = null;
-      putCallbackNs = null;
-      deleteCallbackNs = null;
-    }
+    flushNs = tableMetricsUtil.newTimer("flush-ns");
   }
 }

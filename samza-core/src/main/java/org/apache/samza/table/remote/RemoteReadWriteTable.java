@@ -174,9 +174,9 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V>
   public void flush() {
     try {
       incCounter(writeMetrics.numFlushes);
-      long startNs = System.nanoTime();
+      long startNs = clock.nanoTime();
       writeFn.flush();
-      updateTimer(writeMetrics.flushNs, System.nanoTime() - startNs);
+      updateTimer(writeMetrics.flushNs, clock.nanoTime() - startNs);
     } catch (Exception e) {
       String errMsg = "Failed to flush remote store";
       logger.error(errMsg, e);
@@ -202,7 +202,7 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V>
   protected CompletableFuture<Void> execute(TableRateLimiter<K, V> rateLimiter,
       K key, V value, BiFunction<K, V, CompletableFuture<Void>> method, Counter counter, Timer timer) {
     incCounter(counter);
-    final long startNs = System.nanoTime();
+    final long startNs = clock.nanoTime();
     CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited()
         ? CompletableFuture
             .runAsync(() -> rateLimiter.throttle(key, value), tableExecutor)
@@ -223,7 +223,7 @@ public class RemoteReadWriteTable<K, V> extends RemoteReadableTable<K, V>
       Collection<Entry<K, V>> records, Function<Collection<Entry<K, V>>, CompletableFuture<Void>> method,
       Counter counter, Timer timer) {
     incCounter(counter);
-    final long startNs = System.nanoTime();
+    final long startNs = clock.nanoTime();
     CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited()
         ? CompletableFuture
             .runAsync(() -> rateLimiter.throttleRecords(records), tableExecutor)

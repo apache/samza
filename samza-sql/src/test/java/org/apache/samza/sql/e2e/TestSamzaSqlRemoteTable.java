@@ -97,7 +97,7 @@ public class TestSamzaSqlRemoteTable {
     TestAvroSystemFactory.messages.clear();
     RemoteStoreIOResolverTestFactory.records.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
-    populateProfileTable(staticConfigs);
+    populateProfileTable(staticConfigs, numMessages);
 
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
@@ -130,7 +130,7 @@ public class TestSamzaSqlRemoteTable {
     RemoteStoreIOResolverTestFactory.records.clear();
     Map<String, String> staticConfigs =
         SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
-    populateProfileTable(staticConfigs);
+    populateProfileTable(staticConfigs, numMessages);
 
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
@@ -163,7 +163,7 @@ public class TestSamzaSqlRemoteTable {
     RemoteStoreIOResolverTestFactory.records.clear();
     Map<String, String> staticConfigs =
         SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
-    populateProfileTable(staticConfigs);
+    populateProfileTable(staticConfigs, numMessages);
 
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
@@ -188,9 +188,36 @@ public class TestSamzaSqlRemoteTable {
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
-  private void populateProfileTable(Map<String, String> staticConfigs) {
-    int numMessages = 20;
+  @Test
+  public void testSameJoinTargetSinkEndToEndRightOuterJoin() {
+    int numMessages = 21;
 
+    TestAvroSystemFactory.messages.clear();
+    RemoteStoreIOResolverTestFactory.records.clear();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    populateProfileTable(staticConfigs, numMessages);
+
+    // The below query reads messages from a stream and deletes the corresponding records from the table.
+    // Since the stream has alternate messages with null foreign key, only half of the messages will have
+    // successful joins and hence only half of the records in the table will be deleted. Although join is
+    // redundant here, keeping it just for testing purpose.
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as __key__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
+    appRunnable.runAndWaitForFinish();
+
+    Assert.assertEquals((numMessages + 1) / 2, RemoteStoreIOResolverTestFactory.records.size());
+  }
+
+  private void populateProfileTable(Map<String, String> staticConfigs, int numMessages) {
     RemoteStoreIOResolverTestFactory.records.clear();
 
     String sql = "Insert into testRemoteStore.Profile.`$table` select * from testavro.PROFILE";
