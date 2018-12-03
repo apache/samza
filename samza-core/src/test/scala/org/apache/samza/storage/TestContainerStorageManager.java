@@ -24,6 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.metrics.Gauge;
 import org.apache.samza.system.SystemConsumer;
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,6 +45,8 @@ public class TestContainerStorageManager {
 
   private CountDownLatch systemConsumerStartCount;
   private CountDownLatch systemConsumerStopCount;
+
+  private Map<TaskName, Gauge<Object>> taskRestoreMetricGauges;
 
   /**
    * Utility method for creating a mocked taskInstance and taskStorageManager and adding it to the map.
@@ -72,10 +75,13 @@ public class TestContainerStorageManager {
       }).when(mockTaskStorageManager).restoreStores();
 
     taskStorageManagers.put(mockTaskInstance, mockTaskStorageManager);
+
+    this.taskRestoreMetricGauges.put(new TaskName(taskname), new Gauge(taskname, 0));
   }
 
   @Before
   public void setUp() {
+    taskRestoreMetricGauges = new HashMap<>();
     systemConsumers = new HashMap<>();
     taskStorageManagers = new HashMap<>();
 
@@ -93,6 +99,7 @@ public class TestContainerStorageManager {
 
     // mock container metrics
     samzaContainerMetrics = Mockito.mock(SamzaContainerMetrics.class);
+    Mockito.when(samzaContainerMetrics.taskStoreRestorationMetrics()).thenReturn(taskRestoreMetricGauges);
 
     // mock and setup sysconsumers
     SystemConsumer mockSystemConsumer = Mockito.mock(SystemConsumer.class);
@@ -112,7 +119,7 @@ public class TestContainerStorageManager {
   }
 
   @Test
-  public void testParallelism() {
+  public void testParallelismAndMetrics() {
     this.containerStorageManager.start();
     this.containerStorageManager.shutdown();
     Assert.assertTrue("init count should be 0", this.taskStorageManagersInitCount.getCount() == 0);
@@ -121,5 +128,10 @@ public class TestContainerStorageManager {
 
     Assert.assertTrue("systemConsumerStopCount count should be 0", this.systemConsumerStopCount.getCount() == 0);
     Assert.assertTrue("systemConsumerStartCount count should be 0", this.systemConsumerStartCount.getCount() == 0);
+
+    for (Gauge gauge : taskRestoreMetricGauges.values()) {
+      Assert.assertTrue("Restoration time gauge value should be non zero", (Long) gauge.getValue() >= 1);
+    }
   }
+
 }

@@ -147,7 +147,7 @@ public class ContainerStorageManager {
       taskStorageManager.restoreStores();
       long timeToRestore = System.currentTimeMillis() - startTime;
       Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics()
-          .getOrDefault(this.taskInstance.taskName().getTaskName(), null);
+          .getOrDefault(this.taskInstance.taskName(), null);
 
       if (taskGauge != null) {
         taskGauge.set(timeToRestore);
