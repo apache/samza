@@ -23,7 +23,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.samza.container.*;
+import org.apache.samza.container.ContainerHeartbeatClient;
+import org.apache.samza.container.ContainerHeartbeatMonitor;
+import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.SamzaContainer;
+import org.apache.samza.container.SamzaContainer$;
+import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.MDC;
 import org.apache.samza.SamzaException;
@@ -44,7 +49,6 @@ import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-
 
 /**
  * Launches and manages the lifecycle for {@link SamzaContainer}s in YARN.

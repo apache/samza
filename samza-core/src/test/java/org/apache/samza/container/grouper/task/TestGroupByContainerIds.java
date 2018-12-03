@@ -272,7 +272,7 @@ public class TestGroupByContainerIds {
                                                              testTaskName2, testLocationId2,
                                                              testTaskName3, testLocationId3);
 
-    GrouperContext grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -309,7 +309,7 @@ public class TestGroupByContainerIds {
                                                              testTaskName2, testLocationId2,
                                                              testTaskName3, testLocationId3);
 
-    GrouperContext grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -348,7 +348,7 @@ public class TestGroupByContainerIds {
 
     Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1);
 
-    GrouperContext grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -365,7 +365,7 @@ public class TestGroupByContainerIds {
   public void testShouldFailWhenProcessorLocalityIsEmpty() {
     TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
 
-    GrouperContext grouperContext = new GrouperContext(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
 
     taskNameGrouper.group(new HashSet<>(), grouperContext);
   }
@@ -398,7 +398,7 @@ public class TestGroupByContainerIds {
             testTaskName2, testLocationId2,
             testTaskName3, testLocationId3);
 
-    GrouperContext grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -443,7 +443,7 @@ public class TestGroupByContainerIds {
             testTaskName2, testLocationId2,
             testTaskName3, testLocationId3);
 
-    GrouperContext grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -458,7 +458,7 @@ public class TestGroupByContainerIds {
     processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
                                         testProcessorId2, testLocationId2);
 
-    grouperContext = new GrouperContext(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
 

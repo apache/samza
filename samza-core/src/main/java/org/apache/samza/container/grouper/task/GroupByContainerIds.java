@@ -19,18 +19,7 @@
 
 package org.apache.samza.container.grouper.task;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
@@ -123,21 +112,20 @@ public class GroupByContainerIds implements TaskNameGrouper {
    * {@inheritDoc}
    */
   @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperContext grouperContext) {
-    Map<TaskName, LocationId> taskLocality = grouperContext.getTaskLocality();
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, MetadataProvider metadataProvider) {
+    Map<TaskName, LocationId> taskLocality = metadataProvider.getTaskLocality();
 
     Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
-    if (MapUtils.isEmpty(grouperContext.getProcessorLocality())) {
+    if (MapUtils.isEmpty(metadataProvider.getProcessorLocality())) {
       LOG.info("ProcessorLocality is empty. Generating with the default group method.");
       return group(taskModels, new ArrayList<>());
     }
 
-    Map<String, LocationId> processorLocality = grouperContext.getProcessorLocality();
-    if (grouperContext.getProcessorLocality().size() > taskModels.size()) {
+    Map<String, LocationId> processorLocality = new TreeMap<>(metadataProvider.getProcessorLocality());
+    if (processorLocality.size() > taskModels.size()) {
       processorLocality = processorLocality.entrySet()
                                            .stream()
-                                           .sorted(Comparator.comparing(Map.Entry::getKey))
                                            .limit(taskModels.size())
                                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }

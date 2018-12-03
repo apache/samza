@@ -41,7 +41,8 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.container.grouper.task.GrouperContext;
+import org.apache.samza.container.grouper.task.MetadataProvider;
+import org.apache.samza.container.grouper.task.MetadataProviderImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
@@ -336,8 +337,8 @@ public class ZkJobCoordinator implements JobCoordinator {
       cachedJobModelVersion = zkJobModelVersion;
     }
 
-    GrouperContext grouperContext = getGrouperContext(zkJobModelVersion, processorNodes);
-    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperContext);
+    MetadataProvider metadataProvider = getGrouperParams(zkJobModelVersion, processorNodes);
+    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, metadataProvider);
     return new JobModel(new MapConfig(), model.getContainers());
   }
 
@@ -359,13 +360,13 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   /**
-   * Builds the {@link GrouperContext} based upon provided {@param jobModelVersion}
+   * Builds the {@link MetadataProviderImpl} based upon provided {@param jobModelVersion}
    * and {@param processorNodes}.
    * @param jobModelVersion the most recent jobModelVersion available in the zookeeper.
    * @param processorNodes the list of live processors in the zookeeper.
    * @return the built grouper context.
    */
-  private GrouperContext getGrouperContext(String jobModelVersion, List<ProcessorNode> processorNodes) {
+  private MetadataProviderImpl getGrouperParams(String jobModelVersion, List<ProcessorNode> processorNodes) {
     Map<TaskName, String> taskToProcessorId = new HashMap<>();
     Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
     if (jobModelVersion != null) {
@@ -388,7 +389,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
 
     Map<TaskName, LocationId> taskLocality = zkUtils.readTaskLocality();
-    return new GrouperContext(processorLocality, taskLocality, taskToSSPs, taskToProcessorId);
+    return new MetadataProviderImpl(processorLocality, taskLocality, taskToSSPs, taskToProcessorId);
   }
 
   class LeaderElectorListenerImpl implements LeaderElectorListener {

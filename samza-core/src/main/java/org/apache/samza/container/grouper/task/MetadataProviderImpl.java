@@ -18,7 +18,6 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.SystemStreamPartition;
@@ -28,12 +27,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A Wrapper class that holds the necessary historical metadata of the samza job which is used
- * by the {@link org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper}
- * and {@link TaskNameGrouper} to generate optimal task assignments.
+ * Implementation of {@link MetadataProvider} that holds the necessary historical metadata of
+ * the samza job. This is used by the {@link TaskNameGrouper} to generate optimal task assignments.
  */
-@InterfaceStability.Evolving
-public class GrouperContext {
+public class MetadataProviderImpl implements MetadataProvider {
 
   // Map of processorId to LocationId.
   private final Map<String, LocationId> processorLocality;
@@ -47,7 +44,7 @@ public class GrouperContext {
   // Map of TaskName to ProcessorId.
   private final Map<TaskName, String> previousTaskToProcessorAssignment;
 
-  public GrouperContext(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToProcessorAssignment) {
+  public MetadataProviderImpl(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToProcessorAssignment) {
     this.processorLocality = Collections.unmodifiableMap(processorLocality);
     this.taskLocality = Collections.unmodifiableMap(taskLocality);
     this.previousTaskToSSPAssignment = Collections.unmodifiableMap(previousTaskToSSPAssignments);

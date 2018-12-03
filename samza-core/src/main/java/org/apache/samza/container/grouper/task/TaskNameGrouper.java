@@ -45,13 +45,14 @@ import java.util.Set;
 public interface TaskNameGrouper {
 
   /**
-   * Groups the taskModels into set of {@link ContainerModel} using the provided grouperContext.
+   * Groups the taskModels into set of {@link ContainerModel} using the metadata of
+   * the job from {@link MetadataProvider}.
    *
    * @param taskModels the set of tasks to group into containers.
-   * @param grouperContext the existing historical metadata of the samza job.
+   * @param metadataProvider provides the historical metadata of the samza job.
    * @return the grouped {@link ContainerModel} built from the provided taskModels.
    */
-  default Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperContext grouperContext) {
+  default Set<ContainerModel> group(Set<TaskModel> taskModels, MetadataProvider metadataProvider) {
     return group(taskModels);
   }
 
@@ -62,7 +63,9 @@ public interface TaskNameGrouper {
    * @return the grouped {@link ContainerModel} built from the provided taskModels.
    */
   @Deprecated
-  Set<ContainerModel> group(Set<TaskModel> taskModels);
+  default Set<ContainerModel> group(Set<TaskModel> taskModels) {
+    throw new UnsupportedOperationException();
+  }
 
   /**
    * Group the taskModels into set of {@link ContainerModel}.

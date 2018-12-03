@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.grouper.task.GrouperContext;
+import org.apache.samza.container.grouper.task.MetadataProviderImpl;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -50,7 +50,7 @@ public class JobModelManagerTestUtil {
   }
 
   public static JobModelManager getJobModelManagerUsingReadModel(Config config, StreamMetadataCache streamMetadataCache, HttpServer server, LocalityManager localityManager, Map<String, LocationId> processorLocality) {
-    JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), streamMetadataCache, new GrouperContext(processorLocality, new HashMap<>(), new HashMap<>(), new HashMap<>()));
+    JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), streamMetadataCache, new MetadataProviderImpl(processorLocality, new HashMap<>(), new HashMap<>(), new HashMap<>()));
     return new JobModelManager(new JobModel(jobModel.getConfig(), jobModel.getContainers(), localityManager), server, localityManager);
   }
 }
