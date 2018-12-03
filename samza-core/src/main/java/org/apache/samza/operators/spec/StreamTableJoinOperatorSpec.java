@@ -22,8 +22,6 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * The spec for stream-table join operator that retrieves a record from the table using key
@@ -36,24 +34,24 @@ import org.apache.samza.table.TableSpec;
 @InterfaceStability.Unstable
 public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM> {
 
-  private final TableSpec tableSpec;
+  private final String tableId;
   private final StreamTableJoinFunction<K, M, R, JM> joinFn;
 
   /**
    * Constructor for {@link StreamTableJoinOperatorSpec}.
    *
-   * @param tableSpec  the table spec for the table on the right side of the join
+   * @param tableId  the Id of the table on the right side of the join
    * @param joinFn  the user-defined join function to get join keys and results
    * @param opId  the unique ID for this operator
    */
-  StreamTableJoinOperatorSpec(TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
+  StreamTableJoinOperatorSpec(String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
     super(OpCode.JOIN, opId);
-    this.tableSpec = tableSpec;
+    this.tableId = tableId;
     this.joinFn = joinFn;
   }
 
-  public TableSpec getTableSpec() {
-    return tableSpec;
+  public String getTableId() {
+    return tableId;
   }
 
   public StreamTableJoinFunction<K, M, R, JM> getJoinFn() {

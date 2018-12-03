@@ -16,18 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.storage.kv.inmemory.descriptors;
+package org.apache.samza.storage.kv;
 
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
 
-/**
- * Factory class for an in-memory table provider
- */
-public class InMemoryTableProviderFactory implements TableProviderFactory {
+
+public class LocalTableProviderFactory implements TableProviderFactory {
   @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new InMemoryTableProvider(tableSpec);
+  public TableProvider getTableProvider(String tableId) {
+    return new LocalTableProvider(tableId);
   }
 }

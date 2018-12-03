@@ -24,31 +24,37 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 
 
-/**
- * Utility class that contains the default set of read metrics.
- */
-public class DefaultTableReadMetrics {
+public class TableWriteMetrics {
 
-  public final Timer getNs;
-  public final Timer getAllNs;
-  public final Counter numGets;
-  public final Counter numGetAlls;
-  public final Timer getCallbackNs;
+  public final Counter numPuts;
+  public final Timer putNs;
+  public final Counter numPutAlls;
+  public final Timer putAllNs;
+  public final Counter numDeletes;
+  public final Timer deleteNs;
+  public final Counter numDeleteAlls;
+  public final Timer deleteAllNs;
+  public final Counter numFlushes;
+  public final Timer flushNs;
 
   /**
-   * Constructor based on container and task container context
+   * Utility class that contains the default set of write metrics.
    *
    * @param context {@link Context} for this task
    * @param table underlying table
    * @param tableId table Id
    */
-  public DefaultTableReadMetrics(Context context, Table table, String tableId) {
+  public TableWriteMetrics(Context context, Table table, String tableId) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
-    getNs = tableMetricsUtil.newTimer("get-ns");
-    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
-    numGets = tableMetricsUtil.newCounter("num-gets");
-    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
-    getCallbackNs = tableMetricsUtil.newTimer("get-callback-ns");
+    numPuts = tableMetricsUtil.newCounter("num-puts");
+    putNs = tableMetricsUtil.newTimer("put-ns");
+    numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
+    putAllNs = tableMetricsUtil.newTimer("putAll-ns");
+    numDeletes = tableMetricsUtil.newCounter("num-deletes");
+    deleteNs = tableMetricsUtil.newTimer("delete-ns");
+    numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
+    deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
+    numFlushes = tableMetricsUtil.newCounter("num-flushes");
+    flushNs = tableMetricsUtil.newTimer("flush-ns");
   }
-
 }

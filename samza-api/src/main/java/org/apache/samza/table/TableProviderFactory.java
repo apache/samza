@@ -27,9 +27,9 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Unstable
 public interface TableProviderFactory {
   /**
-   * Constructs an instances of the table provider based on a given table spec
-   * @param tableSpec the table spec
-   * @return the table provider
+   * Construct a table provider based on job configuration
+   * @param tableId Id of the table
+   * @return the constructed table provider
    */
-  TableProvider getTableProvider(TableSpec tableSpec);
+  TableProvider getTableProvider(String tableId);
 }

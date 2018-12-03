@@ -18,13 +18,16 @@
  */
 package org.apache.samza.storage.kv.inmemory.descriptors;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.storage.kv.LocalTableProviderFactory;
+import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * Table descriptor for in-memory tables
@@ -37,14 +40,6 @@ public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, In
   /**
    * Constructs a table descriptor instance
    * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
-   */
-  public InMemoryTableDescriptor(String tableId) {
-    super(tableId);
-  }
-
-  /**
-   * Constructs a table descriptor instance
-   * @param tableId Id of the table, it must conform to pattern {@literal [\\d\\w-_]+}
    * @param serde the serde for key and value
    */
   public InMemoryTableDescriptor(String tableId, KVSerde<K, V> serde) {
@@ -52,23 +47,16 @@ public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, In
   }
 
   @Override
-  protected void generateTableSpecConfig(Map<String, String> tableSpecConfig) {
-    super.generateTableSpecConfig(tableSpecConfig);
+  public String getProviderFactoryClassName() {
+    return LocalTableProviderFactory.class.getName();
   }
 
   @Override
-  public TableSpec getTableSpec() {
-
-    validate();
-
-    Map<String, String> tableSpecConfig = new HashMap<>();
-    generateTableSpecConfig(tableSpecConfig);
-
-    return new TableSpec(tableId, serde, InMemoryTableProviderFactory.class.getName(), tableSpecConfig,
-        sideInputs, sideInputsProcessor);
-  }
-
-  private void addInMemoryConfig(Map<String, String> map, String key, String value) {
-    map.put("inmemory." + key, value);
+  public Map<String, String> toConfig(Config jobConfig) {
+    Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
+    // Store factory configuration
+    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+        InMemoryKeyValueStorageEngineFactory.class.getName());
+    return Collections.unmodifiableMap(tableConfig);
   }
 }

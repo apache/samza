@@ -20,7 +20,9 @@ package org.apache.samza.sql.translator;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptTable;
@@ -36,6 +38,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
+import org.apache.samza.sql.data.SamzaSqlExecutionContext;
+import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -48,7 +53,6 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,8 +80,17 @@ import static org.mockito.Mockito.when;
 public class TestJoinTranslator extends TranslatorTestBase {
 
   @Test
-  public void testTranslateStreamToTableJoin() throws IOException, ClassNotFoundException {
-    // setup mock values to the constructor of FilterTranslator
+  public void testTranslateStreamToLocalTableJoin() throws IOException, ClassNotFoundException {
+    testTranslateStreamToTableJoin(false);
+  }
+
+  @Test
+  public void testTranslateStreamToRemoteTableJoin() throws IOException, ClassNotFoundException {
+    testTranslateStreamToTableJoin(true);
+  }
+
+  private void testTranslateStreamToTableJoin(boolean isRemoteTable) throws IOException, ClassNotFoundException {
+    // setup mock values to the constructor of JoinTranslator
     LogicalJoin mockJoin = PowerMockito.mock(LogicalJoin.class);
     TranslatorContext mockContext = mock(TranslatorContext.class);
     RelNode mockLeftInput = PowerMockito.mock(EnumerableTableScan.class);
@@ -145,9 +158,6 @@ public class TestJoinTranslator extends TranslatorTestBase {
     OutputStreamImpl mockOutputStream = mock(OutputStreamImpl.class);
     when(mockInputOp.isKeyed()).thenReturn(true);
     when(mockOutputStream.isKeyed()).thenReturn(true);
-    IntermediateMessageStreamImpl
-        mockPartitionedStream = new IntermediateMessageStreamImpl(mockAppDesc, mockInputOp, mockOutputStream);
-    when(mockAppDesc.getIntermediateStream(any(String.class), any(Serde.class), eq(false))).thenReturn(mockPartitionedStream);
 
     doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(3), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
@@ -155,16 +165,37 @@ public class TestJoinTranslator extends TranslatorTestBase {
     Expression mockExpr = mock(Expression.class);
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
-    doAnswer(this.getRegisteredTableAnswer()).when(mockAppDesc).getTable(any(RocksDbTableDescriptor.class));
+    if (isRemoteTable) {
+      doAnswer(this.getRegisteredTableAnswer()).when(mockAppDesc).getTable(any(RemoteTableDescriptor.class));
+    } else {
+      IntermediateMessageStreamImpl
+          mockPartitionedStream = new IntermediateMessageStreamImpl(mockAppDesc, mockInputOp, mockOutputStream);
+      when(mockAppDesc.getIntermediateStream(any(String.class), any(Serde.class), eq(false))).thenReturn(mockPartitionedStream);
+      doAnswer(this.getRegisteredTableAnswer()).when(mockAppDesc).getTable(any(RocksDbTableDescriptor.class));
+    }
     when(mockJoin.getJoinType()).thenReturn(JoinRelType.INNER);
-    SqlIOResolver mockResolver = mock(SqlIOResolver.class);
+
+    SamzaSqlExecutionContext mockExecutionContext = mock(SamzaSqlExecutionContext.class);
+    when(mockContext.getExecutionContext()).thenReturn(mockExecutionContext);
+
+    SamzaSqlApplicationConfig mockAppConfig = mock(SamzaSqlApplicationConfig.class);
+    when(mockExecutionContext.getSamzaSqlApplicationConfig()).thenReturn(mockAppConfig);
+
+    Map<String, SqlIOConfig> ssConfigBySource = mock(HashMap.class);
+    when(mockAppConfig.getInputSystemStreamConfigBySource()).thenReturn(ssConfigBySource);
+
     SqlIOConfig mockIOConfig = mock(SqlIOConfig.class);
-    TableDescriptor mockTableDesc = mock(TableDescriptor.class);
-    when(mockResolver.fetchSourceInfo(String.join(".", qualifiedTableName))).thenReturn(mockIOConfig);
+    TableDescriptor mockTableDesc;
+    if (isRemoteTable) {
+     mockTableDesc = mock(RemoteTableDescriptor.class);
+    } else {
+      mockTableDesc = mock(RocksDbTableDescriptor.class);
+    }
+    when(ssConfigBySource.get(String.join(".", qualifiedTableName))).thenReturn(mockIOConfig);
     when(mockIOConfig.getTableDescriptor()).thenReturn(Optional.of(mockTableDesc));
 
     // Apply translate() method to verify that we are getting the correct map operator constructed
-    JoinTranslator joinTranslator = new JoinTranslator(3, mockResolver, "");
+    JoinTranslator joinTranslator = new JoinTranslator("sql0_join3", "", 0);
     joinTranslator.translate(mockJoin, mockContext);
     // make sure that context has been registered with LogicFilter and output message streams
     verify(mockContext, times(1)).registerMessageStream(3, this.getRegisteredMessageStream(3));
@@ -178,6 +209,11 @@ public class TestJoinTranslator extends TranslatorTestBase {
     // Verify joinSpec has the corresponding setup
     StreamTableJoinFunction joinFn = joinSpec.getJoinFn();
     assertNotNull(joinFn);
+    if (isRemoteTable) {
+      assertTrue(joinFn instanceof SamzaSqlRemoteTableJoinFunction);
+    } else {
+      assertTrue(joinFn instanceof SamzaSqlLocalTableJoinFunction);
+    }
     assertTrue(Whitebox.getInternalState(joinFn, "isTablePosOnRight").equals(false));
     assertEquals(new ArrayList<Integer>() {{ this.add(0); }}, Whitebox.getInternalState(joinFn, "streamFieldIds"));
     assertEquals(leftFieldNames, Whitebox.getInternalState(joinFn, "tableFieldNames"));
@@ -185,7 +221,5 @@ public class TestJoinTranslator extends TranslatorTestBase {
     outputFieldNames.addAll(leftFieldNames);
     outputFieldNames.addAll(rightStreamFieldNames);
     assertEquals(outputFieldNames, Whitebox.getInternalState(joinFn, "outFieldNames"));
-
   }
-
 }

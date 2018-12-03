@@ -53,6 +53,7 @@ public class TestOperatorImpl {
     this.context = new MockContext();
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(this.context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
+    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
   @Test(expected = IllegalStateException.class)
@@ -100,7 +101,7 @@ public class TestOperatorImpl {
   @Test
   public void testOnMessageUpdatesMetrics() {
     ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
-    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);
     when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockCounter);
@@ -156,7 +157,7 @@ public class TestOperatorImpl {
   @Test
   public void testOnTimerUpdatesMetrics() {
     ReadableMetricsRegistry mockMetricsRegistry = mock(ReadableMetricsRegistry.class);
-    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(mockMetricsRegistry);
+    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(mockMetricsRegistry);
     Counter mockMessageCounter = mock(Counter.class);
     Timer mockTimer = mock(Timer.class);
     when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockMessageCounter);

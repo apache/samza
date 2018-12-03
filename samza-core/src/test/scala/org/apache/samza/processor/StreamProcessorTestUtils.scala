@@ -67,7 +67,8 @@ object StreamProcessorTestUtils {
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
       containerContext = containerContext,
-      applicationContainerContextOption = None)
+      applicationContainerContextOption = None,
+      containerStorageManager = null)
     container
   }
 }

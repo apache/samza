@@ -36,7 +36,8 @@ import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -59,10 +60,8 @@ import org.codehaus.jackson.map.ObjectMapper;
   static final class TableSpecJson {
     @JsonProperty("id")
     String id;
-    @JsonProperty("tableProviderFactory")
-    String tableProviderFactory;
-    @JsonProperty("config")
-    Map<String, String> config;
+    @JsonProperty("providerFactory")
+    String providerFactory;
   }
 
   static final class StreamEdgeJson {
@@ -183,13 +182,13 @@ import org.codehaus.jackson.map.ObjectMapper;
     }
 
     if (spec instanceof StreamTableJoinOperatorSpec) {
-      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
-      map.put("tableId", tableSpec.getId());
+      String tableId = ((StreamTableJoinOperatorSpec) spec).getTableId();
+      map.put("tableId", tableId);
     }
 
     if (spec instanceof StreamTableJoinOperatorSpec) {
-      TableSpec tableSpec = ((StreamTableJoinOperatorSpec) spec).getTableSpec();
-      map.put("tableId", tableSpec.getId());
+      String tableId = ((StreamTableJoinOperatorSpec) spec).getTableId();
+      map.put("tableId", tableId);
     }
 
     if (spec instanceof JoinOperatorSpec) {
@@ -270,27 +269,15 @@ import org.codehaus.jackson.map.ObjectMapper;
     return edgeJson;
   }
 
-  /**
-   * Get or create the JSON POJO for a {@link TableSpec}
-   * @param tableSpec the {@link TableSpec}
-   * @param tableSpecs a map of tableId to {@link TableSpecJson}
-   * @return JSON representation of the {@link TableSpec}
-   */
-  private TableSpecJson buildTableJson(TableSpec tableSpec, Map<String, TableSpecJson> tableSpecs) {
-    String tableId = tableSpec.getId();
-    return tableSpecs.computeIfAbsent(tableId, k -> buildTableJson(tableSpec));
+  private TableSpecJson buildTableJson(TableDescriptor tableDescriptor, Map<String, TableSpecJson> tableSpecs) {
+    String tableId = tableDescriptor.getTableId();
+    return tableSpecs.computeIfAbsent(tableId, k -> buildTableJson(tableDescriptor));
   }
 
-  /**
-   * Create the JSON POJO for a {@link TableSpec}
-   * @param tableSpec the {@link TableSpec}
-   * @return JSON representation of the {@link TableSpec}
-   */
-  private TableSpecJson buildTableJson(TableSpec tableSpec) {
+  private TableSpecJson buildTableJson(TableDescriptor tableDescriptor) {
     TableSpecJson tableSpecJson = new TableSpecJson();
-    tableSpecJson.id = tableSpec.getId();
-    tableSpecJson.tableProviderFactory = tableSpec.getTableProviderFactoryClassName();
-    tableSpecJson.config = tableSpec.getConfig();
+    tableSpecJson.id = tableDescriptor.getTableId();
+    tableSpecJson.providerFactory = ((BaseTableDescriptor) tableDescriptor).getProviderFactoryClassName();
     return tableSpecJson;
   }
 }

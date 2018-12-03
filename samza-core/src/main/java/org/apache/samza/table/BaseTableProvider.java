@@ -18,10 +18,6 @@
  */
 package org.apache.samza.table;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.context.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,40 +28,28 @@ import org.slf4j.LoggerFactory;
  */
 abstract public class BaseTableProvider implements TableProvider {
 
-  final protected Logger logger = LoggerFactory.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-  final protected TableSpec tableSpec;
+  protected final String tableId;
 
   protected Context context;
 
-  public BaseTableProvider(TableSpec tableSpec) {
-    this.tableSpec = tableSpec;
+  /**
+   * Construct the table provider using table Id and job configuration
+   * @param tableId Id of the table
+   */
+  public BaseTableProvider(String tableId) {
+    this.tableId = tableId;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     this.context = context;
+    logger.info("Initializing table provider for table " + tableId);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
-  public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig) {
-    Map<String, String> tableConfig = new HashMap<>();
-
-    // Insert table_id prefix to config entries
-    tableSpec.getConfig().forEach((k, v) -> {
-        String realKey = String.format(JavaTableConfig.TABLE_ID_PREFIX, tableSpec.getId()) + "." + k;
-        tableConfig.put(realKey, v);
-      });
-
-    logger.info("Generated configuration for table " + tableSpec.getId());
-
-    return tableConfig;
+  public void close() {
+    logger.info("Closing table provider for table " + tableId);
   }
-
 }

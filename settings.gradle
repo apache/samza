@@ -19,27 +19,28 @@
 
 include \
   'samza-api',
-  'samza-aws',
-  'samza-azure',
-  'samza-elasticsearch',
-  'samza-log4j',
-  'samza-log4j2',
-  'samza-rest',
-  'samza-shell',
   'samza-sql',
-  'samza-sql-shell',
-  'samza-tools'
+  'samza-shell'
 
 def scalaModules = [
+        'samza-autoscaling',
+        'samza-aws',
+        'samza-azure',
         'samza-core',
+        'samza-elasticsearch',
+        'samza-hdfs',
         'samza-kafka',
         'samza-kv',
         'samza-kv-inmemory',
         'samza-kv-rocksdb',
-        'samza-hdfs',
+        'samza-log4j',
+        'samza-log4j2',
+        'samza-rest',
+        'samza-sql',
+        'samza-sql-shell',
+        'samza-tools',
         'samza-yarn',
         'samza-test',
-        'samza-autoscaling'
 ] as HashSet
 
 scalaModules.each {

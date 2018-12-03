@@ -83,6 +83,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       fetchFieldNamesAndValuesFromIndexedRecord((IndexedRecord) value, payloadFieldNames, payloadFieldValues,
           payloadSchema);
     } else if (value == null) {
+      // If the payload is null, set each record value as null.
       payloadFieldNames.addAll(payloadSchema.getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
       IntStream.range(0, payloadFieldNames.size()).forEach(x -> payloadFieldValues.add(null));
     } else {
@@ -145,22 +146,47 @@ public class AvroRelConverter implements SamzaRelConverter {
     return new KV<>(relMessage.getKey(), convertToGenericRecord(relMessage.getSamzaSqlRelRecord(), payloadSchema));
   }
 
-  private GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
+  static public GenericRecord convertToGenericRecord(SamzaSqlRelRecord relRecord, Schema schema) {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();
+    int nullFieldValueCount = 0;
     for (int index = 0; index < fieldNames.size(); index++) {
       if (!fieldNames.get(index).equalsIgnoreCase(SamzaSqlRelMessage.KEY_NAME)) {
-        Object relObj = values.get(index);
         String fieldName = fieldNames.get(index);
+        /**
+         * It is possible that the destination Avro schema doesn't have all the fields that are projected from the
+         * SQL. This is especially possible in SQL statements like
+         *        insert into kafka.outputTopic select id, company from profile
+         * where company is an avro record in itself whose schema can evolve. When this happens we will end up with
+         * fields in the SamzaSQLRelRecord for company field which doesn't have equivalent fields in the outputTopic's schema
+         * for company. To support this scenario where the input schemas and output schemas can evolve in their own cadence,
+         * We ignore the fields which doesn't have corresponding schema in the output topic.
+         */
+        if (schema.getField(fieldName) == null) {
+          nullFieldValueCount++;
+          LOG.debug("Schema with Name {} and Namespace {} doesn't contain the fieldName {}, Skipping it.",
+              schema.getName(), schema.getNamespace(), fieldName);
+          continue;
+        }
+
+        Object relObj = values.get(index);
+        if (relObj == null) {
+          nullFieldValueCount++;
+        }
         Schema fieldSchema = schema.getField(fieldName).schema();
         record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
+      } else {
+        // Count key towards null field values for accounting purposes.
+        nullFieldValueCount++;
       }
     }
-    return record;
+
+    // If all field values in the record are null, return a null record.
+    return (nullFieldValueCount == fieldNames.size()) ? null : record;
   }
 
-  public Object convertToAvroObject(Object relObj, Schema schema) {
+  static public Object convertToAvroObject(Object relObj, Schema schema) {
     if (relObj == null) {
       return null;
     }
@@ -188,6 +214,19 @@ public class AvroRelConverter implements SamzaRelConverter {
       default:
         return relObj;
     }
+  }
+
+  // Two non-nullable types in a union is not yet supported.
+  static public Schema getNonNullUnionSchema(Schema schema) {
+    if (schema.getType().equals(Schema.Type.UNION)) {
+      if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
+        return schema.getTypes().get(0);
+      }
+      if (schema.getTypes().get(1).getType() != Schema.Type.NULL) {
+        return schema.getTypes().get(1);
+      }
+    }
+    return schema;
   }
 
   // Not doing any validations of data types with Avro schema considering the resource cost per message.
@@ -233,22 +272,12 @@ public class AvroRelConverter implements SamzaRelConverter {
         return new ByteString(fixed.bytes());
       case BYTES:
         return new ByteString(((ByteBuffer) avroObj).array());
+      case FLOAT:
+        // Convert Float to Double similar to how JavaTypeFactoryImpl represents Float type
+        return Double.parseDouble(Float.toString((Float) avroObj));
 
       default:
         return avroObj;
     }
-  }
-
-  // Two non-nullable types in a union is not yet supported.
-  public Schema getNonNullUnionSchema(Schema schema) {
-    if (schema.getType().equals(Schema.Type.UNION)) {
-      if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(0);
-      }
-      if (schema.getTypes().get(1).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(1);
-      }
-    }
-    return schema;
   }
 }

@@ -29,8 +29,6 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * Factory methods for creating {@link OperatorSpec} instances.
@@ -192,7 +190,7 @@ public class OperatorSpecs {
   /**
    * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
    *
-   * @param tableSpec the table spec for the table on the right side of the join
+   * @param tableId the table Id for the table on the right side of the join
    * @param joinFn the user-defined join function to get join keys and results
    * @param opId the unique ID of the operator
    * @param <K> the type of join key
@@ -202,23 +200,23 @@ public class OperatorSpecs {
    * @return the {@link StreamTableJoinOperatorSpec}
    */
   public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
-      TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
-    return new StreamTableJoinOperatorSpec(tableSpec, joinFn, opId);
+      String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
+    return new StreamTableJoinOperatorSpec(tableId, joinFn, opId);
   }
 
   /**
    * Creates a {@link SendToTableOperatorSpec} with a key extractor and a value extractor function,
    * the type of incoming message is expected to be KV&#60;K, V&#62;.
    *
-   * @param tableSpec the table spec for the underlying table
+   * @param tableId the table Id for the underlying table
    * @param opId the unique ID of the operator
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
   public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
-     TableSpec tableSpec, String opId) {
-    return new SendToTableOperatorSpec(tableSpec, opId);
+     String tableId, String opId) {
+    return new SendToTableOperatorSpec(tableId, opId);
   }
 
   /**

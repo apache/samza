@@ -40,9 +40,6 @@ object KafkaConfig {
   val TOPIC_REPLICATION_FACTOR = "replication.factor"
   val TOPIC_DEFAULT_REPLICATION_FACTOR = "2"
 
-  val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
-  val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
-  val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
 
   val SEGMENT_BYTES = "segment.bytes"
 
@@ -206,11 +203,11 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   // regex resolver
-  def getRegexResolvedStreams(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_STREAMS format rewriterName)
+  def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
 
-  def getRegexResolvedSystem(rewriterName: String) = getOption(KafkaConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
+  def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
 
-  def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((KafkaConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
+  def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((JobConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
 
   /**
     * Gets the replication factor for the changelog topics. Uses the following precedence.

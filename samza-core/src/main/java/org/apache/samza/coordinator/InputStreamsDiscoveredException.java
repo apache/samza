@@ -16,16 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.storage.kv.descriptors;
+package org.apache.samza.coordinator;
 
-import org.apache.samza.table.TableProvider;
-import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.SamzaException;
 
 
-public class RocksDbTableProviderFactory implements TableProviderFactory {
-  @Override
-  public TableProvider getTableProvider(TableSpec tableSpec) {
-    return new RocksDbTableProvider(tableSpec);
+/**
+ * Exception to indicate that the new input streams have been added.
+ */
+public class InputStreamsDiscoveredException extends SamzaException {
+
+  public InputStreamsDiscoveredException(String message) {
+    super(message);
   }
 }

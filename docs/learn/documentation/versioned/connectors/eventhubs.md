@@ -19,7 +19,7 @@ title: Event Hubs Connector
    limitations under the License.
 -->
 
-## EventHubs I/O: QuickStart
+### EventHubs I/O: QuickStart
 
 The Samza EventHubs connector provides access to [Azure EventHubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft’s data streaming service on Azure. An eventhub is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data). 
 
@@ -67,9 +67,9 @@ Hence, you should also provide your SAS keys and tokens to access the stream. Yo
 ####Data Model
 Each event produced and consumed from an EventHubs stream is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data), which wraps a byte-array payload. When producing to EventHubs, Samza serializes your object into an `EventData` payload before sending it over the wire. Likewise, when consuming messages from EventHubs, messages are de-serialized into typed objects using the provided Serde. 
 
-## Configuration
+### Configuration
 
-###Producer partitioning
+####Producer partitioning
 
 You can use `#withPartitioningMethod` to control how outgoing messages are partitioned. The following partitioning schemes are supported:
 
@@ -85,7 +85,7 @@ EventHubsSystemDescriptor systemDescriptor = new EventHubsSystemDescriptor("even
 {% endhighlight %}
 
 
-### Consumer groups
+#### Consumer groups
 
 Event Hubs supports the notion of [consumer groups](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features#consumer-groups) which enable multiple applications to have their own view of the event stream. Each partition is exclusively consumed by one consumer in the group. Each event hub stream has a pre-defined consumer group named $Default. You can define your own consumer group for your job using `withConsumerGroup`.
 
@@ -97,7 +97,7 @@ EventHubsInputDescriptor<KV<String, String>> inputDescriptor =
 {% endhighlight %}
 
 
-### Consumer buffer size
+#### Consumer buffer size
 
 When the consumer reads a message from EventHubs, it appends them to a shared producer-consumer queue corresponding to its partition. This config determines the per-partition queue size. Setting a higher value for this config typically achieves a higher throughput at the expense of increased on-heap memory.
 
@@ -126,7 +126,7 @@ In this section, we will walk through a simple pipeline that reads from one Even
 4    MessageStream<KV<String, String>> eventhubInput = appDescriptor.getInputStream(inputDescriptor);
 5    OutputStream<KV<String, String>> eventhubOutput = appDescriptor.getOutputStream(outputDescriptor);
 
-    // Define the execution flow with the high-level API
+    // Define the execution flow with the High Level Streams API
 6    eventhubInput
 7        .map((message) -> {
 8          System.out.println("Received Key: " + message.getKey());

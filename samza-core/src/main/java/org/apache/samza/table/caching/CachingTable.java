@@ -23,10 +23,9 @@ import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.BaseReadableTable;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.DefaultTableReadMetrics;
-import org.apache.samza.table.utils.DefaultTableWriteMetrics;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
 import java.util.ArrayList;
@@ -36,6 +35,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import static org.apache.samza.table.utils.TableMetricsUtil.incCounter;
+import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 
 /**
@@ -62,36 +64,29 @@ import java.util.stream.Collectors;
  * @param <K> type of the table key
  * @param <V> type of the table value
  */
-public class CachingTable<K, V> implements ReadWriteTable<K, V> {
-  private final String tableId;
+public class CachingTable<K, V> extends BaseReadableTable<K, V>
+    implements ReadWriteTable<K, V> {
+
   private final ReadableTable<K, V> rdTable;
   private final ReadWriteTable<K, V> rwTable;
   private final ReadWriteTable<K, V> cache;
   private final boolean isWriteAround;
-
-  // Metrics
-  private DefaultTableReadMetrics readMetrics;
-  private DefaultTableWriteMetrics writeMetrics;
 
   // Common caching stats
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
 
   public CachingTable(String tableId, ReadableTable<K, V> table, ReadWriteTable<K, V> cache, boolean isWriteAround) {
-    this.tableId = tableId;
+    super(tableId);
     this.rdTable = table;
     this.rwTable = table instanceof ReadWriteTable ? (ReadWriteTable) table : null;
     this.cache = cache;
     this.isWriteAround = isWriteAround;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
-    readMetrics = new DefaultTableReadMetrics(context, this, tableId);
-    writeMetrics = new DefaultTableWriteMetrics(context, this, tableId);
+    super.init(context);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     tableMetricsUtil.newGauge("hit-rate", () -> hitRate());
     tableMetricsUtil.newGauge("miss-rate", () -> missRate());
@@ -128,14 +123,14 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<V> getAsync(K key) {
-    readMetrics.numGets.inc();
+    incCounter(readMetrics.numGets);
     V value = cache.get(key);
     if (value != null) {
       hitCount.incrementAndGet();
       return CompletableFuture.completedFuture(value);
     }
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     missCount.incrementAndGet();
 
     return rdTable.getAsync(key).handle((result, e) -> {
@@ -145,7 +140,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
           if (result != null) {
             cache.put(key, result);
           }
-          readMetrics.getNs.update(System.nanoTime() - startNs);
+          updateTimer(readMetrics.getNs, clock.nanoTime() - startNs);
           return result;
         }
       });
@@ -164,7 +159,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    readMetrics.numGetAlls.inc();
+    incCounter(readMetrics.numGetAlls);
     // Make a copy of entries which might be immutable
     Map<K, V> getAllResult = new HashMap<>();
     List<K> missingKeys = lookupCache(keys, getAllResult);
@@ -173,7 +168,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
       return CompletableFuture.completedFuture(getAllResult);
     }
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     return rdTable.getAllAsync(missingKeys).handle((records, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get records for " + keys, e);
@@ -184,7 +179,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
                 .collect(Collectors.toList()));
             getAllResult.putAll(records);
           }
-          readMetrics.getAllNs.update(System.nanoTime() - startNs);
+          updateTimer(readMetrics.getAllNs, clock.nanoTime() - startNs);
           return getAllResult;
         }
       });
@@ -203,10 +198,10 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V value) {
-    writeMetrics.numPuts.inc();
+    incCounter(writeMetrics.numPuts);
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
 
-    long startNs = System.nanoTime();
+    long startNs = clock.nanoTime();
     return rwTable.putAsync(key, value).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
@@ -217,7 +212,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
             cache.put(key, value);
           }
         }
-        writeMetrics.putNs.update(System.nanoTime() - startNs);
+        updateTimer(writeMetrics.putNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -235,8 +230,8 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
-    writeMetrics.numPutAlls.inc();
-    long startNs = System.nanoTime();
+    incCounter(writeMetrics.numPutAlls);
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
     return rwTable.putAllAsync(records).handle((result, e) -> {
         if (e != null) {
@@ -245,7 +240,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
           cache.putAll(records);
         }
 
-        writeMetrics.putAllNs.update(System.nanoTime() - startNs);
+        updateTimer(writeMetrics.putAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -263,8 +258,8 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key) {
-    writeMetrics.numDeletes.inc();
-    long startNs = System.nanoTime();
+    incCounter(writeMetrics.numDeletes);
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     return rwTable.deleteAsync(key).handle((result, e) -> {
         if (e != null) {
@@ -272,7 +267,7 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
         } else if (!isWriteAround) {
           cache.delete(key);
         }
-        writeMetrics.deleteNs.update(System.nanoTime() - startNs);
+        updateTimer(writeMetrics.deleteNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -288,8 +283,8 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
-    writeMetrics.numDeleteAlls.inc();
-    long startNs = System.nanoTime();
+    incCounter(writeMetrics.numDeleteAlls);
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
     return rwTable.deleteAllAsync(keys).handle((result, e) -> {
         if (e != null) {
@@ -297,18 +292,18 @@ public class CachingTable<K, V> implements ReadWriteTable<K, V> {
         } else if (!isWriteAround) {
           cache.deleteAll(keys);
         }
-        writeMetrics.deleteAllNs.update(System.nanoTime() - startNs);
+        updateTimer(writeMetrics.deleteAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
 
   @Override
   public synchronized void flush() {
-    writeMetrics.numFlushes.inc();
-    long startNs = System.nanoTime();
+    incCounter(writeMetrics.numFlushes);
+    long startNs = clock.nanoTime();
     Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
     rwTable.flush();
-    writeMetrics.flushNs.update(System.nanoTime() - startNs);
+    updateTimer(writeMetrics.flushNs, clock.nanoTime() - startNs);
   }
 
   @Override

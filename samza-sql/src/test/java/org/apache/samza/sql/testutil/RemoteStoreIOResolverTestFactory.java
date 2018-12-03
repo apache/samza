@@ -21,169 +21,76 @@ package org.apache.samza.sql.testutil;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
-import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.Table;
-import org.apache.samza.table.TableProvider;
-import org.apache.samza.table.TableProviderFactory;
-import org.apache.samza.table.TableSpec;
-import org.apache.samza.table.BaseTableProvider;
+import org.apache.samza.table.remote.TableReadFunction;
+import org.apache.samza.table.remote.TableWriteFunction;
 
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.CFG_METADATA_TOPIC_PREFIX;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.DEFAULT_METADATA_TOPIC_PREFIX;
 
 
-public class TestIOResolverFactory implements SqlIOResolverFactory {
-  public static final String TEST_DB_SYSTEM = "testDb";
-  public static final String TEST_TABLE_ID = "testDbId";
+public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
+  public static final String TEST_REMOTE_STORE_SYSTEM = "testRemoteStore";
+  public static final String TEST_TABLE_ID = "testTableId";
+
+  public static transient Map<Object, Object> records = new HashMap<>();
 
   @Override
   public SqlIOResolver create(Config config, Config fullConfig) {
-    return new TestIOResolver(config);
+    return new TestRemoteStoreIOResolver(config);
   }
 
-  static class TestTableDescriptor extends BaseTableDescriptor {
-    protected TestTableDescriptor(String tableId) {
-      super(tableId);
-    }
+  public static class InMemoryWriteFunction implements TableWriteFunction<Object, Object> {
 
     @Override
-    public String getTableId() {
-      return tableId;
-    }
-
-    @Override
-    public TableSpec getTableSpec() {
-      return new TableSpec(tableId, KVSerde.of(new NoOpSerde(), new NoOpSerde()), TestTableProviderFactory.class.getName(), new HashMap<>());
-    }
-  }
-
-  public static class TestTable implements ReadWriteTable {
-    public static Map<Object, Object> records = new HashMap<>();
-    @Override
-    public Object get(Object key) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public CompletableFuture getAsync(Object key) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public Map getAll(List keys) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public CompletableFuture<Map> getAllAsync(List keys) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public void close() {
-    }
-
-    @Override
-    public void put(Object key, Object value) {
-      if (key == null) {
-        records.put(System.nanoTime(), value);
-      } else if (value != null) {
-        records.put(key, value);
-      } else {
-        delete(key);
-      }
-    }
-
-    @Override
-    public CompletableFuture<Void> putAsync(Object key, Object value) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public CompletableFuture<Void> putAllAsync(List list) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public void delete(Object key) {
-      records.remove(key);
+    public CompletableFuture<Void> putAsync(Object key, Object record) {
+      records.put(key.toString(), record);
+      return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> deleteAsync(Object key) {
-      throw new NotImplementedException();
+      records.remove(key.toString());
+      return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void deleteAll(List keys) {
-      records.clear();
-    }
-
-    @Override
-    public CompletableFuture<Void> deleteAllAsync(List keys) {
-      throw new NotImplementedException();
-    }
-
-    @Override
-    public void flush() {
-    }
-
-    @Override
-    public void putAll(List entries) {
-      throw new NotImplementedException();
+    public boolean isRetriable(Throwable exception) {
+      return false;
     }
   }
 
-  public static class TestTableProviderFactory implements TableProviderFactory {
+  static class InMemoryReadFunction implements TableReadFunction<Object, Object> {
+
     @Override
-    public TableProvider getTableProvider(TableSpec tableSpec) {
-      return new TestTableProvider();
+    public CompletableFuture<Object> getAsync(Object key) {
+      return CompletableFuture.completedFuture(records.get(key.toString()));
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
     }
   }
 
-  static class TestTableProvider extends BaseTableProvider {
-
-    public TestTableProvider() {
-      super(null);
-    }
-
-    @Override
-    public Table getTable() {
-      return new TestTable();
-    }
-
-    @Override
-    public Map<String, String> generateConfig(Config jobConfig, Map<String, String> generatedConfig)  {
-      return new HashMap<>();
-    }
-
-    @Override
-    public void close() {
-    }
-  }
-
-  private class TestIOResolver implements SqlIOResolver {
+  private class TestRemoteStoreIOResolver implements SqlIOResolver {
     private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
     private final String changeLogStorePrefix;
 
-    public TestIOResolver(Config config) {
+    public TestRemoteStoreIOResolver(Config config) {
       this.config = config;
       String metadataTopicPrefix = config.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
       this.changeLogStorePrefix = metadataTopicPrefix + (metadataTopicPrefix.isEmpty() ? "" : "_");
@@ -203,8 +110,14 @@ public class TestIOResolverFactory implements SqlIOResolverFactory {
 
         if (tableDescriptor == null) {
           if (isSink) {
-            tableDescriptor = new TestTableDescriptor(TEST_TABLE_ID + tableDescMap.size());
+            tableDescriptor = new RemoteTableDescriptor<>(TEST_TABLE_ID + "-" + ioName.replace(".", "-").replace("$", "-"))
+                .withReadFunction(new InMemoryReadFunction())
+                .withWriteFunction(new InMemoryWriteFunction());
+          } else if (sourceComponents[systemIdx].equals(TEST_REMOTE_STORE_SYSTEM)) {
+            tableDescriptor = new RemoteTableDescriptor<>(TEST_TABLE_ID + "-" + ioName.replace(".", "-").replace("$", "-"))
+                .withReadFunction(new InMemoryReadFunction());
           } else {
+            // A local table
             String tableId = changeLogStorePrefix + "InputTable-" + ioName.replace(".", "-").replace("$", "-");
             SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
                 (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
