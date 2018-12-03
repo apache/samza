@@ -53,8 +53,9 @@ public class StreamEdge {
   StreamEdge(StreamSpec streamSpec, boolean isIntermediate, boolean isBroadcast, Config config) {
     this.streamSpec = streamSpec;
     this.isIntermediate = isIntermediate;
+    // broadcast can be configured either by an operator or via the configs
     this.isBroadcast =
-          isBroadcast || config.getBoolean(String.format("streams.%s.samza.broadcast", streamSpec.getId()), false);;
+          isBroadcast || new StreamConfig(config).getBroadcastEnabled(streamSpec.toSystemStream());
     this.config = config;
     if (isBroadcast && isIntermediate) {
       partitions = 1;
