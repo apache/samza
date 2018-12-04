@@ -365,7 +365,7 @@ public class ZkJobCoordinator implements JobCoordinator {
    * and {@param processorNodes}.
    * @param jobModelVersion the most recent jobModelVersion available in the zookeeper.
    * @param processorNodes the list of live processors in the zookeeper.
-   * @return the built grouper context.
+   * @return the built application metadata provider.
    */
   private ApplicationMetadataProviderImpl getApplicationMetadataProvider(String jobModelVersion, List<ProcessorNode> processorNodes) {
     Map<TaskName, String> taskToProcessorId = new HashMap<>();

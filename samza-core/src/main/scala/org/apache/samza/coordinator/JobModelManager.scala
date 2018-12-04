@@ -250,7 +250,7 @@ object JobModelManager extends Logging {
     * @param config the configuration of the job.
     * @param changeLogPartitionMapping the task to changelog partition mapping of the job.
     * @param streamMetadataCache the cache that holds the partition metadata of the input streams.
-    * @param applicationMetadataProvider the grouper context of the job.
+    * @param applicationMetadataProvider the metadata provider of the application.
     * @return the built {@see JobModel}.
     */
   def readJobModel(config: Config,

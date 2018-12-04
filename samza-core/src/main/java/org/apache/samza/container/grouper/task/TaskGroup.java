@@ -30,8 +30,8 @@ import java.util.*;
  * Used as a temporary mutable container until the final ContainerModel is known.
  */
 class TaskGroup {
-  final List<String> taskNames = new LinkedList<>();
-  final String containerId;
+  private final List<String> taskNames = new LinkedList<>();
+  private final String containerId;
 
   TaskGroup(String containerId, List<String> taskNames) {
     this.containerId = containerId;
