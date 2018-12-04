@@ -36,7 +36,7 @@ public class TestContainerStorageManager {
 
   private ContainerStorageManager containerStorageManager;
   private Map<String, SystemConsumer> systemConsumers;
-  private Map<TaskInstance, TaskStorageManager> taskStorageManagers;
+  private Map<TaskName, TaskStorageManager> taskStorageManagers;
   private SamzaContainerMetrics samzaContainerMetrics;
 
   private CountDownLatch taskStorageManagersRestoreStoreCount;
@@ -74,7 +74,7 @@ public class TestContainerStorageManager {
         return null;
       }).when(mockTaskStorageManager).restoreStores();
 
-    taskStorageManagers.put(mockTaskInstance, mockTaskStorageManager);
+    taskStorageManagers.put(new TaskName(taskname), mockTaskStorageManager);
 
     this.taskRestoreMetricGauges.put(new TaskName(taskname), new Gauge(taskname, 0));
   }
