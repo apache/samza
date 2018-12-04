@@ -78,7 +78,7 @@ else
   do
     CLASSPATH=$CLASSPATH"\n $file "
   done
-  echo generated combined CLASSPATH=$CLASSPATH
+  echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
 fi
 
 # Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
