@@ -24,7 +24,7 @@ import collection.JavaConverters._
 import org.junit.Assert._
 import org.junit.Test
 
-import KafkaConfig._
+import JobConfig._
 
 class TestRegExTopicGenerator {
 

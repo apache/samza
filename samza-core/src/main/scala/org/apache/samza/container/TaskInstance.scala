@@ -122,15 +122,7 @@ class TaskInstance(
     offsetManager.register(taskName, sspsToRegister)
   }
 
-  def startStores {
-    if (storageManager != null) {
-      debug("Starting storage manager for taskName: %s" format taskName)
-
-      storageManager.init
-    } else {
-      debug("Skipping storage manager initialization for taskName: %s" format taskName)
-    }
-
+  def startSideInputs {
     if (sideInputStorageManager != null) {
       debug("Starting side input storage manager for taskName: %s" format taskName)
       sideInputStorageManager.init()
@@ -300,15 +292,7 @@ class TaskInstance(
     }
   }
 
-  def shutdownStores {
-    if (storageManager != null) {
-      debug("Shutting down storage manager for taskName: %s" format taskName)
-
-      storageManager.stop
-    } else {
-      debug("Skipping storage manager shutdown for taskName: %s" format taskName)
-    }
-
+  def shutdownSideInputs {
     if (sideInputStorageManager != null) {
       debug("Shutting down side input storage manager for taskName: %s" format taskName)
       sideInputStorageManager.stop()

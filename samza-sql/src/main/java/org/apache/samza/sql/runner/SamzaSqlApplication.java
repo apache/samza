@@ -21,10 +21,9 @@ package org.apache.samza.sql.runner;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
@@ -59,8 +58,8 @@ public class SamzaSqlApplication implements StreamApplication {
       Map<Integer, TranslatorContext> translatorContextMap = new HashMap<>();
 
       // 1. Get Calcite plan
-      Set<String> inputSystemStreams = new HashSet<>();
-      Set<String> outputSystemStreams = new HashSet<>();
+      List<String> inputSystemStreams = new LinkedList<>();
+      List<String> outputSystemStreams = new LinkedList<>();
 
       Collection<RelRoot> relRoots =
           SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, appDescriptor.getConfig(),
@@ -73,12 +72,13 @@ public class SamzaSqlApplication implements StreamApplication {
       // 3. Translate Calcite plan to Samza stream operators
       QueryTranslator queryTranslator = new QueryTranslator(appDescriptor, sqlConfig);
       SamzaSqlExecutionContext executionContext = new SamzaSqlExecutionContext(sqlConfig);
+      // QueryId implies the index of the query in multiple query statements scenario. It should always start with 0.
       int queryId = 0;
       for (RelRoot relRoot : relRoots) {
         LOG.info("Translating relRoot {} to samza stream graph with queryId {}", relRoot, queryId);
         TranslatorContext translatorContext = new TranslatorContext(appDescriptor, relRoot, executionContext);
         translatorContextMap.put(queryId, translatorContext);
-        queryTranslator.translate(relRoot, translatorContext, queryId);
+        queryTranslator.translate(relRoot, sqlConfig.getOutputSystemStreams().get(queryId), translatorContext, queryId);
         queryId++;
       }
 

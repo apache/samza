@@ -62,7 +62,7 @@ public class TestCoordinatorStreamStore {
 
   @Test
   public void testReadAfterWrite() {
-    byte[] key = getKey("test-key1");
+    String key = "test-key1";
     byte[] value = getValue("test-value1");
     Assert.assertNull(coordinatorStreamStore.get(key));
     coordinatorStreamStore.put(key, value);
@@ -72,7 +72,7 @@ public class TestCoordinatorStreamStore {
 
   @Test
   public void testReadAfterDelete() {
-    byte[] key = getKey("test-key1");
+    String key = "test-key1";
     byte[] value = getValue("test-value1");
     Assert.assertNull(coordinatorStreamStore.get(key));
     coordinatorStreamStore.put(key, value);
@@ -84,13 +84,13 @@ public class TestCoordinatorStreamStore {
 
   @Test
   public void testReadOfNonExistentKey() {
-    Assert.assertNull(coordinatorStreamStore.get("randomKey".getBytes()));
+    Assert.assertNull(coordinatorStreamStore.get("randomKey"));
     Assert.assertEquals(0, coordinatorStreamStore.all().size());
   }
 
   @Test
   public void testMultipleUpdatesForSameKey() {
-    byte[] key = getKey("test-key1");
+    String key = "test-key1";
     byte[] value = getValue("test-value1");
     byte[] value1 = getValue("test-value2");
     coordinatorStreamStore.put(key, value);
@@ -101,16 +101,16 @@ public class TestCoordinatorStreamStore {
 
   @Test
   public void testAllEntries() {
-    byte[] key = getKey("test-key1");
-    byte[] key1 = getKey("test-key2");
-    byte[] key2 = getKey("test-key3");
+    String key = "test-key1";
+    String key1 = "test-key2";
+    String key2 = "test-key3";
     byte[] value = getValue("test-value1");
     byte[] value1 = getValue("test-value2");
     byte[] value2 = getValue("test-value3");
     coordinatorStreamStore.put(key, value);
     coordinatorStreamStore.put(key1, value1);
     coordinatorStreamStore.put(key2, value2);
-    ImmutableMap<byte[], byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
+    ImmutableMap<String, byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
     Assert.assertEquals(expected, coordinatorStreamStore.all());
   }
 
@@ -119,11 +119,4 @@ public class TestCoordinatorStreamStore {
     SetTaskContainerMapping setTaskContainerMapping = new SetTaskContainerMapping("testSource", "testTask", value);
     return messageSerde.toBytes(setTaskContainerMapping.getMessageMap());
   }
-
-  private byte[] getKey(String key) {
-    JsonSerde<List<?>> keySerde = new JsonSerde<>();
-    SetTaskContainerMapping setTaskContainerMapping = new SetTaskContainerMapping("testSource", key, "");
-    return keySerde.toBytes(Arrays.asList(setTaskContainerMapping.getKeyArray()));
-  }
-
 }

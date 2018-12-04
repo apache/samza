@@ -21,7 +21,8 @@ package org.apache.samza.config
 
 import org.I0Itec.zkclient.ZkClient
 import kafka.utils.ZkUtils
-import org.apache.samza.config.KafkaConfig.{Config2Kafka, REGEX_RESOLVED_STREAMS}
+import org.apache.samza.config.KafkaConfig.{Config2Kafka}
+import org.apache.samza.config.JobConfig.{REGEX_RESOLVED_STREAMS}
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{Logging, StreamUtil}
 

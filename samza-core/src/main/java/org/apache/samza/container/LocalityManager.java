@@ -89,10 +89,10 @@ public class LocalityManager {
    */
   public Map<String, Map<String, String>> readContainerLocality() {
     Map<String, Map<String, String>> allMappings = new HashMap<>();
-    metadataStore.all().forEach((keyBytes, valueBytes) -> {
+    metadataStore.all().forEach((containerId, valueBytes) -> {
         if (valueBytes != null) {
           String locationId = valueSerde.fromBytes(valueBytes);
-          allMappings.put(keySerde.fromBytes(keyBytes), ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId));
+          allMappings.put(containerId, ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId));
         }
       });
     if (LOG.isDebugEnabled()) {
@@ -120,7 +120,7 @@ public class LocalityManager {
       LOG.info("Container {} started at {}", containerId, hostName);
     }
 
-    metadataStore.put(keySerde.toBytes(containerId), valueSerde.toBytes(hostName));
+    metadataStore.put(containerId, valueSerde.toBytes(hostName));
   }
 
   public void close() {

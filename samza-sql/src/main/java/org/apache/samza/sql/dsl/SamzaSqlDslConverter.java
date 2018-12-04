@@ -55,22 +55,20 @@ public class SamzaSqlDslConverter implements DslConverter {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config,
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     QueryPlanner planner =
-        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getSystemStreamConfigsBySource(),
+        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
             sqlConfig.getUdfMetadata());
 
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
-      // when sql is a query, we only pass the select query to the planner
+      // we always pass only select query to the planner for samza sql. The reason is that samza sql supports
+      // schema evolution where source and destination could up to an extent have independent schema evolution while
+      // calcite expects strict comformance of the destination schema with that of the fields in the select query.
       SamzaSqlQueryParser.QueryInfo qinfo = SamzaSqlQueryParser.parseQuery(sql);
-      if (qinfo.getSink().split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-        sql = qinfo.getSelectQuery();
-      }
-
-      relRoots.add(planner.plan(sql));
+      relRoots.add(planner.plan(qinfo.getSelectQuery()));
     }
     return relRoots;
   }

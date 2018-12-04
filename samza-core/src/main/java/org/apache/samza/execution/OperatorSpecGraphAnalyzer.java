@@ -22,6 +22,7 @@ package org.apache.samza.execution;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -84,9 +85,17 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
    */
   private static void traverse(OperatorSpec startOpSpec, Consumer<OperatorSpec> visitor,
       Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs) {
+    traverseHelper(startOpSpec, visitor, getNextOpSpecs, new HashSet<>(Arrays.asList(startOpSpec)));
+  }
+
+  private static void traverseHelper(OperatorSpec startOpSpec, Consumer<OperatorSpec> visitor,
+      Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs, Set<OperatorSpec> visitedOpSpecs) {
     visitor.accept(startOpSpec);
     for (OperatorSpec nextOpSpec : getNextOpSpecs.apply(startOpSpec)) {
-      traverse(nextOpSpec, visitor, getNextOpSpecs);
+      // Make sure we do not end up endlessly traversing cycles.
+      if (visitedOpSpecs.add(nextOpSpec)) {
+        traverseHelper(nextOpSpec, visitor, getNextOpSpecs, visitedOpSpecs);
+      }
     }
   }
 

@@ -69,7 +69,8 @@ object StreamProcessorTestUtils {
       metrics = new SamzaContainerMetrics,
       containerContext = containerContext,
       applicationContainerContextOption = None,
-      externalContextOption = None)
+      externalContextOption = None,
+      containerStorageManager = null)
     container
   }
 }

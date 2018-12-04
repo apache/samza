@@ -166,7 +166,7 @@ public class RemoteReadableTable<K, V> extends BaseReadableTable<K, V> {
   protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
       K key, Function<K, CompletableFuture<T>> method, Counter counter, Timer timer) {
     incCounter(counter);
-    final long startNs = System.nanoTime();
+    final long startNs = clock.nanoTime();
     CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
         ? CompletableFuture
             .runAsync(() -> rateLimiter.throttle(key), tableExecutor)
@@ -187,7 +187,7 @@ public class RemoteReadableTable<K, V> extends BaseReadableTable<K, V> {
   protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
       Collection<K> keys, Function<Collection<K>, CompletableFuture<T>> method, Counter counter, Timer timer) {
     incCounter(counter);
-    final long startNs = System.nanoTime();
+    final long startNs = clock.nanoTime();
     CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
         ? CompletableFuture
             .runAsync(() -> rateLimiter.throttle(keys), tableExecutor)
@@ -207,12 +207,12 @@ public class RemoteReadableTable<K, V> extends BaseReadableTable<K, V> {
   protected  <T> CompletableFuture<T> completeExecution(CompletableFuture<T> ioFuture, long startNs, Timer timer) {
     if (callbackExecutor != null) {
       ioFuture.thenApplyAsync(r -> {
-          updateTimer(timer, System.nanoTime() - startNs);
+          updateTimer(timer, clock.nanoTime() - startNs);
           return r;
         }, callbackExecutor);
     } else {
       ioFuture.thenApply(r -> {
-          updateTimer(timer, System.nanoTime() - startNs);
+          updateTimer(timer, clock.nanoTime() - startNs);
           return r;
         });
     }

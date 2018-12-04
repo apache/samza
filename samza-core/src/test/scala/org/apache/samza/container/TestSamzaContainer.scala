@@ -157,12 +157,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     when(this.taskInstance.taskName).thenReturn(TASK_NAME)
     val restoreGauge = mock[Gauge[Long]]
     when(this.metrics.taskStoreRestorationMetrics).thenReturn(Map(TASK_NAME -> restoreGauge))
-    when(this.taskInstance.startStores).thenAnswer(new Answer[Void] {
-      override def answer(invocation: InvocationOnMock): Void = {
-        Thread.sleep(1)
-        null
-      }
-    })
+
     this.samzaContainer.startStores
     val restoreGaugeValueCaptor = ArgumentCaptor.forClass(classOf[Long])
     verify(restoreGauge).set(restoreGaugeValueCaptor.capture())
@@ -284,7 +279,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics,
       containerContext = this.containerContext,
       applicationContainerContextOption = applicationContainerContext,
-      externalContextOption = None)
+      externalContextOption = None,
+      containerStorageManager = null)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 
