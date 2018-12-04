@@ -61,7 +61,7 @@ public class ApplicationRunnerMain {
 
     switch (op) {
       case RUN:
-        appRunner.run(buildExternalContext(config).orElse(null));
+        appRunner.run(null);
         break;
       case KILL:
         appRunner.kill();
@@ -72,14 +72,5 @@ public class ApplicationRunnerMain {
       default:
         throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
-  }
-
-  private static Optional<ExternalContext> buildExternalContext(Config config) {
-    /*
-     * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
-     * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components
-     * like the application descriptor may not be available.
-     */
-    return Optional.empty();
   }
 }

@@ -79,9 +79,6 @@ public interface ApplicationTaskContextFactory<T extends ApplicationTaskContext>
   default T create(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       ApplicationContainerContext applicationContainerContext) {
     // adding this here so that new apps do not need to implement this
-    throw new UnsupportedOperationException("Please implement "
-        + "#create(ExternalContext, JobContext, ContainerContext, TaskContext, ApplicationContainerContext) directly, "
-        + "or at least override this version of create.");
-
+    throw new UnsupportedOperationException("Please implement a version of create for the factory implementation.");
   }
 }

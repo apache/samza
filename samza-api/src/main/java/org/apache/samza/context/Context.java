@@ -19,6 +19,8 @@
 package org.apache.samza.context;
 
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.runtime.ApplicationRunner;
+
 
 /**
  * A holder for all framework and application defined contexts at runtime.
@@ -80,7 +82,7 @@ public interface Context {
   /**
    * Gets the {@link ExternalContext} that was created outside of the application.
    * <p>
-   * Use {@link org.apache.samza.runtime.ApplicationRunner#run(ExternalContext)} to provide this context.
+   * Use {@link ApplicationRunner#run(ExternalContext)} to provide this context.
    *
    * @return the external context provided for the application
    */

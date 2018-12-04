@@ -71,7 +71,6 @@ public interface ApplicationContainerContextFactory<T extends ApplicationContain
   @Deprecated
   default T create(JobContext jobContext, ContainerContext containerContext) {
     // adding this here so that new apps do not need to implement this
-    throw new UnsupportedOperationException("Please implement #create(ExternalContext, JobContext, ContainerContext) "
-        + "directly, or at least override this version of create.");
+    throw new UnsupportedOperationException("Please implement a version of create for the factory implementation.");
   }
 }
