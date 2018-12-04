@@ -51,22 +51,22 @@ public class MetadataProviderImpl implements MetadataProvider {
     this.previousTaskToProcessorAssignment = Collections.unmodifiableMap(previousTaskToProcessorAssignment);
   }
 
+  @Override
   public Map<String, LocationId> getProcessorLocality() {
     return processorLocality;
   }
 
+  @Override
   public Map<TaskName, LocationId> getTaskLocality() {
     return taskLocality;
   }
 
+  @Override
   public Map<TaskName, List<SystemStreamPartition>> getPreviousTaskToSSPAssignment() {
     return previousTaskToSSPAssignment;
   }
 
-  public List<String> getProcessorIds() {
-    return new ArrayList<>(processorLocality.keySet());
-  }
-
+  @Override
   public Map<TaskName, String> getPreviousTaskToProcessorAssignment() {
     return this.previousTaskToProcessorAssignment;
   }
