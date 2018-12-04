@@ -101,7 +101,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       new ExponentialSleepStrategy(initialDelayMs = producerConfig.reconnectIntervalMs),
       getProducer,
       metrics,
-      dropProducerExceptions = config.getDropProducerError)
+      dropProducerExceptions = config.getDropProducerErrors)
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {
