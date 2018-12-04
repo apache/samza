@@ -175,12 +175,11 @@ public class TestRemoteTableDescriptor {
 
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
-    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1");
-    TableRetryPolicy retryPolicy = new TableRetryPolicy();
-    retryPolicy.withRetryPredicate((ex) -> false);
-    desc.withReadFunction(createMockTableReadFunction(), retryPolicy);
-    desc.withWriteFunction(createMockTableWriteFunction());
-    desc.withAsyncCallbackExecutorPoolSize(10);
+    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1")
+        .withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
+        .withWriteFunction(createMockTableWriteFunction())
+        .withAsyncCallbackExecutorPoolSize(10);
 
     if (rateOnly) {
       if (rlGets) {
@@ -218,8 +217,8 @@ public class TestRemoteTableDescriptor {
     ThreadPoolExecutor callbackExecutor = (ThreadPoolExecutor) rwTable.getCallbackExecutor();
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
 
-    Assert.assertNotNull(rwTable.getReadFn() instanceof RetriableReadFunction);
-    Assert.assertNotNull(!(rwTable.getWriteFn() instanceof RetriableWriteFunction));
+    Assert.assertTrue(rwTable.getReadFn() instanceof RetriableReadFunction);
+    Assert.assertFalse(rwTable.getWriteFn() instanceof RetriableWriteFunction);
   }
 
   @Test
