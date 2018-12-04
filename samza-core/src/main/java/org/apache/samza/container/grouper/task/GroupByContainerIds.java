@@ -128,7 +128,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
   /**
    * {@inheritDoc}
    *
-   * When the are `t` tasks and `p` processors, where t >= p, a fair task distribution should ideally assign
+   * When the are `t` tasks and `p` processors, where t &lt;= p, a fair task distribution should ideally assign
    * (t / p) tasks to each processor. In addition to guaranteeing a fair distribution, this {@link TaskNameGrouper}
    * implementation generates a locationId aware task assignment to processors where it makes best efforts in assigning
    * the tasks to processors with the same locality.
@@ -144,24 +144,25 @@ public class GroupByContainerIds implements TaskNameGrouper {
    * task is mapped to any processor from available processors in a round robin fashion.
    */
   @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels, ApplicationMetadataProvider applicationMetadataProvider) {
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
     // Validate that the task models are not empty.
-    Map<TaskName, LocationId> taskLocality = applicationMetadataProvider.getTaskLocality();
+    Map<TaskName, LocationId> taskLocality = grouperMetadata.getTaskLocality();
     Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
     // Invoke the default grouper when the processor locality does not exist.
-    if (MapUtils.isEmpty(applicationMetadataProvider.getProcessorLocality())) {
+    if (MapUtils.isEmpty(grouperMetadata.getProcessorLocality())) {
       LOG.info("ProcessorLocality is empty. Generating with the default group method.");
       return group(taskModels, new ArrayList<>());
     }
 
-    Map<String, LocationId> processorLocality = new TreeMap<>(applicationMetadataProvider.getProcessorLocality());
+    Map<String, LocationId> processorLocality = new TreeMap<>(grouperMetadata.getProcessorLocality());
     /**
      * When there're more task models than processors then choose the lexicographically least `x` processors(where x = tasks.size()).
      */
     if (processorLocality.size() > taskModels.size()) {
       processorLocality = processorLocality.entrySet()
                                            .stream()
+                                           .sorted(Map.Entry.comparingByKey())
                                            .limit(taskModels.size())
                                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }

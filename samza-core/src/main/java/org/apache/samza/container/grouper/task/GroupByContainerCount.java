@@ -89,10 +89,10 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * {@inheritDoc}
    */
   @Override
-  public Set<ContainerModel> group(Set<TaskModel> tasks, ApplicationMetadataProvider applicationMetadataProvider) {
+  public Set<ContainerModel> group(Set<TaskModel> tasks, GrouperMetadata grouperMetadata) {
     validateTasks(tasks);
 
-    List<TaskGroup> containers = getPreviousContainers(applicationMetadataProvider, tasks.size());
+    List<TaskGroup> containers = getPreviousContainers(grouperMetadata, tasks.size());
     if (containers == null || containers.size() == 1 || containerCount == 1) {
       LOG.info("Balancing does not apply. Invoking grouper.");
       return group(tasks);
@@ -132,16 +132,16 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   }
 
   /**
-   * Reads the task-container mapping from the provided {@link ApplicationMetadataProvider} and returns a
+   * Reads the task-container mapping from the provided {@link GrouperMetadata} and returns a
    * list of TaskGroups, ordered ascending by containerId.
    *
-   * @param applicationMetadataProvider  the {@link ApplicationMetadataProvider} will be used to retrieve the previous task to container assignments.
+   * @param grouperMetadata  the {@link GrouperMetadata} will be used to retrieve the previous task to container assignments.
    * @param taskCount       the number of tasks, for validation against the persisted tasks.
    * @return                a list of TaskGroups, ordered ascending by containerId or {@code null}
    *                        if the previous mapping doesn't exist or isn't usable.
    */
-  private List<TaskGroup> getPreviousContainers(ApplicationMetadataProvider applicationMetadataProvider, int taskCount) {
-    Map<TaskName, String> taskToContainerId = applicationMetadataProvider.getPreviousTaskToProcessorAssignment();
+  private List<TaskGroup> getPreviousContainers(GrouperMetadata grouperMetadata, int taskCount) {
+    Map<TaskName, String> taskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment();
     taskToContainerId.values().forEach(id -> {
         try {
           int intId = Integer.parseInt(id);

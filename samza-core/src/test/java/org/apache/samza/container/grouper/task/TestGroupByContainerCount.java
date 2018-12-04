@@ -156,10 +156,9 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(4).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> containers = new GroupByContainerCount(4).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -223,10 +222,9 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -288,11 +286,10 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(9);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(4).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
     // First balance
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -326,9 +323,8 @@ public class TestGroupByContainerCount {
     // Second balance
     prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
 
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider1 = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    containers = new GroupByContainerCount(3).group(taskModels, applicationMetadataProvider1);
+    GrouperMetadataImpl grouperMetadata1 = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    containers = new GroupByContainerCount(3).group(taskModels, grouperMetadata1);
 
     containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -389,9 +385,8 @@ public class TestGroupByContainerCount {
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
 
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, applicationMetadataProvider);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -457,9 +452,8 @@ public class TestGroupByContainerCount {
     prevTaskToContainerMapping.put(getTaskName(7), "1");
     prevTaskToContainerMapping.put(getTaskName(8), "1");
 
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, applicationMetadataProvider);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -520,10 +514,9 @@ public class TestGroupByContainerCount {
     prevTaskToContainerMapping.put(getTaskName(3), "1");
     prevTaskToContainerMapping.put(getTaskName(4), "1");
     prevTaskToContainerMapping.put(getTaskName(5), "1");
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(3).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> containers = new GroupByContainerCount(3).group(taskModels, grouperMetadata);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -557,11 +550,10 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(1).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
     Set<ContainerModel> groupContainers = new GroupByContainerCount(3).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(3).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(3).group(taskModels, grouperMetadata);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -572,11 +564,10 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
     Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, grouperMetadata);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -585,11 +576,10 @@ public class TestGroupByContainerCount {
   @Test
   public void testBalancerEmptyTaskMapping() {
     Set<TaskModel> taskModels = generateTaskModels(3);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
 
     Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, grouperMetadata);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -601,11 +591,10 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(2).group(generateTaskModels(taskCount - 1)); // Here's the key step
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
     Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, grouperMetadata);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -617,11 +606,10 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(taskCount);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(generateTaskModels(taskCount + 1)); // Here's the key step
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
     Set<ContainerModel> groupContainers = new GroupByContainerCount(1).group(taskModels);
-    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> balanceContainers = new GroupByContainerCount(1).group(taskModels, grouperMetadata);
 
     // Results should be the same as calling group()
     assertEquals(groupContainers, balanceContainers);
@@ -632,10 +620,9 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    new GroupByContainerCount(5).group(taskModels, applicationMetadataProvider);     // Should throw
+    new GroupByContainerCount(5).group(taskModels, grouperMetadata);     // Should throw
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -643,10 +630,9 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    new GroupByContainerCount(5).group(new HashSet<>(), applicationMetadataProvider);
+    new GroupByContainerCount(5).group(new HashSet<>(), grouperMetadata);
   }
 
   @Test(expected = UnsupportedOperationException.class)
@@ -654,10 +640,9 @@ public class TestGroupByContainerCount {
     Set<TaskModel> taskModels = generateTaskModels(3);
     Set<ContainerModel> prevContainers = new GroupByContainerCount(3).group(taskModels);
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
 
-    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, applicationMetadataProvider);
+    Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
     containers.remove(containers.iterator().next());
   }
 
@@ -667,9 +652,8 @@ public class TestGroupByContainerCount {
     Set<ContainerModel> prevContainers = new HashSet<>();
     taskModels.forEach(model -> prevContainers.add(new ContainerModel(UUID.randomUUID().toString(), Collections.singletonMap(model.getTaskName(), model))));
     Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    ApplicationMetadataProviderImpl
-        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    new GroupByContainerCount(3).group(taskModels, applicationMetadataProvider); //Should throw
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
+    new GroupByContainerCount(3).group(taskModels, grouperMetadata); //Should throw
   }
 
   @Test

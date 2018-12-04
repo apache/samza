@@ -25,8 +25,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.container.grouper.task.ApplicationMetadataProvider;
-import org.apache.samza.container.grouper.task.ApplicationMetadataProviderImpl;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
@@ -130,9 +130,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     systemAdmins.start();
     try {
       String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
-      ApplicationMetadataProvider applicationMetadataProvider = new ApplicationMetadataProviderImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
-      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache,
-          applicationMetadataProvider);
+      GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     } finally {
       systemAdmins.stop();
     }

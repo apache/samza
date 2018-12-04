@@ -29,7 +29,7 @@ import java.util.Map;
  * Provides the historical metadata of the samza application.
  */
 @InterfaceStability.Evolving
-public interface ApplicationMetadataProvider {
+public interface GrouperMetadata {
 
   /**
    * Gets the current processor locality of the job.

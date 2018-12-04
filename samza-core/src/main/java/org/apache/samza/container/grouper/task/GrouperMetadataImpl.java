@@ -26,10 +26,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Implementation of {@link ApplicationMetadataProvider} that holds the necessary historical metadata of
+ * Implementation of {@link GrouperMetadata} that holds the necessary historical metadata of
  * the samza job. This is used by the {@link TaskNameGrouper} to generate optimal task assignments.
  */
-public class ApplicationMetadataProviderImpl implements ApplicationMetadataProvider {
+public class GrouperMetadataImpl implements GrouperMetadata {
 
   // Map of processorId to LocationId.
   private final Map<String, LocationId> processorLocality;
@@ -43,7 +43,7 @@ public class ApplicationMetadataProviderImpl implements ApplicationMetadataProvi
   // Map of TaskName to ProcessorId.
   private final Map<TaskName, String> previousTaskToProcessorAssignment;
 
-  public ApplicationMetadataProviderImpl(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToProcessorAssignment) {
+  public GrouperMetadataImpl(Map<String, LocationId> processorLocality, Map<TaskName, LocationId> taskLocality, Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignments, Map<TaskName, String> previousTaskToProcessorAssignment) {
     this.processorLocality = Collections.unmodifiableMap(processorLocality);
     this.taskLocality = Collections.unmodifiableMap(taskLocality);
     this.previousTaskToSSPAssignment = Collections.unmodifiableMap(previousTaskToSSPAssignments);

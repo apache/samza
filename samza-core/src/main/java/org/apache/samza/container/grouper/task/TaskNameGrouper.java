@@ -46,13 +46,13 @@ public interface TaskNameGrouper {
 
   /**
    * Groups the taskModels into set of {@link ContainerModel} using the metadata of
-   * the job from {@link ApplicationMetadataProvider}.
+   * the job from {@link GrouperMetadata}.
    *
    * @param taskModels the set of tasks to group into containers.
-   * @param applicationMetadataProvider provides the historical metadata of the samza job.
+   * @param grouperMetadata provides the historical metadata of the samza job.
    * @return the grouped {@link ContainerModel} built from the provided taskModels.
    */
-  default Set<ContainerModel> group(Set<TaskModel> taskModels, ApplicationMetadataProvider applicationMetadataProvider) {
+  default Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
     return group(taskModels);
   }
 

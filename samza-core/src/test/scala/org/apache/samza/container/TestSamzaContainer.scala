@@ -281,7 +281,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       metrics,
       containerContext = containerContext,
       applicationContainerContextOption = null,
-      localityManager = localityManager)
+      localityManager = localityManager,
+      containerStorageManager = Mockito.mock(classOf[ContainerStorageManager]))
 
     samzaContainer.storeContainerLocality
     Mockito.verify(localityManager).writeContainerToHostMapping(any(), any())
