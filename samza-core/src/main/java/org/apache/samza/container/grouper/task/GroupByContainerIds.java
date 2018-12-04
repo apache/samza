@@ -69,6 +69,12 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
   /**
    * {@inheritDoc}
+   *
+   * When number of taskModels are less than number of available containerIds,
+   * then chooses then selects the lexicographically least `x` containerIds.
+   *
+   * Otherwise, assigns the tasks to the available containerIds in a round robin fashion
+   * preserving the containerId in the final assignment.
    */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containerIds) {
@@ -129,7 +135,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
    *
    * Task assignment to processors is accomplished through the following two phases:
    *
-   * 1. Each task(T) is assigned to a processor(P) that satisfies the following constraints:
+   * 1. In the first phase, each task(T) is assigned to a processor(P) that satisfies the following constraints:
    *    A. The processor(P) should have the same locality of the task(T).
    *    B. Number of tasks already assigned to the processor should be less than the (number of tasks / number of processors).
    *
@@ -163,7 +169,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
     Map<LocationId, List<String>> locationIdToProcessors = new HashMap<>();
     Map<String, TaskGroup> processorIdToTaskGroup = new HashMap<>();
 
-    // Generate locationId to processors mapping and processorId to TaskGroup mapping.
+    // Generate the {@see LocationId} to processors mapping and processorId to {@see TaskGroup} mapping.
     processorLocality.forEach((processorId, locationId) -> {
         List<String> processorIds = locationIdToProcessors.getOrDefault(locationId, new ArrayList<>());
         processorIds.add(processorId);
@@ -174,7 +180,11 @@ public class GroupByContainerIds implements TaskNameGrouper {
     int numTasksPerProcessor = taskModels.size() / processorLocality.size();
     Set<TaskName> assignedTasks = new HashSet<>();
 
-
+    /**
+     * A processor is considered under-assigned when number of tasks assigned to it is less than
+     * (number of tasks / number of processors).
+     * Map the tasks to the under-assigned processors with same locality.
+     */
     for (TaskModel taskModel : taskModels) {
       LocationId taskLocationId = taskLocality.get(taskModel.getTaskName());
       if (taskLocationId != null) {
@@ -197,6 +207,12 @@ public class GroupByContainerIds implements TaskNameGrouper {
      */
     Iterator<String> processorIdsCyclicIterator = Iterators.cycle(processorLocality.keySet());
     Collection<TaskGroup> taskGroups = processorIdToTaskGroup.values();
+
+    /**
+     * For the tasks left over from the previous stage, map them to any under-assigned processor.
+     * When a under-assigned processor doesn't exist, then map them to any processor from available
+     * processor in round robin fashion.
+     */
     for (TaskModel taskModel : taskModels) {
       if (!assignedTasks.contains(taskModel.getTaskName())) {
         Optional<TaskGroup> underAssignedTaskGroup = taskGroups.stream()
