@@ -21,7 +21,6 @@ package org.apache.samza.container.grouper.task;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.SystemStreamPartition;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
