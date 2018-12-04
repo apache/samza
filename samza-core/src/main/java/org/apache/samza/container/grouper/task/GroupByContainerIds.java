@@ -128,7 +128,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
   /**
    * {@inheritDoc}
    *
-   * When the are `t`  tasks and `p` processors, where t >= p, a fair task distribution should ideally assign
+   * When the are `t` tasks and `p` processors, where t >= p, a fair task distribution should ideally assign
    * (t / p) tasks to each processor. In addition to guaranteeing a fair distribution, this {@link TaskNameGrouper}
    * implementation generates a locationId aware task assignment to processors where it makes best efforts in assigning
    * the tasks to processors with the same locality.
