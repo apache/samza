@@ -19,9 +19,11 @@
 package org.apache.samza.table;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.utils.TableReadMetrics;
 import org.apache.samza.table.utils.TableWriteMetrics;
+import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,8 @@ abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
   protected TableReadMetrics readMetrics;
   protected TableWriteMetrics writeMetrics;
 
+  protected HighResolutionClock clock;
+
   /**
    * Construct an instance
    * @param tableId Id of the table
@@ -54,6 +58,11 @@ abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
 
   @Override
   public void init(Context context) {
+    MetricsConfig metricsConfig = new MetricsConfig(context.getJobContext().getConfig());
+    clock = metricsConfig.getMetricsTimerEnabled()
+        ? () -> System.nanoTime()
+        : () -> 0L;
+
     readMetrics = new TableReadMetrics(context, this, tableId);
     if (this instanceof ReadWriteTable) {
       writeMetrics = new TableWriteMetrics(context, this, tableId);

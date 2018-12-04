@@ -28,14 +28,13 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.{Gauge, Timer}
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.{Partition, SamzaContainerStatus}
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.mockito.{ArgumentCaptor, Mock, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
@@ -66,6 +65,9 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private var applicationContainerContext: ApplicationContainerContext = null
   @Mock
   private var samzaContainerListener: SamzaContainerListener = null
+
+  @Mock
+  private var containerStorageManager: ContainerStorageManager = null
 
   private var samzaContainer: SamzaContainer = null
 
@@ -150,23 +152,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     verify(this.samzaContainerListener, never()).afterStop()
     verify(this.samzaContainerListener).afterFailure(notNull(classOf[Exception]))
     verify(this.runLoop).run()
-  }
-
-  @Test
-  def testStartStoresIncrementsCounter() {
-    when(this.taskInstance.taskName).thenReturn(TASK_NAME)
-    val restoreGauge = mock[Gauge[Long]]
-    when(this.metrics.taskStoreRestorationMetrics).thenReturn(Map(TASK_NAME -> restoreGauge))
-    when(this.taskInstance.startStores).thenAnswer(new Answer[Void] {
-      override def answer(invocation: InvocationOnMock): Void = {
-        Thread.sleep(1)
-        null
-      }
-    })
-    this.samzaContainer.startStores
-    val restoreGaugeValueCaptor = ArgumentCaptor.forClass(classOf[Long])
-    verify(restoreGauge).set(restoreGaugeValueCaptor.capture())
-    assertTrue(restoreGaugeValueCaptor.getValue >= 1)
   }
 
   @Test
@@ -283,7 +268,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       this.producerMultiplexer,
       metrics,
       containerContext = this.containerContext,
-      applicationContainerContextOption = applicationContainerContext)
+      applicationContainerContextOption = applicationContainerContext, containerStorageManager = containerStorageManager)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 

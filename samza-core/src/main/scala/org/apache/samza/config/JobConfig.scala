@@ -19,13 +19,16 @@
 
 package org.apache.samza.config
 
-
 import java.io.File
+import java.util.regex.Pattern
 
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.container.grouper.stream.{GroupByPartitionFactory, HashSystemStreamPartitionMapperFactory}
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
+
+import scala.collection.mutable
+
 
 object JobConfig {
   // job config constants
@@ -77,6 +80,15 @@ object JobConfig {
   val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
+
+  val MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms"
+  val DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000
+
+  val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
+  val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
+  val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
+
+
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
@@ -100,6 +112,8 @@ object JobConfig {
   // Specify DiagnosticAppender class
   val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
   val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
+
+  val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -127,7 +141,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getCoordinatorSystemName = {
     val system = getCoordinatorSystemNameOrNull
     if (system == null) {
-      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution.")
+      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution." + config)
     }
     system
   }
@@ -158,9 +172,43 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
   }
 
+  // StreamRegexMonitor is disabled if the MonitorRegexFRequency is <= 0
+  def getMonitorRegexEnabled = (getMonitorRegexFrequency <= 0)
+
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
+
+  def getMonitorRegexFrequency = getInt(
+    JobConfig.MONITOR_INPUT_REGEX_FREQUENCY_MS,
+    JobConfig.DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS)
+
+  def getMonitorRegexPatternMap(rewritersList : String) : mutable.HashMap[String, Pattern] = {
+    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
+    val inputRegexesToMonitor: mutable.HashMap[String, Pattern] = mutable.HashMap[String, Pattern]()
+    val rewriters: Array[String] = rewritersList.split(",")
+    // iterate over each rewriter and obtain the system and regex for it
+    for (rewriterName <- rewriters) {
+      val rewriterSystem: Option[String] = new JobConfig(config).getRegexResolvedSystem(rewriterName)
+      val rewriterRegex: Option[String] = new JobConfig(config).getRegexResolvedStreams(rewriterName)
+      if (rewriterSystem.isDefined && rewriterRegex.isDefined) {
+        var patternForSystem: Option[Pattern] = inputRegexesToMonitor.get(rewriterSystem.get)
+        patternForSystem =
+          if (patternForSystem == None) Some(Pattern.compile(rewriterRegex.get))
+          else
+            Some(Pattern.compile(String.join("|", patternForSystem.get.pattern(), rewriterRegex.get)))
+        inputRegexesToMonitor.put(rewriterSystem.get, patternForSystem.get)
+      }
+    }
+    inputRegexesToMonitor
+  }
+
+  // regex-related config methods duplicated from KafkaConfig to avoid module dependency
+  def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
+
+  def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
+
+
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
@@ -212,5 +260,9 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getJMXEnabled = {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
+  }
+
+  def getSystemStreamPartitionMapperFactoryName: String = {
+    get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
 }

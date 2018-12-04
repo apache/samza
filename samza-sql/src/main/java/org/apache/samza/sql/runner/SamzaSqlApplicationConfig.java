@@ -127,11 +127,14 @@ public class SamzaSqlApplicationConfig {
     Set<String> inputSystemStreamSet = new HashSet<>(inputSystemStreams);
     Set<String> outputSystemStreamSet = new HashSet<>(outputSystemStreams);
 
-    inputSystemStreamConfigBySource = inputSystemStreamSet.stream()
-         .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
-
+    // Let's get the output system stream configs before input system stream configs. This is to account for
+    // table descriptor that could be both input and output. Please note that there could be only one
+    // instance of table descriptor and writable table is a readable table but vice versa is not true.
     outputSystemStreamConfigsBySource = outputSystemStreamSet.stream()
          .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
+
+    inputSystemStreamConfigBySource = inputSystemStreamSet.stream()
+        .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
 
     Map<String, SqlIOConfig> systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
     systemStreamConfigsBySource.putAll(outputSystemStreamConfigsBySource);

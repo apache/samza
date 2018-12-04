@@ -18,7 +18,6 @@
  */
 package org.apache.samza.table.utils;
 
-import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
@@ -34,7 +33,6 @@ public class TableReadMetrics {
   public final Timer getAllNs;
   public final Counter numGets;
   public final Counter numGetAlls;
-  public final Timer getCallbackNs;
   public final Counter numMissedLookups;
 
   /**
@@ -47,19 +45,10 @@ public class TableReadMetrics {
   public TableReadMetrics(Context context, Table table, String tableId) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
     numGets = tableMetricsUtil.newCounter("num-gets");
+    getNs = tableMetricsUtil.newTimer("get-ns");
     numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
+    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
     numMissedLookups = tableMetricsUtil.newCounter("num-missed-lookups");
-
-    MetricsConfig metricsConfig = new MetricsConfig(context.getJobContext().getConfig());
-    if (metricsConfig.getMetricsTimerEnabled()) {
-      getNs = tableMetricsUtil.newTimer("get-ns");
-      getAllNs = tableMetricsUtil.newTimer("getAll-ns");
-      getCallbackNs = tableMetricsUtil.newTimer("get-callback-ns");
-    } else {
-      getNs = null;
-      getAllNs = null;
-      getCallbackNs = null;
-    }
   }
 
 }

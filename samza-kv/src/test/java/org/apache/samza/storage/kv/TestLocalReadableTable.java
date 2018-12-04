@@ -126,9 +126,6 @@ public class TestLocalReadableTable {
     table.getAsync("").get();
     table.getAll(keys);
     table.getAllAsync(keys).get();
-    verify(metricsRegistry, atLeast(1)).newCounter(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newTimer(anyString(), anyString());
-    verify(metricsRegistry, times(0)).newGauge(anyString(), any());
     Assert.assertEquals(2, numGets.getCount());
     Assert.assertEquals(4, numMissedLookups.getCount());
     Assert.assertEquals(2, numGetAlls.getCount());
