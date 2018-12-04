@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -144,11 +145,12 @@ public class GroupByContainerIds implements TaskNameGrouper {
    * task is mapped to any processor from available processors in a round robin fashion.
    */
   @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
+  public Set<ContainerModel> group(Set<TaskModel> tasks, GrouperMetadata grouperMetadata) {
     // Validate that the task models are not empty.
     Map<TaskName, LocationId> taskLocality = grouperMetadata.getTaskLocality();
-    Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
+    Preconditions.checkArgument(!tasks.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
+    Set<TaskModel> taskModels = new TreeSet<>(tasks);
     // Invoke the default grouper when the processor locality does not exist.
     if (MapUtils.isEmpty(grouperMetadata.getProcessorLocality())) {
       LOG.info("ProcessorLocality is empty. Generating with the default group method.");
@@ -211,8 +213,8 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
     /**
      * For the tasks left over from the previous stage, map them to any under-assigned processor.
-     * When a under-assigned processor doesn't exist, then map them to any processor from available
-     * processor in round robin fashion.
+     * When a under-assigned processor doesn't exist, then map them to any processor from the
+     * available processors in a round robin manner.
      */
     for (TaskModel taskModel : taskModels) {
       if (!assignedTasks.contains(taskModel.getTaskName())) {
