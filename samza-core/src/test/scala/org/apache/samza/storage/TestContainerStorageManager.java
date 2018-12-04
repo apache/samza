@@ -76,7 +76,8 @@ public class TestContainerStorageManager {
 
     taskStorageManagers.put(new TaskName(taskname), mockTaskStorageManager);
 
-    this.taskRestoreMetricGauges.put(new TaskName(taskname), new Gauge(taskname, 0));
+    Gauge testGauge = Mockito.mock(Gauge.class);
+    this.taskRestoreMetricGauges.put(new TaskName(taskname), testGauge);
   }
 
   @Before
@@ -130,7 +131,7 @@ public class TestContainerStorageManager {
     Assert.assertTrue("systemConsumerStartCount count should be 0", this.systemConsumerStartCount.getCount() == 0);
 
     for (Gauge gauge : taskRestoreMetricGauges.values()) {
-      Assert.assertTrue("Restoration time gauge value should be non zero", (Long) gauge.getValue() >= 1);
+      Assert.assertTrue("Restoration time gauge value should be invoked atleast once", Mockito.mockingDetails(gauge).getInvocations().size() >= 1);
     }
   }
 
