@@ -32,6 +32,7 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 public interface SamzaRelConverter {
   /**
    * Determine if the input samza message is a system message.
+   * This API will soon be removed when descriptor creation is done by SamzaRelConverter.
    * @param message input samza message.
    * @return true if the input message is system message.
    */
