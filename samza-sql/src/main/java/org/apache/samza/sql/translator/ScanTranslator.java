@@ -25,6 +25,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.context.Context;
+import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -48,6 +49,30 @@ class ScanTranslator {
   private final Map<String, SamzaRelConverter> relMsgConverters;
   private final Map<String, SqlIOConfig> systemStreamConfig;
   private final int queryId;
+
+  // FilterFunction to filter out any messages that are system specific.
+  private static class FilterSystemMessageFunction implements FilterFunction<KV<Object, Object>> {
+    private transient SamzaRelConverter relConverter;
+    private final String source;
+    private final int queryId;
+
+    FilterSystemMessageFunction(String source, int queryId) {
+      this.source = source;
+      this.queryId = queryId;
+    }
+
+    @Override
+    public void init(Context context) {
+      TranslatorContext translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
+      relConverter = translatorContext.getMsgConverter(source);
+    }
+
+    @Override
+    public boolean apply(KV<Object, Object> message) {
+      return !relConverter.isSystemMessage(message);
+    }
+  }
 
   ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc, int queryId) {
     relMsgConverters = converters;
@@ -109,8 +134,12 @@ class ScanTranslator {
         sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
     GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamId, noOpKVSerde);
 
-    MessageStream<KV<Object, Object>> inputStream = inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
-    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName, queryId));
+    MessageStream<KV<Object, Object>> inputStream =
+        inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
+    MessageStream<KV<Object, Object>> outputStream =
+        inputStream.filter(new FilterSystemMessageFunction(sourceName, queryId));
+    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream =
+        outputStream.map(new ScanMapFunction(sourceName, queryId));
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
   }
 }
