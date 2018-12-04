@@ -19,7 +19,18 @@
 
 package org.apache.samza.container.grouper.task;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
@@ -110,19 +121,38 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
   /**
    * {@inheritDoc}
+   *
+   * When the are `t`  tasks and `p` processors, where t >= p, a fair task distribution should ideally assign
+   * (t / p) tasks to each processor. In addition to guaranteeing a fair distribution, this {@link TaskNameGrouper}
+   * implementation generates a locationId aware task assignment to processors where it makes best efforts in assigning
+   * the tasks to processors with the same locality.
+   *
+   * Task assignment to processors is accomplished through the following two phases:
+   *
+   * 1. Each task(T) is assigned to a processor(P) that satisfies the following constraints:
+   *    A. The processor(P) should have the same locality of the task(T).
+   *    B. Number of tasks already assigned to the processor should be less than the (number of tasks / number of processors).
+   *
+   * 2. Each unassigned task from phase 1 are then mapped to any processor with task count less than the
+   * (number of tasks / number of processors). When no such processor exists, then the unassigned
+   * task is mapped to any processor from available processors in a round robin fashion.
    */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> taskModels, MetadataProvider metadataProvider) {
+    // Validate that the task models are not empty.
     Map<TaskName, LocationId> taskLocality = metadataProvider.getTaskLocality();
-
     Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
+    // Invoke the default grouper when the processor locality does not exist.
     if (MapUtils.isEmpty(metadataProvider.getProcessorLocality())) {
       LOG.info("ProcessorLocality is empty. Generating with the default group method.");
       return group(taskModels, new ArrayList<>());
     }
 
     Map<String, LocationId> processorLocality = new TreeMap<>(metadataProvider.getProcessorLocality());
+    /**
+     * When there're more task models than processors then choose the lexicographically least `x` processors(where x = tasks.size()).
+     */
     if (processorLocality.size() > taskModels.size()) {
       processorLocality = processorLocality.entrySet()
                                            .stream()
@@ -133,6 +163,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
     Map<LocationId, List<String>> locationIdToProcessors = new HashMap<>();
     Map<String, TaskGroup> processorIdToTaskGroup = new HashMap<>();
 
+    // Generate locationId to processors mapping and processorId to TaskGroup mapping.
     processorLocality.forEach((processorId, locationId) -> {
         List<String> processorIds = locationIdToProcessors.getOrDefault(locationId, new ArrayList<>());
         processorIds.add(processorId);
@@ -143,12 +174,7 @@ public class GroupByContainerIds implements TaskNameGrouper {
     int numTasksPerProcessor = taskModels.size() / processorLocality.size();
     Set<TaskName> assignedTasks = new HashSet<>();
 
-    /**
-     * When the are `t`  tasks and `p` processors, where t >= p, a fair task distribution should assign
-     * (t / p) tasks to each processor. In addition to guaranteeing fair distribution, this grouper
-     * generates a locationId aware task assignment to processors where it makes best efforts in assigning
-     * the tasks to a processors with the same locality.
-     */
+
     for (TaskModel taskModel : taskModels) {
       LocationId taskLocationId = taskLocality.get(taskModel.getTaskName());
       if (taskLocationId != null) {
@@ -165,9 +191,9 @@ public class GroupByContainerIds implements TaskNameGrouper {
     }
 
     /**
-     * In some scenarios, either the task might not have any previous locality or the task might not have any
-     * existing processor that maps to its previous locality. This cyclic processorId's iterator helps us to
-     * assign the processorIds to these kind of tasks in a round robin fashion.
+     * In some scenarios, the task either might not have any previous locality or might not have any
+     * processor that maps to its previous locality. This cyclic processorId's iterator helps us in
+     * those scenarios to assign the processorIds to those kind of tasks in a round robin fashion.
      */
     Iterator<String> processorIdsCyclicIterator = Iterators.cycle(processorLocality.keySet());
     Collection<TaskGroup> taskGroups = processorIdToTaskGroup.values();
