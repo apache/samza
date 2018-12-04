@@ -144,18 +144,18 @@ public class GroupByContainerIds implements TaskNameGrouper {
    * task is mapped to any processor from available processors in a round robin fashion.
    */
   @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels, MetadataProvider metadataProvider) {
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, ApplicationMetadataProvider applicationMetadataProvider) {
     // Validate that the task models are not empty.
-    Map<TaskName, LocationId> taskLocality = metadataProvider.getTaskLocality();
+    Map<TaskName, LocationId> taskLocality = applicationMetadataProvider.getTaskLocality();
     Preconditions.checkArgument(!taskModels.isEmpty(), "No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
     // Invoke the default grouper when the processor locality does not exist.
-    if (MapUtils.isEmpty(metadataProvider.getProcessorLocality())) {
+    if (MapUtils.isEmpty(applicationMetadataProvider.getProcessorLocality())) {
       LOG.info("ProcessorLocality is empty. Generating with the default group method.");
       return group(taskModels, new ArrayList<>());
     }
 
-    Map<String, LocationId> processorLocality = new TreeMap<>(metadataProvider.getProcessorLocality());
+    Map<String, LocationId> processorLocality = new TreeMap<>(applicationMetadataProvider.getProcessorLocality());
     /**
      * When there're more task models than processors then choose the lexicographically least `x` processors(where x = tasks.size()).
      */

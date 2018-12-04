@@ -30,8 +30,8 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
-import org.apache.samza.container.grouper.task.MetadataProvider;
-import org.apache.samza.container.grouper.task.MetadataProviderImpl;
+import org.apache.samza.container.grouper.task.ApplicationMetadataProvider;
+import org.apache.samza.container.grouper.task.ApplicationMetadataProviderImpl;
 import org.apache.samza.coordinator.data.BarrierState;
 import org.apache.samza.coordinator.data.ProcessorEntity;
 import org.apache.samza.coordinator.scheduler.HeartbeatScheduler;
@@ -366,8 +366,10 @@ public class AzureJobCoordinator implements JobCoordinator {
     }
 
     // Generate the new JobModel
-    MetadataProvider metadataProvider = new MetadataProviderImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
-    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, metadataProvider);
+    ApplicationMetadataProvider
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache,
+        applicationMetadataProvider);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model

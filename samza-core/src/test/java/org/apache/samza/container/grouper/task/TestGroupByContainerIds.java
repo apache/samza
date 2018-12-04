@@ -272,7 +272,8 @@ public class TestGroupByContainerIds {
                                                              testTaskName2, testLocationId2,
                                                              testTaskName3, testLocationId3);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -280,7 +281,7 @@ public class TestGroupByContainerIds {
                                                                   new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
                                                                   new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
 
-    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
   }
@@ -309,7 +310,8 @@ public class TestGroupByContainerIds {
                                                              testTaskName2, testLocationId2,
                                                              testTaskName3, testLocationId3);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -317,7 +319,7 @@ public class TestGroupByContainerIds {
                                                                                                                        testTaskName2, testTaskModel2,
                                                                                                                        testTaskName3, testTaskModel3)));
 
-    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
   }
@@ -348,7 +350,8 @@ public class TestGroupByContainerIds {
 
     Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -356,7 +359,7 @@ public class TestGroupByContainerIds {
                                                                   new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
                                                                   new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
 
-    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
   }
@@ -365,9 +368,10 @@ public class TestGroupByContainerIds {
   public void testShouldFailWhenProcessorLocalityIsEmpty() {
     TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
 
-    taskNameGrouper.group(new HashSet<>(), grouperContext);
+    taskNameGrouper.group(new HashSet<>(), applicationMetadataProvider);
   }
 
   @Test
@@ -398,7 +402,8 @@ public class TestGroupByContainerIds {
             testTaskName2, testLocationId2,
             testTaskName3, testLocationId3);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -406,11 +411,11 @@ public class TestGroupByContainerIds {
             new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
             new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
 
-    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
 
-    actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
   }
@@ -443,7 +448,8 @@ public class TestGroupByContainerIds {
             testTaskName2, testLocationId2,
             testTaskName3, testLocationId3);
 
-    MetadataProviderImpl grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    ApplicationMetadataProviderImpl
+        applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
     Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
 
@@ -451,16 +457,16 @@ public class TestGroupByContainerIds {
             new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
             new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
 
-    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     assertEquals(expectedContainerModels, actualContainerModels);
 
     processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
                                         testProcessorId2, testLocationId2);
 
-    grouperContext = new MetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+    applicationMetadataProvider = new ApplicationMetadataProviderImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
 
-    actualContainerModels = taskNameGrouper.group(taskModels, grouperContext);
+    actualContainerModels = taskNameGrouper.group(taskModels, applicationMetadataProvider);
 
     expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1, testTaskName3, testTaskModel3)),
                                               new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)));
