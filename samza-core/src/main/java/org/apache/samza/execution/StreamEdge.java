@@ -127,9 +127,6 @@ public class StreamEdge {
         newConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
       });
 
-    config.forEach((property, value) -> {
-      newConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
-    });
     return new MapConfig(newConfig);
   }
 

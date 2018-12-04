@@ -80,17 +80,4 @@ public class TestStreamEdge {
     assertEquals(streamConfig.getDefaultStreamOffset(spec.toSystemStream()).get(), "oldest");
     assertEquals(streamConfig.getPriority(spec.toSystemStream()), Integer.MAX_VALUE);
   }
-
-  @Test
-  public void testIsBroadcast() {
-    Map<String, String> map = new HashMap<>();
-    map.put("samza.broadcast", "true");
-    StreamEdge edge = new StreamEdge(spec, true, false, new MapConfig(map));
-    Config config = edge.generateConfig();
-    edge = new StreamEdge(spec, true, false, config);
-    assertEquals(true, edge.isBroadcast());
-    map.remove("streams.stream-1.samza.broadcast");
-    edge = new StreamEdge(spec, true, false, config);
-    assertEquals(true, edge.isBroadcast());
-  }
 }
