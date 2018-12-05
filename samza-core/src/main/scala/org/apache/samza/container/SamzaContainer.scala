@@ -128,8 +128,8 @@ object SamzaContainer extends Logging {
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-    externalContextOption: Option[ExternalContext]
-  ) = {
+    externalContextOption: Option[ExternalContext],
+    localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
@@ -426,15 +426,8 @@ object SamzaContainer extends Logging {
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
-    val dropDeserializationError = config.getDropDeserialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
-
-    val dropSerializationError = config.getDropSerialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
+    val dropDeserializationError = config.getDropDeserializationErrors
+    val dropSerializationError = config.getDropSerializationErrors
 
     val pollIntervalMs = config
       .getPollIntervalMs
@@ -516,7 +509,7 @@ object SamzaContainer extends Logging {
 
     info("Created store system consumers: %s" format storeSystemConsumers)
 
-    var taskStorageManagers : Map[TaskInstance, TaskStorageManager] = Map()
+    var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
@@ -681,7 +674,7 @@ object SamzaContainer extends Logging {
 
       val taskInstance = createTaskInstance(task)
 
-      taskStorageManagers += taskInstance -> storageManager
+      taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
 
@@ -744,6 +737,7 @@ object SamzaContainer extends Logging {
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
+      localityManager = localityManager,
       offsetManager = offsetManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -1001,16 +995,13 @@ class SamzaContainer(
 
   def storeContainerLocality {
     val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(config).getHostAffinityEnabled
-    if (isHostAffinityEnabled) {
-      val localityManager: LocalityManager = new LocalityManager(config, containerContext.getContainerMetricsRegistry)
+    if (isHostAffinityEnabled && localityManager != null) {
       val containerId = containerContext.getContainerModel.getId
       val containerName = "SamzaContainer-" + containerId
       info("Registering %s with metadata store" format containerName)
       try {
         val hostInet = Util.getLocalHost
-        val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
-        val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
-        info("Writing container locality and JMX address to metadata store")
+        info("Writing container locality to metadata store")
         localityManager.writeContainerToHostMapping(containerId, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>

@@ -31,6 +31,16 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
  */
 public interface SamzaRelConverter {
   /**
+   * Determine if the input samza message is a system message.
+   * This API will soon be removed when descriptor creation is done by SamzaRelConverter.
+   * @param message input samza message.
+   * @return true if the input message is system message.
+   */
+  default boolean isSystemMessage(KV<Object, Object> message) {
+    return false;
+  }
+
+  /**
    * Converts the object to relational message corresponding to the tableName with relational schema.
    * @param message samza message that needs to be converted.
    * @return Relational message extracted from the object.
@@ -43,4 +53,5 @@ public interface SamzaRelConverter {
    * @return the key and value of the Samza message
    */
   KV<Object, Object> convertToSamzaMessage(SamzaSqlRelMessage relMessage);
+
 }

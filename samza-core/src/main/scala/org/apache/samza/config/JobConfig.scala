@@ -19,11 +19,10 @@
 
 package org.apache.samza.config
 
-
 import java.io.File
 import java.util.regex.Pattern
 
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.container.grouper.stream.{GroupByPartitionFactory, HashSystemStreamPartitionMapperFactory}
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
@@ -113,6 +112,8 @@ object JobConfig {
   // Specify DiagnosticAppender class
   val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
   val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
+
+  val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -259,5 +260,9 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getJMXEnabled = {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
+  }
+
+  def getSystemStreamPartitionMapperFactoryName: String = {
+    get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
 }

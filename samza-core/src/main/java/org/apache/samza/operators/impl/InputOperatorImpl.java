@@ -55,7 +55,10 @@ public final class InputOperatorImpl extends OperatorImpl<IncomingMessageEnvelop
     } else {
       message = this.inputOpSpec.isKeyed() ? KV.of(ime.getKey(), ime.getMessage()) : ime.getMessage();
     }
-    return Collections.singletonList(message);
+    if (message != null) {
+      return Collections.singletonList(message);
+    }
+    return Collections.emptyList();
   }
 
   @Override

@@ -19,26 +19,24 @@
 
 package org.apache.samza.runtime;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
-import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
@@ -48,7 +46,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import scala.Option;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 
 /**
  * Launches and manages the lifecycle for {@link SamzaContainer}s in YARN.
@@ -95,6 +96,7 @@ public class LocalContainerRunner {
   private static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, String containerId,
       JobModel jobModel, Config config, Optional<ExternalContext> externalContextOptional) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
+    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
@@ -103,7 +105,7 @@ public class LocalContainerRunner {
         JobContextImpl.fromConfigWithDefaults(config),
         Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
         Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-        Option.apply(externalContextOptional.orElse(null)));
+        Option.apply(externalContextOptional.orElse(null)), localityManager);
 
     ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
         .createInstance(new ProcessorContext() { }, config);

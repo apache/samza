@@ -125,29 +125,25 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   }
 
   /**
-   * Use specified TableReadFunction with remote table.
-   * @param readFn read function instance
-   * @param retryPolicy retry policy for the read function
+   * Use specified {@link TableRetryPolicy} with the {@link TableReadFunction}.
+   * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withReadFunction(TableReadFunction<K, V> readFn, TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V> withReadRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
-    this.readFn = readFn;
     this.readRetryPolicy = retryPolicy;
     return this;
   }
 
   /**
-   * Use specified TableWriteFunction with remote table.
-   * @param writeFn write function instance
+   * Use specified {@link TableRetryPolicy} with the {@link TableWriteFunction}.
    * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withWriteFunction(TableWriteFunction<K, V> writeFn, TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V> withWriteRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
-    this.writeFn = writeFn;
     this.writeRetryPolicy = retryPolicy;
     return this;
   }

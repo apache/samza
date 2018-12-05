@@ -99,7 +99,6 @@ public class TaskModel implements Comparable<TaskModel> {
   }
 
   @Override
-
   public String toString() {
     return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
   }

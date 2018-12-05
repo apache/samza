@@ -16,20 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container.grouper.task;
+package org.apache.samza.container.grouper.stream;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 
 /**
- * Factory for building a {@link TaskNameGrouper}.
+ * Instantiates the {@link HashSystemStreamPartitionMapper} based upon the provided
+ * config and the metricsRegistry.
  */
-public interface TaskNameGrouperFactory {
-  /**
-   * Builds a {@link TaskNameGrouper}. The config can be used to read the necessary values which are needed int the
-   * process of building the {@link TaskNameGrouper}
-   *
-   * @param config configuration to use for building the {@link TaskNameGrouper}
-   * @return a {@link TaskNameGrouper} implementation
-   */
-  TaskNameGrouper build(Config config);
+public class HashSystemStreamPartitionMapperFactory implements SystemStreamPartitionMapperFactory {
+  @Override
+  public SystemStreamPartitionMapper getStreamPartitionMapper(Config config, MetricsRegistry metricsRegistry) {
+    return new HashSystemStreamPartitionMapper();
+  }
 }

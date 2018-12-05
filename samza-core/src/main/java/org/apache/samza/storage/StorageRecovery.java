@@ -21,7 +21,6 @@ package org.apache.samza.storage;
 
 import java.io.File;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +31,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
 import org.apache.samza.context.JobContextImpl;
@@ -72,9 +72,10 @@ public class StorageRecovery extends CommandLine {
   private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
   private HashMap<String, StorageEngineFactory<?, ?>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
-  private List<TaskStorageManager> taskStorageManagers = new ArrayList<>();
+  private ContainerStorageManager containerStorageManager;
   private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
   private SystemAdmins systemAdmins = null;
+
 
   /**
    * Construct the StorageRecovery
@@ -100,7 +101,7 @@ public class StorageRecovery extends CommandLine {
     getContainerModels();
     getChangeLogSystemStreamsAndStorageFactories();
     getChangeLogMaxPartitionNumber();
-    getTaskStorageManagers();
+    getContainerStorageManager();
   }
 
   /**
@@ -112,11 +113,8 @@ public class StorageRecovery extends CommandLine {
     log.info("start recovering...");
 
     systemAdmins.start();
-    for (TaskStorageManager taskStorageManager : taskStorageManagers) {
-      taskStorageManager.init();
-      taskStorageManager.stopStores();
-      log.debug("restored " + taskStorageManager.toString());
-    }
+    this.containerStorageManager.start();
+    this.containerStorageManager.shutdown();
     systemAdmins.stop();
 
     log.info("successfully recovered in " + storeBaseDir.toString());
@@ -127,12 +125,13 @@ public class StorageRecovery extends CommandLine {
    * map
    */
   private void getContainerModels() {
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, new MetricsRegistryMap());
+    MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
+    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, metricsRegistryMap);
     coordinatorStreamManager.register(getClass().getSimpleName());
     coordinatorStreamManager.start();
     coordinatorStreamManager.bootstrap();
     ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
-    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping()).jobModel();
+    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping(), metricsRegistryMap).jobModel();
     containers = jobModel.getContainers();
     coordinatorStreamManager.stop();
   }
@@ -201,8 +200,10 @@ public class StorageRecovery extends CommandLine {
    * List<TaskStorageManager>
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
-  private void getTaskStorageManagers() {
+  private void getContainerStorageManager() {
     Clock clock = SystemClock.instance();
+    Map<TaskName, TaskStorageManager> taskStorageManagers = new HashMap<>();
+    HashMap<String, SystemConsumer> storeConsumers = getStoreConsumers();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
     SSPMetadataCache sspMetadataCache =
@@ -213,7 +214,6 @@ public class StorageRecovery extends CommandLine {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
       for (TaskModel taskModel : containerModel.getTasks().values()) {
-        HashMap<String, SystemConsumer> storeConsumers = getStoreConsumers();
 
         for (Entry<String, StorageEngineFactory<?, ?>> entry : storageEngineFactories.entrySet()) {
           String storeName = entry.getKey();
@@ -253,8 +253,10 @@ public class StorageRecovery extends CommandLine {
             new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
             new SystemClock());
 
-        taskStorageManagers.add(taskStorageManager);
+        taskStorageManagers.put(taskModel.getTaskName(), taskStorageManager);
       }
     }
+
+    this.containerStorageManager = new ContainerStorageManager(taskStorageManagers, storeConsumers, null);
   }
 }
