@@ -103,7 +103,7 @@ object JobModelManager extends Logging {
     * @param taskAssignmentManager provides the processor to task assignments persisted to the metadata store.
     * @return the instantiated {@see GrouperMetadata}.
     */
-  private def getGrouperMetadata(config: Config, localityManager: LocalityManager, taskAssignmentManager: TaskAssignmentManager) = {
+  def getGrouperMetadata(config: Config, localityManager: LocalityManager, taskAssignmentManager: TaskAssignmentManager) = {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
     val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment()
     val taskNameToProcessorId: util.Map[TaskName, String] = new util.HashMap[TaskName, String]()
@@ -126,7 +126,7 @@ object JobModelManager extends Logging {
     * @param localityManager provides the processor to host mapping persisted to the metadata store.
     * @return the processor locality.
     */
-  private def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
+  def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
     val existingContainerLocality = localityManager.readContainerLocality()
 
@@ -153,7 +153,7 @@ object JobModelManager extends Logging {
     * @param taskAssignmentManager required to persist the processor to task assignments to the storage layer.
     * @param grouperMetadata       provides the historical metadata of the application.
     */
-  private def updateTaskAssignments(jobModel: JobModel, taskAssignmentManager: TaskAssignmentManager, grouperMetadata: GrouperMetadata): Unit = {
+  def updateTaskAssignments(jobModel: JobModel, taskAssignmentManager: TaskAssignmentManager, grouperMetadata: GrouperMetadata): Unit = {
     val taskNames: util.Set[String] = new util.HashSet[String]()
     for (container <- jobModel.getContainers.values()) {
       for (taskModel <- container.getTasks.values()) {

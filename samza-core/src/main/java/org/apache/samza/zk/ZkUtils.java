@@ -251,7 +251,11 @@ public class ZkUtils {
 
   public Map<TaskName, LocationId> readTaskLocality() {
     Map<TaskName, LocationId> taskLocality = new HashMap<>();
-    List<String> tasks = zkClient.getChildren(keyBuilder.getTaskLocalityPath());
+    String taskLocalityPath = keyBuilder.getTaskLocalityPath();
+    List<String> tasks = new ArrayList<>();
+    if (zkClient.exists(taskLocalityPath)) {
+      tasks = zkClient.getChildren(taskLocalityPath);
+    }
     for (String taskName : tasks) {
       String taskPath = String.format("%s/%s", keyBuilder.getTaskLocalityPath(), taskName);
       String locationId = zkClient.readData(taskPath, true);

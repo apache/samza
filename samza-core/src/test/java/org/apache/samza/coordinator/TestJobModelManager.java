@@ -20,14 +20,21 @@
 package org.apache.samza.coordinator;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GroupByContainerCount;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
@@ -35,6 +42,7 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -42,14 +50,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Collections;
 
+import static org.apache.samza.coordinator.JobModelManager.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
+import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -148,5 +157,84 @@ public class TestJobModelManager {
     this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
 
     assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", null); } });
+  }
+
+  @Test
+  public void testGetGrouperMetadata() {
+    // Mocking setup.
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    TaskAssignmentManager mockTaskAssignmentManager = Mockito.mock(TaskAssignmentManager.class);
+
+    Map<String, Map<String, String>> localityMappings = new HashMap<>();
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+
+    Map<String, String> taskAssignment = ImmutableMap.of("task-0", "0");
+
+    // Mock the container locality assignment.
+    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+
+    // Mock the container to task assignment.
+    when(mockTaskAssignmentManager.readTaskAssignment()).thenReturn(taskAssignment);
+
+    GrouperMetadataImpl grouperMetadata = JobModelManager.getGrouperMetadata(new MapConfig(), mockLocalityManager, mockTaskAssignmentManager);
+
+    Mockito.verify(mockLocalityManager).readContainerLocality();
+    Mockito.verify(mockTaskAssignmentManager).readTaskAssignment();
+
+    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), grouperMetadata.getProcessorLocality());
+    Assert.assertEquals(ImmutableMap.of(new TaskName("task-0"), new LocationId("abc-affinity")), grouperMetadata.getTaskLocality());
+  }
+
+  @Test
+  public void testGetProcessorLocality() {
+    // Mock the dependencies.
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+
+    Map<String, Map<String, String>> localityMappings = new HashMap<>();
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+
+    // Mock the container locality assignment.
+    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+
+    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(new MapConfig(), mockLocalityManager);
+
+    Mockito.verify(mockLocalityManager).readContainerLocality();
+    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), processorLocality);
+  }
+
+  @Test
+  public void testUpdateTaskAssignments() {
+    // Mocking setup.
+    JobModel mockJobModel = Mockito.mock(JobModel.class);
+    GrouperMetadataImpl mockGrouperMetadata = Mockito.mock(GrouperMetadataImpl.class);
+    TaskAssignmentManager mockTaskAssignmentManager = Mockito.mock(TaskAssignmentManager.class);
+
+    Map<TaskName, TaskModel> taskModelMap = new HashMap<>();
+    taskModelMap.put(new TaskName("task-1"), new TaskModel(new TaskName("task-1"), new HashSet<>(), new Partition(0)));
+    taskModelMap.put(new TaskName("task-2"), new TaskModel(new TaskName("task-2"), new HashSet<>(), new Partition(1)));
+    taskModelMap.put(new TaskName("task-3"), new TaskModel(new TaskName("task-3"), new HashSet<>(), new Partition(2)));
+    taskModelMap.put(new TaskName("task-4"), new TaskModel(new TaskName("task-4"), new HashSet<>(), new Partition(3)));
+    ContainerModel containerModel = new ContainerModel("test-container-id", taskModelMap);
+    Map<String, ContainerModel> containerMapping = ImmutableMap.of("test-container-id", containerModel);
+
+    when(mockJobModel.getContainers()).thenReturn(containerMapping);
+    when(mockGrouperMetadata.getPreviousTaskToProcessorAssignment()).thenReturn(new HashMap<>());
+    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMapping(Mockito.any(), Mockito.any());
+
+    JobModelManager.updateTaskAssignments(mockJobModel, mockTaskAssignmentManager, mockGrouperMetadata);
+
+    Set<String> taskNames = new HashSet<String>();
+    taskNames.add("task-4");
+    taskNames.add("task-2");
+    taskNames.add("task-3");
+    taskNames.add("task-1");
+
+    // Verifications
+    Mockito.verify(mockJobModel, atLeast(1)).getContainers();
+    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings((Iterable<String>) taskNames);
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-1", "test-container-id");
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-2", "test-container-id");
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-3", "test-container-id");
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-4", "test-container-id");
   }
 }
