@@ -43,9 +43,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Simple grouper.
- * It exposes two group methods - one that assumes sequential container numbers and one that gets a set of container
- * IDs as an argument. Please note - this first implementation ignores locality information.
+ * A {@link TaskNameGrouper} implementation that provides two different grouping strategies:
+ *
+ * - One that assigns the tasks to the available containerIds in a round robin fashion.
+ * - The other that generates a equidistributed and locality-aware task to container assignment.
  */
 public class GroupByContainerIds implements TaskNameGrouper {
   private static final Logger LOG = LoggerFactory.getLogger(GroupByContainerIds.class);
