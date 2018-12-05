@@ -40,7 +40,6 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.StreamConfig$;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.serializers.StringSerde;

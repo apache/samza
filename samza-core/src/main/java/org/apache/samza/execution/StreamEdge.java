@@ -55,7 +55,7 @@ public class StreamEdge {
     this.isIntermediate = isIntermediate;
     // broadcast can be configured either by an operator or via the configs
     this.isBroadcast =
-          isBroadcast || new StreamConfig(config).getBroadcastEnabled(streamSpec.toSystemStream());
+          isBroadcast || (config == null) ? false : new StreamConfig(config).getBroadcastEnabled(streamSpec.toSystemStream());
     this.config = config;
     if (isBroadcast && isIntermediate) {
       partitions = 1;
