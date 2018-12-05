@@ -79,47 +79,6 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
-  // TODO: SAMZA-1701 SamzaContainer should not contain any logic related to store directories
-  def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    config.getNonLoggedStorePath match {
-      case Some(nonLoggedStorePath) =>
-        new File(nonLoggedStorePath)
-      case None =>
-        defaultStoreBaseDir
-    }
-  }
-
-  // TODO: SAMZA-1701 SamzaContainer should not contain any logic related to store directories
-  def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
-      case Some(durableStorePath) =>
-        new File(durableStorePath)
-      case None =>
-        defaultStoreBaseDir
-    }
-
-    var loggedStorageBaseDir:File = null
-    if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
-      val jobNameAndId = (
-        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-        config.getJobId
-      )
-
-      loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
-        + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
-    } else {
-      if (config.getLoggedStorePath.isEmpty) {
-        warn("No override was provided for logged store base directory. This disables local state re-use on " +
-          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
-          "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application")
-      }
-
-      loggedStorageBaseDir = defaultLoggedStorageBaseDir
-    }
-
-    loggedStorageBaseDir
-  }
-
   def apply(
     containerId: String,
     jobModel: JobModel,
@@ -502,20 +461,27 @@ object SamzaContainer extends Logging {
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
-    // We create a map of store SystemName to its respective SystemConsumer
-    val storeSystemConsumers: Map[String, SystemConsumer] = changeLogSystemStreams.mapValues {
-      case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
-    }.values.toSet.map {
-      systemName: String =>
-        (systemName, systemFactories
-          .getOrElse(systemName,
-            throw new SamzaException("Changelog system %s exist in the config." format (systemName)))
-          .getConsumer(systemName, config, samzaContainerMetrics.registry))
-    }.toMap
-
-    info("Created store system consumers: %s" format storeSystemConsumers)
-
     var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
+
+    val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = containerModel.getTasks.values.asScala.map(taskModel => {
+      (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
+    }).toMap
+
+    val taskCollectors : Map[TaskName, TaskInstanceCollector] = containerModel.getTasks.values.asScala.map(taskModel => {
+      (taskModel.getTaskName, new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics.get(taskModel.getTaskName).get))
+    }).toMap
+
+
+    val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
+      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, maxChangeLogStreamPartitions)
+
+    storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
+
+    val nonLoggedStorageBaseDir = containerStorageManager.getNonLoggedStorageBaseDir
+    info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
+
+    val loggedStorageBaseDir = containerStorageManager.getLoggedStorageBaseDir
+    info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
@@ -528,31 +494,7 @@ object SamzaContainer extends Logging {
         case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
       }
 
-      val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
-
-      val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
-
-      // Re-use the storeConsumers, stored in storeSystemConsumers
-      val storeConsumers : Map[String, SystemConsumer] = changeLogSystemStreams
-        .map {
-          case (storeName, changeLogSystemStream) =>
-            val systemConsumer = storeSystemConsumers.get(changeLogSystemStream.getSystem).get
-            samzaContainerMetrics.addStoreRestorationGauge(taskName, storeName)
-            (storeName, systemConsumer)
-        }
-
-      info("Got store consumers: %s" format storeConsumers)
-
-      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
-      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
-
-      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
-      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
-
-      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
-      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
-
-      val taskStores = storageEngineFactories
+      val sideInputStores = storageEngineFactories.filterKeys(storeName => sideInputStoresToSystemStreams.contains(storeName))
         .map {
           case (storeName, storageEngineFactory) =>
             val changeLogSystemStreamPartition = if (changeLogSystemStreams.contains(storeName)) {
@@ -575,34 +517,31 @@ object SamzaContainer extends Logging {
 
             // We use the logged storage base directory for change logged and side input stores since side input stores
             // dont have changelog configured.
-            val storeDir = if (changeLogSystemStreamPartition != null || sideInputStoresToSystemStreams.contains(storeName)) {
-              TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+            val storeDir = if (sideInputStoresToSystemStreams.contains(storeName)) {
+              ContainerStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             } else {
-              TaskStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
+              ContainerStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
             }
 
             storeWatchPaths.add(storeDir.toPath)
 
-            val storageEngine = storageEngineFactory.getStorageEngine(
+            val sideInputStorageEngine = storageEngineFactory.getStorageEngine(
               storeName,
               storeDir,
               keySerde,
               msgSerde,
-              collector,
-              taskInstanceMetrics.registry,
+              taskCollectors.get(taskName).get,
+              taskInstanceMetrics.get(taskName).get.registry,
               changeLogSystemStreamPartition,
               jobContext,
               containerContext)
-            (storeName, storageEngine)
+            (storeName, sideInputStorageEngine)
         }
 
-      info("Got task stores: %s" format taskStores)
+      info("Got side input stores: %s" format sideInputStores)
 
       val taskSSPs = taskModel.getSystemStreamPartitions.asScala.toSet
       info("Got task SSPs: %s" format taskSSPs)
-
-      val (sideInputStores, nonSideInputStores) =
-        taskStores.partition { case (storeName, _) => sideInputStoresToSystemStreams.contains(storeName)}
 
       val sideInputStoresToSSPs = sideInputStoresToSystemStreams.mapValues(sideInputSystemStreams =>
         taskSSPs.filter(ssp => sideInputSystemStreams.contains(ssp.getSystemStream)).asJava)
@@ -617,24 +556,19 @@ object SamzaContainer extends Logging {
               (storeName, SerdeUtils.deserialize("Side Inputs Processor", serializedInstance)))
             .orElse(config.getSideInputsProcessorFactory(storeName).map(factoryClassName =>
               (storeName, Util.getObj(factoryClassName, classOf[SideInputsProcessorFactory])
-                .getSideInputsProcessor(config, taskInstanceMetrics.registry))))
+                .getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).get.registry))))
             .get
         }).toMap
 
       val storageManager = new TaskStorageManager(
         taskName = taskName,
-        taskStores = nonSideInputStores,
-        storeConsumers = storeConsumers,
+        containerStorageManager = containerStorageManager,
         changeLogSystemStreams = changeLogSystemStreams,
-        maxChangeLogStreamPartitions,
         streamMetadataCache = streamMetadataCache,
         sspMetadataCache = changelogSSPMetadataCache,
-        nonLoggedStoreBaseDir = nonLoggedStorageBaseDir,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition,
-        systemAdmins = systemAdmins,
-        new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
-        new SystemClock)
+        systemAdmins = systemAdmins)
 
       var sideInputStorageManager: TaskSideInputStorageManager = null
       if (sideInputStores.nonEmpty) {
@@ -657,16 +591,16 @@ object SamzaContainer extends Logging {
       def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
           task = task,
           taskModel = taskModel,
-          metrics = taskInstanceMetrics,
+          metrics = taskInstanceMetrics.get(taskName).get,
           systemAdmins = systemAdmins,
           consumerMultiplexer = consumerMultiplexer,
-          collector = collector,
+          collector = taskCollectors.get(taskName).get,
           offsetManager = offsetManager,
           storageManager = storageManager,
           tableManager = tableManager,
           reporters = reporters,
           systemStreamPartitions = taskSSPs,
-          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
+          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, config),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
@@ -682,10 +616,6 @@ object SamzaContainer extends Logging {
       taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
-
-
-    val containerStorageManager = new ContainerStorageManager(taskStorageManagers.asJava, storeSystemConsumers.asJava,
-      samzaContainerMetrics)
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
