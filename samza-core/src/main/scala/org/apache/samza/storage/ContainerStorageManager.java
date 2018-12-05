@@ -99,6 +99,8 @@ public class ContainerStorageManager {
   private final Config config;
   private final int maxChangeLogStreamPartitions;
   private final StreamMetadataCache streamMetadataCache;
+
+  // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
   private final Set<Path> storeDirectoryPaths;
 
   public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
@@ -113,52 +115,12 @@ public class ContainerStorageManager {
     this.config = config;
 
     // initialize the taskStores
-    this.taskStores = new HashMap<>();
+    this.taskStores =
+        createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
+            serdes, taskInstanceMetrics, taskInstanceCollectors);
 
+    // initializing the set of store directory paths
     this.storeDirectoryPaths = new HashSet<>();
-
-    // create task stores
-    for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
-      TaskName taskName = task.getKey();
-      TaskModel taskModel = task.getValue();
-      StorageConfig storageConfig = new StorageConfig(config);
-
-      for (String storeName : storageEngineFactories.keySet()) {
-
-        SystemStreamPartition changeLogSystemStreamPartition =
-            (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
-                changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
-
-        Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName));
-        if (keySerde == null) {
-          throw new SamzaException(
-              "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
-        }
-
-        Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName));
-        if (messageSerde == null) {
-          throw new SamzaException(
-              "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
-        }
-
-        // We use the logged storage base directory for change logged stores
-        File storeDirectory = (changeLogSystemStreamPartition != null) ? ContainerStorageManager.getStorePartitionDir(
-            getLoggedStorageBaseDir(), storeName, taskName)
-            : ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
-
-        StorageEngine storageEngine = storageEngineFactories.get(storeName)
-            .getStorageEngine(storeName, storeDirectory, keySerde, messageSerde, taskInstanceCollectors.get(taskName),
-                taskInstanceMetrics.get(taskName).registry(), changeLogSystemStreamPartition, jobContext,
-                containerContext);
-
-        this.storeDirectoryPaths.add(storeDirectory.toPath());
-
-        if (taskStores.get(taskName) == null) {
-          taskStores.put(taskName, new HashMap<>());
-        }
-        taskStores.get(taskName).put(storeName, storageEngine);
-      }
-    }
 
     // create system consumers (1 per store system)
     this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config);
@@ -201,6 +163,59 @@ public class ContainerStorageManager {
     return changelogSystemStreams.entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, x -> storeSystemConsumers.get(x.getValue().getSystem())));
+  }
+
+  private Map<TaskName, Map<String, StorageEngine>> createTaskStores(ContainerModel containerModel,
+      JobContext jobContext, ContainerContext containerContext,
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, SystemStream> changelogSystemStreams, Map<String, Serde<Object>> serdes,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
+
+    Map<TaskName, Map<String, StorageEngine>> taskStoresMap = new HashMap<>();
+
+    for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
+      TaskName taskName = task.getKey();
+      TaskModel taskModel = task.getValue();
+      StorageConfig storageConfig = new StorageConfig(config);
+
+      for (String storeName : storageEngineFactories.keySet()) {
+
+        SystemStreamPartition changeLogSystemStreamPartition =
+            (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
+                changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
+
+        Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName));
+        if (keySerde == null) {
+          throw new SamzaException(
+              "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
+        }
+
+        Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName));
+        if (messageSerde == null) {
+          throw new SamzaException(
+              "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
+        }
+
+        // We use the logged storage base directory for change logged stores
+        File storeDirectory = (changeLogSystemStreamPartition != null) ? ContainerStorageManager.getStorePartitionDir(
+            getLoggedStorageBaseDir(), storeName, taskName)
+            : ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
+
+        StorageEngine storageEngine = storageEngineFactories.get(storeName)
+            .getStorageEngine(storeName, storeDirectory, keySerde, messageSerde, taskInstanceCollectors.get(taskName),
+                taskInstanceMetrics.get(taskName).registry(), changeLogSystemStreamPartition, jobContext,
+                containerContext);
+
+        this.storeDirectoryPaths.add(storeDirectory.toPath());
+
+        if (taskStoresMap.get(taskName) == null) {
+          taskStoresMap.put(taskName, new HashMap<>());
+        }
+        taskStoresMap.get(taskName).put(storeName, storageEngine);
+      }
+    }
+    return taskStoresMap;
   }
 
   public void start() throws SamzaException {
@@ -304,10 +319,6 @@ public class ContainerStorageManager {
     return loggedStorageBaseDir;
   }
 
-  public static File getStoreDir(File storeBaseDir, String storeName) {
-    return new File(storeBaseDir, storeName);
-  }
-
   public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName) {
     // TODO: Sanitize, check and clean taskName string as a valid value for a file
     return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
@@ -360,6 +371,9 @@ public class ContainerStorageManager {
     }
   }
 
+  /**
+   * Restore logic for a task including directory cleanup, setup, changelogSSP validation, and registering with the consumer
+   */
   private class TaskRestoreManager {
 
     private Map<String, StorageEngine> taskStores;
@@ -378,6 +392,7 @@ public class ContainerStorageManager {
       this.currentTimeMillis = System.currentTimeMillis();
       this.changelogSystemStreams = changelogSystemStreams;
       this.systemAdmins = systemAdmins;
+      this.fileOffsets = new HashMap<>();
     }
 
     public void initialize() {
@@ -520,6 +535,7 @@ public class ContainerStorageManager {
 
         if (offset != null) {
           LOG.info("Registering change log consumer with offset " + offset + " for %" + systemStreamPartition);
+          systemConsumer.register(systemStreamPartition, offset);
         } else {
           LOG.info("Skipping change log restoration for " + systemStreamPartition
               + " because stream appears to be empty (offset was null).");
