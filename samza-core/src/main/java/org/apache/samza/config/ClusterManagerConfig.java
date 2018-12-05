@@ -52,10 +52,14 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS = 5000;
 
   /**
-   * Flag to indicate if host-affinity is enabled for the job or not
+   * NOTE: This field is deprecated.
    */
   public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
-  public static final String CLUSTER_MANAGER_HOST_AFFINITY_ENABLED = "job.host-affinity.enabled";
+
+  /**
+   * Flag to indicate if host-affinity is enabled for the job or not
+   */
+  public static final String JOB_HOST_AFFINITY_ENABLED = "job.host-affinity.enabled";
 
   /**
    * Number of CPU cores to request from the cluster manager per container
@@ -145,10 +149,10 @@ public class ClusterManagerConfig extends MapConfig {
   }
 
   public boolean getHostAffinityEnabled() {
-    if (containsKey(CLUSTER_MANAGER_HOST_AFFINITY_ENABLED)) {
-      return getBoolean(CLUSTER_MANAGER_HOST_AFFINITY_ENABLED);
+    if (containsKey(JOB_HOST_AFFINITY_ENABLED)) {
+      return getBoolean(JOB_HOST_AFFINITY_ENABLED);
     } else if (containsKey(HOST_AFFINITY_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", HOST_AFFINITY_ENABLED, CLUSTER_MANAGER_HOST_AFFINITY_ENABLED);
+      log.warn("Configuration {} is deprecated. Please use {}", HOST_AFFINITY_ENABLED, JOB_HOST_AFFINITY_ENABLED);
       return getBoolean(HOST_AFFINITY_ENABLED);
     } else {
       return false;
