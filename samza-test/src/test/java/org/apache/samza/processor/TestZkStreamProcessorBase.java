@@ -67,7 +67,6 @@ import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness {
   private static final String TASK_SHUTDOWN_MS = "2000";
   private static final String JOB_DEBOUNCE_TIME_MS = "2000";
@@ -131,7 +130,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch waitStart,
       final CountDownLatch waitStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
-
     Config config = new MapConfig(map);
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinator jobCoordinator = Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);

@@ -317,7 +317,8 @@ public class StreamProcessor {
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
-        Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)));
+        Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
+        null);
   }
 
   private JobCoordinator createJobCoordinator() {

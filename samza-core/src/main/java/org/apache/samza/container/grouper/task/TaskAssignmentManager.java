@@ -81,9 +81,6 @@ public class TaskAssignmentManager {
     this.valueSerde = valueSerde;
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
-  }
-
-  public void init() {
     this.metadataStore.init();
   }
 
