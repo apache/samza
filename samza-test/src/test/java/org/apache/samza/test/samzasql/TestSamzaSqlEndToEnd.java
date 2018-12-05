@@ -101,8 +101,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     String sql = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    runner.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))

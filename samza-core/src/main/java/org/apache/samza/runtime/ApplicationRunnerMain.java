@@ -23,11 +23,8 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
-import org.apache.samza.context.ExternalContext;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
-
-import java.util.Optional;
 
 /**
  * This class contains the main() method used by run-app.sh.

@@ -204,8 +204,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    SamzaSqlApplicationRunner appRunnable = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-    appRunnable.runAndWaitForFinish();
+    runApplication(new MapConfig(staticConfigs));
 
     Assert.assertEquals((numMessages + 1) / 2, RemoteStoreIOResolverTestFactory.records.size());
   }
