@@ -28,6 +28,7 @@ import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 public class TestInputOperatorImpl {
@@ -76,5 +77,19 @@ public class TestInputOperatorImpl {
 
     Object result = results.iterator().next();
     assertEquals("123", result);
+  }
+
+  @Test
+  public void testWithFilteringInputTransformer() {
+    InputOperatorSpec inputOpSpec =
+        new InputOperatorSpec("stream-id", null, null, (ime) -> null, true, "input-op-id");
+    InputOperatorImpl inputOperator = new InputOperatorImpl(inputOpSpec);
+
+    IncomingMessageEnvelope ime =
+        new IncomingMessageEnvelope(mock(SystemStreamPartition.class), "123", "key", "msg");
+
+    Collection<Object> results =
+        inputOperator.handleMessage(ime, mock(MessageCollector.class), mock(TaskCoordinator.class));
+    assertTrue("Transformer doesn't return any record. Expected an empty collection", results.isEmpty());
   }
 }

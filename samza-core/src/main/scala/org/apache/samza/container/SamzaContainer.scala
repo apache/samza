@@ -425,15 +425,8 @@ object SamzaContainer extends Logging {
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
-    val dropDeserializationError = config.getDropDeserialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
-
-    val dropSerializationError = config.getDropSerialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
+    val dropDeserializationError = config.getDropDeserializationErrors
+    val dropSerializationError = config.getDropSerializationErrors
 
     val pollIntervalMs = config
       .getPollIntervalMs
@@ -515,7 +508,7 @@ object SamzaContainer extends Logging {
 
     info("Created store system consumers: %s" format storeSystemConsumers)
 
-    var taskStorageManagers : Map[TaskInstance, TaskStorageManager] = Map()
+    var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
@@ -679,7 +672,7 @@ object SamzaContainer extends Logging {
 
       val taskInstance = createTaskInstance(task)
 
-      taskStorageManagers += taskInstance -> storageManager
+      taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
 

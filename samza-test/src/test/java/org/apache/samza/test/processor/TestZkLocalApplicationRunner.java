@@ -206,7 +206,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         .put(JobConfig.JOB_NAME(), appName)
         .put(JobConfig.JOB_ID(), appId)
         .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
-        .put(TaskConfig.DROP_PRODUCER_ERROR(), "true")
+        .put(TaskConfig.DROP_PRODUCER_ERRORS(), "true")
         .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
         .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
         .build();
