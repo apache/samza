@@ -19,7 +19,6 @@
 package org.apache.samza.storage;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.oracle.tools.packager.Log;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -235,9 +234,9 @@ public class ContainerStorageManager {
 
     // Submit restore callable for each taskInstance
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-      taskRestoreFutures.add(executorService.submit(
-          new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
-    });
+        taskRestoreFutures.add(executorService.submit(
+            new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
+      });
 
     // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
     // as samza exceptions
@@ -272,7 +271,7 @@ public class ContainerStorageManager {
 
   private final File getDefaultStoreBaseDir() {
     File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
-    Log.info("Got default storage engine base directory " + defaultStoreBaseDir);
+    LOG.info("Got default storage engine base directory " + defaultStoreBaseDir);
     return defaultStoreBaseDir;
   }
 
@@ -326,13 +325,13 @@ public class ContainerStorageManager {
 
   public void shutdown() {
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-      if (taskRestoreManager != null) {
-        LOG.debug("Shutting down task storage manager for taskName: {} ", taskInstance);
-        taskRestoreManager.stop();
-      } else {
-        LOG.debug("Skipping task storage manager shutdown for taskName: {}", taskInstance);
-      }
-    });
+        if (taskRestoreManager != null) {
+          LOG.debug("Shutting down task storage manager for taskName: {} ", taskInstance);
+          taskRestoreManager.stop();
+        } else {
+          LOG.debug("Skipping task storage manager shutdown for taskName: {}", taskInstance);
+        }
+      });
 
     LOG.info("Shutdown complete");
   }
@@ -379,7 +378,7 @@ public class ContainerStorageManager {
     private Map<String, StorageEngine> taskStores;
     private TaskModel taskModel;
     private long currentTimeMillis;
-    private final static String offsetFileName = "OFFSET";
+    private final static String OFFSET_FILE_NAME = "OFFSET";
     private Map<SystemStream, String> changeLogOldestOffsets;
     private Map<SystemStreamPartition, String> fileOffsets;
     private final Map<String, SystemStream> changelogSystemStreams;
@@ -406,36 +405,36 @@ public class ContainerStorageManager {
       LOG.debug("Cleaning base directories for stores.");
 
       taskStores.keySet().forEach(storeName -> {
-        File nonLoggedStorePartitionDir =
-            ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
-                taskModel.getTaskName());
-        LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
+          File nonLoggedStorePartitionDir =
+              ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
+                  taskModel.getTaskName());
+          LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
-        if (nonLoggedStorePartitionDir.exists()) {
-          LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
-          FileUtil.rm(nonLoggedStorePartitionDir);
-        }
-
-        File loggedStorePartitionDir =
-            ContainerStorageManager.getStorePartitionDir(getLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
-        LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
-
-        // Delete the logged store if it is not valid.
-        if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
-          LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
-          FileUtil.rm(loggedStorePartitionDir);
-        } else {
-          String offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, offsetFileName);
-          LOG.info("Read offset " + offset + " for the store " + storeName + " from logged storage partition directory "
-              + loggedStorePartitionDir);
-
-          if (offset != null) {
-            fileOffsets.put(
-                new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()),
-                offset);
+          if (nonLoggedStorePartitionDir.exists()) {
+            LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
+            FileUtil.rm(nonLoggedStorePartitionDir);
           }
-        }
-      });
+
+          File loggedStorePartitionDir =
+              ContainerStorageManager.getStorePartitionDir(getLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
+          LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
+
+          // Delete the logged store if it is not valid.
+          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
+            LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
+            FileUtil.rm(loggedStorePartitionDir);
+          } else {
+            String offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, OFFSET_FILE_NAME);
+            LOG.info("Read offset " + offset + " for the store " + storeName + " from logged storage partition directory "
+                + loggedStorePartitionDir);
+
+            if (offset != null) {
+              fileOffsets.put(
+                  new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()),
+                  offset);
+            }
+          }
+        });
     }
 
     /**
@@ -456,33 +455,33 @@ public class ContainerStorageManager {
       }
 
       return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
-          && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, offsetFileName) && !StorageManagerUtil.isStaleStore(
-          loggedStoreDir, offsetFileName, changeLogDeleteRetentionInMs, currentTimeMillis);
+          && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, OFFSET_FILE_NAME) && !StorageManagerUtil.isStaleStore(
+          loggedStoreDir, OFFSET_FILE_NAME, changeLogDeleteRetentionInMs, currentTimeMillis);
     }
 
     private void setupBaseDirs() {
       LOG.debug("Setting up base directories for stores.");
       taskStores.forEach((storeName, storageEngine) -> {
-        if (storageEngine.getStoreProperties().isLoggedStore()) {
+          if (storageEngine.getStoreProperties().isLoggedStore()) {
 
-          File loggedStorePartitionDir =
-              ContainerStorageManager.getStorePartitionDir(getLoggedStorageBaseDir(), storeName,
-                  taskModel.getTaskName());
+            File loggedStorePartitionDir =
+                ContainerStorageManager.getStorePartitionDir(getLoggedStorageBaseDir(), storeName,
+                    taskModel.getTaskName());
 
-          LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
-              + " for store: " + storeName);
+            LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
+                + " for store: " + storeName);
 
-          if (!loggedStorePartitionDir.exists()) {
-            loggedStorePartitionDir.mkdirs();
+            if (!loggedStorePartitionDir.exists()) {
+              loggedStorePartitionDir.mkdirs();
+            }
+          } else {
+            File nonLoggedStorePartitionDir =
+                ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
+                    taskModel.getTaskName());
+            LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
+                + " for store: " + storeName);
           }
-        } else {
-          File nonLoggedStorePartitionDir =
-              ContainerStorageManager.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
-                  taskModel.getTaskName());
-          LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
-              + " for store: " + storeName);
-        }
-      });
+        });
     }
 
     private void validateChangelogStreams() {

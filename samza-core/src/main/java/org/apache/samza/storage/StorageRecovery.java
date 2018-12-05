@@ -30,7 +30,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
@@ -52,7 +51,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -220,7 +218,7 @@ public class StorageRecovery extends CommandLine {
           if (changeLogSystemStreams.containsKey(storeName)) {
             SystemStreamPartition changeLogSystemStreamPartition = new SystemStreamPartition(changeLogSystemStreams.get(storeName),
                 taskModel.getChangelogPartition());
-            File storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskModel.getTaskName());
+            File storePartitionDir = ContainerStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskModel.getTaskName());
 
             log.info("Got storage engine directory: " + storePartitionDir);
 
@@ -237,7 +235,7 @@ public class StorageRecovery extends CommandLine {
             taskStores.put(storeName, storageEngine);
           }
         }
-        TaskStorageManager taskStorageManager = new TaskStorageManager(
+        TaskStorageManager taskStorageManager = null; /* new TaskStorageManager(
             taskModel.getTaskName(),
             ScalaJavaUtil.toScalaMap(taskStores),
             ScalaJavaUtil.toScalaMap(storeConsumers),
@@ -250,12 +248,12 @@ public class StorageRecovery extends CommandLine {
             taskModel.getChangelogPartition(),
             systemAdmins,
             new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
-            new SystemClock());
+            new SystemClock());*/
 
         taskStorageManagers.put(taskModel.getTaskName(), taskStorageManager);
       }
     }
 
-    this.containerStorageManager = new ContainerStorageManager(taskStorageManagers, storeConsumers, null);
+    this.containerStorageManager = null; // new ContainerStorageManager(taskStorageManagers, storeConsumers, null);
   }
 }

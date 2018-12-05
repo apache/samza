@@ -69,10 +69,10 @@ public class TestContainerStorageManager {
         return null;
       }).when(mockTaskStorageManager).stop();
 
-    Mockito.doAnswer(invocation -> {
-        taskStorageManagersRestoreStoreCount.countDown();
-        return null;
-      }).when(mockTaskStorageManager).restoreStores();
+//    Mockito.doAnswer(invocation -> {
+//        taskStorageManagersRestoreStoreCount.countDown();
+//        return null;
+//      }).when(mockTaskStorageManager).restoreStores();
 
     taskStorageManagers.put(new TaskName(taskname), mockTaskStorageManager);
 
@@ -115,8 +115,8 @@ public class TestContainerStorageManager {
 
     systemConsumers.put("kafka", mockSystemConsumer);
 
-    this.containerStorageManager =
-        new ContainerStorageManager(taskStorageManagers, systemConsumers, samzaContainerMetrics);
+//    this.containerStorageManager =
+//        new ContainerStorageManager(taskStorageManagers, systemConsumers, samzaContainerMetrics);
   }
 
   @Test
