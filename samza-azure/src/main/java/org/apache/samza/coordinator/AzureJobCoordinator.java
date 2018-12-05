@@ -19,12 +19,9 @@
 
 package org.apache.samza.coordinator;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.AzureClient;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
@@ -43,7 +40,6 @@ import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
 import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.runtime.ProcessorIdGenerator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
@@ -471,22 +467,6 @@ public class AzureJobCoordinator implements JobCoordinator {
     //Start the container with the new model
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
-    }
-  }
-
-  private String createProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
-      ProcessorIdGenerator idGenerator =
-          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
     }
   }
 
