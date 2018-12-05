@@ -105,7 +105,11 @@ import org.slf4j.LoggerFactory;
     for (StreamEdge inEdge : inEdges.values()) {
       String formattedSystemStream = inEdge.getName();
       if (inEdge.isBroadcast()) {
-        broadcastInputs.add(formattedSystemStream + "#[0-" + (inEdge.getPartitionCount() - 1) + "]");
+        if (inEdge.getPartitionCount() > 1) {
+          broadcastInputs.add(formattedSystemStream + "#[0-" + (inEdge.getPartitionCount() - 1) + "]");
+        } else {
+          broadcastInputs.add(formattedSystemStream + "#0");
+        }
       } else {
         inputs.add(formattedSystemStream);
       }
