@@ -467,4 +467,40 @@ public class TestGroupByContainerIds {
 
     assertEquals(expectedContainerModels, actualContainerModels);
   }
+
+  @Test
+  public void testMoreTasksThanProcessors() {
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+        testProcessorId2, testLocationId2);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+        testTaskName2, testLocationId2,
+        testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+
+    Set<TaskModel> taskModels = generateTaskModels(1);
+    List<String> containerIds = ImmutableList.of(testProcessorId1, testProcessorId2);
+
+    Map<TaskName, TaskModel> expectedTasks = taskModels.stream()
+        .collect(Collectors.toMap(TaskModel::getTaskName, x -> x));
+    ContainerModel expectedContainerModel = new ContainerModel(testProcessorId1, expectedTasks);
+
+    Set<ContainerModel> actualContainerModels = buildSimpleGrouper().group(taskModels, grouperMetadata);
+
+    assertEquals(1, actualContainerModels.size());
+    assertEquals(ImmutableSet.of(expectedContainerModel), actualContainerModels);
+  }
 }
