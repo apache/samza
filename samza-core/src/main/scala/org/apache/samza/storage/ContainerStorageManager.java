@@ -28,7 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.SamzaContainerMetrics;
-import org.apache.samza.container.TaskInstance;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.system.SystemConsumer;
 import org.slf4j.Logger;
@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
 public class ContainerStorageManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
-  private final Map<TaskInstance, TaskStorageManager> taskStorageManagers;
+  private final Map<TaskName, TaskStorageManager> taskStorageManagers;
   private final SamzaContainerMetrics samzaContainerMetrics;
 
   // Mapping of from storeSystemNames to SystemConsumers
@@ -61,7 +61,7 @@ public class ContainerStorageManager {
   // Naming convention to be used for restore threads
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
 
-  public ContainerStorageManager(Map<TaskInstance, TaskStorageManager> taskStorageManagers,
+  public ContainerStorageManager(Map<TaskName, TaskStorageManager> taskStorageManagers,
       Map<String, SystemConsumer> systemConsumers, SamzaContainerMetrics samzaContainerMetrics) {
     this.taskStorageManagers = taskStorageManagers;
     this.systemConsumers = systemConsumers;
@@ -129,30 +129,31 @@ public class ContainerStorageManager {
    */
   private class TaskRestoreCallable implements Callable<Void> {
 
-    private TaskInstance taskInstance;
+    private TaskName taskName;
     private TaskStorageManager taskStorageManager;
     private SamzaContainerMetrics samzaContainerMetrics;
 
-    public TaskRestoreCallable(SamzaContainerMetrics samzaContainerMetrics, TaskInstance taskInstance,
+    public TaskRestoreCallable(SamzaContainerMetrics samzaContainerMetrics, TaskName taskName,
         TaskStorageManager taskStorageManager) {
       this.samzaContainerMetrics = samzaContainerMetrics;
-      this.taskInstance = taskInstance;
+      this.taskName = taskName;
       this.taskStorageManager = taskStorageManager;
     }
 
     @Override
     public Void call() {
       long startTime = System.currentTimeMillis();
-      LOG.info("Starting stores in task instance {}", this.taskInstance.taskName().getTaskName());
+      LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
       taskStorageManager.restoreStores();
       long timeToRestore = System.currentTimeMillis() - startTime;
-      Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics()
-          .getOrDefault(this.taskInstance.taskName().getTaskName(), null);
 
-      if (taskGauge != null) {
-        taskGauge.set(timeToRestore);
+      if (this.samzaContainerMetrics != null) {
+        Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(this.taskName, null);
+
+        if (taskGauge != null) {
+          taskGauge.set(timeToRestore);
+        }
       }
-
       return null;
     }
   }

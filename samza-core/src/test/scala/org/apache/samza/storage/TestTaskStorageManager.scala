@@ -106,6 +106,9 @@ class TestTaskStorageManager extends MockitoSugar {
 
     taskManager.init
 
+    // mocking restore (issued by ContainerStorageManager)
+    mockStorageEngine.restore(mock[util.Iterator[IncomingMessageEnvelope]])
+
     assertTrue(storeFile.exists())
     assertFalse(offsetFile.exists())
     verify(mockSystemConsumer).register(ssp, "0")
