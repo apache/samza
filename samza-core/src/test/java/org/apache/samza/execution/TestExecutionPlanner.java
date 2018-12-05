@@ -40,6 +40,7 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig$;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
@@ -67,6 +68,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.TestLocalTableDescriptor;
 import org.apache.samza.testUtils.StreamTestUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -633,6 +635,22 @@ public class TestExecutionPlanner {
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
+  }
+
+  @Test
+  public void testBroadcastConfig() {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(String.format(StreamConfig$.MODULE$.BROADCAST_FOR_STREAM_ID(), "input1"), "true");
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    StreamEdge edge = jobGraph.getStreamEdge("input1");
+    Assert.assertTrue(edge.isBroadcast());
+    Config jobConfig = jobGraph.getJobConfigs().get(0);
+    Assert.assertEquals("system1.input1#[0-63]", jobConfig.get("task.broadcast.inputs"));
   }
 
   @Test
