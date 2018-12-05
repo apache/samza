@@ -22,14 +22,7 @@ package org.apache.samza.sql.client.cli;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.sql.client.impl.SamzaExecutor;
-import org.apache.samza.sql.client.interfaces.ExecutionContext;
-import org.apache.samza.sql.client.interfaces.SqlExecutor;
-import org.apache.samza.sql.client.util.CliException;
+
 import org.apache.samza.sql.client.util.CliUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,9 +50,7 @@ public class Main {
         }
       }
 
-      SqlExecutor executor = null;
       CliEnvironment environment = new CliEnvironment();
-      Map<String, String> executorConfig = new HashMap<>();
 
       if(!CliUtil.isNullOrEmpty(configFilePath)) {
         LOG.info("Configuration file path is: {}", configFilePath);
@@ -77,40 +68,20 @@ public class Main {
             }
             String key = strs[0].trim().toLowerCase();
             String value = strs[1].trim();
-            if(key.startsWith(CliConstants.CONFIG_SHELL_PREFIX)) {
-              if(key.equals(CliConstants.CONFIG_EXECUTOR)) {
-                try {
-                  Class<?> clazz = Class.forName(value);
-                  Constructor<?> ctor = clazz.getConstructor();
-                  executor = (SqlExecutor) ctor.newInstance();
-                  LOG.info("Sql executor creation succeed. Executor class is: {}", value);
-                } catch (ClassNotFoundException | NoSuchMethodException
-                    | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-                  throw new CliException(String.format("Failed to create executor %s.", value), e);
-                }
-                continue;
-              }
-
-              // Suppose a shell variable.
-              int result = environment.setEnvironmentVariable(key, value);
-              if(result == -1) { // CliEnvironment doesn't recognize the key.
-                LOG.warn("Unknowing shell environment variable: {}", key);
-              } else if(result == -2) { // Invalid value
-                LOG.warn("Unknowing shell environment value: {}", value);
-              }
-            } else {
-              executorConfig.put(key, value);
+            int result = environment.setEnvironmentVariable(key, value);
+            if(result == -1) { // CliEnvironment doesn't recognize the key.
+              LOG.warn("Unknowing shell environment variable: {}", key);
+            } else if(result == -2) { // Invalid value
+              LOG.warn("Unknowing shell environment value: {}", value);
             }
           }
         } catch (IOException e) {
           LOG.error("Error in opening and reading the configuration file {}", e.toString());
         }
       }
-      if(executor == null) {
-        executor = new SamzaExecutor();
-      }
 
-      CliShell shell = new CliShell(executor, environment, new ExecutionContext(executorConfig));
+      environment.finishInitialization();
+      CliShell shell = new CliShell(environment);
       shell.open();
     }
 }

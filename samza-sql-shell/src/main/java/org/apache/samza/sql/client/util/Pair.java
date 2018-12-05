@@ -17,12 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.client.util;
 
-import java.util.Map;
+public class Pair<L,R> {
+  private L l;
+  private R r;
 
-/**
- * Whenever the shell calls the executor to execute a SQL statement, an object of ExecutionContext is passed.
- */
-public class ExecutionContext {
+  public Pair(L l, R r){
+    this.l = l;
+    this.r = r;
+  }
+
+  public L getL(){
+    return l;
+  }
+
+  public R getR(){
+    return r;
+  }
+
+  public void setL(L l) {
+    this.l = l;
+  }
+
+  public void setR(R r){
+    this.r = r;
+  }
 }

@@ -38,6 +38,8 @@ import org.jline.utils.InfoCmp;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -50,14 +52,14 @@ class CliShell {
   private final PrintWriter writer;
   private final LineReader lineReader;
   private final String firstPrompt;
-  private final SqlExecutor executor;
+  private SqlExecutor executor;
   private final ExecutionContext exeContext;
   private CliEnvironment env;
   private boolean keepRunning = true;
   private Map<Integer, String> executions = new TreeMap<>();
 
-  public CliShell(SqlExecutor executor, CliEnvironment environment, ExecutionContext execContext) {
-    if (executor == null || environment == null || execContext == null) {
+  public CliShell(CliEnvironment environment) {
+    if (environment == null) {
       throw new IllegalArgumentException();
     }
 
@@ -93,10 +95,9 @@ class CliShell {
 
     // Execution context and executor
     env = environment;
-    env.takeEffect();
-    exeContext = execContext;
-    this.executor = executor;
-    this.executor.start(exeContext);
+    executor = env.getExecutor();
+    exeContext = new ExecutionContext();
+    executor.start(exeContext);
   }
 
   Terminal getTerminal() {
@@ -270,41 +271,59 @@ class CliShell {
   private void commandSet(CliCommand command) {
     String param = command.getParameters();
     if (CliUtil.isNullOrEmpty(param)) {
-      try {
-        env.printAll(writer);
-      } catch (IOException e) {
-        e.printStackTrace(writer);
-      }
+      env.printAll(writer);
       writer.println();
       writer.flush();
       return;
     }
-    String[] params = param.split("=");
-    if (params.length != 2) {
+    String[] params = null;
+    boolean syntaxValid = param.split(" ").length == 1;
+    if(syntaxValid) {
+      params = param.split("=");
+      if(params.length == 1) {
+        String value = env.getEnvironmentVariable(param);
+        if(!CliUtil.isNullOrEmpty(value)) {
+          env.printVariable(writer, param, value);
+        }
+        return;
+      } else {
+        syntaxValid = params.length == 2;
+      }
+    }
+    if(!syntaxValid) {
       writer.println(command.getCommandType().getUsage());
       writer.println();
       writer.flush();
       return;
     }
 
-    int ret = env.setEnvironmentVariable(params[0], params[1]);
+    String envName = params[0].trim().toLowerCase();
+    String envValue = params[1].trim();
+
+    int ret = env.setEnvironmentVariable(envName, envValue);
     if (ret == 0) {
-      writer.print(params[0]);
+      writer.print(envName);
       writer.print(" set to ");
-      writer.println(params[1]);
+      writer.println(envValue);
+      if(envName.equals(CliConstants.CONFIG_EXECUTOR)) {
+        executor.stop(exeContext);
+        executor = env.getExecutor();
+        executor.start(exeContext);
+      }
     } else if (ret == -1) {
       writer.print("Unknow variable: ");
-      writer.println(params[0]);
+      writer.println(envName);
     } else if (ret == -2) {
       writer.print("Invalid value: ");
-      writer.println(params[1]);
-      List<String> vals = env.getPossibleValues(params[0]);
-      writer.print("Possible values:");
-      for (String s : vals) {
-        writer.print(CliConstants.SPACE);
-        writer.print(s);
+      writer.print(envValue);
+      String[] vals = env.getPossibleValues(envName);
+      if(vals != null && vals.length != 0) {
+        writer.print("Possible values:");
+        for (String s : vals) {
+          writer.print(CliConstants.SPACE);
+          writer.print(s);
+        }
       }
-      writer.println();
     }
 
     writer.println();

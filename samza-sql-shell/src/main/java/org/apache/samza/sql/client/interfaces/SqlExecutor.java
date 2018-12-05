@@ -70,6 +70,12 @@ public interface SqlExecutor {
   public void stop(ExecutionContext context);
 
   /**
+   *
+   * @return An EnvironmentVariableHandler that handles executor specific environment variables
+   */
+  public EnvironmentVariableHandler getEnvironmentVariableHandler();
+
+  /**
    * @param context The ExecutionContext at the time of the call.
    * @return null if an error occurs. Prepare for subsequent getErrorMsg call.
    * an empty list indicates no tables found.

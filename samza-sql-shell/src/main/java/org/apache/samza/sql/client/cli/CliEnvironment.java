@@ -19,112 +19,168 @@
 
 package org.apache.samza.sql.client.cli;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.Writer;
-import java.util.ArrayList;
+import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
+import org.apache.samza.sql.client.interfaces.EnvironmentVariableSpecs;
+import org.apache.samza.sql.client.interfaces.SqlExecutor;
+import org.apache.samza.sql.client.util.CliException;
+import org.apache.samza.sql.client.util.CliUtil;
+import org.apache.samza.sql.client.util.Pair;
+
+import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * CliEnvironment contains "environment variables" that configures the shell behavior.
+ * CliEnvironment handles "environment variables" that configures the shell behavior.
  */
-public class CliEnvironment {
-  private static final String debugEnvVar = "shell.debug";
-  private static PrintStream stdout = System.out;
-  private static PrintStream stderr = System.err;
-  private Boolean debug = false;
+class CliEnvironment {
+  private EnvironmentVariableHandler shellEnvHandler;
+  private EnvironmentVariableHandler executorEnvHandler;
+  private SqlExecutor executor;
+  private Map<String, String> delayedExecutorVars;
 
-  boolean isDebug() {
-    return debug;
-  }
+  // shell.executor is special and is specifically handled by CliEnvironment
+  private String activeExecutorClassName;
 
-  void setDebug(Boolean debug) {
-    this.debug = debug;
+  public CliEnvironment() {
+    shellEnvHandler = new CliShellEnvironmentVariableHandler();
   }
 
   /**
-   * @param var Environment variable
-   * @param val Value of the environment variable
+   * @param envName Environment variable name
+   * @param value   Value of the environment variable
    * @return 0 : succeed
-   * -1: invalid var
-   * -2: invalid val
+   * -1: invalid envName
+   * -2: invalid value
    */
-  int setEnvironmentVariable(String var, String val) {
-    switch (var.toLowerCase()) {
-      case debugEnvVar:
-        val = val.toLowerCase();
-        if (val.equals("true")) {
-          debug = true;
-          enableJavaSystemOutAndErr();
-        } else if (val.equals("false")) {
-          debug = false;
-          disableJavaSystemOutAndErr();
-        } else
-          return -2;
-        break;
-      default:
-        return -1;
+  public int setEnvironmentVariable(String envName, String value) {
+    envName = envName.toLowerCase();
+    if(envName.equals(CliConstants.CONFIG_EXECUTOR)) {
+      if(createShellExecutor(value)) {
+        activeExecutorClassName = value;
+        executorEnvHandler = executor.getEnvironmentVariableHandler();
+        return 0;
+      } else {
+        return -2;
+      }
     }
 
-    return 0;
+    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    if(handler == null) {
+      // Shell doesn't recognize this variable. There's no executor handler yet. Save for future executor
+      if(delayedExecutorVars == null) {
+        delayedExecutorVars = new HashMap<>();
+      }
+      delayedExecutorVars.put(envName, value);
+      return 0;
+    }
+
+    return handler.setEnvironmentVariable(envName, value);
   }
 
-  // TODO: Separate the values out of the logic part
-  List<String> getPossibleValues(String var) {
-    List<String> vals = new ArrayList<>();
-    switch (var.toLowerCase()) {
-      case debugEnvVar:
-        vals.add("true");
-        vals.add("false");
-        return vals;
-      default:
-        return null;
+  public String getEnvironmentVariable(String envName) {
+    if(envName.equalsIgnoreCase(CliConstants.CONFIG_EXECUTOR)) {
+      return activeExecutorClassName;
+    }
+
+    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    if(handler == null)
+      return null;
+
+    return handler.getEnvironmentVariable(envName);
+  }
+
+  public String[] getPossibleValues(String envName)
+  {
+    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    if(handler == null)
+      return null;
+
+    EnvironmentVariableSpecs.Spec spec = handler.getSpecs().getSpec(envName);
+    return spec == null ? null : spec.getPossibleValues();
+  }
+
+  public void printAll(PrintWriter writer) {
+    printVariable(writer, CliConstants.CONFIG_EXECUTOR, activeExecutorClassName);
+    printAll(writer, shellEnvHandler);
+    if(executorEnvHandler != null) {
+      printAll(writer, executorEnvHandler);
     }
   }
 
-  void printAll(Writer writer) throws IOException {
-    writer.write(debugEnvVar);
-    writer.write('=');
-    writer.write(debug.toString());
-    writer.write('\n');
+  /**
+   * Gives CliEnvironment a chance to apply settings, especially during initialization, things like
+   * making default values take effect
+   */
+  public void finishInitialization() {
+    if(executor == null) {
+      if(createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS)) {
+        activeExecutorClassName = CliConstants.DEFAULT_EXECUTOR_CLASS;
+        executorEnvHandler = executor.getEnvironmentVariableHandler();
+        if(delayedExecutorVars != null) {
+          for (Map.Entry<String, String> entry : delayedExecutorVars.entrySet()) {
+            setEnvironmentVariable(entry.getKey(), entry.getValue());
+          }
+          delayedExecutorVars = null;
+        }
+      } else {
+        throw new CliException("Failed to create default executor: " + CliConstants.DEFAULT_EXECUTOR_CLASS);
+      }
+    }
+
+    finishInitialization(shellEnvHandler);
+    finishInitialization(executorEnvHandler);
   }
 
-  private void disableJavaSystemOutAndErr() {
-    PrintStream ps = new PrintStream(new NullOutputStream());
-    System.setOut(ps);
-    System.setErr(ps);
+  private void finishInitialization(EnvironmentVariableHandler handler) {
+    List<Pair<String, EnvironmentVariableSpecs.Spec>> list = handler.getSpecs().getAllSpecs();
+    for(Pair<String, EnvironmentVariableSpecs.Spec> pair : list) {
+      String envName = pair.getL();
+      EnvironmentVariableSpecs.Spec spec = pair.getR();
+      if(CliUtil.isNullOrEmpty(handler.getEnvironmentVariable(envName))) {
+        handler.setEnvironmentVariable(envName, spec.getDefaultValue());
+      }
+    }
   }
 
-  private void enableJavaSystemOutAndErr() {
-    System.setOut(stdout);
-    System.setErr(stderr);
+  public SqlExecutor getExecutor() {
+    return executor;
   }
 
-  void takeEffect() {
-    if (debug) {
-      enableJavaSystemOutAndErr();
+  private boolean createShellExecutor(String executorClassName) {
+    try {
+      Class<?> clazz = Class.forName(executorClassName);
+      Constructor<?> ctor = clazz.getConstructor();
+      executor = (SqlExecutor) ctor.newInstance();
+    } catch (ClassNotFoundException | NoSuchMethodException
+            | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+      return false;
+    }
+    return true;
+  }
+
+  private EnvironmentVariableHandler getAppropriateHandler(String envName) {
+    if (envName.startsWith(CliConstants.CONFIG_SHELL_PREFIX)) {
+      return shellEnvHandler;
     } else {
-      // We control terminal directly; Forbid any Java System.out and System.err stuff so
-      // any underlying output will not mess up the console
-      disableJavaSystemOutAndErr();
+      return executorEnvHandler;
     }
   }
 
-  private class NullOutputStream extends OutputStream {
-    public void close() {
+  private void printAll(PrintWriter writer, EnvironmentVariableHandler handler) {
+    List<Pair<String, String>> shellEnvs = handler.getAllEnvironmentVariables();
+    for(Pair<String, String> pair : shellEnvs) {
+      printVariable(writer, pair.getL(), pair.getR());
     }
+  }
 
-    public void flush() {
-    }
-
-    public void write(byte[] b) {
-    }
-
-    public void write(byte[] b, int off, int len) {
-    }
-
-    public void write(int b) {
-    }
+  public static void printVariable(PrintWriter writer, String envName, String value) {
+    writer.print(envName);
+    writer.print(" = ");
+    writer.print(value);
+    writer.print('\n');
   }
 }
