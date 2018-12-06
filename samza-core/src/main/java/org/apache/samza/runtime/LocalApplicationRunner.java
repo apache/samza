@@ -32,6 +32,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
@@ -172,7 +173,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     String processorId = createProcessorId(new ApplicationConfig(config));
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, processorId, config)));
-    return new StreamProcessor(config, processorId, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
+    return new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
         appDesc.getApplicationTaskContextFactory(), externalContextOptional, listenerFactory, null);
   }
 
@@ -188,9 +189,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   @VisibleForTesting
   static String createProcessorId(ApplicationConfig appConfig) {
-    if (appConfig.getProcessorId() != null) {
+    if (StringUtils.isNotBlank(appConfig.getProcessorId())) {
       return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
+    } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
       ProcessorIdGenerator idGenerator = Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
       return idGenerator.generateProcessorId(appConfig);
     } else {

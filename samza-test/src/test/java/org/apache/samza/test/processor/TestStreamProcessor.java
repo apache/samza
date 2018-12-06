@@ -246,12 +246,12 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
 
     TestStubs(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, "1", new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor("1", config, new HashMap<>(), taskFactory, listener);
     }
 
     TestStubs(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, "1", new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor("1", config, new HashMap<>(), taskFactory, listener);
     }
 
     private void initConsumer(String bootstrapServer) {

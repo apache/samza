@@ -166,7 +166,7 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     };
 
     StreamProcessor processor =
-        new StreamProcessor(config, pId, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
+        new StreamProcessor(pId, config, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
 
     return processor;
   }

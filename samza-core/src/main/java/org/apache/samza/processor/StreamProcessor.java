@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -165,26 +166,26 @@ public class StreamProcessor {
   JobCoordinatorListener jobCoordinatorListener = null;
 
   /**
-   * Same as {@link #StreamProcessor(Config, String, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
+   * Same as {@link #StreamProcessor(String, Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
    * it creates a {@link JobCoordinator} instead of accepting it as an argument.
    *
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
    * @param processorId a unique logical identifier assigned to the stream processor.
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}.
    * @param customMetricsReporters registered with the metrics system to report metrics.
    * @param taskFactory the task factory to instantiate the Task.
    * @param processorListener listener to the StreamProcessor life cycle.
    *
-   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
+   * Deprecated: Use {@link #StreamProcessor(String, Config, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
   @Deprecated
-  public StreamProcessor(Config config, String processorId, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener) {
-    this(config, processorId, customMetricsReporters, taskFactory, processorListener, null);
+    this(processorId, config, customMetricsReporters, taskFactory, processorListener, null);
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
+   * Same as {@link #StreamProcessor(String, Config, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)}, with the following differences:
    * <ol>
    *   <li>Passes null for application-defined context factories</li>
@@ -192,28 +193,28 @@ public class StreamProcessor {
    *   {@link StreamProcessorLifecycleListenerFactory}</li>
    * </ol>
    *
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
    * @param processorId a unique logical identifier assigned to the stream processor.
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
    * @param customMetricsReporters registered with the metrics system to report metrics
    * @param taskFactory task factory to instantiate the Task
    * @param processorListener listener to the StreamProcessor life cycle
    * @param jobCoordinator the instance of {@link JobCoordinator}
    *
-   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
+   * Deprecated: Use {@link #StreamProcessor(String, Config, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
   @Deprecated
-  public StreamProcessor(Config config, String processorId, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
-    this(config, processorId, customMetricsReporters, taskFactory, Optional.empty(), Optional.empty(), Optional.empty(), sp -> processorListener,
+    this(processorId, config, customMetricsReporters, taskFactory, Optional.empty(), Optional.empty(), Optional.empty(), sp -> processorListener,
         jobCoordinator);
   }
 
   /**
    * Builds a {@link StreamProcessor} with full specification of processing components.
    *
-   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
    * @param processorId a unique logical identifier assigned to the stream processor.
+   * @param config configuration required to launch {@link JobCoordinator} and {@link SamzaContainer}
    * @param customMetricsReporters registered with the metrics system to report metrics
    * @param taskFactory task factory to instantiate the Task
    * @param applicationDefinedContainerContextFactoryOptional optional factory for application-defined container context
@@ -222,13 +223,13 @@ public class StreamProcessor {
    * @param listenerFactory factory for creating a listener to the StreamProcessor life cycle
    * @param jobCoordinator the instance of {@link JobCoordinator}
    */
-  public StreamProcessor(Config config, String processorId, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
+  public StreamProcessor(String processorId, Config config, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       Optional<ApplicationContainerContextFactory<ApplicationContainerContext>> applicationDefinedContainerContextFactoryOptional,
       Optional<ApplicationTaskContextFactory<ApplicationTaskContext>> applicationDefinedTaskContextFactoryOptional,
       Optional<ExternalContext> externalContextOptional, StreamProcessorLifecycleListenerFactory listenerFactory,
       JobCoordinator jobCoordinator) {
     Preconditions.checkNotNull(listenerFactory, "StreamProcessorListenerFactory cannot be null.");
-    Preconditions.checkNotNull(processorId, "ProcessorId cannot be null.");
+    Preconditions.checkArgument(StringUtils.isNotBlank(processorId), "ProcessorId cannot be null.");
     this.config = config;
     this.processorId = processorId;
     this.metricsRegistry = new MetricsRegistryMap();
