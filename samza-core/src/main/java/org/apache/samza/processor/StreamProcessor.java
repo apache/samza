@@ -174,7 +174,7 @@ public class StreamProcessor {
    * @param taskFactory the task factory to instantiate the Task.
    * @param processorListener listener to the StreamProcessor life cycle.
    *
-   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional,
+   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
   @Deprecated
@@ -184,7 +184,7 @@ public class StreamProcessor {
   }
 
   /**
-   * Same as {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional,
+   * Same as {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)}, with the following differences:
    * <ol>
    *   <li>Passes null for application-defined context factories</li>
@@ -199,13 +199,13 @@ public class StreamProcessor {
    * @param processorListener listener to the StreamProcessor life cycle
    * @param jobCoordinator the instance of {@link JobCoordinator}
    *
-   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional,
+   * Deprecated: Use {@link #StreamProcessor(Config, String, Map, TaskFactory, Optional, Optional, Optional,
    * StreamProcessorLifecycleListenerFactory, JobCoordinator)} instead.
    */
   @Deprecated
   public StreamProcessor(Config config, String processorId, Map<String, MetricsReporter> customMetricsReporters, TaskFactory taskFactory,
       ProcessorLifecycleListener processorListener, JobCoordinator jobCoordinator) {
-    this(config, processorId, customMetricsReporters, taskFactory, Optional.empty(), Optional.empty(), sp -> processorListener,
+    this(config, processorId, customMetricsReporters, taskFactory, Optional.empty(), Optional.empty(), Optional.empty(), sp -> processorListener,
         jobCoordinator);
   }
 
