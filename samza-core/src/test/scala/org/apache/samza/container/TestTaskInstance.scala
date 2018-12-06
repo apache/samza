@@ -34,7 +34,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.mockito.{Matchers, Mock, MockitoAnnotations}
+import org.mockito.{ArgumentCaptor, Matchers, Mock, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
@@ -77,6 +77,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private var applicationTaskContextFactory: ApplicationTaskContextFactory[ApplicationTaskContext] = null
   @Mock
   private var applicationTaskContext: ApplicationTaskContext = null
+  @Mock
+  private var externalContext: ExternalContext = null
 
   private var taskInstance: TaskInstance = null
 
@@ -86,8 +88,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     // not using Mockito mock since Mockito doesn't work well with the call-by-name argument in maybeHandle
     this.taskInstanceExceptionHandler = new MockTaskInstanceExceptionHandler
     when(this.taskModel.getTaskName).thenReturn(TASK_NAME)
-    when(this.applicationTaskContextFactory.create(Matchers.eq(this.jobContext), Matchers.eq(this.containerContext),
-      any(), Matchers.eq(this.applicationContainerContext)))
+    when(this.applicationTaskContextFactory.create(Matchers.eq(this.externalContext), Matchers.eq(this.jobContext),
+      Matchers.eq(this.containerContext), any(), Matchers.eq(this.applicationContainerContext)))
       .thenReturn(this.applicationTaskContext)
     when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
     setupTaskInstance(Some(this.applicationTaskContextFactory))
@@ -118,6 +120,30 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     assertEquals(1, this.taskInstanceExceptionHandler.numTimesCalled)
     verify(this.task).window(this.collector, coordinator)
     verify(windowsCounter).inc()
+  }
+
+  @Test
+  def testInitTask(): Unit = {
+    this.taskInstance.initTask
+
+    val contextCaptor = ArgumentCaptor.forClass(classOf[Context])
+    verify(this.task).init(contextCaptor.capture())
+    val actualContext = contextCaptor.getValue
+    assertEquals(this.jobContext, actualContext.getJobContext)
+    assertEquals(this.containerContext, actualContext.getContainerContext)
+    assertEquals(this.taskModel, actualContext.getTaskContext.getTaskModel)
+    assertEquals(this.applicationContainerContext, actualContext.getApplicationContainerContext)
+    assertEquals(this.applicationTaskContext, actualContext.getApplicationTaskContext)
+    assertEquals(this.externalContext, actualContext.getExternalContext)
+
+    verify(this.applicationTaskContext).start()
+  }
+
+  @Test
+  def testShutdownTask(): Unit = {
+    this.taskInstance.shutdownTask
+    verify(this.applicationTaskContext).stop()
+    verify(this.task).close()
   }
 
   @Test
@@ -202,22 +228,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   }
 
   /**
-    * Given that an application task context factory is provided, then lifecycle calls should be made and the context
-    * should be accessible.
-    */
-  @Test
-  def testApplicationTaskContextFactoryProvided(): Unit = {
-    assertEquals(this.applicationTaskContext, this.taskInstance.context.getApplicationTaskContext)
-    this.taskInstance.initTask
-    verify(this.applicationTaskContext).start()
-    verify(this.applicationTaskContext, never()).stop()
-    this.taskInstance.shutdownTask
-    verify(this.applicationTaskContext).stop()
-  }
-
-  /**
-    * Given that no application task context factory is provided, then no lifecycle calls should be made. Also, an
-    * exception should be thrown if the application task context is accessed.
+    * Given that no application task context factory is provided, then no lifecycle calls should be made.
     */
   @Test
   def testNoApplicationTaskContextFactoryProvided() {
@@ -225,9 +236,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     this.taskInstance.initTask
     this.taskInstance.shutdownTask
     verifyZeroInteractions(this.applicationTaskContext)
-    intercept[IllegalStateException] {
-      this.taskInstance.context.getApplicationTaskContext
-    }
   }
 
   @Test(expected = classOf[SystemProducerException])
@@ -257,13 +265,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       jobContext = this.jobContext,
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),
-      applicationTaskContextFactoryOption = applicationTaskContextFactory)
+      applicationTaskContextFactoryOption = applicationTaskContextFactory,
+      externalContextOption = Some(this.externalContext))
   }
 
   /**
     * Task type which has all task traits, which can be mocked.
     */
-  trait AllTask extends StreamTask with InitableTask with WindowableTask {}
+  trait AllTask extends StreamTask with InitableTask with ClosableTask with WindowableTask {}
 
   /**
     * Mock version of [TaskInstanceExceptionHandler] which just does a passthrough execution and keeps track of the

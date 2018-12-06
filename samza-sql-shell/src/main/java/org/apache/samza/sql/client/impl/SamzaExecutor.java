@@ -169,7 +169,7 @@ public class SamzaExecutor implements SqlExecutor {
     SamzaSqlApplicationRunner runner;
     try {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-      runner.run();
+      runner.run(null);
     } catch (SamzaException ex) {
       lastErrorMsg = ex.toString();
       LOG.error(lastErrorMsg);
@@ -242,7 +242,7 @@ public class SamzaExecutor implements SqlExecutor {
     SamzaSqlApplicationRunner runner;
     try {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
-      runner.run();
+      runner.run(null);
     } catch (SamzaException ex) {
       lastErrorMsg = ex.toString();
       LOG.error(lastErrorMsg);
