@@ -89,10 +89,9 @@ public class SamzaSqlRelRecord implements Serializable {
    * @return returns the value of the field.
    */
   public Optional<Object> getField(String name) {
-    for (int index = 0; index < fieldNames.size(); index++) {
-      if (fieldNames.get(index).equals(name)) {
-        return Optional.ofNullable(fieldValues.get(index));
-      }
+    int index = fieldNames.indexOf(name);
+    if (index != -1) {
+      return Optional.ofNullable(fieldValues.get(index));
     }
 
     return Optional.empty();
