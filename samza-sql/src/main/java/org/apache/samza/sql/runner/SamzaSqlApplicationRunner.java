@@ -28,6 +28,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
@@ -118,14 +119,18 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   }
 
   public void runAndWaitForFinish() {
+    runAndWaitForFinish(null);
+  }
+
+  public void runAndWaitForFinish(ExternalContext externalContext) {
     Validate.isTrue(runner instanceof LocalApplicationRunner, "This method can be called only in standalone mode.");
-    run();
+    run(externalContext);
     waitForFinish();
   }
 
   @Override
-  public void run() {
-    runner.run();
+  public void run(ExternalContext externalContext) {
+    runner.run(externalContext);
   }
 
   @Override

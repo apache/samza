@@ -128,6 +128,7 @@ object SamzaContainer extends Logging {
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    externalContextOption: Option[ExternalContext],
     localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
@@ -489,7 +490,7 @@ object SamzaContainer extends Logging {
 
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
-      .map(_.create(jobContext, containerContext))
+      .map(_.create(externalContextOption.orNull, jobContext, containerContext))
 
     val storeWatchPaths = new util.HashSet[Path]()
 
@@ -668,7 +669,8 @@ object SamzaContainer extends Logging {
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
-          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption)
+          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
+          externalContextOption = externalContextOption)
 
       val taskInstance = createTaskInstance(task)
 
@@ -747,6 +749,7 @@ object SamzaContainer extends Logging {
       timerExecutor = timerExecutor,
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
+      externalContextOption = externalContextOption,
       containerStorageManager = containerStorageManager)
   }
 
@@ -783,6 +786,7 @@ class SamzaContainer(
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
+  externalContextOption: Option[ExternalContext],
   containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)

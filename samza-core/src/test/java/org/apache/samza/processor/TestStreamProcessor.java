@@ -21,6 +21,7 @@ package org.apache.samza.processor;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -467,7 +468,8 @@ public class TestStreamProcessor {
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
     StreamProcessor streamProcessor =
-        new StreamProcessor(mock(Config.class), "TestProcessorId", new HashMap<>(), mock(TaskFactory.class), null, null,
+        new StreamProcessor(mock(Config.class), "TestProcessorId", new HashMap<>(), mock(TaskFactory.class), Optional.empty(),
+            Optional.empty(), Optional.empty(),
             sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
             mock(JobCoordinator.class));
     assertEquals(streamProcessor, mockListener.get().processor);

@@ -64,12 +64,13 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var metrics: SamzaContainerMetrics = null
   @Mock
+  private var localityManager: LocalityManager = null
+  @Mock
   private var containerContext: ContainerContext = null
   @Mock
   private var applicationContainerContext: ApplicationContainerContext = null
   @Mock
   private var samzaContainerListener: SamzaContainerListener = null
-
   @Mock
   private var containerStorageManager: ContainerStorageManager = null
 
@@ -264,28 +265,15 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testStoreContainerLocality():Unit = {
-    val localityManager: LocalityManager = Mockito.mock[LocalityManager](classOf[LocalityManager])
-    val containerContext: ContainerContext = Mockito.mock[ContainerContext](classOf[ContainerContext])
+    this.config = new MapConfig(Map(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED -> "true"))
+    setupSamzaContainer(None) // re-init with an actual config
     val containerModel: ContainerModel = Mockito.mock[ContainerModel](classOf[ContainerModel])
     val testContainerId = "1"
     Mockito.when(containerModel.getId).thenReturn(testContainerId)
-    Mockito.when(containerContext.getContainerModel).thenReturn(containerModel)
+    Mockito.when(this.containerContext.getContainerModel).thenReturn(containerModel)
 
-    val samzaContainer: SamzaContainer = new SamzaContainer(
-      new MapConfig(Map(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED -> "true")),
-      Map(TASK_NAME -> this.taskInstance),
-      this.runLoop,
-      this.systemAdmins,
-      this.consumerMultiplexer,
-      this.producerMultiplexer,
-      metrics,
-      containerContext = containerContext,
-      applicationContainerContextOption = null,
-      localityManager = localityManager,
-      containerStorageManager = Mockito.mock(classOf[ContainerStorageManager]))
-
-    samzaContainer.storeContainerLocality
-    Mockito.verify(localityManager).writeContainerToHostMapping(any(), any())
+    this.samzaContainer.storeContainerLocality
+    Mockito.verify(this.localityManager).writeContainerToHostMapping(any(), any())
   }
 
   private def setupSamzaContainer(applicationContainerContext: Option[ApplicationContainerContext]) {
@@ -296,9 +284,12 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       this.systemAdmins,
       this.consumerMultiplexer,
       this.producerMultiplexer,
-      metrics,
+      this.metrics,
+      localityManager = this.localityManager,
       containerContext = this.containerContext,
-      applicationContainerContextOption = applicationContainerContext, containerStorageManager = containerStorageManager)
+      applicationContainerContextOption = applicationContainerContext,
+      externalContextOption = None,
+      containerStorageManager = containerStorageManager)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 

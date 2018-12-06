@@ -35,7 +35,13 @@ import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationTaskContextFactory;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.context.JobContext;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -113,11 +119,14 @@ public class QueryTranslator {
     translate(relRoot, sqlConfig.getOutputSystemStreams().get(queryId), translatorContext, queryId);
     Map<Integer, TranslatorContext> translatorContexts = new HashMap<>();
     translatorContexts.put(queryId, translatorContext.clone());
-    appDesc.withApplicationTaskContextFactory((jobContext,
-        containerContext,
-        taskContext,
-        applicationContainerContext) ->
-        new SamzaSqlApplicationContext(translatorContexts));
+    appDesc.withApplicationTaskContextFactory(new ApplicationTaskContextFactory<SamzaSqlApplicationContext>() {
+      @Override
+      public SamzaSqlApplicationContext create(ExternalContext externalContext, JobContext jobContext,
+          ContainerContext containerContext, TaskContext taskContext,
+          ApplicationContainerContext applicationContainerContext) {
+        return new SamzaSqlApplicationContext(translatorContexts);
+      }
+    });
   }
 
   /**
