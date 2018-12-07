@@ -16,16 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.standalone;
+
+package org.apache.samza.runtime;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.JobCoordinator;
-import org.apache.samza.coordinator.JobCoordinatorFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 
-public class PassthroughJobCoordinatorFactory implements JobCoordinatorFactory {
+public class MockProcessorIdGenerator implements ProcessorIdGenerator {
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
-    return new PassthroughJobCoordinator(processorId, config, metricsRegistry);
+  public String generateProcessorId(Config config) {
+    return "testProcessorId";
   }
 }
