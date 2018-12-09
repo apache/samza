@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
  */
 abstract public class BaseTableProvider implements TableProvider {
 
-  final protected Logger logger = LoggerFactory.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-  final protected String tableId;
+  protected final String tableId;
 
   protected Context context;
 

@@ -18,24 +18,27 @@
  */
 package org.apache.samza.standalone;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
-import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.runtime.LocationId;
+import org.apache.samza.runtime.LocationIdProvider;
+import org.apache.samza.runtime.LocationIdProviderFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.Collections;
 
 /**
@@ -65,11 +68,15 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   private static final Logger LOGGER = LoggerFactory.getLogger(PassthroughJobCoordinator.class);
   private final String processorId;
   private final Config config;
+  private final LocationId locationId;
   private JobCoordinatorListener coordinatorListener = null;
 
-  public PassthroughJobCoordinator(Config config) {
-    this.processorId = createProcessorId(config);
+  public PassthroughJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
+    this.processorId = processorId;
     this.config = config;
+    LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
+    LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
+    this.locationId = locationIdProvider.getLocationId();
   }
 
   @Override
@@ -96,6 +103,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
         coordinatorListener.onNewJobModel(processorId, jobModel);
       }
     } else {
+      LOGGER.info("JobModel: {} does not contain processorId: {}. Stopping the JobCoordinator", jobModel, processorId);
       stop();
     }
   }
@@ -119,38 +127,17 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
-    String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
-
-    /** TODO:
-     Locality Manager seems to be required in JC for reading locality info and grouping tasks intelligently and also,
-     in SamzaContainer for writing locality info to the coordinator stream. This closely couples together
-     TaskNameGrouper with the LocalityManager! Hence, groupers should be a property of the jobcoordinator
-     (job.coordinator.task.grouper, instead of task.systemstreampartition.grouper)
-     */
-    JobModel jobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), null, streamMetadataCache,
-        Collections.singletonList(containerId));
-    systemAdmins.stop();
-    return jobModel;
+    try {
+      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+      GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
+    } finally {
+      systemAdmins.stop();
+    }
   }
 
   @Override
   public String getProcessorId() {
     return this.processorId;
-  }
-
-  private String createProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (appConfig.getAppProcessorIdGeneratorClass() != null) {
-      ProcessorIdGenerator idGenerator =
-          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
-    }
   }
 }

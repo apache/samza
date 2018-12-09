@@ -16,16 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza;
-
+package org.apache.samza.context;
 
 /**
-  * Exception to indicate that the input {@link org.apache.samza.system.SystemStreamPartition} changed
-  */
-public class PartitionChangeException extends SamzaException {
-
-  public PartitionChangeException(String s) {
-    super(s);
-  }
+ * An {@link ExternalContext} can be used to pass components created and managed outside of Samza into a Samza
+ * application. This will be made accessible through the {@link Context}.
+ * <p>
+ * This is passed to {@link org.apache.samza.runtime.ApplicationRunner#run(ExternalContext)} and propagated down to the
+ * {@link Context} object provided to tasks.
+ * <p>
+ * {@link ExternalContext} can be used to inject objects that need to be created by other frameworks, such as Spring.
+ * <p>
+ * This is currently just a marker interface for the object passed into Samza.
+ */
+public interface ExternalContext {
 }

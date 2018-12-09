@@ -23,14 +23,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.util.Objects;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
+import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.utils.DefaultTableReadMetrics;
+import org.apache.samza.table.BaseReadableTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -38,9 +36,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static org.apache.samza.table.utils.TableMetricsUtil.incCounter;
+import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 /**
  * A Samza {@link org.apache.samza.table.Table} backed by a remote data-store or service.
@@ -71,17 +70,12 @@ import java.util.function.Function;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
-
-  protected final String tableId;
-  protected final Logger logger;
+public class RemoteReadableTable<K, V> extends BaseReadableTable<K, V> {
 
   protected final ExecutorService callbackExecutor;
   protected final ExecutorService tableExecutor;
   protected final TableReadFunction<K, V> readFn;
   protected final TableRateLimiter<K, V> readRateLimiter;
-
-  private DefaultTableReadMetrics readMetrics;
 
   /**
    * Construct a RemoteReadableTable instance
@@ -93,21 +87,22 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    */
   public RemoteReadableTable(String tableId, TableReadFunction<K, V> readFn,
       TableRateLimiter<K, V> rateLimiter, ExecutorService tableExecutor, ExecutorService callbackExecutor) {
-    Preconditions.checkArgument(tableId != null && !tableId.isEmpty(), "invalid table id");
+    super(tableId);
     Preconditions.checkNotNull(readFn, "null read function");
-    this.tableId = tableId;
     this.readFn = readFn;
     this.readRateLimiter = rateLimiter;
     this.callbackExecutor = callbackExecutor;
     this.tableExecutor = tableExecutor;
-    this.logger = LoggerFactory.getLogger(getClass().getName() + "-" + tableId);
   }
 
   @Override
   public void init(Context context) {
-    readMetrics = new DefaultTableReadMetrics(context, this, tableId);
-    TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
-    readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
+    super.init(context);
+    MetricsConfig metricsConfig = new MetricsConfig(context.getJobContext().getConfig());
+    if (metricsConfig.getMetricsTimerEnabled()) {
+      TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
+      readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
+    }
   }
 
   @Override
@@ -122,14 +117,13 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
   @Override
   public CompletableFuture<V> getAsync(K key) {
     Preconditions.checkNotNull(key);
-    readMetrics.numGets.inc();
-    return execute(readRateLimiter, key, readFn::getAsync, readMetrics.getNs)
+    return execute(readRateLimiter, key, readFn::getAsync, readMetrics.numGets, readMetrics.getNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + key, e);
             }
             if (result == null) {
-              readMetrics.numMissedLookups.inc();
+              incCounter(readMetrics.numMissedLookups);
             }
             return result;
           });
@@ -137,7 +131,6 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
 
   @Override
   public Map<K, V> getAll(List<K> keys) {
-    readMetrics.numGetAlls.inc();
     try {
       return getAllAsync(keys).get();
     } catch (Exception e) {
@@ -151,13 +144,12 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
     if (keys.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
-    readMetrics.numGetAlls.inc();
-    return execute(readRateLimiter, keys, readFn::getAllAsync, readMetrics.getAllNs)
+    return execute(readRateLimiter, keys, readFn::getAllAsync, readMetrics.numGetAlls, readMetrics.getAllNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + keys, e);
             }
-            result.values().stream().filter(Objects::isNull).map(v -> readMetrics.numMissedLookups.inc());
+            result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(readMetrics.numMissedLookups));
             return result;
           });
   }
@@ -172,56 +164,15 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    * @return CompletableFuture of the operation
    */
   protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
-      K key, Function<K, CompletableFuture<T>> method, Timer timer) {
-    final long startNs = System.nanoTime();
-    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited() ?
-        CompletableFuture
+      K key, Function<K, CompletableFuture<T>> method, Counter counter, Timer timer) {
+    incCounter(counter);
+    final long startNs = clock.nanoTime();
+    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
+        ? CompletableFuture
             .runAsync(() -> rateLimiter.throttle(key), tableExecutor)
-            .thenCompose((r) -> method.apply(key)) :
-        method.apply(key);
-    if (callbackExecutor != null) {
-      ioFuture.thenApplyAsync(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        }, callbackExecutor);
-    } else {
-      ioFuture.thenApply(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        });
-    }
-    return ioFuture;
-  }
-
-  /**
-   * Execute an async request given a table record (key+value)
-   * @param rateLimiter helper for rate limiting
-   * @param key key of the table record
-   * @param value value of the table record
-   * @param method method to be executed
-   * @param timer latency metric to be updated
-   * @return CompletableFuture of the operation
-   */
-  protected CompletableFuture<Void> execute(TableRateLimiter<K, V> rateLimiter,
-      K key, V value, BiFunction<K, V, CompletableFuture<Void>> method, Timer timer) {
-    final long startNs = System.nanoTime();
-    CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited() ?
-        CompletableFuture
-            .runAsync(() -> rateLimiter.throttle(key, value), tableExecutor)
-            .thenCompose((r) -> method.apply(key, value)) :
-        method.apply(key, value);
-    if (callbackExecutor != null) {
-      ioFuture.thenApplyAsync(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        }, callbackExecutor);
-    } else {
-      ioFuture.thenApply(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        });
-    }
-    return ioFuture;
+            .thenCompose((r) -> method.apply(key))
+        : method.apply(key);
+    return completeExecution(ioFuture, startNs, timer);
   }
 
   /**
@@ -234,54 +185,34 @@ public class RemoteReadableTable<K, V> implements ReadableTable<K, V> {
    * @return CompletableFuture of the operation
    */
   protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
-      Collection<K> keys, Function<Collection<K>, CompletableFuture<T>> method, Timer timer) {
-    final long startNs = System.nanoTime();
-    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited() ?
-        CompletableFuture
+      Collection<K> keys, Function<Collection<K>, CompletableFuture<T>> method, Counter counter, Timer timer) {
+    incCounter(counter);
+    final long startNs = clock.nanoTime();
+    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
+        ? CompletableFuture
             .runAsync(() -> rateLimiter.throttle(keys), tableExecutor)
-            .thenCompose((r) -> method.apply(keys)) :
-        method.apply(keys);
-    if (callbackExecutor != null) {
-      ioFuture.thenApplyAsync(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        }, callbackExecutor);
-    } else {
-      ioFuture.thenApply(r -> {
-          timer.update(System.nanoTime() - startNs);
-          return r;
-        });
-    }
-    return ioFuture;
+            .thenCompose((r) -> method.apply(keys))
+        : method.apply(keys);
+    return completeExecution(ioFuture, startNs, timer);
   }
 
   /**
-   * Execute an async request given a collection of table records
-   * @param rateLimiter helper for rate limiting
-   * @param records list of records
-   * @param method method to be executed
+   * Complete the pending execution and update timer
+   * @param ioFuture the future to be executed
+   * @param startNs start time in nanosecond
    * @param timer latency metric to be updated
+   * @param <T> return type
    * @return CompletableFuture of the operation
    */
-  protected CompletableFuture<Void> executeRecords(TableRateLimiter<K, V> rateLimiter,
-      Collection<Entry<K, V>> records, Function<Collection<Entry<K, V>>, CompletableFuture<Void>> method, Timer timer) {
-    final long startNs = System.nanoTime();
-    CompletableFuture<Void> ioFuture;
-    if (rateLimiter.isRateLimited()) {
-      ioFuture = CompletableFuture
-          .runAsync(() -> rateLimiter.throttleRecords(records), tableExecutor)
-          .thenCompose((r) -> method.apply(records));
-    } else {
-      ioFuture = method.apply(records);
-    }
+  protected  <T> CompletableFuture<T> completeExecution(CompletableFuture<T> ioFuture, long startNs, Timer timer) {
     if (callbackExecutor != null) {
       ioFuture.thenApplyAsync(r -> {
-          timer.update(System.nanoTime() - startNs);
+          updateTimer(timer, clock.nanoTime() - startNs);
           return r;
         }, callbackExecutor);
     } else {
       ioFuture.thenApply(r -> {
-          timer.update(System.nanoTime() - startNs);
+          updateTimer(timer, clock.nanoTime() - startNs);
           return r;
         });
     }

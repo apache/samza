@@ -248,6 +248,7 @@ The table below summarizes table metrics:
 |`getAll-ns`|`ReadableTable`|Average latency of `getAll/getAllAsync()` operations|
 |`num-gets`|`ReadableTable`|Count of `get/getAsync()` operations
 |`num-getAlls`|`ReadableTable`|Count of `getAll/getAllAsync()` operations
+|`num-missed-lookups`|`ReadableTable`|Count of missed get/getAll() operations
 |`put-ns`|`ReadWriteTable`|Average latency of `put/putAsync()` operations
 |`putAll-ns`|`ReadWriteTable`|Average latency of `putAll/putAllAsync()` operations
 |`num-puts`|`ReadWriteTable`|Count of `put/putAsync()` operations

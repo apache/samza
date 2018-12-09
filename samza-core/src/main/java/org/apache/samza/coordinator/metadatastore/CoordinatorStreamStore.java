@@ -20,16 +20,15 @@ package org.apache.samza.coordinator.metadatastore;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.UnsignedBytes;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.TreeMap;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -67,10 +66,9 @@ public class CoordinatorStreamStore implements MetadataStore {
   private final SystemConsumer systemConsumer;
   private final SystemAdmin systemAdmin;
   private final String type;
-  private final Serde<List<?>> keySerde;
+  private final CoordinatorStreamKeySerde keySerde;
 
-  // Using custom comparator since java default comparator offers object identity equality(not value equality) for byte arrays.
-  private final Map<byte[], byte[]> bootstrappedMessages = new TreeMap<>(UnsignedBytes.lexicographicalComparator());
+  private final Map<String, byte[]> bootstrappedMessages = new HashMap<>();
   private final Object bootstrapLock = new Object();
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
@@ -79,7 +77,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   public CoordinatorStreamStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
     this.config = config;
     this.type = namespace;
-    this.keySerde = new JsonSerde<>();
+    this.keySerde = new CoordinatorStreamKeySerde(type);
     this.coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
@@ -104,26 +102,26 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   @Override
-  public byte[] get(byte[] key) {
+  public byte[] get(String key) {
     bootstrapMessagesFromStream();
     return bootstrappedMessages.get(key);
   }
 
   @Override
-  public void put(byte[] key, byte[] value) {
-    OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, key, value);
+  public void put(String key, byte[] value) {
+    OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, keySerde.toBytes(key), value);
     systemProducer.send(SOURCE, envelope);
     flush();
   }
 
   @Override
-  public void delete(byte[] key) {
+  public void delete(String key) {
     // Since kafka doesn't support individual message deletion, store value as null for a key to delete.
     put(key, null);
   }
 
   @Override
-  public Map<byte[], byte[]> all() {
+  public Map<String, byte[]> all() {
     bootstrapMessagesFromStream();
     return Collections.unmodifiableMap(bootstrappedMessages);
   }
@@ -136,13 +134,14 @@ public class CoordinatorStreamStore implements MetadataStore {
       while (iterator.hasNext()) {
         IncomingMessageEnvelope envelope = iterator.next();
         byte[] keyAsBytes = (byte[]) envelope.getKey();
-        Object[] keyArray = keySerde.fromBytes(keyAsBytes).toArray();
+        Serde<List<?>> serde = new JsonSerde<>();
+        Object[] keyArray = serde.fromBytes(keyAsBytes).toArray();
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, new HashMap<>());
         if (Objects.equals(coordinatorStreamMessage.getType(), type)) {
           if (envelope.getMessage() != null) {
-            bootstrappedMessages.put(keyAsBytes, (byte[]) envelope.getMessage());
+            bootstrappedMessages.put(coordinatorStreamMessage.getKey(), (byte[]) envelope.getMessage());
           } else {
-            bootstrappedMessages.remove(keyAsBytes);
+            bootstrappedMessages.remove(coordinatorStreamMessage.getKey());
           }
         }
       }

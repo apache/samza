@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -109,9 +110,11 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
       }
     }
 
-    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(), new MapConfig(configs));
+    Config config = new MapConfig(configs);
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(),
+        config);
 
-    runner.run();
+    executeRun(runner, config);
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);

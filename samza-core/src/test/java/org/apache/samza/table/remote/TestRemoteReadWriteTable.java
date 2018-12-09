@@ -62,7 +62,7 @@ public class TestRemoteReadWriteTable {
     doAnswer(args -> new Timer((String) args.getArguments()[0])).when(metricsRegistry).newTimer(anyString(), anyString());
     doAnswer(args -> new Counter((String) args.getArguments()[0])).when(metricsRegistry).newCounter(anyString(), anyString());
     doAnswer(args -> new Gauge((String) args.getArguments()[0], 0)).when(metricsRegistry).newGauge(anyString(), any());
-    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    doReturn(metricsRegistry).when(context.getContainerContext()).getContainerMetricsRegistry();
     return context;
   }
 

@@ -127,8 +127,9 @@ object SamzaContainer extends Logging {
     taskFactory: TaskFactory[_],
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
-    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
-  ) = {
+    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    externalContextOption: Option[ExternalContext],
+    localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
@@ -425,15 +426,8 @@ object SamzaContainer extends Logging {
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
-    val dropDeserializationError = config.getDropDeserialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
-
-    val dropSerializationError = config.getDropSerialization match {
-      case Some(dropError) => dropError.toBoolean
-      case _ => false
-    }
+    val dropDeserializationError = config.getDropDeserializationErrors
+    val dropSerializationError = config.getDropSerializationErrors
 
     val pollIntervalMs = config
       .getPollIntervalMs
@@ -496,12 +490,28 @@ object SamzaContainer extends Logging {
 
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
-      .map(_.create(jobContext, containerContext))
+      .map(_.create(externalContextOption.orNull, jobContext, containerContext))
 
     val storeWatchPaths = new util.HashSet[Path]()
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
+    // We create a map of store SystemName to its respective SystemConsumer
+    val storeSystemConsumers: Map[String, SystemConsumer] = changeLogSystemStreams.mapValues {
+      case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
+    }.values.toSet.map {
+      systemName: String =>
+        (systemName, systemFactories
+          .getOrElse(systemName,
+            throw new SamzaException("Changelog system %s exist in the config." format (systemName)))
+          .getConsumer(systemName, config, samzaContainerMetrics.registry))
+    }.toMap
+
+    info("Created store system consumers: %s" format storeSystemConsumers)
+
+    var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
+
+    // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
@@ -516,14 +526,11 @@ object SamzaContainer extends Logging {
 
       val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
 
-      val storeConsumers = changeLogSystemStreams
+      // Re-use the storeConsumers, stored in storeSystemConsumers
+      val storeConsumers : Map[String, SystemConsumer] = changeLogSystemStreams
         .map {
           case (storeName, changeLogSystemStream) =>
-            val systemConsumer = systemFactories
-              .getOrElse(changeLogSystemStream.getSystem,
-                throw new SamzaException("Changelog system %s for store %s does not " +
-                  "exist in the config." format (changeLogSystemStream, storeName)))
-              .getConsumer(changeLogSystemStream.getSystem, config, taskInstanceMetrics.registry)
+            val systemConsumer = storeSystemConsumers.get(changeLogSystemStream.getSystem).get
             samzaContainerMetrics.addStoreRestorationGauge(taskName, storeName)
             (storeName, systemConsumer)
         }
@@ -662,12 +669,18 @@ object SamzaContainer extends Logging {
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
-          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption)
+          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
+          externalContextOption = externalContextOption)
 
       val taskInstance = createTaskInstance(task)
 
+      taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
+
+
+    val containerStorageManager = new ContainerStorageManager(taskStorageManagers.asJava, storeSystemConsumers.asJava,
+      samzaContainerMetrics)
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
@@ -724,6 +737,7 @@ object SamzaContainer extends Logging {
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
+      localityManager = localityManager,
       offsetManager = offsetManager,
       securityManager = securityManager,
       metrics = samzaContainerMetrics,
@@ -734,7 +748,9 @@ object SamzaContainer extends Logging {
       taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,
-      applicationContainerContextOption = applicationContainerContextOption)
+      applicationContainerContextOption = applicationContainerContextOption,
+      externalContextOption = externalContextOption,
+      containerStorageManager = containerStorageManager)
   }
 
   /**
@@ -769,7 +785,9 @@ class SamzaContainer(
   taskThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
-  applicationContainerContextOption: Option[ApplicationContainerContext]) extends Runnable with Logging {
+  applicationContainerContextOption: Option[ApplicationContainerContext],
+  externalContextOption: Option[ExternalContext],
+  containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -977,16 +995,13 @@ class SamzaContainer(
 
   def storeContainerLocality {
     val isHostAffinityEnabled: Boolean = new ClusterManagerConfig(config).getHostAffinityEnabled
-    if (isHostAffinityEnabled) {
-      val localityManager: LocalityManager = new LocalityManager(config, containerContext.getContainerMetricsRegistry)
+    if (isHostAffinityEnabled && localityManager != null) {
       val containerId = containerContext.getContainerModel.getId
       val containerName = "SamzaContainer-" + containerId
       info("Registering %s with metadata store" format containerName)
       try {
         val hostInet = Util.getLocalHost
-        val jmxUrl = if (jmxServer != null) jmxServer.getJmxUrl else ""
-        val jmxTunnelingUrl = if (jmxServer != null) jmxServer.getTunnelingJmxUrl else ""
-        info("Writing container locality and JMX address to metadata store")
+        info("Writing container locality to metadata store")
         localityManager.writeContainerToHostMapping(containerId, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>
@@ -1003,16 +1018,13 @@ class SamzaContainer(
   }
 
   def startStores {
+    info("Starting container storage manager.")
+    containerStorageManager.start()
+
     taskInstances.values.foreach(taskInstance => {
       val startTime = System.currentTimeMillis()
-      info("Starting stores in task instance %s" format taskInstance.taskName)
-      taskInstance.startStores
-      // Measuring the time to restore the stores
-      val timeToRestore = System.currentTimeMillis() - startTime
-      val taskGauge = metrics.taskStoreRestorationMetrics.asScala.getOrElse(taskInstance.taskName, null)
-      if (taskGauge != null) {
-        taskGauge.set(timeToRestore)
-      }
+      info("Starting side inputs in task instance %s" format taskInstance.taskName)
+      taskInstance.startSideInputs
     })
   }
 
@@ -1152,9 +1164,11 @@ class SamzaContainer(
   }
 
   def shutdownStores {
-    info("Shutting down task instance stores.")
+    info("Shutting down container storage manager.")
+    containerStorageManager.shutdown()
 
-    taskInstances.values.foreach(_.shutdownStores)
+    info("Shutting down task instance side inputs.")
+    taskInstances.values.foreach(_.shutdownSideInputs)
   }
 
   def shutdownTableManager: Unit = {

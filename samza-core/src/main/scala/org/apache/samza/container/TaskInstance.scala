@@ -63,7 +63,8 @@ class TaskInstance(
   jobContext: JobContext,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
-  applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]
+  applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+  externalContextOption: Option[ExternalContext]
 ) extends Logging {
 
   val taskName: TaskName = taskModel.getTaskName
@@ -88,11 +89,12 @@ class TaskInstance(
   private val taskContext = new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
     new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache)
   // need separate field for this instead of using it through Context, since Context throws an exception if it is null
-  private val applicationTaskContextOption = applicationTaskContextFactoryOption.map(_.create(jobContext,
-    containerContext, taskContext, applicationContainerContextOption.orNull))
+  private val applicationTaskContextOption = applicationTaskContextFactoryOption
+    .map(_.create(externalContextOption.orNull, jobContext, containerContext, taskContext,
+      applicationContainerContextOption.orNull))
   val context = new ContextImpl(jobContext, containerContext, taskContext,
     Optional.ofNullable(applicationContainerContextOption.orNull),
-    Optional.ofNullable(applicationTaskContextOption.orNull))
+    Optional.ofNullable(applicationTaskContextOption.orNull), Optional.ofNullable(externalContextOption.orNull))
 
   // store the (ssp -> if this ssp has caught up) mapping. "caught up"
   // means the same ssp in other taskInstances have the same offset as
@@ -120,15 +122,7 @@ class TaskInstance(
     offsetManager.register(taskName, sspsToRegister)
   }
 
-  def startStores {
-    if (storageManager != null) {
-      debug("Starting storage manager for taskName: %s" format taskName)
-
-      storageManager.init
-    } else {
-      debug("Skipping storage manager initialization for taskName: %s" format taskName)
-    }
-
+  def startSideInputs {
     if (sideInputStorageManager != null) {
       debug("Starting side input storage manager for taskName: %s" format taskName)
       sideInputStorageManager.init()
@@ -298,15 +292,7 @@ class TaskInstance(
     }
   }
 
-  def shutdownStores {
-    if (storageManager != null) {
-      debug("Shutting down storage manager for taskName: %s" format taskName)
-
-      storageManager.stop
-    } else {
-      debug("Skipping storage manager shutdown for taskName: %s" format taskName)
-    }
-
+  def shutdownSideInputs {
     if (sideInputStorageManager != null) {
       debug("Shutting down side input storage manager for taskName: %s" format taskName)
       sideInputStorageManager.stop()

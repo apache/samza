@@ -104,7 +104,7 @@ public class ExecutionPlanner {
     // currently we don't support host-affinity in batch mode
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH && clusterConfig.getHostAffinityEnabled()) {
       throw new SamzaException(String.format("Host affinity is not supported in batch mode. Please configure %s=false.",
-          ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED));
+          ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED));
     }
   }
 

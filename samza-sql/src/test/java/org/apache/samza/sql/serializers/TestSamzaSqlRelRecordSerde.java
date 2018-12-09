@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.serializers;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
@@ -48,7 +50,8 @@ public class TestSamzaSqlRelRecordSerde {
 
   @Test
   public void testWithDifferentFields() {
-    SamzaSqlRelRecord record = new SamzaSqlRelMessage(names, values).getSamzaSqlRelRecord();
+    SamzaSqlRelRecord record =
+        new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata("", "", "")).getSamzaSqlRelRecord();
     SamzaSqlRelRecordSerde serde =
         (SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
     SamzaSqlRelRecord resultRecord = serde.fromBytes(serde.toBytes(record));

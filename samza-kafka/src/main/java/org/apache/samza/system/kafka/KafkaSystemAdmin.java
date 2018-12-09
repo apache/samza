@@ -54,6 +54,7 @@ import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ExponentialSleepStrategy;
@@ -677,6 +678,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
       throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
     }
     return () -> ZkUtils.apply(zkConnect, 6000, 6000, false);
+  }
+
+  @Override
+  public Set<SystemStream> getAllSystemStreams() {
+    return ((Set<String>) this.metadataConsumer.listTopics().keySet()).stream()
+        .map(x -> new SystemStream(systemName, x))
+        .collect(Collectors.toSet());
   }
 
   /**

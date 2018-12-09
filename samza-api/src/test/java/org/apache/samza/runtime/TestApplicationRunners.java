@@ -25,6 +25,7 @@ import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
 
@@ -60,7 +61,7 @@ public class TestApplicationRunners {
     }
 
     @Override
-    public void run() {
+    public void run(ExternalContext externalContext) {
 
     }
 

@@ -28,6 +28,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
@@ -60,7 +61,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   }
 
   @Override
-  public void run() {
+  public void run(ExternalContext externalContext) {
     try {
       List<JobConfig> jobConfigs = planner.prepareJobs();
       if (jobConfigs.isEmpty()) {

@@ -21,14 +21,14 @@ package org.apache.samza.sql.runner;
 
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
@@ -83,8 +83,8 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     String sqlJson = SamzaSqlApplicationConfig.serializeSqlStmts(dslStmts);
     newConfig.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, sqlJson);
 
-    Set<String> inputSystemStreams = new HashSet<>();
-    Set<String> outputSystemStreams = new HashSet<>();
+    List<String> inputSystemStreams = new LinkedList<>();
+    List<String> outputSystemStreams = new LinkedList<>();
 
     SamzaSqlApplicationConfig.populateSystemStreamsAndGetRelRoots(dslStmts, config, inputSystemStreams,
         outputSystemStreams);
@@ -119,14 +119,18 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
   }
 
   public void runAndWaitForFinish() {
+    runAndWaitForFinish(null);
+  }
+
+  public void runAndWaitForFinish(ExternalContext externalContext) {
     Validate.isTrue(runner instanceof LocalApplicationRunner, "This method can be called only in standalone mode.");
-    run();
+    run(externalContext);
     waitForFinish();
   }
 
   @Override
-  public void run() {
-    runner.run();
+  public void run(ExternalContext externalContext) {
+    runner.run(externalContext);
   }
 
   @Override

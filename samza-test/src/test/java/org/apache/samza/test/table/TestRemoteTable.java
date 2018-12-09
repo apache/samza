@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import com.google.common.cache.CacheBuilder;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.time.Duration;
@@ -33,9 +34,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
@@ -60,6 +63,7 @@ import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -68,6 +72,7 @@ import static org.apache.samza.test.table.TestTableData.PageView;
 import static org.apache.samza.test.table.TestTableData.Profile;
 import static org.apache.samza.test.table.TestTableData.generatePageViews;
 import static org.apache.samza.test.table.TestTableData.generateProfiles;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -219,8 +224,9 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .sendTo(outputTable);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    executeRun(runner, config);
     runner.waitForFinish();
 
     int numExpected = count * partitionCount;
@@ -248,7 +254,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     doReturn(new Counter("")).when(metricsRegistry).newCounter(anyString(), anyString());
     doReturn(new Timer("")).when(metricsRegistry).newTimer(anyString(), anyString());
     Context context = new MockContext();
-    doReturn(metricsRegistry).when(context.getTaskContext()).getTaskMetricsRegistry();
+    doReturn(new MapConfig()).when(context.getJobContext()).getConfig();
+    doReturn(metricsRegistry).when(context.getContainerContext()).getContainerMetricsRegistry();
     return context;
   }
 

@@ -156,4 +156,12 @@ public interface SystemAdmin {
     return getSystemStreamMetadata(streamNames);
   }
 
+  /**
+   * Fetch the set of all available streams
+   * @return The set of all available SystemStreams.
+   */
+  default Set<SystemStream> getAllSystemStreams() {
+    throw new UnsupportedOperationException();
+  }
+
 }
