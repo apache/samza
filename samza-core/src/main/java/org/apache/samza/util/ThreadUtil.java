@@ -38,7 +38,7 @@ public class ThreadUtil {
       for (ThreadInfo ti: threadInfo) {
         sb.append(toString(ti)).append("\n");
       }
-      System.out.println(sb.toString());
+      LOGGER.info(sb.toString());
     } catch (Exception e) {
       LOGGER.error("Could not get and log a thread dump.", e);
     }
