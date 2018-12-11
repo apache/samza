@@ -235,7 +235,14 @@ class RocksDbKeyValueStore(
   }
 
   def close(): Unit = {
+    trace("Calling compact range.")
     stateChangeLock.writeLock().lock()
+
+    // if auto-compaction is disabled, e.g., when bulk-loading
+    if(options.disableAutoCompactions()) {
+      db.compactRange()
+    }
+
     try {
       trace("Closing.")
       if (stackAtFirstClose == null) { // first close

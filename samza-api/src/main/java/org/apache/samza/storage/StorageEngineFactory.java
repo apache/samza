@@ -33,6 +33,15 @@ import org.apache.samza.task.MessageCollector;
  */
 public interface StorageEngineFactory<K, V> {
 
+  public enum StoreMode {
+    BulkLoad("bulk"), ReadWrite("rw");
+    public final String mode;
+
+    StoreMode(String mode) {
+      this.mode = mode;
+    }
+  }
+
   /**
    * Create an instance of the given storage engine.
    *
@@ -56,5 +65,5 @@ public interface StorageEngineFactory<K, V> {
     MetricsRegistry registry,
     SystemStreamPartition changeLogSystemStreamPartition,
     JobContext jobContext,
-    ContainerContext containerContext);
+    ContainerContext containerContext, StoreMode storeMode);
 }

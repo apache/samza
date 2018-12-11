@@ -218,7 +218,7 @@ public class StorageRecovery extends CommandLine {
           if (changeLogSystemStreams.containsKey(storeName)) {
             SystemStreamPartition changeLogSystemStreamPartition = new SystemStreamPartition(changeLogSystemStreams.get(storeName),
                 taskModel.getChangelogPartition());
-            File storePartitionDir = ContainerStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskModel.getTaskName());
+            File storePartitionDir = StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskModel.getTaskName());
 
             log.info("Got storage engine directory: " + storePartitionDir);
 
@@ -231,7 +231,7 @@ public class StorageRecovery extends CommandLine {
                 new MetricsRegistryMap(),
                 changeLogSystemStreamPartition,
                 JobContextImpl.fromConfigWithDefaults(jobConfig),
-                containerContext);
+                containerContext, StorageEngineFactory.StoreMode.BulkLoad);
             taskStores.put(storeName, storageEngine);
           }
         }

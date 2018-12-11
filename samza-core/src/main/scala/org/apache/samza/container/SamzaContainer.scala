@@ -48,6 +48,7 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage._
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
@@ -518,9 +519,9 @@ object SamzaContainer extends Logging {
             // We use the logged storage base directory for change logged and side input stores since side input stores
             // dont have changelog configured.
             val storeDir = if (sideInputStoresToSystemStreams.contains(storeName)) {
-              ContainerStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+              StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             } else {
-              ContainerStorageManager.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
+              StorageManagerUtil.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
             }
 
             storeWatchPaths.add(storeDir.toPath)
@@ -534,7 +535,7 @@ object SamzaContainer extends Logging {
               taskInstanceMetrics.get(taskName).get.registry,
               changeLogSystemStreamPartition,
               jobContext,
-              containerContext)
+              containerContext, StoreMode.ReadWrite)
             (storeName, sideInputStorageEngine)
         }
 
