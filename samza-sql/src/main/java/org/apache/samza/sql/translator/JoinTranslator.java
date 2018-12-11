@@ -49,6 +49,7 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.table.Table;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -322,7 +323,8 @@ class JoinTranslator {
       SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode, context);
       if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
         return JoinInputNode.InputType.STREAM;
-      } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor) {
+      } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
+          sourceTableConfig.getTableDescriptor().get() instanceof CachingTableDescriptor) {
         return JoinInputNode.InputType.REMOTE_TABLE;
       } else {
         return JoinInputNode.InputType.LOCAL_TABLE;
