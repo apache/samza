@@ -60,6 +60,8 @@ To build and publish the website to Samza's Apache SVN repository, run:
 
 This command will re-build the Javadocs and website, checkout https://svn.apache.org/repos/asf/samza/site/ locally, copy the site into the directory, and commit the changes.
 
+Sanity-check a couple of links in the website corresponding to the latest release. For example, when releasing Samza 1.0.0, verify that http://samza.apache.org/learn/documentation/1.0.0/ and http://samza.apache.org/learn/documentation/latest/ links work.
+
 ## Release-new-version Website Checklist
 
 Assume we want to release x.x.x and the next release is y.y.y in master, need to work on two branches: x.x.x and master.
