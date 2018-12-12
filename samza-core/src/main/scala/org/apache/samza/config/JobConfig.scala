@@ -93,6 +93,7 @@ object JobConfig {
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
   val METADATA_STORE_FACTORY = "metadata.store.factory"
+  val STARTPOINT_METADATA_STORE_FACTORY = "startpoint.metadata.store.factory"
   val LOCATION_ID_PROVIDER_FACTORY = "locationid.provider.factory"
 
   // Processor Config Constants
@@ -251,6 +252,8 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getLoggedStorePath = getOption(JobConfig.JOB_LOGGED_STORE_BASE_DIR)
 
   def getMetadataStoreFactory = getOption(JobConfig.METADATA_STORE_FACTORY).getOrElse(classOf[CoordinatorStreamMetadataStoreFactory].getCanonicalName)
+
+  def getStartpointMetadataStoreFactory = getOption(JobConfig.STARTPOINT_METADATA_STORE_FACTORY).getOrElse(getMetadataStoreFactory)
 
   def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
 

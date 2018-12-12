@@ -20,6 +20,8 @@
 package org.apache.samza.checkpoint
 
 import java.util
+
+import com.google.common.collect.ImmutableMap
 import org.apache.samza.container.TaskName
 import org.apache.samza.Partition
 import org.apache.samza.system._
@@ -27,7 +29,11 @@ import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPar
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.SamzaException
+import org.apache.samza.config.JobConfig
 import org.apache.samza.config.MapConfig
+import org.apache.samza.startpoint.MockMetadataStoreFactory
+import org.apache.samza.startpoint.StartpointManager
+import org.apache.samza.util.NoOpMetricsRegistry
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.Assertions.intercept
 
@@ -63,7 +69,7 @@ class TestOffsetManager {
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = mock(classOf[SystemAdmins])
     when(systemAdmins.getSystemAdmin("test-system")).thenReturn(getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, getStartpointManager(), systemAdmins, Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     assertTrue(checkpointManager.isStarted)
@@ -98,7 +104,7 @@ class TestOffsetManager {
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = mock(classOf[SystemAdmins])
     when(systemAdmins.getSystemAdmin("test-system")).thenReturn(getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, getStartpointManager(), systemAdmins, Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
@@ -156,7 +162,7 @@ class TestOffsetManager {
     val config = new MapConfig
     val systemAdmins = mock(classOf[SystemAdmins])
     when(systemAdmins.getSystemAdmin("test-system")).thenReturn(getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins)
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, getStartpointManager(), systemAdmins)
     // Register both partitions. Partition 2 shouldn't have a checkpoint.
     offsetManager.register(taskName1, Set(systemStreamPartition1))
     offsetManager.register(taskName2, Set(systemStreamPartition2))
@@ -266,7 +272,7 @@ class TestOffsetManager {
     else
       Map()
 
-    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, systemAdmins,
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, getStartpointManager(), systemAdmins,
       checkpointListeners, new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition, systemStreamPartition2))
 
@@ -314,7 +320,7 @@ class TestOffsetManager {
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val systemAdmins = mock(classOf[SystemAdmins])
     when(systemAdmins.getSystemAdmin("test-system")).thenReturn(getSystemAdmin)
-    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig, checkpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig, checkpointManager, getStartpointManager(), systemAdmins, Map(), new OffsetManagerMetrics)
     offsetManager.register(taskName, Set(systemStreamPartition))
     offsetManager.start
 
@@ -378,6 +384,11 @@ class TestOffsetManager {
       // Only for testing purposes - not present in actual checkpoint manager
       def getOffets = Map(taskName -> checkpoint.getOffsets.asScala.toMap)
     }
+  }
+
+  private def getStartpointManager() = {
+    StartpointManager.getInstance(new MapConfig(ImmutableMap.of(JobConfig.METADATA_STORE_FACTORY,
+      classOf[MockMetadataStoreFactory].getCanonicalName)), new NoOpMetricsRegistry)
   }
 
   private def getSystemAdmin: SystemAdmin = {

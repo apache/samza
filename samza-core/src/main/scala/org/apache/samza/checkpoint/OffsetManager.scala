@@ -27,12 +27,14 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.samza.system.IncomingMessageEnvelope
 import org.apache.samza.system.SystemAdmins
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JavaSystemConfig}
+import org.apache.samza.annotation.InterfaceStability
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.SystemConfig.Config2System
+import org.apache.samza.config.{Config, JavaSystemConfig}
 import org.apache.samza.container.TaskName
+import org.apache.samza.startpoint.Startpoint
+import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
-import org.apache.samza.system.{SystemAdmin, SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system.{SystemStream, SystemStreamMetadata, SystemStreamPartition}
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
@@ -76,6 +78,7 @@ object OffsetManager extends Logging {
     systemStreamMetadata: Map[SystemStream, SystemStreamMetadata],
     config: Config,
     checkpointManager: CheckpointManager = null,
+    startpointManager: StartpointManager = null,
     systemAdmins: SystemAdmins = SystemAdmins.empty(),
     checkpointListeners: Map[String, CheckpointListener] = Map(),
     offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
@@ -104,7 +107,7 @@ object OffsetManager extends Logging {
           // Build OffsetSetting so we can create a map for OffsetManager.
           (systemStream, OffsetSetting(systemStreamMetadata, defaultOffsetType, resetOffset))
       }.toMap
-    new OffsetManager(offsetSettings, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
+    new OffsetManager(offsetSettings, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
   }
 }
 
@@ -139,6 +142,11 @@ class OffsetManager(
   val checkpointManager: CheckpointManager = null,
 
   /**
+    * Optional startpoint manager for overrided offsets.
+    */
+  val startpointManager: StartpointManager = null,
+
+  /**
    * SystemAdmins that are used to get next offsets from last checkpointed
    * offsets. Map is from system name to SystemAdmin class for the system.
    */
@@ -167,6 +175,11 @@ class OffsetManager(
   var startingOffsets = Map[TaskName, Map[SystemStreamPartition, String]]()
 
   /**
+    * Startpoints loaded for each SystemStreamPartition.
+    */
+  var startpoints = Map[TaskName, Map[SystemStreamPartition, Startpoint]]()
+
+  /**
    * The set of system stream partitions that have been registered with the
    * OffsetManager, grouped by the taskName they belong to. These are the SSPs
    * that will be tracked within the offset manager.
@@ -184,6 +197,7 @@ class OffsetManager(
     loadOffsetsFromCheckpointManager
     stripResetStreams
     loadStartingOffsets
+    loadStartpoints
     loadDefaults
 
     info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
@@ -222,6 +236,16 @@ class OffsetManager(
     startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
   }
 
+  @InterfaceStability.Unstable
+  def getStartpoint(taskName: TaskName, systemStreamPartition: SystemStreamPartition) = {
+    Option(startpointManager.readStartpointForTask(systemStreamPartition, taskName))
+  }
+
+  @InterfaceStability.Unstable
+  def setStartpoint(taskName: TaskName, ssp: SystemStreamPartition, startpoint: Startpoint) = {
+    startpointManager.writeStartpointForTask(ssp, taskName, startpoint)
+  }
+
   /**
     * Gets a snapshot of all the current offsets for the specified task. This is useful to
     * ensure there are no concurrent updates to the offsets between when this method is
@@ -250,7 +274,7 @@ class OffsetManager(
   }
 
   /**
-    * Write the specified checkpoint for the given task.
+    * Write the specified checkpoint for the given task and delete the corresponding startpoint, if available.
     */
   def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     if (checkpoint != null && (checkpointManager != null || checkpointListeners.nonEmpty)) {
@@ -261,7 +285,15 @@ class OffsetManager(
         val sspToOffsets = checkpoint.getOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
-            case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
+            case (ssp, cp) => {
+              offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
+
+              // Delete startpoints once a new checkpoint is committed.
+              startpoints.get(taskName) match {
+                case Some(_) => startpointManager.deleteStartpointForTask(ssp, taskName)
+                case None => debug("No startpoints for task %s." format (taskName))
+              }
+            }
           }
         }
       }
@@ -274,6 +306,9 @@ class OffsetManager(
         }
       }
     }
+
+    // Remove from internal map
+    startpoints -= taskName;
   }
 
   def stop {
@@ -283,6 +318,14 @@ class OffsetManager(
       checkpointManager.stop
     } else {
       debug("Skipping checkpoint manager shutdown because no checkpoint manager is defined.")
+    }
+
+    if (startpointManager != null) {
+      debug("Shutting down startpoint manager.")
+
+      startpointManager.stop
+    } else {
+      debug("Skipping startpoint manager shutdown because no checkpoint manager is defined.")
     }
   }
 
@@ -404,6 +447,23 @@ class OffsetManager(
     }
   }
 
+  /**
+    * Load Startpoints for each SystemStreamPartition+TaskName
+    */
+  private def loadStartpoints: Unit = {
+    if (startpointManager != null) {
+      val taskNameToSSPs: Map[TaskName, Set[SystemStreamPartition]] = systemStreamPartitions
+
+      taskNameToSSPs.foreach {
+        case (taskName, systemStreamPartitionSet) => {
+          startpoints += taskName -> systemStreamPartitionSet
+            .map(ssp => (ssp, startpointManager.readStartpointForTask(ssp, taskName)))
+            .filter(_._2 != null)
+            .toMap
+        }
+      }
+    }
+  }
   /**
    * Use defaultOffsets to get a next offset for every SystemStreamPartition
    * that was registered, but has no offset.
