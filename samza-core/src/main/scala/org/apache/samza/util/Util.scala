@@ -23,7 +23,6 @@ package org.apache.samza.util
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.SamzaException
-import java.lang.management.ManagementFactory
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -34,7 +33,6 @@ import scala.collection.JavaConverters._
 
 object Util extends Logging {
   val Random = new Random
-  val ThreadMxBean = ManagementFactory.getThreadMXBean
 
   /**
    * Make an environment variable string safe to pass.
@@ -112,21 +110,6 @@ object Util extends Logging {
     config.getConfigRewriters match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
       case _ => config
-    }
-  }
-
-  def logThreadDump(message: String): Unit = {
-    try {
-      val threadInfo = ThreadMxBean.dumpAllThreads(true, true)
-      val sb = new StringBuilder
-      sb.append(message).append("\n")
-      for (ti <- threadInfo) {
-        sb.append(ti.toString).append("\n")
-      }
-      info(sb)
-    } catch {
-      case e: Exception =>
-        info("Could not get and log a thread dump", e)
     }
   }
 }

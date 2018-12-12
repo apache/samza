@@ -1091,7 +1091,7 @@ class SamzaContainer(
           info("Shutdown complete")
         } else {
           error("Did not shut down within %s ms, exiting." format shutdownMs)
-          Util.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
+          ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
         }
       }
     }
