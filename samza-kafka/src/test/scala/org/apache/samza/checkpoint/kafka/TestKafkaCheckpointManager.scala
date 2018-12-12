@@ -233,6 +233,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.register(taskName)
     kcm.start
     kcm.writeCheckpoint(taskName, checkpoint)
+    kcm.stop
   }
 
   private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
