@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException
 class ScalaMapConfig(config: Config) extends MapConfig(config) {
   def getOrElse(k: String, els: String) = getOption(k).getOrElse(els)
 
-  def getOption(k: String): Option[String] = if (containsKey(k)) Some(config.get(k)) else None
+  def getOption(k: String): Option[String] = if (config.containsKey(k)) Some(config.get(k)) else None
 
   def getNonEmptyOption(k: String): Option[String] = {
     getOption(k) match {
@@ -33,11 +33,11 @@ class ScalaMapConfig(config: Config) extends MapConfig(config) {
   }
 
 
-  def getExcept(k: String, msg: String = null): String = 
+  def getExcept(k: String, msg: String = null): String =
     getOption(k) match {
       case Some(s) => s
       case _ =>
-        val error = 
+        val error =
           if(msg == null) "Missing required configuration '%s'".format(k)
           else "Missing required configuration '%s': %s".format(k, msg)
         throw new SamzaException(error)

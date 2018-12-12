@@ -18,10 +18,9 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import java.util.List;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -44,15 +43,39 @@ import java.util.Set;
  * </p>
  */
 public interface TaskNameGrouper {
-  /**
-   * Group tasks into the containers they will share.
-   *
-   * @param tasks Set of tasks to group into containers.
-   * @return Set of containers, which contain the tasks that were passed in.
-   */
-  Set<ContainerModel> group(Set<TaskModel> tasks);
 
-  default Set<ContainerModel> group(Set<TaskModel> tasks, List<String> containersIds) {
-    return group(tasks);
+  /**
+   * Groups the taskModels into set of {@link ContainerModel} using the metadata of
+   * the job from {@link GrouperMetadata}.
+   *
+   * @param taskModels the set of tasks to group into containers.
+   * @param grouperMetadata provides the historical metadata of the samza job.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
+   */
+  default Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
+    return group(taskModels);
+  }
+
+  /**
+   * Group the taskModels into set of {@link ContainerModel}.
+   *
+   * @param taskModels the set of {@link TaskModel} to group into containers.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
+   */
+  @Deprecated
+  default Set<ContainerModel> group(Set<TaskModel> taskModels) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Group the taskModels into set of {@link ContainerModel}.
+   *
+   * @param taskModels the set of {@link TaskModel} to group into containers.
+   * @param containersIds the list of container ids that has to be used in the {@link ContainerModel}.
+   * @return the grouped {@link ContainerModel} built from the provided taskModels.
+   */
+  @Deprecated
+  default Set<ContainerModel> group(Set<TaskModel> taskModels, List<String> containersIds) {
+    return group(taskModels);
   }
 }

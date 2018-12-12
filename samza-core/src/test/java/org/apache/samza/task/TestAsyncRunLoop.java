@@ -108,6 +108,7 @@ public class TestAsyncRunLoop {
         mock(JobContext.class),
         mock(ContainerContext.class),
         Option.apply(null),
+        Option.apply(null),
         Option.apply(null));
   }
 

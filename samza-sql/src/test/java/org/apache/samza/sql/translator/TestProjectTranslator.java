@@ -19,6 +19,7 @@
 package org.apache.samza.sql.translator;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,6 +48,7 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.testutil.TestMetricsRegistryImpl;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -135,11 +137,13 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(1, testMetricsRegistryImpl.getGauges().size());
     assertEquals(2, testMetricsRegistryImpl.getGauges().get(LOGICAL_OP_ID).size());
     assertEquals(1, testMetricsRegistryImpl.getCounters().size());
-    assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).size());
+    assertEquals(2, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).size());
     assertEquals(0, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
     // Calling mapFn.apply() to verify the filter function is correctly applied to the input message
-    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>());
+    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
+        new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
@@ -164,6 +168,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Verify mapFn.apply() updates the TestMetricsRegistryImpl metrics
     assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
   }
 
@@ -174,7 +179,8 @@ public class TestProjectTranslator extends TranslatorTestBase {
     TranslatorContext mockTranslatorContext = mock(TranslatorContext.class);
     Context mockContext = mock(Context.class);
     ContainerContext mockContainerContext = mock(ContainerContext.class);
-    NoOpMetricsRegistry noOpMetricsRegistry = new NoOpMetricsRegistry();
+    TestMetricsRegistryImpl testMetricsRegistryImpl = new TestMetricsRegistryImpl();
+
     RelNode mockInput = mock(RelNode.class);
     List<RelNode> inputs = new ArrayList<>();
     inputs.add(mockInput);
@@ -243,7 +249,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       this.add("test_field_no1");
     }}, new ArrayList<Object>() {{
       this.add(testObj);
-    }});
+    }}, new SamzaSqlRelMsgMetadata("", "", ""));
     Collection<SamzaSqlRelMessage> flattenedMsgs = flattenOp.getTransformFn().apply(mockMsg);
     assertTrue(flattenedMsgs.size() == 1);
     assertTrue(flattenedMsgs.stream().anyMatch(s -> s.getSamzaSqlRelRecord().getFieldValues().get(0).equals(testObj)));
@@ -255,7 +261,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       this.add("test_list_field1");
     }}, new ArrayList<Object>() {{
       this.add(testList);
-    }});
+    }}, new SamzaSqlRelMsgMetadata("", "", ""));
     flattenedMsgs = flattenOp.getTransformFn().apply(mockMsg);
     assertTrue(flattenedMsgs.size() == 10);
     List<Integer> actualList = flattenedMsgs.stream()
@@ -269,7 +275,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Verify that the describe() method will establish the context for the map function
     when(mockContext.getContainerContext()).thenReturn(mockContainerContext);
-    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(noOpMetricsRegistry);
+    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(testMetricsRegistryImpl);
     Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
     mockContexts.put(1, mockTranslatorContext);
     when(mockContext.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
@@ -279,9 +285,23 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(mockTranslatorContext, Whitebox.getInternalState(mapFn, "translatorContext"));
     assertEquals(mockProject, Whitebox.getInternalState(mapFn, "project"));
     assertEquals(mockExpr, Whitebox.getInternalState(mapFn, "expr"));
+    // Verify TestMetricsRegistryImpl works with Project
+    assertEquals(1, testMetricsRegistryImpl.getGauges().size());
+    assertEquals(2, testMetricsRegistryImpl.getGauges().get(LOGICAL_OP_ID).size());
+    assertEquals(1, testMetricsRegistryImpl.getCounters().size());
+    assertEquals(2, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).size());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
+    // Verify mapFn.apply() updates the TestMetricsRegistryImpl metrics
+    for (SamzaSqlRelMessage message : flattenedMsgs) {
+      mapFn.apply(message);
+    }
+    assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(10, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
     // Calling mapFn.apply() to verify the filter function is correctly applied to the input message
-    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>());
+    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
+        new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);

@@ -22,25 +22,29 @@ package org.apache.samza.container
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.config.{Config, MapConfig}
-import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
+import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
+import org.apache.samza.context.{ApplicationContainerContext, ContainerContext, JobContext}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
-import org.apache.samza.metrics.{Gauge, Timer}
+import org.apache.samza.metrics.{Gauge, MetricsReporter, Timer}
 import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
 import org.apache.samza.system._
+import org.apache.samza.task.{StreamTaskFactory, TaskFactory}
 import org.apache.samza.{Partition, SamzaContainerStatus}
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}
 import org.mockito.Mockito._
-import org.mockito.{ArgumentCaptor, Mock, MockitoAnnotations}
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{ArgumentCaptor, Mock, Mockito, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")
@@ -60,12 +64,13 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var metrics: SamzaContainerMetrics = null
   @Mock
+  private var localityManager: LocalityManager = null
+  @Mock
   private var containerContext: ContainerContext = null
   @Mock
   private var applicationContainerContext: ApplicationContainerContext = null
   @Mock
   private var samzaContainerListener: SamzaContainerListener = null
-
   @Mock
   private var containerStorageManager: ContainerStorageManager = null
 
@@ -258,6 +263,19 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     assertEquals(Set(), SamzaContainer.getChangelogSSPsForContainer(containerModel, Map()))
   }
 
+  @Test
+  def testStoreContainerLocality():Unit = {
+    this.config = new MapConfig(Map(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED -> "true"))
+    setupSamzaContainer(None) // re-init with an actual config
+    val containerModel: ContainerModel = Mockito.mock[ContainerModel](classOf[ContainerModel])
+    val testContainerId = "1"
+    Mockito.when(containerModel.getId).thenReturn(testContainerId)
+    Mockito.when(this.containerContext.getContainerModel).thenReturn(containerModel)
+
+    this.samzaContainer.storeContainerLocality
+    Mockito.verify(this.localityManager).writeContainerToHostMapping(any(), any())
+  }
+
   private def setupSamzaContainer(applicationContainerContext: Option[ApplicationContainerContext]) {
     this.samzaContainer = new SamzaContainer(
       this.config,
@@ -266,9 +284,12 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       this.systemAdmins,
       this.consumerMultiplexer,
       this.producerMultiplexer,
-      metrics,
+      this.metrics,
+      localityManager = this.localityManager,
       containerContext = this.containerContext,
-      applicationContainerContextOption = applicationContainerContext, containerStorageManager = containerStorageManager)
+      applicationContainerContextOption = applicationContainerContext,
+      externalContextOption = None,
+      containerStorageManager = containerStorageManager)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 

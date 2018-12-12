@@ -26,7 +26,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.Util;
 
-
 /**
  * This class contains the main() method used by run-app.sh.
  * It creates the {@link ApplicationRunner} based on the config, and then run the application.
@@ -59,7 +58,7 @@ public class ApplicationRunnerMain {
 
     switch (op) {
       case RUN:
-        appRunner.run();
+        appRunner.run(null);
         break;
       case KILL:
         appRunner.kill();
