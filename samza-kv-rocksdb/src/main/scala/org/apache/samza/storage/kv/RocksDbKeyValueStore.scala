@@ -240,6 +240,7 @@ class RocksDbKeyValueStore(
 
     // if auto-compaction is disabled, e.g., when bulk-loading
     if(options.disableAutoCompactions()) {
+      trace("Auto compaction is disabled, so invoking compact range.")
       db.compactRange()
     }
 

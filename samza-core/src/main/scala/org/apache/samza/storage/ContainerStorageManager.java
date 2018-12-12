@@ -137,23 +137,22 @@ public class ContainerStorageManager {
 
     this.taskInstanceCollectors = taskInstanceCollectors;
 
-    // initialize the taskStores
-    this.taskStores = new HashMap<>();
-    createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
-        serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
-
     // initializing the set of store directory paths
     this.storeDirectoryPaths = new HashSet<>();
-
-    // create system consumers (1 per store system)
-    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config);
-
 
     // Setting the restore thread pool size equal to the number of taskInstances
     this.parallelRestoreThreadPoolSize = taskInstanceMetrics.size();
 
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
     this.streamMetadataCache = streamMetadataCache;
+
+    // initialize the taskStores
+    this.taskStores = new HashMap<>();
+    createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
+        serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
+
+    // create system consumers (1 per store system)
+    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config);
 
     // creating task restore managers
     this.taskRestoreManagers = containerModel.getTasks().entrySet().stream().
@@ -227,7 +226,7 @@ public class ContainerStorageManager {
           // add created store to map
           this.taskStores.get(taskName).put(storeName, storageEngine);
 
-          LOG.info("Re-created store %s for task %s because it a persistent store", storeName, taskName);
+          LOG.info("Re-created store {} for task {} because it a persistent store", storeName, taskName);
         } else if (!this.taskStores.get(taskName).containsKey(storeName)) {
           // if this store doesnt exist, then create it and add to taskStores
 
@@ -238,10 +237,10 @@ public class ContainerStorageManager {
           // add created store to map
           this.taskStores.get(taskName).put(storeName, storageEngine);
 
-          LOG.info("Created store %s for task %s", storeName, taskName);
+          LOG.info("Created store {} for task {}", storeName, taskName);
         } else {
 
-          LOG.info("Not re-creating store %s for task %s because it a non-persistent store", storeName, taskName);
+          LOG.info("Not re-creating store {} for task {} because it a non-persistent store", storeName, taskName);
         }
       }
     }
@@ -270,13 +269,13 @@ public class ContainerStorageManager {
             : StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName));
+    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).getOrElse(null));
     if (keySerde == null) {
       throw new SamzaException(
           "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
     }
 
-    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName));
+    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).getOrElse(null));
     if (messageSerde == null) {
       throw new SamzaException(
           "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
