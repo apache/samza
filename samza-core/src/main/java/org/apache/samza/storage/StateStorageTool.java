@@ -56,7 +56,7 @@ public class StateStorageTool extends CommandLine {
     MapConfig config = tool.loadConfig(options);
     String path = tool.getPath();
 
-    StorageRecovery storageRecovery = new StorageRecovery(config, path);
+    StorageRecovery storageRecovery = new StorageRecovery(config);
     storageRecovery.run();
   }
 }

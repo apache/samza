@@ -66,7 +66,6 @@ public class StorageRecovery extends CommandLine {
 
   private Config jobConfig;
   private int maxPartitionNumber = 0;
-  private File storeBaseDir = null;
   private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
   private HashMap<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
@@ -80,12 +79,9 @@ public class StorageRecovery extends CommandLine {
    *
    * @param config
    *          the job config
-   * @param path
-   *          the directory path where we put the stores
    */
-  StorageRecovery(Config config, String path) {
+  StorageRecovery(Config config) {
     jobConfig = config;
-    storeBaseDir = new File(path, "state");
     systemAdmins = new SystemAdmins(config);
   }
 
@@ -119,7 +115,7 @@ public class StorageRecovery extends CommandLine {
     });
     systemAdmins.stop();
 
-    log.info("successfully recovered in " + storeBaseDir.toString());
+    log.info("successfully recovered");
   }
 
   /**
