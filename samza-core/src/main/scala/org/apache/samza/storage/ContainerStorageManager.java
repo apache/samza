@@ -316,7 +316,7 @@ public class ContainerStorageManager {
     // Start consumers
     this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.start());
 
-    // Create a thread pool for parallel restores
+    // Create a thread pool for parallel restores (and stopping of persistent stores)
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
         new ThreadFactoryBuilder().setNameFormat(RESTORE_THREAD_NAME).build());
 
@@ -344,7 +344,7 @@ public class ContainerStorageManager {
     // Stop consumers
     this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
 
-    // Now stop and recreate persistent stores in read-write mode, leave non-persistent stores as-is.
+    // Now recreate persistent stores in read-write mode, leave non-persistent stores as-is
     createTaskStores(this.containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.ReadWrite);
 
@@ -447,6 +447,10 @@ public class ContainerStorageManager {
       long startTime = System.currentTimeMillis();
       LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
       taskRestoreManager.restoreStores();
+
+      // Stop all persistent stores after restoring, so they can be re-created in RW mode
+      taskRestoreManager.stopPersistentStores();
+
       long timeToRestore = System.currentTimeMillis() - startTime;
 
       if (this.samzaContainerMetrics != null) {
@@ -672,7 +676,15 @@ public class ContainerStorageManager {
     }
 
     public void stop() {
+      // Stopping all stores
+      this.taskStores.values().forEach(storageEngine -> {storageEngine.stop();});
+    }
 
+    public void stopPersistentStores() {
+
+      // Stopping only persistent stores
+      this.taskStores.values().stream().filter(storageEngine -> {return storageEngine.getStoreProperties().isPersistedToDisk();})
+          .forEach(storageEngine -> {storageEngine.stop();});
     }
   }
 }
