@@ -30,9 +30,9 @@ import org.junit.Test;
 public class TestHdfsSystemDescriptor {
   @Test
   public void testMajorConfigGeneration() {
-    final String systemName = "hdfs";
+    String systemName = "hdfs";
 
-    final HdfsSystemDescriptor sd = new HdfsSystemDescriptor(systemName).withConsumerBufferCapacity(950)
+    HdfsSystemDescriptor sd = new HdfsSystemDescriptor(systemName).withConsumerBufferCapacity(950)
         .withConsumerWhiteList(".*")
         .withReaderType("avro")
         .withOutputBaseDir("/home/output")

@@ -30,13 +30,13 @@ import org.junit.Test;
 public class TestKinesisSystemDescriptor {
   @Test
   public void testConfigGeneration() {
-    final String systemName = "kinesis";
-    final Map<String, String> kclConfig = new HashMap<>();
+    String systemName = "kinesis";
+    Map<String, String> kclConfig = new HashMap<>();
     kclConfig.put("key1", "value1");
-    final Map<String, String> awsConfig = new HashMap<>();
+    Map<String, String> awsConfig = new HashMap<>();
     awsConfig.put("key2", "value2");
 
-    final KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName).withRegion("London")
+    KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName).withRegion("London")
         .withProxyHost("US")
         .withProxyPort(1776)
         .withAWSConfig(awsConfig)

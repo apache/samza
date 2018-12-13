@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
@@ -56,7 +57,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @param valueSerde serde the values in the messages in the stream
    * @param systemDescriptor system descriptor this stream descriptor was obtained from
    */
-  KinesisInputDescriptor(String streamId, Serde valueSerde, SystemDescriptor systemDescriptor) {
+  <T> KinesisInputDescriptor(String streamId, Serde<T> valueSerde, SystemDescriptor systemDescriptor) {
     super(streamId, KVSerde.of(new NoOpSerde<>(), valueSerde), systemDescriptor, null);
   }
 
@@ -66,7 +67,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withRegion(String region) {
-    this.region = Optional.of(region);
+    this.region = Optional.of(StringUtils.stripToNull(region));
     return this;
   }
 
@@ -76,7 +77,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withAccessKey(String accessKey) {
-    this.accessKey = Optional.of(accessKey);
+    this.accessKey = Optional.of(StringUtils.stripToNull(accessKey));
     return this;
   }
 
@@ -86,7 +87,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withSecretKey(String secretKey) {
-    this.secretKey = Optional.of(secretKey);
+    this.secretKey = Optional.of(StringUtils.stripToNull(secretKey));
     return this;
   }
 
@@ -102,11 +103,11 @@ public class KinesisInputDescriptor<StreamMessageType>
 
   @Override
   public Map<String, String> toConfig() {
-    final Map<String, String> config = new HashMap<>(super.toConfig());
+    Map<String, String> config = new HashMap<>(super.toConfig());
 
-    final String systemName = getSystemName();
-    final String streamId = getStreamId();
-    final String clientConfigPrefix =
+    String systemName = getSystemName();
+    String streamId = getStreamId();
+    String clientConfigPrefix =
         String.format(KinesisConfig.CONFIG_STREAM_KINESIS_CLIENT_LIB_CONFIG, systemName, streamId);
 
     this.region.ifPresent(

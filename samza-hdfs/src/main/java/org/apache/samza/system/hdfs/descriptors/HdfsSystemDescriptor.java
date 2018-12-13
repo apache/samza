@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.system.hdfs.HdfsConfig;
 import org.apache.samza.system.hdfs.HdfsSystemFactory;
@@ -91,7 +92,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withDatePathFormat(String datePathFormat) {
-    this.datePathFormat = Optional.of(datePathFormat);
+    this.datePathFormat = Optional.of(StringUtils.stripToNull(datePathFormat));
     return this;
   }
 
@@ -101,7 +102,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withOutputBaseDir(String outputBaseDir) {
-    this.outputBaseDir = Optional.of(outputBaseDir);
+    this.outputBaseDir = Optional.of(StringUtils.stripToNull(outputBaseDir));
     return this;
   }
 
@@ -134,7 +135,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withWriteCompressionType(String writeCompressionType) {
-    this.writeCompressionType = Optional.of(writeCompressionType);
+    this.writeCompressionType = Optional.of(StringUtils.stripToNull(writeCompressionType));
     return this;
   }
 
@@ -144,7 +145,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withWriterClassName(String writerClassName) {
-    this.writerClass = Optional.of(writerClassName);
+    this.writerClass = Optional.of(StringUtils.stripToNull(writerClassName));
     return this;
   }
 
@@ -174,7 +175,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerWhiteList(String whiteList) {
-    this.consumerWhiteList = Optional.of(whiteList);
+    this.consumerWhiteList = Optional.of(StringUtils.stripToNull(whiteList));
     return this;
   }
 
@@ -184,7 +185,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerBlackList(String blackList) {
-    this.consumerBlackList = Optional.of(blackList);
+    this.consumerBlackList = Optional.of(StringUtils.stripToNull(blackList));
     return this;
   }
 
@@ -194,7 +195,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerGroupPattern(String groupPattern) {
-    this.consumerGroupPattern = Optional.of(groupPattern);
+    this.consumerGroupPattern = Optional.of(StringUtils.stripToNull(groupPattern));
     return this;
   }
 
@@ -204,7 +205,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withReaderType(String readerType) {
-    this.consumerReader = Optional.of(readerType);
+    this.consumerReader = Optional.of(StringUtils.stripToNull(readerType));
     return this;
   }
 
@@ -215,14 +216,14 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withStagingDirectory(String stagingDirectory) {
-    this.consumerStagingDirectory = Optional.of(stagingDirectory);
+    this.consumerStagingDirectory = Optional.of(StringUtils.stripToNull(stagingDirectory));
     return this;
   }
 
   @Override
   public Map<String, String> toConfig() {
-    final Map<String, String> config = new HashMap<>(super.toConfig());
-    final String systemName = getSystemName();
+    Map<String, String> config = new HashMap<>(super.toConfig());
+    String systemName = getSystemName();
 
     this.datePathFormat.ifPresent(
         val -> config.put(String.format(HdfsConfig.DATE_PATH_FORMAT_STRING(), systemName), val));

@@ -39,9 +39,9 @@ wraps the Record into a [KinesisIncomingMessageEnvelope](https://github.com/apac
 Here is the required configuration for consuming messages from Kinesis, through `KinesisSystemDescriptor` and `KinesisInputDescriptor`. 
 
 {% highlight java %}
-final KinesisSystemDescriptor ksd = new KinesisSystemDescriptor("kinesis");
+KinesisSystemDescriptor ksd = new KinesisSystemDescriptor("kinesis");
     
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
+KinesisInputDescriptor<KV<String, byte[]>> kid = 
     ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
           .withRegion("STREAM-REGION")
           .withAccessKey("YOUR-ACCESS_KEY")
@@ -61,7 +61,7 @@ job.systemstreampartition.grouper.factory=org.apache.samza.container.grouper.str
 Each Kinesis stream in a given AWS [region](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html) can be accessed by providing an [access key](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys). An Access key consists of two parts: an access key ID (for example, `AKIAIOSFODNN7EXAMPLE`) and a secret access key (for example, `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`) which you can use to send programmatic requests to AWS. 
 
 {% highlight java %}
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
+KinesisInputDescriptor<KV<String, byte[]>> kid = 
     ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
           .withRegion("STREAM-REGION")
           .withAccessKey("YOUR-ACCESS_KEY")
@@ -76,28 +76,22 @@ Samza Kinesis Connector uses the [Kinesis Client Library](https://docs.aws.amazo
 for a stream by configuring it through `KinesisInputDescriptor`.
 
 {% highlight java %}
-final Map<String, String> kclConfig = new HashMap<>;
+KinesisInputDescriptor<KV<String, byte[]>> kid = ...
+
+Map<String, String> kclConfig = new HashMap<>;
 kclConfig.put("CONFIG-PARAM", "CONFIG-VALUE");
 
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
-    ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
-          .withRegion("STREAM-REGION")
-          .withAccessKey("YOUR-ACCESS_KEY")
-          .withSecretKey("YOUR-SECRET-KEY")
-          .withKCLConfig(kclConfig);
+kid.withKCLConfig(kclConfig);
 {% endhighlight %}
 
 As an example, the below configuration is equivalent to invoking `kclClient#WithTableName(myTable)` on the KCL instance.
 {% highlight java %}
-final Map<String, String> kclConfig = new HashMap<>;
+KinesisInputDescriptor<KV<String, byte[]>> kid = ...
+
+Map<String, String> kclConfig = new HashMap<>;
 kclConfig.put("TableName", "myTable");
 
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
-    ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
-          .withRegion("STREAM-REGION")
-          .withAccessKey("YOUR-ACCESS_KEY")
-          .withSecretKey("YOUR-SECRET-KEY")
-          .withKCLConfig(kclConfig);
+kid.withKCLConfig(kclConfig);
 {% endhighlight %}
 
 #### AWS Client configs
@@ -105,16 +99,16 @@ Samza allows you to specify any [AWS client configs](http://docs.aws.amazon.com/
 You can configure any [AWS client configuration](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/ClientConfiguration.html) through `KinesisSystemDescriptor`.
 
 {% highlight java %}
-final Map<String, String> awsConfig = new HashMap<>;
+Map<String, String> awsConfig = new HashMap<>;
 awsConfig.put("CONFIG-PARAM", "CONFIG-VALUE");
 
-final KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName)
+KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName)
                                           .withAWSConfig(awsConfig);
 {% endhighlight %}
 
 Through `KinesisSystemDescriptor` you can also set the *proxy host* and *proxy port* to be used by the Kinesis Client:
 {% highlight java %}
-final KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName)
+KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName)
                                           .withProxyHost("YOUR-PROXY-HOST")
                                           .withProxyPort(YOUR-PROXY-PORT);
 {% endhighlight %}
@@ -132,15 +126,12 @@ systems.kinesis-system.streams.STREAM-NAME.aws.kcl.TableName=my-app-table-name
 Or through `KinesisInputDescriptor`
 
 {% highlight java %}
-final Map<String, String> kclConfig = new HashMap<>;
-kclConfig.put("TableName", "my-app-table-name");
+KinesisInputDescriptor<KV<String, byte[]>> kid = ...
 
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
-    ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
-          .withRegion("STREAM-REGION")
-          .withAccessKey("YOUR-ACCESS_KEY")
-          .withSecretKey("YOUR-SECRET-KEY")
-          .withKCLConfig(kclConfig);
+Map<String, String> kclConfig = new HashMap<>;
+kclConfig.put("TableName", "my-new-app-table-name");
+
+kid.withKCLConfig(kclConfig);
 {% endhighlight %}
 
 
@@ -154,15 +145,12 @@ systems.kinesis-system.streams.STREAM-NAME.aws.kcl.InitialPositionInStream=LATES
 Or through `KinesisInputDescriptor`
 
 {% highlight java %}
-final Map<String, String> kclConfig = new HashMap<>;
+KinesisInputDescriptor<KV<String, byte[]>> kid = ...
+
+Map<String, String> kclConfig = new HashMap<>;
 kclConfig.put("InitialPositionInStream", "LATEST");
 
-final KinesisInputDescriptor<KV<String, byte[]>> kid = 
-    ksd.getInputDescriptor("STREAM-NAME", new NoOpSerde<byte[]>())
-          .withRegion("STREAM-REGION")
-          .withAccessKey("YOUR-ACCESS_KEY")
-          .withSecretKey("YOUR-SECRET-KEY")
-          .withKCLConfig(kclConfig);
+kid.withKCLConfig(kclConfig);
 {% endhighlight %}
 
 Alternately, if you want to start from a particular offset in the Kinesis stream, you can login to the [AWS console](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ConsoleDynamoDB.html) and edit the offsets in your DynamoDB Table.

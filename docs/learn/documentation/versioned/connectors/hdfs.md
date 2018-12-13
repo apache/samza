@@ -50,8 +50,8 @@ While streaming sources like Kafka are unbounded, files on HDFS have finite data
 In Samza high level API, you can use `HdfsSystemDescriptor` to create a HDFS system. The stream name should be set to the name of the directory on HDFS.
 
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream");
-final HdfsInputDescriptor hid = hsd.getInputDescriptor("/data/clickstream/2016/09/11");
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream");
+HdfsInputDescriptor hid = hsd.getInputDescriptor("/data/clickstream/2016/09/11");
 {% endhighlight %}
 
 The above example defines a stream called `hdfs-clickstream` that reads data from the `/data/clickstream/2016/09/11` directory. 
@@ -60,7 +60,7 @@ The above example defines a stream called `hdfs-clickstream` that reads data fro
 If you only want to consume from files that match a certain pattern, you can configure a whitelist. Likewise, you can also blacklist consuming from certain files. When both are specified, the _whitelist_ selects the files to be filtered and the _blacklist_ is later applied on its results. 
 
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
                                         .withConsumerWhiteList(".*avro")
                                         .withConsumerBlackList("somefile.avro");
 {% endhighlight %}
@@ -73,14 +73,14 @@ final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
 Samza allows writing your output results to HDFS in AVRO format. You can either use avro's GenericRecords or have Samza automatically infer the schema for your object using reflection. 
 
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
                                         .withWriterClassName(AvroDataFileHdfsWriter.class.getName());
 {% endhighlight %}
 
 
 If your output is non-avro, use `TextSequenceFileHdfsWriter`.
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
                                         .withWriterClassName(TextSequenceFileHdfsWriter.class.getName());
 {% endhighlight %}
 
@@ -89,7 +89,7 @@ final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
 
 Samza allows you to control the base HDFS directory to write your output. You can also organize the output into sub-directories depending on the time your application ran, by configuring a date-formatter. 
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
                                         .withOutputBaseDir("/user/me/analytics/clickstream_data")
                                         .withDatePathFormat("yyyy_MM_dd");
 {% endhighlight %}
@@ -97,7 +97,7 @@ final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
 You can configure the maximum size of each file or the maximum number of records per-file. Once either limits have been reached, Samza will create a new file.
 
 {% highlight java %}
-final HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
+HdfsSystemDescriptor hsd = new HdfsSystemDescriptor("hdfs-clickstream")
                                         .withWriteBatchSizeBytes(134217728)
                                         .withWriteBatchSizeRecords(10000);
 {% endhighlight %}

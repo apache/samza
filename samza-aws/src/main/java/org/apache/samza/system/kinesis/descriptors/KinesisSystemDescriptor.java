@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.descriptors.SystemDescriptor;
@@ -71,7 +72,7 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
    * @return this system descriptor
    */
   public KinesisSystemDescriptor withRegion(String region) {
-    this.region = Optional.of(region);
+    this.region = Optional.of(StringUtils.stripToNull(region));
     return this;
   }
 
@@ -101,7 +102,7 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
    * @return this system descriptor
    */
   public KinesisSystemDescriptor withProxyHost(String proxyHost) {
-    this.proxyHost = Optional.of(proxyHost);
+    this.proxyHost = Optional.of(StringUtils.stripToNull(proxyHost));
     return this;
   }
 
@@ -117,8 +118,8 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
 
   @Override
   public Map<String, String> toConfig() {
-    final Map<String, String> config = new HashMap<>(super.toConfig());
-    final String systemName = getSystemName();
+    Map<String, String> config = new HashMap<>(super.toConfig());
+    String systemName = getSystemName();
 
     this.region.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_SYSTEM_REGION, systemName), val));

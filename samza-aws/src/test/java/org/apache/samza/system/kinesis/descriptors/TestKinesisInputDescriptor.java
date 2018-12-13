@@ -31,13 +31,12 @@ import org.junit.Test;
 public class TestKinesisInputDescriptor {
   @Test
   public void testConfigGeneration() {
-    final String systemName = "kinesis";
-    final String streamName = "Seine";
-    final KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName);
-    final Map<String, String> cliConfig = new HashMap<>();
+    String systemName = "kinesis";
+    String streamName = "Seine";
+    KinesisSystemDescriptor sd = new KinesisSystemDescriptor(systemName);
+    Map<String, String> cliConfig = new HashMap<>();
     cliConfig.put("key1", "value1");
-    final KinesisInputDescriptor<KV<String, byte[]>> id =
-        sd.getInputDescriptor(streamName, new NoOpSerde<byte[]>())
+    KinesisInputDescriptor<KV<String, byte[]>> id = sd.getInputDescriptor(streamName, new NoOpSerde<byte[]>())
         .withRegion("Paris")
         .withAccessKey("accessKey")
         .withSecretKey("secretKey")
