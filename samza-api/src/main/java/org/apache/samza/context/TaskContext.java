@@ -25,8 +25,6 @@ import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.Table;
 
 
 /**
@@ -63,17 +61,15 @@ public interface TaskContext {
   KeyValueStore<?, ?> getStore(String storeName);
 
   /**
-   * Gets the {@link Table} corresponding to the {@code tableId} for this task.
+   * Gets the {@link ReadWriteTable} corresponding to the {@code tableId} for this task.
    *
-   * The returned table should be cast with the concrete type parameters based on the configured table serdes, and
-   * whether it is {@link ReadWriteTable} or {@link ReadableTable}. E.g., if using string key and integer value
-   * serde for a writable table, it should be cast to a {@code ReadWriteTable<String, Integer>}.
-   *
-   * @param tableId id of the {@link Table} to get
-   * @return the {@link Table} associated with {@code tableId} for this task
+   * @param tableId id of the {@link ReadWriteTable} to get
+   * @param <K> the type of the key in this table
+   * @param <V> the type of the value in this table
+   * @return the {@link ReadWriteTable} associated with {@code tableId} for this task
    * @throws IllegalArgumentException if there is no table associated with {@code tableId}
    */
-  Table<?> getTable(String tableId);
+  <K, V> ReadWriteTable<K, V> getTable(String tableId);
 
   /**
    * Gets the {@link CallbackScheduler} for this task, which can be used to schedule a callback to be executed

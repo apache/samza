@@ -36,17 +36,17 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.remote.RemoteTableProvider;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -207,8 +207,8 @@ public class TestRemoteTableDescriptor {
     RemoteTableProvider provider = new RemoteTableProvider(desc.getTableId());
     provider.init(createMockContext(desc));
     Table table = provider.getTable();
-    Assert.assertTrue(table instanceof RemoteReadWriteTable);
-    RemoteReadWriteTable rwTable = (RemoteReadWriteTable) table;
+    Assert.assertTrue(table instanceof RemoteTable);
+    RemoteTable rwTable = (RemoteTable) table;
     if (numRateLimitOps > 0) {
       Assert.assertTrue(!rlGets || rwTable.getReadRateLimiter() != null);
       Assert.assertTrue(!rlPuts || rwTable.getWriteRateLimiter() != null);

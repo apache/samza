@@ -20,8 +20,7 @@ package org.apache.samza.storage.kv;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.Table;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.BaseTableProvider;
 
 /**
@@ -53,10 +52,10 @@ public class LocalTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public Table getTable() {
+  public ReadWriteTable getTable() {
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
     Preconditions.checkNotNull(kvStore, "Store not initialized for table " + tableId);
-    ReadableTable table = new LocalReadWriteTable(tableId, kvStore);
+    ReadWriteTable table = new LocalTable(tableId, kvStore);
     table.init(this.context);
     return table;
   }

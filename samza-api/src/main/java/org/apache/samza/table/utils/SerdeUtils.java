@@ -54,6 +54,7 @@ public final class SerdeUtils {
    * @return deserialized object instance
    * @param <T> type of the object
    */
+  @SuppressWarnings("unchecked")
   public static <T> T deserialize(String name, String strObject) {
     try {
       byte [] bytes = Base64.getDecoder().decode(strObject);
