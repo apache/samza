@@ -28,7 +28,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.{Gauge, Timer}
-import org.apache.samza.storage.{ContainerStorageManager, ContainerStorageRestoreManager, TaskStorageManager}
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.{Partition, SamzaContainerStatus}
 import org.junit.Assert._
@@ -67,7 +67,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private var samzaContainerListener: SamzaContainerListener = null
 
   @Mock
-  private var containerStorageManager: ContainerStorageRestoreManager = null
+  private var containerStorageManager: ContainerStorageManager = null
 
   private var samzaContainer: SamzaContainer = null
 

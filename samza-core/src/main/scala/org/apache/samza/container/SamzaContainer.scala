@@ -473,7 +473,7 @@ object SamzaContainer extends Logging {
     }).toMap
 
 
-    val containerStorageManager = new ContainerStorageRestoreManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
+    val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
       storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, maxChangeLogStreamPartitions, new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
@@ -718,7 +718,7 @@ class SamzaContainer(
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
-  containerStorageManager: ContainerStorageRestoreManager) extends Runnable with Logging {
+  containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null

@@ -19,9 +19,11 @@
 
 package org.apache.samza.storage;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
@@ -45,6 +47,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -66,7 +69,7 @@ public class StorageRecovery extends CommandLine {
   private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
   private HashMap<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
-  private Map<String, ContainerStorageRestoreManager> containerStorageManagers = new HashMap<>();
+  private Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
 
   private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
   private SystemAdmins systemAdmins = null;
@@ -104,11 +107,11 @@ public class StorageRecovery extends CommandLine {
     log.info("start recovering...");
 
     systemAdmins.start();
-    this.containerStorageManagers.forEach((containerName, containerStorageRestoreManager) -> {
-      containerStorageRestoreManager.start();
+    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
+      containerStorageManager.start();
     });
-    this.containerStorageManagers.forEach((containerName, containerStorageRestoreManager) -> {
-      containerStorageRestoreManager.shutdown();
+    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
+      containerStorageManager.shutdown();
     });
     systemAdmins.stop();
 
@@ -211,12 +214,12 @@ public class StorageRecovery extends CommandLine {
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
-      ContainerStorageRestoreManager containerStorageRestoreManager =
-          new ContainerStorageRestoreManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
+      ContainerStorageManager containerStorageManager =
+          new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
               storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(), new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
               JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(), maxPartitionNumber,
               new SystemClock());
-      this.containerStorageManagers.put(containerModel.getId(), containerStorageRestoreManager);
+      this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }
 }

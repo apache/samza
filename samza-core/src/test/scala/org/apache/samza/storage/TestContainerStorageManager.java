@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -52,13 +53,13 @@ import org.mockito.stubbing.Answer;
 import scala.collection.JavaConverters;
 
 
-public class TestContainerStorageRestoreManager {
+public class TestContainerStorageManager {
 
   private static final String STORE_NAME = "store";
   private static final String SYSTEM_NAME = "kafka";
   private static final String STREAM_NAME = "store-stream";
 
-  private ContainerStorageRestoreManager _containerStorageRestoreManager;
+  private ContainerStorageManager containerStorageManager;
   private Map<TaskName, Gauge<Object>> taskRestoreMetricGauges;
   private Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
   private SamzaContainerMetrics samzaContainerMetrics;
@@ -87,7 +88,7 @@ public class TestContainerStorageRestoreManager {
   }
 
   /**
-   * Method to create a _containerStorageRestoreManager with mocked dependencies
+   * Method to create a containerStorageManager with mocked dependencies
    */
   @Before
   public void setUp() {
@@ -169,6 +170,8 @@ public class TestContainerStorageRestoreManager {
     SystemAdmin mockSystemAdmin = Mockito.mock(SystemAdmin.class);
     Mockito.doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
+        Object[] args = invocation.getArguments();
+        System.out.println("called with arguments: " + Arrays.toString(args));
         return null;
       }
     }).when(mockSystemAdmin).validateStream(Mockito.any());
@@ -197,8 +200,8 @@ public class TestContainerStorageRestoreManager {
     this.storeRestoreCallCount = 0;
 
     // Create the container storage manager
-    this._containerStorageRestoreManager =
-        new ContainerStorageRestoreManager(new ContainerModel("samza-container-test", tasks), mockStreamMetadataCache,
+    this.containerStorageManager =
+        new ContainerStorageManager(new ContainerModel("samza-container-test", tasks), mockStreamMetadataCache,
             mockSystemAdmins, changelogSystemStreams, storageEngineFactories, systemFactories, serdes, config,
             taskInstanceMetrics, samzaContainerMetrics, Mockito.mock(JobContext.class),
             Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), 2, new SystemClock());
@@ -206,8 +209,8 @@ public class TestContainerStorageRestoreManager {
 
   @Test
   public void testParallelismAndMetrics() {
-    this._containerStorageRestoreManager.start();
-    this._containerStorageRestoreManager.shutdown();
+    this.containerStorageManager.start();
+    this.containerStorageManager.shutdown();
 
     for (Gauge gauge : taskRestoreMetricGauges.values()) {
       Assert.assertTrue("Restoration time gauge value should be invoked atleast once",

@@ -35,7 +35,7 @@ import org.apache.samza.util.{FileUtil, Logging}
  */
 class TaskStorageManager(
   taskName: TaskName,
-  containerStorageManager: ContainerStorageRestoreManager,
+  containerStorageManager: ContainerStorageManager,
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
   sspMetadataCache: SSPMetadataCache,
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
