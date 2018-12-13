@@ -22,6 +22,7 @@ package org.apache.samza.storage;
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionSet;
 
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;

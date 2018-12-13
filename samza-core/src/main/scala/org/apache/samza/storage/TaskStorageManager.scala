@@ -36,18 +36,11 @@ import org.apache.samza.util.{FileUtil, Logging}
 class TaskStorageManager(
   taskName: TaskName,
   containerStorageManager: ContainerStorageManager,
-  storeConsumers: Map[String, SystemConsumer] = Map(),
   changeLogSystemStreams: Map[String, SystemStream] = Map(),
-  streamMetadataCache: StreamMetadataCache,
   sspMetadataCache: SSPMetadataCache,
-  nonLoggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition,
-  systemAdmins: SystemAdmins) extends Logging {
+  partition: Partition) extends Logging {
 
-  var taskStoresToRestore = containerStorageManager.getAllStores(taskName).asScala.filter{
-    case (storeName, storageEngine) => storageEngine.getStoreProperties.isLoggedStore
-  }
   val persistedStores = containerStorageManager.getAllStores(taskName).asScala.filter{
     case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk
   }

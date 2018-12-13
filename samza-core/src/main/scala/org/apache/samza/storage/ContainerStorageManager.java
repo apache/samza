@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -48,6 +49,8 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
@@ -60,6 +63,7 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamPartitionIterator;
 import org.apache.samza.task.TaskInstanceCollector;
+import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,7 +121,7 @@ public class ContainerStorageManager {
       Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext, ContainerContext containerContext,
-      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, int maxChangeLogStreamPartitions) {
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, int maxChangeLogStreamPartitions, Clock clock) {
 
     this.containerModel = containerModel;
     this.changelogSystemStreams = changelogSystemStreams;
@@ -141,7 +145,7 @@ public class ContainerStorageManager {
     this.storeDirectoryPaths = new HashSet<>();
 
     // Setting the restore thread pool size equal to the number of taskInstances
-    this.parallelRestoreThreadPoolSize = taskInstanceMetrics.size();
+    this.parallelRestoreThreadPoolSize = containerModel.getTasks().size();
 
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
     this.streamMetadataCache = streamMetadataCache;
@@ -158,8 +162,10 @@ public class ContainerStorageManager {
     this.taskRestoreManagers = containerModel.getTasks().entrySet().stream().
         collect(Collectors.toMap(entry -> entry.getKey(),
             entry -> new TaskRestoreManager(entry.getValue(), changelogSystemStreams, taskStores.get(entry.getKey()),
-                systemAdmins)));
+                systemAdmins, clock)));
   }
+
+
 
   private Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
       Map<String, SystemFactory> systemFactories, Config config) {
@@ -269,21 +275,34 @@ public class ContainerStorageManager {
             : StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).getOrElse(null));
+    if(storageConfig.getStorageKeySerde(storeName).isEmpty()) {
+      throw new SamzaException("No key serde defined for store: "+storeName);
+    }
+
+    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).get());
     if (keySerde == null) {
       throw new SamzaException(
           "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
     }
 
-    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).getOrElse(null));
+    if(storageConfig.getStorageMsgSerde(storeName).isEmpty()) {
+      throw new SamzaException("No msg serde defined for store: "+storeName);
+    }
+
+    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).get());
     if (messageSerde == null) {
       throw new SamzaException(
           "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
     }
 
+    // if taskInstanceMetrics are specified use those for store metrics,
+    // otherwise (in case of StorageRecovery) use a blank MetricsRegistryMap
+    MetricsRegistry storeMetricsRegistry = taskInstanceMetrics.get(taskName)!=null ?
+        taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
+
     return storageEngineFactories.get(storeName)
         .getStorageEngine(storeName, storeDirectory, keySerde, messageSerde, taskInstanceCollectors.get(taskName),
-            taskInstanceMetrics.get(taskName).registry(), changeLogSystemStreamPartition, jobContext, containerContext,
+            storeMetricsRegistry, changeLogSystemStreamPartition, jobContext, containerContext,
             storeMode);
   }
 
@@ -448,7 +467,7 @@ public class ContainerStorageManager {
 
     private Map<String, StorageEngine> taskStores;
     private TaskModel taskModel;
-    private long currentTimeMillis;
+    private Clock clock;
     private final static String OFFSET_FILE_NAME = "OFFSET";
     private Map<SystemStream, String> changeLogOldestOffsets;
     private Map<SystemStreamPartition, String> fileOffsets;
@@ -456,10 +475,10 @@ public class ContainerStorageManager {
     private final SystemAdmins systemAdmins;
 
     public TaskRestoreManager(TaskModel taskModel, Map<String, SystemStream> changelogSystemStreams,
-        Map<String, StorageEngine> taskStores, SystemAdmins systemAdmins) {
+        Map<String, StorageEngine> taskStores, SystemAdmins systemAdmins, Clock clock) {
       this.taskStores = taskStores;
       this.taskModel = taskModel;
-      this.currentTimeMillis = System.currentTimeMillis();
+      this.clock = clock;
       this.changelogSystemStreams = changelogSystemStreams;
       this.systemAdmins = systemAdmins;
       this.fileOffsets = new HashMap<>();
@@ -527,7 +546,7 @@ public class ContainerStorageManager {
 
       return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
           && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, OFFSET_FILE_NAME) && !StorageManagerUtil.isStaleStore(
-          loggedStoreDir, OFFSET_FILE_NAME, changeLogDeleteRetentionInMs, currentTimeMillis);
+          loggedStoreDir, OFFSET_FILE_NAME, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
     }
 
     private void setupBaseDirs() {
@@ -641,7 +660,6 @@ public class ContainerStorageManager {
       LOG.debug("Restoring stores for task: " + taskModel.getTaskName());
 
       for (Map.Entry<String, StorageEngine> store : taskStores.entrySet()) {
-        if (store.getValue().getStoreProperties().isPersistedToDisk()) {
           SystemConsumer systemConsumer = systemConsumers.get(store.getKey());
           SystemStream systemStream = changelogSystemStreams.get(store.getKey());
 
@@ -650,7 +668,6 @@ public class ContainerStorageManager {
                   new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()));
 
           store.getValue().restore(systemStreamPartitionIterator);
-        }
       }
     }
 

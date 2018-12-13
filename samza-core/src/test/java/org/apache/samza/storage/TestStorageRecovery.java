@@ -24,8 +24,10 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
+import org.apache.samza.serializers.ByteSerdeFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStreamPartition;
@@ -33,7 +35,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 public class TestStorageRecovery {
 
@@ -79,6 +81,9 @@ public class TestStorageRecovery {
     map.put("systems.mockSystem.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.factory", STORE_NAME), MockStorageEngineFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.changelog", STORE_NAME), "mockSystem." + SYSTEM_STREAM_NAME);
+    map.put(String.format("stores.%s.key.serde", STORE_NAME), "byteserde");
+    map.put(String.format("stores.%s.msg.serde", STORE_NAME), "byteserde");
+    map.put("serializers.registry.byteserde.class", ByteSerdeFactory.class.getName());
     map.put("task.inputs", "mockSystem.input");
     map.put("job.coordinator.system", "coordinator");
     map.put("systems.coordinator.samza.factory", MockCoordinatorStreamSystemFactory.class.getCanonicalName());

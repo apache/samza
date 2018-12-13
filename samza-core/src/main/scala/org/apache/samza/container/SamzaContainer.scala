@@ -474,7 +474,7 @@ object SamzaContainer extends Logging {
 
 
     val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
-      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, maxChangeLogStreamPartitions)
+      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, maxChangeLogStreamPartitions, new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -565,11 +565,9 @@ object SamzaContainer extends Logging {
         taskName = taskName,
         containerStorageManager = containerStorageManager,
         changeLogSystemStreams = changeLogSystemStreams,
-        streamMetadataCache = streamMetadataCache,
         sspMetadataCache = changelogSSPMetadataCache,
         loggedStoreBaseDir = loggedStorageBaseDir,
-        partition = taskModel.getChangelogPartition,
-        systemAdmins = systemAdmins)
+        partition = taskModel.getChangelogPartition)
 
       var sideInputStorageManager: TaskSideInputStorageManager = null
       if (sideInputStores.nonEmpty) {
