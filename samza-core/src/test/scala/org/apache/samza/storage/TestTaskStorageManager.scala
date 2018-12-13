@@ -107,7 +107,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     taskManager.init
 
-    // mocking restore (issued by ContainerStorageManager)
+    // mocking restore (issued by ContainerStorageRestoreManager)
     mockStorageEngine.restore(mock[util.Iterator[IncomingMessageEnvelope]])
 
     assertTrue(storeFile.exists())
@@ -636,7 +636,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   var storeBaseDir: File = TaskStorageManagerBuilder.defaultStoreBaseDir
   var loggedStoreBaseDir: File =  TaskStorageManagerBuilder.defaultLoggedStoreBaseDir
   var changeLogStreamPartitions: Int = 1
-  var containerStorageManager : ContainerStorageManager = mock[ContainerStorageManager]
+  var containerStorageManager : ContainerStorageRestoreManager = mock[ContainerStorageRestoreManager]
 
   def addStore(storeName: String, storageEngine: StorageEngine, systemConsumer: SystemConsumer): TaskStorageManagerBuilder = {
     taskStores = taskStores ++ Map(storeName -> storageEngine)

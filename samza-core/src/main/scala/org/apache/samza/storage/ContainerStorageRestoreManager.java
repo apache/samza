@@ -18,7 +18,6 @@
  */
 package org.apache.samza.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -71,7 +70,7 @@ import scala.collection.JavaConverters;
 
 
 /**
- *  ContainerStorageManager is a per-container object that manages
+ *  ContainerStorageRestoreManager is a per-container object that manages
  *  the restore of per-task partitions.
  *
  *  It is responsible for
@@ -81,8 +80,8 @@ import scala.collection.JavaConverters;
  *  b) performing individual taskStorageManager restores in parallel.
  *
  */
-public class ContainerStorageManager {
-  private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
+public class ContainerStorageRestoreManager {
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageRestoreManager.class);
 
   // Naming convention to be used for restore threads
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
@@ -115,7 +114,7 @@ public class ContainerStorageManager {
   private final Set<Path> storeDirectoryPaths;
 
 
-  public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
+  public ContainerStorageRestoreManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
       SystemAdmins systemAdmins, Map<String, SystemStream> changelogSystemStreams,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
