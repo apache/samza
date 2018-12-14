@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 
 /**
@@ -285,11 +286,9 @@ public abstract class OperatorImpl<M, RM> {
    */
   private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
-      Collection<RM> results = handleEndOfStream(collector, coordinator);
-
-      results.forEach(rm ->
-          this.registeredOperators.forEach(op ->
-              op.onMessage(rm, collector, coordinator)));
+      handleEndOfStream(
+          rm -> this.registeredOperators.forEach(op -> op.onMessage(rm, collector, coordinator)),
+          collector, coordinator);
 
       this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
     }
@@ -302,10 +301,10 @@ public abstract class OperatorImpl<M, RM> {
    * override this to actually propagate EOS over the wire.
    * @param collector message collector
    * @param coordinator task coordinator
-   * @return results to be emitted when this operator reaches end-of-stream
+   * @param consumer Consumer to be called for every operator result
    */
-  protected Collection<RM> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    return Collections.emptyList();
+  protected void handleEndOfStream(Consumer<RM> consumer, MessageCollector collector, TaskCoordinator coordinator) {
+    
   }
 
   /**

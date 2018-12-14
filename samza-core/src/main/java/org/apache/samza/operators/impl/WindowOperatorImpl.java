@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -203,14 +204,12 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   @Override
-  protected Collection<WindowPane<K, Object>> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-    List<WindowPane<K, Object>> results = new ArrayList<>();
+  protected void handleEndOfStream(Consumer<WindowPane<K, Object>> consumer, MessageCollector collector, TaskCoordinator coordinator) {
     Set<TriggerKey<K>> triggerKeys = new HashSet<>(triggers.keySet());
     for(TriggerKey<K> triggerKey : triggerKeys) {
       Optional<WindowPane<K, Object>> triggerResult = onTriggerFired(triggerKey, collector, coordinator);
-      triggerResult.ifPresent(results::add);
+      triggerResult.ifPresent(consumer);
     }
-    return results;
   }
 
   @Override
