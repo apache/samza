@@ -420,14 +420,23 @@ object SamzaContainer extends Logging {
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val startpointManager = StartpointManager.getInstance(config, samzaContainerMetrics.registry)
+    val metadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
+      .map(Util.getObj(_, classOf[MetadataStoreFactory]))
+      .orNull
+    var startpointManager = None: Option[StartpointManager]
+    try {
+      startpointManager = Some(StartpointManager.getWithMetadataStore(metadataStoreFactory, config, samzaContainerMetrics.registry))
+    } catch {
+      case e: Throwable =>
+        error("Unable to get an instance of the StartpointManager. Continuing without one.", e)
+    }
 
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager.getOrElse(null), systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserializationErrors

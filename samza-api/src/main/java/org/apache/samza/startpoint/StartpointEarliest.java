@@ -18,43 +18,23 @@
  */
 package org.apache.samza.startpoint;
 
-import com.google.common.collect.ImmutableMap;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.system.SystemStreamPartition;
 
 
-public class MockMetadataStore implements MetadataStore {
-  private final HashMap<String, byte[]> memStore = new HashMap<>();
+/**
+ * A {@link Startpoint} that represents the earliest offset in a stream partition.
+ */
+public final class StartpointEarliest extends Startpoint {
 
-  @Override
-  public void init() {
-
+  /**
+   * Constructs a {@link Startpoint} that represents the earliest offset in a stream partition.
+   */
+  public StartpointEarliest() {
+    super();
   }
 
   @Override
-  public byte[] get(String key) {
-    return memStore.get(key);
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
+    startpointConsumerVisitor.register(systemStreamPartition, this);
   }
-
-  @Override
-  public void put(String key, byte[] value) {
-    memStore.put(key, value);
-  }
-
-  @Override
-  public void delete(String key) {
-    memStore.remove(key);
-  }
-
-  @Override
-  public Map<String, byte[]> all() {
-    return ImmutableMap.copyOf(memStore);
-  }
-
-  @Override
-  public void flush() { }
-
-  @Override
-  public void close() { }
 }

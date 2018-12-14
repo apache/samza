@@ -18,15 +18,23 @@
  */
 package org.apache.samza.startpoint;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.system.SystemStreamPartition;
 
 
-public class MockMetadataStoreFactory implements MetadataStoreFactory {
+/**
+ * A {@link Startpoint} that represents the latest offset in a stream partition.
+ */
+public final class StartpointLatest extends Startpoint {
+
+  /**
+   * Constructs a {@link Startpoint} that represents the latest offset in a stream partition.
+   */
+  public StartpointLatest() {
+    super();
+  }
+
   @Override
-  public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new MockMetadataStore();
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
+    startpointConsumerVisitor.register(systemStreamPartition, this);
   }
 }

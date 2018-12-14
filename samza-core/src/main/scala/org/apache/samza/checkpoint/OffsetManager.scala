@@ -19,22 +19,17 @@
 
 package org.apache.samza.checkpoint
 
-
-
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
-import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.system.SystemAdmins
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.{Config, JavaSystemConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.startpoint.Startpoint
-import org.apache.samza.startpoint.StartpointManager
+import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
-import org.apache.samza.system.{SystemStream, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.system._
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
@@ -285,15 +280,7 @@ class OffsetManager(
         val sspToOffsets = checkpoint.getOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
-            case (ssp, cp) => {
-              offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
-
-              // Delete startpoints once a new checkpoint is committed.
-              startpoints.get(taskName) match {
-                case Some(_) => startpointManager.deleteStartpointForTask(ssp, taskName)
-                case None => debug("No startpoints for task %s." format (taskName))
-              }
-            }
+            case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
           }
         }
       }
@@ -307,8 +294,24 @@ class OffsetManager(
       }
     }
 
-    // Remove from internal map
-    startpoints -= taskName;
+    // delete corresponding startpoints after checkpoint is supposed to be committed
+    if (startpointManager != null && startpoints.contains(taskName)) {
+      val sspStartpoints = checkpoint.getOffsets.keySet.asScala
+        .intersect(startpoints.getOrElse(taskName, Map.empty[SystemStreamPartition, Startpoint]).keySet)
+
+      // delete startpoints for this task and the intersection of SSPs between checkpoint and startpoint.
+      sspStartpoints.foreach(ssp => {
+        startpointManager.deleteStartpointForTask(ssp, taskName)
+        info("Deleted startpoint for SSP: %s and task: %s" format (ssp, taskName))
+      })
+      startpoints -= taskName
+
+      if (startpoints.isEmpty) {
+        // Stop startpoint manager after last startpoint is deleted
+        startpointManager.stop()
+        info("No more startpoints left to consume. Stopped the startpoint manager.")
+      }
+    }
   }
 
   def stop {
@@ -321,7 +324,7 @@ class OffsetManager(
     }
 
     if (startpointManager != null) {
-      debug("Shutting down startpoint manager.")
+      debug("Ensuring startpoint manager has shut down.")
 
       startpointManager.stop
     } else {
@@ -452,15 +455,30 @@ class OffsetManager(
     */
   private def loadStartpoints: Unit = {
     if (startpointManager != null) {
+      info("Starting startpoint manager.")
+      startpointManager.start
       val taskNameToSSPs: Map[TaskName, Set[SystemStreamPartition]] = systemStreamPartitions
 
       taskNameToSSPs.foreach {
         case (taskName, systemStreamPartitionSet) => {
-          startpoints += taskName -> systemStreamPartitionSet
+          val sspToStartpoint = systemStreamPartitionSet
             .map(ssp => (ssp, startpointManager.readStartpointForTask(ssp, taskName)))
             .filter(_._2 != null)
             .toMap
+
+          if (!sspToStartpoint.isEmpty) {
+            startpoints += taskName -> sspToStartpoint
+          }
         }
+      }
+
+      if (startpoints.isEmpty) {
+        info("No startpoints to consume. Stopping startpoint manager.")
+        startpointManager.stop
+      } else {
+        startpoints
+          .foreach(taskMap => taskMap._2
+            .foreach(sspMap => info("Loaded startpoint: %s for SSP: %s and task: %s" format (sspMap._2, sspMap._1, taskMap._1))))
       }
     }
   }

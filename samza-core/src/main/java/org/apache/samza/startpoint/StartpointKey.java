@@ -19,20 +19,23 @@
 package org.apache.samza.startpoint;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.annotate.JsonAutoDetect;
 
 
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 class StartpointKey {
   private final SystemStreamPartition systemStreamPartition;
   private final TaskName taskName;
 
+  // Constructs a startpoint key with SSP. This means the key will apply to all tasks that are mapped to this SSP
   StartpointKey(SystemStreamPartition systemStreamPartition) {
     this(systemStreamPartition, null);
   }
 
+  // Constructs a startpoint key with SSP and a task.
   StartpointKey(SystemStreamPartition systemStreamPartition, TaskName taskName) {
     this.systemStreamPartition = systemStreamPartition;
     this.taskName = taskName;
@@ -46,19 +49,13 @@ class StartpointKey {
     return taskName;
   }
 
+  String toMetadataStoreKey() {
+    return new String(new JsonSerdeV2<>().toBytes(this));
+  }
+
   @Override
   public String toString() {
-    ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
-    listBuilder.add("StartpointKey")
-        .add(systemStreamPartition.getSystem())
-        .add(systemStreamPartition.getStream())
-        .add(Integer.toString(systemStreamPartition.getPartition().getPartitionId()));
-
-    if (taskName != null && StringUtils.isNotBlank(taskName.getTaskName())) {
-      listBuilder.add(taskName.getTaskName());
-    }
-
-    return String.join(":", listBuilder.build());
+    return Objects.toStringHelper(this).toString();
   }
 
   @Override

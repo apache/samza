@@ -20,6 +20,7 @@ package org.apache.samza.startpoint;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.Serde;
@@ -27,22 +28,21 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 
 class StartpointSerde implements Serde<Startpoint> {
-  private static final String POSITION_TYPE_FIELD = "positionType";
-  private static final String POSITION_FIELD = "position";
-  private static final String STORED_AT_FIELD = "storedAt";
+  private static final String STARTPOINT_CLASS = "startpointClass";
+  private static final String STARTPOINT_OBJ = "startpointObj";
 
   private final ObjectMapper mapper = new ObjectMapper();
+  private final HashMap<String, Class<? extends Startpoint>> registry = new HashMap<>();
+
+  void register(Class<? extends Startpoint> clazz) {
+    registry.put(clazz.getCanonicalName(), clazz);
+  }
 
   @Override
   public Startpoint fromBytes(byte[] bytes) {
     try {
       LinkedHashMap<String, String> deserialized = mapper.readValue(bytes, LinkedHashMap.class);
-      if (deserialized.containsKey(STORED_AT_FIELD) && deserialized.get(STORED_AT_FIELD) != null) {
-        return new Startpoint(PositionType.valueOf(deserialized.get(POSITION_TYPE_FIELD)),
-            deserialized.get(POSITION_FIELD), Long.valueOf(deserialized.get(STORED_AT_FIELD)));
-      }
-      return new Startpoint(PositionType.valueOf(deserialized.get(POSITION_TYPE_FIELD)),
-          deserialized.get(POSITION_FIELD));
+      return mapper.readValue(deserialized.get(STARTPOINT_OBJ), registry.get(deserialized.get(STARTPOINT_CLASS)));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing startpoint bytes: %s",
           Arrays.toString(bytes)), e);
@@ -53,13 +53,8 @@ class StartpointSerde implements Serde<Startpoint> {
   public byte[] toBytes(Startpoint startpoint) {
     try {
       ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
-      mapBuilder.put(POSITION_TYPE_FIELD, startpoint.getPositionType().toString());
-      if (startpoint.getPosition() != null) {
-        mapBuilder.put(POSITION_FIELD, startpoint.getPosition());
-      }
-      if (startpoint.getStoredAt() != null) {
-        mapBuilder.put(STORED_AT_FIELD, startpoint.getStoredAt().toString());
-      }
+      mapBuilder.put(STARTPOINT_CLASS, startpoint.getClass().getCanonicalName());
+      mapBuilder.put(STARTPOINT_OBJ, mapper.writeValueAsString(startpoint));
       return mapper.writeValueAsBytes(mapBuilder.build());
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in serializing: %s", startpoint), e);
