@@ -32,15 +32,15 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.table.ReadableTable;
 
+import org.apache.samza.table.ReadWriteTable;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.mockito.Mockito.*;
 
-public class TestLocalReadableTable {
+public class TestLocalTableRead {
 
   public static final String TABLE_ID = "t1";
 
@@ -80,7 +80,7 @@ public class TestLocalReadableTable {
     numMissedLookups = new Counter("");
 
     metricsRegistry = mock(MetricsRegistry.class);
-    String groupName = LocalReadableTable.class.getSimpleName();
+    String groupName = LocalTable.class.getSimpleName();
     when(metricsRegistry.newCounter(groupName, TABLE_ID + "-num-gets")).thenReturn(numGets);
     when(metricsRegistry.newCounter(groupName, TABLE_ID + "-num-getAlls")).thenReturn(numGetAlls);
     when(metricsRegistry.newCounter(groupName, TABLE_ID + "-num-missed-lookups")).thenReturn(numMissedLookups);
@@ -91,7 +91,7 @@ public class TestLocalReadableTable {
 
   @Test
   public void testGet() throws Exception {
-    ReadableTable table = createTable(false);
+    ReadWriteTable table = createTable(false);
     Assert.assertEquals("v1", table.get("k1"));
     Assert.assertEquals("v2", table.getAsync("k2").get());
     Assert.assertNull(table.get("k3"));
@@ -106,7 +106,7 @@ public class TestLocalReadableTable {
 
   @Test
   public void testGetAll() throws Exception {
-    ReadableTable table = createTable(false);
+    ReadWriteTable table = createTable(false);
     Assert.assertEquals(values, table.getAll(keys));
     Assert.assertEquals(values, table.getAllAsync(keys).get());
     verify(kvStore, times(2)).getAll(any());
@@ -121,7 +121,7 @@ public class TestLocalReadableTable {
 
   @Test
   public void testTimerDisabled() throws Exception {
-    ReadableTable table = createTable(true);
+    ReadWriteTable table = createTable(true);
     table.get("");
     table.getAsync("").get();
     table.getAll(keys);
@@ -134,7 +134,7 @@ public class TestLocalReadableTable {
     Assert.assertEquals(0, getCallbackNs.getSnapshot().getAverage(), 0.001);
   }
 
-  private LocalReadableTable createTable(boolean isTimerDisabled) {
+  private LocalTable createTable(boolean isTimerDisabled) {
     Map<String, String> config = new HashMap<>();
     if (isTimerDisabled) {
       config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
@@ -147,7 +147,7 @@ public class TestLocalReadableTable {
     when(context.getContainerContext()).thenReturn(containerContext);
     when(containerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
 
-    LocalReadableTable table =  new LocalReadableTable("t1", kvStore);
+    LocalTable table =  new LocalTable("t1", kvStore);
     table.init(context);
 
     return table;
