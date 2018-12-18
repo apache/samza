@@ -229,7 +229,7 @@ public class StreamTaskIntegrationTest {
 
     @Override
     public void init(Context context) throws Exception {
-      profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTaskContext().getTable("profile-view-store");
+      profileViewTable = context.getTaskContext().getTable("profile-view-store");
     }
 
     @Override

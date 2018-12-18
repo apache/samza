@@ -37,7 +37,9 @@ public class MockStorageEngine implements StorageEngine {
   public static String storeName;
   public static File storeDir;
   public static SystemStreamPartition ssp;
-  public static List<IncomingMessageEnvelope> incomingMessageEnvelopes = Collections.synchronizedList(new ArrayList<IncomingMessageEnvelope>());
+
+  // Thread-safe list is required because the list is shared across StorageEngine instances
+  public static List<IncomingMessageEnvelope> incomingMessageEnvelopes = Collections.synchronizedList(new ArrayList<>());
   public static StoreProperties storeProperties;
 
   public MockStorageEngine(String storeName, File storeDir, SystemStreamPartition changeLogSystemStreamPartition, StoreProperties properties) {

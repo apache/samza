@@ -117,11 +117,11 @@ public class ContainerMocks {
     return values;
   }
 
-  public static Map<String, String> generateTaskContainerMapping(Set<ContainerModel> containers) {
-    Map<String, String> taskMapping = new HashMap<>();
+  public static Map<TaskName, String> generateTaskContainerMapping(Set<ContainerModel> containers) {
+    Map<TaskName, String> taskMapping = new HashMap<>();
     for (ContainerModel container : containers) {
       for (TaskName taskName : container.getTasks().keySet()) {
-        taskMapping.put(taskName.getTaskName(), container.getId());
+        taskMapping.put(taskName, container.getId());
       }
     }
     return taskMapping;

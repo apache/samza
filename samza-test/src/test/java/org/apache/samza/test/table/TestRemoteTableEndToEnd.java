@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
@@ -53,8 +54,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
-import org.apache.samza.table.remote.RemoteReadableTable;
+import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -79,7 +79,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.withSettings;
 
 
-public class TestRemoteTable extends AbstractIntegrationTestHarness {
+public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
 
   static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
 
@@ -183,7 +183,7 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     String profiles = Base64Serializer.serialize(generateProfiles(count));
 
     int partitionCount = 4;
-    Map<String, String> configs = TestLocalTable.getBaseJobConfig(bootstrapUrl(), zkConnect());
+    Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
 
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
@@ -223,8 +223,9 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
           .sendTo(outputTable);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    executeRun(runner, config);
     runner.waitForFinish();
 
     int numExpected = count * partitionCount;
@@ -264,8 +265,8 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     future.completeExceptionally(new RuntimeException("Expected test exception"));
     doReturn(future).when(reader).getAsync(anyString());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteReadableTable<String, ?> table = new RemoteReadableTable<>(
-        "table1", reader, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
+    RemoteTable<String, String> table = new RemoteTable<>("table1", reader, null,
+        rateLimitHelper, null, Executors.newSingleThreadExecutor(), null);
     table.init(createMockContext());
     table.get("abc");
   }
@@ -278,9 +279,32 @@ public class TestRemoteTable extends AbstractIntegrationTestHarness {
     future.completeExceptionally(new RuntimeException("Expected test exception"));
     doReturn(future).when(writer).putAsync(anyString(), any());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteReadWriteTable<String, String> table = new RemoteReadWriteTable<String, String>(
+    RemoteTable<String, String> table = new RemoteTable<String, String>(
         "table1", reader, writer, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
     table.init(createMockContext());
     table.put("abc", "efg");
+  }
+
+  @Test
+  public void testUninitializedWriter() {
+    TableReadFunction<String, String> reader = mock(TableReadFunction.class);
+    TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
+    RemoteTable<String, String> table = new RemoteTable<String, String>(
+        "table1", reader, null, rateLimitHelper, null, Executors.newSingleThreadExecutor(), null);
+    table.init(createMockContext());
+    int failureCount = 0;
+    try {
+      table.put("abc", "efg");
+    } catch (SamzaException ex) {
+      ++failureCount;
+    }
+    try {
+      table.delete("abc");
+    } catch (SamzaException ex) {
+      ++failureCount;
+    }
+    table.flush();
+    table.close();
+    Assert.assertEquals(2, failureCount);
   }
 }

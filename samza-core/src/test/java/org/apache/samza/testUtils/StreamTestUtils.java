@@ -24,7 +24,7 @@ import org.apache.samza.config.StreamConfig$;
 public class StreamTestUtils {
 
   /**
-   * Adds the stream.stream-id.* configurations for the provided {@code streamId} to the provided {@code configs} Map.
+   * Adds the streams.stream-id.* configurations for the provided {@code streamId} to the provided {@code configs} Map.
    *
    * @param configs the configs Map to add the stream configurations to
    * @param streamId the id of the stream

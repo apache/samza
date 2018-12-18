@@ -32,7 +32,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.util.HighResolutionClock;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ThreadUtil;
 
 
 /**
@@ -101,7 +101,7 @@ class TaskCallbackManager {
       Runnable timerTask = new Runnable() {
         @Override
         public void run() {
-          Util.logThreadDump("Thread dump at task callback timeout");
+          ThreadUtil.logThreadDump("Thread dump at task callback timeout");
           String msg = "Callback for task {} " + callback.taskName + " timed out after " + timeout + " ms.";
           callback.failure(new SamzaException(msg));
         }

@@ -19,16 +19,21 @@
 
 package org.apache.samza.sql.translator;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
-import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.SamzaHistogram;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -36,6 +41,9 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
+import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 
 
@@ -49,22 +57,14 @@ class ScanTranslator {
   private final Map<String, SqlIOConfig> systemStreamConfig;
   private final int queryId;
 
-  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc, int queryId) {
-    relMsgConverters = converters;
-    this.systemStreamConfig = ssc;
-    this.queryId = queryId;
-  }
-
-  private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
-    // All the user-supplied functions are expected to be serializable in order to enable full serialization of user
-    // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
-    // initialization.
-    private transient SamzaRelConverter msgConverter;
-    private final String streamName;
+  // FilterFunction to filter out any messages that are system specific.
+  private static class FilterSystemMessageFunction implements FilterFunction<KV<Object, Object>> {
+    private transient SamzaRelConverter relConverter;
+    private final String source;
     private final int queryId;
 
-    ScanMapFunction(String sourceStreamName, int queryId) {
-      this.streamName = sourceStreamName;
+    FilterSystemMessageFunction(String source, int queryId) {
+      this.source = source;
       this.queryId = queryId;
     }
 
@@ -72,16 +72,80 @@ class ScanTranslator {
     public void init(Context context) {
       TranslatorContext translatorContext =
           ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
+      relConverter = translatorContext.getMsgConverter(source);
+    }
+
+    @Override
+    public boolean apply(KV<Object, Object> message) {
+      return !relConverter.isSystemMessage(message);
+    }
+  }
+
+  ScanTranslator(Map<String, SamzaRelConverter> converters, Map<String, SqlIOConfig> ssc, int queryId) {
+    relMsgConverters = converters;
+    this.systemStreamConfig = ssc;
+    this.queryId = queryId;
+  }
+
+  /**
+   * ScanMapFUnction implements MapFunction to process input SamzaSqlRelMessages into output
+   * SamzaSqlRelMessage, performing the table scan
+   */
+  private static class ScanMapFunction implements MapFunction<KV<Object, Object>, SamzaSqlRelMessage> {
+    // All the user-supplied functions are expected to be serializable in order to enable full serialization of user
+    // DAG. We do not want to serialize samzaMsgConverter as it can be fully constructed during stream operator
+    // initialization.
+    private transient SamzaRelConverter msgConverter;
+    private transient MetricsRegistry metricsRegistry;
+    private transient SamzaHistogram processingTime; // milli-seconds
+    private transient Counter queryInputEvents;
+
+    private final String streamName;
+    private final int queryId;
+    private final String queryLogicalId;
+    private final String logicalOpId;
+
+    ScanMapFunction(String sourceStreamName, int queryId, String queryLogicalId, String logicalOpId) {
+      this.streamName = sourceStreamName;
+      this.queryId = queryId;
+      this.queryLogicalId = queryLogicalId;
+      this.logicalOpId = logicalOpId;
+    }
+
+    @Override
+    public void init(Context context) {
+      TranslatorContext translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.msgConverter = translatorContext.getMsgConverter(streamName);
+      ContainerContext containerContext = context.getContainerContext();
+      metricsRegistry = containerContext.getContainerMetricsRegistry();
+      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
+      queryInputEvents = metricsRegistry.newCounter(queryLogicalId, TranslatorConstants.INPUT_EVENTS_NAME);
+      queryInputEvents.clear();
     }
 
     @Override
     public SamzaSqlRelMessage apply(KV<Object, Object> message) {
-      return this.msgConverter.convertToRelMessage(message);
+      Instant startProcessing = Instant.now();
+      SamzaSqlRelMessage retMsg = this.msgConverter.convertToRelMessage(message);
+      retMsg.getSamzaSqlRelMsgMetadata().setScanTime(startProcessing.toString());
+      updateMetrics(startProcessing, Instant.now());
+      return retMsg;
     }
-  }
 
-  void translate(final TableScan tableScan, final TranslatorContext context,
+    /**
+     * Updates the MetricsRegistery of this operator
+     * @param startProcessing = begin processing of the message
+     * @param endProcessing = end of processing
+     */
+    private void updateMetrics(Instant startProcessing, Instant endProcessing) {
+      queryInputEvents.inc();
+      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
+    }
+
+  } // ScanMapFunction
+
+  void translate(final TableScan tableScan, final String queryLogicalId, final String logicalOpId, final TranslatorContext context,
       Map<String, DelegatingSystemDescriptor> systemDescriptors, Map<String, MessageStream<KV<Object, Object>>> inputMsgStreams) {
     StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
@@ -94,7 +158,8 @@ class ScanTranslator {
     final String source = sqlIOConfig.getSource();
 
     final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() &&
-        (sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor);
+        (sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
+            sqlIOConfig.getTableDescriptor().get() instanceof CachingTableDescriptor);
 
     // For remote table, we don't have an input stream descriptor. The table descriptor is already defined by the
     // SqlIOResolverFactory.
@@ -109,8 +174,13 @@ class ScanTranslator {
         sd = systemDescriptors.computeIfAbsent(systemName, DelegatingSystemDescriptor::new);
     GenericInputDescriptor<KV<Object, Object>> isd = sd.getInputDescriptor(streamId, noOpKVSerde);
 
-    MessageStream<KV<Object, Object>> inputStream = inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
-    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputStream.map(new ScanMapFunction(sourceName, queryId));
+    MessageStream<KV<Object, Object>> inputStream =
+        inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(isd));
+    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream =
+        inputStream
+            .filter(new FilterSystemMessageFunction(sourceName, queryId))
+            .map(new ScanMapFunction(sourceName, queryId, queryLogicalId, logicalOpId));
+
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
   }
 }

@@ -29,6 +29,7 @@ import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.SystemStream;
@@ -155,6 +156,7 @@ public class SqlIOConfig {
   }
 
   public boolean isRemoteTable() {
-    return tableDescriptor.isPresent() && tableDescriptor.get() instanceof RemoteTableDescriptor;
+    return tableDescriptor.isPresent() && (tableDescriptor.get() instanceof RemoteTableDescriptor ||
+        tableDescriptor.get() instanceof CachingTableDescriptor);
   }
 }

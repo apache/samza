@@ -20,13 +20,16 @@ package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 
 @InterfaceStability.Evolving
 public interface JobCoordinatorFactory {
   /**
-   * Return a new instance of {@link JobCoordinator}
-   * @param config Configs relevant for the JobCoordinator TODO: Separate JC related configs into a "JobCoordinatorConfig"
-   * @return {@link JobCoordinator} instance
+   * Returns a new instance of {@link JobCoordinator}.
+   * @param processorId a unique logical identifier assigned to the {@link org.apache.samza.processor.StreamProcessor}.
+   * @param config the configuration of the samza application.
+   * @param metricsRegistry  used to publish the coordination specific metrics.
+   * @return the {@link JobCoordinator} instance.
    */
-  JobCoordinator getJobCoordinator(Config config);
+  JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry);
 }

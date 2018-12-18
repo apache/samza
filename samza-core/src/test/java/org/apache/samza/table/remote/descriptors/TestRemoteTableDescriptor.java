@@ -36,17 +36,17 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.remote.RemoteTableProvider;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
 import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -175,12 +175,11 @@ public class TestRemoteTableDescriptor {
 
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
-    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1");
-    TableRetryPolicy retryPolicy = new TableRetryPolicy();
-    retryPolicy.withRetryPredicate((ex) -> false);
-    desc.withReadFunction(createMockTableReadFunction(), retryPolicy);
-    desc.withWriteFunction(createMockTableWriteFunction());
-    desc.withAsyncCallbackExecutorPoolSize(10);
+    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1")
+        .withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
+        .withWriteFunction(createMockTableWriteFunction())
+        .withAsyncCallbackExecutorPoolSize(10);
 
     if (rateOnly) {
       if (rlGets) {
@@ -208,8 +207,8 @@ public class TestRemoteTableDescriptor {
     RemoteTableProvider provider = new RemoteTableProvider(desc.getTableId());
     provider.init(createMockContext(desc));
     Table table = provider.getTable();
-    Assert.assertTrue(table instanceof RemoteReadWriteTable);
-    RemoteReadWriteTable rwTable = (RemoteReadWriteTable) table;
+    Assert.assertTrue(table instanceof RemoteTable);
+    RemoteTable rwTable = (RemoteTable) table;
     if (numRateLimitOps > 0) {
       Assert.assertTrue(!rlGets || rwTable.getReadRateLimiter() != null);
       Assert.assertTrue(!rlPuts || rwTable.getWriteRateLimiter() != null);
@@ -218,8 +217,8 @@ public class TestRemoteTableDescriptor {
     ThreadPoolExecutor callbackExecutor = (ThreadPoolExecutor) rwTable.getCallbackExecutor();
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
 
-    Assert.assertNotNull(rwTable.getReadFn() instanceof RetriableReadFunction);
-    Assert.assertNotNull(!(rwTable.getWriteFn() instanceof RetriableWriteFunction));
+    Assert.assertTrue(rwTable.getReadFn() instanceof RetriableReadFunction);
+    Assert.assertFalse(rwTable.getWriteFn() instanceof RetriableWriteFunction);
   }
 
   @Test

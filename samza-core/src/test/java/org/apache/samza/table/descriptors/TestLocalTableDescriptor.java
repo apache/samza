@@ -30,7 +30,7 @@ import org.apache.samza.context.Context;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.table.Table;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.table.TableProviderFactory;
 import org.junit.Test;
@@ -143,7 +143,7 @@ public class TestLocalTableDescriptor {
     }
 
     @Override
-    public Table getTable() {
+    public ReadWriteTable getTable() {
       throw new SamzaException("Not implemented");
     }
 

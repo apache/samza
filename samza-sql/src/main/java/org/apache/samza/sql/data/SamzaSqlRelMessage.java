@@ -20,6 +20,7 @@
 package org.apache.samza.sql.data;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +46,12 @@ public class SamzaSqlRelMessage implements Serializable {
   private final SamzaSqlRelRecord samzaSqlRelRecord;
 
   /**
+   * hold metadata about the message or event, e.g., the eventTime timestamp
+   */
+  @JsonProperty("samzaSqlRelMsgMetadata")
+  private SamzaSqlRelMsgMetadata samzaSqlRelMsgMetadata;
+
+  /**
    * Creates a {@link SamzaSqlRelMessage} from the list of relational fields and values.
    * If the field list contains KEY, then it extracts the key out of the fields to create a
    * {@link SamzaSqlRelRecord} along with key, otherwise creates a {@link SamzaSqlRelRecord}
@@ -53,9 +60,11 @@ public class SamzaSqlRelMessage implements Serializable {
    * @param fieldValues  Ordered list of all the values in the row. Some of the fields can be null, This could be
    *                     result of delete change capture event in the stream or because of the result of the outer join
    *                     or the fields themselves are null in the original stream.
+   * @param metadata the message/event's metadata
    */
-  public SamzaSqlRelMessage(List<String> fieldNames, List<Object> fieldValues) {
+  public SamzaSqlRelMessage(List<String> fieldNames, List<Object> fieldValues, SamzaSqlRelMsgMetadata metadata) {
     Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
+    Validate.notNull(metadata, "Message metadata is NULL");
 
     int keyIndex = fieldNames.indexOf(KEY_NAME);
     Object key = null;
@@ -64,7 +73,9 @@ public class SamzaSqlRelMessage implements Serializable {
     }
     this.key = key;
     this.samzaSqlRelRecord = new SamzaSqlRelRecord(fieldNames, fieldValues);
+    this.samzaSqlRelMsgMetadata = metadata;
   }
+
 
   /**
    * Create the SamzaSqlRelMessage, Each rel message represents a row in the table.
@@ -74,9 +85,11 @@ public class SamzaSqlRelMessage implements Serializable {
    * @param fieldValues Ordered list of all the values in the row. Some of the fields can be null, This could be result of
    *               delete change capture event in the stream or because of the result of the outer join or the fields
    *               themselves are null in the original stream.
+   * @param metadata the message/event's metadata
    */
-  public SamzaSqlRelMessage(Object key, List<String> fieldNames, List<Object> fieldValues) {
+  public SamzaSqlRelMessage(Object key, List<String> fieldNames, List<Object> fieldValues, SamzaSqlRelMsgMetadata metadata) {
     Validate.isTrue(fieldNames.size() == fieldValues.size(), "Field Names and values are not of same length.");
+    Validate.notNull(metadata, "Message metadata is NULL");
 
     List<String> tmpFieldNames = new ArrayList<>();
     List<Object> tmpFieldValues = new ArrayList<>();
@@ -89,20 +102,26 @@ public class SamzaSqlRelMessage implements Serializable {
     tmpFieldValues.addAll(fieldValues);
 
     this.samzaSqlRelRecord = new SamzaSqlRelRecord(tmpFieldNames, tmpFieldValues);
+    this.samzaSqlRelMsgMetadata = metadata;
   }
 
   /**
    * Creates the SamzaSqlRelMessage from {@link SamzaSqlRelRecord}.
    * @param samzaSqlRelRecord represents the rel record.
+   * @param metadata the message/event's metadata
    */
-  public SamzaSqlRelMessage(@JsonProperty("samzaSqlRelRecord") SamzaSqlRelRecord samzaSqlRelRecord) {
-    this(samzaSqlRelRecord.getFieldNames(), samzaSqlRelRecord.getFieldValues());
+  public SamzaSqlRelMessage(@JsonProperty("samzaSqlRelRecord") SamzaSqlRelRecord samzaSqlRelRecord,
+      @JsonProperty("samzaSqlRelMsgMetadata") SamzaSqlRelMsgMetadata metadata) {
+    this(samzaSqlRelRecord.getFieldNames(), samzaSqlRelRecord.getFieldValues(), metadata);
   }
 
   @JsonProperty("samzaSqlRelRecord")
   public SamzaSqlRelRecord getSamzaSqlRelRecord() {
     return samzaSqlRelRecord;
   }
+
+  @JsonProperty("samzaSqlRelMsgMetadata")
+  public SamzaSqlRelMsgMetadata getSamzaSqlRelMsgMetadata() { return samzaSqlRelMsgMetadata; }
 
   public Object getKey() {
     return key;
@@ -127,7 +146,7 @@ public class SamzaSqlRelMessage implements Serializable {
 
   @Override
   public String toString() {
-    return "RelMessage: {" + samzaSqlRelRecord + "}";
+    return "RelMessage: {" + samzaSqlRelRecord + " " + samzaSqlRelMsgMetadata + "}";
   }
 
   /**
@@ -172,4 +191,5 @@ public class SamzaSqlRelMessage implements Serializable {
     }
     return keyPartNames;
   }
+
 }

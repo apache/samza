@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,6 +42,7 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +55,7 @@ import org.slf4j.LoggerFactory;
 class ProjectTranslator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
+  //private transient int messageIndex = 0;
   private final int queryId;
   ProjectTranslator(int queryId) {
     this.queryId = queryId;
@@ -64,20 +65,18 @@ class ProjectTranslator {
    * ProjectMapFunction implements MapFunction to map input SamzaSqlRelMessages, one at a time, to a new
    * SamzaSqlRelMessage which consists of the projected fields
    */
-  @VisibleForTesting
-  public static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
+  private static class ProjectMapFunction implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private transient Project project;
     private transient Expression expr;
     private transient TranslatorContext translatorContext;
     private transient MetricsRegistry metricsRegistry;
     private transient SamzaHistogram processingTime; // milli-seconds
-    private transient Counter numEvents;
+    private transient Counter inputEvents;
+    private transient Counter outputEvents;
 
     private final int queryId;
     private final int projectId;
     private final String logicalOpId;
-    private final String PROCESSING_TIME_NAME = "processingTime";
-    private final String NUM_EVENTS_NAME = "numEvents";
 
     ProjectMapFunction(int projectId, int queryId, String logicalOpId) {
       this.projectId = projectId;
@@ -96,9 +95,11 @@ class ProjectTranslator {
       this.expr = this.translatorContext.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
       ContainerContext containerContext = context.getContainerContext();
       metricsRegistry = containerContext.getContainerMetricsRegistry();
-      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, PROCESSING_TIME_NAME);
-      numEvents = metricsRegistry.newCounter(logicalOpId, NUM_EVENTS_NAME);
-      numEvents.clear();
+      processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
+      inputEvents = metricsRegistry.newCounter(logicalOpId, TranslatorConstants.INPUT_EVENTS_NAME);
+      inputEvents.clear();
+      outputEvents = metricsRegistry.newCounter(logicalOpId, TranslatorConstants.OUTPUT_EVENTS_NAME);
+      outputEvents.clear();
     }
 
     /**
@@ -117,18 +118,22 @@ class ProjectTranslator {
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
-      updateMetrics(arrivalTime, Instant.now());
-      return new SamzaSqlRelMessage(names, Arrays.asList(output));
+      updateMetrics(arrivalTime, Instant.now(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
+      return new SamzaSqlRelMessage(names, Arrays.asList(output), message.getSamzaSqlRelMsgMetadata());
     }
 
     /**
      * Updates the Diagnostics Metrics (processing time and number of events)
      * @param arrivalTime input message arrival time (= beging of processing in this operator)
      * @param outputTime output message output time (=end of processing in this operator)
+     * @param isNewInputMessage whether the input Message is from new input message or not
      */
-    private void updateMetrics(Instant arrivalTime, Instant outputTime) {
-      numEvents.inc();
-      processingTime.update(Duration.between(arrivalTime, outputTime).toNanos() / 1000L);
+    private void updateMetrics(Instant arrivalTime, Instant outputTime, boolean isNewInputMessage) {
+      if (isNewInputMessage) {
+        inputEvents.inc();
+      }
+      outputEvents.inc();
+      processingTime.update(Duration.between(arrivalTime, outputTime).toMillis());
     }
 
   }
@@ -137,16 +142,22 @@ class ProjectTranslator {
       MessageStream<SamzaSqlRelMessage> inputStream) {
     return inputStream.flatMap(message -> {
       Object field = message.getSamzaSqlRelRecord().getFieldValues().get(flattenIndex);
-
       if (field != null && field instanceof List) {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
+        SamzaSqlRelMsgMetadata messageMetadata = message.getSamzaSqlRelMsgMetadata();
+        SamzaSqlRelMsgMetadata newMetadata = new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(),
+            messageMetadata.getarrivalTime(), messageMetadata.getscanTime(), true);
         for (Object fieldValue : (List) field) {
           List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues));
+          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues,
+              newMetadata));
+          newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getarrivalTime(),
+              newMetadata.getscanTime(), false);
         }
         return outMessages;
       } else {
+        message.getSamzaSqlRelMsgMetadata().isNewInputMessage = true;
         return Collections.singletonList(message);
       }
     });

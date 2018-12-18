@@ -27,7 +27,9 @@ import java.util.Map;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -47,7 +49,6 @@ import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
@@ -75,10 +76,10 @@ import static org.junit.Assert.assertTrue;
 /**
  * This test class tests sendTo() and join() for local tables
  */
-public class TestLocalTable extends AbstractIntegrationTestHarness {
+public class TestLocalTableEndToEnd extends AbstractIntegrationTestHarness {
 
   @Test
-  public void testSendTo() throws  Exception {
+  public void testSendTo() throws Exception {
 
     int count = 10;
     Profile[] profiles = TestTableData.generateProfiles(count);
@@ -104,8 +105,9 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
           .sendTo(table);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    executeRun(runner, config);
     runner.waitForFinish();
 
     for (int i = 0; i < partitionCount; i++) {
@@ -115,48 +117,29 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     }
   }
 
-  static class TestStreamTableJoin {
+  static class StreamTableJoinApp implements StreamApplication {
     static List<PageView> received = new LinkedList<>();
     static List<EnrichedPageView> joined = new LinkedList<>();
-    final int count;
-    final int partitionCount;
-    final Map<String, String> configs;
 
-    TestStreamTableJoin(int count, int partitionCount, Map<String, String> configs) {
-      this.count = count;
-      this.partitionCount = partitionCount;
-      this.configs = configs;
-    }
+    @Override
+    public void describe(StreamApplicationDescriptor appDesc) {
+      Table<KV<Integer, Profile>> table = appDesc.getTable(
+          new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
+      appDesc.getInputStream(profileISD)
+          .map(m -> new KV(m.getMemberId(), m))
+          .sendTo(table);
 
-    void runTest() {
-      final StreamApplication app = appDesc -> {
-
-        Table<KV<Integer, Profile>> table = appDesc.getTable(
-            new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde())));
-        DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
-        GenericInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-        appDesc.getInputStream(profileISD)
-            .map(m -> new KV(m.getMemberId(), m))
-            .sendTo(table);
-
-        GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-        appDesc.getInputStream(pageViewISD)
-            .map(pv -> {
-                received.add(pv);
-                return pv;
-              })
-            .partitionBy(PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
-            .join(table, new PageViewToProfileJoinFunction())
-            .sink((m, collector, coordinator) -> joined.add(m));
-      };
-
-      final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-      runner.run();
-      runner.waitForFinish();
-
-      assertEquals(count * partitionCount, received.size());
-      assertEquals(count * partitionCount, joined.size());
-      assertTrue(joined.get(0) instanceof EnrichedPageView);
+      GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      appDesc.getInputStream(pageViewISD)
+          .map(pv -> {
+              received.add(pv);
+              return pv;
+            })
+          .partitionBy(PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
+          .join(table, new PageViewToProfileJoinFunction())
+          .sink((m, collector, coordinator) -> joined.add(m));
     }
   }
 
@@ -179,85 +162,66 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     configs.put("streams.Profile.source", Base64Serializer.serialize(profiles));
     configs.put("streams.Profile.partitionCount", String.valueOf(partitionCount));
 
-    TestStreamTableJoin joinTest = new TestStreamTableJoin(count, partitionCount, configs);
-    joinTest.runTest();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new StreamTableJoinApp(), config);
+    executeRun(runner, config);
+    runner.waitForFinish();
+
+    assertEquals(count * partitionCount, StreamTableJoinApp.received.size());
+    assertEquals(count * partitionCount, StreamTableJoinApp.joined.size());
+    assertTrue(StreamTableJoinApp.joined.get(0) instanceof EnrichedPageView);
   }
 
-  static class TestDualStreamTableJoin {
+  static class DualStreamTableJoinApp implements StreamApplication {
     static List<Profile> sentToProfileTable1 = new LinkedList<>();
     static List<Profile> sentToProfileTable2 = new LinkedList<>();
     static List<EnrichedPageView> joinedPageViews1 = new LinkedList<>();
     static List<EnrichedPageView> joinedPageViews2 = new LinkedList<>();
-    final int count;
-    final int partitionCount;
-    final Map<String, String> configs;
 
-    TestDualStreamTableJoin(int count, int partitionCount, Map<String, String> configs) {
-      this.count = count;
-      this.partitionCount = partitionCount;
-      this.configs = configs;
-    }
-
-    void runTest() {
+    @Override
+    public void describe(StreamApplicationDescriptor appDesc) {
       KVSerde<Integer, Profile> profileKVSerde = KVSerde.of(new IntegerSerde(), new ProfileJsonSerde());
       KVSerde<Integer, PageView> pageViewKVSerde = KVSerde.of(new IntegerSerde(), new PageViewJsonSerde());
 
       PageViewToProfileJoinFunction joinFn1 = new PageViewToProfileJoinFunction();
       PageViewToProfileJoinFunction joinFn2 = new PageViewToProfileJoinFunction();
 
-      final StreamApplication app = appDesc -> {
+      Table<KV<Integer, Profile>> profileTable = appDesc.getTable(new InMemoryTableDescriptor("t1", profileKVSerde));
 
-        Table<KV<Integer, Profile>> profileTable = appDesc.getTable(new InMemoryTableDescriptor("t1", profileKVSerde));
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<Profile> profileISD1 = ksd.getInputDescriptor("Profile1", new NoOpSerde<>());
+      GenericInputDescriptor<Profile> profileISD2 = ksd.getInputDescriptor("Profile2", new NoOpSerde<>());
+      MessageStream<Profile> profileStream1 = appDesc.getInputStream(profileISD1);
+      MessageStream<Profile> profileStream2 = appDesc.getInputStream(profileISD2);
 
-        DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
-        GenericInputDescriptor<Profile> profileISD1 = ksd.getInputDescriptor("Profile1", new NoOpSerde<>());
-        GenericInputDescriptor<Profile> profileISD2 = ksd.getInputDescriptor("Profile2", new NoOpSerde<>());
-        MessageStream<Profile> profileStream1 = appDesc.getInputStream(profileISD1);
-        MessageStream<Profile> profileStream2 = appDesc.getInputStream(profileISD2);
+      profileStream1
+          .map(m -> {
+              sentToProfileTable1.add(m);
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(profileTable);
+      profileStream2
+          .map(m -> {
+              sentToProfileTable2.add(m);
+              return new KV(m.getMemberId(), m);
+            })
+          .sendTo(profileTable);
 
-        profileStream1
-            .map(m -> {
-                sentToProfileTable1.add(m);
-                return new KV(m.getMemberId(), m);
-              })
-            .sendTo(profileTable);
-        profileStream2
-            .map(m -> {
-                sentToProfileTable2.add(m);
-                return new KV(m.getMemberId(), m);
-              })
-            .sendTo(profileTable);
+      GenericInputDescriptor<PageView> pageViewISD1 = ksd.getInputDescriptor("PageView1", new NoOpSerde<PageView>());
+      GenericInputDescriptor<PageView> pageViewISD2 = ksd.getInputDescriptor("PageView2", new NoOpSerde<PageView>());
+      MessageStream<PageView> pageViewStream1 = appDesc.getInputStream(pageViewISD1);
+      MessageStream<PageView> pageViewStream2 = appDesc.getInputStream(pageViewISD2);
 
-        GenericInputDescriptor<PageView> pageViewISD1 = ksd.getInputDescriptor("PageView1", new NoOpSerde<PageView>());
-        GenericInputDescriptor<PageView> pageViewISD2 = ksd.getInputDescriptor("PageView2", new NoOpSerde<PageView>());
-        MessageStream<PageView> pageViewStream1 = appDesc.getInputStream(pageViewISD1);
-        MessageStream<PageView> pageViewStream2 = appDesc.getInputStream(pageViewISD2);
+      pageViewStream1
+          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
+          .join(profileTable, joinFn1)
+          .sink((m, collector, coordinator) -> joinedPageViews1.add(m));
 
-        pageViewStream1
-            .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
-            .join(profileTable, joinFn1)
-            .sink((m, collector, coordinator) -> joinedPageViews1.add(m));
-
-        pageViewStream2
-            .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p2")
-            .join(profileTable, joinFn2)
-            .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
-      };
-
-      final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-      runner.run();
-      runner.waitForFinish();
-
-      assertEquals(count * partitionCount, sentToProfileTable1.size());
-      assertEquals(count * partitionCount, sentToProfileTable2.size());
-
-      assertEquals(count * partitionCount, joinedPageViews1.size());
-      assertEquals(count * partitionCount, joinedPageViews2.size());
-      assertTrue(joinedPageViews1.get(0) instanceof EnrichedPageView);
-      assertTrue(joinedPageViews2.get(0) instanceof EnrichedPageView);
-
+      pageViewStream2
+          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p2")
+          .join(profileTable, joinFn2)
+          .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
     }
-
   }
 
   @Test
@@ -288,8 +252,18 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView2.source", Base64Serializer.serialize(pageViews));
     configs.put("streams.PageView2.partitionCount", String.valueOf(partitionCount));
 
-    TestDualStreamTableJoin dualJoinTest = new TestDualStreamTableJoin(count, partitionCount, configs);
-    dualJoinTest.runTest();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new DualStreamTableJoinApp(), config);
+    executeRun(runner, config);
+    runner.waitForFinish();
+
+    assertEquals(count * partitionCount, DualStreamTableJoinApp.sentToProfileTable1.size());
+    assertEquals(count * partitionCount, DualStreamTableJoinApp.sentToProfileTable2.size());
+
+    assertEquals(count * partitionCount, DualStreamTableJoinApp.joinedPageViews1.size());
+    assertEquals(count * partitionCount, DualStreamTableJoinApp.joinedPageViews2.size());
+    assertTrue(DualStreamTableJoinApp.joinedPageViews1.get(0) instanceof EnrichedPageView);
+    assertTrue(DualStreamTableJoinApp.joinedPageViews2.get(0) instanceof EnrichedPageView);
   }
 
   static Map<String, String> getBaseJobConfig(String bootstrapUrl, String zkConnect) {
@@ -321,11 +295,11 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     private static Map<String, MyMapFunction> taskToMapFunctionMap = new HashMap<>();
 
     private transient List<Profile> received;
-    private transient ReadableTable table;
+    private transient ReadWriteTable table;
 
     @Override
     public void init(Context context) {
-      table = (ReadableTable) context.getTaskContext().getTable("t1");
+      table = context.getTaskContext().getTable("t1");
       this.received = new ArrayList<>();
 
       taskToMapFunctionMap.put(context.getTaskContext().getTaskModel().getTaskName().getTaskName(), this);
@@ -351,8 +325,9 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView.partitionCount", String.valueOf(4));
     configs.put("task.inputs", "test.PageView");
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(configs);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), config);
+    executeRun(runner, config);
     runner.waitForFinish();
   }
 
@@ -372,7 +347,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     private ReadWriteTable<Integer, PageView> pageViewTable;
     @Override
     public void init(Context context) throws Exception {
-      pageViewTable = (ReadWriteTable<Integer, PageView>) context.getTaskContext().getTable("t1");
+      pageViewTable = context.getTaskContext().getTable("t1");
     }
     @Override
     public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {

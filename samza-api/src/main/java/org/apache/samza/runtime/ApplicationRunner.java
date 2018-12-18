@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import java.time.Duration;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 
 
@@ -32,12 +33,19 @@ import org.apache.samza.job.ApplicationStatus;
  */
 @InterfaceStability.Evolving
 public interface ApplicationRunner {
+  /**
+   * This is like {@link #run(ExternalContext)}, except it provides a null {@link ExternalContext}.
+   */
+  default void run() {
+    run(null);
+  }
 
   /**
    * Deploy and run the Samza jobs to execute {@link org.apache.samza.application.SamzaApplication}.
    * It is non-blocking so it doesn't wait for the application running.
+   * @param externalContext nullable {@link ExternalContext} to pass through to the application
    */
-  void run();
+  void run(ExternalContext externalContext);
 
   /**
    * Kill the Samza jobs represented by {@link org.apache.samza.application.SamzaApplication}

@@ -28,7 +28,7 @@ public interface TaskNameGrouperFactory {
    * Builds a {@link TaskNameGrouper}. The config can be used to read the necessary values which are needed int the
    * process of building the {@link TaskNameGrouper}
    *
-   * @param config configuration to which values can be used to build a {@link TaskNameGrouper}
+   * @param config configuration to use for building the {@link TaskNameGrouper}
    * @return a {@link TaskNameGrouper} implementation
    */
   TaskNameGrouper build(Config config);

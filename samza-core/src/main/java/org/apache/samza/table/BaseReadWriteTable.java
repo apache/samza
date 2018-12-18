@@ -21,27 +21,25 @@ package org.apache.samza.table;
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.utils.TableReadMetrics;
-import org.apache.samza.table.utils.TableWriteMetrics;
+import org.apache.samza.table.utils.TableMetrics;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 /**
- * Base class for all readable tables
+ * Base class for a concrete table implementation
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
+abstract public class BaseReadWriteTable<K, V> implements ReadWriteTable<K, V> {
 
   protected final Logger logger;
 
   protected final String tableId;
 
-  protected TableReadMetrics readMetrics;
-  protected TableWriteMetrics writeMetrics;
+  protected TableMetrics metrics;
 
   protected HighResolutionClock clock;
 
@@ -49,7 +47,7 @@ abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
    * Construct an instance
    * @param tableId Id of the table
    */
-  public BaseReadableTable(String tableId) {
+  public BaseReadWriteTable(String tableId) {
     Preconditions.checkArgument(tableId != null & !tableId.isEmpty(),
         String.format("Invalid table Id: %s", tableId));
     this.tableId = tableId;
@@ -62,11 +60,7 @@ abstract public class BaseReadableTable<K, V> implements ReadableTable<K, V> {
     clock = metricsConfig.getMetricsTimerEnabled()
         ? () -> System.nanoTime()
         : () -> 0L;
-
-    readMetrics = new TableReadMetrics(context, this, tableId);
-    if (this instanceof ReadWriteTable) {
-      writeMetrics = new TableWriteMetrics(context, this, tableId);
-    }
+    metrics = new TableMetrics(context, this, tableId);
   }
 
   public String getTableId() {

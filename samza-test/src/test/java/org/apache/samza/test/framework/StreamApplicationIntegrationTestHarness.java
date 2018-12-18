@@ -255,7 +255,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
 
     Config config = new MapConfig(configMap);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(streamApplication, config);
-    runner.run();
+    executeRun(runner, config);
 
     MessageStreamAssert.waitForComplete();
     return new RunApplicationContext(runner, config);

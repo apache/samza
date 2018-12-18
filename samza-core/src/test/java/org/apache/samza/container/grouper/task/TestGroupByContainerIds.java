@@ -20,6 +20,7 @@
 package org.apache.samza.container.grouper.task;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,34 +30,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.junit.Before;
+import org.apache.samza.runtime.LocationId;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.apache.samza.container.mock.ContainerMocks.*;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.apache.samza.container.mock.ContainerMocks.generateTaskModels;
+import static org.apache.samza.container.mock.ContainerMocks.getTaskName;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-
-@RunWith(PowerMockRunner.class)
-@PrepareForTest({TaskAssignmentManager.class, GroupByContainerIds.class})
 public class TestGroupByContainerIds {
-
-  @Before
-  public void setup() throws Exception {
-    TaskAssignmentManager taskAssignmentManager = mock(TaskAssignmentManager.class);
-    LocalityManager localityManager = mock(LocalityManager.class);
-    PowerMockito.whenNew(TaskAssignmentManager.class).withAnyArguments().thenReturn(taskAssignmentManager);
-  }
 
   private Config buildConfigForContainerCount(int count) {
     Map<String, String> map = new HashMap<>();
@@ -67,6 +57,7 @@ public class TestGroupByContainerIds {
   private TaskNameGrouper buildSimpleGrouper() {
     return buildSimpleGrouper(1);
   }
+
   private TaskNameGrouper buildSimpleGrouper(int containerCount) {
     return new GroupByContainerIdsFactory().build(buildConfigForContainerCount(containerCount));
   }
@@ -114,7 +105,8 @@ public class TestGroupByContainerIds {
   public void testGroupWithNullContainerIds() {
     Set<TaskModel> taskModels = generateTaskModels(5);
 
-    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels, null);
+    List<String> containerIds = null;
+    Set<ContainerModel> containers = buildSimpleGrouper(2).group(taskModels, containerIds);
 
     Map<String, ContainerModel> containersMap = new HashMap<>();
     for (ContainerModel container : containers) {
@@ -247,6 +239,266 @@ public class TestGroupByContainerIds {
     ContainerModel expectedContainerModel = new ContainerModel(testContainerId1, expectedTasks);
 
     Set<ContainerModel> actualContainerModels = buildSimpleGrouper().group(taskModels, containerIds);
+
+    assertEquals(1, actualContainerModels.size());
+    assertEquals(ImmutableSet.of(expectedContainerModel), actualContainerModels);
+  }
+
+  @Test
+  public void testShouldUseTaskLocalityWhenGeneratingContainerModels() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
+
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+    String testProcessorId3 = "testProcessorId3";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    TaskModel testTaskModel1 = new TaskModel(testTaskName1, new HashSet<>(), new Partition(0));
+    TaskModel testTaskModel2 = new TaskModel(testTaskName2, new HashSet<>(), new Partition(1));
+    TaskModel testTaskModel3 = new TaskModel(testTaskName3, new HashSet<>(), new Partition(2));
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+                                                                testProcessorId2, testLocationId2,
+                                                                testProcessorId3, testLocationId3);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+                                                             testTaskName2, testLocationId2,
+                                                             testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
+
+    Set<ContainerModel> expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1)),
+                                                                  new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
+                                                                  new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
+
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+  }
+
+  @Test
+  public void testGenerateContainerModelForSingleContainer() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(1);
+
+    String testProcessorId1 = "testProcessorId1";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    TaskModel testTaskModel1 = new TaskModel(testTaskName1, new HashSet<>(), new Partition(0));
+    TaskModel testTaskModel2 = new TaskModel(testTaskName2, new HashSet<>(), new Partition(1));
+    TaskModel testTaskModel3 = new TaskModel(testTaskName3, new HashSet<>(), new Partition(2));
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+                                                             testTaskName2, testLocationId2,
+                                                             testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
+
+    Set<ContainerModel> expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1,
+                                                                                                                       testTaskName2, testTaskModel2,
+                                                                                                                       testTaskName3, testTaskModel3)));
+
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+  }
+
+  @Test
+  public void testShouldGenerateCorrectContainerModelWhenTaskLocalityIsEmpty() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
+
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+    String testProcessorId3 = "testProcessorId3";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    TaskModel testTaskModel1 = new TaskModel(testTaskName1, new HashSet<>(), new Partition(0));
+    TaskModel testTaskModel2 = new TaskModel(testTaskName2, new HashSet<>(), new Partition(1));
+    TaskModel testTaskModel3 = new TaskModel(testTaskName3, new HashSet<>(), new Partition(2));
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+                                                                testProcessorId2, testLocationId2,
+                                                                testProcessorId3, testLocationId3);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
+
+    Set<ContainerModel> expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1)),
+                                                                  new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
+                                                                  new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
+
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testShouldFailWhenProcessorLocalityIsEmpty() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+
+    taskNameGrouper.group(new HashSet<>(), grouperMetadata);
+  }
+
+  @Test
+  public void testShouldGenerateIdenticalTaskDistributionWhenNoChangeInProcessorGroup() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
+
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+    String testProcessorId3 = "testProcessorId3";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    TaskModel testTaskModel1 = new TaskModel(testTaskName1, new HashSet<>(), new Partition(0));
+    TaskModel testTaskModel2 = new TaskModel(testTaskName2, new HashSet<>(), new Partition(1));
+    TaskModel testTaskModel3 = new TaskModel(testTaskName3, new HashSet<>(), new Partition(2));
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+            testProcessorId2, testLocationId2,
+            testProcessorId3, testLocationId3);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+            testTaskName2, testLocationId2,
+            testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
+
+    Set<ContainerModel> expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1)),
+            new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
+            new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
+
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+
+    actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+  }
+
+  @Test
+  public void testShouldMinimizeTaskShuffleWhenAvailableProcessorInGroupChanges() {
+    TaskNameGrouper taskNameGrouper = buildSimpleGrouper(3);
+
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+    String testProcessorId3 = "testProcessorId3";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    TaskModel testTaskModel1 = new TaskModel(testTaskName1, new HashSet<>(), new Partition(0));
+    TaskModel testTaskModel2 = new TaskModel(testTaskName2, new HashSet<>(), new Partition(1));
+    TaskModel testTaskModel3 = new TaskModel(testTaskName3, new HashSet<>(), new Partition(2));
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+            testProcessorId2, testLocationId2,
+            testProcessorId3, testLocationId3);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+            testTaskName2, testLocationId2,
+            testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    Set<TaskModel> taskModels = ImmutableSet.of(testTaskModel1, testTaskModel2, testTaskModel3);
+
+    Set<ContainerModel> expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1)),
+            new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)),
+            new ContainerModel(testProcessorId3, ImmutableMap.of(testTaskName3, testTaskModel3)));
+
+    Set<ContainerModel> actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+
+    processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+                                        testProcessorId2, testLocationId2);
+
+    grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+    actualContainerModels = taskNameGrouper.group(taskModels, grouperMetadata);
+
+    expectedContainerModels = ImmutableSet.of(new ContainerModel(testProcessorId1, ImmutableMap.of(testTaskName1, testTaskModel1, testTaskName3, testTaskModel3)),
+                                              new ContainerModel(testProcessorId2, ImmutableMap.of(testTaskName2, testTaskModel2)));
+
+    assertEquals(expectedContainerModels, actualContainerModels);
+  }
+
+  @Test
+  public void testMoreTasksThanProcessors() {
+    String testProcessorId1 = "testProcessorId1";
+    String testProcessorId2 = "testProcessorId2";
+
+    LocationId testLocationId1 = new LocationId("testLocationId1");
+    LocationId testLocationId2 = new LocationId("testLocationId2");
+    LocationId testLocationId3 = new LocationId("testLocationId3");
+
+    TaskName testTaskName1 = new TaskName("testTasKId1");
+    TaskName testTaskName2 = new TaskName("testTaskId2");
+    TaskName testTaskName3 = new TaskName("testTaskId3");
+
+    Map<String, LocationId> processorLocality = ImmutableMap.of(testProcessorId1, testLocationId1,
+        testProcessorId2, testLocationId2);
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(testTaskName1, testLocationId1,
+        testTaskName2, testLocationId2,
+        testTaskName3, testLocationId3);
+
+    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(processorLocality, taskLocality, new HashMap<>(), new HashMap<>());
+
+
+    Set<TaskModel> taskModels = generateTaskModels(1);
+    List<String> containerIds = ImmutableList.of(testProcessorId1, testProcessorId2);
+
+    Map<TaskName, TaskModel> expectedTasks = taskModels.stream()
+        .collect(Collectors.toMap(TaskModel::getTaskName, x -> x));
+    ContainerModel expectedContainerModel = new ContainerModel(testProcessorId1, expectedTasks);
+
+    Set<ContainerModel> actualContainerModels = buildSimpleGrouper().group(taskModels, grouperMetadata);
 
     assertEquals(1, actualContainerModels.size());
     assertEquals(ImmutableSet.of(expectedContainerModel), actualContainerModels);

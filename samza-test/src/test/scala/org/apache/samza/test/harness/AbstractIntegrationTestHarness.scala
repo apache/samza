@@ -22,7 +22,9 @@ import java.util.Properties
 
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
-import org.apache.samza.config.{JobConfig, KafkaConsumerConfig, MapConfig}
+import org.apache.samza.config.{Config, JobConfig, KafkaConsumerConfig, MapConfig}
+import org.apache.samza.context.ExternalContext
+import org.apache.samza.runtime.ApplicationRunner
 import org.apache.samza.system.kafka.{KafkaSystemAdmin, KafkaSystemConsumer}
 
 /**
@@ -83,4 +85,16 @@ abstract class AbstractIntegrationTestHarness extends AbstractKafkaServerTestHar
     new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig));
   }
 
+  protected def executeRun(applicationRunner: ApplicationRunner, config: Config): Unit = {
+    applicationRunner.run(buildExternalContext(config).orNull)
+  }
+
+  private def buildExternalContext(config: Config): Option[ExternalContext] = {
+    /*
+     * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
+     * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components
+     * like the application descriptor may not be available.
+     */
+    None
+  }
 }

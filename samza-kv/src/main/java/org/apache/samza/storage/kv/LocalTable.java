@@ -18,12 +18,16 @@
  */
 package org.apache.samza.storage.kv;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.BaseReadWriteTable;
 
 import static org.apache.samza.table.utils.TableMetricsUtil.incCounter;
 import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
@@ -35,22 +39,63 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
-    implements ReadWriteTable<K, V> {
+public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
+
+  protected final KeyValueStore<K, V> kvStore;
 
   /**
-   * Constructs an instance of {@link LocalReadWriteTable}
+   * Constructs an instance of {@link LocalTable}
    * @param tableId the table Id
    * @param kvStore the backing store
    */
-  public LocalReadWriteTable(String tableId, KeyValueStore kvStore) {
-    super(tableId, kvStore);
+  public LocalTable(String tableId, KeyValueStore kvStore) {
+    super(tableId);
+    Preconditions.checkNotNull(kvStore, "null KeyValueStore");
+    this.kvStore = kvStore;
+  }
+
+  @Override
+  public V get(K key) {
+    V result = instrument(metrics.numGets, metrics.getNs, () -> kvStore.get(key));
+    if (result == null) {
+      incCounter(metrics.numMissedLookups);
+    }
+    return result;
+  }
+
+  @Override
+  public CompletableFuture<V> getAsync(K key) {
+    CompletableFuture<V> future = new CompletableFuture();
+    try {
+      future.complete(get(key));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
+  }
+
+  @Override
+  public Map<K, V> getAll(List<K> keys) {
+    Map<K, V> result = instrument(metrics.numGetAlls, metrics.getAllNs, () -> kvStore.getAll(keys));
+    result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(metrics.numMissedLookups));
+    return result;
+  }
+
+  @Override
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+    CompletableFuture<Map<K, V>> future = new CompletableFuture();
+    try {
+      future.complete(getAll(keys));
+    } catch (Exception e) {
+      future.completeExceptionally(e);
+    }
+    return future;
   }
 
   @Override
   public void put(K key, V value) {
     if (value != null) {
-      instrument(writeMetrics.numPuts, writeMetrics.putNs, () -> kvStore.put(key, value));
+      instrument(metrics.numPuts, metrics.putNs, () -> kvStore.put(key, value));
     } else {
       delete(key);
     }
@@ -81,7 +126,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
       });
 
     if (!toPut.isEmpty()) {
-      instrument(writeMetrics.numPutAlls, writeMetrics.putAllNs, () -> kvStore.putAll(toPut));
+      instrument(metrics.numPutAlls, metrics.putAllNs, () -> kvStore.putAll(toPut));
     }
 
     if (!toDelete.isEmpty()) {
@@ -103,7 +148,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void delete(K key) {
-    instrument(writeMetrics.numDeletes, writeMetrics.deleteNs, () -> kvStore.delete(key));
+    instrument(metrics.numDeletes, metrics.deleteNs, () -> kvStore.delete(key));
   }
 
   @Override
@@ -120,7 +165,7 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void deleteAll(List<K> keys) {
-    instrument(writeMetrics.numDeleteAlls, writeMetrics.deleteAllNs, () -> kvStore.deleteAll(keys));
+    instrument(metrics.numDeleteAlls, metrics.deleteAllNs, () -> kvStore.deleteAll(keys));
   }
 
   @Override
@@ -137,7 +182,21 @@ public class LocalReadWriteTable<K, V> extends LocalReadableTable<K, V>
 
   @Override
   public void flush() {
-    instrument(writeMetrics.numFlushes, writeMetrics.flushNs, () -> kvStore.flush());
+    instrument(metrics.numFlushes, metrics.flushNs, () -> kvStore.flush());
+  }
+
+  @Override
+  public void close() {
+    // The KV store is not closed here as it may still be needed by downstream operators,
+    // it will be closed by the SamzaContainer
+  }
+
+  private <T> T instrument(Counter counter, Timer timer, Supplier<T> func) {
+    incCounter(counter);
+    long startNs = clock.nanoTime();
+    T result = func.get();
+    updateTimer(timer, clock.nanoTime() - startNs);
+    return result;
   }
 
   private interface Func0 {
