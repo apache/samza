@@ -22,6 +22,7 @@ package org.apache.samza.checkpoint
 import java.util
 import java.util.function.BiConsumer
 
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
 import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory
@@ -29,10 +30,13 @@ import org.apache.samza.startpoint.{StartpointManager, StartpointOldest, Startpo
 import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPartitionMetadata}
 import org.apache.samza.system._
 import org.apache.samza.util.NoOpMetricsRegistry
-import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit.Test
+import org.mockito.Matchers._
 import org.mockito.Mockito.{mock, when}
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{Matchers, Mockito}
 import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConverters._
@@ -413,7 +417,6 @@ class TestOffsetManager {
 
   @Test
   def testGetModifiedOffsets: Unit = {
-    val taskName = new TaskName("task")
     val system1 = "system1"
     val system2 = "system2"
     val ssp1 = new SystemStreamPartition(system1, "stream", new Partition(1))
@@ -451,7 +454,22 @@ class TestOffsetManager {
       }
     }
     val checkpointListeners = Map(system1 -> checkpointListener)
-    val offsetManagerWithCheckpointListener = new OffsetManager(checkpointListeners = checkpointListeners)
+
+    val system1Admin = mock(classOf[SystemAdmin])
+    Mockito.when(system1Admin.offsetComparator(anyString(), anyString()))
+      .thenAnswer(new Answer[Integer] {
+          override def answer(invocation: InvocationOnMock): Integer = {
+            val offset1 = invocation.getArguments.apply(0).asInstanceOf[String]
+            val offset2 = invocation.getArguments.apply(1).asInstanceOf[String]
+            offset1.toLong.compareTo(offset2.toLong)
+          }
+        })
+
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin(Matchers.eq("system1"))).thenReturn(system1Admin)
+
+    val offsetManagerWithCheckpointListener =
+      new OffsetManager(checkpointListeners = checkpointListeners, systemAdmins = systemAdmins)
     val modifiedOffsets = offsetManagerWithCheckpointListener.getModifiedOffsets(taskStartingOffsets, lastProcessedOffsets)
     // since there is at least one ssp on system1 that has processed messages (ssp2),
     // all ssps on system1 should get modified offsets (ssp1 to ssp4)

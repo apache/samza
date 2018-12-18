@@ -45,5 +45,16 @@ public interface CheckpointListener {
    *
    * @param offsets offsets that were checkpointed.
    */
-  default void onCheckpoint(Map<SystemStreamPartition, String> offsets) { }
+  default void afterCheckpoint(Map<SystemStreamPartition, String> offsets) { }
+
+  /**
+   * Called after writing the checkpoint for each Task in the Container processing SSPs on this system.
+   * This method is deprecated. Implement {@link #afterCheckpoint(Map)} instead.
+   *
+   * @param offsets offsets that were checkpointed.
+   */
+  @Deprecated
+  default void onCheckpoint(Map<SystemStreamPartition, String> offsets) {
+    afterCheckpoint(offsets);
+  }
 }

@@ -293,8 +293,7 @@ class OffsetManager(
     */
   def getModifiedOffsets(taskStartingOffsets: Map[SystemStreamPartition, String],
       taskLastProcessedOffsets: Map[SystemStreamPartition, String]): HashMap[SystemStreamPartition, String] = {
-    val modifiedOffsets = new HashMap[SystemStreamPartition, String]()
-    modifiedOffsets.putAll(taskLastProcessedOffsets.asJava)
+    val modifiedOffsets = new HashMap[SystemStreamPartition, String](taskLastProcessedOffsets.asJava)
 
     taskLastProcessedOffsets
       .groupBy { case (ssp, offset) => ssp.getSystem }  // Map(systemName -> Map(ssp -> offset))
@@ -308,12 +307,15 @@ class OffsetManager(
         val needModifiedOffsets = systemSSPLastProcessedOffsets.exists { case (ssp, sspLastProcessedOffset) =>
           // starting offsets are checkpointed offsets + 1 (see 'loadStartingOffsets'),
           // while on container start last processed offsets are equal to checkpointed offsets.
-          // subtract one from starting offsets to compare them with last processed offsets.
-          val adjustedSSPStartingOffset = taskStartingOffsets.get(ssp) match {
-            case Some(offset) if offset != null => (offset.toLong - 1).toString
-            case _ => ""
+          // compare last processed offsets with starting offsets to see if we've processed anything.
+          // last processed offsets < starting offsets after container start but before we've processed anything.
+          taskStartingOffsets.get(ssp) match {
+            case Some(startingOffset) if startingOffset != null =>
+              val systemAdmin = systemAdmins.getSystemAdmin(systemName)
+              val comparisionResult = systemAdmin.offsetComparator(sspLastProcessedOffset, startingOffset)
+              if (comparisionResult != null) comparisionResult < 0 else false
+            case _ => false
           }
-          !adjustedSSPStartingOffset.equals(sspLastProcessedOffset)
         }
 
         if (needModifiedOffsets) {
