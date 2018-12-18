@@ -33,7 +33,12 @@ import org.apache.samza.task.MessageCollector;
  */
 public interface StorageEngineFactory<K, V> {
 
-  public enum StoreMode {
+  /**
+   * Enum to describe different modes a {@link StorageEngine} can be created in.
+   * The BulkLoad mode is used for restoring persisent stores during storage-restoration.
+   * The ReadWrite mode is used for normal read-write ops by the application.
+   */
+  enum StoreMode {
     BulkLoad("bulk"), ReadWrite("rw");
     public final String mode;
 
@@ -54,6 +59,7 @@ public interface StorageEngineFactory<K, V> {
    * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param jobContext Information about the job in which the task is executing
    * @param containerContext Information about the container in which the task is executing.
+   * @param storeMode The mode in which the instance should be created in.
    * @return The storage engine instance.
    */
   StorageEngine getStorageEngine(

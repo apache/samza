@@ -77,7 +77,7 @@ import scala.collection.JavaConverters;
  *  a) performing all container-level actions for restore such as, initializing and shutting down
  *  taskStorage managers, starting, registering and stopping consumers, etc.
  *
- *  b) performing individual taskStorageManager restores in parallel.
+ *  b) performing individual task stores' restores in parallel.
  *
  */
 public class ContainerStorageManager {
@@ -86,7 +86,10 @@ public class ContainerStorageManager {
   // Naming convention to be used for restore threads
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
 
+  // Map of task stores for each task
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
+
+  // Map of task restore managers for each task
   private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
 
   // Mapping of from storeSystemNames to SystemConsumers
@@ -96,23 +99,27 @@ public class ContainerStorageManager {
   private final int parallelRestoreThreadPoolSize;
 
   private final Config config;
+
+  // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
   private final int maxChangeLogStreamPartitions;
+
   private final StreamMetadataCache streamMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
 
-  // parameters required to re-create taskStores post-restoration
+  /* Parameters required to re-create taskStores post-restoration */
   private final ContainerModel containerModel;
   private final JobContext jobContext;
   private final ContainerContext containerContext;
-  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories;
-  private final Map<String, SystemStream> changelogSystemStreams;
-  private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
-  private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors;
-  private final Map<String, Serde<Object>> serdes;
+  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories; // Map of storageEngineFactories indexed by store name
+  private final Map<String, SystemStream> changelogSystemStreams; // Map of changelog system-streams indexed by store name
+  private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics; // Map of taskInstance metrics indexed by task name
+  private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors; // Map of task instance collectors indexed by task name
+  private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
+
+  private final Optional<File> loggedStoreBaseDirectory; // The base directory to use for logged stores' files, if not specified defaults to a default dir.
+  private final Optional<File> nonLoggedStoreBaseDirectory; // The base directory to use for nonLogged stores' files, if not specified defaults to a default direct
 
   // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
-  private final Optional<File> loggedStoreBaseDirectory;
-  private final Optional<File> nonLoggedStoreBaseDirectory;
   private final Set<Path> storeDirectoryPaths;
 
   public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
@@ -168,6 +175,9 @@ public class ContainerStorageManager {
                 systemAdmins, clock)));
   }
 
+  /**
+   *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
+   */
   private Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
       Map<String, SystemFactory> systemFactories, Config config) {
     // Determine the set of systems being used across all stores
@@ -194,8 +204,7 @@ public class ContainerStorageManager {
 
   /**
    * Create taskStores with the given store mode.
-   * In case a store already exists in taskStores and it is a persistent store, the existing store is first stopped and a new one is
-   * created.
+   * In case a store already exists in taskStores and it is a persistent store, the existing store is overwritten with a new one.
    * Existing non-persistent stores in taskStores are left as-is.
    *
    */
@@ -250,8 +259,7 @@ public class ContainerStorageManager {
   }
 
   /**
-   *
-   * Helper method to create a StorageEngine with the given parameters.
+   * Helper method to instantiate a StorageEngine with the given parameters.
    */
   private StorageEngine createStore(String storeName, TaskName taskName, TaskModel taskModel, JobContext jobContext,
       ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -265,7 +273,7 @@ public class ContainerStorageManager {
         (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
             changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
 
-    // We use the logged storage base directory for change logged stores
+    // Use the logged-store-base-directory for change logged stores, and non-logged-store-base-dir for non logged stores
     File storeDirectory =
         (changeLogSystemStreamPartition != null) ? StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(),
             storeName, taskName)
@@ -340,31 +348,42 @@ public class ContainerStorageManager {
     // Stop consumers
     this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
 
-    // Now recreate persistent stores in read-write mode, leave non-persistent stores as-is
+    // Now re-create persistent stores in read-write mode, leave non-persistent stores as-is
     createTaskStores(this.containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.ReadWrite);
 
     LOG.info("Restore complete");
   }
 
+  /**
+   * Get the {@link StorageEngine} instance with a given name for a given task.
+   * @param taskName The task name for which the storage engine is desired.
+   * @param storeName The desired store's name.
+   * @return The desired task store.
+   */
   public Optional<StorageEngine> getStore(TaskName taskName, String storeName) {
     return Optional.ofNullable(this.taskStores.get(taskName).get(storeName));
   }
 
+  /**
+   *  Get all {@link StorageEngine} instance used by a given task.
+   */
   public Map<String, StorageEngine> getAllStores(TaskName taskName) {
     return this.taskStores.get(taskName);
   }
 
+  /**
+   * Set of directory paths for all stores restored by this {@link ContainerStorageManager}.
+   */
   public Set<Path> getStoreDirectoryPaths() {
     return this.storeDirectoryPaths;
   }
 
-  private final File getDefaultStoreBaseDir() {
-    File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
-    LOG.info("Got default storage engine base directory " + defaultStoreBaseDir);
-    return defaultStoreBaseDir;
-  }
-
+  /**
+   * Obtain the base directory used by this {@link ContainerStorageManager} for all non-logged stores.
+   * If a base-directory was NOT explicitly provided during instantiation or in config, a default base directory is
+   * returned.
+   */
   public final File getNonLoggedStorageBaseDir() {
 
     // if a loggedStoreBaseDirectory is explicitly specified then use that
@@ -381,6 +400,11 @@ public class ContainerStorageManager {
     }
   }
 
+  /**
+   * Obtain the base directory used by this {@link ContainerStorageManager} for all change-logged stores.
+   * If a base-directory was NOT explicitly provided during instantiation or in config or via an environment variable
+   * (see ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR), then a default base directory is returned.
+   */
   public final File getLoggedStorageBaseDir() {
 
     // if a loggedStoreBaseDirectory is explicitly specified then use that
@@ -420,6 +444,15 @@ public class ContainerStorageManager {
     return loggedStorageBaseDir;
   }
 
+  /**
+   * Construct a default store base directory using the <user.dir> and <state> System properties.
+   */
+  private final File getDefaultStoreBaseDir() {
+    File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
+    LOG.info("Got default storage engine base directory " + defaultStoreBaseDir);
+    return defaultStoreBaseDir;
+  }
+
   public void shutdown() {
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
         if (taskRestoreManager != null) {
@@ -433,7 +466,11 @@ public class ContainerStorageManager {
     LOG.info("Shutdown complete");
   }
 
-  /** Callable for performing the restoreStores on a taskStorage manager and emitting task-restoration metric.
+  /**
+   * Callable for performing the restoreStores on a task restore manager and emitting the task-restoration metric.
+   * After restoration, all persistent stores are stopped (which will invoke compaction in case of certain persistent
+   * stores that were opened in bulk-load mode).
+   * Performing stop here parallelizes this compaction, which is a time-intensive operation.
    *
    */
   private class TaskRestoreCallable implements Callable<Void> {
@@ -455,9 +492,8 @@ public class ContainerStorageManager {
       LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
       taskRestoreManager.restoreStores();
 
-      // Stop all persistent stores after restoring, so they can be re-created in RW mode
-      // Stores opened in BulkLoad mode are compacted on stop, so paralleling stop() also
-      // parallelizes their compaction (a time-intensive operation)
+      // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
+      // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
       taskRestoreManager.stopPersistentStores();
 
       long timeToRestore = System.currentTimeMillis() - startTime;
@@ -474,17 +510,18 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Restore logic for a task including directory cleanup, setup, changelogSSP validation, and registering with the consumer
+   * Restore logic for all stores of a task including directory cleanup, setup, changelogSSP validation, registering
+   * with the respective consumer, restoring stores, and stopping stores.
    */
-  public class TaskRestoreManager {
+  private class TaskRestoreManager {
 
-    private Map<String, StorageEngine> taskStores;
+    private Map<String, StorageEngine> taskStores; // Map of StorageEngines indexed by store name
     private TaskModel taskModel;
-    private Clock clock;
+    private Clock clock; // Clock value used to validate base-directories for staleness. See isLoggedStoreValid.
     private final static String OFFSET_FILE_NAME = "OFFSET";
-    private Map<SystemStream, String> changeLogOldestOffsets;
-    private Map<SystemStreamPartition, String> fileOffsets;
-    private final Map<String, SystemStream> changelogSystemStreams;
+    private Map<SystemStream, String> changeLogOldestOffsets; // Map of changelog oldest known offsets
+    private Map<SystemStreamPartition, String> fileOffsets; // Map of offsets read from offset file indexed by changelog SSP
+    private final Map<String, SystemStream> changelogSystemStreams; // Map of change log system-streams indexed by store name
     private final SystemAdmins systemAdmins;
 
     public TaskRestoreManager(TaskModel taskModel, Map<String, SystemStream> changelogSystemStreams,
@@ -497,14 +534,25 @@ public class ContainerStorageManager {
       this.fileOffsets = new HashMap<>();
     }
 
+    /**
+     * Cleans up and sets up store directories, validates changeLog SSPs for all stores of this task,
+     * and registers SSPs with the respective consumers.
+     */
     public void initialize() {
-      cleanBaseDirs();
+      cleanBaseDirsAndReadOffsetFiles();
       setupBaseDirs();
       validateChangelogStreams();
-      registerSSPs();
+      getOldestChangeLogOffsets();
+      registerStartingOffsets();
     }
 
-    private void cleanBaseDirs() {
+    /**
+     * For each store for this task,
+     * a. Deletes the corresponding non-logged-store base dir.
+     * b. Deletes the logged-store-base-dir if it not valid. See {@link #isLoggedStoreValid} for validation semantics.
+     * c. If the logged-store-base-dir is valid, this method reads the offset file and stores each offset.
+     */
+    private void cleanBaseDirsAndReadOffsetFiles() {
       LOG.debug("Cleaning base directories for stores.");
 
       taskStores.keySet().forEach(storeName -> {
@@ -540,7 +588,7 @@ public class ContainerStorageManager {
     }
 
     /**
-     * Directory loggedStoreDir associated with the logged store storeName is valid
+     * Directory loggedStoreDir associated with the logged store storeName is determined to be valid
      * if all of the following conditions are true.
      * a) If the store has to be persisted to disk.
      * b) If there is a valid offset file associated with the logged store.
@@ -561,6 +609,9 @@ public class ContainerStorageManager {
           loggedStoreDir, OFFSET_FILE_NAME, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
     }
 
+    /**
+     * Create stores' base directories for logged-stores if they dont exist.
+     */
     private void setupBaseDirs() {
       LOG.debug("Setting up base directories for stores.");
       taskStores.forEach((storeName, storageEngine) -> {
@@ -584,6 +635,9 @@ public class ContainerStorageManager {
         });
     }
 
+    /**
+     *  Validates each changelog system-stream with its respective SystemAdmin.
+     */
     private void validateChangelogStreams() {
       LOG.info("Validating change log streams: " + changelogSystemStreams);
 
@@ -595,6 +649,12 @@ public class ContainerStorageManager {
 
         systemAdmin.validateStream(changelogSpec);
       }
+    }
+
+    /**
+     * Get the oldest offset for each changelog SSP based on the stream's metadata (obtained from streamMetadataCache).
+     */
+    private void getOldestChangeLogOffsets() {
 
       Map<SystemStream, SystemStreamMetadata> changeLogMetadata = JavaConverters.mapAsJavaMapConverter(
           streamMetadataCache.getStreamMetadata(
@@ -627,8 +687,11 @@ public class ContainerStorageManager {
       return retVal;
     }
 
-    private void registerSSPs() {
-      LOG.debug("Starting consumers for stores.");
+    /**
+     * Determines the starting offset for each store SSP (based on {@link #getStartingOffset(SystemStreamPartition, SystemAdmin)}) and
+     * registers it with the respective SystemConsumer for starting consumption.
+     */
+    private void registerStartingOffsets() {
 
       for (Map.Entry<String, SystemStream> changelogSystemStreamEntry : changelogSystemStreams.entrySet()) {
         SystemStreamPartition systemStreamPartition =
@@ -674,6 +737,10 @@ public class ContainerStorageManager {
       return StorageManagerUtil.getStartingOffset(systemStreamPartition, systemAdmin, fileOffset, oldestOffset);
     }
 
+    
+    /**
+     *
+     */
     public void restoreStores() {
       LOG.debug("Restoring stores for task: " + taskModel.getTaskName());
 
@@ -688,16 +755,20 @@ public class ContainerStorageManager {
       }
     }
 
+    /**
+     * Stop all stores.
+     */
     public void stop() {
-      // Stopping all stores
       this.taskStores.values().forEach(storageEngine -> {
           storageEngine.stop();
         });
     }
 
+    /**
+     * Stop only persistent stores. In case of certain stores and store mode (such as RocksDB), this
+     * can invoke compaction.
+     */
     public void stopPersistentStores() {
-
-      // Stopping only persistent stores
       this.taskStores.values().stream().filter(storageEngine -> {
           return storageEngine.getStoreProperties().isPersistedToDisk();
         }).forEach(storageEngine -> {
