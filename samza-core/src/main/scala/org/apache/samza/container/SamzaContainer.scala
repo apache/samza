@@ -26,7 +26,7 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.Base64
+import java.util.{Base64, Optional}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
@@ -474,7 +474,7 @@ object SamzaContainer extends Logging {
 
 
     val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
-      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, maxChangeLogStreamPartitions, new SystemClock)
+      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, Optional.empty(), Optional.empty(), maxChangeLogStreamPartitions, new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 

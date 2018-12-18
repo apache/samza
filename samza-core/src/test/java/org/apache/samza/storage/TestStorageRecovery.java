@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.serializers.ByteSerdeFactory;
@@ -63,7 +62,7 @@ public class TestStorageRecovery {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
 
 
-    StorageRecovery storageRecovery = new StorageRecovery(config);
+    StorageRecovery storageRecovery = new StorageRecovery(config, path);
     storageRecovery.run();
 
     // because the stream has two partitions
@@ -71,7 +70,7 @@ public class TestStorageRecovery {
     assertEquals(msg, MockStorageEngine.incomingMessageEnvelopes.get(0));
     assertEquals(msg, MockStorageEngine.incomingMessageEnvelopes.get(1));
     // correct path is passed to the store engine
-    String expectedStoreDir = String.format("%s/%s/Partition_", path, STORE_NAME);
+    String expectedStoreDir = String.format("%s/state/%s/Partition_", path, STORE_NAME);
     String actualStoreDir = MockStorageEngine.storeDir.toString();
     assertEquals(expectedStoreDir, actualStoreDir.substring(0, actualStoreDir.length() - 1));
   }
@@ -79,8 +78,6 @@ public class TestStorageRecovery {
   private void putConfig() {
     Map<String, String> map = new HashMap<String, String>();
     map.put("job.name", "changelogTest");
-    map.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(), path);
-    map.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(), path);
     map.put("systems.mockSystem.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.factory", STORE_NAME), MockStorageEngineFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.changelog", STORE_NAME), "mockSystem." + SYSTEM_STREAM_NAME);

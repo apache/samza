@@ -21,8 +21,6 @@ package org.apache.samza.storage;
 
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionSet;
-
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
@@ -56,7 +54,7 @@ public class StateStorageTool extends CommandLine {
     MapConfig config = tool.loadConfig(options);
     String path = tool.getPath();
 
-    StorageRecovery storageRecovery = new StorageRecovery(config);
+    StorageRecovery storageRecovery = new StorageRecovery(config, path);
     storageRecovery.run();
   }
 }

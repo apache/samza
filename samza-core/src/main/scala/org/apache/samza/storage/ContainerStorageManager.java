@@ -18,7 +18,6 @@
  */
 package org.apache.samza.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -112,8 +111,9 @@ public class ContainerStorageManager {
   private final Map<String, Serde<Object>> serdes;
 
   // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
+  private final Optional<File> loggedStoreBaseDirectory;
+  private final Optional<File> nonLoggedStoreBaseDirectory;
   private final Set<Path> storeDirectoryPaths;
-
 
   public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
       SystemAdmins systemAdmins, Map<String, SystemStream> changelogSystemStreams,
@@ -121,12 +121,15 @@ public class ContainerStorageManager {
       Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext, ContainerContext containerContext,
-      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, int maxChangeLogStreamPartitions, Clock clock) {
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, Optional<File> loggedStoreBaseDirectory,
+      Optional<File> nonLoggedStoreBaseDirectory, int maxChangeLogStreamPartitions, Clock clock) {
 
     this.containerModel = containerModel;
     this.changelogSystemStreams = changelogSystemStreams;
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
+    this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
+    this.nonLoggedStoreBaseDirectory = nonLoggedStoreBaseDirectory;
 
     // set the config
     this.config = config;
@@ -165,8 +168,6 @@ public class ContainerStorageManager {
                 systemAdmins, clock)));
   }
 
-
-
   private Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
       Map<String, SystemFactory> systemFactories, Config config) {
     // Determine the set of systems being used across all stores
@@ -204,7 +205,6 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, StorageEngineFactory.StoreMode storeMode) {
 
-
     // iterate over each task and each storeName
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
       TaskName taskName = task.getKey();
@@ -221,9 +221,6 @@ public class ContainerStorageManager {
             .get(storeName)
             .getStoreProperties()
             .isPersistedToDisk()) {
-
-          // stop existing store
-          this.taskStores.get(taskName).get(storeName).stop();
 
           StorageEngine storageEngine =
               createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
@@ -275,8 +272,8 @@ public class ContainerStorageManager {
             : StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    if(storageConfig.getStorageKeySerde(storeName).isEmpty()) {
-      throw new SamzaException("No key serde defined for store: "+storeName);
+    if (storageConfig.getStorageKeySerde(storeName).isEmpty()) {
+      throw new SamzaException("No key serde defined for store: " + storeName);
     }
 
     Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).get());
@@ -285,8 +282,8 @@ public class ContainerStorageManager {
           "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
     }
 
-    if(storageConfig.getStorageMsgSerde(storeName).isEmpty()) {
-      throw new SamzaException("No msg serde defined for store: "+storeName);
+    if (storageConfig.getStorageMsgSerde(storeName).isEmpty()) {
+      throw new SamzaException("No msg serde defined for store: " + storeName);
     }
 
     Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).get());
@@ -297,15 +294,14 @@ public class ContainerStorageManager {
 
     // if taskInstanceMetrics are specified use those for store metrics,
     // otherwise (in case of StorageRecovery) use a blank MetricsRegistryMap
-    MetricsRegistry storeMetricsRegistry = taskInstanceMetrics.get(taskName)!=null ?
-        taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
+    MetricsRegistry storeMetricsRegistry =
+        taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry()
+            : new MetricsRegistryMap();
 
     return storageEngineFactories.get(storeName)
         .getStorageEngine(storeName, storeDirectory, keySerde, messageSerde, taskInstanceCollectors.get(taskName),
-            storeMetricsRegistry, changeLogSystemStreamPartition, jobContext, containerContext,
-            storeMode);
+            storeMetricsRegistry, changeLogSystemStreamPartition, jobContext, containerContext, storeMode);
   }
-
 
   public void start() throws SamzaException {
     LOG.info("Restore started");
@@ -370,6 +366,12 @@ public class ContainerStorageManager {
   }
 
   public final File getNonLoggedStorageBaseDir() {
+
+    // if a loggedStoreBaseDirectory is explicitly specified then use that
+    if (nonLoggedStoreBaseDirectory.isPresent()) {
+      return nonLoggedStoreBaseDirectory.get();
+    }
+
     JobConfig jobConfig = new JobConfig(this.config);
 
     if (jobConfig.getNonLoggedStorePath().isDefined()) {
@@ -380,8 +382,14 @@ public class ContainerStorageManager {
   }
 
   public final File getLoggedStorageBaseDir() {
-    JobConfig jobConfig = new JobConfig(this.config);
 
+    // if a loggedStoreBaseDirectory is explicitly specified then use that
+    if (loggedStoreBaseDirectory.isPresent()) {
+      return loggedStoreBaseDirectory.get();
+    }
+
+    // else determine the loggedStoreBaseDir based on config, systemEnv, etc
+    JobConfig jobConfig = new JobConfig(this.config);
     File defaultLoggedStorageBaseDir, loggedStorageBaseDir;
 
     if (jobConfig.getLoggedStorePath().isDefined()) {
@@ -411,7 +419,6 @@ public class ContainerStorageManager {
 
     return loggedStorageBaseDir;
   }
-
 
   public void shutdown() {
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
@@ -449,6 +456,8 @@ public class ContainerStorageManager {
       taskRestoreManager.restoreStores();
 
       // Stop all persistent stores after restoring, so they can be re-created in RW mode
+      // Stores opened in BulkLoad mode are compacted on stop, so paralleling stop() also
+      // parallelizes their compaction (a time-intensive operation)
       taskRestoreManager.stopPersistentStores();
 
       long timeToRestore = System.currentTimeMillis() - startTime;
@@ -467,7 +476,7 @@ public class ContainerStorageManager {
   /**
    * Restore logic for a task including directory cleanup, setup, changelogSSP validation, and registering with the consumer
    */
-  private class TaskRestoreManager {
+  public class TaskRestoreManager {
 
     private Map<String, StorageEngine> taskStores;
     private TaskModel taskModel;
@@ -500,8 +509,7 @@ public class ContainerStorageManager {
 
       taskStores.keySet().forEach(storeName -> {
           File nonLoggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
-                  taskModel.getTaskName());
+              StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
           LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
           if (nonLoggedStorePartitionDir.exists()) {
@@ -559,8 +567,7 @@ public class ContainerStorageManager {
           if (storageEngine.getStoreProperties().isLoggedStore()) {
 
             File loggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(), storeName,
-                    taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
 
             LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
@@ -570,8 +577,7 @@ public class ContainerStorageManager {
             }
           } else {
             File nonLoggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName,
-                    taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
             LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
           }
@@ -594,7 +600,8 @@ public class ContainerStorageManager {
           streamMetadataCache.getStreamMetadata(
               JavaConverters.asScalaSetConverter(new HashSet<>(changelogSystemStreams.values())).asScala().toSet(),
               false)).asJava();
-      LOG.info("Got change log stream metadata: " + changeLogMetadata);
+
+      LOG.info("Got change log stream metadata: {}", changeLogMetadata);
 
       changeLogOldestOffsets =
           getChangeLogOldestOffsetsForPartition(taskModel.getChangelogPartition(), changeLogMetadata);
@@ -608,11 +615,16 @@ public class ContainerStorageManager {
     private Map<SystemStream, String> getChangeLogOldestOffsetsForPartition(Partition partition,
         Map<SystemStream, SystemStreamMetadata> inputStreamMetadata) {
 
-      return inputStreamMetadata.entrySet()
+      Map<SystemStream, String> retVal = new HashMap<>();
+
+      // NOTE: do not use Collectors.Map because of https://bugs.openjdk.java.net/browse/JDK-8148463
+      inputStreamMetadata.entrySet()
           .stream()
           .filter(x -> x.getValue().getSystemStreamPartitionMetadata().get(partition) != null)
-          .collect(Collectors.toMap(e -> e.getKey(),
-              e -> e.getValue().getSystemStreamPartitionMetadata().get(partition).getOldestOffset()));
+          .forEach(e -> retVal.put(e.getKey(),
+              e.getValue().getSystemStreamPartitionMetadata().get(partition).getOldestOffset()));
+
+      return retVal;
     }
 
     private void registerSSPs() {
@@ -651,12 +663,14 @@ public class ContainerStorageManager {
      */
     private String getStartingOffset(SystemStreamPartition systemStreamPartition, SystemAdmin systemAdmin) {
       String fileOffset = fileOffsets.get(systemStreamPartition);
-      String oldestOffset = changeLogOldestOffsets.get(systemStreamPartition.getSystemStream());
 
-      if (oldestOffset == null) {
+      // NOTE: changeLogOldestOffsets may contain a null-offset for the given SSP (signifying an empty stream)
+      // therefore, we need to differentiate that from the case where the offset is simply missing
+      if (!changeLogOldestOffsets.containsKey(systemStreamPartition.getSystemStream())) {
         throw new SamzaException("Missing a change log offset for " + systemStreamPartition);
       }
 
+      String oldestOffset = changeLogOldestOffsets.get(systemStreamPartition.getSystemStream());
       return StorageManagerUtil.getStartingOffset(systemStreamPartition, systemAdmin, fileOffset, oldestOffset);
     }
 
@@ -664,27 +678,31 @@ public class ContainerStorageManager {
       LOG.debug("Restoring stores for task: " + taskModel.getTaskName());
 
       for (Map.Entry<String, StorageEngine> store : taskStores.entrySet()) {
-          SystemConsumer systemConsumer = systemConsumers.get(store.getKey());
-          SystemStream systemStream = changelogSystemStreams.get(store.getKey());
+        SystemConsumer systemConsumer = systemConsumers.get(store.getKey());
+        SystemStream systemStream = changelogSystemStreams.get(store.getKey());
 
-          SystemStreamPartitionIterator systemStreamPartitionIterator =
-              new SystemStreamPartitionIterator(systemConsumer,
-                  new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()));
+        SystemStreamPartitionIterator systemStreamPartitionIterator = new SystemStreamPartitionIterator(systemConsumer,
+            new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()));
 
-          store.getValue().restore(systemStreamPartitionIterator);
+        store.getValue().restore(systemStreamPartitionIterator);
       }
     }
 
     public void stop() {
       // Stopping all stores
-      this.taskStores.values().forEach(storageEngine -> {storageEngine.stop();});
+      this.taskStores.values().forEach(storageEngine -> {
+          storageEngine.stop();
+        });
     }
 
     public void stopPersistentStores() {
 
       // Stopping only persistent stores
-      this.taskStores.values().stream().filter(storageEngine -> {return storageEngine.getStoreProperties().isPersistedToDisk();})
-          .forEach(storageEngine -> {storageEngine.stop();});
+      this.taskStores.values().stream().filter(storageEngine -> {
+          return storageEngine.getStoreProperties().isPersistedToDisk();
+        }).forEach(storageEngine -> {
+            storageEngine.stop();
+          });
     }
   }
 }

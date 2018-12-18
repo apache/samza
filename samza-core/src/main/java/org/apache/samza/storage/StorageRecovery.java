@@ -47,7 +47,6 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -66,6 +65,7 @@ public class StorageRecovery extends CommandLine {
 
   private Config jobConfig;
   private int maxPartitionNumber = 0;
+  private File storeBaseDir = null;
   private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
   private HashMap<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
@@ -79,9 +79,12 @@ public class StorageRecovery extends CommandLine {
    *
    * @param config
    *          the job config
+   * @param path
+   *          the directory path where we put the stores
    */
-  StorageRecovery(Config config) {
+  StorageRecovery(Config config, String path) {
     jobConfig = config;
+    storeBaseDir = new File(path, "state");
     systemAdmins = new SystemAdmins(config);
   }
 
@@ -108,14 +111,14 @@ public class StorageRecovery extends CommandLine {
 
     systemAdmins.start();
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-      containerStorageManager.start();
-    });
+        containerStorageManager.start();
+      });
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-      containerStorageManager.shutdown();
-    });
+        containerStorageManager.shutdown();
+      });
     systemAdmins.stop();
 
-    log.info("successfully recovered");
+    log.info("successfully recovered in " + storeBaseDir.toString());
   }
 
   /**
@@ -185,16 +188,16 @@ public class StorageRecovery extends CommandLine {
         .asJavaCollection()
         .stream()
         .forEach(serdeName -> {
-          Option<String> serdeClassName = new SerializerConfig(jobConfig).getSerdeClass(serdeName);
+            Option<String> serdeClassName = new SerializerConfig(jobConfig).getSerdeClass(serdeName);
 
-          if (serdeClassName.isEmpty()) {
-            serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
-          }
+            if (serdeClassName.isEmpty()) {
+              serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
+            }
 
-          Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class)
-              .getSerde(serdeName, new SerializerConfig(jobConfig));
-          retVal.put(serdeName, serde);
-        });
+            Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class)
+                .getSerde(serdeName, new SerializerConfig(jobConfig));
+            retVal.put(serdeName, serde);
+          });
 
     return retVal;
   }
@@ -216,9 +219,10 @@ public class StorageRecovery extends CommandLine {
 
       ContainerStorageManager containerStorageManager =
           new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
-              storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(), new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
-              JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(), maxPartitionNumber,
-              new SystemClock());
+              storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
+              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
+              JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(),
+              Optional.of(storeBaseDir), Optional.of(storeBaseDir), maxPartitionNumber, new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

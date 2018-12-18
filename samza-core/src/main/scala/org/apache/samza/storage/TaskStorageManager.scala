@@ -20,15 +20,14 @@
 package org.apache.samza.storage
 
 import java.io._
-import java.util
 
-import org.apache.samza.{Partition}
+import org.apache.samza.Partition
 import org.apache.samza.container.TaskName
-
-import scala.collection.JavaConverters._
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{FileUtil, Logging}
+
+import scala.collection.JavaConverters._
 
 /**
  * Manage all the storage engines for a given task
@@ -45,16 +44,12 @@ class TaskStorageManager(
     case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk
   }
 
-  var changeLogOldestOffsets: Map[SystemStream, String] = Map()
-  val fileOffsets: util.Map[SystemStreamPartition, String] = new util.HashMap[SystemStreamPartition, String]()
   val offsetFileName = "OFFSET"
 
   def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
 
   def init {
   }
-
-
 
   def flush() {
     debug("Flushing stores.")

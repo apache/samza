@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -77,8 +78,8 @@ public class TestContainerStorageManager {
   private void addMockedTask(String taskname, int changelogPartition) {
     TaskInstance mockTaskInstance = Mockito.mock(TaskInstance.class);
     Mockito.doAnswer(invocation -> {
-      return new TaskName(taskname);
-    }).when(mockTaskInstance).taskName();
+        return new TaskName(taskname);
+      }).when(mockTaskInstance).taskName();
 
     Gauge testGauge = Mockito.mock(Gauge.class);
     this.tasks.put(new TaskName(taskname),
@@ -114,35 +115,33 @@ public class TestContainerStorageManager {
         (StorageEngineFactory<Object, Object>) Mockito.mock(StorageEngineFactory.class);
     StorageEngine mockStorageEngine = Mockito.mock(StorageEngine.class);
     Mockito.doAnswer(invocation -> {
-      return mockStorageEngine;
-    })
-        .when(mockStorageEngineFactory)
-        .getStorageEngine(Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+        return mockStorageEngine;
+      }).when(mockStorageEngineFactory).getStorageEngine(Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
             Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
     storageEngineFactories.put(STORE_NAME, mockStorageEngineFactory);
 
     // Add instrumentation to mocked storage engine, to record the number of store.restore() calls
     Mockito.doAnswer(invocation -> {
-      storeRestoreCallCount++;
-      return null;
-    }).when(mockStorageEngine).restore(Mockito.any());
+        storeRestoreCallCount++;
+        return null;
+      }).when(mockStorageEngine).restore(Mockito.any());
 
     // Set the mocked stores' properties to be persistent
     Mockito.doAnswer(invocation -> {
-      return new StoreProperties.StorePropertiesBuilder().setPersistedToDisk(true).build();
-    }).when(mockStorageEngine).getStoreProperties();
+        return new StoreProperties.StorePropertiesBuilder().setPersistedToDisk(true).build();
+      }).when(mockStorageEngine).getStoreProperties();
 
     // Mock and setup sysconsumers
     SystemConsumer mockSystemConsumer = Mockito.mock(SystemConsumer.class);
     Mockito.doAnswer(invocation -> {
-      systemConsumerStartCount++;
-      return null;
-    }).when(mockSystemConsumer).start();
+        systemConsumerStartCount++;
+        return null;
+      }).when(mockSystemConsumer).start();
     Mockito.doAnswer(invocation -> {
-      systemConsumerStopCount++;
-      return null;
-    }).when(mockSystemConsumer).stop();
+        systemConsumerStopCount++;
+        return null;
+      }).when(mockSystemConsumer).stop();
 
     // Create mocked system factories
     Map<String, SystemFactory> systemFactories = new HashMap<>();
@@ -150,9 +149,9 @@ public class TestContainerStorageManager {
     // Count the number of sysConsumers created
     SystemFactory mockSystemFactory = Mockito.mock(SystemFactory.class);
     Mockito.doAnswer(invocation -> {
-      this.systemConsumerCreationCount++;
-      return mockSystemConsumer;
-    }).when(mockSystemFactory).getConsumer(Mockito.anyString(), Mockito.any(), Mockito.any());
+        this.systemConsumerCreationCount++;
+        return mockSystemConsumer;
+      }).when(mockSystemFactory).getConsumer(Mockito.anyString(), Mockito.any(), Mockito.any());
 
     systemFactories.put(SYSTEM_NAME, mockSystemFactory);
 
@@ -169,12 +168,12 @@ public class TestContainerStorageManager {
     // Create mocked system admins
     SystemAdmin mockSystemAdmin = Mockito.mock(SystemAdmin.class);
     Mockito.doAnswer(new Answer<Void>() {
-      public Void answer(InvocationOnMock invocation) {
-        Object[] args = invocation.getArguments();
-        System.out.println("called with arguments: " + Arrays.toString(args));
-        return null;
-      }
-    }).when(mockSystemAdmin).validateStream(Mockito.any());
+        public Void answer(InvocationOnMock invocation) {
+          Object[] args = invocation.getArguments();
+          System.out.println("called with arguments: " + Arrays.toString(args));
+          return null;
+        }
+      }).when(mockSystemAdmin).validateStream(Mockito.any());
     SystemAdmins mockSystemAdmins = Mockito.mock(SystemAdmins.class);
     Mockito.when(mockSystemAdmins.getSystemAdmin("kafka")).thenReturn(mockSystemAdmin);
 
@@ -204,7 +203,7 @@ public class TestContainerStorageManager {
         new ContainerStorageManager(new ContainerModel("samza-container-test", tasks), mockStreamMetadataCache,
             mockSystemAdmins, changelogSystemStreams, storageEngineFactories, systemFactories, serdes, config,
             taskInstanceMetrics, samzaContainerMetrics, Mockito.mock(JobContext.class),
-            Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), 2, new SystemClock());
+            Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), Optional.empty(), Optional.empty(), 2, new SystemClock());
   }
 
   @Test
