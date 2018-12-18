@@ -18,6 +18,7 @@
  */
 package org.apache.samza.startpoint;
 
+import com.google.common.base.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -25,7 +26,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * A {@link Startpoint} that represents a specific offset in a stream partition.
  */
 public final class StartpointSpecific extends Startpoint {
-  
+
   private final String specificOffset;
 
   // Default constructor needed by serde.
@@ -54,5 +55,10 @@ public final class StartpointSpecific extends Startpoint {
   @Override
   public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
     startpointConsumerVisitor.register(systemStreamPartition, this);
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(this).add("specificOffset", specificOffset).toString();
   }
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +104,7 @@ public class TestStartpointManager {
     } catch (IllegalStateException ex) { }
 
     try {
-      startpointManager.groupStartpointsPerTask(ssp, new JobModel(new MapConfig(), new HashMap<>()));
+      startpointManager.groupStartpointsPerTask(new JobModel(new MapConfig(), new HashMap<>()));
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
   }
@@ -122,10 +123,10 @@ public class TestStartpointManager {
     StartpointSpecific startpoint4 = new StartpointSpecific("2");
 
     // Test createdTimestamp field is null by default
-    Assert.assertNotNull(startpoint1.getCreatedTimestamp());
-    Assert.assertNotNull(startpoint2.getCreatedTimestamp());
-    Assert.assertNotNull(startpoint3.getCreatedTimestamp());
-    Assert.assertNotNull(startpoint4.getCreatedTimestamp());
+    Assert.assertNull(startpoint1.getCreatedTimestamp());
+    Assert.assertNull(startpoint2.getCreatedTimestamp());
+    Assert.assertNull(startpoint3.getCreatedTimestamp());
+    Assert.assertNull(startpoint4.getCreatedTimestamp());
 
     // Test reads on non-existent keys
     Assert.assertNull(startpointManager.readStartpoint(ssp));
@@ -138,9 +139,11 @@ public class TestStartpointManager {
     startpointFromStore = startpointManager.readStartpoint(ssp);
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint1.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
+    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
     startpointFromStore = startpointManager.readStartpointForTask(ssp, taskName);
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint2.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
+    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     // Test overwrites
     startpointManager.writeStartpoint(ssp, startpoint3);
@@ -148,9 +151,11 @@ public class TestStartpointManager {
     startpointFromStore = startpointManager.readStartpoint(ssp);
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint3.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
+    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
     startpointFromStore = startpointManager.readStartpointForTask(ssp, taskName);
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint4.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
+    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     // Test deletes on SSP keys does not affect SSP+TaskName keys
     startpointManager.deleteStartpoint(ssp);
@@ -212,10 +217,9 @@ public class TestStartpointManager {
     startpointManager.writeStartpoint(sspSingle, startpoint42);
 
     // startpoint42 should remap with key sspBroadcast to all tasks + sspBroadcast
-    startpointManager.groupStartpointsPerTask(sspBroadcast, jobModel);
-
-    // startpoint42 should remap with key sspSingle to only task "t1"
-    startpointManager.groupStartpointsPerTask(sspSingle, jobModel);
+    Set<SystemStreamPartition> systemStreamPartitions = startpointManager.groupStartpointsPerTask(jobModel);
+    Assert.assertEquals(2, systemStreamPartitions.size());
+    Assert.assertTrue(systemStreamPartitions.containsAll(ImmutableSet.of(sspBroadcast, sspSingle)));
 
     for (TaskName taskName : tasks) {
       // startpoint42 should be mapped to all tasks for sspBroadcast
@@ -243,9 +247,9 @@ public class TestStartpointManager {
     startpointManager.writeStartpointForTask(sspBroadcast2, tasks.get(1), startpoint1024);
     startpointManager.writeStartpointForTask(sspBroadcast2, tasks.get(3), startpoint1024);
 
-    Set<TaskName> tasksResult = startpointManager.groupStartpointsPerTask(sspBroadcast2, jobModel);
-    Assert.assertEquals(tasks.size(), tasksResult.size());
-    Assert.assertTrue(tasksResult.containsAll(tasks));
+    Set<SystemStreamPartition> sspsDeleted = startpointManager.groupStartpointsPerTask(jobModel);
+    Assert.assertEquals(1, sspsDeleted.size());
+    Assert.assertTrue(sspsDeleted.contains(sspBroadcast2));
 
     StartpointSpecific startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(0));
     Assert.assertEquals(startpoint42.getSpecificOffset(), startpointFromStore.getSpecificOffset());

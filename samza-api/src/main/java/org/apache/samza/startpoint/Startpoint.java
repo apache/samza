@@ -19,7 +19,6 @@
 package org.apache.samza.startpoint;
 
 import com.google.common.base.Objects;
-import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -30,11 +29,7 @@ import org.apache.samza.system.SystemStreamPartition;
 @InterfaceStability.Unstable
 public abstract class Startpoint {
 
-  private final Long createdTimestamp;
-
-  protected Startpoint() {
-    this.createdTimestamp = Instant.now().toEpochMilli();
-  }
+  private Long createdTimestamp;
 
   /**
    * The timestamp when this {@link Startpoint} was written to the storage layer.
@@ -42,6 +37,10 @@ public abstract class Startpoint {
    */
   public Long getCreatedTimestamp() {
     return createdTimestamp;
+  }
+
+  void setCreatedTimestamp(Long createdTimestamp) {
+    this.createdTimestamp = createdTimestamp;
   }
 
   /**

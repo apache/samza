@@ -18,6 +18,7 @@
  */
 package org.apache.samza.startpoint;
 
+import com.google.common.base.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -36,5 +37,10 @@ public final class StartpointLatest extends Startpoint {
   @Override
   public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
     startpointConsumerVisitor.register(systemStreamPartition, this);
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(this).toString();
   }
 }

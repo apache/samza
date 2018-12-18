@@ -23,14 +23,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -68,13 +69,6 @@ public class StartpointManager {
     this.metadataStore = metadataStore;
     this.startpointSerde = startpointSerde;
     this.expirationDuration = expirationDuration;
-
-    // Register each Startpoint type with the serde
-    startpointSerde.register(StartpointSpecific.class);
-    startpointSerde.register(StartpointTimestamp.class);
-    startpointSerde.register(StartpointEarliest.class);
-    startpointSerde.register(StartpointLatest.class);
-    startpointSerde.register(StartpointBootstrap.class);
   }
 
   /**
@@ -132,8 +126,10 @@ public class StartpointManager {
     Preconditions.checkNotNull(startpoint, "Startpoint cannot be null");
 
     try {
+      startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
       metadataStore.put(toStoreKey(ssp, taskName), startpointSerde.toBytes(startpoint));
     } catch (Exception ex) {
+      startpoint.setCreatedTimestamp(null);
       throw new SamzaException(String.format(
           "Startpoint for SSP: %s and task: %s may not have been written to the metadata store.", ssp, taskName), ex);
     }
@@ -165,6 +161,7 @@ public class StartpointManager {
       if (Instant.now().minus(expirationDuration).isBefore(Instant.ofEpochMilli(startpoint.getCreatedTimestamp()))) {
         return startpoint; // return if deserializable and if not stale
       }
+      LOG.warn("Stale Startpoint: {} was read. Ignoring.", startpoint);
     }
 
     return null;
@@ -191,50 +188,48 @@ public class StartpointManager {
   }
 
   /**
-   * For {@link Startpoint}s keyed only by {@link SystemStreamPartition}, this method remaps the Startpoints for the specified
+   * For {@link Startpoint}s keyed only by {@link SystemStreamPartition}, this method re-maps the Startpoints from
    * SystemStreamPartition to SystemStreamPartition+{@link TaskName} for all tasks provided by the {@link JobModel}
    * This method is not atomic or thread-safe. The intent is for the Samza Processor's coordinator to use this
    * method to assign the Startpoints to the appropriate tasks.
-   * @param ssp The {@link SystemStreamPartition} that a {@link Startpoint} is keyed to.
    * @param jobModel The {@link JobModel} is used to determine which {@link TaskName} each {@link SystemStreamPartition} maps to.
-   * @return The list of {@link TaskName}s mapped to the ssp.
+   * @return The list of {@link SystemStreamPartition}s that were re-mapped.
    */
-  public Set<TaskName> groupStartpointsPerTask(SystemStreamPartition ssp, JobModel jobModel) {
+  public Set<SystemStreamPartition> groupStartpointsPerTask(JobModel jobModel) {
     Preconditions.checkState(started, "Underlying metadata store not available");
-    Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
     Preconditions.checkNotNull(jobModel, "JobModel cannot be null");
 
-    Startpoint startpoint = readStartpoint(ssp);
-    HashMap<TaskName, Startpoint> result = new HashMap<>();
+    HashSet<SystemStreamPartition> sspsToDelete = new HashSet<>();
 
-    LOG.info("Grouping Startpoint keyed on SSP: {} to tasks determined by the job model.", ssp);
-
-    // Re-map startpoints from SSP-only keys to SSP+TaskName keys
-    HashSet<TaskName> tasksWithSSP = new HashSet<>();
-
-    // Inspect the job model for TaskName to SSPs mapping and re-map startpoints from SSP-only keys to SSP+TaskName keys.
-    jobModel.getContainers().values().forEach(containerModel ->
-        containerModel.getTasks().forEach((taskName, taskModel) -> {
-            if (taskModel.getSystemStreamPartitions().contains(ssp)) {
-              tasksWithSSP.add(taskName);
-              Startpoint startpointForTask = readStartpointForTask(ssp, taskName);
-
-              // Existing startpoint keyed by SSP+TaskName takes precedence and will not be overwritten.
-              if (Objects.isNull(startpointForTask)) {
-                writeStartpointForTask(ssp, taskName, startpoint);
-                result.put(taskName, startpoint);
-                LOG.info("Startpoint for SSP: {} remapped with task: {}.", ssp, taskName);
-              } else {
-                LOG.info("Startpoint for SSP: {} and task: {} already exists and will not be overwritten.", ssp, taskName);
-              }
+    // Inspect the job model for TaskName-to-SSPs mapping and re-map startpoints from SSP-only keys to SSP+TaskName keys.
+    for (ContainerModel containerModel: jobModel.getContainers().values()) {
+      for (TaskModel taskModel : containerModel.getTasks().values()) {
+        TaskName taskName = taskModel.getTaskName();
+        for (SystemStreamPartition ssp : taskModel.getSystemStreamPartitions()) {
+          Startpoint startpoint = readStartpoint(ssp); // Read SSP-only key
+          if (Objects.nonNull(startpoint)) {
+            LOG.info("Grouping Startpoint keyed on SSP: {} to tasks determined by the job model.", ssp);
+            Startpoint startpointForTask = readStartpointForTask(ssp, taskName);
+            if (Objects.isNull(startpointForTask)) {
+              writeStartpointForTask(ssp, taskName, startpoint);
+              // Delete startpoint keyed by only this SSP
+              sspsToDelete.add(ssp);
+              LOG.info("Startpoint for SSP: {} remapped with task: {}.", ssp, taskName);
+            } else {
+              LOG.info("Startpoint for SSP: {} and task: {} already exists and will not be overwritten.", ssp, taskName);
             }
-          })
-    );
+          }
+        }
+      }
+    }
 
-    // Delete startpoint keyed by only this SSP
-    deleteStartpoint(ssp);
+    // Delete SSP-only keys
+    sspsToDelete.forEach(ssp -> {
+        deleteStartpoint(ssp);
+        LOG.info("All Startpoints for SSP: {} have been grouped to the appropriate tasks and the SSP was deleted.");
+      });
 
-    return ImmutableSet.copyOf(tasksWithSSP);
+    return ImmutableSet.copyOf(sspsToDelete);
   }
 
   /**

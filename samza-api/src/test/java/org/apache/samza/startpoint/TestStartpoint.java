@@ -31,6 +31,8 @@ public class TestStartpoint {
   public void testStartpointSpecific() {
     StartpointSpecific startpoint = new StartpointSpecific("123");
     Assert.assertEquals("123", startpoint.getSpecificOffset());
+    Assert.assertNull(startpoint.getCreatedTimestamp());
+    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
     Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
@@ -42,6 +44,8 @@ public class TestStartpoint {
   public void testStartpointTimestamp() {
     StartpointTimestamp startpoint = new StartpointTimestamp(2222222L);
     Assert.assertEquals(2222222L, startpoint.getTimestampOffset().longValue());
+    Assert.assertNull(startpoint.getCreatedTimestamp());
+    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
     Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
@@ -52,6 +56,8 @@ public class TestStartpoint {
   @Test
   public void testStartpointEarliest() {
     StartpointEarliest startpoint = new StartpointEarliest();
+    Assert.assertNull(startpoint.getCreatedTimestamp());
+    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
     Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
@@ -62,6 +68,8 @@ public class TestStartpoint {
   @Test
   public void testStartpointLatest() {
     StartpointLatest startpoint = new StartpointLatest();
+    Assert.assertNull(startpoint.getCreatedTimestamp());
+    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
     Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
@@ -73,6 +81,8 @@ public class TestStartpoint {
   public void testStartpointBootstrap() {
     StartpointBootstrap startpoint = new StartpointBootstrap("test12345");
     Assert.assertEquals("test12345", startpoint.getBootstrapInfo());
+    Assert.assertNull(startpoint.getCreatedTimestamp());
+    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
     Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
 
     MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();

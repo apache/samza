@@ -25,15 +25,6 @@ import org.junit.Test;
 public class TestStartpointSerde {
   private final StartpointSerde startpointSerde = new StartpointSerde();
 
-  public TestStartpointSerde() {
-    // Register each Startpoint type with the serde
-    startpointSerde.register(StartpointSpecific.class);
-    startpointSerde.register(StartpointTimestamp.class);
-    startpointSerde.register(StartpointEarliest.class);
-    startpointSerde.register(StartpointLatest.class);
-    startpointSerde.register(StartpointBootstrap.class);
-  }
-
   @Test
   public void testStartpointSpecificSerde() {
     StartpointSpecific startpointSpecific = new StartpointSpecific("42");

@@ -20,8 +20,8 @@ package org.apache.samza.startpoint;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.Serde;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -30,19 +30,21 @@ import org.codehaus.jackson.map.ObjectMapper;
 class StartpointSerde implements Serde<Startpoint> {
   private static final String STARTPOINT_CLASS = "startpointClass";
   private static final String STARTPOINT_OBJ = "startpointObj";
+  // Map required for the object mapper to know how to deserialize into the Startpoint subclass
+  private static final Map<String, Class<? extends Startpoint>> SERDE_TYPES = ImmutableMap.of(
+      StartpointSpecific.class.getCanonicalName(), StartpointSpecific.class,
+      StartpointTimestamp.class.getCanonicalName(), StartpointTimestamp.class,
+      StartpointEarliest.class.getCanonicalName(), StartpointEarliest.class,
+      StartpointLatest.class.getCanonicalName(), StartpointLatest.class,
+      StartpointBootstrap.class.getCanonicalName(), StartpointBootstrap.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
-  private final HashMap<String, Class<? extends Startpoint>> registry = new HashMap<>();
-
-  void register(Class<? extends Startpoint> clazz) {
-    registry.put(clazz.getCanonicalName(), clazz);
-  }
 
   @Override
   public Startpoint fromBytes(byte[] bytes) {
     try {
       LinkedHashMap<String, String> deserialized = mapper.readValue(bytes, LinkedHashMap.class);
-      return mapper.readValue(deserialized.get(STARTPOINT_OBJ), registry.get(deserialized.get(STARTPOINT_CLASS)));
+      return mapper.readValue(deserialized.get(STARTPOINT_OBJ), SERDE_TYPES.get(deserialized.get(STARTPOINT_CLASS)));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing startpoint bytes: %s",
           Arrays.toString(bytes)), e);
