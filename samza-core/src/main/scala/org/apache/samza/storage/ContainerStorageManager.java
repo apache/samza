@@ -515,12 +515,15 @@ public class ContainerStorageManager {
    */
   private class TaskRestoreManager {
 
-    private Map<String, StorageEngine> taskStores; // Map of StorageEngines indexed by store name
-    private TaskModel taskModel;
-    private Clock clock; // Clock value used to validate base-directories for staleness. See isLoggedStoreValid.
     private final static String OFFSET_FILE_NAME = "OFFSET";
+    private final Map<String, StorageEngine> taskStores; // Map of all StorageEngines for this task indexed by store name
+    private final Set<String> taskStoresToRestore;
+    // Set of store names which need to be restored by consuming using system-consumers (see registerStartingOffsets)
+
+    private final TaskModel taskModel;
+    private final Clock clock; // Clock value used to validate base-directories for staleness. See isLoggedStoreValid.
     private Map<SystemStream, String> changeLogOldestOffsets; // Map of changelog oldest known offsets
-    private Map<SystemStreamPartition, String> fileOffsets; // Map of offsets read from offset file indexed by changelog SSP
+    private final Map<SystemStreamPartition, String> fileOffsets; // Map of offsets read from offset file indexed by changelog SSP
     private final Map<String, SystemStream> changelogSystemStreams; // Map of change log system-streams indexed by store name
     private final SystemAdmins systemAdmins;
 
@@ -532,6 +535,9 @@ public class ContainerStorageManager {
       this.changelogSystemStreams = changelogSystemStreams;
       this.systemAdmins = systemAdmins;
       this.fileOffsets = new HashMap<>();
+      this.taskStoresToRestore = this.taskStores.entrySet().stream()
+          .filter(x -> x.getValue().getStoreProperties().isLoggedStore())
+          .map(x -> x.getKey()).collect(Collectors.toSet());
     }
 
     /**
@@ -665,8 +671,8 @@ public class ContainerStorageManager {
 
       changeLogOldestOffsets =
           getChangeLogOldestOffsetsForPartition(taskModel.getChangelogPartition(), changeLogMetadata);
-      LOG.info(
-          "Assigning oldest change log offsets for taskName " + taskModel.getTaskName() + ":" + changeLogOldestOffsets);
+      LOG.info("Assigning oldest change log offsets for taskName {}:{}", taskModel.getTaskName(),
+          changeLogOldestOffsets);
     }
 
     /**
@@ -705,8 +711,9 @@ public class ContainerStorageManager {
           LOG.info("Registering change log consumer with offset " + offset + " for %" + systemStreamPartition);
           systemConsumer.register(systemStreamPartition, offset);
         } else {
-          LOG.info("Skipping change log restoration for " + systemStreamPartition
-              + " because stream appears to be empty (offset was null).");
+          LOG.info("Skipping change log restoration for {} because stream appears to be empty (offset was null).",
+              systemStreamPartition);
+          taskStoresToRestore.remove(changelogSystemStreamEntry.getKey());
         }
       }
     }
@@ -737,21 +744,21 @@ public class ContainerStorageManager {
       return StorageManagerUtil.getStartingOffset(systemStreamPartition, systemAdmin, fileOffset, oldestOffset);
     }
 
-    
+
     /**
-     *
+     * Restore each store in taskStoresToRestore sequentially
      */
     public void restoreStores() {
-      LOG.debug("Restoring stores for task: " + taskModel.getTaskName());
+      LOG.debug("Restoring stores for task: {}", taskModel.getTaskName());
 
-      for (Map.Entry<String, StorageEngine> store : taskStores.entrySet()) {
-        SystemConsumer systemConsumer = systemConsumers.get(store.getKey());
-        SystemStream systemStream = changelogSystemStreams.get(store.getKey());
+      for (String storeName : taskStoresToRestore) {
+        SystemConsumer systemConsumer = systemConsumers.get(storeName);
+        SystemStream systemStream = changelogSystemStreams.get(storeName);
 
         SystemStreamPartitionIterator systemStreamPartitionIterator = new SystemStreamPartitionIterator(systemConsumer,
             new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()));
 
-        store.getValue().restore(systemStreamPartitionIterator);
+        taskStores.get(storeName).restore(systemStreamPartitionIterator);
       }
     }
 

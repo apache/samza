@@ -129,7 +129,7 @@ public class TestContainerStorageManager {
 
     // Set the mocked stores' properties to be persistent
     Mockito.doAnswer(invocation -> {
-        return new StoreProperties.StorePropertiesBuilder().setPersistedToDisk(true).build();
+        return new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
       }).when(mockStorageEngine).getStoreProperties();
 
     // Mock and setup sysconsumers
