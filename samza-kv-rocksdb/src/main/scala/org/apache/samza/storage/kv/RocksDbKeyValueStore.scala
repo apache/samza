@@ -192,6 +192,7 @@ class RocksDbKeyValueStore(
       }
     }
     db.write(writeOptions, writeBatch)
+    writeBatch.close()
     metrics.puts.inc(wrote)
     metrics.deletes.inc(deletes)
   }
