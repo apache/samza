@@ -64,7 +64,7 @@ public class TestStartpointSerde {
   }
 
   @Test
-  public void testStartpointBootstrapSerde() {
+  public void testStartpointCustomSerde() {
     MockStartpointCustom startpointCustom = new MockStartpointCustom("das boot", 42);
     Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointCustom));
 
