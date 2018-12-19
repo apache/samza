@@ -27,8 +27,6 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.util.RateLimiter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -43,10 +41,8 @@ import com.google.common.base.Preconditions;
  * @param <V> type of the table record
  */
 public class TableRateLimiter<K, V> {
-  private static final Logger LOG = LoggerFactory.getLogger(TableRateLimiter.class);
 
   private final String tag;
-  private final boolean rateLimited;
   private final CreditFunction<K, V> creditFn;
 
   @VisibleForTesting
@@ -79,11 +75,12 @@ public class TableRateLimiter<K, V> {
    * @param tag tag to be used with the rate limiter
    */
   public TableRateLimiter(String tableId, RateLimiter rateLimiter, CreditFunction<K, V> creditFn, String tag) {
+    Preconditions.checkNotNull(rateLimiter);
+    Preconditions.checkArgument(rateLimiter.getSupportedTags().contains(tag),
+        String.format("Rate limiter for table %s doesn't support %s", tableId, tag));
     this.rateLimiter = rateLimiter;
     this.creditFn = creditFn;
     this.tag = tag;
-    this.rateLimited = rateLimiter != null && rateLimiter.getSupportedTags().contains(tag);
-    LOG.info("Rate limiting is {} for {}", rateLimited ? "enabled" : "disabled", tableId);
   }
 
   /**
@@ -116,10 +113,6 @@ public class TableRateLimiter<K, V> {
   }
 
   private void throttle(int credits) {
-    if (!rateLimited) {
-      return;
-    }
-
     long startNs = System.nanoTime();
     rateLimiter.acquire(Collections.singletonMap(tag, credits));
     if (waitTimeMetric != null) {
@@ -158,12 +151,5 @@ public class TableRateLimiter<K, V> {
    */
   public void throttleRecords(Collection<Entry<K, V>> records) {
     throttle(getEntryCredits(records));
-  }
-
-  /**
-   * @return whether rate limiting is enabled for the associated table
-   */
-  public boolean isRateLimited() {
-    return rateLimited;
   }
 }

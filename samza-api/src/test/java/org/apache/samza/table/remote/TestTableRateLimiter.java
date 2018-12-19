@@ -28,9 +28,7 @@ import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
 import org.junit.Test;
 
-
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyMap;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -52,7 +50,7 @@ public class TestTableRateLimiter {
       return credits;
     };
     RateLimiter rateLimiter = mock(RateLimiter.class);
-    doReturn(Collections.singleton(DEFAULT_TAG)).when(rateLimiter).getSupportedTags();
+    doReturn(Collections.singleton(tag)).when(rateLimiter).getSupportedTags();
     TableRateLimiter<String, String> rateLimitHelper = new TableRateLimiter<>("foo", rateLimiter, credFn, tag);
     Timer timer = mock(Timer.class);
     rateLimitHelper.setTimerMetric(timer);
@@ -98,6 +96,7 @@ public class TestTableRateLimiter {
   public void testThrottleUnknownTag() {
     TableRateLimiter<String, String> rateLimitHelper = getThrottler("unknown_tag");
     rateLimitHelper.throttle("foo");
-    verify(rateLimitHelper.rateLimiter, times(0)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(0)).acquire(anyInt());
+    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMap());
   }
 }
