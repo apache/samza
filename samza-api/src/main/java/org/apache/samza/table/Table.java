@@ -36,8 +36,6 @@ import org.apache.samza.task.InitableTask;
  * hybrid tables. For remote data sources, a {@code RemoteTable} provides optimized access with caching, rate-limiting,
  * and retry support.
  * <p>
- * Depending on the implementation, a {@link Table} can be a {@link ReadableTable} or a {@link ReadWriteTable}.
- * <p>
  * Use a {@link TableDescriptor} to specify the properties of a {@link Table}. For High Level API
  * {@link StreamApplication}s, use {@link StreamApplicationDescriptor#getTable} to obtain the {@link Table} instance for
  * the descriptor that can be used with the {@link MessageStream} operators like {@link MessageStream#sendTo(Table)}.

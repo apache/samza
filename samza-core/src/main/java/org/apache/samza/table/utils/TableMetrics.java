@@ -24,8 +24,18 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.Table;
 
 
-public class TableWriteMetrics {
+/**
+ * Utility class that contains the default set of read metrics.
+ */
+public class TableMetrics {
 
+  // Read metrics
+  public final Timer getNs;
+  public final Timer getAllNs;
+  public final Counter numGets;
+  public final Counter numGetAlls;
+  public final Counter numMissedLookups;
+  // Write metrics
   public final Counter numPuts;
   public final Timer putNs;
   public final Counter numPutAlls;
@@ -38,14 +48,21 @@ public class TableWriteMetrics {
   public final Timer flushNs;
 
   /**
-   * Utility class that contains the default set of write metrics.
+   * Constructor based on container and task container context
    *
    * @param context {@link Context} for this task
    * @param table underlying table
    * @param tableId table Id
    */
-  public TableWriteMetrics(Context context, Table table, String tableId) {
+  public TableMetrics(Context context, Table table, String tableId) {
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, table, tableId);
+    // Read metrics
+    numGets = tableMetricsUtil.newCounter("num-gets");
+    getNs = tableMetricsUtil.newTimer("get-ns");
+    numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
+    getAllNs = tableMetricsUtil.newTimer("getAll-ns");
+    numMissedLookups = tableMetricsUtil.newCounter("num-missed-lookups");
+    // Write metrics
     numPuts = tableMetricsUtil.newCounter("num-puts");
     putNs = tableMetricsUtil.newTimer("put-ns");
     numPutAlls = tableMetricsUtil.newCounter("num-putAlls");

@@ -25,8 +25,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
-import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.BaseTableProvider;
@@ -47,18 +45,18 @@ public class CachingTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public Table getTable() {
+  public ReadWriteTable getTable() {
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
 
     JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
     String realTableId = tableConfig.getForTable(tableId, CachingTableDescriptor.REAL_TABLE_ID);
-    ReadableTable table = (ReadableTable) this.context.getTaskContext().getTable(realTableId);
+    ReadWriteTable table = this.context.getTaskContext().getTable(realTableId);
 
     String cacheTableId = tableConfig.getForTable(tableId, CachingTableDescriptor.CACHE_TABLE_ID);
     ReadWriteTable cache;
 
     if (cacheTableId != null) {
-      cache = (ReadWriteTable) this.context.getTaskContext().getTable(cacheTableId);
+      cache = this.context.getTaskContext().getTable(cacheTableId);
     } else {
       cache = createDefaultCacheTable(realTableId, tableConfig);
       defaultCaches.add(cache);

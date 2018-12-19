@@ -34,10 +34,10 @@ public interface TableProvider {
   void init(Context context);
 
   /**
-   * Get an instance of the table for read/write operations
+   * Get an instance of the {@link ReadWriteTable}
    * @return the underlying table
    */
-  Table getTable();
+  ReadWriteTable getTable();
 
   /**
    * Shutdown the underlying table

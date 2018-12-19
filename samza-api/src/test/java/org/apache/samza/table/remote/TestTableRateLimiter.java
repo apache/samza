@@ -25,9 +25,9 @@ import java.util.Collections;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.util.RateLimiter;
+import org.junit.Assert;
 import org.junit.Test;
 
-import junit.framework.Assert;
 
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyMap;

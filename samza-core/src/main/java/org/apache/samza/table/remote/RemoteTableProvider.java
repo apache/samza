@@ -21,8 +21,7 @@ package org.apache.samza.table.remote;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.context.Context;
-import org.apache.samza.table.Table;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.RetriableReadFunction;
 import org.apache.samza.table.retry.RetriableWriteFunction;
@@ -45,9 +44,7 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class RemoteTableProvider extends BaseTableProvider {
 
-  private final List<RemoteReadableTable<?, ?>> tables = new ArrayList<>();
-
-  private boolean readOnly;
+  private final List<RemoteTable<?, ?>> tables = new ArrayList<>();
 
   /**
    * Map of tableId -> executor service for async table IO and callbacks. The same executors
@@ -63,21 +60,13 @@ public class RemoteTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public void init(Context context) {
-    super.init(context);
-    JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
-    this.readOnly = tableConfig.getForTable(tableId, RemoteTableDescriptor.WRITE_FN) == null;
-  }
-
-  @Override
-  public Table getTable() {
+  public ReadWriteTable getTable() {
 
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
 
-    RemoteReadableTable table;
-
     JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
 
+    // Read part
     TableReadFunction readFn = getReadFn(tableConfig);
     RateLimiter rateLimiter = deserializeObject(tableConfig, RemoteTableDescriptor.RATE_LIMITER);
     if (rateLimiter != null) {
@@ -86,34 +75,29 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableRateLimiter.CreditFunction<?, ?> readCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.READ_CREDIT_FN);
     TableRateLimiter readRateLimiter = new TableRateLimiter(tableId, rateLimiter, readCreditFn, RemoteTableDescriptor.RL_READ_TAG);
 
-    TableRateLimiter.CreditFunction<?, ?> writeCreditFn;
-    TableRateLimiter writeRateLimiter = null;
-
     TableRetryPolicy readRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.READ_RETRY_POLICY);
-    TableRetryPolicy writeRetryPolicy = null;
-
-    if ((readRetryPolicy != null || writeRetryPolicy != null) && retryExecutor == null) {
-      retryExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-          Thread thread = new Thread(runnable);
-          thread.setName("table-retry-executor");
-          thread.setDaemon(true);
-          return thread;
-        });
-    }
-
     if (readRetryPolicy != null) {
+      if (retryExecutor == null) {
+        retryExecutor = createRetryExecutor();
+      }
       readFn = new RetriableReadFunction<>(readRetryPolicy, readFn, retryExecutor);
     }
 
-    TableWriteFunction writeFn = getWriteFn(tableConfig);
-
     boolean isRateLimited = readRateLimiter.isRateLimited();
-    if (!readOnly) {
-      writeCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_CREDIT_FN);
+
+    // Write part
+    TableWriteFunction writeFn = getWriteFn(tableConfig);
+    TableRateLimiter writeRateLimiter = null;
+    TableRetryPolicy writeRetryPolicy = null;
+    if (writeFn != null) {
+      TableRateLimiter.CreditFunction<?, ?> writeCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_CREDIT_FN);
       writeRateLimiter = new TableRateLimiter(tableId, rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_WRITE_TAG);
       isRateLimited |= writeRateLimiter.isRateLimited();
       writeRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_RETRY_POLICY);
       if (writeRetryPolicy != null) {
+        if (retryExecutor == null) {
+          retryExecutor = createRetryExecutor();
+        }
         writeFn = new RetriableWriteFunction(writeRetryPolicy, writeFn, retryExecutor);
       }
     }
@@ -140,13 +124,8 @@ public class RemoteTableProvider extends BaseTableProvider {
             }));
     }
 
-    if (readOnly) {
-      table = new RemoteReadableTable(tableId, readFn, readRateLimiter,
-          tableExecutors.get(tableId), callbackExecutors.get(tableId));
-    } else {
-      table = new RemoteReadWriteTable(tableId, readFn, writeFn, readRateLimiter,
-          writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
-    }
+    RemoteTable table = new RemoteTable(tableId, readFn, writeFn, readRateLimiter,
+        writeRateLimiter, tableExecutors.get(tableId), callbackExecutors.get(tableId));
 
     TableMetricsUtil metricsUtil = new TableMetricsUtil(this.context, table, tableId);
     if (readRetryPolicy != null) {
@@ -191,6 +170,15 @@ public class RemoteTableProvider extends BaseTableProvider {
       writeFn.init(this.context);
     }
     return writeFn;
+  }
+
+  private ScheduledExecutorService createRetryExecutor() {
+    return Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable);
+        thread.setName("table-retry-executor");
+        thread.setDaemon(true);
+        return thread;
+      });
   }
 }
 
