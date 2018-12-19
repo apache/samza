@@ -31,91 +31,82 @@ public class TestStartpoint {
   public void testStartpointSpecific() {
     StartpointSpecific startpoint = new StartpointSpecific("123");
     Assert.assertEquals("123", startpoint.getSpecificOffset());
-    Assert.assertNull(startpoint.getCreatedTimestamp());
-    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
-    Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
-    MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointConsumer);
-    Assert.assertEquals(StartpointSpecific.class, mockStartpointConsumer.visitedClass);
+    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
+    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
+    Assert.assertEquals(StartpointSpecific.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
   @Test
   public void testStartpointTimestamp() {
     StartpointTimestamp startpoint = new StartpointTimestamp(2222222L);
     Assert.assertEquals(2222222L, startpoint.getTimestampOffset().longValue());
-    Assert.assertNull(startpoint.getCreatedTimestamp());
-    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
-    Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
-    MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointConsumer);
-    Assert.assertEquals(StartpointTimestamp.class, mockStartpointConsumer.visitedClass);
+    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
+    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
+    Assert.assertEquals(StartpointTimestamp.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
   @Test
   public void testStartpointEarliest() {
-    StartpointEarliest startpoint = new StartpointEarliest();
-    Assert.assertNull(startpoint.getCreatedTimestamp());
-    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
-    Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    StartpointOldest startpoint = new StartpointOldest();
+    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
-    MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointConsumer);
-    Assert.assertEquals(StartpointEarliest.class, mockStartpointConsumer.visitedClass);
+    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
+    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
+    Assert.assertEquals(StartpointOldest.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
   @Test
   public void testStartpointLatest() {
-    StartpointLatest startpoint = new StartpointLatest();
-    Assert.assertNull(startpoint.getCreatedTimestamp());
-    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
-    Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    StartpointUpcoming startpoint = new StartpointUpcoming();
+    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
-    MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointConsumer);
-    Assert.assertEquals(StartpointLatest.class, mockStartpointConsumer.visitedClass);
+    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
+    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
+    Assert.assertEquals(StartpointUpcoming.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
   @Test
-  public void testStartpointBootstrap() {
-    StartpointBootstrap startpoint = new StartpointBootstrap("test12345");
-    Assert.assertEquals("test12345", startpoint.getBootstrapInfo());
-    Assert.assertNull(startpoint.getCreatedTimestamp());
-    startpoint.setCreatedTimestamp(Instant.now().toEpochMilli());
-    Assert.assertTrue(startpoint.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+  public void testStartpointCustom() {
+    MockStartpointCustom startpoint = new MockStartpointCustom("test12345", 12345);
+    Assert.assertEquals("test12345", startpoint.getTestInfo1());
+    Assert.assertEquals(12345, startpoint.getTestInfo2());
+    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
-    MockStartpointConsumer mockStartpointConsumer = new MockStartpointConsumer();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointConsumer);
-    Assert.assertEquals(StartpointBootstrap.class, mockStartpointConsumer.visitedClass);
+    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
+    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
+    Assert.assertEquals(MockStartpointCustom.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
-  static class MockStartpointConsumer implements StartpointConsumerVisitor {
+  static class MockStartpointVisitor implements StartpointVisitor {
     Class<? extends Startpoint> visitedClass;
 
     @Override
-    public void register(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
       visitedClass = startpointSpecific.getClass();
     }
 
     @Override
-    public void register(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
       visitedClass = startpointTimestamp.getClass();
     }
 
     @Override
-    public void register(SystemStreamPartition systemStreamPartition, StartpointEarliest startpointEarliest) {
-      visitedClass = startpointEarliest.getClass();
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+      visitedClass = startpointOldest.getClass();
     }
 
     @Override
-    public void register(SystemStreamPartition systemStreamPartition, StartpointLatest startpointLatest) {
-      visitedClass = startpointLatest.getClass();
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+      visitedClass = startpointUpcoming.getClass();
     }
 
     @Override
-    public void register(SystemStreamPartition systemStreamPartition, StartpointBootstrap startpointBootstrap) {
-      visitedClass = startpointBootstrap.getClass();
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointCustom startpointCustom) {
+      visitedClass = startpointCustom.getClass();
     }
   }
 }

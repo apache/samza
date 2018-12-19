@@ -21,7 +21,6 @@ package org.apache.samza.startpoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +35,6 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.InMemoryMetadataStore;
 import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
-import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
@@ -48,7 +46,7 @@ public class TestStartpointManager {
   @Test
   public void testDefaultMetadataStore() {
     MapConfig config = new MapConfig();
-    StartpointManager startpointManager = StartpointManager.getWithMetadataStore(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
     Assert.assertNotNull(startpointManager);
     Assert.assertEquals(InMemoryMetadataStore.class, startpointManager.getMetadataStore().getClass());
   }
@@ -56,7 +54,7 @@ public class TestStartpointManager {
   @Test
   public void testSpecifiedMetadataStore() {
     MapConfig config = new MapConfig();
-    StartpointManager startpointManager = StartpointManager.getWithMetadataStore(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
     Assert.assertNotNull(startpointManager);
     Assert.assertEquals(InMemoryMetadataStore.class, startpointManager.getMetadataStore().getClass());
   }
@@ -64,12 +62,12 @@ public class TestStartpointManager {
   @Test
   public void testNoLongerUsableAfterStop() {
     MapConfig config = new MapConfig();
-    StartpointManager startpointManager = StartpointManager.getWithMetadataStore(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
     startpointManager.start();
     SystemStreamPartition ssp =
         new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
     TaskName taskName = new TaskName("MockTask");
-    Startpoint startpoint = new StartpointEarliest();
+    Startpoint startpoint = new StartpointOldest();
 
     startpointManager.stop();
 
@@ -79,7 +77,7 @@ public class TestStartpointManager {
     } catch (IllegalStateException ex) { }
 
     try {
-      startpointManager.writeStartpointForTask(ssp, taskName, startpoint);
+      startpointManager.writeStartpoint(ssp, taskName, startpoint);
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
 
@@ -89,7 +87,7 @@ public class TestStartpointManager {
     } catch (IllegalStateException ex) { }
 
     try {
-      startpointManager.readStartpointForTask(ssp, taskName);
+      startpointManager.readStartpoint(ssp, taskName);
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
 
@@ -104,15 +102,14 @@ public class TestStartpointManager {
     } catch (IllegalStateException ex) { }
 
     try {
-      startpointManager.groupStartpointsPerTask(new JobModel(new MapConfig(), new HashMap<>()));
+      startpointManager.fanOutStartpointsToTasks(new JobModel(new MapConfig(), new HashMap<>()));
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
   }
 
   @Test
   public void testBasics() {
-    MapConfig config = new MapConfig();
-    StartpointManager startpointManager = StartpointManager.getWithMetadataStore(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
     startpointManager.start();
     SystemStreamPartition ssp =
         new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
@@ -122,50 +119,50 @@ public class TestStartpointManager {
     StartpointSpecific startpoint3 = new StartpointSpecific("1");
     StartpointSpecific startpoint4 = new StartpointSpecific("2");
 
-    // Test createdTimestamp field is null by default
-    Assert.assertNull(startpoint1.getCreatedTimestamp());
-    Assert.assertNull(startpoint2.getCreatedTimestamp());
-    Assert.assertNull(startpoint3.getCreatedTimestamp());
-    Assert.assertNull(startpoint4.getCreatedTimestamp());
+    // Test createdTimestamp field is not null by default
+    Assert.assertNotNull(startpoint1.getCreationTimestamp());
+    Assert.assertNotNull(startpoint2.getCreationTimestamp());
+    Assert.assertNotNull(startpoint3.getCreationTimestamp());
+    Assert.assertNotNull(startpoint4.getCreationTimestamp());
 
     // Test reads on non-existent keys
     Assert.assertNull(startpointManager.readStartpoint(ssp));
-    Assert.assertNull(startpointManager.readStartpointForTask(ssp, taskName));
+    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
 
     // Test writes
     Startpoint startpointFromStore;
     startpointManager.writeStartpoint(ssp, startpoint1);
-    startpointManager.writeStartpointForTask(ssp, taskName, startpoint2);
+    startpointManager.writeStartpoint(ssp, taskName, startpoint2);
     startpointFromStore = startpointManager.readStartpoint(ssp);
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint1.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
-    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
-    startpointFromStore = startpointManager.readStartpointForTask(ssp, taskName);
+    Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
+    startpointFromStore = startpointManager.readStartpoint(ssp, taskName);
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint2.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
-    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
     // Test overwrites
     startpointManager.writeStartpoint(ssp, startpoint3);
-    startpointManager.writeStartpointForTask(ssp, taskName, startpoint4);
+    startpointManager.writeStartpoint(ssp, taskName, startpoint4);
     startpointFromStore = startpointManager.readStartpoint(ssp);
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint3.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
-    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
-    startpointFromStore = startpointManager.readStartpointForTask(ssp, taskName);
+    Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
+    startpointFromStore = startpointManager.readStartpoint(ssp, taskName);
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint4.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
-    Assert.assertTrue(startpointFromStore.getCreatedTimestamp() <= Instant.now().toEpochMilli());
+    Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
     // Test deletes on SSP keys does not affect SSP+TaskName keys
     startpointManager.deleteStartpoint(ssp);
     Assert.assertNull(startpointManager.readStartpoint(ssp));
-    Assert.assertNotNull(startpointManager.readStartpointForTask(ssp, taskName));
+    Assert.assertNotNull(startpointManager.readStartpoint(ssp, taskName));
 
     // Test deletes on SSP+TaskName keys does not affect SSP keys
     startpointManager.writeStartpoint(ssp, startpoint3);
     startpointManager.deleteStartpointForTask(ssp, taskName);
-    Assert.assertNull(startpointManager.readStartpointForTask(ssp, taskName));
+    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
     Assert.assertNotNull(startpointManager.readStartpoint(ssp));
 
     startpointManager.stop();
@@ -173,27 +170,25 @@ public class TestStartpointManager {
 
   @Test
   public void testStaleStartpoints() throws InterruptedException {
-    MetadataStore metadataStore = new InMemoryMetadataStoreFactory().getMetadataStore("test-namespace", new MapConfig(),
-        new NoOpMetricsRegistry());
-    StartpointManager startpointManager = new StartpointManager(metadataStore, new StartpointSerde(), Duration.ofMillis(5));
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
     SystemStreamPartition ssp =
         new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
     TaskName taskName = new TaskName("MockTask");
 
     startpointManager.start();
-    startpointManager.writeStartpoint(ssp, new StartpointLatest());
-    Thread.sleep(startpointManager.getExpirationDuration().toMillis() + 20);
+    long staleTimestamp = Instant.now().toEpochMilli() - StartpointManager.DEFAULT_EXPIRATION_DURATION.toMillis() - 2;
+    MockStartpointCustom startpoint = new MockStartpointCustom("das boot", 42, staleTimestamp);
+    startpointManager.writeStartpoint(ssp, startpoint);
     Assert.assertNull(startpointManager.readStartpoint(ssp));
 
-    startpointManager.writeStartpointForTask(ssp, taskName, new StartpointLatest());
-    Thread.sleep(startpointManager.getExpirationDuration().toMillis() + 2);
-    Assert.assertNull(startpointManager.readStartpointForTask(ssp, taskName));
+    startpointManager.writeStartpoint(ssp, taskName, startpoint);
+    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
   }
 
   @Test
   public void testGroupStartpointsPerTask() {
     MapConfig config = new MapConfig();
-    StartpointManager startpointManager = StartpointManager.getWithMetadataStore(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
     startpointManager.start();
     SystemStreamPartition sspBroadcast =
         new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));
@@ -217,18 +212,18 @@ public class TestStartpointManager {
     startpointManager.writeStartpoint(sspSingle, startpoint42);
 
     // startpoint42 should remap with key sspBroadcast to all tasks + sspBroadcast
-    Set<SystemStreamPartition> systemStreamPartitions = startpointManager.groupStartpointsPerTask(jobModel);
+    Set<SystemStreamPartition> systemStreamPartitions = startpointManager.fanOutStartpointsToTasks(jobModel);
     Assert.assertEquals(2, systemStreamPartitions.size());
     Assert.assertTrue(systemStreamPartitions.containsAll(ImmutableSet.of(sspBroadcast, sspSingle)));
 
     for (TaskName taskName : tasks) {
       // startpoint42 should be mapped to all tasks for sspBroadcast
-      Startpoint startpointFromStore = startpointManager.readStartpointForTask(sspBroadcast, taskName);
+      Startpoint startpointFromStore = startpointManager.readStartpoint(sspBroadcast, taskName);
       Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
       Assert.assertEquals(startpoint42.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
 
       // startpoint 42 should be mapped only to task "t1" for sspSingle
-      startpointFromStore = startpointManager.readStartpointForTask(sspSingle, taskName);
+      startpointFromStore = startpointManager.readStartpoint(sspSingle, taskName);
       if (taskName.getTaskName().equals("t1")) {
         Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
         Assert.assertEquals(startpoint42.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
@@ -239,29 +234,29 @@ public class TestStartpointManager {
     Assert.assertNull(startpointManager.readStartpoint(sspBroadcast));
     Assert.assertNull(startpointManager.readStartpoint(sspSingle));
 
-    // Test startpoints that were explicit assigned to an sspBroadcast2+TaskName will not be overwritten from groupStartpointsPerTask
+    // Test startpoints that were explicit assigned to an sspBroadcast2+TaskName will not be overwritten from fanOutStartpointsToTasks
 
     StartpointSpecific startpoint1024 = new StartpointSpecific("1024");
 
     startpointManager.writeStartpoint(sspBroadcast2, startpoint42);
-    startpointManager.writeStartpointForTask(sspBroadcast2, tasks.get(1), startpoint1024);
-    startpointManager.writeStartpointForTask(sspBroadcast2, tasks.get(3), startpoint1024);
+    startpointManager.writeStartpoint(sspBroadcast2, tasks.get(1), startpoint1024);
+    startpointManager.writeStartpoint(sspBroadcast2, tasks.get(3), startpoint1024);
 
-    Set<SystemStreamPartition> sspsDeleted = startpointManager.groupStartpointsPerTask(jobModel);
+    Set<SystemStreamPartition> sspsDeleted = startpointManager.fanOutStartpointsToTasks(jobModel);
     Assert.assertEquals(1, sspsDeleted.size());
     Assert.assertTrue(sspsDeleted.contains(sspBroadcast2));
 
-    StartpointSpecific startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(0));
+    StartpointSpecific startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(0));
     Assert.assertEquals(startpoint42.getSpecificOffset(), startpointFromStore.getSpecificOffset());
-    startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(1));
+    startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(1));
     Assert.assertEquals(startpoint1024.getSpecificOffset(), startpointFromStore.getSpecificOffset());
-    startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(2));
+    startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(2));
     Assert.assertEquals(startpoint42.getSpecificOffset(), startpointFromStore.getSpecificOffset());
-    startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(3));
+    startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(3));
     Assert.assertEquals(startpoint1024.getSpecificOffset(), startpointFromStore.getSpecificOffset());
-    startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(4));
+    startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(4));
     Assert.assertEquals(startpoint42.getSpecificOffset(), startpointFromStore.getSpecificOffset());
-    startpointFromStore = (StartpointSpecific) startpointManager.readStartpointForTask(sspBroadcast2, tasks.get(5));
+    startpointFromStore = (StartpointSpecific) startpointManager.readStartpoint(sspBroadcast2, tasks.get(5));
     Assert.assertEquals(startpoint42.getSpecificOffset(), startpointFromStore.getSpecificOffset());
     Assert.assertNull(startpointManager.readStartpoint(sspBroadcast2));
 

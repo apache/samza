@@ -425,7 +425,7 @@ object SamzaContainer extends Logging {
       .orNull
     val startpointManager = {
       try {
-        Some(StartpointManager.getWithMetadataStore(metadataStoreFactory, config, samzaContainerMetrics.registry))
+        Option(new StartpointManager(metadataStoreFactory, config, samzaContainerMetrics.registry))
       } catch {
         case e: Exception => {
           error("Unable to get an instance of the StartpointManager. Continuing without one.", e)

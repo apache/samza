@@ -23,42 +23,24 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * A {@link Startpoint} that represents a boostrap signal. This is mainly used by change-capture consumers.
+ * A {@link Startpoint} that represents the earliest offset in a stream partition.
  */
-public final class StartpointBootstrap extends Startpoint {
-
-  private final String bootstrapInfo;
-
-  // Default constructor needed by serde.
-  private StartpointBootstrap() {
-    super();
-    bootstrapInfo = null;
-  }
+public final class StartpointOldest extends Startpoint {
 
   /**
-   * Constructs a bootstrap {@link Startpoint}
-   * @param bootstrapInfo Additional info needed to perform a bootstrap
+   * Constructs a {@link Startpoint} that represents the earliest offset in a stream partition.
    */
-  public StartpointBootstrap(String bootstrapInfo) {
+  public StartpointOldest() {
     super();
-    this.bootstrapInfo = bootstrapInfo;
-  }
-
-  /**
-   * Getter for bootstrap info
-   * @return additional info needed to perform a bootstrap.
-   */
-  public String getBootstrapInfo() {
-    return bootstrapInfo;
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
-    startpointConsumerVisitor.register(systemStreamPartition, this);
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    startpointVisitor.visit(systemStreamPartition, this);
   }
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this).add("bootstrapInfo", bootstrapInfo).toString();
+    return Objects.toStringHelper(this).toString();
   }
 }

@@ -19,6 +19,7 @@
 package org.apache.samza.startpoint;
 
 import com.google.common.base.Objects;
+import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -29,30 +30,51 @@ import org.apache.samza.system.SystemStreamPartition;
 @InterfaceStability.Unstable
 public abstract class Startpoint {
 
-  private Long createdTimestamp;
+  private final long creationTimestamp;
+
+  Startpoint() {
+    this(Instant.now().toEpochMilli());
+  }
+
+  Startpoint(long creationTimestamp) {
+    this.creationTimestamp = creationTimestamp;
+  }
 
   /**
    * The timestamp when this {@link Startpoint} was written to the storage layer.
    * @return a timestamp in epoch milliseconds.
    */
-  public Long getCreatedTimestamp() {
-    return createdTimestamp;
-  }
-
-  void setCreatedTimestamp(Long createdTimestamp) {
-    this.createdTimestamp = createdTimestamp;
+  public long getCreationTimestamp() {
+    return creationTimestamp;
   }
 
   /**
-   * Apply the visitor {@link StartpointConsumerVisitor}'s register methods to the instance of this {@link Startpoint}
+   * Apply the visitor {@link StartpointVisitor}'s register methods to the instance of this {@link Startpoint}
    * class.
-   * @param systemStreamPartition The {@link SystemStreamPartition} needed to register with the {@link StartpointConsumerVisitor}
-   * @param startpointConsumerVisitor The visitor to register with.
+   * @param systemStreamPartition The {@link SystemStreamPartition} needed to register with the {@link StartpointVisitor}
+   * @param startpointVisitor The visitor to register with.
    */
-  public abstract void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor);
+  public abstract void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
 
   @Override
   public String toString() {
     return Objects.toStringHelper(this).toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Startpoint that = (Startpoint) o;
+    return Objects.equal(creationTimestamp, that.creationTimestamp);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(creationTimestamp);
   }
 }

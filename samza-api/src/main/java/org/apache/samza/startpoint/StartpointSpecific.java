@@ -31,8 +31,7 @@ public final class StartpointSpecific extends Startpoint {
 
   // Default constructor needed by serde.
   private StartpointSpecific() {
-    super();
-    this.specificOffset = null;
+    this(null);
   }
 
   /**
@@ -53,12 +52,32 @@ public final class StartpointSpecific extends Startpoint {
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
-    startpointConsumerVisitor.register(systemStreamPartition, this);
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    startpointVisitor.visit(systemStreamPartition, this);
   }
 
   @Override
   public String toString() {
     return Objects.toStringHelper(this).add("specificOffset", specificOffset).toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
+    StartpointSpecific that = (StartpointSpecific) o;
+    return Objects.equal(specificOffset, that.specificOffset);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(super.hashCode(), specificOffset);
   }
 }

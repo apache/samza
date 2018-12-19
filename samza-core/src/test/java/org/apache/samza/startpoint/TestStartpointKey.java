@@ -20,6 +20,7 @@ package org.apache.samza.startpoint;
 
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,19 +40,25 @@ public class TestStartpointKey {
     StartpointKey startpointKeyWithDifferentTask = new StartpointKey(ssp1, new TaskName("t2"));
 
     Assert.assertEquals(startpointKey1, startpointKey2);
-    Assert.assertEquals(startpointKey1.toMetadataStoreKey(), startpointKey2.toMetadataStoreKey());
+    Assert.assertEquals(new String(new JsonSerdeV2<>().toBytes(startpointKey1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKey2)));
     Assert.assertEquals(startpointKeyWithTask1, startpointKeyWithTask2);
-    Assert.assertEquals(startpointKeyWithTask1.toMetadataStoreKey(), startpointKeyWithTask2.toMetadataStoreKey());
+    Assert.assertEquals(new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask2)));
 
     Assert.assertNotEquals(startpointKey1, startpointKeyWithTask1);
-    Assert.assertNotEquals(startpointKey1.toMetadataStoreKey(), startpointKeyWithTask1.toMetadataStoreKey());
+    Assert.assertNotEquals(new String(new JsonSerdeV2<>().toBytes(startpointKey1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask1)));
 
     Assert.assertNotEquals(startpointKey1, startpointKeyWithDifferentSSP);
-    Assert.assertNotEquals(startpointKey1.toMetadataStoreKey(), startpointKeyWithDifferentSSP.toMetadataStoreKey());
+    Assert.assertNotEquals(new String(new JsonSerdeV2<>().toBytes(startpointKey1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKeyWithDifferentSSP)));
     Assert.assertNotEquals(startpointKeyWithTask1, startpointKeyWithDifferentTask);
-    Assert.assertNotEquals(startpointKeyWithTask1.toMetadataStoreKey(), startpointKeyWithDifferentTask.toMetadataStoreKey());
+    Assert.assertNotEquals(new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKeyWithDifferentTask)));
 
     Assert.assertNotEquals(startpointKeyWithTask1, startpointKeyWithDifferentTask);
-    Assert.assertNotEquals(startpointKeyWithTask1.toMetadataStoreKey(), startpointKeyWithDifferentTask.toMetadataStoreKey());
+    Assert.assertNotEquals(new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask1)),
+        new String(new JsonSerdeV2<>().toBytes(startpointKeyWithDifferentTask)));
   }
 }

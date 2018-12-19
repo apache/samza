@@ -31,7 +31,7 @@ public class TestStartpointSerde {
     Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointSpecific));
 
     Assert.assertEquals(startpointSpecific.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointSpecific.getCreatedTimestamp(), startpointFromSerde.getCreatedTimestamp());
+    Assert.assertEquals(startpointSpecific.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
     Assert.assertEquals(startpointSpecific.getSpecificOffset(), ((StartpointSpecific) startpointFromSerde).getSpecificOffset());
   }
 
@@ -41,35 +41,36 @@ public class TestStartpointSerde {
     Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointTimestamp));
 
     Assert.assertEquals(startpointTimestamp.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointTimestamp.getCreatedTimestamp(), startpointFromSerde.getCreatedTimestamp());
+    Assert.assertEquals(startpointTimestamp.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
     Assert.assertEquals(startpointTimestamp.getTimestampOffset(), ((StartpointTimestamp) startpointFromSerde).getTimestampOffset());
   }
 
   @Test
   public void testStartpointEarliestSerde() {
-    StartpointEarliest startpointEarliest = new StartpointEarliest();
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointEarliest));
+    StartpointOldest startpointOldest = new StartpointOldest();
+    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointOldest));
 
-    Assert.assertEquals(startpointEarliest.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointEarliest.getCreatedTimestamp(), startpointFromSerde.getCreatedTimestamp());
+    Assert.assertEquals(startpointOldest.getClass(), startpointFromSerde.getClass());
+    Assert.assertEquals(startpointOldest.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
   }
 
   @Test
   public void testStartpointLatestSerde() {
-    StartpointLatest startpointLatest = new StartpointLatest();
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointLatest));
+    StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
+    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointUpcoming));
 
-    Assert.assertEquals(startpointLatest.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointLatest.getCreatedTimestamp(), startpointFromSerde.getCreatedTimestamp());
+    Assert.assertEquals(startpointUpcoming.getClass(), startpointFromSerde.getClass());
+    Assert.assertEquals(startpointUpcoming.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
   }
 
   @Test
   public void testStartpointBootstrapSerde() {
-    StartpointBootstrap startpointBootstrap = new StartpointBootstrap("das boot");
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointBootstrap));
+    MockStartpointCustom startpointCustom = new MockStartpointCustom("das boot", 42);
+    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointCustom));
 
-    Assert.assertEquals(startpointBootstrap.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointBootstrap.getCreatedTimestamp(), startpointFromSerde.getCreatedTimestamp());
-    Assert.assertEquals(startpointBootstrap.getBootstrapInfo(), ((StartpointBootstrap) startpointFromSerde).getBootstrapInfo());
+    Assert.assertEquals(startpointCustom.getClass(), startpointFromSerde.getClass());
+    Assert.assertEquals(startpointCustom.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
+    Assert.assertEquals(startpointCustom.getTestInfo1(), ((MockStartpointCustom) startpointFromSerde).getTestInfo1());
+    Assert.assertEquals(startpointCustom.getTestInfo2(), ((MockStartpointCustom) startpointFromSerde).getTestInfo2());
   }
 }

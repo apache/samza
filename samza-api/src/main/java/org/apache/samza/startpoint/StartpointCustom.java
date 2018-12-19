@@ -18,29 +18,25 @@
  */
 package org.apache.samza.startpoint;
 
-import com.google.common.base.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * A {@link Startpoint} that represents the latest offset in a stream partition.
+ * A {@link Startpoint} that represents a custom startpoint. This is for systems that have a non-generic option
+ * for setting offsets.
  */
-public final class StartpointLatest extends Startpoint {
+public abstract class StartpointCustom extends Startpoint {
 
-  /**
-   * Constructs a {@link Startpoint} that represents the latest offset in a stream partition.
-   */
-  public StartpointLatest() {
+  StartpointCustom() {
     super();
   }
 
-  @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
-    startpointConsumerVisitor.register(systemStreamPartition, this);
+  StartpointCustom(long creationTimestamp) {
+    super(creationTimestamp);
   }
 
   @Override
-  public String toString() {
-    return Objects.toStringHelper(this).toString();
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    startpointVisitor.visit(systemStreamPartition, this);
   }
 }

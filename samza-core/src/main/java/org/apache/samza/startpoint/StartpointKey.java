@@ -20,7 +20,6 @@ package org.apache.samza.startpoint;
 
 import com.google.common.base.Objects;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.annotate.JsonAutoDetect;
 
@@ -47,10 +46,6 @@ class StartpointKey {
 
   TaskName getTaskName() {
     return taskName;
-  }
-
-  String toMetadataStoreKey() {
-    return new String(new JsonSerdeV2<>().toBytes(this));
   }
 
   @Override

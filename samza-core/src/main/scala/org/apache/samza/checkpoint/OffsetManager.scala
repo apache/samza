@@ -232,13 +232,16 @@ class OffsetManager(
   }
 
   @InterfaceStability.Unstable
-  def getStartpoint(taskName: TaskName, systemStreamPartition: SystemStreamPartition) = {
-    Option(startpointManager.readStartpointForTask(systemStreamPartition, taskName))
+  def getStartpoint(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[Startpoint] = {
+    Option(startpointManager).map(_.readStartpoint(systemStreamPartition, taskName))
   }
 
   @InterfaceStability.Unstable
   def setStartpoint(taskName: TaskName, ssp: SystemStreamPartition, startpoint: Startpoint) = {
-    startpointManager.writeStartpointForTask(ssp, taskName, startpoint)
+    Option(startpointManager) match {
+      case Some(startpointManager) => startpointManager.writeStartpoint(ssp, taskName, startpoint)
+      case None => warn("No StartpointManager available. Startpoint not set.")
+    }
   }
 
   /**
@@ -462,7 +465,7 @@ class OffsetManager(
       taskNameToSSPs.foreach {
         case (taskName, systemStreamPartitionSet) => {
           val sspToStartpoint = systemStreamPartitionSet
-            .map(ssp => (ssp, startpointManager.readStartpointForTask(ssp, taskName)))
+            .map(ssp => (ssp, startpointManager.readStartpoint(ssp, taskName)))
             .filter(_._2 != null)
             .toMap
 

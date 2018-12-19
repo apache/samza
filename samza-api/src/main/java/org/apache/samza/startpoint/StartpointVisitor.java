@@ -24,40 +24,48 @@ import org.apache.samza.system.SystemStreamPartition;
 /**
  * Visitor interface for system consumers to implement to support {@link Startpoint}s.
  */
-public interface StartpointConsumerVisitor {
+public interface StartpointVisitor {
 
   /**
    * Seek to specific offset represented by {@link StartpointSpecific}
    * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
    * @param startpointSpecific The {@link Startpoint} that represents the specific offset.
    */
-  void register(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific);
+  void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific);
 
   /**
    * Seek to timestamp offset represented by {@link StartpointTimestamp}
    * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
    * @param startpointTimestamp The {@link Startpoint} that represents the timestamp offset.
    */
-  void register(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp);
+  default void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+    throw new UnsupportedOperationException("StartpointTimestamp is not supported.");
+  }
 
   /**
-   * Seek to earliest offset represented by {@link StartpointEarliest}
+   * Seek to earliest offset represented by {@link StartpointOldest}
    * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointEarliest The {@link Startpoint} that represents the earliest offset.
+   * @param startpointOldest The {@link Startpoint} that represents the earliest offset.
    */
-  void register(SystemStreamPartition systemStreamPartition, StartpointEarliest startpointEarliest);
+  default void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+    throw new UnsupportedOperationException("StartpointOldest is not supported.");
+  }
 
   /**
-   * Seek to latest offset represented by {@link StartpointLatest}
+   * Seek to latest offset represented by {@link StartpointUpcoming}
    * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointLatest The {@link Startpoint} that represents the latest offset.
+   * @param startpointUpcoming The {@link Startpoint} that represents the latest offset.
    */
-  void register(SystemStreamPartition systemStreamPartition, StartpointLatest startpointLatest);
+  default void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+    throw new UnsupportedOperationException("StartpointUpcoming is not supported.");
+  }
 
   /**
-   * Bootstrap signal represented by {@link StartpointBootstrap}
+   * Bootstrap signal represented by {@link StartpointCustom}
    * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointBootstrap The {@link Startpoint} that represents the bootstrap signal.
+   * @param startpointCustom The {@link Startpoint} that represents the bootstrap signal.
    */
-  void register(SystemStreamPartition systemStreamPartition, StartpointBootstrap startpointBootstrap);
+  default void visit(SystemStreamPartition systemStreamPartition, StartpointCustom startpointCustom) {
+    throw new UnsupportedOperationException(String.format("%s is not supported.", startpointCustom.getClass().getSimpleName()));
+  }
 }

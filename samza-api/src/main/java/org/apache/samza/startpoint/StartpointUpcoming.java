@@ -23,20 +23,20 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * A {@link Startpoint} that represents the earliest offset in a stream partition.
+ * A {@link Startpoint} that represents the latest offset in a stream partition.
  */
-public final class StartpointEarliest extends Startpoint {
+public final class StartpointUpcoming extends Startpoint {
 
   /**
-   * Constructs a {@link Startpoint} that represents the earliest offset in a stream partition.
+   * Constructs a {@link Startpoint} that represents the latest offset in a stream partition.
    */
-  public StartpointEarliest() {
+  public StartpointUpcoming() {
     super();
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointConsumerVisitor startpointConsumerVisitor) {
-    startpointConsumerVisitor.register(systemStreamPartition, this);
+  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    startpointVisitor.visit(systemStreamPartition, this);
   }
 
   @Override

@@ -16,24 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.metadatastore;
+package org.apache.samza.startpoint;
 
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.samza.config.Config;
-import org.apache.samza.metrics.MetricsRegistry;
+import java.time.Instant;
 
 
-/**
- * Factory for an in-memory {@link MetadataStore}. Data is not persisted outside of memory and will be cleared on
- * subsequent restarts.
- */
-public class InMemoryMetadataStoreFactory implements MetadataStoreFactory {
+public class MockStartpointCustom extends StartpointCustom {
+  private final String testInfo1;
+  private final long testInfo2;
 
-  private static final ConcurrentHashMap<String, InMemoryMetadataStore> NAMESPACED_STORES = new ConcurrentHashMap<>();
+  // Default constructor needed for serde.
+  private MockStartpointCustom() {
+    this(null, 0);
+  }
 
-  @Override
-  public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    NAMESPACED_STORES.putIfAbsent(namespace, new InMemoryMetadataStore());
-    return NAMESPACED_STORES.get(namespace);
+  public MockStartpointCustom(String testInfo1, long testInfo2) {
+    this(testInfo1, testInfo2, Instant.now().toEpochMilli());
+  }
+
+  public MockStartpointCustom(String testInfo1, long testInfo2, long creationTimestamp) {
+    super(creationTimestamp);
+    this.testInfo1 = testInfo1;
+    this.testInfo2 = testInfo2;
+  }
+
+  public String getTestInfo1() {
+    return testInfo1;
+  }
+
+  public long getTestInfo2() {
+    return testInfo2;
   }
 }
