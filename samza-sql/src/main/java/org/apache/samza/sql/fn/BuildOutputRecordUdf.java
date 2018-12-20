@@ -28,7 +28,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 
 
 /**
- * UDF that builds a SamzaSqlRelMessage.SamzaSqlRelRecord with given list of key value pairs.
+ * BuildOutputRecordUdf builds a SamzaSqlRelRecord with given list of key value pairs.
  * Useful if you need to populate fields for a Kafka message.
  *
  * For example, given args = {k1, v1, k2, v2},
@@ -73,7 +73,7 @@ public class BuildOutputRecordUdf implements ScalarUdf<SamzaSqlRelRecord> {
 
     for (int i = 0; i < numOfArgs - 1; i += 2) {
       fieldNames.add((String) args[i]);
-      // value can be instanceof SamzaSqlRelMessage.SamzaSqlRelRecord, or any Object(string, int, long most likely)
+      // value can be instanceof SamzaSqlRelRecord, or any Object(string, int, long most likely)
       fieldValues.add(args[i + 1]);
     }
 
