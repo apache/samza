@@ -652,6 +652,7 @@ public class TestAsyncRunLoop {
     when(offsetManager.getLastProcessedOffset(taskName2, ssp2)).thenReturn(Option.apply("0"));
     when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(IncomingMessageEnvelope.END_OF_STREAM_OFFSET));
     when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply("1"));
+    when(offsetManager.getStartpoint(anyObject(), anyObject())).thenReturn(Option.empty());
 
     TaskInstance taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);
     TaskInstance taskInstance2 = createTaskInstance(mockStreamTask2, taskName2, ssp2, offsetManager, consumers);
