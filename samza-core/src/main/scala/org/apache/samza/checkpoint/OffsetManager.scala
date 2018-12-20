@@ -304,7 +304,7 @@ class OffsetManager(
 
       // delete startpoints for this task and the intersection of SSPs between checkpoint and startpoint.
       sspStartpoints.foreach(ssp => {
-        startpointManager.deleteStartpointForTask(ssp, taskName)
+        startpointManager.deleteStartpoint(ssp, taskName)
         info("Deleted startpoint for SSP: %s and task: %s" format (ssp, taskName))
       })
       startpoints -= taskName

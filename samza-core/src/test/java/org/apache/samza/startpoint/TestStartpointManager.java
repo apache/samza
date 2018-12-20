@@ -97,7 +97,7 @@ public class TestStartpointManager {
     } catch (IllegalStateException ex) { }
 
     try {
-      startpointManager.deleteStartpointForTask(ssp, taskName);
+      startpointManager.deleteStartpoint(ssp, taskName);
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
 
@@ -161,7 +161,7 @@ public class TestStartpointManager {
 
     // Test deletes on SSP+TaskName keys does not affect SSP keys
     startpointManager.writeStartpoint(ssp, startpoint3);
-    startpointManager.deleteStartpointForTask(ssp, taskName);
+    startpointManager.deleteStartpoint(ssp, taskName);
     Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
     Assert.assertNotNull(startpointManager.readStartpoint(ssp));
 

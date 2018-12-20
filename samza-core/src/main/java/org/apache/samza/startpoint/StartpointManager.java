@@ -155,7 +155,7 @@ public class StartpointManager {
    * @param ssp The {@link SystemStreamPartition} to delete the {@link Startpoint} for.
    */
   public void deleteStartpoint(SystemStreamPartition ssp) {
-    deleteStartpointForTask(ssp, null);
+    deleteStartpoint(ssp, null);
   }
 
   /**
@@ -163,7 +163,7 @@ public class StartpointManager {
    * @param ssp ssp The {@link SystemStreamPartition} to delete the {@link Startpoint} for.
    * @param taskName ssp The {@link TaskName} to delete the {@link Startpoint} for.
    */
-  public void deleteStartpointForTask(SystemStreamPartition ssp, TaskName taskName) {
+  public void deleteStartpoint(SystemStreamPartition ssp, TaskName taskName) {
     Preconditions.checkState(started, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 

@@ -23,7 +23,8 @@ import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * A {@link Startpoint} that represents a custom startpoint. This is for systems that have a non-generic option
- * for setting offsets.
+ * for setting offsets. Startpoints are serialized to JSON in the {@link org.apache.samza.metadatastore.MetadataStore}
+ * and it is recommended to maintain the subclass of this {@link StartpointCustom} as a simple POJO.
  */
 public abstract class StartpointCustom extends Startpoint {
 
