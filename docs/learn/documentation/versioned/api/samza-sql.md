@@ -25,9 +25,9 @@ title: Samza SQL
 - [Key Concepts](#key-concepts)
   - [SQL Representation](#sql-representation)
   - [SQL Grammar](#sql-grammar)
-  - [UDFs](#UDFs)
+  - [UDFs](#udfs)
   - [UDF Polymorphism](#udf-polymorphism)
-- [Known Limitations](#Known-Limitations)
+- [Known Limitations](#known-limitations)
 
 ### Introduction
 Samza SQL allows you to define your stream processing logic 
@@ -75,8 +75,8 @@ The table below lists the supported SQL operations.
 
  Operation | Syntax hints | Comments      
  --- | --- | --- 
- PROJECTION | SELECT/INSERT/UPSERT | See [SQL Grammar](#sql-grammer) below 
- FILTERING | WHERE expression |See [SQL Grammar](#sql-grammer) below 
+ PROJECTION | SELECT/INSERT/UPSERT | See [SQL Grammar](#sql-grammar) below 
+ FILTERING | WHERE expression |See [SQL Grammar](#sql-grammar) below 
  UDFs | udf_name(args)    | In both SELECT and WHERE clause 
  JOIN | [LEFT/RIGHT] JOIN .. ON .. | Stream-table inner, left- or right-outer joins. Currently not fully stable. 
  AGGREGATION | COUNT ( ...) .. GROUP BY | Currently only COUNT is supported, using processing-time based window. 
