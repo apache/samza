@@ -172,25 +172,27 @@ class RocksDbKeyValueStore(
     }
   }
 
-  // Write batch from RocksDB API is not used currently because of: https://github.com/facebook/rocksdb/issues/262
   def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]): Unit = ifOpen {
     metrics.putAlls.inc()
     val iter = entries.iterator
     var wrote = 0
     var deletes = 0
+    val writeBatch = new WriteBatch()
     while (iter.hasNext) {
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
-        db.delete(writeOptions, curr.getKey)
+        writeBatch.remove(curr.getKey)
       } else {
         wrote += 1
         val key = curr.getKey
         val value = curr.getValue
         metrics.bytesWritten.inc(key.length + value.length)
-        db.put(writeOptions, key, value)
+        writeBatch.put(key, value)
       }
     }
+    db.write(writeOptions, writeBatch)
+    writeBatch.close()
     metrics.puts.inc(wrote)
     metrics.deletes.inc(deletes)
   }

@@ -23,9 +23,8 @@ import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.BaseReadableTable;
+import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
 import java.util.ArrayList;
@@ -41,34 +40,32 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 
 /**
- * A composite table incorporating a cache with a Samza table. The cache is
+ * A hybrid table incorporating a cache with a Samza table. The cache is
  * represented as a {@link ReadWriteTable}.
  *
- * The intented use case is to optimize the latency of accessing the actual table, eg.
+ * The intented use case is to optimize the latency of accessing the actual table, e.g.
  * remote tables, when eventual consistency between cache and table is acceptable.
  * The cache is expected to support TTL such that the values can be refreshed at some
  * point.
  *
- * If the actual table is read-write table, CachingTable supports both write-through
- * and write-around (writes bypassing cache) policies. For write-through policy, it
- * supports read-after-write semantics because the value is cached after written to
- * the table.
+ * {@link CachingTable} supports write-through and write-around (writes bypassing cache) policies.
+ * For write-through policy, it supports read-after-write semantics because the value is
+ * cached after written to the table.
  *
- * Note that there is no synchronization in CachingTable because it is impossible to
+ * Note that there is no synchronization in {@link CachingTable} because it is impossible to
  * implement a critical section between table read/write and cache update in the async
  * code paths without serializing all async operations for the same keys. Given stale
- * data is a presumed trade off for using a cache for table, it should be acceptable
- * for the data in table and cache are out-of-sync. Moreover, unsynchronized operations
- * in CachingTable also deliver higher performance when there is contention.
+ * data is a presumed trade-off for using a cache with table, it should be acceptable
+ * for the data in table and cache to be temporarily out-of-sync. Moreover, unsynchronized
+ * operations in {@link CachingTable} also deliver higher performance when there is contention.
  *
  * @param <K> type of the table key
  * @param <V> type of the table value
  */
-public class CachingTable<K, V> extends BaseReadableTable<K, V>
+public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     implements ReadWriteTable<K, V> {
 
-  private final ReadableTable<K, V> rdTable;
-  private final ReadWriteTable<K, V> rwTable;
+  private final ReadWriteTable<K, V> table;
   private final ReadWriteTable<K, V> cache;
   private final boolean isWriteAround;
 
@@ -76,10 +73,9 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
 
-  public CachingTable(String tableId, ReadableTable<K, V> table, ReadWriteTable<K, V> cache, boolean isWriteAround) {
+  public CachingTable(String tableId, ReadWriteTable<K, V> table, ReadWriteTable<K, V> cache, boolean isWriteAround) {
     super(tableId);
-    this.rdTable = table;
-    this.rwTable = table instanceof ReadWriteTable ? (ReadWriteTable) table : null;
+    this.table = table;
     this.cache = cache;
     this.isWriteAround = isWriteAround;
   }
@@ -114,16 +110,14 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   public V get(K key) {
     try {
       return getAsync(key).get();
-    } catch (InterruptedException e) {
-      throw new SamzaException(e);
     } catch (Exception e) {
-      throw (SamzaException) e.getCause();
+      throw new SamzaException(e);
     }
   }
 
   @Override
   public CompletableFuture<V> getAsync(K key) {
-    incCounter(readMetrics.numGets);
+    incCounter(metrics.numGets);
     V value = cache.get(key);
     if (value != null) {
       hitCount.incrementAndGet();
@@ -133,14 +127,14 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
     long startNs = clock.nanoTime();
     missCount.incrementAndGet();
 
-    return rdTable.getAsync(key).handle((result, e) -> {
+    return table.getAsync(key).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get the record for " + key, e);
         } else {
           if (result != null) {
             cache.put(key, result);
           }
-          updateTimer(readMetrics.getNs, clock.nanoTime() - startNs);
+          updateTimer(metrics.getNs, clock.nanoTime() - startNs);
           return result;
         }
       });
@@ -150,16 +144,14 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   public Map<K, V> getAll(List<K> keys) {
     try {
       return getAllAsync(keys).get();
-    } catch (InterruptedException e) {
-      throw new SamzaException(e);
     } catch (Exception e) {
-      throw (SamzaException) e.getCause();
+      throw new SamzaException(e);
     }
   }
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    incCounter(readMetrics.numGetAlls);
+    incCounter(metrics.numGetAlls);
     // Make a copy of entries which might be immutable
     Map<K, V> getAllResult = new HashMap<>();
     List<K> missingKeys = lookupCache(keys, getAllResult);
@@ -169,7 +161,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
     }
 
     long startNs = clock.nanoTime();
-    return rdTable.getAllAsync(missingKeys).handle((records, e) -> {
+    return table.getAllAsync(missingKeys).handle((records, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get records for " + keys, e);
         } else {
@@ -179,7 +171,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
                 .collect(Collectors.toList()));
             getAllResult.putAll(records);
           }
-          updateTimer(readMetrics.getAllNs, clock.nanoTime() - startNs);
+          updateTimer(metrics.getAllNs, clock.nanoTime() - startNs);
           return getAllResult;
         }
       });
@@ -189,20 +181,18 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   public void put(K key, V value) {
     try {
       putAsync(key, value).get();
-    } catch (InterruptedException e) {
-      throw new SamzaException(e);
     } catch (Exception e) {
-      throw (SamzaException) e.getCause();
+      throw new SamzaException(e);
     }
   }
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V value) {
-    incCounter(writeMetrics.numPuts);
-    Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
+    incCounter(metrics.numPuts);
+    Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
 
     long startNs = clock.nanoTime();
-    return rwTable.putAsync(key, value).handle((result, e) -> {
+    return table.putAsync(key, value).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
         } else if (!isWriteAround) {
@@ -212,7 +202,7 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
             cache.put(key, value);
           }
         }
-        updateTimer(writeMetrics.putNs, clock.nanoTime() - startNs);
+        updateTimer(metrics.putNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -221,26 +211,24 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   public void putAll(List<Entry<K, V>> records) {
     try {
       putAllAsync(records).get();
-    } catch (InterruptedException e) {
-      throw new SamzaException(e);
     } catch (Exception e) {
-      throw (SamzaException) e.getCause();
+      throw new SamzaException(e);
     }
   }
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
-    incCounter(writeMetrics.numPutAlls);
+    incCounter(metrics.numPutAlls);
     long startNs = clock.nanoTime();
-    Preconditions.checkNotNull(rwTable, "Cannot write to a read-only table: " + rdTable);
-    return rwTable.putAllAsync(records).handle((result, e) -> {
+    Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
+    return table.putAllAsync(records).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to put records " + records, e);
         } else if (!isWriteAround) {
           cache.putAll(records);
         }
 
-        updateTimer(writeMetrics.putAllNs, clock.nanoTime() - startNs);
+        updateTimer(metrics.putAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -249,25 +237,23 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
   public void delete(K key) {
     try {
       deleteAsync(key).get();
-    } catch (InterruptedException e) {
-      throw new SamzaException(e);
     } catch (Exception e) {
-      throw (SamzaException) e.getCause();
+      throw new SamzaException(e);
     }
   }
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key) {
-    incCounter(writeMetrics.numDeletes);
+    incCounter(metrics.numDeletes);
     long startNs = clock.nanoTime();
-    Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
-    return rwTable.deleteAsync(key).handle((result, e) -> {
+    Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
+    return table.deleteAsync(key).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to delete the record for " + key, e);
         } else if (!isWriteAround) {
           cache.delete(key);
         }
-        updateTimer(writeMetrics.deleteNs, clock.nanoTime() - startNs);
+        updateTimer(metrics.deleteNs, clock.nanoTime() - startNs);
         return result;
       });
   }
@@ -283,33 +269,33 @@ public class CachingTable<K, V> extends BaseReadableTable<K, V>
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
-    incCounter(writeMetrics.numDeleteAlls);
+    incCounter(metrics.numDeleteAlls);
     long startNs = clock.nanoTime();
-    Preconditions.checkNotNull(rwTable, "Cannot delete from a read-only table: " + rdTable);
-    return rwTable.deleteAllAsync(keys).handle((result, e) -> {
+    Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
+    return table.deleteAllAsync(keys).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to delete the record for " + keys, e);
         } else if (!isWriteAround) {
           cache.deleteAll(keys);
         }
-        updateTimer(writeMetrics.deleteAllNs, clock.nanoTime() - startNs);
+        updateTimer(metrics.deleteAllNs, clock.nanoTime() - startNs);
         return result;
       });
   }
 
   @Override
   public synchronized void flush() {
-    incCounter(writeMetrics.numFlushes);
+    incCounter(metrics.numFlushes);
     long startNs = clock.nanoTime();
-    Preconditions.checkNotNull(rwTable, "Cannot flush a read-only table: " + rdTable);
-    rwTable.flush();
-    updateTimer(writeMetrics.flushNs, clock.nanoTime() - startNs);
+    Preconditions.checkNotNull(table, "Cannot flush a read-only table: " + table);
+    table.flush();
+    updateTimer(metrics.flushNs, clock.nanoTime() - startNs);
   }
 
   @Override
   public void close() {
-    this.cache.close();
-    this.rdTable.close();
+    cache.close();
+    table.close();
   }
 
   double hitRate() {

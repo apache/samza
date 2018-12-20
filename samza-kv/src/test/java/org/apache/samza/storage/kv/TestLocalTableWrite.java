@@ -41,7 +41,7 @@ import org.junit.Test;
 import static org.mockito.Mockito.*;
 
 
-public class TestLocalReadWriteTable {
+public class TestLocalTableWrite {
 
   public static final String TABLE_ID = "t1";
 
@@ -79,7 +79,7 @@ public class TestLocalReadWriteTable {
     deleteCallbackNs = new Timer("");
 
     metricsRegistry = mock(MetricsRegistry.class);
-    String groupName = LocalReadWriteTable.class.getSimpleName();
+    String groupName = LocalTable.class.getSimpleName();
     when(metricsRegistry.newTimer(groupName, TABLE_ID + "-put-ns")).thenReturn(putNs);
     when(metricsRegistry.newTimer(groupName, TABLE_ID + "-putAll-ns")).thenReturn(putAllNs);
     when(metricsRegistry.newTimer(groupName, TABLE_ID + "-delete-ns")).thenReturn(deleteNs);
@@ -226,7 +226,7 @@ public class TestLocalReadWriteTable {
     Assert.assertEquals(0, deleteCallbackNs.getSnapshot().getAverage(), 0.001);
   }
 
-  private LocalReadWriteTable createTable(boolean isTimerDisabled) {
+  private LocalTable createTable(boolean isTimerDisabled) {
     Map<String, String> config = new HashMap<>();
     if (isTimerDisabled) {
       config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
@@ -239,7 +239,7 @@ public class TestLocalReadWriteTable {
     when(context.getContainerContext()).thenReturn(containerContext);
     when(containerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
 
-    LocalReadWriteTable table =  new LocalReadWriteTable("t1", kvStore);
+    LocalTable table =  new LocalTable("t1", kvStore);
     table.init(context);
 
     return table;

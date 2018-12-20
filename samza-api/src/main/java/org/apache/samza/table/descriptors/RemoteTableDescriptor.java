@@ -235,6 +235,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     if (!tagCreditsMap.isEmpty()) {
       RateLimiter defaultRateLimiter;
       try {
+        @SuppressWarnings("unchecked")
         Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
         Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
         defaultRateLimiter = ctor.newInstance(tagCreditsMap);

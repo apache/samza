@@ -54,7 +54,7 @@ public class TableManager {
 
   static class TableCtx {
     private TableProvider tableProvider;
-    private Table table;
+    private ReadWriteTable table;
   }
 
   private final Logger logger = LoggerFactory.getLogger(TableManager.class.getName());
@@ -110,7 +110,7 @@ public class TableManager {
    * @param tableId Id of the table
    * @return table instance
    */
-  public Table getTable(String tableId) {
+  public ReadWriteTable getTable(String tableId) {
     Preconditions.checkState(initialized, "TableManager has not been initialized.");
 
     TableCtx ctx = tableContexts.get(tableId);

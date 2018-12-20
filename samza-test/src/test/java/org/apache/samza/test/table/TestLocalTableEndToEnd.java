@@ -49,7 +49,6 @@ import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
@@ -77,7 +76,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * This test class tests sendTo() and join() for local tables
  */
-public class TestLocalTable extends AbstractIntegrationTestHarness {
+public class TestLocalTableEndToEnd extends AbstractIntegrationTestHarness {
 
   @Test
   public void testSendTo() throws Exception {
@@ -296,11 +295,11 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     private static Map<String, MyMapFunction> taskToMapFunctionMap = new HashMap<>();
 
     private transient List<Profile> received;
-    private transient ReadableTable table;
+    private transient ReadWriteTable table;
 
     @Override
     public void init(Context context) {
-      table = (ReadableTable) context.getTaskContext().getTable("t1");
+      table = context.getTaskContext().getTable("t1");
       this.received = new ArrayList<>();
 
       taskToMapFunctionMap.put(context.getTaskContext().getTaskModel().getTaskName().getTaskName(), this);
@@ -348,7 +347,7 @@ public class TestLocalTable extends AbstractIntegrationTestHarness {
     private ReadWriteTable<Integer, PageView> pageViewTable;
     @Override
     public void init(Context context) throws Exception {
-      pageViewTable = (ReadWriteTable<Integer, PageView>) context.getTaskContext().getTable("t1");
+      pageViewTable = context.getTaskContext().getTable("t1");
     }
     @Override
     public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {

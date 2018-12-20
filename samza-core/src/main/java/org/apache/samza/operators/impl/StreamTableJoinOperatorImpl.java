@@ -22,7 +22,7 @@ import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
@@ -42,11 +42,11 @@ import java.util.Collections;
 class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M, JM> {
 
   private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
-  private final ReadableTable<K, ?> table;
+  private final ReadWriteTable<K, ?> table;
 
   StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec, Context context) {
     this.joinOpSpec = joinOpSpec;
-    this.table = (ReadableTable) context.getTaskContext().getTable(joinOpSpec.getTableId());
+    this.table = context.getTaskContext().getTable(joinOpSpec.getTableId());
   }
 
   @Override
