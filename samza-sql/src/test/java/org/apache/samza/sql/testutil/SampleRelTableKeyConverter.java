@@ -31,6 +31,9 @@ public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
 
   @Override
   public Object convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
+    if (relRecord.getFieldValues().get(0) instanceof SamzaSqlRelRecord) {
+      relRecord = (SamzaSqlRelRecord) relRecord.getFieldValues().get(0);
+    }
     return relRecord.getFieldValues().stream().map(Object::toString).collect(Collectors.toList()).get(0);
   }
 }
