@@ -276,11 +276,10 @@ class JoinTranslator {
   private void validateJoinKeys(RexInputRef ref) {
     SqlTypeName sqlTypeName = ref.getType().getSqlTypeName();
 
-    // Primitive types and ANY (for the record key) are supported in the key
+    // Primitive types (other than float and double) and ANY/OTHER (for the record keys) are supported in the key
     if (sqlTypeName != SqlTypeName.BOOLEAN && sqlTypeName != SqlTypeName.TINYINT && sqlTypeName != SqlTypeName.SMALLINT
         && sqlTypeName != SqlTypeName.INTEGER && sqlTypeName != SqlTypeName.CHAR && sqlTypeName != SqlTypeName.BIGINT
-        && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.DOUBLE && sqlTypeName != SqlTypeName.FLOAT
-        && sqlTypeName != SqlTypeName.ANY && sqlTypeName != SqlTypeName.OTHER) {
+        && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.ANY && sqlTypeName != SqlTypeName.OTHER) {
       log.error("Unsupported key type " + sqlTypeName + " used in join condition.");
       throw new SamzaException("Unsupported key type used in join condition.");
     }
