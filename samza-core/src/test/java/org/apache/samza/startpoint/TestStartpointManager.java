@@ -52,14 +52,6 @@ public class TestStartpointManager {
   }
 
   @Test
-  public void testSpecifiedMetadataStore() {
-    MapConfig config = new MapConfig();
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
-    Assert.assertNotNull(startpointManager);
-    Assert.assertEquals(InMemoryMetadataStore.class, startpointManager.getMetadataStore().getClass());
-  }
-
-  @Test
   public void testNoLongerUsableAfterStop() {
     MapConfig config = new MapConfig();
     StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
