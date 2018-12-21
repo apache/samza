@@ -93,7 +93,7 @@ class TestOffsetManager {
     assertEquals(expectedCheckpoint, checkpointManager.readLastCheckpoint(taskName))
   }
   @Test
-  def testShouldLoadFromAndSaveWithStartpointManager {
+  def testGetAndSetStartpoint {
     val taskName1 = new TaskName("c")
     val taskName2 = new TaskName("d")
     val systemStream = new SystemStream("test-system", "test-stream")
