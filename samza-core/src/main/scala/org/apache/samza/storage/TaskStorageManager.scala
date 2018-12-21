@@ -21,6 +21,7 @@ package org.apache.samza.storage
 
 import java.io._
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.Partition
 import org.apache.samza.container.TaskName
 import org.apache.samza.system._
@@ -60,9 +61,10 @@ class TaskStorageManager(
 
   def stopStores() {
     debug("Stopping stores.")
-    containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.stop)
+    containerStorageManager.stopStores();
   }
 
+  @VisibleForTesting
   def stop() {
     stopStores()
 

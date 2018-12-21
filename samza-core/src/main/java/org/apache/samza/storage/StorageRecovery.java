@@ -47,6 +47,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
@@ -180,11 +181,10 @@ public class StorageRecovery extends CommandLine {
   }
 
   private Map<String, Serde<Object>> getSerdes() {
-    Map<String, Serde<Object>> retVal = new HashMap<>();
+    Map<String, Serde<Object>> serdeMap = new HashMap<>();
 
     // Adding all serdes from factories
-    JavaConverters.asJavaCollectionConverter(new SerializerConfig(jobConfig).getSerdeNames())
-        .asJavaCollection()
+    ScalaJavaUtil.toJavaCollection(new SerializerConfig(jobConfig).getSerdeNames())
         .stream()
         .forEach(serdeName -> {
             Option<String> serdeClassName = new SerializerConfig(jobConfig).getSerdeClass(serdeName);
@@ -195,10 +195,10 @@ public class StorageRecovery extends CommandLine {
 
             Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class)
                 .getSerde(serdeName, new SerializerConfig(jobConfig));
-            retVal.put(serdeName, serde);
+          serdeMap.put(serdeName, serde);
           });
 
-    return retVal;
+    return serdeMap;
   }
 
   /**

@@ -21,8 +21,10 @@
 
 package org.apache.samza.util
 
+import java.util
 import java.util.{Optional, function}
 
+import scala.collection.JavaConverters
 import scala.collection.immutable.Map
 import scala.collection.JavaConverters._
 import scala.runtime.AbstractFunction0
@@ -34,6 +36,13 @@ object ScalaJavaUtil {
     * */
   def toScalaMap[K, V](javaMap: java.util.Map[K, V]): Map[K, V] = {
     javaMap.asScala.toMap
+  }
+
+  /**
+    * Convert a scala iterable to a Java collection.
+    */
+  def toJavaCollection[T](iterable : Iterable[T]): util.Collection[T] = {
+    JavaConverters.asJavaCollectionConverter(iterable).asJavaCollection
   }
 
   /**
@@ -71,6 +80,7 @@ object ScalaJavaUtil {
   def toScalaFunction[T, R](javaFunction: java.util.function.Function[T, R]): Function1[T, R] = {
     t => javaFunction.apply(t)
   }
+
 
   /**
     * Conversions between Scala Option and Java 8 Optional.

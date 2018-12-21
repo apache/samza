@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -451,6 +452,11 @@ public class ContainerStorageManager {
     File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
     LOG.info("Got default storage engine base directory " + defaultStoreBaseDir);
     return defaultStoreBaseDir;
+  }
+
+  @VisibleForTesting
+  public void stopStores() {
+    this.taskStores.forEach((taskName, storeMap) -> storeMap.forEach((storeName, store) -> store.stop()));
   }
 
   public void shutdown() {
