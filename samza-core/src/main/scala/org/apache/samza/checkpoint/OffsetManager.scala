@@ -231,16 +231,31 @@ class OffsetManager(
     startingOffsets += taskName -> (startingOffsets(taskName) + (ssp -> offset))
   }
 
+  /**
+    * Gets Startpoints that are loaded into the OffsetManager after OffsetManager#start is called.
+    */
   @InterfaceStability.Unstable
   def getStartpoint(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[Startpoint] = {
-    Option(startpointManager).map(_.readStartpoint(systemStreamPartition, taskName))
+    // Startpoints already loaded when this method is available for use. Similar to getStartingOffset above.
+    startpoints.get(taskName) match {
+      case Some(sspToStartpoint) => sspToStartpoint.get(systemStreamPartition)
+      case None => None
+    }
   }
 
+  /**
+    * Sets the Startpoint into the OffsetManager. Does not write directly to the StartpointManager. This is to be
+    * used by the TaskContext only for setting Startpoints during processor initialization, similar to the
+    * OffsetManager#setStartingOffset method. To write Startpoints to the metadata store, use the StartpointManager.
+    */
   @InterfaceStability.Unstable
   def setStartpoint(taskName: TaskName, ssp: SystemStreamPartition, startpoint: Startpoint) = {
-    Option(startpointManager) match {
-      case Some(startpointManager) => startpointManager.writeStartpoint(ssp, taskName, startpoint)
-      case None => warn("No StartpointManager available. Startpoint not set.")
+    // Startpoints already loaded when this method is available for use. Similar to setStartingOffset above.
+    startpoints += {
+      startpoints.get(taskName) match {
+        case Some(sspToStartpont) => taskName -> (sspToStartpont + (ssp -> startpoint))
+        case None => taskName -> new ConcurrentHashMap[SystemStreamPartition, Startpoint]() { put(ssp, startpoint) }.asScala
+      }
     }
   }
 
