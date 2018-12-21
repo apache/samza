@@ -50,7 +50,7 @@ In addition to the cookbook, you can also consult these:
 
 ### Apache Beam API examples
 
-The easiest way to get a copy of the WordCount examples in Beam API is to use the following command:
+The easiest way to get a copy of the WordCount examples in Beam API is to use [Apache Maven](http://maven.apache.org/download.cgi). After installing Maven, please run the following command:
 
 {% highlight bash %}
 > mvn archetype:generate \
@@ -74,7 +74,7 @@ DebuggingWordCount.java	WindowedWordCount.java	common
 MinimalWordCount.java	WordCount.java
 {% endhighlight %}
 
-To use SamzaRunner, please add the following `samza-runner` profile to `pom.xml`, same as in the [latest](https://github.com/apache/beam/blob/master/sdks/java/maven-archetypes/examples/src/main/resources/archetype-resources/pom.xml). This change will also be available in the next Beam release.
+To use SamzaRunner, please add the following `samza-runner` profile to `pom.xml` under the "profiles" section, same as in [here](https://github.com/apache/beam/blob/master/sdks/java/maven-archetypes/examples/src/main/resources/archetype-resources/pom.xml).
 
 {% highlight xml %}
     ...
