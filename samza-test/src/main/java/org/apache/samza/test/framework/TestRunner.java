@@ -45,6 +45,7 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
@@ -106,6 +107,7 @@ public class TestRunner {
     configs.put(JobConfig.JOB_NAME(), JOB_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
+    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
     configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
