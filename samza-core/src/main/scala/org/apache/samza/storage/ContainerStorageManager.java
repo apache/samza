@@ -41,6 +41,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -167,7 +168,7 @@ public class ContainerStorageManager {
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
 
     // create system consumers (1 per store system)
-    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config);
+    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // creating task restore managers
     this.taskRestoreManagers = containerModel.getTasks().entrySet().stream().
@@ -179,28 +180,34 @@ public class ContainerStorageManager {
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
    */
-  private Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
-      Map<String, SystemFactory> systemFactories, Config config) {
+  private static Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
+      Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
     // Determine the set of systems being used across all stores
     Set<String> storeSystems =
         changelogSystemStreams.values().stream().map(SystemStream::getSystem).collect(Collectors.toSet());
 
-    // Create one consumer for each system in use
+    // Create one consumer for each system in use, map with one entry for each such system
     Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
 
+    // Map of each storeName to its respective systemConsumer
+    Map<String, SystemConsumer> storeConsumers = new HashMap<>();
+
+    // Iterate over the list of storeSystems and create one sysConsumer per system
     for (String storeSystemName : storeSystems) {
       SystemFactory systemFactory = systemFactories.get(storeSystemName);
       if (systemFactory == null) {
         throw new SamzaException("Changelog system " + storeSystemName + " does not exist in config");
       }
       storeSystemConsumers.put(storeSystemName,
-          systemFactory.getConsumer(storeSystemName, config, samzaContainerMetrics.registry()));
+          systemFactory.getConsumer(storeSystemName, config, registry));
     }
 
     // Populate the map of storeName to its relevant systemConsumer
-    return changelogSystemStreams.entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, x -> storeSystemConsumers.get(x.getValue().getSystem())));
+    for (String storeName : changelogSystemStreams.keySet()) {
+      storeConsumers.put(storeName, storeSystemConsumers.get(changelogSystemStreams.get(storeName).getSystem()));
+    }
+
+    return storeConsumers;
   }
 
   /**
@@ -260,7 +267,8 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Helper method to instantiate a StorageEngine with the given parameters.
+   * Method to instantiate a StorageEngine with the given parameters, and populate the storeDirectory paths (used to monitor
+   * disk space).
    */
   private StorageEngine createStore(String storeName, TaskName taskName, TaskModel taskModel, JobContext jobContext,
       ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -382,8 +390,8 @@ public class ContainerStorageManager {
 
   /**
    * Obtain the base directory used by this {@link ContainerStorageManager} for all non-logged stores.
-   * If a base-directory was NOT explicitly provided during instantiation or in config, a default base directory is
-   * returned.
+   * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
+   * it is used, otherwise the base directory is obtained from SamzaContainer.
    */
   public final File getNonLoggedStorageBaseDir() {
 
@@ -391,20 +399,13 @@ public class ContainerStorageManager {
     if (nonLoggedStoreBaseDirectory.isPresent()) {
       return nonLoggedStoreBaseDirectory.get();
     }
-
-    JobConfig jobConfig = new JobConfig(this.config);
-
-    if (jobConfig.getNonLoggedStorePath().isDefined()) {
-      return new File(jobConfig.getNonLoggedStorePath().get());
-    } else {
-      return getDefaultStoreBaseDir();
-    }
+    return SamzaContainer.getNonLoggedStorageBaseDir(config, getDefaultStoreBaseDir());
   }
 
   /**
    * Obtain the base directory used by this {@link ContainerStorageManager} for all change-logged stores.
-   * If a base-directory was NOT explicitly provided during instantiation or in config or via an environment variable
-   * (see ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR), then a default base directory is returned.
+   * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
+   * it is used, otherwise the base directory is obtained from SamzaContainer
    */
   public final File getLoggedStorageBaseDir() {
 
@@ -413,36 +414,7 @@ public class ContainerStorageManager {
       return loggedStoreBaseDirectory.get();
     }
 
-    // else determine the loggedStoreBaseDir based on config, systemEnv, etc
-    JobConfig jobConfig = new JobConfig(this.config);
-    File defaultLoggedStorageBaseDir, loggedStorageBaseDir;
-
-    if (jobConfig.getLoggedStorePath().isDefined()) {
-      defaultLoggedStorageBaseDir = new File(jobConfig.getLoggedStorePath().get());
-    } else {
-      defaultLoggedStorageBaseDir = getDefaultStoreBaseDir();
-    }
-
-    if (System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR()) != null) {
-
-      if (!jobConfig.getName().isDefined()) {
-        throw new ConfigException("Missing required config: job.name");
-      }
-
-      loggedStorageBaseDir = new File(
-          System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR()) + File.separator + jobConfig.getName().get()
-              + "-" + jobConfig.getJobId());
-    } else {
-      if (jobConfig.getLoggedStorePath().isEmpty()) {
-        LOG.warn("No override was provided for logged store base directory. This disables local state re-use on "
-            + "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment "
-            + "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application");
-      }
-
-      loggedStorageBaseDir = defaultLoggedStorageBaseDir;
-    }
-
-    return loggedStorageBaseDir;
+    return SamzaContainer.getLoggedStorageBaseDir(config, getDefaultStoreBaseDir());
   }
 
   /**

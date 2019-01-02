@@ -80,6 +80,52 @@ object SamzaContainer extends Logging {
         classOf[JobModel])
   }
 
+  /**
+    * If a base-directory was NOT explicitly provided in config, a default base directory is returned.
+    */
+  def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
+    config.getNonLoggedStorePath match {
+      case Some(nonLoggedStorePath) =>
+        new File(nonLoggedStorePath)
+      case None =>
+        defaultStoreBaseDir
+    }
+  }
+
+  /**
+    * If a base-directory was NOT explicitly provided in config or via an environment variable
+    * (see ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR), then a default base directory is returned.
+    */
+  def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
+    val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
+      case Some(durableStorePath) =>
+        new File(durableStorePath)
+      case None =>
+        defaultStoreBaseDir
+    }
+
+    var loggedStorageBaseDir:File = null
+    if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
+      val jobNameAndId = (
+        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
+        config.getJobId
+      )
+
+      loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
+        + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
+    } else {
+      if (config.getLoggedStorePath.isEmpty) {
+        warn("No override was provided for logged store base directory. This disables local state re-use on " +
+          "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
+          "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application")
+      }
+
+      loggedStorageBaseDir = defaultLoggedStorageBaseDir
+    }
+
+    loggedStorageBaseDir
+  }
+
   def apply(
     containerId: String,
     jobModel: JobModel,
