@@ -48,6 +48,16 @@ In addition to the cookbook, you can also consult these:
 
 - [Amazon Kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis) and [Azure Eventhubs](https://github.com/apache/samza-hello-samza/tree/latest/src/main/java/samza/examples/azure) examples that cover how to consume input data from the respective systems.
 
+#### Low-level API examples
+The [Wikipedia Parser (low-level API)](https://github.com/apache/samza-hello-samza/tree/latest/src/main/java/samza/examples/wikipedia/task/application): 
+Same example that builds a streaming pipeline consuming a live-feed of 
+wikipedia edits, parsing each message and generating statistics from them, but
+using low-level APIs. 
+
+#### Samza SQL API examples
+You can easily create a Samza job declaratively using 
+[Samza SQL](https://samza.apache.org/learn/tutorials/0.14/samza-sql.html).
+
 #### Apache Beam API examples
 
 The easiest way to get a copy of the WordCount examples in Beam API is to use [Apache Maven](http://maven.apache.org/download.cgi). After installing Maven, please run the following command:
