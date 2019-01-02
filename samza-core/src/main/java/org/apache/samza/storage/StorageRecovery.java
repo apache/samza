@@ -182,19 +182,19 @@ public class StorageRecovery extends CommandLine {
 
   private Map<String, Serde<Object>> getSerdes() {
     Map<String, Serde<Object>> serdeMap = new HashMap<>();
+    SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
 
     // Adding all serdes from factories
-    ScalaJavaUtil.toJavaCollection(new SerializerConfig(jobConfig).getSerdeNames())
+    ScalaJavaUtil.toJavaCollection(serializerConfig.getSerdeNames())
         .stream()
         .forEach(serdeName -> {
-            Option<String> serdeClassName = new SerializerConfig(jobConfig).getSerdeClass(serdeName);
+            Option<String> serdeClassName = serializerConfig.getSerdeClass(serdeName);
 
             if (serdeClassName.isEmpty()) {
               serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
             }
 
-            Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class)
-                .getSerde(serdeName, new SerializerConfig(jobConfig));
+            Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class).getSerde(serdeName, serializerConfig);
           serdeMap.put(serdeName, serde);
           });
 

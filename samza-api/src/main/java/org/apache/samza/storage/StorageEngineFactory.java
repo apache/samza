@@ -35,7 +35,10 @@ public interface StorageEngineFactory<K, V> {
 
   /**
    * Enum to describe different modes a {@link StorageEngine} can be created in.
-   * The BulkLoad mode is used for restoring persisent stores during storage-restoration.
+   * The BulkLoad mode is used when bulk loading of data onto the store, e.g., store-restoration at Samza
+   * startup. In this mode, the underlying store will tailor itself for write-intensive ops -- tune its params,
+   * adapt its compaction behaviour, etc.
+   *
    * The ReadWrite mode is used for normal read-write ops by the application.
    */
   enum StoreMode {
