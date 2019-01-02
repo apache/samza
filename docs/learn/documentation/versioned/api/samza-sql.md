@@ -19,65 +19,70 @@ title: Samza SQL
    limitations under the License.
 -->
 
+### Table Of Contents
+- [Introduction](#introduction)
+- [Code Examples](#code-examples)
+- [Key Concepts](#key-concepts)
+  - [SQL Representation](#sql-representation)
+  - [SQL Grammar](#sql-grammar)
+  - [UDFs](#UDFs)
+  - [UDF Polymorphism](#udf-polymorphism)
+- [Known Limitations](#Known-Limitations)
 
-### Overview
-Samza SQL allows you to define your stream processing logic declaratively as a a SQL query.
-This allows you to create streaming pipelines without Java code or configuration unless you require user-defined functions (UDFs). Support for SQL internally uses Apache Calcite, which provides SQL parsing and query planning. The query is automatically translated to Samza's high level API and runs on Samza's execution engine.
+### Introduction
+Samza SQL allows you to define your stream processing logic 
+declaratively as a a SQL query. This allows you to create streaming 
+pipelines without Java code or configuration unless you require 
+user-defined functions (UDFs). 
 
-You can run Samza SQL locally on your machine or on a YARN cluster.
+### Code Examples
 
-### Running Samza SQL on your local machine
-The [Samza SQL console](https://samza.apache.org/learn/tutorials/0.14/samza-tools.html) allows you to experiment with Samza SQL locally on your machine. 
+The [Hello Samza](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/sql) 
+SQL examples demonstrate how to use Samza SQL API.  
 
-#### Setup Kafka
-Follow the instructions from the [Kafka quickstart](http://kafka.apache.org/quickstart) to start the zookeeper and Kafka server.
+- The [filter](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/sql/samza-sql-filter) 
+demonstrates filtering and insert Samza SQL job.
 
-Let us create a Kafka topic named “ProfileChangeStream” for this demo.
+- The [Case-When](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/sql/samza-sql-casewhen/src/main/sql)
+shows how to use ```CASE WHEN``` statement, along with ```UDF``` to identify qualifying events.
 
-```bash
->./deploy/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ProfileChangeStream
-```
+- The [join](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/sql/samza-sql-stream-table-join)
+demonstrates how to peform a stream-table join. Please note that join operation is currently not 
+fully cooked, and we are actively working on stabilizing it. 
 
-Download the Samza tools package from [here](https://samza.apache.org/learn/tutorials/0.14/samza-tools.html) and use the `generate-kafka-events` script populate the stream with sample data.
-
-```bash
-> cd samza-tools-<version>
-> ./scripts/generate-kafka-events.sh -t ProfileChangeStream -e ProfileChange
-```
-
-#### Using the Samza SQL Console
-
-
-The simplest SQL query is to read all events from a Kafka topic `ProfileChangeStream` and print them to the console.
-
-```bash
-> ./scripts/samza-sql-console.sh --sql "insert into log.consoleoutput select * from kafka.ProfileChangeStream"
-```
-
-Next, let us project a few fields from the input stream.
-
-```bash
-> ./scripts/samza-sql-console.sh --sql "insert into log.consoleoutput select Name, OldCompany, NewCompany from kafka.ProfileChangeStream"
-```
-
-You can also filter messages in the input stream based on some predicate. In this example, we filter profiles currently working at LinkedIn, whose previous employer matches the regex `.*soft`. The function `RegexMatch(regex, company)` is an example of 
-a UDF that defines a predicate. 
-
-```bash
-> ./scripts/samza-sql-console.sh --sql "insert into log.consoleoutput select Name as __key__, Name, NewCompany, RegexMatch('.*soft', OldCompany) from kafka.ProfileChangeStream where NewCompany = 'LinkedIn'"
-```
+- The [group by](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/sql/samza-sql-groupby)
+show how to do group by. Similar to Join, Group By is being actively stabilized. 
 
 
-### Running Samza SQL on YARN
-The [hello-samza](https://github.com/apache/samza-hello-samza) project has examples to get started with Samza on YARN. You can define your SQL query in a [configuration file](https://github.com/apache/samza-hello-samza/blob/master/src/main/config/pageview-filter-sql.properties) and submit it to a YARN cluster.
+### Key Concepts
+
+Each Samza SQL job consists of one or more Samza SQL statements.
+Each statement represents a single streaming pipeline.
+
+#### SQL Representation
+
+Support for SQL internally uses Apache Calcite, which provides 
+SQL parsing and query planning. The query is automatically translated 
+to Samza's high level API and runs on Samza's execution engine.
+
+The mapping from SQL to the Samza's high level API is a simple 
+deterministic one-to-one mapping. For example, ```Select```, i.e., 
+projections, maps to a filter operation, while ```from``` maps to 
+a scan(s) and join(s) - if selecting from multiple streams and tables
+- operators, and so on.  
+
+The table below lists the supported SQL operations.
+
+ Operation | Syntax hints | Comments      
+ --- | --- | --- 
+ PROJECTION | SELECT/INSERT/UPSERT | See [SQL Grammar](#sql-grammer) below 
+ FILTERING | WHERE expression |See [SQL Grammar](#sql-grammer) below 
+ UDFs | udf_name(args)    | In both SELECT and WHERE clause 
+ JOIN | [LEFT/RIGHT] JOIN .. ON .. | Stream-table inner, left- or right-outer joins. Currently not fully stable. 
+ AGGREGATION | COUNT ( ...) .. GROUP BY | Currently only COUNT is supported, using processing-time based window. 
 
 
-```bash
-> ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties
-```
-
-
-### SQL Grammar
+#### SQL Grammar
 
 Samza SQL's grammar is a subset of capabilities supported by Calcite's SQL parser.
 
@@ -127,7 +132,37 @@ values:
   VALUES expression [, expression ]*
 
 ```
+
+#### UDFs
+
+In addition to existing SQL logical operations, Samza SQL 
+allows the user to extend its functionality by running 
+user-code through User Defined Functions (UDFs) as part of the Stream processing 
+pipeline corresponding to the SQL.
+
+
+#### UDF Polymorphism 
+
+Since UDF's execute method takes an array of generic objects as
+parameter, Samza SQL UDF framework is flexible enough to 
+support polymorphic udf functions with varying sets of arguments 
+as long as UDF implementations support them.
+
+For example in the below sql statement, UDF will be passed an 
+object array of size 2 with first element containing id of type  
+"LONG" and second element name of type "String". The type of the 
+objects that are passed depends on the type of those fields in Samza 
+SQL message format.
+
+{% highlight sql %}
+select myudf(id, name) from identity.profile
+{% endhighlight %}
+
+
 ### Known Limitations
 
-Samza SQL only supports simple stateless queries including selections and projections. We are actively working on supporting stateful operations such as aggregations, windows and joins.
+Samza SQL only supports simple stateless queries including selections
+and projections. We are actively working on supporting stateful operations 
+such as aggregations, windows and joins.
+
 
