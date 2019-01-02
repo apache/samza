@@ -221,11 +221,11 @@ public class ContainerStorageManager {
       TaskName taskName = task.getKey();
       TaskModel taskModel = task.getValue();
 
-      for (String storeName : storageEngineFactories.keySet()) {
+      if (!this.taskStores.containsKey(taskName)) {
+        this.taskStores.put(taskName, new HashMap<>());
+      }
 
-        if (!this.taskStores.containsKey(taskName)) {
-          this.taskStores.put(taskName, new HashMap<>());
-        }
+      for (String storeName : storageEngineFactories.keySet()) {
 
         StorageEngine storageEngine =
             createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
