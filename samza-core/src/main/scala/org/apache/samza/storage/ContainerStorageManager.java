@@ -37,9 +37,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerMetrics;
@@ -212,9 +209,6 @@ public class ContainerStorageManager {
 
   /**
    * Create taskStores with the given store mode.
-   * In case a store already exists in taskStores and it is a persistent store, the existing store is overwritten with a new one.
-   * Existing non-persistent stores in taskStores are left as-is.
-   *
    */
   private void createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -229,9 +223,38 @@ public class ContainerStorageManager {
 
       for (String storeName : storageEngineFactories.keySet()) {
 
-        if (this.taskStores.get(taskName) == null) {
+        if (!this.taskStores.containsKey(taskName)) {
           this.taskStores.put(taskName, new HashMap<>());
         }
+
+        StorageEngine storageEngine =
+            createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
+                changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors, storeMode);
+
+        // add created store to map
+        this.taskStores.get(taskName).put(storeName, storageEngine);
+
+        LOG.info("Created store {} for task {}", storeName, taskName);
+      }
+    }
+  }
+
+  /**
+   * Recreate all persistent stores in ReadWrite mode.
+   *
+   */
+  private void recreatePersistentTaskStoresInReadWriteMode(ContainerModel containerModel, JobContext jobContext,
+      ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, SystemStream> changelogSystemStreams, Map<String, Serde<Object>> serdes,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
+
+    // iterate over each task and each storeName
+    for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
+      TaskName taskName = task.getKey();
+      TaskModel taskModel = task.getValue();
+
+      for (String storeName : storageEngineFactories.keySet()) {
 
         // if this store has been already created in the taskStores, then re-create and overwrite it only if it is a persistentStore
         if (this.taskStores.get(taskName).containsKey(storeName) && this.taskStores.get(taskName)
@@ -241,26 +264,16 @@ public class ContainerStorageManager {
 
           StorageEngine storageEngine =
               createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
-                  changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors, storeMode);
+                  changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors,
+                  StorageEngineFactory.StoreMode.ReadWrite);
 
           // add created store to map
           this.taskStores.get(taskName).put(storeName, storageEngine);
 
-          LOG.info("Re-created store {} for task {} because it a persistent store", storeName, taskName);
-        } else if (!this.taskStores.get(taskName).containsKey(storeName)) {
-          // if this store doesnt exist, then create it and add to taskStores
-
-          StorageEngine storageEngine =
-              createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
-                  changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors, storeMode);
-
-          // add created store to map
-          this.taskStores.get(taskName).put(storeName, storageEngine);
-
-          LOG.info("Created store {} for task {}", storeName, taskName);
+          LOG.info("Re-created store {} in read-write mode for task {} because it a persistent store", storeName, taskName);
         } else {
 
-          LOG.info("Not re-creating store {} for task {} because it a non-persistent store", storeName, taskName);
+          LOG.info("Skipping re-creation of store {} for task {} because it a non-persistent store", storeName, taskName);
         }
       }
     }
@@ -358,17 +371,17 @@ public class ContainerStorageManager {
     this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
 
     // Now re-create persistent stores in read-write mode, leave non-persistent stores as-is
-    createTaskStores(this.containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
-        serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.ReadWrite);
+    recreatePersistentTaskStoresInReadWriteMode(this.containerModel, jobContext, containerContext,
+        storageEngineFactories, changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors);
 
     LOG.info("Restore complete");
   }
 
   /**
    * Get the {@link StorageEngine} instance with a given name for a given task.
-   * @param taskName The task name for which the storage engine is desired.
-   * @param storeName The desired store's name.
-   * @return The desired task store.
+   * @param taskName the task name for which the storage engine is desired.
+   * @param storeName the desired store's name.
+   * @return the task store.
    */
   public Optional<StorageEngine> getStore(TaskName taskName, String storeName) {
     return Optional.ofNullable(this.taskStores.get(taskName).get(storeName));
@@ -376,6 +389,8 @@ public class ContainerStorageManager {
 
   /**
    *  Get all {@link StorageEngine} instance used by a given task.
+   * @param taskName  the task name, all stores for which are desired.
+   * @return map of stores used by the given task, indexed by storename
    */
   public Map<String, StorageEngine> getAllStores(TaskName taskName) {
     return this.taskStores.get(taskName);
@@ -383,6 +398,7 @@ public class ContainerStorageManager {
 
   /**
    * Set of directory paths for all stores restored by this {@link ContainerStorageManager}.
+   * @return the set of all store directory paths
    */
   public Set<Path> getStoreDirectoryPaths() {
     return this.storeDirectoryPaths;
@@ -392,6 +408,8 @@ public class ContainerStorageManager {
    * Obtain the base directory used by this {@link ContainerStorageManager} for all non-logged stores.
    * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
    * it is used, otherwise the base directory is obtained from SamzaContainer.
+   *
+   * @return base directory to be used for non-logged stores
    */
   public final File getNonLoggedStorageBaseDir() {
 
@@ -406,6 +424,8 @@ public class ContainerStorageManager {
    * Obtain the base directory used by this {@link ContainerStorageManager} for all change-logged stores.
    * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
    * it is used, otherwise the base directory is obtained from SamzaContainer
+   *
+   * @return base directory to be used for logged stores
    */
   public final File getLoggedStorageBaseDir() {
 

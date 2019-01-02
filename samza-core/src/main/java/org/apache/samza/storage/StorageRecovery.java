@@ -54,7 +54,6 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-import scala.collection.JavaConverters;
 
 
 /**
@@ -195,7 +194,7 @@ public class StorageRecovery extends CommandLine {
             }
 
             Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class).getSerde(serdeName, serializerConfig);
-          serdeMap.put(serdeName, serde);
+            serdeMap.put(serdeName, serde);
           });
 
     return serdeMap;
