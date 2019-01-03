@@ -124,14 +124,12 @@ public class StorageRecovery extends CommandLine {
    * Build ContainerModels from job config file and put the results in the containerModels map.
    */
   private void getContainerModels() {
-
     MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
     CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, metricsRegistryMap);
     coordinatorStreamManager.register(getClass().getSimpleName());
     coordinatorStreamManager.start();
     coordinatorStreamManager.bootstrap();
     ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
-
     JobModel jobModel = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping(), metricsRegistryMap).jobModel();
     containers = jobModel.getContainers();
     coordinatorStreamManager.stop();

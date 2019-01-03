@@ -511,7 +511,6 @@ object SamzaContainer extends Logging {
       .toSet
 
     val taskModels = containerModel.getTasks.values.asScala
-
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
       .map(_.create(externalContextOption.orNull, jobContext, containerContext))

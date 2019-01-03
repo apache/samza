@@ -80,26 +80,18 @@ import scala.collection.JavaConverters;
  */
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
-
-  // Naming convention to be used for restore threads
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
 
-  // Map of task stores for each task
+  /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
-
-  // Map of task restore managers for each task
   private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
+  private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
+  private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors;
 
-  // Mapping of from storeSystemNames to SystemConsumers
-  private final Map<String, SystemConsumer> systemConsumers;
-
-  // Size of thread-pool to be used for parallel restores
-  private final int parallelRestoreThreadPoolSize;
-
-  private final Config config;
-
-  // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
-  private final int maxChangeLogStreamPartitions;
+  private final Map<String, SystemConsumer> systemConsumers; // Mapping from storeSystemNames to SystemConsumers
+  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories; // Map of storageEngineFactories indexed by store name
+  private final Map<String, SystemStream> changelogSystemStreams; // Map of changelog system-streams indexed by store name
+  private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
 
   private final StreamMetadataCache streamMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
@@ -108,17 +100,15 @@ public class ContainerStorageManager {
   private final ContainerModel containerModel;
   private final JobContext jobContext;
   private final ContainerContext containerContext;
-  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories; // Map of storageEngineFactories indexed by store name
-  private final Map<String, SystemStream> changelogSystemStreams; // Map of changelog system-streams indexed by store name
-  private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics; // Map of taskInstance metrics indexed by task name
-  private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors; // Map of task instance collectors indexed by task name
-  private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
 
   private final File loggedStoreBaseDirectory;
   private final File nonLoggedStoreBaseDirectory;
+  private final Set<Path> storeDirectoryPaths; // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
 
-  // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
-  private final Set<Path> storeDirectoryPaths;
+  private final int parallelRestoreThreadPoolSize;
+  private final int maxChangeLogStreamPartitions; // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
+
+  private final Config config;
 
   public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
       SystemAdmins systemAdmins, Map<String, SystemStream> changelogSystemStreams,
@@ -158,21 +148,15 @@ public class ContainerStorageManager {
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
     this.streamMetadataCache = streamMetadataCache;
 
-    // initialize the taskStores
-    this.taskStores = new HashMap<>();
-
     // create taskStores for all tasks in the containerModel and each store in storageEngineFactories
-    createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
+    this.taskStores = createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
 
     // create system consumers (1 per store system)
     this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // creating task restore managers
-    this.taskRestoreManagers = containerModel.getTasks().entrySet().stream().
-        collect(Collectors.toMap(entry -> entry.getKey(),
-            entry -> new TaskRestoreManager(entry.getValue(), changelogSystemStreams, taskStores.get(entry.getKey()),
-                systemAdmins, clock)));
+    this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
   }
 
   /**
@@ -208,22 +192,31 @@ public class ContainerStorageManager {
     return storeConsumers;
   }
 
+  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock) {
+    Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
+    containerModel.getTasks().forEach((taskName, taskModel) ->
+      taskRestoreManagers.put(taskName, new TaskRestoreManager(taskModel, changelogSystemStreams, taskStores.get(taskName), systemAdmins, clock)));
+    return taskRestoreManagers;
+  }
+
   /**
    * Create taskStores with the given store mode for all stores in storageEngineFactories.
    */
-  private void createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
+  private Map<TaskName, Map<String, StorageEngine>> createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, SystemStream> changelogSystemStreams, Map<String, Serde<Object>> serdes,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, StorageEngineFactory.StoreMode storeMode) {
+
+    Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
 
     // iterate over each task in the containerModel, and each store in storageEngineFactories
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
       TaskName taskName = task.getKey();
       TaskModel taskModel = task.getValue();
 
-      if (!this.taskStores.containsKey(taskName)) {
-        this.taskStores.put(taskName, new HashMap<>());
+      if (!taskStores.containsKey(taskName)) {
+        taskStores.put(taskName, new HashMap<>());
       }
 
       for (String storeName : storageEngineFactories.keySet()) {
@@ -233,11 +226,13 @@ public class ContainerStorageManager {
                 changelogSystemStreams, serdes, taskInstanceMetrics, taskInstanceCollectors, storeMode);
 
         // add created store to map
-        this.taskStores.get(taskName).put(storeName, storageEngine);
+        taskStores.get(taskName).put(storeName, storageEngine);
 
         LOG.info("Created store {} for task {}", storeName, taskName);
       }
     }
+
+    return taskStores;
   }
 
   /**
