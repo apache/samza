@@ -23,7 +23,6 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
@@ -220,7 +219,7 @@ public class StorageRecovery extends CommandLine {
               storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
               JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(),
-              Optional.of(storeBaseDir), Optional.of(storeBaseDir), maxPartitionNumber, new SystemClock());
+              storeBaseDir, storeBaseDir, maxPartitionNumber, new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

@@ -18,11 +18,11 @@
  */
 package org.apache.samza.storage;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -59,6 +59,9 @@ public class TestContainerStorageManager {
   private static final String STORE_NAME = "store";
   private static final String SYSTEM_NAME = "kafka";
   private static final String STREAM_NAME = "store-stream";
+  private static final File DEFAULT_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir") + File.separator + "store");
+  private static final File
+      DEFAULT_LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir") + File.separator + "loggedStore");
 
   private ContainerStorageManager containerStorageManager;
   private Map<TaskName, Gauge<Object>> taskRestoreMetricGauges;
@@ -203,7 +206,8 @@ public class TestContainerStorageManager {
         new ContainerStorageManager(new ContainerModel("samza-container-test", tasks), mockStreamMetadataCache,
             mockSystemAdmins, changelogSystemStreams, storageEngineFactories, systemFactories, serdes, config,
             taskInstanceMetrics, samzaContainerMetrics, Mockito.mock(JobContext.class),
-            Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), Optional.empty(), Optional.empty(), 2, new SystemClock());
+            Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), DEFAULT_LOGGED_STORE_BASE_DIR,
+            DEFAULT_STORE_BASE_DIR, 2, new SystemClock());
   }
 
   @Test

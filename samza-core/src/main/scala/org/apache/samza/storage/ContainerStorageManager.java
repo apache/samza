@@ -38,7 +38,6 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -115,8 +114,8 @@ public class ContainerStorageManager {
   private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors; // Map of task instance collectors indexed by task name
   private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
 
-  private final Optional<File> loggedStoreBaseDirectory; // The base directory to use for logged stores' files, if not specified defaults to a default dir.
-  private final Optional<File> nonLoggedStoreBaseDirectory; // The base directory to use for nonLogged stores' files, if not specified defaults to a default direct
+  private final File loggedStoreBaseDirectory;
+  private final File nonLoggedStoreBaseDirectory;
 
   // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
   private final Set<Path> storeDirectoryPaths;
@@ -127,8 +126,8 @@ public class ContainerStorageManager {
       Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext, ContainerContext containerContext,
-      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, Optional<File> loggedStoreBaseDirectory,
-      Optional<File> nonLoggedStoreBaseDirectory, int maxChangeLogStreamPartitions, Clock clock) {
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, File loggedStoreBaseDirectory,
+      File nonLoggedStoreBaseDirectory, int maxChangeLogStreamPartitions, Clock clock) {
 
     this.containerModel = containerModel;
     this.changelogSystemStreams = changelogSystemStreams;
@@ -297,9 +296,9 @@ public class ContainerStorageManager {
 
     // Use the logged-store-base-directory for change logged stores, and non-logged-store-base-dir for non logged stores
     File storeDirectory =
-        (changeLogSystemStreamPartition != null) ? StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(),
+        (changeLogSystemStreamPartition != null) ? StorageManagerUtil.getStorePartitionDir(this.loggedStoreBaseDirectory,
             storeName, taskName)
-            : StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskName);
+            : StorageManagerUtil.getStorePartitionDir(this.nonLoggedStoreBaseDirectory, storeName, taskName);
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
     if (storageConfig.getStorageKeySerde(storeName).isEmpty()) {
@@ -402,48 +401,6 @@ public class ContainerStorageManager {
    */
   public Set<Path> getStoreDirectoryPaths() {
     return this.storeDirectoryPaths;
-  }
-
-  /**
-   * Obtain the base directory used by this {@link ContainerStorageManager} for all non-logged stores.
-   * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
-   * it is used, otherwise the base directory is obtained from SamzaContainer.
-   *
-   * @return base directory to be used for non-logged stores
-   */
-  private final File getNonLoggedStorageBaseDir() {
-
-    // if a loggedStoreBaseDirectory is explicitly specified then use that
-    if (nonLoggedStoreBaseDirectory.isPresent()) {
-      return nonLoggedStoreBaseDirectory.get();
-    }
-    return SamzaContainer.getNonLoggedStorageBaseDir(config, getDefaultStoreBaseDir());
-  }
-
-  /**
-   * Obtain the base directory used by this {@link ContainerStorageManager} for all change-logged stores.
-   * If a base-directory was explicitly provided during instantiation (e.g., when instantiated by the StorageRecovery tool),
-   * it is used, otherwise the base directory is obtained from SamzaContainer
-   *
-   * @return base directory to be used for logged stores
-   */
-  private final File getLoggedStorageBaseDir() {
-
-    // if a loggedStoreBaseDirectory is explicitly specified then use that
-    if (loggedStoreBaseDirectory.isPresent()) {
-      return loggedStoreBaseDirectory.get();
-    }
-
-    return SamzaContainer.getLoggedStorageBaseDir(config, getDefaultStoreBaseDir());
-  }
-
-  /**
-   * Construct a default store base directory using the <user.dir> and <state> System properties.
-   */
-  private final File getDefaultStoreBaseDir() {
-    File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
-    LOG.info("Got default storage engine base directory " + defaultStoreBaseDir);
-    return defaultStoreBaseDir;
   }
 
   @VisibleForTesting
@@ -561,7 +518,7 @@ public class ContainerStorageManager {
 
       taskStores.keySet().forEach(storeName -> {
           File nonLoggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
+              StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName());
           LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
           if (nonLoggedStorePartitionDir.exists()) {
@@ -570,7 +527,7 @@ public class ContainerStorageManager {
           }
 
           File loggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
+              StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName());
           LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
           // Delete the logged store if it is not valid.
@@ -622,7 +579,7 @@ public class ContainerStorageManager {
           if (storageEngine.getStoreProperties().isLoggedStore()) {
 
             File loggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(getLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName());
 
             LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
@@ -632,7 +589,7 @@ public class ContainerStorageManager {
             }
           } else {
             File nonLoggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName());
             LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
             nonLoggedStorePartitionDir.mkdirs();

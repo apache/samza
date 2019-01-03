@@ -26,7 +26,7 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.{Base64, Optional}
+import java.util.{Base64}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
@@ -49,8 +49,8 @@ import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.startpoint.StartpointManager
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage._
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
@@ -510,6 +510,8 @@ object SamzaContainer extends Logging {
       .map(_.getTaskName)
       .toSet
 
+    val taskModels = containerModel.getTasks.values.asScala
+
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
       .map(_.create(externalContextOption.orNull, jobContext, containerContext))
@@ -520,19 +522,13 @@ object SamzaContainer extends Logging {
 
     var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
-    val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = containerModel.getTasks.values.asScala.map(taskModel => {
+    val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
       (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
     }).toMap
 
-    val taskCollectors : Map[TaskName, TaskInstanceCollector] = containerModel.getTasks.values.asScala.map(taskModel => {
+    val taskCollectors : Map[TaskName, TaskInstanceCollector] = taskModels.map(taskModel => {
       (taskModel.getTaskName, new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics.get(taskModel.getTaskName).get))
     }).toMap
-
-
-    val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams.asJava,
-      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config, taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava, Optional.empty(), Optional.empty(), maxChangeLogStreamPartitions, new SystemClock)
-
-    storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
     val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
     info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
@@ -543,8 +539,15 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+    val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins,
+      changeLogSystemStreams.asJava, storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
+      taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
+      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, new SystemClock)
+
+    storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
+
     // Create taskInstances
-    val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
+    val taskInstances: Map[TaskName, TaskInstance] = taskModels.map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
@@ -575,13 +578,9 @@ object SamzaContainer extends Logging {
               case _ => null
             }
 
-            // We use the logged storage base directory for change logged and side input stores since side input stores
+            // We use the logged storage base directory for side input stores since side input stores
             // dont have changelog configured.
-            val storeDir = if (sideInputStoresToSystemStreams.contains(storeName)) {
-              StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
-            } else {
-              StorageManagerUtil.getStorePartitionDir(nonLoggedStorageBaseDir, storeName, taskName)
-            }
+            val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
 
             storeWatchPaths.add(storeDir.toPath)
 
