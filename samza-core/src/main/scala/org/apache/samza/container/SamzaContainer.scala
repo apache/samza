@@ -518,10 +518,13 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val nonLoggedStorageBaseDir = containerStorageManager.getNonLoggedStorageBaseDir
+    val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+    info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
+
+    val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
 
-    val loggedStorageBaseDir = containerStorageManager.getLoggedStorageBaseDir
+    val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
     // Create taskInstances

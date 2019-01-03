@@ -411,7 +411,7 @@ public class ContainerStorageManager {
    *
    * @return base directory to be used for non-logged stores
    */
-  public final File getNonLoggedStorageBaseDir() {
+  private final File getNonLoggedStorageBaseDir() {
 
     // if a loggedStoreBaseDirectory is explicitly specified then use that
     if (nonLoggedStoreBaseDirectory.isPresent()) {
@@ -427,7 +427,7 @@ public class ContainerStorageManager {
    *
    * @return base directory to be used for logged stores
    */
-  public final File getLoggedStorageBaseDir() {
+  private final File getLoggedStorageBaseDir() {
 
     // if a loggedStoreBaseDirectory is explicitly specified then use that
     if (loggedStoreBaseDirectory.isPresent()) {
@@ -635,6 +635,7 @@ public class ContainerStorageManager {
                 StorageManagerUtil.getStorePartitionDir(getNonLoggedStorageBaseDir(), storeName, taskModel.getTaskName());
             LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
+            nonLoggedStorePartitionDir.mkdirs();
           }
         });
     }
@@ -669,7 +670,7 @@ public class ContainerStorageManager {
 
       changeLogOldestOffsets =
           getChangeLogOldestOffsetsForPartition(taskModel.getChangelogPartition(), changeLogMetadata);
-      LOG.info("Assigning oldest change log offsets for taskName {}:{}", taskModel.getTaskName(),
+      LOG.info("Assigning oldest change log offsets for taskName {} : {}", taskModel.getTaskName(),
           changeLogOldestOffsets);
     }
 
