@@ -539,8 +539,11 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+    val sideInputStorageEngineFactories = storageEngineFactories.filterKeys(storeName => sideInputStoresToSystemStreams.contains(storeName))
+    val nonSideInputStorageEngineFactories = (storageEngineFactories.toSet diff sideInputStorageEngineFactories.toSet).toMap
+
     val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins,
-      changeLogSystemStreams.asJava, storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
+      changeLogSystemStreams.asJava, nonSideInputStorageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
       taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
       loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, new SystemClock)
 
@@ -557,8 +560,7 @@ object SamzaContainer extends Logging {
         case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
       }
 
-      val sideInputStores = storageEngineFactories.filterKeys(storeName => sideInputStoresToSystemStreams.contains(storeName))
-        .map {
+      val sideInputStores = sideInputStorageEngineFactories.map {
           case (storeName, storageEngineFactory) =>
             val changeLogSystemStreamPartition = if (changeLogSystemStreams.contains(storeName)) {
               new SystemStreamPartition(changeLogSystemStreams(storeName), taskModel.getChangelogPartition)
@@ -581,7 +583,6 @@ object SamzaContainer extends Logging {
             // We use the logged storage base directory for side input stores since side input stores
             // dont have changelog configured.
             val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
-
             storeWatchPaths.add(storeDir.toPath)
 
             val sideInputStorageEngine = storageEngineFactory.getStorageEngine(

@@ -160,6 +160,8 @@ public class ContainerStorageManager {
 
     // initialize the taskStores
     this.taskStores = new HashMap<>();
+
+    // create taskStores for all tasks in the containerModel and each store in storageEngineFactories
     createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
 
@@ -207,7 +209,7 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Create taskStores with the given store mode.
+   * Create taskStores with the given store mode for all stores in storageEngineFactories.
    */
   private void createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -215,7 +217,7 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, StorageEngineFactory.StoreMode storeMode) {
 
-    // iterate over each task and each storeName
+    // iterate over each task in the containerModel, and each store in storageEngineFactories
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
       TaskName taskName = task.getKey();
       TaskModel taskModel = task.getValue();
