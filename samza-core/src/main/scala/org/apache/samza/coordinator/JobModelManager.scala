@@ -21,6 +21,7 @@ package org.apache.samza.coordinator
 
 import java.util
 import java.util.concurrent.atomic.AtomicReference
+
 import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
@@ -28,8 +29,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.LocalityManager
-import org.apache.samza.container.TaskName
+import org.apache.samza.container.{BuddyContainerBasedStandbyTaskGenerator, LocalityManager, TaskName}
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.job.model.ContainerModel
@@ -301,7 +301,13 @@ object JobModelManager extends Logging {
     } else {
       containerModels = containerGrouper.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
-    val containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
+    var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
+
+    // if standby containers are enabled, for now, we use the BuddyContainerBasedStandbyTaskGenerator with a default replication factor
+    // of 2. TODO: enable a higher task-replication-factor
+    if (new JobConfig(config).getStandbyContainersEnabled) {
+      containerMap = new BuddyContainerBasedStandbyTaskGenerator().provisionStandbyTasks(containerMap.asJava, 2).asScala.toMap
+    }
 
     new JobModel(config, containerMap.asJava)
   }

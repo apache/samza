@@ -110,6 +110,9 @@ object JobConfig {
   // Enables diagnostic appender for logging exception events
   val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
 
+  // Enables standbycontainers
+  val STANDBY_CONTAINERS_ENABLED = "job.standbycontainers.enabled"
+
   // Specify DiagnosticAppender class
   val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
   val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
@@ -268,4 +271,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystemStreamPartitionMapperFactoryName: String = {
     get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
+
+  def getStandbyContainersEnabled = { getBoolean(JobConfig.STANDBY_CONTAINERS_ENABLED, false); }
 }
