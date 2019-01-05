@@ -20,6 +20,7 @@ package org.apache.samza.container;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.slf4j.Logger;
@@ -30,6 +31,9 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
 
   private static final Logger LOG = LoggerFactory.getLogger(BuddyContainerBasedStandbyTaskGenerator.class);
 
+  private static final String CONTAINER_ID_SEPARATOR = "-";
+  private static final String STANDBY_TASKNAME_PREFIX = "Standby ";
+
   @Override
   public Map<String, ContainerModel> provisionStandbyTasks(Map<String, ContainerModel> containerModels,
       int taskReplicationFactor) {
@@ -37,47 +41,51 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
     LOG.debug("Received current containerModel map : {}, taskReplicationFactor : {}", containerModels,
         taskReplicationFactor);
 
-    Map<String, ContainerModel> buddyContainerMap = new HashMap<>();
-    int numberOfActiveContainers = containerModels.size();
+    // using a treemap to keep active and buddy-containers ordered
+    Map<String, ContainerModel> buddyContainerMap = new TreeMap<>();
 
     for (String activeContainerId : containerModels.keySet()) {
 
-      for (int i = 1; i <= taskReplicationFactor; i++) {
+      // if the replication-factor is n, we add n-1 standby tasks for each active task
+      for (int i = 0; i < taskReplicationFactor - 1; i++) {
+        String buddyContainerId = getBuddyContainerId(activeContainerId, i);
 
-        // generate buddy containerIDs by adding the numContainers to the activeContainer's id
-        // e.g., if activeContainersIDs = 2,3 numContainers = 2 and rf = 3
-        // this will generate buddyContainerIds as 4 & 6 for activeCont-2 and 5 & 6 for activeCont-3
-        String buddyContainerId = String.valueOf(Integer.parseInt(activeContainerId) + i * numberOfActiveContainers);
         ContainerModel buddyContainerModel = new ContainerModel(buddyContainerId,
             getTaskModelForBuddyContainer(containerModels.get(activeContainerId).getTasks()));
 
         buddyContainerMap.put(buddyContainerId, buddyContainerModel);
       }
     }
+    LOG.info("Adding buddy containers : {}", buddyContainerMap);
 
-    LOG.debug("Adding buddy containers : {}", buddyContainerMap);
-
-    containerModels.putAll(buddyContainerMap);
-    return containerModels;
+    buddyContainerMap.putAll(containerModels);
+    return buddyContainerMap;
   }
 
   private static Map<TaskName, TaskModel> getTaskModelForBuddyContainer(
       Map<TaskName, TaskModel> activeContainerTaskModel) {
-    Map<TaskName, TaskModel> buddyTaskModels = new HashMap<>();
+    Map<TaskName, TaskModel> standbyTaskModels = new HashMap<>();
 
     for (TaskName taskName : activeContainerTaskModel.keySet()) {
-
-      TaskName buddyTaskName = new TaskName("Standby " + taskName.getTaskName());
-
-      TaskModel buddyTaskModel =
-          new TaskModel(buddyTaskName, activeContainerTaskModel.get(taskName).getSystemStreamPartitions(),
+      TaskName standbyTaskName = getStandbyTaskName(taskName);
+      TaskModel standbyTaskModel =
+          new TaskModel(standbyTaskName, activeContainerTaskModel.get(taskName).getSystemStreamPartitions(),
               activeContainerTaskModel.get(taskName).getChangelogPartition());
 
-      buddyTaskModels.put(buddyTaskName, buddyTaskModel);
+      standbyTaskModels.put(standbyTaskName, standbyTaskModel);
     }
 
-    LOG.debug("Generated buddytaskModels : {} for active task models : {}", buddyTaskModels, activeContainerTaskModel);
+    LOG.info("Generated standbyTaskModels : {} for active task models : {}", standbyTaskModels,
+        activeContainerTaskModel);
+    return standbyTaskModels;
+  }
 
-    return buddyTaskModels;
+  // generate buddy containerIDs by appending the replica-number to the active-container's id
+  private final static String getBuddyContainerId(String activeContainerId, int replicaNumber) {
+    return activeContainerId.concat(CONTAINER_ID_SEPARATOR).concat(String.valueOf(replicaNumber));
+  }
+
+  private final static TaskName getStandbyTaskName(TaskName activeTaskName) {
+    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(activeTaskName.getTaskName()));
   }
 }
