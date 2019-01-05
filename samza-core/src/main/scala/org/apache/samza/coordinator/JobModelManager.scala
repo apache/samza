@@ -303,10 +303,9 @@ object JobModelManager extends Logging {
     }
     var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
 
-    // if standby containers are enabled, for now, we use the BuddyContainerBasedStandbyTaskGenerator with a default replication factor
-    // of 2. TODO: enable a higher task-replication-factor
-    if (new JobConfig(config).getStandbyContainersEnabled) {
-      containerMap = new BuddyContainerBasedStandbyTaskGenerator().provisionStandbyTasks(containerMap.asJava, 2).asScala.toMap
+    // if standby containers are enabled, for now, we use the BuddyContainerBasedStandbyTaskGenerator with the provided replication factor
+    if (new JobConfig(config).getStandbyTasksEnabled) {
+      containerMap = new BuddyContainerBasedStandbyTaskGenerator().provisionStandbyTasks(containerMap.asJava, new JobConfig(config).getStandbyReplicationFactor).asScala.toMap
     }
 
     new JobModel(config, containerMap.asJava)

@@ -23,5 +23,5 @@ import org.apache.samza.job.model.ContainerModel;
 
 
 public interface StandbyTaskGenerator {
-  Map<String, ContainerModel> provisionStandbyTasks(Map<String, ContainerModel> containerModels, int taskReplicationFactor);
+  Map<String, ContainerModel> provisionStandbyTasks(Map<String, ContainerModel> containerModels, int replicationFactor);
 }

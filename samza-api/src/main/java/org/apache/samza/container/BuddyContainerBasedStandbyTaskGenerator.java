@@ -36,18 +36,16 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
 
   @Override
   public Map<String, ContainerModel> provisionStandbyTasks(Map<String, ContainerModel> containerModels,
-      int taskReplicationFactor) {
+      int replicationFactor) {
 
-    LOG.debug("Received current containerModel map : {}, taskReplicationFactor : {}", containerModels,
-        taskReplicationFactor);
+    LOG.debug("Received current containerModel map : {}, replicationFactor : {}", containerModels, replicationFactor);
 
-    // using a treemap to keep active and buddy-containers ordered
-    Map<String, ContainerModel> buddyContainerMap = new TreeMap<>();
+    Map<String, ContainerModel> buddyContainerMap = new HashMap<>();
 
     for (String activeContainerId : containerModels.keySet()) {
 
       // if the replication-factor is n, we add n-1 standby tasks for each active task
-      for (int i = 0; i < taskReplicationFactor - 1; i++) {
+      for (int i = 0; i < replicationFactor - 1; i++) {
         String buddyContainerId = getBuddyContainerId(activeContainerId, i);
 
         ContainerModel buddyContainerModel = new ContainerModel(buddyContainerId,
