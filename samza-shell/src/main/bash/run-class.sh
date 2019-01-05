@@ -92,7 +92,6 @@ printf "Class-Path: \n $CLASSPATH \n" > manifest.txt
 # Creates a new archive and adds custom manifest information to pathing.jar
 eval "$JAR -cvmf manifest.txt pathing.jar"
 
-
 if [ -z "$JAVA_HOME" ]; then
   JAVA="java"
 else
@@ -152,7 +151,6 @@ fi
 
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
-
 
 # HADOOP_CONF_DIR should be supplied to classpath explicitly for Yarn to parse configs
 echo $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar "$@"
