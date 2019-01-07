@@ -20,7 +20,6 @@ package org.apache.samza.container;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.slf4j.Logger;
