@@ -36,10 +36,18 @@ public class TaskModel implements Comparable<TaskModel> {
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final Partition changelogPartition;
 
+  private final TaskMode taskMode;
+
+
   public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
+    this(taskName, systemStreamPartitions, changelogPartition, TaskMode.Active);
+  }
+
+  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition, TaskMode taskMode) {
     this.taskName = taskName;
     this.systemStreamPartitions = Collections.unmodifiableSet(systemStreamPartitions);
     this.changelogPartition = changelogPartition;
+    this.taskMode = taskMode;
   }
 
   /**
@@ -64,6 +72,10 @@ public class TaskModel implements Comparable<TaskModel> {
    */
   public Partition getChangelogPartition() {
     return changelogPartition;
+  }
+
+  public TaskMode getTaskMode() {
+    return this.taskMode;
   }
 
   @Override
@@ -100,7 +112,8 @@ public class TaskModel implements Comparable<TaskModel> {
 
   @Override
   public String toString() {
-    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
+    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions
+        + ", changeLogPartition=" + changelogPartition + ", taskMode=" + this.taskMode + "]";
   }
 
   public int compareTo(TaskModel other) {
