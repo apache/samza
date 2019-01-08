@@ -30,7 +30,7 @@ package org.apache.samza.coordinator.stream.messages;
  *
  * message =&gt; {
  *     "host": "192.168.0.1",
- *     "source": "SamzaTaskAssignmentManager",
+ *     "source": "SamzaContainer",
  *     "username":"app",
  *     "timestamp": 1456177487325,
  *     "values": {
