@@ -35,10 +35,14 @@ public class TaskModel implements Comparable<TaskModel> {
   private final TaskName taskName;
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final Partition changelogPartition;
-
   private final TaskMode taskMode;
 
-
+  /**
+   *  Create a TaskModel for an active task with the given taskName, SSPs, and changelogPartition.
+   * @param taskName The desired taskName
+   * @param systemStreamPartitions SSPs assigned to this task.
+   * @param changelogPartition The changelog SSP for this task.
+   */
   public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
     this(taskName, systemStreamPartitions, changelogPartition, TaskMode.Active);
   }
