@@ -109,18 +109,6 @@ public class TaskAssignmentManager {
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
-  public Map<TaskName, TaskMode> readTaskModes() {
-    Map<TaskName, TaskMode> taskModeMap = new HashMap<>();
-    taskModeMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
-        String taskMode = containerIdSerde.fromBytes(valueBytes);
-        if (taskMode != null) {
-          taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
-        }
-        LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
-      });
-    return Collections.unmodifiableMap(new HashMap<>(taskModeMap));
-  }
-
   /**
    * Method to write task container info to {@link MetadataStore}.
    *
