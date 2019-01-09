@@ -66,8 +66,7 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
    *  Generate a container model map with standby tasks added and grouped in buddy containers.
    *
    * @param containerModels The initial container model map.
-   * @param replicationFactor The desired replication factor, if the replication-factor is n,
-   * we add n-1 standby tasks for each active task
+   * @param replicationFactor The desired replication factor, if the replication-factor is n, we add n-1 standby tasks for each active task.
    * @return
    */
   @Override
