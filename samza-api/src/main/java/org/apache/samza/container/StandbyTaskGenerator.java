@@ -22,6 +22,14 @@ import java.util.Map;
 import org.apache.samza.job.model.ContainerModel;
 
 
+/**
+ *  Given a ContainerModel map (generated after applying the SSPGrouper and the TaskNameGrouper), a StandbyTaskGenerator generates
+ *  StandbyTasks and adds them to the existing ContainerModels.
+ *  It adds r StandbyTask for each TaskModel in the given ContainerModel map, where r is the replicationFactor.
+ *
+ *  Note that, the StandbyTaskGenerator implementations for YARN (BuddyContainerBasedStandbyTaskGenerator) and
+ *  Standalone are different.
+ */
 public interface StandbyTaskGenerator {
-  Map<String, ContainerModel> provisionStandbyTasks(Map<String, ContainerModel> containerModels, int replicationFactor);
+  Map<String, ContainerModel> generateStandbyTasks(Map<String, ContainerModel> containerModels, int replicationFactor);
 }
