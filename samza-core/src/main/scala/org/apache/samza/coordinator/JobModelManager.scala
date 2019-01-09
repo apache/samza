@@ -172,7 +172,7 @@ object JobModelManager extends Logging {
 
     for (container <- jobModel.getContainers.values()) {
       for (taskName <- container.getTasks.keySet) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, TaskMode.Active)
+        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, container.getTasks.get(taskName).getTaskMode)
       }
     }
   }
@@ -285,7 +285,7 @@ object JobModelManager extends Logging {
             info("New task %s is being assigned changelog partition %s." format(taskName, maxChangelogPartitionId))
             new Partition(maxChangelogPartitionId)
         }
-        new TaskModel(taskName, systemStreamPartitions, changelogPartition)
+        new TaskModel(taskName, systemStreamPartitions, changelogPartition, TaskMode.Active)
       }.toSet
     }
 

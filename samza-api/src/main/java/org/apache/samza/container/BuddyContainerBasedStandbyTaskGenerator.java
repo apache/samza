@@ -21,6 +21,7 @@ package org.apache.samza.container;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +101,7 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
       TaskName standbyTaskName = getStandbyTaskName(taskName);
       TaskModel standbyTaskModel =
           new TaskModel(standbyTaskName, activeContainerTaskModel.get(taskName).getSystemStreamPartitions(),
-              activeContainerTaskModel.get(taskName).getChangelogPartition());
+              activeContainerTaskModel.get(taskName).getChangelogPartition(), TaskMode.StandbyState);
       standbyTaskModels.put(standbyTaskName, standbyTaskModel);
     }
 
