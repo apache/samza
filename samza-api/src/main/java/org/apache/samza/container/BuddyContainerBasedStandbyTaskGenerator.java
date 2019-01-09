@@ -38,21 +38,21 @@ import org.slf4j.LoggerFactory;
  *
  * If the initial container model map is:
  *
- * Container 0 -> (Partition 0, Partition 1)
- * Container 1 -> (Partition 2, Partition 3)
+ * Container 0 : (Partition 0, Partition 1)
+ * Container 1 : (Partition 2, Partition 3)
  *
  * with replicationFactor = 3
  *
  * The generated containerModel map is:
  *
- * Container 0 -> (Partition 0, Partition 1)
- * Container 1 -> (Partition 2, Partition 3)
+ * Container 0 : (Partition 0, Partition 1)
+ * Container 1 : (Partition 2, Partition 3)
  *
- * Container 0-0 -> (Standby Partition 0, Standby Partition 1)
- * Container 0-1 -> (Standby Partition 0, Standby Partition 1)
+ * Container 0-0 : (Standby Partition 0, Standby Partition 1)
+ * Container 0-1 : (Standby Partition 0, Standby Partition 1)
  *
- * Container 1-0 -> (Standby Partition 2, Standby Partition 3)
- * Container 1-1 -> (Standby Partition 2, Standby Partition 3)
+ * Container 1-0 : (Standby Partition 2, Standby Partition 3)
+ * Container 1-1 : (Standby Partition 2, Standby Partition 3)
  *
  *
  */
