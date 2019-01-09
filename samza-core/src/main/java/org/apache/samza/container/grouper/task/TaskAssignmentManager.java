@@ -86,10 +86,10 @@ public class TaskAssignmentManager {
     this.taskModeSerde = taskModeSerde;
 
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-    this.taskContainerMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
     this.taskModeMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskModeMapping.TYPE, config, metricsRegistry);
-    this.taskContainerMappingMetadataStore.init();
+    this.taskContainerMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
     this.taskModeMappingMetadataStore.init();
+    this.taskContainerMappingMetadataStore.init();
   }
 
   /**
