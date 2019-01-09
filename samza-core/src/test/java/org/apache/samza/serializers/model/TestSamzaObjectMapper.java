@@ -198,6 +198,7 @@ public class TestSamzaObjectMapper {
     containerModel1TaskTestJson.put("task-name", "test");
     containerModel1TaskTestJson.put("system-stream-partitions", containerModel1TaskTestSSPsJson);
     containerModel1TaskTestJson.put("changelog-partition", 2);
+    containerModel1TaskTestJson.put("task-mode", "Active");
 
     ObjectNode containerModel1TasksJson = objectMapper.createObjectNode();
     containerModel1TasksJson.put("test", containerModel1TaskTestJson);
