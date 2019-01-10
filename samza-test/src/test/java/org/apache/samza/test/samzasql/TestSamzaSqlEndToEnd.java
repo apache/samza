@@ -283,6 +283,46 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(expectedMessages, outMessages.size());
   }
 
+
+  @Test
+  public void testEndToEndComplexRecord() {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+
+    String sql1 =
+        "Insert into testavro.outputTopic"
+            + " select map_values['key0'] as string_value, array_values[0] as string_value, map_values, id, bytes_value, fixed_value, float_value "
+            + " from testavro.COMPLEX1";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+
+    Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+  @Ignore
+  @Test
+  public void testEndToEndNestedRecord() {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+
+    String sql1 =
+        "Insert into testavro.outputTopic"
+            + " select `phoneNumbers`[0].`kind`"
+            + " from testavro.PROFILE as p";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+
+    Assert.assertEquals(numMessages, outMessages.size());
+  }
+
   @Test
   public void testEndToEndSubQuery() throws Exception {
     int numMessages = 20;
