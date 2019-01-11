@@ -777,7 +777,7 @@ object SamzaContainer extends Logging {
 
         override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
           val serde = new StringSerde()
-          Collections.singletonList(new Entry(serde.fromBytes(message.getKey.asInstanceOf[Array[Byte]), serde.fromBytes(message.getMessage)))
+          Collections.singletonList(new Entry(serde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), serde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
         }
       }})
 
