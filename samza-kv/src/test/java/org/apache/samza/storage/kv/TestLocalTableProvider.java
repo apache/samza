@@ -19,7 +19,6 @@
 
 package org.apache.samza.storage.kv;
 
-import junit.framework.Assert;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
@@ -28,6 +27,7 @@ import org.apache.samza.context.TaskContext;
 import org.apache.samza.table.TableProvider;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Test;
+import org.junit.Assert;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;

@@ -21,8 +21,10 @@ package org.apache.samza.storage;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 
+import java.util.List;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -35,7 +37,9 @@ public class MockStorageEngine implements StorageEngine {
   public static String storeName;
   public static File storeDir;
   public static SystemStreamPartition ssp;
-  public static ArrayList<IncomingMessageEnvelope> incomingMessageEnvelopes = new ArrayList<IncomingMessageEnvelope>();
+
+  // Thread-safe list is required because the list is shared across StorageEngine instances
+  public static List<IncomingMessageEnvelope> incomingMessageEnvelopes = Collections.synchronizedList(new ArrayList<>());
   public static StoreProperties storeProperties;
 
   public MockStorageEngine(String storeName, File storeDir, SystemStreamPartition changeLogSystemStreamPartition, StoreProperties properties) {

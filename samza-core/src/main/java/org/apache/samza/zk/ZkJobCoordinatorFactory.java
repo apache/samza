@@ -27,7 +27,6 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,13 +43,12 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of {@link ZkJobCoordinator}
    */
   @Override
-  public JobCoordinator getJobCoordinator(Config config) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     // TODO: Separate JC related configs into a "ZkJobCoordinatorConfig"
-    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
-    return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
+    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils);
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {

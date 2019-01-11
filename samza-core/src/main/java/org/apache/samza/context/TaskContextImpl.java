@@ -26,7 +26,7 @@ import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.table.Table;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.TableManager;
 
 import java.util.HashMap;
@@ -83,7 +83,7 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public Table getTable(String tableId) {
+  public <K, V> ReadWriteTable<K, V> getTable(String tableId) {
     return this.tableManager.getTable(tableId);
   }
 

@@ -65,8 +65,8 @@ public class ShutdownUtil {
       LOG.info("Shutdown complete for {}", message);
       return true;
     } else {
-      LOG.error("Shutdown function for {} remains unfinished after timeout({}ms) or interruption", message, timeoutMs);
-      Util.logThreadDump(message);
+      LOG.error("Shutdown function for {} remains unfinished after timeout ({} ms) or interruption", message, timeoutMs);
+      ThreadUtil.logThreadDump(message);
       shutdownExecutorService.shutdownNow();
       return false;
     }

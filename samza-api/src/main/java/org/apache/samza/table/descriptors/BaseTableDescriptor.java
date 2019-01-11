@@ -56,6 +56,7 @@ abstract public class BaseTableDescriptor<K, V, D extends BaseTableDescriptor<K,
    * @param value the value
    * @return this table descriptor instance
    */
+  @SuppressWarnings("unchecked")
   public D withConfig(String key, String value) {
     config.put(key, value);
     return (D) this;

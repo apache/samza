@@ -39,6 +39,7 @@ import org.apache.samza.table.utils.SerdeUtils;
  * @param <V> the type of the value in this table
  * @param <D> the type of the concrete table descriptor
  */
+@SuppressWarnings("unchecked")
 abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<K, V, D>>
     extends BaseTableDescriptor<K, V, D> {
 

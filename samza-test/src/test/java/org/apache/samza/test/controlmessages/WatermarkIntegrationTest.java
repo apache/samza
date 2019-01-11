@@ -164,8 +164,9 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
       }
     }
 
-    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TestStreamApp(), new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(configs);
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new TestStreamApp(), config);
+    executeRun(runner, config);
 
     // processors are only available when the app is running
     Map<String, StreamOperatorTask> tasks = getTaskOperationGraphs((MockLocalApplicationRunner) runner);

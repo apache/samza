@@ -44,7 +44,7 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
 
   SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Context context) {
     this.sendToTableOpSpec = sendToTableOpSpec;
-    this.table = (ReadWriteTable) context.getTaskContext().getTable(sendToTableOpSpec.getTableId());
+    this.table = context.getTaskContext().getTable(sendToTableOpSpec.getTableId());
   }
 
   @Override

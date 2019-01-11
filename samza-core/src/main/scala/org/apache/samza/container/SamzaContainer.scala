@@ -45,9 +45,11 @@ import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{ContainerModel, JobModel}
+import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage._
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
@@ -128,6 +130,7 @@ object SamzaContainer extends Logging {
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    externalContextOption: Option[ExternalContext],
     localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
     val containerModel = jobModel.getContainers.get(containerId)
@@ -417,12 +420,26 @@ object SamzaContainer extends Logging {
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
+    val metadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
+      .map(Util.getObj(_, classOf[MetadataStoreFactory]))
+      .orNull
+    val startpointManager = {
+      try {
+        Option(new StartpointManager(metadataStoreFactory, config, samzaContainerMetrics.registry))
+      } catch {
+        case e: Exception => {
+          error("Unable to get an instance of the StartpointManager. Continuing without one.", e)
+          None
+        }
+      }
+    }
+
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager.getOrElse(null), systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserializationErrors
@@ -489,7 +506,7 @@ object SamzaContainer extends Logging {
 
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
-      .map(_.create(jobContext, containerContext))
+      .map(_.create(externalContextOption.orNull, jobContext, containerContext))
 
     val storeWatchPaths = new util.HashSet[Path]()
 
@@ -668,7 +685,8 @@ object SamzaContainer extends Logging {
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
-          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption)
+          applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
+          externalContextOption = externalContextOption)
 
       val taskInstance = createTaskInstance(task)
 
@@ -747,6 +765,7 @@ object SamzaContainer extends Logging {
       timerExecutor = timerExecutor,
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
+      externalContextOption = externalContextOption,
       containerStorageManager = containerStorageManager)
   }
 
@@ -783,6 +802,7 @@ class SamzaContainer(
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
+  externalContextOption: Option[ExternalContext],
   containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
@@ -1087,7 +1107,7 @@ class SamzaContainer(
           info("Shutdown complete")
         } else {
           error("Did not shut down within %s ms, exiting." format shutdownMs)
-          Util.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
+          ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
         }
       }
     }
