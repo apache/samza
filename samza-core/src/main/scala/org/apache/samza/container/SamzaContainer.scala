@@ -776,7 +776,8 @@ object SamzaContainer extends Logging {
       val sideInputStoresToProcessor = taskStores.mapValues(storeName => {new SideInputsProcessor {
 
         override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
-          Collections.singletonList(new Entry(message.getKey, message.getMessage))
+          val serde = new StringSerde()
+          Collections.singletonList(new Entry(serde.fromBytes(message.getKey.asInstanceOf[Array[Byte]), serde.fromBytes(message.getMessage)))
         }
       }})
 
@@ -825,7 +826,7 @@ object SamzaContainer extends Logging {
         storageManager = storageManager,
         tableManager = tableManager,
         reporters = reporters,
-        systemStreamPartitions = taskSSPs,
+        systemStreamPartitions = changelogSSPSet, // task ssps for standbyTask are the changelogSSPs
         exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
         jobModel = jobModel,
         streamMetadataCache = streamMetadataCache,
