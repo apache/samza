@@ -24,6 +24,7 @@ import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
@@ -57,6 +58,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
     } else if (type.equalsIgnoreCase(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapping = new SetChangelogMapping(message);
       return String.valueOf(changelogMapping.getPartition());
+    } else if (type.equalsIgnoreCase(SetConfig.TYPE)) {
+      SetConfig setConfig = new SetConfig(message);
+      return setConfig.getConfigValue();
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }
@@ -73,6 +77,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
     } else if (type.equalsIgnoreCase(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapping = new SetChangelogMapping(SOURCE, "", Integer.valueOf(value));
       return messageSerde.toBytes(changelogMapping.getMessageMap());
+    } else if (type.equalsIgnoreCase(SetConfig.TYPE)) {
+      SetConfig setConfig = new SetConfig(SOURCE, "", value);
+      return messageSerde.toBytes(setConfig.getMessageMap());
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }

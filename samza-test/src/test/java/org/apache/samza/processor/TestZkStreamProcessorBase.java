@@ -188,6 +188,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     configs.put("app.messageCount", String.valueOf(messageCount));
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
+    configs.put("job.coordinator.system", testSystem);
+    configs.put("job.coordinator.replication.factor", "1");
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
 
     configs.put("job.systemstreampartition.grouper.factory",
