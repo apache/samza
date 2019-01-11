@@ -35,7 +35,7 @@ public class IdentityStreamTask implements StreamTask, InitableTask  {
   @Override
   public void init(Context context) throws Exception {
     Config config = context.getJobContext().getConfig();
-    this.expectedMessageCount = config.getInt("app.messageCount");
+    this.expectedMessageCount = config.getInt("app.messageCount", Integer.MAX_VALUE);
     this.outputTopic = config.get("app.outputTopic", "output");
     this.outputSystem = config.get("app.outputSystem", "test-system");
   }

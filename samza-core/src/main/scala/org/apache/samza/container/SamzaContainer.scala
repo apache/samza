@@ -26,10 +26,11 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.Base64
+import java.util.{Base64, Collections}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
@@ -44,13 +45,14 @@ import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
-import org.apache.samza.job.model.{ContainerModel, JobModel}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage._
+import org.apache.samza.storage.kv.{Entry, KeyValueStore}
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
@@ -513,7 +515,7 @@ object SamzaContainer extends Logging {
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
     // We create a map of store SystemName to its respective SystemConsumer
-    val storeSystemConsumers: Map[String, SystemConsumer] = changeLogSystemStreams.mapValues {
+    val storeSystemConsumers: collection.mutable.Map[String, SystemConsumer] = collection.mutable.Map() ++ changeLogSystemStreams.mapValues {
       case (changeLogSystemStream) => (changeLogSystemStream.getSystem)
     }.values.toSet.map {
       systemName: String =>
@@ -527,9 +529,10 @@ object SamzaContainer extends Logging {
 
     var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
-    // Create taskInstances
-    val taskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.map(taskModel => {
-      debug("Setting up task instance: %s" format taskModel)
+    // Create taskInstances for active tasks
+    val activeTaskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.
+      filter(_.getTaskMode == TaskMode.Active).map(taskModel => {
+      debug("Setting up active task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
 
@@ -694,6 +697,153 @@ object SamzaContainer extends Logging {
       (taskName, taskInstance)
     }).toMap
 
+    // Create taskInstances for standby tasks
+    val standbyTaskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.
+      filter(_.getTaskMode == TaskMode.StandbyState).map(taskModel => {
+      debug("Setting up active task instance: %s" format taskModel)
+
+      val taskName = taskModel.getTaskName
+      // using identity task for standby tasks
+      val task = new IdentityStreamTask()
+      val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
+      val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
+
+      // Stop the consumer created above for changeLog (because they are not needed in standalone) and remove
+      // them from the map
+      changeLogSystemStreams.foreach(
+        (e : (String, SystemStream)) => {
+          if (storeSystemConsumers.get(e._2.getSystem).isDefined) {
+            storeSystemConsumers.get(e._2.getSystem).get.stop()
+            storeSystemConsumers.remove(e._2.getSystem)
+          }
+        }
+      )
+
+      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
+      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
+      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
+      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
+      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
+
+      // create taskStores as nonlogged stores for standbytasks so set changeLogSystemStreamPartition = null
+      val taskStores = storageEngineFactories
+        .map {
+          case (storeName, storageEngineFactory) =>
+            val changeLogSystemStreamPartition = null
+
+            val keySerde = config.getStorageKeySerde(storeName) match {
+              case Some(keySerde) => serdes.getOrElse(keySerde,
+                throw new SamzaException("StorageKeySerde: No class defined for serde: %s." format keySerde))
+              case _ => null
+            }
+
+            val msgSerde = config.getStorageMsgSerde(storeName) match {
+              case Some(msgSerde) => serdes.getOrElse(msgSerde,
+                throw new SamzaException("StorageMsgSerde: No class defined for serde: %s." format msgSerde))
+              case _ => null
+            }
+
+            // We use the logged storage base directory for change logged and side input stores since side input stores
+            // dont have changelog configured.
+            val storeDir = TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+            storeWatchPaths.add(storeDir.toPath)
+
+            val storageEngine = storageEngineFactory.getStorageEngine(
+              storeName,
+              storeDir,
+              keySerde,
+              msgSerde,
+              collector,
+              taskInstanceMetrics.registry,
+              changeLogSystemStreamPartition,
+              jobContext,
+              containerContext)
+            (storeName, storageEngine)
+        }
+
+      info("Got task stores: %s" format taskStores)
+
+      val taskSSPs = taskModel.getSystemStreamPartitions.asScala.toSet
+      info("Got task SSPs: %s" format taskSSPs)
+
+      val changelogSSPs =
+        changeLogSystemStreams.mapValues(ss => Set(new SystemStreamPartition(ss.getSystem, ss.getStream, taskModel.getChangelogPartition)).asJava).asJava
+
+      val changelogSSPSet = changelogSSPs.asScala.values.flatMap(_.asScala).toSet
+      info ("Got task side input SSPs: %s" format changelogSSPSet)
+
+      val sideInputStoresToProcessor = taskStores.mapValues(storeName => {new SideInputsProcessor {
+
+        override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
+          Collections.singletonList(new Entry(message.getKey, message.getMessage))
+        }
+      }})
+
+      // for standbytask create TSM with no stores and no consumers
+      val storageManager = new TaskStorageManager(
+        taskName = taskName,
+        taskStores = Map(),
+        storeConsumers = Map(),
+        changeLogSystemStreams = Map(),
+        0,
+        streamMetadataCache = streamMetadataCache,
+        sspMetadataCache = changelogSSPMetadataCache,
+        nonLoggedStoreBaseDir = nonLoggedStorageBaseDir,
+        loggedStoreBaseDir = loggedStorageBaseDir,
+        partition = taskModel.getChangelogPartition,
+        systemAdmins = systemAdmins,
+        new StorageConfig(config).getChangeLogDeleteRetentionsInMs,
+        new SystemClock)
+
+      var sideInputStorageManager: TaskSideInputStorageManager = null
+      if (taskStores.nonEmpty) {
+        sideInputStorageManager = new TaskSideInputStorageManager(
+          taskName,
+          streamMetadataCache,
+          loggedStorageBaseDir.getPath,
+          taskStores.asJava,
+          sideInputStoresToProcessor.asJava,
+          changelogSSPs,
+          systemAdmins,
+          config,
+          new SystemClock)
+      }
+
+      val tableManager = new TableManager(config)
+
+      info("Got table manager")
+
+      def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
+        task = task,
+        taskModel = taskModel,
+        metrics = taskInstanceMetrics,
+        systemAdmins = systemAdmins,
+        consumerMultiplexer = consumerMultiplexer,
+        collector = collector,
+        offsetManager = offsetManager,
+        storageManager = storageManager,
+        tableManager = tableManager,
+        reporters = reporters,
+        systemStreamPartitions = taskSSPs,
+        exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
+        jobModel = jobModel,
+        streamMetadataCache = streamMetadataCache,
+        timerExecutor = timerExecutor,
+        sideInputSSPs = changelogSSPSet, // sideinputSSPs for standbyTask are the changelogSSPs
+        sideInputStorageManager = sideInputStorageManager,
+        jobContext = jobContext,
+        containerContext = containerContext,
+        applicationContainerContextOption = applicationContainerContextOption,
+        applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
+        externalContextOption = externalContextOption)
+
+      val taskInstance = createTaskInstance(task)
+
+      taskStorageManagers += taskInstance.taskName -> storageManager
+      (taskName, taskInstance)
+    }).toMap
+
 
     val containerStorageManager = new ContainerStorageManager(taskStorageManagers.asJava, storeSystemConsumers.asJava,
       samzaContainerMetrics)
@@ -701,7 +851,7 @@ object SamzaContainer extends Logging {
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
     val runLoop = RunLoopFactory.createRunLoop(
-      taskInstances,
+      activeTaskInstances ++ standbyTaskInstances,
       consumerMultiplexer,
       taskThreadPool,
       maxThrottlingDelayMs,
@@ -748,7 +898,7 @@ object SamzaContainer extends Logging {
 
     new SamzaContainer(
       config = config,
-      taskInstances = taskInstances,
+      taskInstances = activeTaskInstances ++ standbyTaskInstances,
       runLoop = runLoop,
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,

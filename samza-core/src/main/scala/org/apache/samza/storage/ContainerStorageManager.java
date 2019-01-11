@@ -72,7 +72,7 @@ public class ContainerStorageManager {
   }
 
   public void start() throws SamzaException {
-    LOG.info("Restore started");
+    LOG.info("Restore started with tsms: {} sysConsumers: {}", this.taskStorageManagers, this.systemConsumers);
 
     // initialize each TaskStorageManager
     this.taskStorageManagers.values().forEach(taskStorageManager -> taskStorageManager.init());
