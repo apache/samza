@@ -703,8 +703,12 @@ object SamzaContainer extends Logging {
       debug("Setting up active task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
+
       // using identity task for standby tasks
-      val task = new IdentityStreamTask()
+      val task = new StreamTask {
+        override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
+      }
+
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
       val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
 
@@ -726,60 +730,50 @@ object SamzaContainer extends Logging {
       val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
       info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+      val sideInputStoresToProcessor: collection.mutable.Map[String, SideInputsProcessor] = collection.mutable.Map()
+
       // create taskStores as nonlogged stores for standbytasks so set changeLogSystemStreamPartition = null
       val taskStores = storageEngineFactories
         .map {
           case (storeName, storageEngineFactory) =>
             val changeLogSystemStreamPartition = null
 
-            val keySerde = config.getStorageKeySerde(storeName) match {
-              case Some(keySerde) => serdes.getOrElse(keySerde,
-                throw new SamzaException("StorageKeySerde: No class defined for serde: %s." format keySerde))
-              case _ => null
-            }
+            // we set the key and value serde as
+            val keySerde = new ByteSerde
+            val msgSerde = new ByteSerde
 
-            val msgSerde = config.getStorageMsgSerde(storeName) match {
-              case Some(msgSerde) => serdes.getOrElse(msgSerde,
-                throw new SamzaException("StorageMsgSerde: No class defined for serde: %s." format msgSerde))
-              case _ => null
-            }
-
-            // We use the logged storage base directory for change logged and side input stores since side input stores
-            // dont have changelog configured.
             val storeDir = TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             storeWatchPaths.add(storeDir.toPath)
 
             val storageEngine = storageEngineFactory.getStorageEngine(
               storeName,
               storeDir,
-              keySerde,
-              msgSerde,
+              keySerde.asInstanceOf[Serde[Object]],
+              msgSerde.asInstanceOf[Serde[Object]],
               collector,
               taskInstanceMetrics.registry,
               changeLogSystemStreamPartition,
               jobContext,
               containerContext)
+
+            // creating a sideInputs processor for this store that will be used to serde messages read for its changelog
+            val sideInputsProcessor = new SideInputsProcessor {
+              override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
+                Collections.singletonList(new Entry(keySerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), msgSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
+              }
+            }
+
+            sideInputStoresToProcessor.put(storeName, sideInputsProcessor)
             (storeName, storageEngine)
         }
 
       info("Got task stores: %s" format taskStores)
-
-      val taskSSPs = taskModel.getSystemStreamPartitions.asScala.toSet
-      info("Got task SSPs: %s" format taskSSPs)
 
       val changelogSSPs =
         changeLogSystemStreams.mapValues(ss => Set(new SystemStreamPartition(ss.getSystem, ss.getStream, taskModel.getChangelogPartition)).asJava).asJava
 
       val changelogSSPSet = changelogSSPs.asScala.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format changelogSSPSet)
-
-      val sideInputStoresToProcessor = taskStores.mapValues(storeName => {new SideInputsProcessor {
-
-        override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
-          val serde = new StringSerde()
-          Collections.singletonList(new Entry(serde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), serde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
-        }
-      }})
 
       // for standbytask create TSM with no stores and no consumers
       val storageManager = new TaskStorageManager(
