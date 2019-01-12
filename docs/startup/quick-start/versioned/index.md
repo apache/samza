@@ -19,5 +19,6 @@ title: Quick Start
    limitations under the License.
 -->
 
-[Samza Tutorial](samza.md)
-[Samza SQL Tutorial](samza-sql.md)
+[Samza Tutorial](samza.html)
+
+[Samza SQL Tutorial](samza-sql.html)
