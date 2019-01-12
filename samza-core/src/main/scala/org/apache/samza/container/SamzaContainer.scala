@@ -739,8 +739,7 @@ object SamzaContainer extends Logging {
             val changeLogSystemStreamPartition = null
 
             // we set the key and value serde as
-            val keySerde = new ByteSerde
-            val msgSerde = new ByteSerde
+            val byteSerde: ByteSerde = new ByteSerde
 
             val storeDir = TaskStorageManager.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
             storeWatchPaths.add(storeDir.toPath)
@@ -748,8 +747,8 @@ object SamzaContainer extends Logging {
             val storageEngine = storageEngineFactory.getStorageEngine(
               storeName,
               storeDir,
-              keySerde.asInstanceOf[Serde[Object]],
-              msgSerde.asInstanceOf[Serde[Object]],
+              byteSerde.asInstanceOf[Serde[Object]],
+              byteSerde.asInstanceOf[Serde[Object]],
               collector,
               taskInstanceMetrics.registry,
               changeLogSystemStreamPartition,
@@ -759,7 +758,7 @@ object SamzaContainer extends Logging {
             // creating a sideInputs processor for this store that will be used to serde messages read for its changelog
             val sideInputsProcessor = new SideInputsProcessor {
               override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
-                Collections.singletonList(new Entry(keySerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), msgSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
+                Collections.singletonList(new Entry(byteSerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), byteSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
               }
             }
 
