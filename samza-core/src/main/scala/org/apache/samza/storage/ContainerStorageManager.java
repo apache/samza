@@ -44,6 +44,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -153,7 +154,7 @@ public class ContainerStorageManager {
         serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
 
     // create system consumers (1 per store system)
-    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
+    this.systemConsumers = createStoreConsumers(this.taskStores, changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
@@ -162,13 +163,18 @@ public class ContainerStorageManager {
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
    */
-  private static Map<String, SystemConsumer> createStoreConsumers(Map<String, SystemStream> changelogSystemStreams,
+  private static Map<String, SystemConsumer> createStoreConsumers(Map<TaskName, Map<String, StorageEngine>> taskStores,
+      Map<String, SystemStream> changelogSystemStreams,
       Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
-    // Determine the set of systems being used across all stores
-    Set<String> storeSystems =
-        changelogSystemStreams.values().stream().map(SystemStream::getSystem).collect(Collectors.toSet());
 
-    // Create one consumer for each system in use, map with one entry for each such system
+    // Determine the set of stores to restore based on the taskStores map
+    Set<String> storesToRestore = taskStores.values().stream().flatMap(x -> x.keySet().stream()).collect(Collectors.toSet());
+
+    // Determine the set of systems being used across all storesToRestore
+    Set<String> storeSystems = storesToRestore.stream().map(storeName ->
+        changelogSystemStreams.get(storeName).getSystem()).collect(Collectors.toSet());
+
+    // Create one consumer for each system, create a   map with one entry for each such system
     Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
 
     // Map of each storeName to its respective systemConsumer
@@ -185,19 +191,28 @@ public class ContainerStorageManager {
     }
 
     // Populate the map of storeName to its relevant systemConsumer
-    for (String storeName : changelogSystemStreams.keySet()) {
+    for (String storeName : storesToRestore) {
       storeConsumers.put(storeName, storeSystemConsumers.get(changelogSystemStreams.get(storeName).getSystem()));
     }
 
     return storeConsumers;
   }
 
+  // Create taskRestoreManagers for all active tasks
   private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
-    containerModel.getTasks().forEach((taskName, taskModel) ->
-      taskRestoreManagers.put(taskName, new TaskRestoreManager(taskModel, changelogSystemStreams, taskStores.get(taskName), systemAdmins, clock)));
+
+    this.getActiveTasks(containerModel).forEach((taskModel) -> taskRestoreManagers.put(taskModel.getTaskName(),
+          new TaskRestoreManager(taskModel, changelogSystemStreams, taskStores.get(taskModel.getTaskName()), systemAdmins, clock)));
+
     return taskRestoreManagers;
   }
+
+  // Helper method to filter active Tasks from the container model
+  private static Set<TaskModel> getActiveTasks(ContainerModel containerModel) {
+    return containerModel.getTasks().values().stream().filter(taskModel -> taskModel.getTaskMode().equals(TaskMode.Active)).collect(Collectors.toSet());
+  }
+
 
   /**
    * Create taskStores with the given store mode for all stores in storageEngineFactories.
@@ -210,14 +225,12 @@ public class ContainerStorageManager {
 
     Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
 
-    // iterate over each task in the containerModel, and each store in storageEngineFactories
-    for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
-      TaskName taskName = task.getKey();
-      TaskModel taskModel = task.getValue();
+    // initialize the taskStores map with empty map for all taskNames
+    this.containerModel.getTasks().forEach((taskName, taskModel) -> taskStores.put(taskName, new HashMap<>()));
 
-      if (!taskStores.containsKey(taskName)) {
-        taskStores.put(taskName, new HashMap<>());
-      }
+    // iterate over each active task in the containerModel, and each store in storageEngineFactories
+    for (TaskModel taskModel : this.getActiveTasks(containerModel)) {
+      TaskName taskName = taskModel.getTaskName();
 
       for (String storeName : storageEngineFactories.keySet()) {
 

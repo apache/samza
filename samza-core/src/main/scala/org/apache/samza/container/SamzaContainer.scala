@@ -703,12 +703,12 @@ object SamzaContainer extends Logging {
 //        }
 //      )
 
-      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
-      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
-      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
-      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
-      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
-      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
+//      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
+//      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
+//      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
+//      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
+//      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
+//      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
       val sideInputStoresToProcessor: collection.mutable.Map[String, SideInputsProcessor] = collection.mutable.Map()
 
@@ -718,7 +718,7 @@ object SamzaContainer extends Logging {
           case (storeName, storageEngineFactory) =>
             val changeLogSystemStreamPartition = null
 
-            // we set the key and value serde as
+            // we set the key and value serde as byteserde
             val byteSerde: ByteSerde = new ByteSerde
 
             val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
