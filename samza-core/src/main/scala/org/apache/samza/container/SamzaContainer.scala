@@ -683,7 +683,6 @@ object SamzaContainer extends Logging {
       debug("Setting up active task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
-
       // using identity task for standby tasks
       val task = new StreamTask {
         override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
@@ -691,25 +690,6 @@ object SamzaContainer extends Logging {
 
       val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
       val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
-
-      // Stop the consumer created above for changeLog (because they are not needed in standalone) and remove
-      // them from the map
-//      changeLogSystemStreams.foreach(
-//        (e : (String, SystemStream)) => {
-//          if (storeSystemConsumers.get(e._2.getSystem).isDefined) {
-//            storeSystemConsumers.get(e._2.getSystem).get.stop()
-//            storeSystemConsumers.remove(e._2.getSystem)
-//          }
-//        }
-//      )
-
-//      val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
-//      info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
-//      val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
-//      info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
-//      val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
-//      info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
-
       val sideInputStoresToProcessor: collection.mutable.Map[String, SideInputsProcessor] = collection.mutable.Map()
 
       // create taskStores as nonlogged stores for standbytasks so set changeLogSystemStreamPartition = null
@@ -754,15 +734,6 @@ object SamzaContainer extends Logging {
       val changelogSSPSet = changelogSSPs.asScala.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format changelogSSPSet)
 
-      // for standbytask create TSM with no stores and no consumers
-      val storageManager = new TaskStorageManager(
-        taskName = taskName,
-        containerStorageManager,
-        changeLogSystemStreams = Map(),
-        sspMetadataCache = changelogSSPMetadataCache,
-        loggedStoreBaseDir = loggedStorageBaseDir,
-        partition = taskModel.getChangelogPartition)
-
       var sideInputStorageManager: TaskSideInputStorageManager = null
       if (taskStores.nonEmpty) {
         sideInputStorageManager = new TaskSideInputStorageManager(
@@ -789,7 +760,7 @@ object SamzaContainer extends Logging {
         consumerMultiplexer = consumerMultiplexer,
         collector = collector,
         offsetManager = offsetManager,
-        storageManager = storageManager,
+        storageManager = null, // we set the TSM = null for standby tasks
         tableManager = tableManager,
         reporters = reporters,
         systemStreamPartitions = changelogSSPSet, // task ssps for standbyTask are the changelogSSPs
@@ -806,8 +777,6 @@ object SamzaContainer extends Logging {
         externalContextOption = externalContextOption)
 
       val taskInstance = createTaskInstance(task)
-
-      taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
 
