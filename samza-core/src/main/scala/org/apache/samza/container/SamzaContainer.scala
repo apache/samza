@@ -718,6 +718,7 @@ object SamzaContainer extends Logging {
             // creating a sideInputs processor for this store that will be used to serde messages read for its changelog
             val sideInputsProcessor = new SideInputsProcessor {
               override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
+                debug("Writing value to store %s" format store)
                 Collections.singletonList(new Entry(byteSerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), byteSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
               }
             }
