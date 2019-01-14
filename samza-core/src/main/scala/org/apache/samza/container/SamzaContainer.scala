@@ -457,9 +457,26 @@ object SamzaContainer extends Logging {
       .getOrElse(SystemConsumers.DEFAULT_POLL_INTERVAL_MS.toString)
       .toInt
 
+    // For standbyTasks, we require the consumerMultiplexer and runLoop to have a sysConsumer for changelogSSPs
+    var systemConsumersForStandbyTasks : Map[String, SystemConsumer] = Map()
+    if (new JobConfig(config).getStandbyTasksEnabled) {
+      val requiredSystemConsumers = consumers.keySet &~ changeLogSystemStreams.values.map(systemStream => systemStream.getSystem).toSet
+      systemConsumersForStandbyTasks = requiredSystemConsumers
+        .map(systemName => {
+          try {
+            (systemName, systemFactories(systemName).getConsumer(systemName, config, samzaContainerMetrics.registry))
+          } catch {
+            case e: Exception =>
+              error("Failed to create a consumer for %s, so skipping." format systemName, e)
+              throw e
+          }
+        })
+        .toMap
+    }
+
     val consumerMultiplexer = new SystemConsumers(
       chooser = chooser,
-      consumers = consumers,
+      consumers = consumers ++ systemConsumersForStandbyTasks,
       serdeManager = serdeManager,
       metrics = systemConsumersMetrics,
       dropDeserializationError = dropDeserializationError,
@@ -750,7 +767,6 @@ object SamzaContainer extends Logging {
       }
 
       val tableManager = new TableManager(config)
-
       info("Got table manager")
 
       def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
