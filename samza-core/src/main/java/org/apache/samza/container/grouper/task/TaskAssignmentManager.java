@@ -148,5 +148,6 @@ public class TaskAssignmentManager {
 
   public void close() {
     taskContainerMappingMetadataStore.close();
+    taskModeMappingMetadataStore.close();
   }
 }

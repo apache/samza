@@ -26,13 +26,13 @@ package org.apache.samza.job.model;
 public enum TaskMode {
   Active("active"), StandbyState("standbyState");
 
-  private final String name;
+  private final String mode;
 
-  private TaskMode(String s) {
-    name = s;
+  private TaskMode(String mode) {
+    this.mode = mode;
   }
 
   public String toString() {
-    return this.name;
+    return this.mode;
   }
 }
