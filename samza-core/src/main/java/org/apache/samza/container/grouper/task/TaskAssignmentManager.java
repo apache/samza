@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -86,10 +85,10 @@ public class TaskAssignmentManager {
     this.taskModeSerde = taskModeSerde;
 
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-    this.taskContainerMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
     this.taskModeMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskModeMapping.TYPE, config, metricsRegistry);
-    this.taskContainerMappingMetadataStore.init();
+    this.taskContainerMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
     this.taskModeMappingMetadataStore.init();
+    this.taskContainerMappingMetadataStore.init();
   }
 
   /**
@@ -109,23 +108,12 @@ public class TaskAssignmentManager {
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
-  public Map<TaskName, TaskMode> readTaskModes() {
-    Map<TaskName, TaskMode> taskModeMap = new HashMap<>();
-    taskModeMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
-        String taskMode = containerIdSerde.fromBytes(valueBytes);
-        if (taskMode != null) {
-          taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
-        }
-        LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
-      });
-    return Collections.unmodifiableMap(new HashMap<>(taskModeMap));
-  }
-
   /**
    * Method to write task container info to {@link MetadataStore}.
    *
    * @param taskName    the task name
    * @param containerId the SamzaContainer ID or {@code null} to delete the mapping
+   * @param taskMode the mode of the task
    */
   public void writeTaskContainerMapping(String taskName, String containerId, TaskMode taskMode) {
     String existingContainerId = taskNameToContainerId.get(taskName);
@@ -160,5 +148,6 @@ public class TaskAssignmentManager {
 
   public void close() {
     taskContainerMappingMetadataStore.close();
+    taskModeMappingMetadataStore.close();
   }
 }
