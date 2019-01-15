@@ -28,6 +28,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
+import org.apache.calcite.sql.type.ArraySqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.SamzaException;
@@ -79,9 +80,8 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   private RelDataType getRelDataType(Schema fieldSchema) {
     switch (fieldSchema.getType()) {
       case ARRAY:
-        // TODO JavaTypeFactoryImpl should convert Array into Array(ANY, ANY)
-        // return new ArraySqlType(createSqlType(SqlTypeName.ANY), true);
-        return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
+        RelDataType elementType = getRelDataType(fieldSchema.getElementType());
+         return new ArraySqlType(elementType, true);
       case BOOLEAN:
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
       case DOUBLE:
@@ -103,13 +103,13 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
       case RECORD:
-        // return createTypeWithNullability(convertRecordType(fieldSchema), true);
+//         return createTypeWithNullability(convertRecordType(fieldSchema), true);
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
-        // JavaTypeFactoryImpl converts map into Map(ANY, ANY)
-        return super.createMapType(createTypeWithNullability(createSqlType(SqlTypeName.ANY), true),
-            createTypeWithNullability(createSqlType(SqlTypeName.ANY), true));
+        RelDataType valueType = getRelDataType(fieldSchema.getValueType());
+        return super.createMapType(createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true),
+            createTypeWithNullability(valueType, true));
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getType());
         LOG.error(msg);
