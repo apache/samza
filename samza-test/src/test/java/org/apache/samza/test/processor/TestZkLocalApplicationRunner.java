@@ -715,7 +715,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     MapConfig config = getConfigFromCoordinatorStream(applicationConfig1);
 
     // Execution plan and serialized DAG of a samza job is stored in the config of coordinator stream. Thus, direct equals comparison between
-    // the application confi and the coordinator config will fail. Iterating through the entire configuration bag and verify that expected
+    // the application configuration and the coordinator config will fail. Iterating through the entire configuration bag and verify that expected
     // configuration is present in the coordinator configuration.
     for (Map.Entry<String, String> entry : applicationConfig1.entrySet()) {
       Assert.assertTrue(config.containsKey(entry.getKey()));
