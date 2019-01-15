@@ -82,7 +82,6 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case ARRAY:
         RelDataType elementType = getRelDataType(fieldSchema.getElementType());
          return new ArraySqlType(elementType, true);
-//        return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case BOOLEAN:
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
       case DOUBLE:
