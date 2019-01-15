@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework.system.descriptors;
+package org.apache.samza.system.inmemory.descriptors;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.framework.system.descriptors;
+package org.apache.samza.system.inmemory.descriptors;
 
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.serializers.NoOpSerde;

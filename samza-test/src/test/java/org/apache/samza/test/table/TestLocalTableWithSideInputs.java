@@ -42,9 +42,9 @@ import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
-import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
-import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
-import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
+import org.apache.samza.system.inmemory.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.system.inmemory.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.system.inmemory.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.junit.Test;
 

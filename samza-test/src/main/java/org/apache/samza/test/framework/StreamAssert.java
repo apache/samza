@@ -24,7 +24,7 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.system.inmemory.descriptors.InMemoryOutputDescriptor;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 
