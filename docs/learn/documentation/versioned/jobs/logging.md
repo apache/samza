@@ -19,7 +19,7 @@ title: Logging
    limitations under the License.
 -->
 
-Samza uses [SLF4J](http://www.slf4j.org/) for all of its logging. By default, Samza only depends on slf4j-api, so it can work for whichever underlying logging platform you wish to use. You simply need to add the SLF4J bridge corresponding to the logging implementation chosen. Samza logging has been thoroughly tested against Log4j and Log4j2. Samza provides bundled modules for each of the Log4j versions along with additional functionality.
+Samza uses [SLF4J](http://www.slf4j.org/) for all of its logging. By default, Samza only depends on slf4j-api, so it can work for whichever underlying logging platform you wish to use. Make sure you are depending on slf4j-api version >= 1.7.16. You simply need to add the SLF4J bridge corresponding to the logging implementation chosen. Samza logging has been thoroughly tested against Log4j and Log4j2. Samza provides bundled modules for each of the Log4j versions along with additional functionality.
 ### Logging with Log4j
 
 To use Samza with [log4j](http://logging.apache.org/log4j/1.2/), you just need to make sure the following dependencies are present in your SamzaContainer’s classpath:
@@ -118,17 +118,26 @@ In Maven, these can be done by adding the following dependencies to your Samza p
 <dependency>
   <groupId>org.apache.logging.log4j</groupId>
   <artifactId>log4j-slf4j-impl</artifactId>
-  <version>2.8</version>
+  <version>2.11</version>
 </dependency>
 
 <dependency>
   <groupId>org.apache.samza</groupId>
   <artifactId>samza-log4j2</artifactId>
-  <version>0.14.0</version>
+  <version>${samza.version}</version>
+</dependency>
+
+<!-- We want to remove any dependencies on slf4j-log4j12 while logging with log4j2. -->
+<dependency>
+  <groupId>org.slf4j</groupId>
+  <artifactId>slf4j-log4j12</artifactId>
+  <version>[1.6.1,)</version>
+  <scope>provided</scope>
 </dependency>
 {% endhighlight %}
 
 If you’re not using Maven, please make sure both the above dependencies end up in your Samza package’s lib directory.
+Also, make sure there isn't any dependency on slf4j-log4j12 library while logging with Log4j2. 
 
 Next, you need to make sure that these dependencies are also listed in your Samza project's build.gradle:
 
@@ -159,17 +168,53 @@ Samza's [run-class.sh](packaging.html) script will automatically set the followi
 
 Rest all of the system properties will be set exactly like in the case of log4j, stated above.
 
+An example of a log4j2.xml can be seen here:
+{% highlight xml %}
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Configuration>
+
+  <Appenders>
+    <RollingFile name="RollingFile" fileName="${sys:samza.log.dir}/${sys:samza.container.name}-log4j2.log" filePattern="${sys:samza.log.dir}/${sys:samza.container.name}-%d{MM-dd-yyyy}-log4j2-%i.log.gz">
+      <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n"/>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="256MB" />
+      </Policies>
+      <DefaultRolloverStrategy max="20"/>
+    </RollingFile>
+
+    <RollingFile name="StartupAppender" fileName="${sys:samza.log.dir}/${sys:samza.container.name}-startup-log4j2.log" filePattern="${sys:samza.log.dir}/${sys:samza.container.name}-startup-%d{MM-dd-yyyy}-log4j2-%i.log.gz">
+      <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n"/>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="256MB" />
+      </Policies>
+      <DefaultRolloverStrategy max="1"/>
+    </RollingFile>
+  </Appenders>
+
+  <Loggers>
+    <Logger name="STARTUP_LOGGER" level="info" additivity="false">
+      <AppenderRef ref="StartupAppender"/>
+    </Logger>
+
+    <Root level="info">
+      <AppenderRef ref="RollingFile"/>
+    </Root>
+  </Loggers>
+
+</Configuration>
+{% endhighlight %}
+
 #### Porting from Log4j to Log4j2
 
 If you are already using log4j and want to upgrade to using log4j2, following are the changes you will need to make in your job:
 -	Clean your lib directory. This will be rebuilt with new dependency JARs and xml files.
 
--	Replace log4j’s dependencies with log4j2’s in your pom.xml/build.gradle as mentioned above. Please ensure that none of log4j’s dependencies remain in pom.xml/build.gradle
-
+-	Replace log4j’s dependencies with log4j2’s in your pom.xml/build.gradle and src.xml as mentioned above. Please ensure that none of log4j’s dependencies remain in pom.xml/build.gradle
 -	Create a log4j2.xml to match your existing log4j.xml file. 
 -	Rebuild your application
 
-NOTE: Please ensure that your classpath does not contain dependencies for both log4j and log4j2, as this might cause the application logging to not work correctly. 
+NOTE: Please ensure that your classpath does not contain dependencies for both log4j and log4j2, as this might cause the application logging to not work correctly. For example, we need to exclude the slf4j-log4j12 dependency from the classpath for logging with log4j2 to work correctly.
 
 
 #### Startup logger
@@ -195,7 +240,23 @@ You can write these log messages to a separate, finite file by including the sni
 
 ##### Log4j2:
 This can be done in a similar way for log4j2.xml using its defined syntax for xml files. 
+{% highlight xml %}
+  <Appenders>
+    <RollingFile name="StartupAppender" fileName="${sys:samza.log.dir}/${sys:samza.container.name}-startup-log4j2.log" filePattern="${sys:samza.log.dir}/${sys:samza.container.name}-startup-%d{MM-dd-yyyy}-log4j2-%i.log.gz">
+      <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} [%p] %m%n"/>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="256MB" />
+      </Policies>
+      <DefaultRolloverStrategy max="1"/>
+    </RollingFile>
+  </Appenders>
 
+  <Loggers>
+    <Root name="STARTUP_LOGGER" level="info" additivity="false">
+      <AppenderRef ref="StartupAppender"/>
+    </Root>
+  </Loggers>
+{% endhighlight %}
 
 #### Changing log levels
 
