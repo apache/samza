@@ -118,8 +118,7 @@ public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness
           .collect(Collectors.toList());
 
       boolean successfulJoin = results.stream().allMatch(expectedEnrichedPageviews::contains);
-      assertEquals("Mismatch between the expected and actual join count", results.size(),
-          expectedEnrichedPageviews.size());
+      assertEquals("Mismatch between the expected and actual join count", expectedEnrichedPageviews.size(), results.size());
       assertTrue("Pageview profile join did not succeed for all inputs", successfulJoin);
     } catch (SamzaException e) {
       e.printStackTrace();

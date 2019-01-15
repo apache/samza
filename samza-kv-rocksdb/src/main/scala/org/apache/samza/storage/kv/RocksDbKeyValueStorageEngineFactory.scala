@@ -24,6 +24,7 @@ import java.io.File
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.system.SystemStreamPartition
 import org.rocksdb.{FlushOptions, WriteOptions}
 
@@ -42,7 +43,7 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     registry: MetricsRegistry,
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
-    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
     val storageConfig = jobContext.getConfig.subset("stores." + storeName + ".", true)
     val isLoggedStore = jobContext.getConfig.getChangelogStream(storeName).isDefined
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
@@ -50,7 +51,7 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     rocksDbMetrics.newGauge("rocksdb.block-cache-size",
       () => RocksDbOptionsHelper.getBlockCacheSize(storageConfig, numTasksForContainer))
 
-    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, numTasksForContainer)
+    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, numTasksForContainer, storeMode)
     val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
     val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
     val rocksDb = new RocksDbKeyValueStore(
