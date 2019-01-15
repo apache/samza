@@ -207,10 +207,21 @@ object SamzaContainer extends Logging {
 
     info("Got input stream metadata: %s" format inputStreamMetadata)
 
-    val consumers = inputSystems
-      .map(systemName => {
-        val systemFactory = systemFactories(systemName)
+    val changeLogSystemStreams = config
+      .getStoreNames
+      .filter(config.getChangelogStream(_).isDefined)
+      .map(name => (name, config.getChangelogStream(name).get)).toMap
+      .mapValues(StreamUtil.getSystemStreamFromNames(_))
 
+    info("Got change log system streams: %s" format changeLogSystemStreams)
+
+    // In case this is a "standby container", we set its inputSystems to be the changeLogSystems so that the
+    // the consumerMultiplexer and runLoop to have a sysConsumer for changelogSSPs
+    // TODO: remove after SideInput restoration is moved to ContainerStorageManager
+
+    def createConsumers(): Map[String, SystemConsumer] = if (containerModel.getTasks.asScala.values.count(taskModel => taskModel.getTaskMode.eq(TaskMode.StandbyState)) == 0) {
+      inputSystems.map(systemName => {
+        val systemFactory = systemFactories(systemName)
         try {
           (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry))
         } catch {
@@ -218,9 +229,21 @@ object SamzaContainer extends Logging {
             error("Failed to create a consumer for %s, so skipping." format systemName, e)
             (systemName, null)
         }
-      })
-      .filter(_._2 != null)
-      .toMap
+      }).filter(_._2 != null).toMap
+    } else {
+      changeLogSystemStreams.values.map(systemStream => systemStream.getSystem).map(systemName => {
+        val systemFactory = systemFactories(systemName)
+        try {
+          (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry))
+        } catch {
+          case e: Exception =>
+            error("Failed to create a consumer for %s, so skipping." format systemName, e)
+            (systemName, null)
+        }
+      }).filter(_._2 != null).toMap
+    }
+
+    val consumers = createConsumers()
 
     info("Got system consumers: %s" format consumers.keys)
 
@@ -326,14 +349,6 @@ object SamzaContainer extends Logging {
     val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamMsgSerde(systemStream))
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
-
-    val changeLogSystemStreams = config
-      .getStoreNames
-      .filter(config.getChangelogStream(_).isDefined)
-      .map(name => (name, config.getChangelogStream(name).get)).toMap
-      .mapValues(StreamUtil.getSystemStreamFromNames(_))
-
-    info("Got change log system streams: %s" format changeLogSystemStreams)
 
     /*
      * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
