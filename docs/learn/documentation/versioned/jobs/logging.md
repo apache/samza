@@ -137,7 +137,7 @@ In Maven, these can be done by adding the following dependencies to your Samza p
 {% endhighlight %}
 
 If you’re not using Maven, please make sure both the above dependencies end up in your Samza package’s lib directory.
-Also, make sure there isn't any dependency on slf4j-log4j12 library while logging with Log4j2. 
+Also, make sure there isn't any dependency on slf4j-log4j12 library while using Log4j2. 
 
 Next, you need to make sure that these dependencies are also listed in your Samza project's build.gradle:
 
@@ -168,7 +168,7 @@ Samza's [run-class.sh](packaging.html) script will automatically set the followi
 
 Rest all of the system properties will be set exactly like in the case of log4j, stated above.
 
-An example of a log4j2.xml can be seen here:
+Sample log4j2.xml:
 {% highlight xml %}
 <?xml version="1.0" encoding="UTF-8" ?>
 
