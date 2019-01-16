@@ -45,13 +45,13 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
@@ -92,8 +92,6 @@ public class ZkJobCoordinator implements JobCoordinator {
    * How many to delete (or to leave) is controlled by @see org.apache.samza.zk.ZkJobCoordinator#NUM_VERSIONS_TO_LEAVE.
    **/
   private static final String ON_ZK_CLEANUP = "OnCleanUp";
-
-  private static final String CONFIG_TYPE = "set-config";
 
   private final ZkUtils zkUtils;
   private final String processorId;
@@ -300,14 +298,13 @@ public class ZkJobCoordinator implements JobCoordinator {
       createCoordinatorStream();
 
       MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-      metadataStore = metadataStoreFactory.getMetadataStore(CONFIG_TYPE, config, new MetricsRegistryMap());
+      metadataStore = metadataStoreFactory.getMetadataStore(SetConfig.TYPE, config, metrics.getMetricsRegistry());
       metadataStore.init();
-      CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(CONFIG_TYPE);
+      CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
       for (Map.Entry<String, String> entry : config.entrySet()) {
         byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
         metadataStore.put(entry.getKey(), serializedValue);
       }
-
     } finally {
       if (metadataStore != null) {
         LOG.info("Stopping the coordinator system producer.");
@@ -321,23 +318,14 @@ public class ZkJobCoordinator implements JobCoordinator {
    */
   private void createCoordinatorStream() {
     SystemAdmin coordinatorSystemAdmin = null;
-    try {
-      SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
-      coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
-      LOG.info("Starting the coordinator system admin.");
-      coordinatorSystemAdmin.start();
-      String streamName = coordinatorSystemStream.getStream();
-      StreamSpec coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem());
-      if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
-        LOG.info("Created coordinator stream: {}.", streamName);
-      } else {
-        LOG.info("Coordinator stream: {} already exists.", streamName);
-      }
-    } finally {
-      if (coordinatorSystemAdmin != null) {
-        LOG.info("Stopping the coordinator system admin.");
-        coordinatorSystemAdmin.stop();
-      }
+    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
+    String streamName = coordinatorSystemStream.getStream();
+    StreamSpec coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem());
+    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
+      LOG.info("Created coordinator stream: {}.", streamName);
+    } else {
+      LOG.info("Coordinator stream: {} already exists.", streamName);
     }
   }
 
