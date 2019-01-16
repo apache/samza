@@ -1148,11 +1148,6 @@ class SamzaContainer(
       }
     }
 
-    if (isAutoCommitEnabled) {
-      info("Committing offsets for all task instances")
-      taskInstances.values.foreach(_.commit)
-    }
-
     taskInstances.values.foreach(_.shutdownTask)
   }
 
