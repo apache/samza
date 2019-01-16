@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Provides an in-memory appender that parses LoggingEvents to filter events relevant to diagnostics.
+ * Provides an in-memory appender that parses LogEvents to filter events relevant to diagnostics.
  * Currently, filters exception related events and update an exception metric ({@link ListGauge}) in
  * {@link SamzaContainerMetrics}.
  *
