@@ -83,7 +83,7 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
       }
     } catch (Exception e) {
       // blanket catch of all exceptions so as to not impact any job
-      LOG.error("Exception in logging event parsing", e);
+      LOG.error("Exception in logevent parsing", e);
     }
   }
 }
