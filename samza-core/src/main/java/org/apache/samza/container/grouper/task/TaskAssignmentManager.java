@@ -118,9 +118,9 @@ public class TaskAssignmentManager {
   public void writeTaskContainerMapping(String taskName, String containerId, TaskMode taskMode) {
     String existingContainerId = taskNameToContainerId.get(taskName);
     if (existingContainerId != null && !existingContainerId.equals(containerId)) {
-      LOG.info("Task \"{}\" moved from container {} to container {}", new Object[]{taskName, existingContainerId, containerId});
+      LOG.info("Task \"{}\" in mode {} moved from container {} to container {}", new Object[]{taskName, taskMode, existingContainerId, containerId});
     } else {
-      LOG.debug("Task \"{}\" assigned to container {}", taskName, containerId);
+      LOG.debug("Task \"{}\" in mode {} assigned to container {}", taskName, taskMode, containerId);
     }
 
     if (containerId == null) {
@@ -142,6 +142,7 @@ public class TaskAssignmentManager {
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
       taskContainerMappingMetadataStore.delete(taskName);
+      taskModeMappingMetadataStore.delete(taskName);
       taskNameToContainerId.remove(taskName);
     }
   }
