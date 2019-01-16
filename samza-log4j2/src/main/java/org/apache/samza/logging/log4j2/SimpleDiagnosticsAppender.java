@@ -32,7 +32,14 @@ import org.apache.samza.metrics.ListGauge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * Provides an in-memory appender that parses LoggingEvents to filter events relevant to diagnostics.
+ * Currently, filters exception related events and update an exception metric ({@link ListGauge}) in
+ * {@link SamzaContainerMetrics}.
+ *
+ * When used inconjunction with {@link org.apache.samza.metrics.reporter.MetricsSnapshotReporter} provides a
+ * stream of diagnostics-related events.
+ */
 public class SimpleDiagnosticsAppender extends AbstractAppender {
   private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
 
