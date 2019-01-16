@@ -22,10 +22,14 @@ package org.apache.samza.sql.data;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 
@@ -41,6 +45,10 @@ public class SamzaSqlRelMessage implements Serializable {
 
   // key could be a record in itself.
   private final Object key;
+
+  // Metadata associated with the message.
+  @JsonIgnore
+  private final Map<String, Object> metadata = new HashMap<>();
 
   @JsonProperty("samzaSqlRelRecord")
   private final SamzaSqlRelRecord samzaSqlRelRecord;
@@ -103,6 +111,15 @@ public class SamzaSqlRelMessage implements Serializable {
 
     this.samzaSqlRelRecord = new SamzaSqlRelRecord(tmpFieldNames, tmpFieldValues);
     this.samzaSqlRelMsgMetadata = metadata;
+  }
+
+  public void addMetadata(String key, Object value) {
+    metadata.put(key, value);
+  }
+
+  @JsonIgnore
+  public Map<String, Object> getMetadata() {
+    return Collections.unmodifiableMap(metadata);
   }
 
   /**

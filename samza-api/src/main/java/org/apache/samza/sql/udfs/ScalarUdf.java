@@ -30,19 +30,11 @@ import org.apache.samza.config.Config;
  *     select myudf(id, name) from profile
  * In the above query, Profile should contain fields named 'id' of INTEGER/NUMBER type and 'name' of type VARCHAR/CHARACTER
  */
-public interface ScalarUdf<T> {
+public interface ScalarUdf {
   /**
    * Udfs can implement this method to perform any initialization that they may need.
    * @param udfConfig Config specific to the udf.
    */
   void init(Config udfConfig);
 
-  /**
-   * Actual implementation of the udf function
-   * @param args
-   *   list of all arguments that the udf needs
-   * @return
-   *   Return value from the scalar udf.
-   */
-  T execute(Object... args);
 }

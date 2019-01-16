@@ -17,26 +17,36 @@
  * under the License.
  */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.schema;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-@SamzaSqlUdf(name = "MyTestArray")
-public class MyTestArrayUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
+/**
+ * Builder class to build the {@link SqlSchema}.
+ */
+public class SqlSchemaBuilder {
+  private List<String> names = new ArrayList<>();
+  private List<SqlFieldSchema> typeNames = new ArrayList<>();
+
+  private SqlSchemaBuilder() {
   }
 
-  @SamzaSqlUdfMethod
-  public List<String> execute(Object... args) {
-    Integer value = (Integer) args[0];
-    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
+  public static SqlSchemaBuilder builder() {
+    return new SqlSchemaBuilder();
+  }
+
+  public SqlSchemaBuilder addField(String name, SqlFieldSchema fieldType) {
+    if (name == null || name.isEmpty() || fieldType == null)
+      throw new IllegalArgumentException();
+
+    names.add(name);
+    typeNames.add(fieldType);
+    return this;
+  }
+
+  public SqlSchema build() {
+    return new SqlSchema(names, typeNames);
   }
 }

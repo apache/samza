@@ -19,19 +19,15 @@
 
 package org.apache.samza.sql.avro;
 
-import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.avro.Schema;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.rel.type.RelRecordType;
-import org.apache.calcite.sql.type.ArraySqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.SamzaException;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
+import org.apache.samza.sql.schema.SqlSchema;
+import org.apache.samza.sql.schema.SqlSchemaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +43,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     super(RelDataTypeSystem.DEFAULT);
   }
 
-  public RelDataType createType(Schema schema) {
+  public SqlSchema createType(Schema schema) {
     Schema.Type type = schema.getType();
     if (type != Schema.Type.RECORD) {
       String msg =
@@ -56,60 +52,51 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       throw new SamzaException(msg);
     }
 
-    return convertRecordType(schema);
+    return convertSchema(schema.getFields());
   }
 
-  private RelDataType convertRecordType(Schema schema) {
-    List<RelDataTypeField> relFields = getRelFields(schema.getFields());
-    return new RelRecordType(relFields);
-  }
+  private SqlSchema convertSchema(List<Schema.Field> fields) {
 
-  private List<RelDataTypeField> getRelFields(List<Schema.Field> fields) {
-    List<RelDataTypeField> relFields = new ArrayList<>();
-
+    SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      String fieldName = field.name();
-      int fieldPos = field.pos() + 1;
-      RelDataType dataType = getRelDataType(field.schema());
-      relFields.add(new RelDataTypeFieldImpl(fieldName, fieldPos, dataType));
+      SqlFieldSchema fieldSchema = convertField(field.schema());
+      schemaBuilder.addField(field.name(), fieldSchema);
     }
 
-    return relFields;
+    return schemaBuilder.build();
   }
 
-  private RelDataType getRelDataType(Schema fieldSchema) {
+  private SqlFieldSchema convertField(Schema fieldSchema) {
     switch (fieldSchema.getType()) {
       case ARRAY:
-        RelDataType elementType = getRelDataType(fieldSchema.getElementType());
-         return new ArraySqlType(elementType, true);
+        SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType());
+        return SqlFieldSchema.createArrayFieldType(elementSchema);
       case BOOLEAN:
-        return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BOOLEAN);
       case DOUBLE:
-        return createTypeWithNullability(createSqlType(SqlTypeName.DOUBLE), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.DOUBLE);
       case FLOAT:
-        return createTypeWithNullability(createSqlType(SqlTypeName.FLOAT), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.FLOAT);
       case ENUM:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.STRING);
       case UNION:
-        return getRelTypeFromUnionTypes(fieldSchema.getTypes());
+        return getSqlTypeFromUnionTypes(fieldSchema.getTypes());
       case FIXED:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARBINARY), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BYTES);
       case STRING:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.STRING);
       case BYTES:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARBINARY), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BYTES);
       case INT:
-        return createTypeWithNullability(createSqlType(SqlTypeName.INTEGER), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.INT32);
       case LONG:
-        return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
+        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.INT64);
       case RECORD:
-//         return createTypeWithNullability(convertRecordType(fieldSchema), true);
-        // TODO Calcite execution engine doesn't support record type yet.
-        return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
+        SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
+        return SqlFieldSchema.createRowFieldType(rowSchema);
       case MAP:
-        RelDataType valueType = getRelDataType(fieldSchema.getValueType());
-        return super.createMapType(createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true),
-            createTypeWithNullability(valueType, true));
+        SqlFieldSchema valueType = convertField(fieldSchema.getValueType());
+        return SqlFieldSchema.createMapFieldType(valueType);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getType());
         LOG.error(msg);
@@ -117,17 +104,17 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  private RelDataType getRelTypeFromUnionTypes(List<Schema> types) {
+  private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types) {
     // Typically a nullable field's schema is configured as an union of Null and a Type.
     // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
-        return getRelDataType(types.get(1));
+        return convertField(types.get(1));
       } else if ((types.get(1).getType() == Schema.Type.NULL)) {
-        return getRelDataType(types.get(0));
+        return convertField(types.get(0));
       }
     }
 
-    return createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true);
+    return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.ANY);
   }
 }
