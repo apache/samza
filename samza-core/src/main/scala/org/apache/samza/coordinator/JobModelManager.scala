@@ -32,9 +32,7 @@ import org.apache.samza.container.grouper.task._
 import org.apache.samza.container.{BuddyContainerBasedStandbyTaskGenerator, LocalityManager, TaskName}
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.TaskModel
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system._
@@ -174,7 +172,7 @@ object JobModelManager extends Logging {
 
     for (container <- jobModel.getContainers.values()) {
       for (taskName <- container.getTasks.keySet) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId)
+        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, TaskMode.Active)
       }
     }
   }
