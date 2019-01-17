@@ -22,28 +22,24 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.config._
+import org.apache.samza.Partition
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.Config
+import org.apache.samza.config.{Config, _}
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
 import org.apache.samza.container.{BuddyContainerBasedStandbyTaskGenerator, LocalityManager, TaskName}
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.system._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
-import org.apache.samza.Partition
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
+import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.runtime.LocationId
+import org.apache.samza.system._
+import org.apache.samza.util.{Logging, Util}
 
-import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /**
  * Helper companion object that is responsible for wiring up a JobModelManager
@@ -107,7 +103,7 @@ object JobModelManager extends Logging {
 
     // we read the taskAssignment only for ActiveTasks
     val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment().
-      filterKeys(taskName => taskModes.get(taskName).eq(TaskMode.Active))
+      filterKeys(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
 
 
     val taskNameToProcessorId: util.Map[TaskName, String] = new util.HashMap[TaskName, String]()
