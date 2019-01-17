@@ -785,7 +785,6 @@ class SamzaContainer(
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
-  val isAutoCommitEnabled = config.isAutoCommitEnabled
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
   private var exceptionSeen: Throwable = null
@@ -1146,11 +1145,6 @@ class SamzaContainer(
       } catch {
         case e: Exception => error("Ignoring exception shutting down timer executor", e)
       }
-    }
-
-    if (isAutoCommitEnabled) {
-      info("Committing offsets for all task instances")
-      taskInstances.values.foreach(_.commit)
     }
 
     taskInstances.values.foreach(_.shutdownTask)

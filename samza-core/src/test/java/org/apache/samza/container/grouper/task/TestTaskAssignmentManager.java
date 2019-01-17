@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.*;
 import org.apache.samza.util.CoordinatorStreamUtil;
@@ -72,7 +73,7 @@ public class TestTaskAssignmentManager {
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1", "Task2", "2", "Task3", "0", "Task4", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
-      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
+      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue(), TaskMode.Active);
     }
 
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
@@ -89,7 +90,7 @@ public class TestTaskAssignmentManager {
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
-      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue());
+      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue(), TaskMode.Active);
     }
 
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
