@@ -52,13 +52,13 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
     this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
 
     synchronized (SYNCHRONIZATION_OBJECT) {
-      attachAppenderToRootLogger(this);
+      attachAppenderToLoggers(this);
     }
 
     System.out.println("SimpleDiagnosticsAppender initialized ");
   }
 
-  private void attachAppenderToRootLogger(Appender appender) {
+  private void attachAppenderToLoggers(Appender appender) {
     LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
     Configuration config = ctx.getConfiguration();
 
@@ -70,7 +70,6 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
       for (final LoggerConfig loggerConfig : config.getLoggers().values()) {
         loggerConfig.addAppender(appender, null, null);
       }
-      config.getRootLogger().addAppender(appender, null, null);
     }
   }
 
