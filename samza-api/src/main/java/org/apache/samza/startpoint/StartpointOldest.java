@@ -18,7 +18,7 @@
  */
 package org.apache.samza.startpoint;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -41,6 +41,6 @@ public final class StartpointOldest extends Startpoint {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this).toString();
+    return MoreObjects.toStringHelper(this).toString();
   }
 }
