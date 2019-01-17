@@ -37,7 +37,7 @@ public class MockStorageEngineFactory implements StorageEngineFactory<Object, Ob
       MetricsRegistry registry,
       SystemStreamPartition changeLogSystemStreamPartition,
       JobContext jobContext,
-      ContainerContext containerContext) {
+      ContainerContext containerContext, StoreMode storeMode) {
     StoreProperties storeProperties = new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
     return new MockStorageEngine(storeName, storeDir, changeLogSystemStreamPartition, storeProperties);
   }
