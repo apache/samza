@@ -103,7 +103,13 @@ object JobModelManager extends Logging {
     */
   def getGrouperMetadata(config: Config, localityManager: LocalityManager, taskAssignmentManager: TaskAssignmentManager) = {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
-    val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment()
+    val taskModes: util.Map[TaskName, TaskMode] = taskAssignmentManager.readTaskModes()
+
+    // we read the taskAssignment only for ActiveTasks
+    val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment().
+      filterKeys(taskName => taskModes.get(taskName).eq(TaskMode.Active))
+
+
     val taskNameToProcessorId: util.Map[TaskName, String] = new util.HashMap[TaskName, String]()
     for ((taskName, processorId) <- taskAssignment) {
       taskNameToProcessorId.put(new TaskName(taskName), processorId)
@@ -152,27 +158,42 @@ object JobModelManager extends Logging {
     * @param grouperMetadata       provides the historical metadata of the application.
     */
   def updateTaskAssignments(jobModel: JobModel, taskAssignmentManager: TaskAssignmentManager, grouperMetadata: GrouperMetadata): Unit = {
-    val taskNames: util.Set[String] = new util.HashSet[String]()
+    val activeTaskNames: util.Set[String] = new util.HashSet[String]()
+    val standbyTaskNames: util.Set[String] = new util.HashSet[String]()
     for (container <- jobModel.getContainers.values()) {
       for (taskModel <- container.getTasks.values()) {
-        taskNames.add(taskModel.getTaskName.getTaskName)
+        if(taskModel.getTaskMode.eq(TaskMode.Active)) {
+          activeTaskNames.add(taskModel.getTaskName.getTaskName)
+        }
+
+        if(taskModel.getTaskMode.eq(TaskMode.Standby)) {
+          standbyTaskNames.add(taskModel.getTaskName.getTaskName)
+        }
       }
     }
-    val taskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment
-    if (taskNames.size() != taskToContainerId.size()) {
+
+    val activeTaskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment
+    if (activeTaskNames.size() != activeTaskToContainerId.size()) {
       warn("Current task count {} does not match saved task count {}. Stateful jobs may observe misalignment of keys!",
-           taskNames.size(), taskToContainerId.size())
+        activeTaskNames.size(), activeTaskToContainerId.size())
       // If the tasks changed, then the partition-task grouping is also likely changed and we can't handle that
       // without a much more complicated mapping. Further, the partition count may have changed, which means
       // input message keys are likely reshuffled w.r.t. partitions, so the local state may not contain necessary
       // data associated with the incoming keys. Warn the user and default to grouper
       // In this scenario the tasks may have been reduced, so we need to delete all the existing messages
-      taskAssignmentManager.deleteTaskContainerMappings(taskNames)
+      taskAssignmentManager.deleteTaskContainerMappings(activeTaskNames)
+    }
+
+    // if the set of standby tasks has changed, e.g., when the replication-factor changed, or the active-tasks-set has
+    // changed, we log a warning and delete the existing mapping for these tasks
+    val previousStandbyTasks = taskAssignmentManager.readTaskModes().filter(x => x._2.eq(TaskMode.Standby))
+    if(standbyTaskNames != previousStandbyTasks.keySet) {
+      taskAssignmentManager.deleteTaskContainerMappings(previousStandbyTasks.map(x => x._1.getTaskName).asJava)
     }
 
     for (container <- jobModel.getContainers.values()) {
       for (taskName <- container.getTasks.keySet) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, TaskMode.Active)
+        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, container.getTasks.get(taskName).getTaskMode)
       }
     }
   }
