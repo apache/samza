@@ -142,13 +142,6 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    */
   private List<TaskGroup> getPreviousContainers(GrouperMetadata grouperMetadata, int taskCount) {
     Map<TaskName, String> taskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment();
-    taskToContainerId.values().forEach(id -> {
-        try {
-          int intId = Integer.parseInt(id);
-        } catch (NumberFormatException nfe) {
-          throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
-        }
-      });
 
     if (taskToContainerId.isEmpty()) {
       LOG.info("No task assignment map was saved.");

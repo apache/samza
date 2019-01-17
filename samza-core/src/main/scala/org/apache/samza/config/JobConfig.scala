@@ -110,7 +110,7 @@ object JobConfig {
   // Enables diagnostic appender for logging exception events
   val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
 
-  // Enables standbycontainers
+  // Enables standby tasks
   val STANDBY_TASKS_ENABLED = "job.standbytasks.enabled"
   val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replicationfactor"
   val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 2
