@@ -183,7 +183,7 @@ object SamzaContainer extends Logging {
       .getTasks
       .values
       .asScala
-      .flatMap(taskModel => if (taskModel.getTaskMode.eq(TaskMode.StandbyState)) {
+      .flatMap(taskModel => if (taskModel.getTaskMode.eq(TaskMode.Standby)) {
         changeLogSystemStreams.values.map(systemStream => new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, taskModel.getChangelogPartition))
       } else {
         taskModel.getSystemStreamPartitions.asScala
@@ -686,7 +686,7 @@ object SamzaContainer extends Logging {
 
     // Create taskInstances for standby tasks
     val standbyTaskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.
-      filter(_.getTaskMode == TaskMode.StandbyState).map(taskModel => {
+      filter(_.getTaskMode == TaskMode.Standby).map(taskModel => {
       debug("Setting up active task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName

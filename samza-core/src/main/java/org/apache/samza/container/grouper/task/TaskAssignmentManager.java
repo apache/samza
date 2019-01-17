@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -108,6 +109,18 @@ public class TaskAssignmentManager {
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
+  public Map<TaskName, TaskMode> readTaskModes() {
+    Map<TaskName, TaskMode> taskModeMap = new HashMap<>();
+    taskModeMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
+        String taskMode = containerIdSerde.fromBytes(valueBytes);
+        if (taskMode != null) {
+          taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
+        }
+        LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
+      });
+    return Collections.unmodifiableMap(new HashMap<>(taskModeMap));
+  }
+
   /**
    * Method to write task container info to {@link MetadataStore}.
    *
@@ -118,9 +131,9 @@ public class TaskAssignmentManager {
   public void writeTaskContainerMapping(String taskName, String containerId, TaskMode taskMode) {
     String existingContainerId = taskNameToContainerId.get(taskName);
     if (existingContainerId != null && !existingContainerId.equals(containerId)) {
-      LOG.info("Task \"{}\" moved from container {} to container {}", new Object[]{taskName, existingContainerId, containerId});
+      LOG.info("Task \"{}\" in mode {} moved from container {} to container {}", new Object[]{taskName, taskMode, existingContainerId, containerId});
     } else {
-      LOG.debug("Task \"{}\" assigned to container {}", taskName, containerId);
+      LOG.debug("Task \"{}\" in mode {} assigned to container {}", taskName, taskMode, containerId);
     }
 
     if (containerId == null) {
@@ -142,6 +155,7 @@ public class TaskAssignmentManager {
   public void deleteTaskContainerMappings(Iterable<String> taskNames) {
     for (String taskName : taskNames) {
       taskContainerMappingMetadataStore.delete(taskName);
+      taskModeMappingMetadataStore.delete(taskName);
       taskNameToContainerId.remove(taskName);
     }
   }

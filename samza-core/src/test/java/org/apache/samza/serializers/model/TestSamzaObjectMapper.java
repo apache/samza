@@ -22,6 +22,7 @@ package org.apache.samza.serializers.model;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
@@ -31,6 +32,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -72,6 +74,20 @@ public class TestSamzaObjectMapper {
      */
     assertEquals(expectedJson.get("config"), serializedAsJson.get("config"));
     assertEquals(expectedJson.get("containers"), serializedAsJson.get("containers"));
+  }
+
+  @Test
+  public void testSerializeTaskModel() throws IOException {
+    TaskModel taskModel = new TaskModel(new TaskName("Standby Partition 0"), new HashSet<>(), new Partition(0),
+        TaskMode.Standby);
+    String serializedString = this.samzaObjectMapper.writeValueAsString(taskModel);
+    TaskModel deserializedTaskModel = this.samzaObjectMapper.readValue(serializedString, TaskModel.class);
+    assertEquals(taskModel, deserializedTaskModel);
+
+    String sampleSerializedString = "{\"task-name\":\"Partition 0\",\"system-stream-partitions\":[],\"changelog-partition\":0}";
+    deserializedTaskModel = this.samzaObjectMapper.readValue(sampleSerializedString, TaskModel.class);
+    taskModel = new TaskModel(new TaskName("Partition 0"), new HashSet<>(), new Partition(0), TaskMode.Active);
+    assertEquals(taskModel, deserializedTaskModel);
   }
 
   @Test

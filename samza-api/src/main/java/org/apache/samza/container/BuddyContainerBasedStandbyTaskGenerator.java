@@ -49,11 +49,11 @@ import org.slf4j.LoggerFactory;
  * Container 0 : (Partition 0, Partition 1)
  * Container 1 : (Partition 2, Partition 3)
  *
- * Container 0-0 : (Standby Partition 0, Standby Partition 1)
- * Container 0-1 : (Standby Partition 0, Standby Partition 1)
+ * Container 0-0 : (Standby Partition 0-0, Standby Partition 1-0)
+ * Container 1-0 : (Standby Partition 2-0, Standby Partition 3-0)
  *
- * Container 1-0 : (Standby Partition 2, Standby Partition 3)
- * Container 1-1 : (Standby Partition 2, Standby Partition 3)
+ * Container 0-1 : (Standby Partition 0-1, Standby Partition 1-1)
+ * Container 1-1 : (Standby Partition 2-1, Standby Partition 3-1)
  *
  *
  */
@@ -61,6 +61,7 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
 
   private static final Logger LOG = LoggerFactory.getLogger(BuddyContainerBasedStandbyTaskGenerator.class);
   private static final String CONTAINER_ID_SEPARATOR = "-";
+  private static final String TASKNAME_SEPARATOR = "-";
   private static final String STANDBY_TASKNAME_PREFIX = "Standby ";
 
   /**
@@ -77,11 +78,11 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
     Map<String, ContainerModel> buddyContainerMap = new HashMap<>();
 
     for (String activeContainerId : containerModels.keySet()) {
-      for (int i = 0; i < replicationFactor - 1; i++) {
-        String buddyContainerId = getBuddyContainerId(activeContainerId, i);
+      for (int replicaNum = 0; replicaNum < replicationFactor - 1; replicaNum++) {
+        String buddyContainerId = getBuddyContainerId(activeContainerId, replicaNum);
 
         ContainerModel buddyContainerModel = new ContainerModel(buddyContainerId,
-            getTaskModelForBuddyContainer(containerModels.get(activeContainerId).getTasks()));
+            getTaskModelForBuddyContainer(containerModels.get(activeContainerId).getTasks(), replicaNum));
 
         buddyContainerMap.put(buddyContainerId, buddyContainerModel);
       }
@@ -94,14 +95,15 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
 
   // Helper method to populate the container model for a buddy container.
   private static Map<TaskName, TaskModel> getTaskModelForBuddyContainer(
-      Map<TaskName, TaskModel> activeContainerTaskModel) {
+      Map<TaskName, TaskModel> activeContainerTaskModel, int replicaNum) {
     Map<TaskName, TaskModel> standbyTaskModels = new HashMap<>();
 
     for (TaskName taskName : activeContainerTaskModel.keySet()) {
-      TaskName standbyTaskName = getStandbyTaskName(taskName);
+      TaskName standbyTaskName = getStandbyTaskName(taskName, replicaNum);
       TaskModel standbyTaskModel =
           new TaskModel(standbyTaskName, activeContainerTaskModel.get(taskName).getSystemStreamPartitions(),
-              activeContainerTaskModel.get(taskName).getChangelogPartition(), TaskMode.StandbyState);
+              activeContainerTaskModel.get(taskName).getChangelogPartition(), TaskMode.Standby);
+
       standbyTaskModels.put(standbyTaskName, standbyTaskModel);
     }
 
@@ -116,7 +118,9 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
   }
 
   // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
-  private final static TaskName getStandbyTaskName(TaskName activeTaskName) {
-    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(activeTaskName.getTaskName()));
+  private final static TaskName getStandbyTaskName(TaskName activeTaskName, int replicaNum) {
+    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(activeTaskName.getTaskName())
+        .concat(TASKNAME_SEPARATOR)
+        .concat(String.valueOf(replicaNum)));
   }
 }

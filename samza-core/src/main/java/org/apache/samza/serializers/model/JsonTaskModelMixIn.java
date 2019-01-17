@@ -23,7 +23,6 @@ import java.util.Set;
 
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
@@ -46,7 +45,4 @@ public abstract class JsonTaskModelMixIn {
 
   @JsonProperty("changelog-partition")
   abstract Partition getChangelogPartition();
-
-  @JsonProperty("task-mode")
-  abstract TaskMode getTaskMode();
 }
