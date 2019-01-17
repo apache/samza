@@ -18,6 +18,7 @@
  */
 package org.apache.samza.startpoint;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -58,7 +59,7 @@ public final class StartpointSpecific extends Startpoint {
 
   @Override
   public String toString() {
-    return Objects.toStringHelper(this).add("specificOffset", specificOffset).toString();
+    return MoreObjects.toStringHelper(this).add("specificOffset", specificOffset).toString();
   }
 
   @Override

@@ -23,7 +23,7 @@ title: Samza SQL Quick Start
 ### Overview
 Samza SQL allows you to define your stream processing logic declaratively as a a SQL query.
 This allows you to create streaming pipelines without Java code or configuration unless you 
-require user-defined functions ([UDF](#How-to-write-a-UDF?)). 
+require user-defined functions ([UDF](#how-to-write-a-udf)). 
 
 You can run Samza SQL locally on your machine or on a YARN cluster.
 
@@ -80,7 +80,7 @@ configuration file and submit it to a YARN cluster.
 ```
 
  
- ### How to write a UDF?
+### How to write a UDF
  
  Right now Samza SQL support Scalar UDFs which means that each 
  UDF should act on each record at a time and return the result 

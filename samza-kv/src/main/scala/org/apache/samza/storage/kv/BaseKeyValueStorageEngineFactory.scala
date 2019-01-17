@@ -26,6 +26,7 @@ import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
@@ -57,7 +58,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     registry: MetricsRegistry,
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
-    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]]
+    containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]]
 
   /**
    * Constructs a key-value StorageEngine and returns it to the caller
@@ -79,7 +80,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     registry: MetricsRegistry,
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
-    containerContext: ContainerContext): StorageEngine = {
+    containerContext: ContainerContext, storeMode : StoreMode): StorageEngine = {
     val storageConfig = jobContext.getConfig.subset("stores." + storeName + ".", true)
     val storeFactory = storageConfig.get("factory")
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
@@ -109,7 +110,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     }
 
     val rawStore =
-      getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, jobContext, containerContext)
+      getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, jobContext, containerContext, storeMode)
 
     // maybe wrap with logging
     val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {

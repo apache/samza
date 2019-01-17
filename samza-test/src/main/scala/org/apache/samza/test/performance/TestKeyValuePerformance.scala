@@ -32,6 +32,7 @@ import org.apache.samza.job.model.{ContainerModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.{ByteSerde, SerdeManager, UUIDSerde}
 import org.apache.samza.storage.StorageEngineFactory
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage.kv.{KeyValueStorageEngine, KeyValueStore}
 import org.apache.samza.system.{SystemProducer, SystemProducers, SystemStreamPartition}
 import org.apache.samza.task.TaskInstanceCollector
@@ -123,7 +124,7 @@ object TestKeyValuePerformance extends Logging {
           new MetricsRegistryMap,
           null,
           JobContextImpl.fromConfigWithDefaults(config),
-          new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap)
+          new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap), StoreMode.ReadWrite
         )
 
         val db = if(!engine.isInstanceOf[KeyValueStorageEngine[_,_]]) {

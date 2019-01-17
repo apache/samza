@@ -1,6 +1,14 @@
 ---
-layout: page
-title: Quick Start
+name: Shanthoosh Venkataraman
+website:
+linkedin: https://www.linkedin.com/in/shanthoosh-venkataraman-13857222/
+twitter: santhoshvenkat
+image:
+github: shanthoosh
+pmc_member: false
+job_title:
+samza_title:
+order: 100
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -18,7 +26,3 @@ title: Quick Start
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
-
-[Samza Tutorial](samza.html)
-
-[Samza SQL Tutorial](samza-sql.html)
