@@ -24,7 +24,7 @@ package org.apache.samza.job.model;
  * Standby is the mode for tasks, that maintain warmed-up KV state by reading from its changelog.
  */
 public enum TaskMode {
-  Active("active"), Standby("standby");
+  Active("Active"), Standby("Standby");
 
   private final String mode;
 
