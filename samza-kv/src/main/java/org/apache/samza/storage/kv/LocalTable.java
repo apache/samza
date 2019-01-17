@@ -199,10 +199,6 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
     return result;
   }
 
-  private interface Func0 {
-    void apply();
-  }
-
   private void instrument(Counter counter, Timer timer, Func0 func) {
     incCounter(counter);
     long startNs = clock.nanoTime();
