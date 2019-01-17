@@ -50,6 +50,7 @@ import static org.mockito.Mockito.verify;
 
 
 public class TestRetriableTableFunctions {
+
   private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
 
   public TableMetricsUtil getMetricsUtil(String tableId) {
@@ -308,5 +309,4 @@ public class TestRetriableTableFunctions {
     Assert.assertEquals(0, retryIO.retryMetrics.successCount.getCount());
     Assert.assertTrue(retryIO.retryMetrics.retryTimer.getSnapshot().getMax() > 0);
   }
-
 }

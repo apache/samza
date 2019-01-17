@@ -266,7 +266,9 @@ public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
     doReturn(future).when(reader).getAsync(anyString());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
     RemoteTable<String, String> table = new RemoteTable<>("table1", reader, null,
-        rateLimitHelper, null, Executors.newSingleThreadExecutor(), null);
+        rateLimitHelper, null, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null);
     table.init(createMockContext());
     table.get("abc");
   }
@@ -279,8 +281,10 @@ public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
     future.completeExceptionally(new RuntimeException("Expected test exception"));
     doReturn(future).when(writer).putAsync(anyString(), any());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteTable<String, String> table = new RemoteTable<String, String>(
-        "table1", reader, writer, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(), null);
+    RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, writer,
+        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null);
     table.init(createMockContext());
     table.put("abc", "efg");
   }
@@ -289,8 +293,10 @@ public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
   public void testUninitializedWriter() {
     TableReadFunction<String, String> reader = mock(TableReadFunction.class);
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteTable<String, String> table = new RemoteTable<String, String>(
-        "table1", reader, null, rateLimitHelper, null, Executors.newSingleThreadExecutor(), null);
+    RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, null,
+        rateLimitHelper, null, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null);
     table.init(createMockContext());
     int failureCount = 0;
     try {

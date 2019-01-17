@@ -19,23 +19,24 @@
 
 package org.apache.samza.table.remote;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import java.util.Collection;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.concurrent.ScheduledExecutorService;
+
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.utils.TableMetricsUtil;
+import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
+import org.apache.samza.table.retry.AsyncRetriableTable;
+import org.apache.samza.table.retry.TableRetryPolicy;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -76,12 +77,22 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     implements ReadWriteTable<K, V> {
 
-  protected final ExecutorService callbackExecutor;
-  protected final ExecutorService tableExecutor;
+  // Read/write functions
   protected final TableReadFunction<K, V> readFn;
   protected final TableWriteFunction<K, V> writeFn;
+  // Rate limiting
   protected final TableRateLimiter<K, V> readRateLimiter;
-  protected final TableRateLimiter writeRateLimiter;
+  protected final TableRateLimiter<K, V> writeRateLimiter;
+  protected final ExecutorService rateLimitingExecutor;
+  // Retries
+  protected final TableRetryPolicy readRetryPolicy;
+  protected final TableRetryPolicy writeRetryPolicy;
+  protected final ScheduledExecutorService retryExecutor;
+  // Other
+  protected final ExecutorService callbackExecutor;
+
+  // The async table to delegate to
+  protected final AsyncReadWriteTable<K, V> asyncTable;
 
   /**
    * Construct a RemoteTable instance
@@ -90,33 +101,46 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
    * @param writeFn {@link TableWriteFunction} for read operations
    * @param readRateLimiter helper for read rate limiting
    * @param writeRateLimiter helper for write rate limiting
-   * @param tableExecutor executor for issuing async requests
+   * @param rateLimitingExecutor executor for executing rate limiting
+   * @param readRetryPolicy read retry policy
+   * @param writeRetryPolicy write retry policy
+   * @param retryExecutor executor for invoking retries
    * @param callbackExecutor executor for invoking async callbacks
    */
-  public RemoteTable(String tableId, TableReadFunction readFn, TableWriteFunction writeFn,
-      TableRateLimiter<K, V> readRateLimiter, TableRateLimiter<K, V> writeRateLimiter,
-      ExecutorService tableExecutor, ExecutorService callbackExecutor) {
+  public RemoteTable(
+      String tableId,
+      TableReadFunction readFn,
+      TableWriteFunction writeFn,
+      TableRateLimiter<K, V> readRateLimiter,
+      TableRateLimiter<K, V> writeRateLimiter,
+      ExecutorService rateLimitingExecutor,
+      TableRetryPolicy readRetryPolicy,
+      TableRetryPolicy writeRetryPolicy,
+      ScheduledExecutorService retryExecutor,
+      ExecutorService callbackExecutor) {
+
     super(tableId);
-    Preconditions.checkNotNull(readFn, "null read function");
+    Preconditions.checkNotNull(readFn, "null readFn");
+
     this.readFn = readFn;
     this.writeFn = writeFn;
     this.readRateLimiter = readRateLimiter;
     this.writeRateLimiter = writeRateLimiter;
-    this.tableExecutor = tableExecutor;
+    this.rateLimitingExecutor = rateLimitingExecutor;
+    this.readRetryPolicy = readRetryPolicy;
+    this.writeRetryPolicy = writeRetryPolicy;
     this.callbackExecutor = callbackExecutor;
-  }
+    this.retryExecutor = retryExecutor;
 
-  @Override
-  public void init(Context context) {
-    super.init(context);
-    MetricsConfig metricsConfig = new MetricsConfig(context.getJobContext().getConfig());
-    if (metricsConfig.getMetricsTimerEnabled()) {
-      TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
-      readRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("get-throttle-ns"));
-      if (writeRateLimiter != null) {
-        writeRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("put-throttle-ns"));
-      }
+    AsyncReadWriteTable table = new AsyncRemoteTable(readFn, writeFn);
+    if (readRateLimiter != null || writeRateLimiter != null) {
+      table = new AsyncRateLimitedTable(tableId, table, readRateLimiter, writeRateLimiter, rateLimitingExecutor);
     }
+    if (readRetryPolicy != null || writeRetryPolicy != null) {
+      table = new AsyncRetriableTable(tableId, table, readRetryPolicy, writeRetryPolicy, retryExecutor, readFn, writeFn);
+    }
+
+    asyncTable = table;
   }
 
   @Override
@@ -130,8 +154,8 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
   @Override
   public CompletableFuture<V> getAsync(K key) {
-    Preconditions.checkNotNull(key);
-    return execute(readRateLimiter, key, readFn::getAsync, metrics.numGets, metrics.getNs)
+    Preconditions.checkNotNull(key, "null key");
+    return instrument(() -> asyncTable.getAsync(key), metrics.numGets, metrics.getNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + key, e);
@@ -154,11 +178,11 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    Preconditions.checkNotNull(keys);
+    Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
-    return execute(readRateLimiter, keys, readFn::getAllAsync, metrics.numGetAlls, metrics.getAllNs)
+    return instrument(() -> asyncTable.getAllAsync(keys), metrics.numGetAlls, metrics.getAllNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + keys, e);
@@ -180,12 +204,12 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public CompletableFuture<Void> putAsync(K key, V value) {
     Preconditions.checkNotNull(writeFn, "null write function");
-    Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(key, "null key");
     if (value == null) {
       return deleteAsync(key);
     }
 
-    return execute(writeRateLimiter, key, value, writeFn::putAsync, metrics.numPuts, metrics.putNs)
+    return instrument(() -> asyncTable.putAsync(key, value), metrics.numPuts, metrics.putNs)
         .exceptionally(e -> {
             throw new SamzaException("Failed to put a record with key=" + key, (Throwable) e);
           });
@@ -202,25 +226,27 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+
     Preconditions.checkNotNull(writeFn, "null write function");
-    Preconditions.checkNotNull(records);
+    Preconditions.checkNotNull(records, "null records");
+
     if (records.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
 
     List<K> deleteKeys = records.stream()
         .filter(e -> e.getValue() == null).map(Entry::getKey).collect(Collectors.toList());
-
-    CompletableFuture<Void> deleteFuture = deleteKeys.isEmpty()
-        ? CompletableFuture.completedFuture(null) : deleteAllAsync(deleteKeys);
-
     List<Entry<K, V>> putRecords = records.stream()
         .filter(e -> e.getValue() != null).collect(Collectors.toList());
+
+    CompletableFuture<Void> deleteFuture = deleteKeys.isEmpty()
+        ? CompletableFuture.completedFuture(null)
+        : deleteAllAsync(deleteKeys);
 
     // Return the combined future
     return CompletableFuture.allOf(
         deleteFuture,
-        executeRecords(writeRateLimiter, putRecords, writeFn::putAllAsync, metrics.numPutAlls, metrics.putAllNs))
+        instrument(() -> asyncTable.putAllAsync(putRecords), metrics.numPutAlls, metrics.putAllNs))
         .exceptionally(e -> {
             String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
             throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
@@ -239,8 +265,8 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public CompletableFuture<Void> deleteAsync(K key) {
     Preconditions.checkNotNull(writeFn, "null write function");
-    Preconditions.checkNotNull(key);
-    return execute(writeRateLimiter, key, writeFn::deleteAsync, metrics.numDeletes, metrics.deleteNs)
+    Preconditions.checkNotNull(key, "null key");
+    return instrument(() -> asyncTable.deleteAsync(key), metrics.numDeletes, metrics.deleteNs)
         .exceptionally(e -> {
             throw new SamzaException(String.format("Failed to delete the record for " + key), (Throwable) e);
           });
@@ -258,94 +284,46 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
     Preconditions.checkNotNull(writeFn, "null write function");
-    Preconditions.checkNotNull(keys);
+    Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
 
-    return execute(writeRateLimiter, keys, writeFn::deleteAllAsync, metrics.numDeleteAlls, metrics.deleteAllNs)
+    return instrument(() -> asyncTable.deleteAllAsync(keys), metrics.numDeleteAlls, metrics.deleteAllNs)
         .exceptionally(e -> {
             throw new SamzaException(String.format("Failed to delete records for " + keys), (Throwable) e);
           });
   }
 
   @Override
+  public void init(Context context) {
+    super.init(context);
+    asyncTable.init(context);
+  }
+
+  @Override
   public void flush() {
-    if (writeFn != null) {
-      try {
-        incCounter(metrics.numFlushes);
-        long startNs = clock.nanoTime();
-        writeFn.flush();
-        updateTimer(metrics.flushNs, clock.nanoTime() - startNs);
-      } catch (Exception e) {
-        String errMsg = "Failed to flush remote store";
-        logger.error(errMsg, e);
-        throw new SamzaException(errMsg, e);
-      }
+    try {
+      incCounter(metrics.numFlushes);
+      long startNs = clock.nanoTime();
+      asyncTable.flush();
+      updateTimer(metrics.flushNs, clock.nanoTime() - startNs);
+    } catch (Exception e) {
+      String errMsg = "Failed to flush remote store";
+      logger.error(errMsg, e);
+      throw new SamzaException(errMsg, e);
     }
   }
 
   @Override
   public void close() {
-    readFn.close();
-    if (writeFn != null) {
-      writeFn.close();
-    }
+    asyncTable.close();
   }
 
-  /**
-   * Execute an async request given a table key
-   * @param rateLimiter helper for rate limiting
-   * @param key key of the table record
-   * @param method method to be executed
-   * @param counter count metric to be updated
-   * @param timer latency metric to be updated
-   * @param <T> return type
-   * @return CompletableFuture of the operation
-   */
-  protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
-      K key, Function<K, CompletableFuture<T>> method, Counter counter, Timer timer) {
+  protected <T> CompletableFuture<T> instrument(Func1<T> func, Counter counter, Timer timer) {
     incCounter(counter);
     final long startNs = clock.nanoTime();
-    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
-        ? CompletableFuture
-        .runAsync(() -> rateLimiter.throttle(key), tableExecutor)
-        .thenCompose((r) -> method.apply(key))
-        : method.apply(key);
-    return completeExecution(ioFuture, startNs, timer);
-  }
-
-  /**
-   * Execute an async request given a collection of table keys
-   * @param rateLimiter helper for rate limiting
-   * @param keys collection of keys
-   * @param method method to be executed
-   * @param counter count metric to be updated
-   * @param timer latency metric to be updated
-   * @param <T> return type
-   * @return CompletableFuture of the operation
-   */
-  protected <T> CompletableFuture<T> execute(TableRateLimiter<K, V> rateLimiter,
-      Collection<K> keys, Function<Collection<K>, CompletableFuture<T>> method, Counter counter, Timer timer) {
-    incCounter(counter);
-    final long startNs = clock.nanoTime();
-    CompletableFuture<T> ioFuture = rateLimiter.isRateLimited()
-        ? CompletableFuture
-        .runAsync(() -> rateLimiter.throttle(keys), tableExecutor)
-        .thenCompose((r) -> method.apply(keys))
-        : method.apply(keys);
-    return completeExecution(ioFuture, startNs, timer);
-  }
-
-  /**
-   * Complete the pending execution and update timer
-   * @param ioFuture the future to be executed
-   * @param startNs start time in nanosecond
-   * @param timer latency metric to be updated
-   * @param <T> return type
-   * @return CompletableFuture of the operation
-   */
-  protected  <T> CompletableFuture<T> completeExecution(CompletableFuture<T> ioFuture, long startNs, Timer timer) {
+    CompletableFuture<T> ioFuture = func.apply();
     if (callbackExecutor != null) {
       ioFuture.thenApplyAsync(r -> {
           updateTimer(timer, clock.nanoTime() - startNs);
@@ -358,79 +336,5 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
         });
     }
     return ioFuture;
-  }
-
-  /**
-   * Execute an async request given a table record (key+value)
-   * @param rateLimiter helper for rate limiting
-   * @param key key of the table record
-   * @param value value of the table record
-   * @param method method to be executed
-   * @param counter count metric to be updated
-   * @param timer latency metric to be updated
-   * @return CompletableFuture of the operation
-   */
-  protected CompletableFuture<Void> execute(TableRateLimiter<K, V> rateLimiter,
-      K key, V value, BiFunction<K, V, CompletableFuture<Void>> method, Counter counter, Timer timer) {
-    incCounter(counter);
-    final long startNs = clock.nanoTime();
-    CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited()
-        ? CompletableFuture
-            .runAsync(() -> rateLimiter.throttle(key, value), tableExecutor)
-            .thenCompose((r) -> method.apply(key, value))
-        : method.apply(key, value);
-    return completeExecution(ioFuture, startNs, timer);
-  }
-
-  /**
-   * Execute an async request given a collection of table records
-   * @param rateLimiter helper for rate limiting
-   * @param records list of records
-   * @param method method to be executed
-   * @param counter count metric to be updated
-   * @param timer latency metric to be updated
-   * @return CompletableFuture of the operation
-   */
-  protected CompletableFuture<Void> executeRecords(TableRateLimiter<K, V> rateLimiter,
-      Collection<Entry<K, V>> records, Function<Collection<Entry<K, V>>, CompletableFuture<Void>> method,
-      Counter counter, Timer timer) {
-    incCounter(counter);
-    final long startNs = clock.nanoTime();
-    CompletableFuture<Void> ioFuture = rateLimiter.isRateLimited()
-        ? CompletableFuture
-            .runAsync(() -> rateLimiter.throttleRecords(records), tableExecutor)
-            .thenCompose((r) -> method.apply(records))
-        : method.apply(records);
-    return completeExecution(ioFuture, startNs, timer);
-  }
-
-  @VisibleForTesting
-  public ExecutorService getCallbackExecutor() {
-    return callbackExecutor;
-  }
-
-  @VisibleForTesting
-  public ExecutorService getTableExecutor() {
-    return tableExecutor;
-  }
-
-  @VisibleForTesting
-  public TableReadFunction<K, V> getReadFn() {
-    return readFn;
-  }
-
-  @VisibleForTesting
-  public TableRateLimiter<K, V> getReadRateLimiter() {
-    return readRateLimiter;
-  }
-
-  @VisibleForTesting
-  public TableWriteFunction<K, V> getWriteFn() {
-    return writeFn;
-  }
-
-  @VisibleForTesting
-  public TableRateLimiter getWriteRateLimiter() {
-    return writeRateLimiter;
   }
 }

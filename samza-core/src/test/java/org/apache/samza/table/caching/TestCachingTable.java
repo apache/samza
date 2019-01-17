@@ -283,8 +283,10 @@ public class TestCachingTable {
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     final RemoteTable<String, String> remoteTable = new RemoteTable<>(
-        tableId + "-remote", readFn, writeFn, rateLimitHelper, rateLimitHelper,
-        Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+        tableId + "-remote", readFn, writeFn,
+        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
         tableId, remoteTable, guavaTable, false);
@@ -402,8 +404,10 @@ public class TestCachingTable {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
 
     final RemoteTable<String, String> remoteTable = new RemoteTable<>(
-        tableId, readFn, writeFn, rateLimitHelper, rateLimitHelper,
-        Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+        tableId, readFn, writeFn,
+        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
         tableId, remoteTable, guavaTable, false);
