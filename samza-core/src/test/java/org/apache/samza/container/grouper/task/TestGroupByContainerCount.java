@@ -646,16 +646,6 @@ public class TestGroupByContainerCount {
     containers.remove(containers.iterator().next());
   }
 
-  @Test(expected = SamzaException.class)
-  public void testBalancerThrowsOnNonIntegerContainerIds() {
-    Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new HashSet<>();
-    taskModels.forEach(model -> prevContainers.add(new ContainerModel(UUID.randomUUID().toString(), Collections.singletonMap(model.getTaskName(), model))));
-    Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    new GroupByContainerCount(3).group(taskModels, grouperMetadata); //Should throw
-  }
-
   @Test
   public void testBalancerWithNullLocalityManager() {
     Set<TaskModel> taskModels = generateTaskModels(3);
