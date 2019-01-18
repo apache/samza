@@ -18,17 +18,15 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+
 
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.SamzaException;
 import org.junit.Test;
 
 import static org.apache.samza.container.mock.ContainerMocks.*;
