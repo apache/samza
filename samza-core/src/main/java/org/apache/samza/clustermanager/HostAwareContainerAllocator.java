@@ -18,9 +18,23 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.job.model.TaskModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.eclipse.jetty.http.HttpParser.*;
+
 
 /**
  * This is the allocator thread that will be used by ContainerProcessManager when host-affinity is enabled for a job. It is similar
@@ -45,8 +59,8 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private final int requestTimeout;
 
-  public HostAwareContainerAllocator(ClusterResourceManager manager ,
-                                     int timeout, Config config, SamzaApplicationState state) {
+  public HostAwareContainerAllocator(ClusterResourceManager manager, int timeout, Config config,
+      SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
   }
@@ -59,21 +73,24 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    * allocatedContainers buffer keyed by "ANY_HOST".
    */
   @Override
-  public void assignResourceRequests()  {
+  public void assignResourceRequests() {
     while (hasPendingRequest()) {
       SamzaResourceRequest request = peekPendingRequest();
-      log.info("Handling request: " + request.getContainerID() + " " + request.getRequestTimestampMs() + " " + request.getPreferredHost());
+      log.info("Handling request: " + request.getContainerID() + " " + request.getRequestTimestampMs() + " "
+          + request.getPreferredHost());
       String preferredHost = request.getPreferredHost();
       String containerID = request.getContainerID();
 
       if (hasAllocatedResource(preferredHost)) {
         // Found allocated container at preferredHost
         log.info("Found a matched-container {} on the preferred host. Running on {}", containerID, preferredHost);
-        runStreamProcessor(request, preferredHost);
+
+        // Try to launch streamProcessor on this preferredHost
+        checkStandbyTaskAndRunStreamProcessor(request, preferredHost, peekAllocatedResource(preferredHost), state);
         state.matchedResourceRequests.incrementAndGet();
       } else {
-        log.info("Did not find any allocated resources on preferred host {} for running container id {}",
-            preferredHost, containerID);
+        log.info("Did not find any allocated resources on preferred host {} for running container id {}", preferredHost,
+            containerID);
 
         boolean expired = requestExpired(request);
         boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
@@ -81,16 +98,21 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         if (expired) {
           updateExpiryMetrics(request);
           if (resourceAvailableOnAnyHost) {
-            log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
-            runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+            log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(),
+                request.getPreferredHost());
+            checkStandbyTaskAndRunStreamProcessor(request, ResourceRequestState.ANY_HOST,
+                peekAllocatedResource(ResourceRequestState.ANY_HOST), state);
           } else {
-            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
+            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.",
+                request.getContainerID(), request.getPreferredHost());
             resourceRequestState.cancelResourceRequest(request);
             requestResource(containerID, ResourceRequestState.ANY_HOST);
           }
         } else {
-          log.info("Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
-              new Object[]{request.getContainerID(), request.getPreferredHost(), request.getRequestTimestampMs(), requestTimeout});
+          log.info(
+              "Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
+              new Object[]{request.getContainerID(), request.getPreferredHost(), request.getRequestTimestampMs(),
+                  requestTimeout});
           break;
         }
       }
@@ -104,7 +126,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private boolean requestExpired(SamzaResourceRequest request) {
     long currTime = System.currentTimeMillis();
-    boolean requestExpired =  currTime - request.getRequestTimestampMs() > requestTimeout;
+    boolean requestExpired = currTime - request.getRequestTimestampMs() > requestTimeout;
     if (requestExpired) {
       log.info("Request {} with currTime {} has expired", request, currTime);
     }
@@ -118,5 +140,126 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     } else {
       state.expiredPreferredHostRequests.incrementAndGet();
     }
+  }
+
+  private boolean checkStandbyTaskAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost,
+      SamzaResource samzaResource, SamzaApplicationState state) {
+    String containerID = request.getContainerID();
+
+    if (checkStandbyTaskConstraints(request, samzaResource, state)) {
+      // This resource can be used to launch this container
+      log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
+          preferredHost, samzaResource.getHost());
+      runStreamProcessor(request, preferredHost);
+      return true;
+    } else {
+      // This resource cannot be used to launch this container, so we make a ANY_HOST request for another container
+      log.info(
+          "Running container {} on host {} does not meet standby constraints, cancelling resource request and making a new ANY_HOST request",
+          containerID, samzaResource.getHost());
+      resourceRequestState.cancelResourceRequest(request);
+      requestResource(containerID, ResourceRequestState.ANY_HOST);
+      return false;
+    }
+  }
+
+  // Helper method to check if this SamzaResourceRequest for a container can be met on this resource, given standby
+  // container constraints
+  private boolean checkStandbyTaskConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
+      SamzaApplicationState samzaApplicationState) {
+
+    // if standby tasks are not enabled return true
+    if (!new JobConfig(config).getStandbyTasksEnabled()) {
+      return true;
+    }
+
+    String containerIDForStart = request.getContainerID();
+    String host = samzaResource.getHost();
+
+    List<String> containerIDsForStandbyConstraints =
+        getContainerIDsToCheckStandbyConstraints(containerIDForStart, samzaApplicationState.jobModelManager.jobModel());
+
+    LOG.info("Container {} has standby task constraints with containers {}", containerIDForStart,
+        containerIDsForStandbyConstraints);
+
+    // check if any of these conflicting containers are running/launching on host
+    for (String containerID : containerIDsForStandbyConstraints) {
+
+      SamzaResource resource = samzaApplicationState.pendingContainers.get(containerID);
+
+      // return false if a conflicting container is pending for launch on the host
+      if (resource != null && resource.getHost().equals(host)) {
+        return false;
+      }
+
+      // return false if a conflicting container is running on the host
+      resource = samzaApplicationState.runningContainers.get(containerID);
+      if (resource != null && resource.getHost().equals(host)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   *  Given a containerID and job model, it returns the containerids of all containers that have
+   *  a. standby tasks corresponding to active tasks on the given container,
+   *  or
+   *  b. have active tasks corresponding to standby tasks on the given container.
+   *
+   *  This is used to ensure that an active task and all its corresponding standby tasks are on separate hosts.
+   */
+  private static List<String> getContainerIDsToCheckStandbyConstraints(String containerID, JobModel jobModel) {
+
+    ContainerModel givenContainerModel = jobModel.getContainers().get(containerID);
+    List<String> containerIDsWithStandbyConstraints = new ArrayList<>();
+
+    // iterate over all containerModels in the jobModel
+    for (ContainerModel containerModel : jobModel.getContainers().values()) {
+
+      // add to list if active and standby tasks on the two containerModels overlap
+      if (!givenContainerModel.equals(containerModel) && checkTasksOverlap(givenContainerModel, containerModel)) {
+        containerIDsWithStandbyConstraints.add(containerModel.getId());
+      }
+    }
+    return containerIDsWithStandbyConstraints;
+  }
+
+  // Helper method that checks if tasks on the two containerModels overlap
+  private static boolean checkTasksOverlap(ContainerModel containerModel1, ContainerModel containerModel2) {
+
+    Set<TaskModel> activeTasksOnContainer1 = getAllTasks(containerModel1, TaskMode.Active);
+    Set<TaskModel> standbyTasksOnContainer1 = getAllTasks(containerModel1, TaskMode.Standby);
+
+    Set<TaskModel> activeTasksOnContainer2 = getAllTasks(containerModel1, TaskMode.Active);
+    Set<TaskModel> standbyTasksOnContainer2 = getAllTasks(containerModel1, TaskMode.Standby);
+
+    return checkActiveStandbyTaskSetOverlap(activeTasksOnContainer1, standbyTasksOnContainer2)
+        || checkActiveStandbyTaskSetOverlap(activeTasksOnContainer2, standbyTasksOnContainer1);
+  }
+
+  // Helper method to getAllTaskModels of this container in the given taskMode
+  private static Set<TaskModel> getAllTasks(ContainerModel containerModel, TaskMode taskMode) {
+    return containerModel.getTasks()
+        .values()
+        .stream()
+        .filter(e -> e.getTaskMode().equals(taskMode))
+        .collect(Collectors.toSet());
+  }
+
+  // Computes active tasks corresponding to the standbyTask set and check if overlaps with the activeTask set
+  // it determines it using the TaskNames for the active and standby tasks
+  private static boolean checkActiveStandbyTaskSetOverlap(Set<TaskModel> activeTasks, Set<TaskModel> standbyTasks) {
+    Set<TaskName> activeTaskNames = activeTasks.stream().map(task -> task.getTaskName()).collect(Collectors.toSet());
+    Set<TaskName> correspondingActiveTaskNames =
+        standbyTasks.stream().map(taskModel -> getActiveTaskFor(taskModel.getTaskName())).collect(Collectors.toSet());
+
+    return !Collections.disjoint(activeTaskNames, correspondingActiveTaskNames);
+  }
+
+  // TODO: convert into util method that relies on taskNames to get active task for a given standby task
+  private static TaskName getActiveTaskFor(TaskName stanbyTaskName) {
+    return new TaskName(stanbyTaskName.getTaskName().replace("Standby ", "").split("-")[0]);
   }
 }

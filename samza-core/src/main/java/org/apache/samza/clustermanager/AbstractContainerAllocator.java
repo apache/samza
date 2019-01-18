@@ -55,7 +55,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private final TaskConfig taskConfig;
 
-  private final Config config;
+  protected final Config config;
 
   /**
    * A ClusterResourceManager for the allocator to request for resources.
