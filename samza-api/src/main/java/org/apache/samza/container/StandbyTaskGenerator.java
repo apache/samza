@@ -18,7 +18,7 @@
  */
 package org.apache.samza.container;
 
-import java.util.Map;
+import java.util.Set;
 import org.apache.samza.job.model.ContainerModel;
 
 
@@ -31,5 +31,5 @@ import org.apache.samza.job.model.ContainerModel;
  *  Standalone are different.
  */
 public interface StandbyTaskGenerator {
-  Map<String, ContainerModel> generateStandbyTasks(Map<String, ContainerModel> containerModels, int replicationFactor);
+  Set<ContainerModel> generateStandbyTasks(Set<ContainerModel> containerModels, int replicationFactor);
 }

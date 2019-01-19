@@ -20,7 +20,9 @@ package org.apache.samza.container.grouper.task;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.container.BuddyContainerBasedStandbyTaskGenerator;
 import org.apache.samza.container.StandbyTaskGenerator;
@@ -39,8 +41,8 @@ public class TestStandbyTaskGenerator {
   public void testBuddyContainerBasedGenerationIdentity() {
     this.standbyTaskGenerator = new BuddyContainerBasedStandbyTaskGenerator();
 
-    Assert.assertEquals("Shouldnt add standby tasks to empty container map", Collections.emptyMap(),
-        this.standbyTaskGenerator.generateStandbyTasks(Collections.emptyMap(), 1));
+    Assert.assertEquals("Shouldnt add standby tasks to empty container map", Collections.emptySet(),
+        this.standbyTaskGenerator.generateStandbyTasks(Collections.emptySet(), 1));
 
     Assert.assertEquals("Shouldnt add standby tasks when repl factor = 1", getContainerMap(),
         this.standbyTaskGenerator.generateStandbyTasks(getContainerMap(), 1));
@@ -56,23 +58,23 @@ public class TestStandbyTaskGenerator {
   private void testBuddyContainerBasedGeneration(int replicationFactor) {
     this.standbyTaskGenerator = new BuddyContainerBasedStandbyTaskGenerator();
 
-    Map<String, ContainerModel> initialContainerModelMap = getContainerMap();
-    Map<String, ContainerModel> containerModelMap =
-        standbyTaskGenerator.generateStandbyTasks(initialContainerModelMap, replicationFactor);
+    Set<ContainerModel> initialContainerModels = getContainerMap();
+    Set<ContainerModel> containerModels =
+        standbyTaskGenerator.generateStandbyTasks(initialContainerModels, replicationFactor);
 
     Assert.assertEquals(
         "The generated map should the required number of containers because repl fac = " + replicationFactor,
-        initialContainerModelMap.keySet().size() * replicationFactor, containerModelMap.keySet().size());
+        initialContainerModels.size() * replicationFactor, containerModels.size());
 
-    Assert.assertTrue("The generated map should have all active containers present as is", containerModelMap.entrySet().containsAll(initialContainerModelMap.entrySet()));
+    Assert.assertTrue("The generated map should have all active containers present as is",
+        containerModels.containsAll(initialContainerModels));
 
     Assert.assertEquals(
         "The generated map should have the required total number of tasks because repl fac = " + replicationFactor,
-        replicationFactor * initialContainerModelMap.values().stream().mapToInt(x -> x.getTasks().size()).sum(),
-        containerModelMap.values().stream().mapToInt(x -> x.getTasks().size()).sum());
+        replicationFactor * initialContainerModels.stream().mapToInt(x -> x.getTasks().size()).sum(),
+        containerModels.stream().mapToInt(x -> x.getTasks().size()).sum());
 
-    int numActiveTasks = containerModelMap.values()
-        .stream()
+    int numActiveTasks = containerModels.stream()
         .mapToInt(container -> container.getTasks()
             .keySet()
             .stream()
@@ -80,8 +82,7 @@ public class TestStandbyTaskGenerator {
             .toArray().length)
         .sum();
 
-    int numStandbyTasks = containerModelMap.values()
-        .stream()
+    int numStandbyTasks = containerModels.stream()
         .mapToInt(container -> container.getTasks()
             .keySet()
             .stream()
@@ -90,27 +91,27 @@ public class TestStandbyTaskGenerator {
         .sum();
 
     Assert.assertEquals("The generated map should have the same number of active tasks as in the initial map",
-        numActiveTasks, initialContainerModelMap.values().stream().mapToInt(x -> x.getTasks().size()).sum());
+        numActiveTasks, initialContainerModels.stream().mapToInt(x -> x.getTasks().size()).sum());
 
     Assert.assertEquals("The generated map should have numActive * (repl-1) standby tasks",
         numActiveTasks * (replicationFactor - 1), numStandbyTasks);
   }
 
   // Create a container map with two tasks in Container 0 and Container 1, and one in Container 2.
-  private static Map<String, ContainerModel> getContainerMap() {
-    Map<String, ContainerModel> retVal = new HashMap<>();
+  private static Set<ContainerModel> getContainerMap() {
+    Set<ContainerModel> retVal = new HashSet<>();
 
     Map<TaskName, TaskModel> tasksForContainer0 = new HashMap<>();
     tasksForContainer0.put(new TaskName("Partition 0"), getTaskModel(0));
     tasksForContainer0.put(new TaskName("Partition 1"), getTaskModel(1));
-    retVal.put("0", new ContainerModel("0", tasksForContainer0));
+    retVal.add(new ContainerModel("0", tasksForContainer0));
 
     Map<TaskName, TaskModel> tasksForContainer1 = new HashMap<>();
     tasksForContainer1.put(new TaskName("Partition 2"), getTaskModel(2));
     tasksForContainer1.put(new TaskName("Partition 3"), getTaskModel(3));
-    retVal.put("1", new ContainerModel("1", tasksForContainer1));
+    retVal.add(new ContainerModel("1", tasksForContainer1));
 
-    retVal.put("2", new ContainerModel("2", Collections.singletonMap(new TaskName("Partition 4"), getTaskModel(4))));
+    retVal.add(new ContainerModel("2", Collections.singletonMap(new TaskName("Partition 4"), getTaskModel(4))));
     return retVal;
   }
 

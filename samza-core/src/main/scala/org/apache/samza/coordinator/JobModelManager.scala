@@ -316,12 +316,13 @@ object JobModelManager extends Logging {
     } else {
       containerModels = containerGrouper.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
-    var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
 
     // if standby containers are enabled, for now, we use the BuddyContainerBasedStandbyTaskGenerator with the provided replication factor
     if (new JobConfig(config).getStandbyTasksEnabled) {
-      containerMap = new BuddyContainerBasedStandbyTaskGenerator().generateStandbyTasks(containerMap.asJava, new JobConfig(config).getStandbyReplicationFactor).asScala.toMap
+      containerModels = new BuddyContainerBasedStandbyTaskGenerator().generateStandbyTasks(containerModels, new JobConfig(config).getStandbyTaskReplicationFactor)
     }
+
+    var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
 
     new JobModel(config, containerMap.asJava)
   }
