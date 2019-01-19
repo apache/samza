@@ -16,10 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.container;
+package org.apache.samza.container.grouper.task;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
@@ -28,9 +32,11 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * This StandbyTaskGenerator generates Standby-tasks and adds them to separate dedicated containers.
+ * This StandbyEnabledTaskNameGrouper wraps around any given TaskNameGrouper.
+ * In addition to apply the provided grouper, this grouper also generates
+ * generates Standby-tasks and adds them to separate dedicated containers.
  * It adds (r-1) Standby-Tasks for each active task, where r is the replication factor.
- * Hence it adds r-1 additional containers.
+ * Hence it adds r-1 additional containers for each regular container.
  *
  * All Standby-tasks are assigned a TaskName with a "Standby" prefix.
  * The new containers carrying Standby tasks that are added are assigned containerIDs corresponding to its
@@ -41,56 +47,86 @@ import org.slf4j.LoggerFactory;
  *
  * Container 0 : (Partition 0, Partition 1)
  * Container 1 : (Partition 2, Partition 3)
- *
  * with replicationFactor = 3
  *
  * The generated containerModel map is:
- *
  * Container 0 : (Partition 0, Partition 1)
  * Container 1 : (Partition 2, Partition 3)
- *
- * Container 0-0 : (Standby Partition 0-0, Standby Partition 1-0)
- * Container 1-0 : (Standby Partition 2-0, Standby Partition 3-0)
- *
- * Container 0-1 : (Standby Partition 0-1, Standby Partition 1-1)
- * Container 1-1 : (Standby Partition 2-1, Standby Partition 3-1)
- *
- *
+ * Container 0-0 : (Standby-Partition 0-0, Standby-Partition 1-0)
+ * Container 1-0 : (Standby-Partition 2-0, Standby-Partition 3-0)
+ * Container 0-1 : (Standby-Partition 0-1, Standby-Partition 1-1)
+ * Container 1-1 : (Standby-Partition 2-1, Standby-Partition 3-1)
  */
-public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGenerator {
+public class StandbyEnabledTaskNameGrouper implements TaskNameGrouper {
 
-  private static final Logger LOG = LoggerFactory.getLogger(BuddyContainerBasedStandbyTaskGenerator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(StandbyEnabledTaskNameGrouper.class);
   private static final String CONTAINER_ID_SEPARATOR = "-";
   private static final String TASKNAME_SEPARATOR = "-";
-  private static final String STANDBY_TASKNAME_PREFIX = "Standby ";
+  private static final String STANDBY_TASKNAME_PREFIX = "Standby";
+  private final TaskNameGrouper taskNameGrouper;
+  private final boolean standbyTasksEnabled;
+  private final int replicationFactor;
+
+  public StandbyEnabledTaskNameGrouper(TaskNameGrouper taskNameGrouper, boolean standbyTasksEnabled,
+      int replicationFactor) {
+    this.taskNameGrouper = taskNameGrouper;
+    this.standbyTasksEnabled = standbyTasksEnabled;
+    this.replicationFactor = replicationFactor;
+  }
+
+  @Override
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
+    if (this.standbyTasksEnabled) {
+      return generateStandbyTasks(this.taskNameGrouper.group(taskModels, grouperMetadata), replicationFactor);
+    } else {
+      return this.taskNameGrouper.group(taskModels, grouperMetadata);
+    }
+  }
+
+  @Override
+  public Set<ContainerModel> group(Set<TaskModel> taskModels) {
+    if (this.standbyTasksEnabled) {
+      return generateStandbyTasks(this.taskNameGrouper.group(taskModels), replicationFactor);
+    } else {
+      return this.taskNameGrouper.group(taskModels);
+    }
+  }
+
+  @Override
+  public Set<ContainerModel> group(Set<TaskModel> taskModels, List<String> containersIds) {
+    if (this.standbyTasksEnabled) {
+      return generateStandbyTasks(this.taskNameGrouper.group(taskModels, containersIds), replicationFactor);
+    } else {
+      return this.taskNameGrouper.group(taskModels, containersIds);
+    }
+  }
 
   /**
-   *  Generate a container model map with standby tasks added and grouped in buddy containers.
+   *  Generate a container model map with standby tasks added and grouped into buddy containers.
+   *  Package-private for testing.
    *
    * @param containerModels The initial container model map.
    * @param replicationFactor The desired replication factor, if the replication-factor is n, we add n-1 standby tasks for each active task.
-   * @return
+   * @return The generated map of containerModels with added containers, and the initial regular containers
    */
-  @Override
-  public Map<String, ContainerModel> generateStandbyTasks(Map<String, ContainerModel> containerModels,
-      int replicationFactor) {
-    LOG.debug("Received current containerModel map : {}, replicationFactor : {}", containerModels, replicationFactor);
-    Map<String, ContainerModel> buddyContainerMap = new HashMap<>();
+  Set<ContainerModel> generateStandbyTasks(Set<ContainerModel> containerModels, int replicationFactor) {
+    LOG.info("Received current containerModel map : {}, replicationFactor : {}", containerModels, replicationFactor);
+    Set<ContainerModel> buddyContainers = new HashSet<>();
 
-    for (String activeContainerId : containerModels.keySet()) {
+    for (ContainerModel activeContainer : containerModels) {
       for (int replicaNum = 0; replicaNum < replicationFactor - 1; replicaNum++) {
-        String buddyContainerId = getBuddyContainerId(activeContainerId, replicaNum);
+        String buddyContainerId = getBuddyContainerId(activeContainer.getId(), replicaNum);
 
-        ContainerModel buddyContainerModel = new ContainerModel(buddyContainerId,
-            getTaskModelForBuddyContainer(containerModels.get(activeContainerId).getTasks(), replicaNum));
+        ContainerModel buddyContainerModel =
+            new ContainerModel(buddyContainerId, getTaskModelForBuddyContainer(activeContainer.getTasks(), replicaNum));
 
-        buddyContainerMap.put(buddyContainerId, buddyContainerModel);
+        buddyContainers.add(buddyContainerModel);
       }
     }
 
-    LOG.info("Adding buddy containers : {}", buddyContainerMap);
-    buddyContainerMap.putAll(containerModels);
-    return buddyContainerMap;
+    LOG.info("Adding buddy containers : {}", buddyContainers);
+    buddyContainers.addAll(containerModels);
+    return buddyContainers;
   }
 
   // Helper method to populate the container model for a buddy container.
@@ -119,7 +155,8 @@ public class BuddyContainerBasedStandbyTaskGenerator implements StandbyTaskGener
 
   // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
   private final static TaskName getStandbyTaskName(TaskName activeTaskName, int replicaNum) {
-    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(activeTaskName.getTaskName())
+    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(TASKNAME_SEPARATOR)
+        .concat(activeTaskName.getTaskName())
         .concat(TASKNAME_SEPARATOR)
         .concat(String.valueOf(replicaNum)));
   }

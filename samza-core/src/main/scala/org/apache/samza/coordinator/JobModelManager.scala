@@ -29,7 +29,7 @@ import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.{Config, _}
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.{BuddyContainerBasedStandbyTaskGenerator, LocalityManager, TaskName}
+import org.apache.samza.container.{LocalityManager, TaskName}
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
@@ -309,20 +309,17 @@ object JobModelManager extends Logging {
     // Here is where we should put in a pluggable option for the
     // SSPTaskNameGrouper for locality, load-balancing, etc.
     val containerGrouperFactory = Util.getObj(config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
-    val containerGrouper = containerGrouperFactory.build(config)
+    val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
+    val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
+    val containerGrouper = new StandbyEnabledTaskNameGrouper(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
     if(isHostAffinityEnabled) {
       containerModels = containerGrouper.group(taskModels, grouperMetadata)
     } else {
       containerModels = containerGrouper.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
+
     var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
-
-    // if standby containers are enabled, for now, we use the BuddyContainerBasedStandbyTaskGenerator with the provided replication factor
-    if (new JobConfig(config).getStandbyTasksEnabled) {
-      containerMap = new BuddyContainerBasedStandbyTaskGenerator().generateStandbyTasks(containerMap.asJava, new JobConfig(config).getStandbyReplicationFactor).asScala.toMap
-    }
-
     new JobModel(config, containerMap.asJava)
   }
 
