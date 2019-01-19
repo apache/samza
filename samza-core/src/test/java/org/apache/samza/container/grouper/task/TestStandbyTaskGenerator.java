@@ -24,22 +24,21 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
-import org.apache.samza.container.BuddyContainerBasedStandbyTaskGenerator;
-import org.apache.samza.container.StandbyTaskGenerator;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 
 public class TestStandbyTaskGenerator {
-  private StandbyTaskGenerator standbyTaskGenerator;
+  private StandbyEnabledTaskNameGrouper standbyTaskGenerator;
 
   @Test
   public void testBuddyContainerBasedGenerationIdentity() {
-    this.standbyTaskGenerator = new BuddyContainerBasedStandbyTaskGenerator();
+    this.standbyTaskGenerator = new StandbyEnabledTaskNameGrouper(Mockito.mock(TaskNameGrouper.class), true, 2);
 
     Assert.assertEquals("Shouldnt add standby tasks to empty container map", Collections.emptySet(),
         this.standbyTaskGenerator.generateStandbyTasks(Collections.emptySet(), 1));
@@ -56,7 +55,7 @@ public class TestStandbyTaskGenerator {
   }
 
   private void testBuddyContainerBasedGeneration(int replicationFactor) {
-    this.standbyTaskGenerator = new BuddyContainerBasedStandbyTaskGenerator();
+    this.standbyTaskGenerator = new StandbyEnabledTaskNameGrouper(Mockito.mock(TaskNameGrouper.class), true, 2);
 
     Set<ContainerModel> initialContainerModels = getContainerMap();
     Set<ContainerModel> containerModels =
