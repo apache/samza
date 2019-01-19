@@ -109,7 +109,7 @@ public class StandbyEnabledTaskNameGrouper implements TaskNameGrouper {
    * @param replicationFactor The desired replication factor, if the replication-factor is n, we add n-1 standby tasks for each active task.
    * @return The generated map of containerModels with added containers, and the initial regular containers
    */
-  Set<ContainerModel> generateStandbyTasks(Set<ContainerModel> containerModels, int replicationFactor) {
+  public Set<ContainerModel> generateStandbyTasks(Set<ContainerModel> containerModels, int replicationFactor) {
     LOG.info("Received current containerModel map : {}, replicationFactor : {}", containerModels, replicationFactor);
     Set<ContainerModel> buddyContainers = new HashSet<>();
 

@@ -29,7 +29,6 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
-import org.apache.samza.job.model.TaskModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,6 +157,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
           "Running container {} on host {} does not meet standby constraints, cancelling resource request and making a new ANY_HOST request",
           containerID, samzaResource.getHost());
       resourceRequestState.cancelResourceRequest(request);
+      resourceRequestState.releaseUnstartableContainer(samzaResource);
       requestResource(containerID, ResourceRequestState.ANY_HOST);
       return false;
     }
@@ -210,7 +210,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    *
    *  This is used to ensure that an active task and all its corresponding standby tasks are on separate hosts.
    */
-  private static List<String> getContainerIDsToCheckStandbyConstraints(String containerID, JobModel jobModel) {
+  public static List<String> getContainerIDsToCheckStandbyConstraints(String containerID, JobModel jobModel) {
 
     ContainerModel givenContainerModel = jobModel.getContainers().get(containerID);
     List<String> containerIDsWithStandbyConstraints = new ArrayList<>();
@@ -229,37 +229,35 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   // Helper method that checks if tasks on the two containerModels overlap
   private static boolean checkTasksOverlap(ContainerModel containerModel1, ContainerModel containerModel2) {
 
-    Set<TaskModel> activeTasksOnContainer1 = getAllTasks(containerModel1, TaskMode.Active);
-    Set<TaskModel> standbyTasksOnContainer1 = getAllTasks(containerModel1, TaskMode.Standby);
+    Set<TaskName> activeTasksOnContainer1 = convertAllTasksToActive(containerModel1);
+    Set<TaskName> activeTasksOnContainer2 = convertAllTasksToActive(containerModel2);
 
-    Set<TaskModel> activeTasksOnContainer2 = getAllTasks(containerModel1, TaskMode.Active);
-    Set<TaskModel> standbyTasksOnContainer2 = getAllTasks(containerModel1, TaskMode.Standby);
-
-    return checkActiveStandbyTaskSetOverlap(activeTasksOnContainer1, standbyTasksOnContainer2)
-        || checkActiveStandbyTaskSetOverlap(activeTasksOnContainer2, standbyTasksOnContainer1);
+    return !Collections.disjoint(activeTasksOnContainer1, activeTasksOnContainer2);
   }
 
+  private static Set<TaskName> convertAllTasksToActive(ContainerModel containerModel) {
+    Set<TaskName> tasksInActiveMode = getAllTasks(containerModel, TaskMode.Active);
+
+    tasksInActiveMode.addAll(getAllTasks(containerModel, TaskMode.Standby).stream()
+        .map(taskName -> getActiveTaskFor(taskName))
+        .collect(Collectors.toSet()));
+
+    return tasksInActiveMode;
+  }
+
+  //
   // Helper method to getAllTaskModels of this container in the given taskMode
-  private static Set<TaskModel> getAllTasks(ContainerModel containerModel, TaskMode taskMode) {
+  private static Set<TaskName> getAllTasks(ContainerModel containerModel, TaskMode taskMode) {
     return containerModel.getTasks()
         .values()
         .stream()
         .filter(e -> e.getTaskMode().equals(taskMode))
+        .map(taskModel -> taskModel.getTaskName())
         .collect(Collectors.toSet());
   }
 
-  // Computes active tasks corresponding to the standbyTask set and check if overlaps with the activeTask set
-  // it determines it using the TaskNames for the active and standby tasks
-  private static boolean checkActiveStandbyTaskSetOverlap(Set<TaskModel> activeTasks, Set<TaskModel> standbyTasks) {
-    Set<TaskName> activeTaskNames = activeTasks.stream().map(task -> task.getTaskName()).collect(Collectors.toSet());
-    Set<TaskName> correspondingActiveTaskNames =
-        standbyTasks.stream().map(taskModel -> getActiveTaskFor(taskModel.getTaskName())).collect(Collectors.toSet());
-
-    return !Collections.disjoint(activeTaskNames, correspondingActiveTaskNames);
-  }
-
   // TODO: convert into util method that relies on taskNames to get active task for a given standby task
-  private static TaskName getActiveTaskFor(TaskName stanbyTaskName) {
-    return new TaskName(stanbyTaskName.getTaskName().replace("Standby ", "").split("-")[0]);
+  private static TaskName getActiveTaskFor(TaskName standbyTaskName) {
+    return new TaskName(standbyTaskName.getTaskName().split("-")[1]);
   }
 }
