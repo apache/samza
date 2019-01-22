@@ -46,6 +46,9 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.testutil.JsonUtil;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -146,9 +149,7 @@ public class SamzaExecutor implements SqlExecutor {
               SamzaSqlApplicationConfig.initializePlugin("RelSchemaProvider", sourceInfo.getRelSchemaProviderName(),
                       samzaSqlConfig, SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
                       (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
-      AvroRelSchemaProvider avroSchemaProvider = (AvroRelSchemaProvider) schemaProvider;
-      String schema = avroSchemaProvider.getSchema(sourceInfo.getSystemStream());
-      sqlSchema = AvroSqlSchemaConverter.convertAvroToSamzaSqlSchema(schema);
+      sqlSchema =  schemaProvider.getSqlSchema();
     } catch (SamzaException ex) {
       lastErrorMsg = ex.toString();
       LOG.error(lastErrorMsg);
@@ -329,9 +330,9 @@ public class SamzaExecutor implements SqlExecutor {
      */
     List<SqlFunction> udfs = new ArrayList<>();
     udfs.add(new SamzaSqlUdfDisplayInfo("RegexMatch", "Matches the string to the regex",
-            Arrays.asList(SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.STRING),
-                    SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.STRING)),
-            SamzaSqlFieldType.createPrimitiveFieldType(SamzaSqlFieldType.TypeName.BOOLEAN)));
+            Arrays.asList(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING),
+                SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING)),
+        SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN)));
 
     return udfs;
   }
@@ -454,7 +455,8 @@ public class SamzaExecutor implements SqlExecutor {
       colTypeNames.add(dataTypeField.getType().toString());
     }
 
-    return new SqlSchema(colNames, colTypeNames);
+    // TODO Need to find a way to convert the relational to SQL Schema
+    return new SqlSchema(colNames, Collections.emptyList());
   }
 
   private String[] getFormattedRow(ExecutionContext context, OutgoingMessageEnvelope row) {

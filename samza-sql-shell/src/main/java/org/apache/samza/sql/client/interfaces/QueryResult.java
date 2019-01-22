@@ -19,6 +19,9 @@
 
 package org.apache.samza.sql.client.interfaces;
 
+import org.apache.samza.sql.schema.SqlSchema;
+
+
 /**
  * Execution result of a SELECT statement. It doesn't contain data though.
  */
