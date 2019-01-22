@@ -303,7 +303,7 @@ object JobModelManager extends Logging {
             info("New task %s is being assigned changelog partition %s." format(taskName, maxChangelogPartitionId))
             new Partition(maxChangelogPartitionId)
         }
-        new TaskModel(taskName, systemStreamPartitions, changelogPartition, TaskMode.Active)
+        new TaskModel(taskName, systemStreamPartitions, changelogPartition)
       }.toSet
     }
 
