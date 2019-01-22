@@ -259,9 +259,8 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
 
     // iterate over each task and each storeName
-    for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
-      TaskName taskName = task.getKey();
-      TaskModel taskModel = task.getValue();
+    for (TaskModel taskModel : getActiveTasks(containerModel)) {
+      TaskName taskName = taskModel.getTaskName();
 
       for (String storeName : storageEngineFactories.keySet()) {
 
@@ -278,10 +277,8 @@ public class ContainerStorageManager {
 
           // add created store to map
           this.taskStores.get(taskName).put(storeName, storageEngine);
-
           LOG.info("Re-created store {} in read-write mode for task {} because it a persistent store", storeName, taskName);
         } else {
-
           LOG.info("Skipping re-creation of store {} for task {} because it a non-persistent store", storeName, taskName);
         }
       }

@@ -23,7 +23,7 @@ import java.io.File
 import java.lang.management.ManagementFactory
 import java.lang.reflect.InvocationTargetException
 import java.net.{URL, UnknownHostException}
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.time.Duration
 import java.util
 import java.util.{Base64, Collections}
@@ -685,108 +685,10 @@ object SamzaContainer extends Logging {
     }).toMap
 
     // Create taskInstances for standby tasks
-    val standbyTaskInstances: Map[TaskName, TaskInstance] = containerModel.getTasks.values.asScala.
-      filter(_.getTaskMode == TaskMode.Standby).map(taskModel => {
-      debug("Setting up active task instance: %s" format taskModel)
-
-      val taskName = taskModel.getTaskName
-      // using identity task for standby tasks
-      val task = new StreamTask {
-        override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
-      }
-
-      val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
-      val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
-      val sideInputStoresToProcessor: collection.mutable.Map[String, SideInputsProcessor] = collection.mutable.Map()
-
-      // create taskStores as nonlogged stores for standbytasks so set changeLogSystemStreamPartition = null
-      val taskStores = storageEngineFactories
-        .map {
-          case (storeName, storageEngineFactory) =>
-            val changeLogSystemStreamPartition = null
-
-            // we set the key and value serde as byteserde
-            val byteSerde: ByteSerde = new ByteSerde
-
-            val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
-            storeWatchPaths.add(storeDir.toPath)
-
-            val storageEngine = storageEngineFactory.getStorageEngine(
-              storeName,
-              storeDir,
-              byteSerde.asInstanceOf[Serde[Object]],
-              byteSerde.asInstanceOf[Serde[Object]],
-              collector,
-              taskInstanceMetrics.registry,
-              changeLogSystemStreamPartition,
-              jobContext,
-              containerContext, StoreMode.ReadWrite)
-
-            // creating a sideInputs processor for this store that will be used to serde messages read for its changelog
-            val sideInputsProcessor = new SideInputsProcessor {
-              override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
-                debug("Writing value to store %s" format store)
-                Collections.singletonList(new Entry(byteSerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), byteSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
-              }
-            }
-
-            sideInputStoresToProcessor.put(storeName, sideInputsProcessor)
-            (storeName, storageEngine)
-        }
-
-      info("Got task stores: %s" format taskStores)
-
-      val changelogSSPs =
-        changeLogSystemStreams.mapValues(ss => Set(new SystemStreamPartition(ss.getSystem, ss.getStream, taskModel.getChangelogPartition)).asJava).asJava
-
-      val changelogSSPSet = changelogSSPs.asScala.values.flatMap(_.asScala).toSet
-      info ("Got task side input SSPs: %s" format changelogSSPSet)
-
-      var sideInputStorageManager: TaskSideInputStorageManager = null
-      if (taskStores.nonEmpty) {
-        sideInputStorageManager = new TaskSideInputStorageManager(
-          taskName,
-          streamMetadataCache,
-          loggedStorageBaseDir.getPath,
-          taskStores.asJava,
-          sideInputStoresToProcessor.asJava,
-          changelogSSPs,
-          systemAdmins,
-          config,
-          new SystemClock)
-      }
-
-      val tableManager = new TableManager(config)
-
-      info("Got table manager")
-
-      def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
-        task = task,
-        taskModel = taskModel,
-        metrics = taskInstanceMetrics,
-        systemAdmins = systemAdmins,
-        consumerMultiplexer = consumerMultiplexer,
-        collector = collector,
-        offsetManager = offsetManager,
-        storageManager = null, // we set the TSM = null for standby tasks
-        tableManager = tableManager,
-        reporters = reporters,
-        systemStreamPartitions = changelogSSPSet, // task ssps for standbyTask are the changelogSSPs
-        exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
-        jobModel = jobModel,
-        streamMetadataCache = streamMetadataCache,
-        timerExecutor = timerExecutor,
-        sideInputSSPs = changelogSSPSet, // sideinputSSPs for standbyTask are the changelogSSPs
-        sideInputStorageManager = sideInputStorageManager,
-        jobContext = jobContext,
-        containerContext = containerContext,
-        applicationContainerContextOption = applicationContainerContextOption,
-        applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
-        externalContextOption = externalContextOption)
-
-      val taskInstance = createTaskInstance(task)
-      (taskName, taskInstance)
-    }).toMap
+    val standbyTaskInstances: Map[TaskName, TaskInstance] = getStandbyTasks(jobModel, containerModel,
+      consumerMultiplexer, producerMultiplexer, offsetManager, timerExecutor, reporters, storageEngineFactories,
+      loggedStorageBaseDir, storeWatchPaths, jobContext, containerContext, changeLogSystemStreams, streamMetadataCache,
+      systemAdmins, config, applicationContainerContextOption, applicationTaskContextFactoryOption, externalContextOption)
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
@@ -857,6 +759,117 @@ object SamzaContainer extends Logging {
       applicationContainerContextOption = applicationContainerContextOption,
       externalContextOption = externalContextOption,
       containerStorageManager = containerStorageManager)
+  }
+
+
+  private[container] def getStandbyTasks(jobModel: JobModel, containerModel: ContainerModel,
+    consumerMultiplexer: SystemConsumers, producerMultiplexer: SystemProducers, offsetManager: OffsetManager,
+    timerExecutor: ScheduledExecutorService, reporters: Map[String, MetricsReporter],
+    storageEngineFactories: Map[String, StorageEngineFactory[Object, Object]], loggedStorageBaseDir: File,
+    storeWatchPaths: util.HashSet[Path], jobContext: JobContext, containerContext: ContainerContext,
+    changeLogSystemStreams: Map[String, SystemStream], streamMetadataCache: StreamMetadataCache,
+    systemAdmins: SystemAdmins, config: Config, applicationContainerContextOption: Option[ApplicationContainerContext],
+    applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    externalContextOption: Option[ExternalContext])
+  : Map[TaskName, TaskInstance] = {
+
+    containerModel.getTasks.values.asScala.
+      filter(_.getTaskMode == TaskMode.Standby).map(taskModel => {
+      debug("Setting up active task instance: %s" format taskModel)
+
+      val taskName = taskModel.getTaskName
+      // using identity task for standby tasks
+      val task = new StreamTask {
+        override def process(envelope: IncomingMessageEnvelope, collector: MessageCollector, coordinator: TaskCoordinator): Unit = {}
+      }
+
+      val taskInstanceMetrics = new TaskInstanceMetrics("TaskName-%s" format taskName)
+      val collector = new TaskInstanceCollector(producerMultiplexer, taskInstanceMetrics)
+      val sideInputsProcessors: collection.mutable.Map[String, SideInputsProcessor] = collection.mutable.Map()
+      val byteSerde: ByteSerde = new ByteSerde
+
+      // create taskStores as nonlogged stores for standbytasks so set changeLogSystemStreamPartition = null
+      val taskStores = storageEngineFactories
+        .map {
+          case (storeName, storageEngineFactory) =>
+            val changeLogSystemStreamPartition = null
+            val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
+            storeWatchPaths.add(storeDir.toPath)
+
+            val storageEngine = storageEngineFactory.getStorageEngine(
+              storeName,
+              storeDir,
+              byteSerde.asInstanceOf[Serde[Object]], // we set the key and value serde as byteserde
+              byteSerde.asInstanceOf[Serde[Object]],
+              collector,
+              taskInstanceMetrics.registry,
+              changeLogSystemStreamPartition,
+              jobContext,
+              containerContext, StoreMode.ReadWrite)
+
+            // creating a sideInputs processor for this store that will be used to serde messages read for its changelog
+            val sideInputsProcessor = new SideInputsProcessor {
+              override def process(message: IncomingMessageEnvelope, store: KeyValueStore[_, _]): util.Collection[Entry[_, _]] = {
+                debug("Writing value to store %s" format store)
+                Collections.singletonList(new Entry(byteSerde.fromBytes(message.getKey.asInstanceOf[Array[Byte]]), byteSerde.fromBytes(message.getMessage.asInstanceOf[Array[Byte]])))
+              }
+            }
+
+            sideInputsProcessors.put(storeName, sideInputsProcessor)
+            (storeName, storageEngine)
+        }
+      info("Got task stores: %s" format taskStores)
+
+      val changelogSSPs =
+        changeLogSystemStreams.mapValues(ss => Set(new SystemStreamPartition(ss.getSystem, ss.getStream, taskModel.getChangelogPartition)).asJava).asJava
+
+      val changelogSSPSet = changelogSSPs.asScala.values.flatMap(_.asScala).toSet
+      info("Got task side input SSPs: %s" format changelogSSPSet)
+
+      var sideInputStorageManager: TaskSideInputStorageManager = null
+      if (taskStores.nonEmpty) {
+        sideInputStorageManager = new TaskSideInputStorageManager(
+          taskName,
+          streamMetadataCache,
+          loggedStorageBaseDir.getPath,
+          taskStores.asJava,
+          sideInputsProcessors.asJava,
+          changelogSSPs, // changeLogSSPs are sideInputs for standby tasks
+          systemAdmins,
+          config,
+          new SystemClock)
+      }
+
+      val tableManager = new TableManager(config)
+      info("Got table manager")
+
+      def createTaskInstance(task: Any): TaskInstance = new TaskInstance(
+        task = task,
+        taskModel = taskModel,
+        metrics = taskInstanceMetrics,
+        systemAdmins = systemAdmins,
+        consumerMultiplexer = consumerMultiplexer,
+        collector = collector,
+        offsetManager = offsetManager,
+        storageManager = null,
+        tableManager = tableManager,
+        reporters = reporters,
+        systemStreamPartitions = changelogSSPSet, // systemStreamPartitions for standbytasks are changelogSSPs
+        exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics, config),
+        jobModel = jobModel,
+        streamMetadataCache = streamMetadataCache,
+        timerExecutor = timerExecutor,
+        sideInputSSPs = changelogSSPSet, // sideinputSSPs for standbyTask are the changelogSSPs
+        sideInputStorageManager = sideInputStorageManager,
+        jobContext = jobContext,
+        containerContext = containerContext,
+        applicationContainerContextOption = applicationContainerContextOption,
+        applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
+        externalContextOption = externalContextOption)
+
+      val taskInstance = createTaskInstance(task)
+      (taskName, taskInstance)
+    }).toMap
   }
 
   /**
