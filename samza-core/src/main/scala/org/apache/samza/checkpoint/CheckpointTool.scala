@@ -167,20 +167,20 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamManag
     coordinatorStreamManager.register(getClass.getSimpleName)
     coordinatorStreamManager.start()
     coordinatorStreamManager.bootstrap()
-    val coordinatorStreamConfig: Config = coordinatorStreamManager.getConfig
+    val configFromCoordinatorStream: Config = coordinatorStreamManager.getConfig
 
     // Instantiate the checkpoint manager with coordinator stream configuration.
-    val checkpointManager: CheckpointManager = coordinatorStreamConfig.getCheckpointManagerFactory() match {
+    val checkpointManager: CheckpointManager = configFromCoordinatorStream.getCheckpointManagerFactory() match {
       case Some(className) =>
         Util.getObj(className, classOf[CheckpointManagerFactory])
-          .getCheckpointManager(coordinatorStreamConfig, new MetricsRegistryMap)
+          .getCheckpointManager(configFromCoordinatorStream, new MetricsRegistryMap)
       case _ =>
         throw new SamzaException("Configuration: task.checkpoint.factory is not defined.")
     }
 
     // Find all the TaskNames that would be generated for this job config
     val changelogManager = new ChangelogStreamManager(coordinatorStreamManager)
-    val jobModelManager = JobModelManager(coordinatorStreamConfig, changelogManager.readPartitionMapping())
+    val jobModelManager = JobModelManager(configFromCoordinatorStream, changelogManager.readPartitionMapping())
     val taskNames = jobModelManager
       .jobModel
       .getContainers
@@ -193,11 +193,11 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamManag
     checkpointManager.start()
 
     val lastCheckpoints = taskNames.map(taskName => {
-      taskName ->  Option(checkpointManager.readLastCheckpoint(taskName))
-                                           .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
-                                           .getOffsets
-                                           .asScala
-                                           .toMap
+      taskName -> Option(checkpointManager.readLastCheckpoint(taskName))
+                                          .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
+                                          .getOffsets
+                                          .asScala
+                                          .toMap
     }).toMap
 
     lastCheckpoints.foreach(lcp => logCheckpoint(lcp._1, lcp._2, "Current checkpoint for task: "+ lcp._1))
