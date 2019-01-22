@@ -70,9 +70,9 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
   }
 
   private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
-    switch (fieldSchema.getTypeName()) {
+    switch (fieldSchema.getFieldType()) {
       case ARRAY:
-        RelDataType elementType = getRelDataType(fieldSchema.getElementType());
+        RelDataType elementType = getRelDataType(fieldSchema.getElementSchema());
         return new ArraySqlType(elementType, true);
       case BOOLEAN:
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
@@ -94,11 +94,11 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
-        RelDataType valueType = getRelDataType(fieldSchema.getValueType());
+        RelDataType valueType = getRelDataType(fieldSchema.getValueScehma());
         return super.createMapType(createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true),
             createTypeWithNullability(valueType, true));
       default:
-        String msg = String.format("Field Type %s is not supported", fieldSchema.getTypeName());
+        String msg = String.format("Field Type %s is not supported", fieldSchema.getFieldType());
         LOG.error(msg);
         throw new SamzaException(msg);
     }

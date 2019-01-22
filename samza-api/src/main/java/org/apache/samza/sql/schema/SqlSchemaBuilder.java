@@ -27,8 +27,8 @@ import java.util.List;
  * Builder class to build the {@link SqlSchema}.
  */
 public class SqlSchemaBuilder {
-  private List<String> names = new ArrayList<>();
-  private List<SqlFieldSchema> typeNames = new ArrayList<>();
+  private List<String> fieldNames = new ArrayList<>();
+  private List<SqlFieldSchema> fieldSchemas = new ArrayList<>();
 
   private SqlSchemaBuilder() {
   }
@@ -41,12 +41,12 @@ public class SqlSchemaBuilder {
     if (name == null || name.isEmpty() || fieldType == null)
       throw new IllegalArgumentException();
 
-    names.add(name);
-    typeNames.add(fieldType);
+    fieldNames.add(name);
+    fieldSchemas.add(fieldType);
     return this;
   }
 
   public SqlSchema build() {
-    return new SqlSchema(names, typeNames);
+    return new SqlSchema(fieldNames, fieldSchemas);
   }
 }

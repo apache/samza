@@ -20,54 +20,75 @@
 package org.apache.samza.sql.schema;
 
 /**
- * Types of Samza Sql fields.
+ * Schema for the Samza SQL Field.
  */
 public class SqlFieldSchema {
 
-  private SamzaSqlFieldType typeName;
+  private SamzaSqlFieldType fieldType;
   private SqlFieldSchema elementType;
   private SqlFieldSchema valueType;
   private SqlSchema rowSchema;
 
-  private SqlFieldSchema(SamzaSqlFieldType typeName, SqlFieldSchema elementType, SqlFieldSchema valueType, SqlSchema rowSchema) {
-    this.typeName = typeName;
+  private SqlFieldSchema(SamzaSqlFieldType fieldType, SqlFieldSchema elementType, SqlFieldSchema valueType, SqlSchema rowSchema) {
+    this.fieldType = fieldType;
     this.elementType = elementType;
     this.valueType = valueType;
     this.rowSchema = rowSchema;
   }
 
-  public static SqlFieldSchema createPrimitiveFieldType(SamzaSqlFieldType typeName) {
+  /**
+   * Create a primitive fi
+   * @param typeName
+   * @return
+   */
+  public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName) {
     return new SqlFieldSchema(typeName, null, null, null);
   }
 
-  public static SqlFieldSchema createArrayFieldType(SqlFieldSchema elementType) {
+  public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType) {
     return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null);
   }
 
-  public static SqlFieldSchema createMapFieldType(SqlFieldSchema valueType) {
+  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType) {
     return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null);
   }
 
-  public static SqlFieldSchema createRowFieldType(SqlSchema rowSchema) {
+  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema) {
     return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema);
   }
 
+  /**
+   * @return whether the field is a primitive field type or not.
+   */
   public boolean isPrimitiveField() {
-    return typeName != SamzaSqlFieldType.ARRAY && typeName != SamzaSqlFieldType.MAP && typeName != SamzaSqlFieldType.ROW;
+    return fieldType != SamzaSqlFieldType.ARRAY && fieldType != SamzaSqlFieldType.MAP && fieldType != SamzaSqlFieldType.ROW;
   }
 
-  public SamzaSqlFieldType getTypeName() {
-    return typeName;
+  /**
+   * Get teh Type of the Samza SQL Field.
+   * @return
+   */
+  public SamzaSqlFieldType getFieldType() {
+    return fieldType;
   }
 
-  public SqlFieldSchema getElementType() {
+  /**
+   * Get the element schema if the field type is {@link SamzaSqlFieldType#ARRAY}
+   */
+  public SqlFieldSchema getElementSchema() {
     return elementType;
   }
 
-  public SqlFieldSchema getValueType() {
+  /**
+   * Get the schema of the value if the field type is {@link SamzaSqlFieldType#MAP}
+   */
+  public SqlFieldSchema getValueScehma() {
     return valueType;
   }
 
+  /**
+   * Get the row schema if the field type is {@link SamzaSqlFieldType#ROW}
+   */
   public SqlSchema getRowSchema() {
     return rowSchema;
   }

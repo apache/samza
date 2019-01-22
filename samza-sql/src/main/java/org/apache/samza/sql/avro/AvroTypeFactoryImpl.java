@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.schema.SqlFieldSchema;
@@ -56,6 +57,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   private SqlSchema convertSchema(List<Schema.Field> fields) {
+    Validate.notEmpty(fields, "Fields cannot be empty");
 
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
@@ -70,33 +72,33 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     switch (fieldSchema.getType()) {
       case ARRAY:
         SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType());
-        return SqlFieldSchema.createArrayFieldType(elementSchema);
+        return SqlFieldSchema.createArraySchema(elementSchema);
       case BOOLEAN:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BOOLEAN);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN);
       case DOUBLE:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.DOUBLE);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.DOUBLE);
       case FLOAT:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.FLOAT);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.FLOAT);
       case ENUM:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.STRING);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING);
       case UNION:
         return getSqlTypeFromUnionTypes(fieldSchema.getTypes());
       case FIXED:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BYTES);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES);
       case STRING:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.STRING);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING);
       case BYTES:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.BYTES);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES);
       case INT:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.INT32);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT32);
       case LONG:
-        return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.INT64);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64);
       case RECORD:
         SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
-        return SqlFieldSchema.createRowFieldType(rowSchema);
+        return SqlFieldSchema.createRowFieldSchema(rowSchema);
       case MAP:
         SqlFieldSchema valueType = convertField(fieldSchema.getValueType());
-        return SqlFieldSchema.createMapFieldType(valueType);
+        return SqlFieldSchema.createMapSchema(valueType);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getType());
         LOG.error(msg);
@@ -115,6 +117,6 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       }
     }
 
-    return SqlFieldSchema.createPrimitiveFieldType(SamzaSqlFieldType.ANY);
+    return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY);
   }
 }
