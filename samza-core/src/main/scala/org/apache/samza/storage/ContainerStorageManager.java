@@ -158,7 +158,6 @@ public class ContainerStorageManager {
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
-
     LOG.info("Created systemConsumers {}, taskStores {}, taskRestoreManagers {}", systemConsumers, taskStores, taskRestoreManagers);
   }
 
@@ -179,7 +178,7 @@ public class ContainerStorageManager {
     Set<String> storeSystems =
         changelogSystemStreams.values().stream().map(SystemStream::getSystem).collect(Collectors.toSet());
 
-    // Create one consumer for each system, create a  map with one entry for each such system
+    // Create one consumer for each system in use, create a  map with one entry for each such system
     Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
 
     // Map of each storeName to its respective systemConsumer
@@ -206,7 +205,6 @@ public class ContainerStorageManager {
   // Create taskRestoreManagers for all active tasks
   private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
-
     this.getActiveTasks(containerModel).forEach((taskModel) -> taskRestoreManagers.put(taskModel.getTaskName(),
           new TaskRestoreManager(taskModel, changelogSystemStreams, taskStores.get(taskModel.getTaskName()), systemAdmins, clock)));
 
@@ -217,8 +215,7 @@ public class ContainerStorageManager {
   private static Set<TaskModel> getActiveTasks(ContainerModel containerModel) {
     return containerModel.getTasks().values().stream().filter(taskModel -> taskModel.getTaskMode().equals(TaskMode.Active)).collect(Collectors.toSet());
   }
-
-
+  
   /**
    * Create taskStores with the given store mode for all stores in storageEngineFactories.
    */

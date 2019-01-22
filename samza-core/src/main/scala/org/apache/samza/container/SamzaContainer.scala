@@ -23,7 +23,7 @@ import java.io.File
 import java.lang.management.ManagementFactory
 import java.lang.reflect.InvocationTargetException
 import java.net.{URL, UnknownHostException}
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
 import java.time.Duration
 import java.util
 import java.util.{Base64, Collections}
