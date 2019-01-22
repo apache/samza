@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -77,6 +78,7 @@ public class TaskAssignmentManager {
    * @param metricsRegistry the registry for reporting metrics.
    * @param keySerde the key serializer.
    * @param containerIdSerde the value serializer.
+   * @param taskModeSerde the task-mode serializer.
    */
   public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> containerIdSerde, Serde<String> taskModeSerde) {
     this.config = config;
@@ -106,6 +108,18 @@ public class TaskAssignmentManager {
         LOG.debug("Assignment for task {}: {}", taskName, containerId);
       });
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
+  }
+
+  public Map<TaskName, TaskMode> readTaskModes() {
+    Map<TaskName, TaskMode> taskModeMap = new HashMap<>();
+    taskModeMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
+        String taskMode = taskModeSerde.fromBytes(valueBytes);
+        if (taskMode != null) {
+          taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
+        }
+        LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
+      });
+    return Collections.unmodifiableMap(new HashMap<>(taskModeMap));
   }
 
   /**
