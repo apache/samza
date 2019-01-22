@@ -113,6 +113,9 @@ public class ZkJobCoordinator implements JobCoordinator {
   private String cachedJobModelVersion = null;
 
   @VisibleForTesting
+  ZkSessionMetrics zkSessionMetrics;
+
+  @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
 
   @VisibleForTesting
@@ -121,6 +124,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
     this.config = config;
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
+    this.zkSessionMetrics = new ZkSessionMetrics(metricsRegistry);
 
     this.processorId = processorId;
     this.zkUtils = zkUtils;
@@ -554,6 +558,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       switch (state) {
         case Expired:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
+          zkSessionMetrics.zkSessionExpirations.inc();
           LOG.warn("Got " + state.toString() + " event for processor=" + processorId + ". Stopping the container and unregister the processor node.");
 
           // increase generation of the ZK session. All the callbacks from the previous generation will be ignored.
@@ -587,6 +592,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           return;
         case Disconnected:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
+          zkSessionMetrics.zkSessionDisconnects.inc();
           LOG.warn("Got " + state.toString() + " event for processor=" + processorId + ". Scheduling a coordinator stop.");
 
           // If the connection is not restored after debounceTimeMs, the process is considered dead.
@@ -595,10 +601,12 @@ public class ZkJobCoordinator implements JobCoordinator {
         case AuthFailed:
         case NoSyncConnected:
         case Unknown:
+          zkSessionMetrics.zkSessionErrors.inc();
           LOG.warn("Got unexpected failure event " + state.toString() + " for processor=" + processorId + ". Stopping the job coordinator.");
           debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
           return;
         case SyncConnected:
+          zkSessionMetrics.zkSyncConnected.inc();
           LOG.info("Got syncconnected event for processor=" + processorId + ".");
           debounceTimer.cancelAction(ZK_SESSION_ERROR);
           return;
@@ -610,6 +618,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
     @Override
     public void handleNewSession() {
+      zkSessionMetrics.zkNewSessions.inc();
       LOG.info("Got new session created event for processor=" + processorId);
       debounceTimer.cancelAllScheduledActions();
       LOG.info("register zk controller for the new session");
@@ -620,6 +629,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     @Override
     public void handleSessionEstablishmentError(Throwable error) {
       // this means we cannot connect to zookeeper to establish a session
+      zkSessionMetrics.zkSessionErrors.inc();
       LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
       debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
     }
