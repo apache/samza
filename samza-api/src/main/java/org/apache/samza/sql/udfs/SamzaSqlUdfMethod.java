@@ -17,26 +17,29 @@
  * under the License.
  */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.udfs;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 
 
-@SamzaSqlUdf(name = "MyTestArray")
-public class MyTestArrayUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
-  }
+/**
+ * Java annotation to identity the Samza SQL Udf method and it's argument types and return types.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD})
+public @interface SamzaSqlUdfMethod {
 
-  @SamzaSqlUdfMethod
-  public List<String> execute(Object... args) {
-    Integer value = (Integer) args[0];
-    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
-  }
+  /**
+   * Type of the arguments for the Samza SQL udf method
+   */
+  SamzaSqlFieldType[] params() default {};
+
+  /**
+   * Return type for the Samza SQL UDF
+   */
+  SamzaSqlFieldType returns() default SamzaSqlFieldType.ANY;
 }

@@ -17,26 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.schema;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
-
-
-@SamzaSqlUdf(name = "MyTestArray")
-public class MyTestArrayUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
-  }
-
-  @SamzaSqlUdfMethod
-  public List<String> execute(Object... args) {
-    Integer value = (Integer) args[0];
-    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
-  }
+/**
+ * Type of the Samza SQL field
+ */
+public enum SamzaSqlFieldType {
+  BYTE, // One-byte signed integer.
+  INT16, // two-byte signed integer.
+  INT32, // four-byte signed integer.
+  INT64, // eight-byte signed integer.
+  DECIMAL, // Decimal integer
+  FLOAT,
+  DOUBLE,
+  STRING, // String.
+  DATETIME, // Date and time.
+  BOOLEAN, // Boolean.
+  BYTES, // Byte array.
+  ARRAY,
+  MAP,
+  ROW, // The field is itself a nested row.
+  ANY
 }
