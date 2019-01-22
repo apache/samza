@@ -178,6 +178,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
     List<String> containerIDsForStandbyConstraints =
         getContainerIDsToCheckStandbyConstraints(containerIDForStart, samzaApplicationState.jobModelManager.jobModel());
+    // TODO: Compute and cache this list for each container on startup
 
     LOG.info("Container {} has standby task constraints with containers {}", containerIDForStart,
         containerIDsForStandbyConstraints);
@@ -228,24 +229,19 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
   // Helper method that checks if tasks on the two containerModels overlap
   private static boolean checkTasksOverlap(ContainerModel containerModel1, ContainerModel containerModel2) {
-
-    Set<TaskName> activeTasksOnContainer1 = convertAllTasksToActive(containerModel1);
-    Set<TaskName> activeTasksOnContainer2 = convertAllTasksToActive(containerModel2);
-
+    Set<TaskName> activeTasksOnContainer1 = getCorrespondingActiveTask(containerModel1);
+    Set<TaskName> activeTasksOnContainer2 = getCorrespondingActiveTask(containerModel2);
     return !Collections.disjoint(activeTasksOnContainer1, activeTasksOnContainer2);
   }
 
-  private static Set<TaskName> convertAllTasksToActive(ContainerModel containerModel) {
+  private static Set<TaskName> getCorrespondingActiveTask(ContainerModel containerModel) {
     Set<TaskName> tasksInActiveMode = getAllTasks(containerModel, TaskMode.Active);
-
     tasksInActiveMode.addAll(getAllTasks(containerModel, TaskMode.Standby).stream()
-        .map(taskName -> getActiveTaskFor(taskName))
+        .map(taskName -> getCorrespondingActiveTask(taskName))
         .collect(Collectors.toSet()));
-
     return tasksInActiveMode;
   }
 
-  //
   // Helper method to getAllTaskModels of this container in the given taskMode
   private static Set<TaskName> getAllTasks(ContainerModel containerModel, TaskMode taskMode) {
     return containerModel.getTasks()
@@ -257,7 +253,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   }
 
   // TODO: convert into util method that relies on taskNames to get active task for a given standby task
-  private static TaskName getActiveTaskFor(TaskName standbyTaskName) {
+  private static TaskName getCorrespondingActiveTask(TaskName standbyTaskName) {
     return new TaskName(standbyTaskName.getTaskName().split("-")[1]);
   }
 }
