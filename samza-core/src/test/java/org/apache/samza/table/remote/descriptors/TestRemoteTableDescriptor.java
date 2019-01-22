@@ -33,17 +33,20 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
+import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
+import org.apache.samza.table.remote.AsyncRemoteTable;
 import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.remote.RemoteTableProvider;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.table.retry.RetriableReadFunction;
-import org.apache.samza.table.retry.RetriableWriteFunction;
+import org.apache.samza.table.retry.AsyncRetriableTable;
 import org.apache.samza.table.retry.TableRetryPolicy;
+import org.apache.samza.testUtils.TestUtils;
 import org.apache.samza.util.EmbeddedTaggedRateLimiter;
 import org.apache.samza.util.RateLimiter;
 
@@ -209,16 +212,26 @@ public class TestRemoteTableDescriptor {
     Table table = provider.getTable();
     Assert.assertTrue(table instanceof RemoteTable);
     RemoteTable rwTable = (RemoteTable) table;
+
+    AsyncReadWriteTable delegate = TestUtils.getFieldValue(rwTable, "asyncTable");
+    Assert.assertTrue(delegate instanceof AsyncRetriableTable);
+    if (rlGets || rlPuts) {
+      delegate = TestUtils.getFieldValue(delegate, "table");
+      Assert.assertTrue(delegate instanceof AsyncRateLimitedTable);
+    }
+    delegate = TestUtils.getFieldValue(delegate, "table");
+    Assert.assertTrue(delegate instanceof AsyncRemoteTable);
+
     if (numRateLimitOps > 0) {
-      Assert.assertTrue(!rlGets || rwTable.getReadRateLimiter() != null);
-      Assert.assertTrue(!rlPuts || rwTable.getWriteRateLimiter() != null);
+      TableRateLimiter readRateLimiter = TestUtils.getFieldValue(rwTable, "readRateLimiter");
+      TableRateLimiter writeRateLimiter = TestUtils.getFieldValue(rwTable, "writeRateLimiter");
+      Assert.assertTrue(!rlGets || readRateLimiter != null);
+      Assert.assertTrue(!rlPuts || writeRateLimiter != null);
     }
 
-    ThreadPoolExecutor callbackExecutor = (ThreadPoolExecutor) rwTable.getCallbackExecutor();
+    ThreadPoolExecutor callbackExecutor = TestUtils.getFieldValue(rwTable, "callbackExecutor");
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
 
-    Assert.assertTrue(rwTable.getReadFn() instanceof RetriableReadFunction);
-    Assert.assertFalse(rwTable.getWriteFn() instanceof RetriableWriteFunction);
   }
 
   @Test

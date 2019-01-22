@@ -16,31 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
-
-import com.google.common.base.MoreObjects;
-import org.apache.samza.system.SystemStreamPartition;
-
+package org.apache.samza.job.model;
 
 /**
- * A {@link Startpoint} that represents the earliest offset in a stream partition.
+ * This defines the logical mode of a taskInstance.
+ * Active is the defacto mode for a task, i.e., tasks processing input, reading/writing state, producing output, etc.
+ * Standby is the mode for tasks, that maintain warmed-up KV state by reading from its changelog.
  */
-public final class StartpointOldest extends Startpoint {
+public enum TaskMode {
+  Active("Active"), Standby("Standby");
 
-  /**
-   * Constructs a {@link Startpoint} that represents the earliest offset in a stream partition.
-   */
-  public StartpointOldest() {
-    super();
+  private final String mode;
+
+  private TaskMode(String mode) {
+    this.mode = mode;
   }
 
-  @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
-  }
-
-  @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).toString();
+    return this.mode;
   }
 }
