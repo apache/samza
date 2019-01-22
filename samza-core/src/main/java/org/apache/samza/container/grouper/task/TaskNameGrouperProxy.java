@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * This StandbyEnabledTaskNameGrouper wraps around any given TaskNameGrouper.
+ * This TaskNameGrouperProxy wraps around any given TaskNameGrouper.
  * In addition to apply the provided grouper, this grouper also generates
  * generates Standby-tasks and adds them to separate dedicated containers.
  * It adds (r-1) Standby-Tasks for each active task, where r is the replication factor.
@@ -57,9 +57,9 @@ import org.slf4j.LoggerFactory;
  * Container 0-1 : (Standby-Partition 0-1, Standby-Partition 1-1)
  * Container 1-1 : (Standby-Partition 2-1, Standby-Partition 3-1)
  */
-public class StandbyEnabledTaskNameGrouper implements TaskNameGrouper {
+public class TaskNameGrouperProxy {
 
-  private static final Logger LOG = LoggerFactory.getLogger(StandbyEnabledTaskNameGrouper.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TaskNameGrouperProxy.class);
   private static final String CONTAINER_ID_SEPARATOR = "-";
   private static final String TASKNAME_SEPARATOR = "-";
   private static final String STANDBY_TASKNAME_PREFIX = "Standby";
@@ -67,14 +67,13 @@ public class StandbyEnabledTaskNameGrouper implements TaskNameGrouper {
   private final boolean standbyTasksEnabled;
   private final int replicationFactor;
 
-  public StandbyEnabledTaskNameGrouper(TaskNameGrouper taskNameGrouper, boolean standbyTasksEnabled,
+  public TaskNameGrouperProxy(TaskNameGrouper taskNameGrouper, boolean standbyTasksEnabled,
       int replicationFactor) {
     this.taskNameGrouper = taskNameGrouper;
     this.standbyTasksEnabled = standbyTasksEnabled;
     this.replicationFactor = replicationFactor;
   }
 
-  @Override
   public Set<ContainerModel> group(Set<TaskModel> taskModels, GrouperMetadata grouperMetadata) {
     if (this.standbyTasksEnabled) {
       return generateStandbyTasks(this.taskNameGrouper.group(taskModels, grouperMetadata), replicationFactor);
@@ -83,16 +82,6 @@ public class StandbyEnabledTaskNameGrouper implements TaskNameGrouper {
     }
   }
 
-  @Override
-  public Set<ContainerModel> group(Set<TaskModel> taskModels) {
-    if (this.standbyTasksEnabled) {
-      return generateStandbyTasks(this.taskNameGrouper.group(taskModels), replicationFactor);
-    } else {
-      return this.taskNameGrouper.group(taskModels);
-    }
-  }
-
-  @Override
   public Set<ContainerModel> group(Set<TaskModel> taskModels, List<String> containersIds) {
     if (this.standbyTasksEnabled) {
       return generateStandbyTasks(this.taskNameGrouper.group(taskModels, containersIds), replicationFactor);

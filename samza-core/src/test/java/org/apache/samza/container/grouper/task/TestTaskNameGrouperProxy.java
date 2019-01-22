@@ -33,12 +33,12 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 
-public class TestStandbyTaskGenerator {
-  private StandbyEnabledTaskNameGrouper standbyTaskGenerator;
+public class TestTaskNameGrouperProxy {
+  private TaskNameGrouperProxy standbyTaskGenerator;
 
   @Test
   public void testBuddyContainerBasedGenerationIdentity() {
-    this.standbyTaskGenerator = new StandbyEnabledTaskNameGrouper(Mockito.mock(TaskNameGrouper.class), true, 2);
+    this.standbyTaskGenerator = new TaskNameGrouperProxy(Mockito.mock(TaskNameGrouper.class), true, 2);
 
     Assert.assertEquals("Shouldnt add standby tasks to empty container map", Collections.emptySet(),
         this.standbyTaskGenerator.generateStandbyTasks(Collections.emptySet(), 1));
@@ -55,7 +55,7 @@ public class TestStandbyTaskGenerator {
   }
 
   private void testBuddyContainerBasedGeneration(int replicationFactor) {
-    this.standbyTaskGenerator = new StandbyEnabledTaskNameGrouper(Mockito.mock(TaskNameGrouper.class), true, 2);
+    this.standbyTaskGenerator = new TaskNameGrouperProxy(Mockito.mock(TaskNameGrouper.class), true, 2);
 
     Set<ContainerModel> initialContainerModels = getContainerMap();
     Set<ContainerModel> containerModels =

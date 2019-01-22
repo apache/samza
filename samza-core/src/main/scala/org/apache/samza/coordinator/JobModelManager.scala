@@ -168,22 +168,23 @@ object JobModelManager extends Logging {
       }
     }
 
-    val activeTaskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment
-    if (activeTaskNames.size() != activeTaskToContainerId.size()) {
-      warn("Current task count {} does not match saved task count {}. Stateful jobs may observe misalignment of keys!",
-        activeTaskNames.size(), activeTaskToContainerId.size())
+    val previousTaskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment
+    if (activeTaskNames.size() != previousTaskToContainerId.size()) {
+      warn("Current task count %s does not match saved task count %s. Stateful jobs may observe misalignment of keys!"
+        format (activeTaskNames.size(), previousTaskToContainerId.size()))
       // If the tasks changed, then the partition-task grouping is also likely changed and we can't handle that
       // without a much more complicated mapping. Further, the partition count may have changed, which means
       // input message keys are likely reshuffled w.r.t. partitions, so the local state may not contain necessary
       // data associated with the incoming keys. Warn the user and default to grouper
       // In this scenario the tasks may have been reduced, so we need to delete all the existing messages
-      taskAssignmentManager.deleteTaskContainerMappings(activeTaskNames)
+      taskAssignmentManager.deleteTaskContainerMappings(previousTaskToContainerId.keys.map(taskName => taskName.getTaskName).asJava)
     }
 
     // if the set of standby tasks has changed, e.g., when the replication-factor changed, or the active-tasks-set has
     // changed, we log a warning and delete the existing mapping for these tasks
     val previousStandbyTasks = taskAssignmentManager.readTaskModes().filter(x => x._2.eq(TaskMode.Standby))
-    if(standbyTaskNames != previousStandbyTasks.keySet) {
+    if(standbyTaskNames.asScala != previousStandbyTasks.keySet) {
+      info("The set of standby tasks has changed, current standby tasks %s, previous standby tasks %s" format (standbyTaskNames, previousStandbyTasks.keySet))
       taskAssignmentManager.deleteTaskContainerMappings(previousStandbyTasks.map(x => x._1.getTaskName).asJava)
     }
 
@@ -311,12 +312,12 @@ object JobModelManager extends Logging {
     val containerGrouperFactory = Util.getObj(config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
     val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
     val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
-    val containerGrouper = new StandbyEnabledTaskNameGrouper(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
+    val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
     if(isHostAffinityEnabled) {
-      containerModels = containerGrouper.group(taskModels, grouperMetadata)
+      containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata)
     } else {
-      containerModels = containerGrouper.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
+      containerModels = taskNameGrouperProxy.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
 
     var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
