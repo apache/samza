@@ -158,6 +158,8 @@ public class ContainerStorageManager {
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
+
+    LOG.info("Created systemConsumers {}, taskStores {}, taskRestoreManagers {}", systemConsumers, taskStores, taskRestoreManagers);
   }
 
   /**
@@ -167,14 +169,17 @@ public class ContainerStorageManager {
       Map<String, SystemStream> changelogSystemStreams,
       Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
 
-    // Determine the set of stores to restore based on the taskStores map
-    Set<String> storesToRestore = taskStores.values().stream().flatMap(x -> x.keySet().stream()).collect(Collectors.toSet());
+    Set<String> stores = taskStores.values().stream().flatMap(x -> x.keySet().stream()).collect(Collectors.toSet());
 
-    // Determine the set of systems being used across all storesToRestore
-    Set<String> storeSystems = storesToRestore.stream().map(storeName ->
-        changelogSystemStreams.get(storeName).getSystem()).collect(Collectors.toSet());
+    // Filter changelogSystemStreams to contain only those stores for which taskStores have been created
+    changelogSystemStreams = changelogSystemStreams.entrySet().stream().filter(e -> stores.contains(e.getKey())).
+        collect(Collectors.toMap(e -> e.getKey(), e-> e.getValue()));
 
-    // Create one consumer for each system, create a   map with one entry for each such system
+    // Determine the set of systems being used across all stores based on changelogSSs
+    Set<String> storeSystems =
+        changelogSystemStreams.values().stream().map(SystemStream::getSystem).collect(Collectors.toSet());
+
+    // Create one consumer for each system, create a  map with one entry for each such system
     Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
 
     // Map of each storeName to its respective systemConsumer
@@ -191,7 +196,7 @@ public class ContainerStorageManager {
     }
 
     // Populate the map of storeName to its relevant systemConsumer
-    for (String storeName : storesToRestore) {
+    for (String storeName : changelogSystemStreams.keySet()) {
       storeConsumers.put(storeName, storeSystemConsumers.get(changelogSystemStreams.get(storeName).getSystem()));
     }
 
