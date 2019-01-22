@@ -25,27 +25,27 @@ import org.apache.samza.metrics.MetricsRegistry;
 public class ZkSessionMetrics extends MetricsBase {
 
   /**
-   * Denotes the number of times the zookeeper client session had expired.
+   * Number of zookeeper client session expirations.
    */
   public final Counter zkSessionExpirations;
 
   /**
-   *  Denotes the number of times the zookeeper client session disconnects had occurred.
+   * Number of zookeeper client session disconnects.
    */
   public final Counter zkSessionDisconnects;
 
   /**
-   * Denotes the number of zookeeper client session errors had occurred.
+   * Number of zookeeper client session errors.
    */
   public final Counter zkSessionErrors;
 
   /**
-   * Denotes the number of zookeeper client sessions had been established.
+   * Number of new zookeeper client sessions.
    */
   public final Counter zkNewSessions;
 
   /**
-   * Denotes the number of zookeeper sync connected event.
+   * Number of zookeeper sync connected events.
    */
   public final Counter zkSyncConnected;
 
