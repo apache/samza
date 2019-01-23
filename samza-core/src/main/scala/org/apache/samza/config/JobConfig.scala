@@ -112,7 +112,7 @@ object JobConfig {
 
   // Enables standby tasks
   val STANDBY_TASKS_ENABLED = "job.standbytasks.enabled"
-  val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replicationfactor"
+  val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replication.factor"
   val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 2
 
   // Specify DiagnosticAppender class

@@ -22,6 +22,7 @@ package org.apache.samza.sql.client.interfaces;
 
 import java.io.File;
 import java.util.List;
+import org.apache.samza.sql.schema.SqlSchema;
 
 
 /**

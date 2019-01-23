@@ -20,10 +20,10 @@
 package org.apache.samza.sql.avro;
 
 import org.apache.avro.Schema;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.system.SystemStream;
 
 
@@ -48,7 +48,7 @@ public class ConfigBasedAvroRelSchemaProviderFactory implements RelSchemaProvide
       this.config = config;
     }
 
-    public RelDataType getRelationalSchema() {
+    public SqlSchema getSqlSchema() {
       String schemaStr = getSchema(systemStream);
       Schema schema = Schema.parse(schemaStr);
       AvroTypeFactoryImpl avroTypeFactory = new AvroTypeFactoryImpl();

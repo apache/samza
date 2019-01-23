@@ -57,6 +57,8 @@ import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.schema.SqlSchema;
+import org.apache.samza.sql.planner.RelSchemaConverter;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
@@ -92,6 +94,7 @@ public class TestAvroRelConversion {
     put("key3", "val3");
   }};
   private List<String> arrayValue = Arrays.asList("val1", "val2", "val3");
+  RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
 
   public TestAvroRelConversion() {
     Map<String, String> props = new HashMap<>();
@@ -124,7 +127,8 @@ public class TestAvroRelConversion {
   public void testSimpleSchemaConversion() {
     String streamName = "stream";
 
-    RelDataType dataType = simpleRecordSchemaProvider.getRelationalSchema();
+    SqlSchema sqlSchema = simpleRecordSchemaProvider.getSqlSchema();
+    RelDataType dataType = relSchemaConverter.convertToRelSchema(sqlSchema);
     junit.framework.Assert.assertTrue(dataType instanceof RelRecordType);
     RelRecordType recordType = (RelRecordType) dataType;
 
@@ -139,14 +143,14 @@ public class TestAvroRelConversion {
 
   @Test
   public void testComplexSchemaConversion() {
-    RelDataType relSchema = complexRecordSchemaProvider.getRelationalSchema();
+    RelDataType relSchema = relSchemaConverter.convertToRelSchema(complexRecordSchemaProvider.getSqlSchema());
 
     LOG.info("Relational schema " + relSchema);
   }
 
   @Test
   public void testNestedSchemaConversion() {
-    RelDataType relSchema = nestedRecordSchemaProvider.getRelationalSchema();
+    RelDataType relSchema = relSchemaConverter.convertToRelSchema(nestedRecordSchemaProvider.getSqlSchema());
 
     LOG.info("Relational schema " + relSchema);
   }

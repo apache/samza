@@ -20,13 +20,13 @@
 package org.apache.samza.sql.client.impl;
 
 import org.apache.avro.Schema;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.avro.AvroTypeFactoryImpl;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.system.SystemStream;
 
 import java.io.File;
@@ -54,7 +54,7 @@ public class FileSystemAvroRelSchemaProviderFactory implements RelSchemaProvider
     }
 
     @Override
-    public RelDataType getRelationalSchema() {
+    public SqlSchema getSqlSchema() {
       String schemaStr = this.getSchema(this.systemStream);
       Schema schema = Schema.parse(schemaStr);
       AvroTypeFactoryImpl avroTypeFactory = new AvroTypeFactoryImpl();

@@ -22,6 +22,7 @@ package org.apache.samza.sql.client.cli;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -711,13 +712,14 @@ class CliShell {
     int seperatorPos = HEADER_FIELD.length() + 2;
     int minRowNeeded = Integer.MAX_VALUE;
     int longestLineCharNum = 0;
-    int rowCount = schema.getFieldCount();
+    int rowCount = schema.getFields().size();
     for (int j = seperatorPos; j < terminalWidth - HEADER_TYPE.length() - 2; ++j) {
       boolean fieldWrapped = false;
       int rowNeeded = 0;
       for (int i = 0; i < rowCount; ++i) {
-        int fieldLen = schema.getFieldName(i).length();
-        int typeLen = schema.getFieldTypeName(i).length();
+        SqlSchema.SqlField field = schema.getFields().get(i);
+        int fieldLen = field.getFieldName().length();
+        int typeLen = field.getFieldSchema().getFieldType().toString().length();
         int fieldRowNeeded = CliUtil.ceilingDiv(fieldLen, j - 2);
         int typeRowNeeded = CliUtil.ceilingDiv(typeLen, terminalWidth - 1 - j - 2);
 
@@ -759,8 +761,9 @@ class CliShell {
     final int fieldColSize = seperatorPos - 2;
     final int typeColSize = terminalWidth - seperatorPos - 1 - 2;
     for (int i = 0; i < rowCount; ++i) {
-      String field = schema.getFieldName(i);
-      String type = schema.getFieldTypeName(i);
+      SqlSchema.SqlField sqlField = schema.getFields().get(i);
+      String field = sqlField.getFieldName();
+      String type = sqlField.getFieldSchema().getFieldType().toString();
       int fieldLen = field.length();
       int typeLen = type.length();
       int fieldStartIdx = 0, typeStartIdx = 0;
