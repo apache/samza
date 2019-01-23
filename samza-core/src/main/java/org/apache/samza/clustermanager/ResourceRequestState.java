@@ -18,6 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,9 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 
 /**
  * {@link ResourceRequestState} maintains the state variables for all the resource requests and the allocated resources returned
@@ -130,8 +130,11 @@ public class ResourceRequestState {
         AtomicInteger requestCount = requestsToCountMap.get(hostName);
         // Check if this host was requested for any of the resources
         if (requestCount == null || requestCount.get() == 0) {
-          log.info(" This host was not requested. {} saving the samzaResource {} in the buffer for ANY_HOST", hostName,
-              samzaResource.getResourceID());
+          log.info(
+              " This host was not requested. {} saving the samzaResource {} in the buffer for ANY_HOST",
+              hostName,
+              samzaResource.getResourceID()
+          );
           addToAllocatedResourceList(ANY_HOST, samzaResource);
         } else {
           // This host was indeed requested.
@@ -140,8 +143,7 @@ public class ResourceRequestState {
           if (requestCountOnThisHost > 0) {
             //there are pending requests for resources on this host.
             if (allocatedResourcesOnThisHost == null || allocatedResourcesOnThisHost.size() < requestCountOnThisHost) {
-              log.info("Got matched samzaResource {} in the buffer for preferredHost: {}",
-                  samzaResource.getResourceID(), hostName);
+              log.info("Got matched samzaResource {} in the buffer for preferredHost: {}", samzaResource.getResourceID(), hostName);
               addToAllocatedResourceList(hostName, samzaResource);
             } else {
               /**
@@ -149,16 +151,15 @@ public class ResourceRequestState {
                * requestCount != 0, it will be greater than the total request count for that host. Hence, it should be
                * assigned to ANY_HOST
                */
-              log.info("The number of containers already allocated on {} is greater than what was "
-                      + "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
+              log.info("The number of containers already allocated on {} is greater than what was " +
+                      "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
                   new Object[]{hostName, requestCountOnThisHost, samzaResource.getResourceID()});
               addToAllocatedResourceList(ANY_HOST, samzaResource);
             }
           }
         }
       } else {
-        log.info("Host affinity not enabled. Saving the samzaResource {} in the buffer for ANY_HOST",
-            samzaResource.getResourceID());
+        log.info("Host affinity not enabled. Saving the samzaResource {} in the buffer for ANY_HOST", samzaResource.getResourceID());
         addToAllocatedResourceList(ANY_HOST, samzaResource);
       }
     }
@@ -185,8 +186,7 @@ public class ResourceRequestState {
    * @param assignedHost  Host to which the samzaResource was assigned
    * @param samzaResource Allocated samzaResource resource that was used to satisfy this request
    */
-  public void updateStateAfterAssignment(SamzaResourceRequest request, String assignedHost,
-      SamzaResource samzaResource) {
+  public void updateStateAfterAssignment(SamzaResourceRequest request, String assignedHost, SamzaResource samzaResource) {
     synchronized (lock) {
       requestsQueue.remove(request);
       // A reference for the resource could either be held in the preferred host buffer or in the ANY_HOST buffer.
@@ -251,10 +251,11 @@ public class ResourceRequestState {
     }
   }
 
+
   /**
    * Releases all allocated resources for the specified host.
    * @param host  the host for which the resources should be released.
-   * @return the number of resources released.
+   * @return      the number of resources released.
    */
   private int releaseResourcesForHost(String host) {
     int numReleasedResources = 0;
@@ -268,6 +269,7 @@ public class ResourceRequestState {
     }
     return numReleasedResources;
   }
+
 
   /**
    * Clears all the state variables
@@ -285,7 +287,7 @@ public class ResourceRequestState {
    */
   private List<String> getAllocatedHosts() {
     List<String> hostKeys = new ArrayList<String>();
-    for (Map.Entry<String, List<SamzaResource>> entry : allocatedResources.entrySet()) {
+    for (Map.Entry<String, List<SamzaResource>> entry: allocatedResources.entrySet()) {
       if (entry.getValue().size() > 0) {
         hostKeys.add(entry.getKey());
       }
@@ -307,14 +309,14 @@ public class ResourceRequestState {
       // First search for the preferred host buffers
       if (resourcesOnPreferredHostBuffer != null && !resourcesOnPreferredHostBuffer.isEmpty()) {
         SamzaResource resource = resourcesOnPreferredHostBuffer.get(0);
-        log.info("Returning a buffered resource: {} for {} from preferred-host buffer.", resource.getResourceID(),
-            host);
+        log.info("Returning a buffered resource: {} for {} from preferred-host buffer.", resource.getResourceID(), host);
         return resource;
       } else if (resourcesOnAnyHostBuffer != null && !resourcesOnAnyHostBuffer.isEmpty()) {
         // If preferred host buffers are empty, scan the ANY_HOST buffer
         log.debug("No resources on preferred-host buffer. Scanning ANY_HOST buffer");
-        SamzaResource resource =
-            resourcesOnAnyHostBuffer.stream().filter(resrc -> resrc.getHost().equals(host)).findAny().orElse(null);
+        SamzaResource resource = resourcesOnAnyHostBuffer.stream()
+            .filter(resrc -> resrc.getHost().equals(host))
+            .findAny().orElse(null);
         if (resource != null) {
           log.info("Returning a buffered resource: {} for {} from ANY_HOST buffer.", resource.getResourceID(), host);
         }
@@ -329,7 +331,7 @@ public class ResourceRequestState {
   /**
    * Retrieves, but does not remove, the next pending request in the queue.
    *
-   * @return the pending request or {@code null} if there is no pending request.
+   * @return  the pending request or {@code null} if there is no pending request.
    */
   public SamzaResourceRequest peekPendingRequest() {
     synchronized (lock) {
@@ -347,6 +349,7 @@ public class ResourceRequestState {
     }
   }
 
+
   /**
    * Returns the list of resources allocated on a given host. If no resources were ever allocated on
    * the given host, it returns null. This method makes a defensive shallow copy. A shallow copy is
@@ -358,9 +361,8 @@ public class ResourceRequestState {
   public List<SamzaResource> getResourcesOnAHost(String host) {
     synchronized (lock) {
       List<SamzaResource> samzaResourceList = allocatedResources.get(host);
-      if (samzaResourceList == null) {
+      if (samzaResourceList == null)
         return null;
-      }
 
       return new ArrayList<SamzaResource>(samzaResourceList);
     }
@@ -370,4 +372,6 @@ public class ResourceRequestState {
   Map<String, AtomicInteger> getRequestsToCountMap() {
     return Collections.unmodifiableMap(requestsToCountMap);
   }
+
+
 }
