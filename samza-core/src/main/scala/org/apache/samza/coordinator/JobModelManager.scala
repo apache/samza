@@ -74,7 +74,6 @@ object JobModelManager extends Logging {
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager)
 
       val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      // setting the localityManager explicitly
       jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
 
       updateTaskAssignments(jobModel, taskAssignmentManager, grouperMetadata)
