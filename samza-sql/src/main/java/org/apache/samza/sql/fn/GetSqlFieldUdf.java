@@ -24,6 +24,8 @@ import java.util.Map;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.apache.samza.sql.udfs.SamzaSqlUdf;
+import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
@@ -49,12 +51,13 @@ import org.apache.samza.sql.udfs.ScalarUdf;
  *           - sessionKey (Scalar)
  *
  */
-public class GetSqlFieldUdf implements ScalarUdf<String> {
+@SamzaSqlUdf(name = "GetSqlField")
+public class GetSqlFieldUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {
   }
 
-  @Override
+  @SamzaSqlUdfMethod
   public String execute(Object... args) {
     Object currentFieldOrValue = args[0];
     Validate.isTrue(currentFieldOrValue == null

@@ -24,6 +24,8 @@ import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.apache.samza.sql.udfs.SamzaSqlUdf;
+import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
@@ -58,12 +60,14 @@ import org.apache.samza.sql.udfs.ScalarUdf;
  *
  * If no args is provided, it returns an empty SamzaSqlRelRecord (with empty field names and values list).
  */
-public class BuildOutputRecordUdf implements ScalarUdf<SamzaSqlRelRecord> {
+
+@SamzaSqlUdf(name="BuildOutputRecord")
+public class BuildOutputRecordUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {
   }
 
-  @Override
+  @SamzaSqlUdfMethod
   public SamzaSqlRelRecord execute(Object... args) {
     int numOfArgs = args.length;
     Validate.isTrue(numOfArgs % 2 == 0, "numOfArgs should be an even number");

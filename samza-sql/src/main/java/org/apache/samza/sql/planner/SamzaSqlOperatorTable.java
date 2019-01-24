@@ -23,6 +23,7 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBinaryOperator;
 import org.apache.calcite.sql.SqlFunction;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlPostfixOperator;
 import org.apache.calcite.sql.SqlPrefixOperator;
 import org.apache.calcite.sql.fun.SqlDatePartFunction;
@@ -39,7 +40,6 @@ public class SamzaSqlOperatorTable extends ReflectiveSqlOperatorTable {
   public static final SqlAsOperator AS = SqlStdOperatorTable.AS;
   public static final SqlBinaryOperator CONCAT = SqlStdOperatorTable.CONCAT;
   public static final SqlBinaryOperator DIVIDE = SqlStdOperatorTable.DIVIDE;
-  public static final SqlBinaryOperator DOT = SqlStdOperatorTable.DOT;
   public static final SqlBinaryOperator EQUALS = SqlStdOperatorTable.EQUALS;
   public static final SqlBinaryOperator GREATER_THAN = SqlStdOperatorTable.GREATER_THAN;
   public static final SqlBinaryOperator GREATER_THAN_OR_EQUAL = SqlStdOperatorTable.GREATER_THAN_OR_EQUAL;
@@ -59,6 +59,9 @@ public class SamzaSqlOperatorTable extends ReflectiveSqlOperatorTable {
   public static final SqlPostfixOperator IS_TRUE = SqlStdOperatorTable.IS_TRUE;
   public static final SqlPostfixOperator IS_NOT_FALSE = SqlStdOperatorTable.IS_NOT_FALSE;
   public static final SqlPostfixOperator IS_FALSE = SqlStdOperatorTable.IS_FALSE;
+
+  public static final SqlOperator ITEM = SqlStdOperatorTable.ITEM;
+  public static final SqlOperator DOT = SqlStdOperatorTable.DOT;
 
   public static final SqlPrefixOperator NOT = SqlStdOperatorTable.NOT;
   public static final SqlPrefixOperator UNARY_MINUS = SqlStdOperatorTable.UNARY_MINUS;

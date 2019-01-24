@@ -318,6 +318,12 @@ project(":samza-elasticsearch_$scalaVersion") {
 project(":samza-sql_$scalaVersion") {
   apply plugin: 'java'
 
+  // Disabling assertions while running test because of a calcite bug in {@link RelOptUtil#eq} method
+  // it checks for the type1 != type2 rather than !type1.equals(type2)
+  tasks.withType(Test) {
+    enableAssertions = false
+  }
+
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kafka_$scalaVersion")
@@ -786,6 +792,12 @@ project(":samza-test_$scalaVersion") {
   // tasks.compileTestJava.enabled = false
   sourceSets.main.java.srcDirs = []
   sourceSets.test.java.srcDirs = []
+
+  // Disabling assertions while running test because of a calcite bug in {@link RelOptUtil#eq} method
+  // it checks for the type1 != type2 rather than !type1.equals(type2)
+  tasks.withType(Test) {
+    enableAssertions = false
+  }
 
   configurations {
     // Remove transitive dependencies from Zookeeper that we don't want.

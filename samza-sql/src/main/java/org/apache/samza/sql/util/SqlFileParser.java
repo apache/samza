@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
 import java.io.IOException;
 import java.nio.file.Files;

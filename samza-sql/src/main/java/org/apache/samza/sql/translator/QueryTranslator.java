@@ -61,7 +61,7 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.table.Table;

@@ -20,7 +20,6 @@
 package org.apache.samza.sql.translator;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +40,7 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.sql.testutil.TestMetricsRegistryImpl;
+import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
