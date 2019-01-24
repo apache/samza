@@ -119,7 +119,7 @@ public class StorageManagerUtil {
    * Check if a store's disk footprint exists.
    *
    * @param storeDir the base directory of the store
-   * @return true if the storeDirectory exists, false otherwise
+   * @return true if a non-empty storeDir exists, false otherwise
    */
   public static boolean storeExists(File storeDir) {
     return storeDir.exists() && storeDir.list().length > 0;
