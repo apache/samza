@@ -56,7 +56,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestLocalTableWithSideInputs extends AbstractIntegrationTestHarness {
+public class TestLocalTableWithSideInputsEndToEnd extends AbstractIntegrationTestHarness {
   private static final String PAGEVIEW_STREAM = "pageview";
   private static final String PROFILE_STREAM = "profile";
   private static final String ENRICHED_PAGEVIEW_STREAM = "enrichedpageview";
