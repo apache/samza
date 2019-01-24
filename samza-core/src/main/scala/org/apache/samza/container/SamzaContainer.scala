@@ -485,22 +485,14 @@ object SamzaContainer extends Logging {
     val singleThreadMode = config.getSingleThreadMode
     info("Got single thread mode: " + singleThreadMode)
 
-    val threadPoolSize = config.getThreadPoolSize
-    info("Got thread pool size: " + threadPoolSize)
-
-
-    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0) {
-      Executors.newFixedThreadPool(threadPoolSize,
-        new ThreadFactoryBuilder().setNameFormat("Samza Container Thread-%d").build())
-    } else {
-      null
-    }
-
+    val taskThreadPoolSize = config.getMaxConcurrency
+    info("Got task pool concurrency: " + taskThreadPoolSize)
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
       singleThreadMode,
-      taskThreadPool)
+      taskThreadPoolSize,
+      config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS))
 
     // Wire up all task-instance-level (unshared) objects.
     val taskNames = containerModel
@@ -677,10 +669,20 @@ object SamzaContainer extends Logging {
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
+    val threadPoolSize = config.getThreadPoolSize
+    info("Got thread pool size: " + threadPoolSize)
+
+    val containerThreadPool = if (!singleThreadMode && threadPoolSize > 0) {
+      Executors.newFixedThreadPool(threadPoolSize,
+        new ThreadFactoryBuilder().setNameFormat("Samza Container Thread-%d").build())
+    } else {
+      null
+    }
+
     val runLoop = RunLoopFactory.createRunLoop(
       taskInstances,
       consumerMultiplexer,
-      taskThreadPool,
+      containerThreadPool,
       maxThrottlingDelayMs,
       samzaContainerMetrics,
       config,
@@ -738,7 +740,6 @@ object SamzaContainer extends Logging {
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = memoryStatisticsMonitor,
-      taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
@@ -775,7 +776,6 @@ class SamzaContainer(
   securityManager: SecurityManager = null,
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
-  taskThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
@@ -1122,18 +1122,6 @@ class SamzaContainer(
 
   def shutdownTask {
     info("Shutting down task instance stream tasks.")
-
-    if (taskThreadPool != null) {
-      info("Shutting down task thread pool")
-      try {
-        taskThreadPool.shutdown()
-        if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
-          taskThreadPool.shutdownNow()
-        }
-      } catch {
-        case e: Exception => error(e.getMessage, e)
-      }
-    }
 
     if (timerExecutor != null) {
       info("Shutting down timer executor")

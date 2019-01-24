@@ -20,6 +20,7 @@
 package org.apache.samza.task;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
@@ -33,10 +34,12 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask, EndOfStreamListenerTask {
   private final StreamTask wrappedTask;
   private final ExecutorService executor;
+  private final long shutdownMs;
 
-  public AsyncStreamTaskAdapter(StreamTask task, ExecutorService executor) {
+  public AsyncStreamTaskAdapter(StreamTask task, ExecutorService executor, long shutdownMs) {
     this.wrappedTask = task;
     this.executor = executor;
+    this.shutdownMs = shutdownMs;
   }
 
   @Override
@@ -52,12 +55,7 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
       final TaskCoordinator coordinator,
       final TaskCallback callback) {
     if (executor != null) {
-      executor.submit(new Runnable() {
-        @Override
-        public void run() {
-          process(envelope, collector, coordinator, callback);
-        }
-      });
+      executor.submit(() -> process(envelope, collector, coordinator, callback));
     } else {
       // legacy mode: running all tasks in the runloop thread
       process(envelope, collector, coordinator, callback);
@@ -87,6 +85,13 @@ public class AsyncStreamTaskAdapter implements AsyncStreamTask, InitableTask, Wi
   public void close() throws Exception {
     if (wrappedTask instanceof ClosableTask) {
       ((ClosableTask) wrappedTask).close();
+    }
+
+    if (executor != null) {
+      executor.shutdown();
+      if (executor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        executor.shutdownNow();
+      }
     }
   }
 

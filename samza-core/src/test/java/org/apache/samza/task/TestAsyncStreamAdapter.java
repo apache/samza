@@ -91,7 +91,7 @@ public class TestAsyncStreamAdapter {
 
   @Test
   public void testAdapterWithoutThreadPool() throws Exception {
-    taskAdaptor = new AsyncStreamTaskAdapter(task, null);
+    taskAdaptor = new AsyncStreamTaskAdapter(task, null, 0);
     TestCallbackListener listener = new TestCallbackListener();
     TaskCallback callback = new TaskCallbackImpl(listener, null, envelope, null, 0L, 0L);
 
@@ -122,7 +122,7 @@ public class TestAsyncStreamAdapter {
     TaskCallback callback2 = new TaskCallbackImpl(listener2, null, envelope, null, 1L, 0L);
 
     ExecutorService executor = Executors.newFixedThreadPool(2);
-    taskAdaptor = new AsyncStreamTaskAdapter(task, executor);
+    taskAdaptor = new AsyncStreamTaskAdapter(task, executor, 1);
     taskAdaptor.processAsync(null, null, null, callback1);
     taskAdaptor.processAsync(null, null, null, callback2);
 

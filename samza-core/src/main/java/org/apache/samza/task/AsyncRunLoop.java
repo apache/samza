@@ -177,7 +177,14 @@ public class AsyncRunLoop implements Runnable, Throttleable {
     } finally {
       workerTimer.shutdown();
       callbackExecutor.shutdown();
-      if (callbackTimer != null) callbackTimer.shutdown();
+
+      if (threadPool != null) {
+        threadPool.shutdown();
+      }
+
+      if (callbackTimer != null) {
+        callbackTimer.shutdown();
+      }
     }
   }
 

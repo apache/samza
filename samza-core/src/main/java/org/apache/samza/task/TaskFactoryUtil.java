@@ -19,6 +19,9 @@
 package org.apache.samza.task;
 
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
@@ -28,8 +31,6 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.ExecutorService;
 
 /**
  * This class provides utility functions to load task factory classes based on config, and to wrap {@link StreamTaskFactory}
@@ -101,10 +102,10 @@ public class TaskFactoryUtil {
    *
    * @param factory  the task factory instance loaded according to the task class
    * @param singleThreadMode  the flag indicating whether the job is running in single thread mode or not
-   * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
+   * @param taskThreadPoolSize  the thread pool size to run the {@link AsyncStreamTaskAdapter} tasks
    * @return  the finalized task factory object
    */
-  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
+  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, int taskThreadPoolSize, long taskShutdownMs) {
 
     validateFactory(factory);
 
@@ -119,7 +120,18 @@ public class TaskFactoryUtil {
 
     if (!singleThreadMode && !isAsyncTaskClass) {
       log.info("Converting StreamTask to AsyncStreamTaskAdapter when running StreamTask with multiple threads");
-      return (AsyncStreamTaskFactory) () -> new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
+      return (AsyncStreamTaskFactory) () -> {
+        ExecutorService taskThreadPool;
+
+        if (taskThreadPoolSize > 0) {
+          taskThreadPool = Executors.newFixedThreadPool(
+              taskThreadPoolSize, new ThreadFactoryBuilder().setNameFormat("Samza Task Thread-%d").build());
+        } else {
+          taskThreadPool = null;
+        }
+
+        return new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool, taskShutdownMs);
+      };
     }
 
     return factory;

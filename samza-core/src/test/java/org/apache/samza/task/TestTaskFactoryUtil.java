@@ -18,8 +18,6 @@
  */
 package org.apache.samza.task;
 
-import java.lang.reflect.Field;
-import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
@@ -73,34 +71,24 @@ public class TestTaskFactoryUtil {
   public void testFinalizeTaskFactory() throws NoSuchFieldException, IllegalAccessException {
     TaskFactory mockFactory = mock(TaskFactory.class);
     try {
-      TaskFactoryUtil.finalizeTaskFactory(mockFactory, true, null);
+      TaskFactoryUtil.finalizeTaskFactory(mockFactory, true, 0, 0);
       fail("Should have failed with validation");
     } catch (SamzaException se) {
       // expected
     }
     StreamTaskFactory mockStreamFactory = mock(StreamTaskFactory.class);
-    Object retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, true, null);
+    Object retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, true, 0, 0);
     assertEquals(retFactory, mockStreamFactory);
-
-    ExecutorService mockThreadPool = mock(ExecutorService.class);
-    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, false, mockThreadPool);
-    assertTrue(retFactory instanceof AsyncStreamTaskFactory);
-    assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof AsyncStreamTaskAdapter);
-    AsyncStreamTaskAdapter taskAdapter = (AsyncStreamTaskAdapter) ((AsyncStreamTaskFactory) retFactory).createInstance();
-    Field executorSrvFld = AsyncStreamTaskAdapter.class.getDeclaredField("executor");
-    executorSrvFld.setAccessible(true);
-    ExecutorService executor = (ExecutorService) executorSrvFld.get(taskAdapter);
-    assertEquals(executor, mockThreadPool);
 
     AsyncStreamTaskFactory mockAsyncStreamFactory = mock(AsyncStreamTaskFactory.class);
     try {
-      TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, true, null);
+      TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, true, 0, 0);
       fail("Should have failed");
     } catch (SamzaException se) {
       // expected
     }
 
-    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, false, null);
+    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, false, 0, 0);
     assertEquals(retFactory, mockAsyncStreamFactory);
   }
 

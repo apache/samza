@@ -115,18 +115,19 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String testSystem = "test-system";
     final String inputTopic = "numbers3";
     final String outputTopic = "output3";
+    final long taskShutdownMs = 100000;
     final int messageCount = 20;
 
     final Config configs = new MapConfig(createConfigs("1", testSystem, inputTopic, outputTopic, messageCount));
     final ExecutorService executorService = Executors.newSingleThreadExecutor();
     createTopics(inputTopic, outputTopic);
-    final AsyncStreamTaskFactory stf = () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService);
+    final AsyncStreamTaskFactory stf =
+        () -> new AsyncStreamTaskAdapter(new IdentityStreamTask(), executorService, taskShutdownMs);
     final TestStubs stubs = new TestStubs(configs, stf, bootstrapServers());
 
     produceMessages(stubs.producer, inputTopic, messageCount);
     run(stubs.processor, stubs.shutdownLatch);
     verifyNumMessages(stubs.consumer, outputTopic, messageCount);
-    executorService.shutdownNow();
   }
 
   /**
