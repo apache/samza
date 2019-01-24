@@ -81,7 +81,7 @@ object JobModelManager extends Logging {
       val server = new HttpServer
       server.addServlet("/", new JobServlet(jobModelRef))
 
-      currentJobModelManager = new JobModelManager(jobModel, server, localityManager)
+      currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
       currentJobModelManager
     } finally {
       taskAssignmentManager.close()
