@@ -109,7 +109,7 @@ public class RocksDbOptionsHelper {
 
     // use prepareForBulk load only when i. the store is being requested in BulkLoad mode
     // and ii. the storeDirectory does not exist (fresh restore), because bulk load does not work seamlessly with
-    // bulk-load : https://github.com/facebook/rocksdb/issues/2734
+    // existing stores : https://github.com/facebook/rocksdb/issues/2734
     if(storeMode.equals(StorageEngineFactory.StoreMode.BulkLoad) && !StorageManagerUtil.storeExists(storeDir)) {
       log.info("Using prepareForBulkLoad for restore to " + storeDir);
       options.prepareForBulkLoad();
