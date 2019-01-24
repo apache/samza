@@ -31,7 +31,6 @@ import org.apache.samza.config.*;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.StringSerdeFactory;
-import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.RandomAccessQueue;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
@@ -49,7 +48,7 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.schema.SqlFieldSchema;
 import org.apache.samza.sql.schema.SqlSchema;
-import org.apache.samza.sql.testutil.JsonUtil;
+import org.apache.samza.sql.util.JsonUtil;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.kafka.KafkaSystemFactory;
@@ -126,8 +125,9 @@ public class SamzaExecutor implements SqlExecutor {
         .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
         .collect(Collectors.toList());
     } catch (ZkTimeoutException ex) {
-      lastErrorMsg = ex.toString();
-      LOG.error(lastErrorMsg);
+      String msg = "listTables failed with exception ";
+      lastErrorMsg = msg + ex.toString();
+      LOG.error(msg, ex);
     }
     return tables;
   }
@@ -151,8 +151,9 @@ public class SamzaExecutor implements SqlExecutor {
                       (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
       sqlSchema =  schemaProvider.getSqlSchema();
     } catch (SamzaException ex) {
-      lastErrorMsg = ex.toString();
-      LOG.error(lastErrorMsg);
+      String msg = "getTableSchema failed with exception ";
+      lastErrorMsg = msg + ex.toString();
+      LOG.error(msg, ex);
     }
     return sqlSchema;
   }
@@ -172,8 +173,9 @@ public class SamzaExecutor implements SqlExecutor {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
       runner.run(null);
     } catch (SamzaException ex) {
-      lastErrorMsg = ex.toString();
-      LOG.error(lastErrorMsg);
+      String msg = "Execution failed with exception ";
+      lastErrorMsg = msg + ex.toString();
+      LOG.error(msg, ex);
       return new QueryResult(execId, null, false);
     }
     executions.put(execId, runner);
@@ -214,8 +216,9 @@ public class SamzaExecutor implements SqlExecutor {
     try {
       executedStmts = Files.lines(Paths.get(sqlFile.getPath())).collect(Collectors.toList());
     } catch (IOException e) {
-      lastErrorMsg = String.format("Unable to parse the sql file %s. %s", sqlFile.getPath(), e.toString());
-      LOG.error(lastErrorMsg);
+      String msg = "Unable to parse the sql file " + sqlFile.getAbsolutePath();
+      lastErrorMsg = msg + e.toString();
+      LOG.error(msg, e);
       return new NonQueryResult(-1, false);
     }
     LOG.info("Sql statements in Sql file: " + executedStmts.toString());
@@ -245,8 +248,9 @@ public class SamzaExecutor implements SqlExecutor {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
       runner.run(null);
     } catch (SamzaException ex) {
-      lastErrorMsg = ex.toString();
-      LOG.error(lastErrorMsg);
+      String msg = "Execution of the query failed with exception ";
+      lastErrorMsg = msg + ex.toString();
+      LOG.error(msg, ex);
       return new NonQueryResult(execId, false);
     }
     executions.put(execId, runner);
@@ -265,9 +269,10 @@ public class SamzaExecutor implements SqlExecutor {
 
       try {
         runner.kill();
-      } catch (SamzaException ex) {
-        lastErrorMsg = ex.toString();
-        LOG.debug(lastErrorMsg);
+        } catch (SamzaException ex) {
+        String msg = "Stopping execution failed with exception ";
+        lastErrorMsg = msg + ex.toString();
+        LOG.warn(msg, ex);
         return false;
       }
 
@@ -489,15 +494,18 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   private String getPrettyFormat(OutgoingMessageEnvelope envelope) {
+    lastErrorMsg = "";
     String value = new String((byte[]) envelope.getMessage());
     ObjectMapper mapper = new ObjectMapper();
     String formattedValue;
     try {
       Object json = mapper.readValue(value, Object.class);
       formattedValue = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
-    } catch (IOException e) {
+    } catch (IOException ex) {
       formattedValue = value;
-      LOG.error("Error while formatting json", e);
+      String msg = "getPrettyFormat failed with exception while formatting json ";
+      lastErrorMsg = msg + ex.toString();
+      LOG.error(msg, ex);
     }
     return formattedValue;
   }

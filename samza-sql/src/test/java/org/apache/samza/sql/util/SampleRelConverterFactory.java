@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;

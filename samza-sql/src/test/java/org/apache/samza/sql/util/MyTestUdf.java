@@ -17,26 +17,33 @@
  * under the License.
  */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-@SamzaSqlUdf(name = "MyTestArray")
-public class MyTestArrayUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
-  }
+/**
+ * Test UDF used by unit and integration tests.
+ */
+@SamzaSqlUdf(name = "MyTest")
+public class MyTestUdf implements ScalarUdf {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
 
   @SamzaSqlUdfMethod
-  public List<String> execute(Object... args) {
-    Integer value = (Integer) args[0];
-    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
+  public Integer execute(Object... value) {
+    return ((Integer) value[0]) * 2;
+  }
+
+  @Override
+  public void init(Config udfConfig) {
+    LOG.info("Init called with {}", udfConfig);
   }
 }
+
+
