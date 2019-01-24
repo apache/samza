@@ -151,20 +151,22 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
           preferredHost, samzaResource.getHost());
       runStreamProcessor(request, preferredHost);
+      state.successfulStandbyAllocations.incrementAndGet();
       return true;
     } else {
       // This resource cannot be used to launch this container, so we make a ANY_HOST request for another container
-      log.info("Running container {} on host {} does not meet standby constraints, cancelling resource request and making a new ANY_HOST request",
+      log.info("Running container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource, and making a new ANY_HOST request",
           containerID, samzaResource.getHost());
       resourceRequestState.cancelResourceRequest(request);
       resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
       requestResource(containerID, ResourceRequestState.ANY_HOST);
+      state.failedStandbyAllocations.incrementAndGet();
       return false;
     }
   }
 
   // Helper method to check if this SamzaResourceRequest for a container can be met on this resource, given standby
-  // container constraints
+  // container constraints, and the current set of pending and running containers
   private boolean checkStandbyConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
       SamzaApplicationState samzaApplicationState) {
 

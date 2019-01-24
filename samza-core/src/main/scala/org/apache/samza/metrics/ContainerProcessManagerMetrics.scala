@@ -69,6 +69,9 @@ class ContainerProcessManagerMetrics(
           }
       })
 
+     val mFailedStandbyAllocations = newGauge("failed-standby-allocations", () => state.failedStandbyAllocations.get())
+     val mSuccessfulStandbyAllocations = newGauge("successful-standby-allocations", () => state.successfulStandbyAllocations.get())
+
     jvm.start
     reporters.values.foreach(_.start)
   }

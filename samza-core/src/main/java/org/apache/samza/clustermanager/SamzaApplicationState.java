@@ -141,6 +141,17 @@ public class SamzaApplicationState {
    */
   public final AtomicInteger redundantNotifications = new AtomicInteger(0);
 
+  /**
+   * Number of container allocations that proceeded because they met standby container constraints.
+   */
+  public final AtomicInteger successfulStandbyAllocations = new AtomicInteger(0);
+
+  /**
+   * Number of container allocations that were dis-allowed because they
+   * did not meet standby container constraints.
+   */
+  public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
+
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
   }
