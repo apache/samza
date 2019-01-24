@@ -238,15 +238,19 @@ public class ResourceRequestState {
    *
    * @param resource the {@link SamzaResource} to release.
    */
-  public void releaseUnstartableContainer(SamzaResource resource) {
+  public void releaseUnstartableContainer(SamzaResource resource, String preferredHost) {
     synchronized (lock) {
-      log.info("Releasing unstartable container {}", resource.getResourceID());
+      log.info("Releasing unstartable container {} on host {}", resource.getResourceID(), resource.getHost());
       manager.releaseResources(resource);
 
-      if (allocatedResources.containsKey(resource.getHost())) {
-        allocatedResources.get(resource.getHost()).remove(resource);
-      } else {
+      // A reference for the resource could either be held in the preferred host buffer or in the ANY_HOST buffer.
+      if (allocatedResources.get(preferredHost) != null) {
+        allocatedResources.get(preferredHost).remove(resource);
+        log.info("Resource {} removed from allocated resource buffer for host {}", resource.getResourceID(), preferredHost);
+      }
+      if (allocatedResources.get(ANY_HOST) != null) {
         allocatedResources.get(ANY_HOST).remove(resource);
+        log.info("Resource {} removed from allocated resource buffer for host {}", resource.getResourceID(), ANY_HOST);
       }
     }
   }

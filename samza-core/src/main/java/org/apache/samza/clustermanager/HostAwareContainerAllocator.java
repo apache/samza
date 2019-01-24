@@ -18,17 +18,12 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.job.model.TaskMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,10 +53,22 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private final int requestTimeout;
 
+  // Map of activeContainerIDs to its corresponding standby containers, and standbyContainerIDs to its corresponding
+  // active container and other corresponding standbyContainers
+  private final Map<String, List<String>> standbyContainerConstraints = new HashMap<>();
+
   public HostAwareContainerAllocator(ClusterResourceManager manager ,
       int timeout, Config config, SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
+
+    // if standbys are enabled, populate the standbyContainerConstraints map
+    if (!new JobConfig(config).getStandbyTasksEnabled()) {
+      JobModel jobModel = state.jobModelManager.jobModel();
+      jobModel.getContainers().keySet().forEach(containerId -> standbyContainerConstraints.put(containerId,
+          StandbyTaskUtil.getStandbyContainerConstraints(containerId, jobModel)));
+      LOG.info("Populated standbyContainerConstraints map {}", standbyContainerConstraints);
+    }
   }
 
   /**
@@ -139,7 +146,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       SamzaResource samzaResource, SamzaApplicationState state) {
     String containerID = request.getContainerID();
 
-    if (checkStandbyTaskConstraints(request, samzaResource, state)) {
+    if (checkStandbyConstraints(request, samzaResource, state)) {
       // This resource can be used to launch this container
       log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
           preferredHost, samzaResource.getHost());
@@ -147,11 +154,10 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       return true;
     } else {
       // This resource cannot be used to launch this container, so we make a ANY_HOST request for another container
-      log.info(
-          "Running container {} on host {} does not meet standby constraints, cancelling resource request and making a new ANY_HOST request",
+      log.info("Running container {} on host {} does not meet standby constraints, cancelling resource request and making a new ANY_HOST request",
           containerID, samzaResource.getHost());
       resourceRequestState.cancelResourceRequest(request);
-      resourceRequestState.releaseUnstartableContainer(samzaResource);
+      resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
       requestResource(containerID, ResourceRequestState.ANY_HOST);
       return false;
     }
@@ -159,37 +165,34 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
   // Helper method to check if this SamzaResourceRequest for a container can be met on this resource, given standby
   // container constraints
-  private boolean checkStandbyTaskConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
+  private boolean checkStandbyConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
       SamzaApplicationState samzaApplicationState) {
 
-    // if standby tasks are not enabled return true
+    // If standby tasks are not enabled return true
     if (!new JobConfig(config).getStandbyTasksEnabled()) {
       return true;
     }
 
-    String containerIDForStart = request.getContainerID();
+    String containerIDToStart = request.getContainerID();
     String host = samzaResource.getHost();
+    List<String> containerIDsForStandbyConstraints = this.standbyContainerConstraints.get(containerIDToStart);
 
-    List<String> containerIDsForStandbyConstraints =
-        getContainerIDsToCheckStandbyConstraints(containerIDForStart, samzaApplicationState.jobModelManager.jobModel());
-    // TODO: Compute and cache this list for each container on startup
-
-    LOG.info("Container {} has standby task constraints with containers {}", containerIDForStart,
-        containerIDsForStandbyConstraints);
-
-    // check if any of these conflicting containers are running/launching on host
+    // Check if any of these conflicting containers are running/launching on host
     for (String containerID : containerIDsForStandbyConstraints) {
-
       SamzaResource resource = samzaApplicationState.pendingContainers.get(containerID);
 
       // return false if a conflicting container is pending for launch on the host
       if (resource != null && resource.getHost().equals(host)) {
+        log.info("Container {} cannot be started on host {} because container {} is already scheduled on this host",
+            containerIDToStart, samzaResource.getHost(), containerID);
         return false;
       }
 
       // return false if a conflicting container is running on the host
       resource = samzaApplicationState.runningContainers.get(containerID);
       if (resource != null && resource.getHost().equals(host)) {
+        log.info("Container {} cannot be started on host {} because container {} is already running on this host",
+            containerIDToStart, samzaResource.getHost(), containerID);
         return false;
       }
     }
@@ -197,57 +200,4 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     return true;
   }
 
-  /**
-   *  Given a containerID and job model, it returns the containerids of all containers that have
-   *  a. standby tasks corresponding to active tasks on the given container,
-   *  or
-   *  b. have active tasks corresponding to standby tasks on the given container.
-   *
-   *  This is used to ensure that an active task and all its corresponding standby tasks are on separate hosts.
-   */
-  public static List<String> getContainerIDsToCheckStandbyConstraints(String containerID, JobModel jobModel) {
-
-    ContainerModel givenContainerModel = jobModel.getContainers().get(containerID);
-    List<String> containerIDsWithStandbyConstraints = new ArrayList<>();
-
-    // iterate over all containerModels in the jobModel
-    for (ContainerModel containerModel : jobModel.getContainers().values()) {
-
-      // add to list if active and standby tasks on the two containerModels overlap
-      if (!givenContainerModel.equals(containerModel) && checkTasksOverlap(givenContainerModel, containerModel)) {
-        containerIDsWithStandbyConstraints.add(containerModel.getId());
-      }
-    }
-    return containerIDsWithStandbyConstraints;
-  }
-
-  // Helper method that checks if tasks on the two containerModels overlap
-  private static boolean checkTasksOverlap(ContainerModel containerModel1, ContainerModel containerModel2) {
-    Set<TaskName> activeTasksOnContainer1 = getCorrespondingActiveTask(containerModel1);
-    Set<TaskName> activeTasksOnContainer2 = getCorrespondingActiveTask(containerModel2);
-    return !Collections.disjoint(activeTasksOnContainer1, activeTasksOnContainer2);
-  }
-
-  private static Set<TaskName> getCorrespondingActiveTask(ContainerModel containerModel) {
-    Set<TaskName> tasksInActiveMode = getAllTasks(containerModel, TaskMode.Active);
-    tasksInActiveMode.addAll(getAllTasks(containerModel, TaskMode.Standby).stream()
-        .map(taskName -> getCorrespondingActiveTask(taskName))
-        .collect(Collectors.toSet()));
-    return tasksInActiveMode;
-  }
-
-  // Helper method to getAllTaskModels of this container in the given taskMode
-  private static Set<TaskName> getAllTasks(ContainerModel containerModel, TaskMode taskMode) {
-    return containerModel.getTasks()
-        .values()
-        .stream()
-        .filter(e -> e.getTaskMode().equals(taskMode))
-        .map(taskModel -> taskModel.getTaskName())
-        .collect(Collectors.toSet());
-  }
-
-  // TODO: convert into util method that relies on taskNames to get active task for a given standby task
-  private static TaskName getCorrespondingActiveTask(TaskName standbyTaskName) {
-    return new TaskName(standbyTaskName.getTaskName().split("-")[1]);
-  }
 }
