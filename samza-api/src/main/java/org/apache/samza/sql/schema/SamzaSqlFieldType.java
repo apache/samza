@@ -17,24 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.sql.fn;
+package org.apache.samza.sql.schema;
 
-import java.util.List;
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
-
-
-@SamzaSqlUdf(name = "Flatten")
-public class FlattenUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
-  }
-
-  @SamzaSqlUdfMethod
-  public Object execute(Object... arg) {
-    List value = (List) arg[0];
-    return value != null && !value.isEmpty() ? value.get(0) : value;
-  }
+/**
+ * Type of the Samza SQL field
+ */
+public enum SamzaSqlFieldType {
+  BYTE, // One-byte signed integer.
+  INT16, // two-byte signed integer.
+  INT32, // four-byte signed integer.
+  INT64, // eight-byte signed integer.
+  DECIMAL, // Decimal integer
+  FLOAT,
+  DOUBLE,
+  STRING, // String.
+  DATETIME, // Date and time.
+  BOOLEAN, // Boolean.
+  BYTES, // Byte array.
+  ARRAY,
+  MAP,
+  ROW, // The field is itself a nested row.
+  ANY
 }

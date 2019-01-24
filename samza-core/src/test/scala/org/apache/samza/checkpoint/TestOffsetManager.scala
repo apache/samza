@@ -20,6 +20,7 @@
 package org.apache.samza.checkpoint
 
 import java.util
+import java.util.function.BiConsumer
 
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config.MapConfig
@@ -31,7 +32,11 @@ import org.apache.samza.system._
 import org.apache.samza.util.NoOpMetricsRegistry
 import org.junit.Assert._
 import org.junit.Test
+import org.mockito.Matchers._
 import org.mockito.Mockito.{mock, when}
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
+import org.mockito.{Matchers, Mockito}
 import org.scalatest.Assertions.intercept
 
 import scala.collection.JavaConverters._
@@ -408,6 +413,73 @@ class TestOffsetManager {
     assertNotNull(startpointManager.readStartpoint(systemStreamPartition, taskName)) // Startpoint should only be deleted at first checkpoint
     assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartition))
     assertEquals("47", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
+  }
+
+  @Test
+  def testGetModifiedOffsets: Unit = {
+    val system1 = "system1"
+    val system2 = "system2"
+    val ssp1 = new SystemStreamPartition(system1, "stream", new Partition(1))
+    val ssp2 = new SystemStreamPartition(system1, "stream1", new Partition(1))
+    val ssp3 = new SystemStreamPartition(system1, "stream1", new Partition(2))
+    val ssp4 = new SystemStreamPartition(system1, "stream1", new Partition(3))
+    val ssp5 = new SystemStreamPartition(system2, "stream", new Partition(1))
+    val ssp6 = new SystemStreamPartition(system2, "stream1", new Partition(1))
+
+    val lastProcessedOffsets = Map(ssp1 -> "10", ssp2 -> "20", ssp3 -> "30", ssp4 -> "40", ssp5 -> "50", ssp6 -> "60")
+    // starting offsets are (lastProcessedOffset + 1) (i.e. checkpointed offset + 1) on startup
+    val taskStartingOffsets = Map(ssp1 -> "11", ssp2 -> "19", ssp3 -> null, ssp5 -> "51", ssp6 -> "59")
+
+    // test behavior without any checkpoint listeners
+    val offsetManager = new OffsetManager()
+    val regularOffsets = offsetManager.getModifiedOffsets(taskStartingOffsets, lastProcessedOffsets)
+    // since there are no checkpoint listeners, there should be no change in offsets.
+    assertEquals("10", regularOffsets.get(ssp1))
+    assertEquals("20", regularOffsets.get(ssp2))
+    assertEquals("30", regularOffsets.get(ssp3))
+    assertEquals("40", regularOffsets.get(ssp4))
+    assertEquals("50", regularOffsets.get(ssp5))
+    assertEquals("60", regularOffsets.get(ssp6))
+
+    // test behavior with a checkpoint listener for "system1" that increments all provided offsets by 5
+    val checkpointListener: CheckpointListener = new CheckpointListener {
+      override def beforeCheckpoint(offsets: util.Map[SystemStreamPartition, String]) = {
+        val results = new util.HashMap[SystemStreamPartition, String]()
+        offsets.forEach(new BiConsumer[SystemStreamPartition, String] {
+          override def accept(ssp: SystemStreamPartition, offset: String): Unit = {
+            results.put(ssp, (offset.toLong + 5).toString)
+          }
+        })
+        results
+      }
+    }
+    val checkpointListeners = Map(system1 -> checkpointListener)
+
+    val system1Admin = mock(classOf[SystemAdmin])
+    Mockito.when(system1Admin.offsetComparator(anyString(), anyString()))
+      .thenAnswer(new Answer[Integer] {
+          override def answer(invocation: InvocationOnMock): Integer = {
+            val offset1 = invocation.getArguments.apply(0).asInstanceOf[String]
+            val offset2 = invocation.getArguments.apply(1).asInstanceOf[String]
+            offset1.toLong.compareTo(offset2.toLong)
+          }
+        })
+
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin(Matchers.eq("system1"))).thenReturn(system1Admin)
+
+    val offsetManagerWithCheckpointListener =
+      new OffsetManager(checkpointListeners = checkpointListeners, systemAdmins = systemAdmins)
+    val modifiedOffsets = offsetManagerWithCheckpointListener.getModifiedOffsets(taskStartingOffsets, lastProcessedOffsets)
+    // since there is at least one ssp on system1 that has processed messages (ssp2),
+    // all ssps on system1 should get modified offsets (ssp1 to ssp4)
+    assertEquals("15", modifiedOffsets.get(ssp1))
+    assertEquals("25", modifiedOffsets.get(ssp2))
+    assertEquals("35", modifiedOffsets.get(ssp3))
+    assertEquals("45", modifiedOffsets.get(ssp4))
+    // no change for ssps on system2
+    assertEquals("50", modifiedOffsets.get(ssp5))
+    assertEquals("60", modifiedOffsets.get(ssp6))
   }
 
   // Utility method to create and write checkpoint in one statement

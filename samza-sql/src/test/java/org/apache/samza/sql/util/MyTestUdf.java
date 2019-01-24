@@ -17,36 +17,33 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.util;
 
-import org.apache.samza.sql.schema.SqlSchema;
+import org.apache.samza.config.Config;
+import org.apache.samza.sql.udfs.SamzaSqlUdf;
+import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
+import org.apache.samza.sql.udfs.ScalarUdf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
- * Execution result of a SELECT statement. It doesn't contain data though.
+ * Test UDF used by unit and integration tests.
  */
-public class QueryResult {
-  private int execId; // execution ID of the statement(s) submitted
-  private boolean success; // whether the statement(s) submitted successfully
-  private SqlSchema schema; // The schema of the data coming from the query
+@SamzaSqlUdf(name = "MyTest")
+public class MyTestUdf implements ScalarUdf {
 
-  public QueryResult(int execId, SqlSchema schema, Boolean success) {
-    if (success && schema == null)
-      throw new IllegalArgumentException();
-    this.execId = execId;
-    this.schema = schema;
-    this.success = success;
+  private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
+
+  @SamzaSqlUdfMethod
+  public Integer execute(Object... value) {
+    return ((Integer) value[0]) * 2;
   }
 
-  public int getExecutionId() {
-    return execId;
-  }
-
-  public SqlSchema getSchema() {
-    return schema;
-  }
-
-  public boolean succeeded() {
-    return success;
+  @Override
+  public void init(Config udfConfig) {
+    LOG.info("Init called with {}", udfConfig);
   }
 }
+
+

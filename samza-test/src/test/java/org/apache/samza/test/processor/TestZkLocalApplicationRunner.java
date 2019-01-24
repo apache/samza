@@ -25,6 +25,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -51,15 +52,20 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
@@ -191,6 +197,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
   private Map<String, String> buildStreamApplicationConfigMap(String systemName, String inputTopic,
       String appName, String appId) {
+    String coordinatorSystemName = "coordinatorSystem";
     Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder()
         .put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS)
         .put(TaskConfig.INPUT_STREAMS(), inputTopic)
@@ -211,10 +218,13 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
         .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
         .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
         .put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true")
+        .put("job.coordinator.system", coordinatorSystemName)
+        .put("job.coordinator.replication.factor", "1")
         .build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
 
     applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(systemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
+    applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(coordinatorSystemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
     return applicationConfig;
   }
 
@@ -700,6 +710,29 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Validate that the input partition count is 100 in the new JobModel.
     Assert.assertEquals(100, ssps.size());
+
+    // Validate that configuration is stored in coordinator stream.
+    MapConfig config = getConfigFromCoordinatorStream(applicationConfig1);
+
+    // Execution plan and serialized DAG of a samza job is stored in the config of coordinator stream. Thus, direct equals comparison between
+    // the application configuration and the coordinator config will fail. Iterating through the entire configuration bag and verify that expected
+    // configuration is present in the coordinator configuration.
+    for (Map.Entry<String, String> entry : applicationConfig1.entrySet()) {
+      Assert.assertTrue(config.containsKey(entry.getKey()));
+    }
+  }
+
+  private MapConfig getConfigFromCoordinatorStream(Config config) {
+    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
+    MetadataStore metadataStore = metadataStoreFactory.getMetadataStore("set-config", config, new MetricsRegistryMap());
+    metadataStore.init();
+    Map<String, String> configMap = new HashMap<>();
+    CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
+    metadataStore.all().forEach((key, value) -> {
+        String deserializedValue = jsonSerde.fromBytes(value);
+        configMap.put(key, deserializedValue);
+      });
+    return new MapConfig(configMap);
   }
 
   private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {

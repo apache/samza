@@ -53,7 +53,7 @@ We will use the `./bin/grid` script from the `hello-samza` project to setup up Z
 
 ```bash
 ./bin/grid start zookeeper
-./bin/grid start zookeeper
+./bin/grid start kafka
 ```
 
 

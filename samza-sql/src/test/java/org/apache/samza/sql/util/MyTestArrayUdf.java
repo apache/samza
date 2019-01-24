@@ -17,24 +17,26 @@
  * under the License.
  */
 
-package org.apache.samza.sql.fn;
+package org.apache.samza.sql.util;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-@SamzaSqlUdf(name = "Flatten")
-public class FlattenUdf implements ScalarUdf {
+@SamzaSqlUdf(name = "MyTestArray")
+public class MyTestArrayUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {
   }
 
   @SamzaSqlUdfMethod
-  public Object execute(Object... arg) {
-    List value = (List) arg[0];
-    return value != null && !value.isEmpty() ? value.get(0) : value;
+  public List<String> execute(Object... args) {
+    Integer value = (Integer) args[0];
+    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
   }
 }

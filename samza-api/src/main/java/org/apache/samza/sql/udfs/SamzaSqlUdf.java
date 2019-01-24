@@ -17,36 +17,27 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.udfs;
 
-import org.apache.samza.sql.schema.SqlSchema;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 
 /**
- * Execution result of a SELECT statement. It doesn't contain data though.
+ * Java annotation to identity a Samza SQL Udf
  */
-public class QueryResult {
-  private int execId; // execution ID of the statement(s) submitted
-  private boolean success; // whether the statement(s) submitted successfully
-  private SqlSchema schema; // The schema of the data coming from the query
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE})
+public @interface SamzaSqlUdf {
+  /**
+   * Name of the UDF
+   */
+  String name();
 
-  public QueryResult(int execId, SqlSchema schema, Boolean success) {
-    if (success && schema == null)
-      throw new IllegalArgumentException();
-    this.execId = execId;
-    this.schema = schema;
-    this.success = success;
-  }
-
-  public int getExecutionId() {
-    return execId;
-  }
-
-  public SqlSchema getSchema() {
-    return schema;
-  }
-
-  public boolean succeeded() {
-    return success;
-  }
+  /**
+   * Whether the UDF is enabled or not.
+   */
+  boolean enabled() default true;
 }
