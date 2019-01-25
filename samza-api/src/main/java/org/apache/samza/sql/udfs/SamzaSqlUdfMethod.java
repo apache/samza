@@ -17,36 +17,29 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.udfs;
 
-import org.apache.samza.sql.schema.SqlSchema;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 
 
 /**
- * Execution result of a SELECT statement. It doesn't contain data though.
+ * Java annotation to identity the Samza SQL Udf method and it's argument types and return types.
  */
-public class QueryResult {
-  private int execId; // execution ID of the statement(s) submitted
-  private boolean success; // whether the statement(s) submitted successfully
-  private SqlSchema schema; // The schema of the data coming from the query
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD})
+public @interface SamzaSqlUdfMethod {
 
-  public QueryResult(int execId, SqlSchema schema, Boolean success) {
-    if (success && schema == null)
-      throw new IllegalArgumentException();
-    this.execId = execId;
-    this.schema = schema;
-    this.success = success;
-  }
+  /**
+   * Type of the arguments for the Samza SQL udf method
+   */
+  SamzaSqlFieldType[] params() default {};
 
-  public int getExecutionId() {
-    return execId;
-  }
-
-  public SqlSchema getSchema() {
-    return schema;
-  }
-
-  public boolean succeeded() {
-    return success;
-  }
+  /**
+   * Return type for the Samza SQL UDF
+   */
+  SamzaSqlFieldType returns() default SamzaSqlFieldType.ANY;
 }

@@ -455,7 +455,7 @@ project(":samza-log4j_$scalaVersion") {
 
   dependencies {
     compile "log4j:log4j:$log4jVersion"
-    compile "org.slf4j:slf4j-log4j12:1.7.7"
+    compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
     compile project(':samza-api')
     compile project(":samza-core_$scalaVersion")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"

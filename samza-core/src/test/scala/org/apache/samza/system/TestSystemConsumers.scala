@@ -26,6 +26,7 @@ import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.Partition
 import org.apache.samza.serializers._
+import org.apache.samza.startpoint._
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MockMessageChooser
@@ -48,8 +49,8 @@ class TestSystemConsumers {
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition0, "0")
-    consumers.register(systemStreamPartition1, "1234")
+    consumers.register(systemStreamPartition0, "0", null)
+    consumers.register(systemStreamPartition1, "1234", null)
     consumers.start
 
     // Tell the consumer to respond with 1000 messages for SSP0, and no
@@ -110,7 +111,7 @@ class TestSystemConsumers {
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition, "0")
+    consumers.register(systemStreamPartition, "0", null)
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -173,7 +174,7 @@ class TestSystemConsumers {
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = chooserRegistered += systemStreamPartition -> offset
     }, consumer, null)
 
-    consumers.register(systemStreamPartition, "0")
+    consumers.register(systemStreamPartition, "0", null)
     consumers.start
     consumers.stop
 
@@ -215,7 +216,7 @@ class TestSystemConsumers {
     // it should throw a SystemConsumersException because system2 does not have a consumer
     var caughtRightException = false
     try {
-      consumers.register(systemStreamPartition2, "0")
+      consumers.register(systemStreamPartition2, "0", null)
     } catch {
       case e: SystemConsumersException => caughtRightException = true
       case _: Throwable => caughtRightException = false
@@ -234,7 +235,7 @@ class TestSystemConsumers {
 
     // throw exceptions when the deserialization has error
     val consumers = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = false)
-    consumers.register(systemStreamPartition, "0")
+    consumers.register(systemStreamPartition, "0", null)
     consumer(system).putBytesMessage
     consumer(system).putStringMessage
     consumers.start
@@ -251,7 +252,7 @@ class TestSystemConsumers {
 
     // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
     val consumers2 = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = true)
-    consumers2.register(systemStreamPartition, "0")
+    consumers2.register(systemStreamPartition, "0", null)
     consumer(system).putBytesMessage
     consumer(system).putStringMessage
     consumer(system).putBytesMessage
@@ -303,8 +304,8 @@ class TestSystemConsumers {
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
-    consumers.register(systemStreamPartition1, "0")
-    consumers.register(systemStreamPartition2, "0")
+    consumers.register(systemStreamPartition1, "0", null)
+    consumers.register(systemStreamPartition2, "0", null)
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -337,6 +338,41 @@ class TestSystemConsumers {
     // SystemConsumers should poll only one partition: ssp1
     assertEquals(1, consumer.lastPoll.size())
     assertTrue(consumer.lastPoll.contains(systemStreamPartition1))
+  }
+
+  @Test
+  def testSystemConsumersAndStartpointVisitor {
+    val system = "test-system"
+    val stream = "some-stream"
+    val systemStreamPartition1 = new SystemStreamPartition(system, stream, new Partition(1))
+    val systemStreamPartition2 = new SystemStreamPartition(system, stream, new Partition(2))
+
+    val consumer = new TestStartpointConsumer
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
+      new SerdeManager, new SystemConsumersMetrics,
+      SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+      SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+      SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
+
+    consumers.register(systemStreamPartition1, "0", null)
+    assertNull(consumer.getVisitedStartpoint(systemStreamPartition1))
+
+    val startpointSpecific = new StartpointSpecific("1")
+    consumers.register(systemStreamPartition2, "0", startpointSpecific)
+    assertEquals(startpointSpecific, consumer.getVisitedStartpoint(systemStreamPartition2))
+
+    val startpointTimestamp = new StartpointTimestamp(123456L)
+    consumers.register(systemStreamPartition2, "0", startpointTimestamp)
+    assertEquals(startpointTimestamp, consumer.getVisitedStartpoint(systemStreamPartition2))
+
+    val startpointOldest = new StartpointOldest
+    consumers.register(systemStreamPartition2, "0", startpointOldest)
+    assertEquals(startpointOldest, consumer.getVisitedStartpoint(systemStreamPartition2))
+
+    val startpointUpcoming = new StartpointUpcoming
+    consumers.register(systemStreamPartition2, "0", startpointUpcoming)
+    assertEquals(startpointUpcoming, consumer.getVisitedStartpoint(systemStreamPartition2))
+
   }
 
   /**
@@ -383,6 +419,30 @@ class TestSystemConsumers {
     def start {}
     def stop {}
     def register { super.register(systemStreamPartition, "0") }
+  }
+
+  private class TestStartpointConsumer extends SerializingConsumer with StartpointVisitor {
+    var startpoints: Map[SystemStreamPartition, Startpoint] = Map()
+
+    override def visit(systemStreamPartition: SystemStreamPartition, startpointSpecific: StartpointSpecific) {
+      startpoints += systemStreamPartition -> startpointSpecific
+    }
+
+    override def visit(systemStreamPartition: SystemStreamPartition, startpointTimestamp: StartpointTimestamp) {
+      startpoints += systemStreamPartition -> startpointTimestamp
+    }
+
+    override def visit(systemStreamPartition: SystemStreamPartition, startpointUpcoming: StartpointUpcoming) {
+      startpoints += systemStreamPartition -> startpointUpcoming
+    }
+
+    override def visit(systemStreamPartition: SystemStreamPartition, startpointOldest: StartpointOldest) {
+      startpoints += systemStreamPartition -> startpointOldest
+    }
+
+    def getVisitedStartpoint(systemStreamPartition: SystemStreamPartition) : Startpoint = {
+      startpoints.getOrElse(systemStreamPartition, null)
+    }
   }
 }
 

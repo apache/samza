@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
+import org.apache.samza.startpoint.{Startpoint, StartpointVisitor}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import java.util.ArrayDeque
@@ -33,6 +34,7 @@ import java.util.HashSet
 import java.util.HashMap
 import java.util.Queue
 import java.util.Set
+
 
 object SystemConsumers {
   val DEFAULT_POLL_INTERVAL_MS = 50
@@ -181,7 +183,7 @@ class SystemConsumers (
   }
 
 
-  def register(systemStreamPartition: SystemStreamPartition, offset: String) {
+  def register(systemStreamPartition: SystemStreamPartition, offset: String, startpoint: Startpoint) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
@@ -192,10 +194,22 @@ class SystemConsumers (
 
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
+
+    // Note regarding Startpoints and MessageChooser:
+    // Even if there is a startpoint for this SSP, passing in the checkpoint offset should not have any side-effects.
+    // Basically, the offset in the chooser is used in the special scenario where an SSP is both a broadcast and bootstrap stream
+    // and needs to decide what's the lowest starting offset for an SSP that spans across multiple tasks so it knows
+    // to keep the highest priority on the SSP starting from the lowest starting offset until the SSP is fully
+    // bootstrapped to the UPCOMING offset. The offset here is ignored otherwise.
     chooser.register(systemStreamPartition, offset)
 
     try {
-      consumers(systemStreamPartition.getSystem).register(systemStreamPartition, offset)
+      val consumer = consumers(systemStreamPartition.getSystem)
+      if (startpoint != null && consumer.isInstanceOf[StartpointVisitor]) {
+        startpoint.apply(systemStreamPartition, consumer.asInstanceOf[StartpointVisitor])
+      } else {
+        consumer.register(systemStreamPartition, offset)
+      }
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)
     }

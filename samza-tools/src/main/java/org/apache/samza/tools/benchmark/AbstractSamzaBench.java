@@ -33,7 +33,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.sql.testutil.ReflectionUtils;
+import org.apache.samza.sql.util.ReflectionUtils;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.tools.CommandLineHelper;
 

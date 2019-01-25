@@ -17,22 +17,23 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
-import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.udfs.ScalarUdf;
+import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 
 
-public class MyTestArrayUdf implements ScalarUdf<List<String>> {
+/**
+ * A sample {@link SamzaRelTableKeyConverter} used in tests to convert the join key to table format.
+ */
+public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
+
   @Override
-  public void init(Config udfConfig) {
-  }
-
-  public List<String> execute(Object... args) {
-    Integer value = (Integer) args[0];
-    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
+  public Object convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
+    if (relRecord.getFieldValues().get(0) instanceof SamzaSqlRelRecord) {
+      relRecord = (SamzaSqlRelRecord) relRecord.getFieldValues().get(0);
+    }
+    return relRecord.getFieldValues().stream().map(Object::toString).collect(Collectors.toList()).get(0);
   }
 }

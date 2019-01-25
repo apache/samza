@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,7 +36,7 @@ import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
-import org.apache.samza.sql.testutil.SampleRelTableKeyConverter;
+import org.apache.samza.sql.util.SampleRelTableKeyConverter;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
