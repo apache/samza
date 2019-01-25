@@ -149,6 +149,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     // If standby tasks are not enabled run streamprocessor and return true
     if (!new JobConfig(config).getStandbyTasksEnabled()) {
       runStreamProcessor(request, preferredHost);
+      return true;
     }
 
     String containerID = request.getContainerID();
