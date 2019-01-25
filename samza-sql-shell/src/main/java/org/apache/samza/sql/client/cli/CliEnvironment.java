@@ -179,7 +179,7 @@ class CliEnvironment {
       executor = (SqlExecutor) ctor.newInstance();
     } catch (ClassNotFoundException | NoSuchMethodException
             | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-      LOG.debug("Failed to create executor: " + e.toString());
+      LOG.debug("Failed to create executor. ", e);
       return false;
     }
     return true;
