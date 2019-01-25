@@ -17,11 +17,10 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
 import java.util.HashMap;
 import org.apache.samza.config.Config;
-import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverterFactory;
 import org.apache.samza.system.SystemStream;

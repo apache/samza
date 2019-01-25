@@ -28,9 +28,9 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
-import org.apache.samza.sql.testutil.RemoteStoreIOResolverTestFactory;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.SamzaSqlTestConfig;
+import org.apache.samza.sql.util.RemoteStoreIOResolverTestFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
