@@ -20,20 +20,27 @@
 package org.apache.samza.sql.client.cli;
 
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandlerImpl;
+import org.apache.samza.sql.client.interfaces.EnvironmentVariableSpecs;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashMap;
 
 
 public class CliShellEnvironmentVariableHandler extends EnvironmentVariableHandlerImpl {
   private static final String SHELL_DEBUG = "shell.debug";
 
   public CliShellEnvironmentVariableHandler() {
-    specs.put(SHELL_DEBUG, new String[] {"true", "false"}, "false");
   }
 
-  protected boolean processEnvironmentVariable(String envName, String value) {
-    switch (envName) {
+  protected EnvironmentVariableSpecs initializeEnvironmentVariableSpecs() {
+    HashMap<String, EnvironmentVariableSpecs.Spec> specMap = new HashMap<>();
+    specMap.put(SHELL_DEBUG, new EnvironmentVariableSpecs.Spec(new String[] {"true", "false"}, "false"));
+    return new EnvironmentVariableSpecs(specMap);
+  }
+
+  protected boolean processEnvironmentVariable(String name, String value) {
+    switch (name) {
       case SHELL_DEBUG:
         value = value.toLowerCase();
         if (value.equals("true")) {
@@ -47,14 +54,19 @@ public class CliShellEnvironmentVariableHandler extends EnvironmentVariableHandl
     }
   }
 
-  // We control terminal directly; Forbid any Java System.out and System.err stuff so
-  // any underlying output will not mess up the console
+  /*
+   * We control terminal directly; Forbid any Java System.out and System.err stuff so
+   * any underlying output will not mess up the console
+   */
   private void disableJavaSystemOutAndErr() {
     PrintStream ps = new PrintStream(new NullOutputStream());
     System.setOut(ps);
     System.setErr(ps);
   }
 
+  /*
+   * Restore standard stdout and stderr
+   */
   private void enableJavaSystemOutAndErr() {
     System.setOut(stdout);
     System.setErr(stderr);
@@ -63,6 +75,9 @@ public class CliShellEnvironmentVariableHandler extends EnvironmentVariableHandl
   private static PrintStream stdout = System.out;
   private static PrintStream stderr = System.err;
 
+  /*
+   * A stream that discards all output
+   */
   private class NullOutputStream extends OutputStream {
     public void close() {
     }

@@ -25,6 +25,8 @@ import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.apache.samza.sql.client.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
@@ -44,21 +46,22 @@ class CliEnvironment {
 
   // shell.executor is special and is specifically handled by CliEnvironment
   private String activeExecutorClassName;
+  private static final Logger LOG = LoggerFactory.getLogger(CliEnvironment.class);
 
   public CliEnvironment() {
     shellEnvHandler = new CliShellEnvironmentVariableHandler();
   }
 
-  /**
-   * @param envName Environment variable name
-   * @param value   Value of the environment variable
+  /** Sets the value of an environment variable.
+   * @param name Environment variable name
+   * @param value Value of the environment variable
    * @return 0 : succeed
-   * -1: invalid envName
+   * -1: invalid name
    * -2: invalid value
    */
-  public int setEnvironmentVariable(String envName, String value) {
-    envName = envName.toLowerCase();
-    if(envName.equals(CliConstants.CONFIG_EXECUTOR)) {
+  public int setEnvironmentVariable(String name, String value) {
+    name = name.toLowerCase();
+    if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
       if(createShellExecutor(value)) {
         activeExecutorClassName = value;
         executorEnvHandler = executor.getEnvironmentVariableHandler();
@@ -68,41 +71,57 @@ class CliEnvironment {
       }
     }
 
-    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    EnvironmentVariableHandler handler = getAppropriateHandler(name);
     if(handler == null) {
       // Shell doesn't recognize this variable. There's no executor handler yet. Save for future executor
       if(delayedExecutorVars == null) {
         delayedExecutorVars = new HashMap<>();
       }
-      delayedExecutorVars.put(envName, value);
+      delayedExecutorVars.put(name, value);
       return 0;
     }
 
-    return handler.setEnvironmentVariable(envName, value);
+    return handler.setEnvironmentVariable(name, value);
   }
 
-  public String getEnvironmentVariable(String envName) {
-    if(envName.equalsIgnoreCase(CliConstants.CONFIG_EXECUTOR)) {
+  /**
+   * Gets the value of an environment variable.
+   * @param name environment variable name
+   * @return value of the environment variable. Returns null if the variable is not set.
+   */
+  public String getEnvironmentVariable(String name) {
+    if(name.equalsIgnoreCase(CliConstants.CONFIG_EXECUTOR)) {
       return activeExecutorClassName;
     }
 
-    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    EnvironmentVariableHandler handler = getAppropriateHandler(name);
     if(handler == null)
       return null;
 
-    return handler.getEnvironmentVariable(envName);
+    return handler.getEnvironmentVariable(name);
   }
 
-  public String[] getPossibleValues(String envName)
+  /**
+   * Gets all possible valid values of an environment variable.
+   * @param name environment variable name
+   * @return An array of all possible valid values of the environment variable. Returns null
+   * if the environment variable name given is invalid.
+   */
+  public String[] getPossibleValues(String name)
   {
-    EnvironmentVariableHandler handler = getAppropriateHandler(envName);
+    EnvironmentVariableHandler handler = getAppropriateHandler(name);
     if(handler == null)
       return null;
 
-    EnvironmentVariableSpecs.Spec spec = handler.getSpecs().getSpec(envName);
+    EnvironmentVariableSpecs.Spec spec = handler.getSpecs().getSpec(name);
     return spec == null ? null : spec.getPossibleValues();
   }
 
+  /**
+   * Prints all the environment variables and their values, including both those of Shell
+   * and of the Executor.
+   * @param writer A writer to print to
+   */
   public void printAll(PrintWriter writer) {
     printVariable(writer, CliConstants.CONFIG_EXECUTOR, activeExecutorClassName);
     printAll(writer, shellEnvHandler);
@@ -135,13 +154,16 @@ class CliEnvironment {
     finishInitialization(executorEnvHandler);
   }
 
+  /*
+   * Sets any environment variable that has not be set by configuration file or user to the default value
+   */
   private void finishInitialization(EnvironmentVariableHandler handler) {
     List<Pair<String, EnvironmentVariableSpecs.Spec>> list = handler.getSpecs().getAllSpecs();
     for(Pair<String, EnvironmentVariableSpecs.Spec> pair : list) {
-      String envName = pair.getL();
+      String name = pair.getL();
       EnvironmentVariableSpecs.Spec spec = pair.getR();
-      if(CliUtil.isNullOrEmpty(handler.getEnvironmentVariable(envName))) {
-        handler.setEnvironmentVariable(envName, spec.getDefaultValue());
+      if(CliUtil.isNullOrEmpty(handler.getEnvironmentVariable(name))) {
+        handler.setEnvironmentVariable(name, spec.getDefaultValue());
       }
     }
   }
@@ -157,19 +179,28 @@ class CliEnvironment {
       executor = (SqlExecutor) ctor.newInstance();
     } catch (ClassNotFoundException | NoSuchMethodException
             | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+      LOG.debug("Failed to create executor: " + e.toString());
       return false;
     }
     return true;
   }
 
-  private EnvironmentVariableHandler getAppropriateHandler(String envName) {
-    if (envName.startsWith(CliConstants.CONFIG_SHELL_PREFIX)) {
+  /*
+   * Gets the corresponding EnvironmentVariableHandler by the environment variable name.
+   * Names starting CliConstants.CONFIG_SHELL_PREFIX are supposed by the Shell itself, otherwise by
+   * the executor.
+   */
+  private EnvironmentVariableHandler getAppropriateHandler(String name) {
+    if (name.startsWith(CliConstants.CONFIG_SHELL_PREFIX)) {
       return shellEnvHandler;
     } else {
       return executorEnvHandler;
     }
   }
 
+  /*
+   * Helper function for printing all environment variables and their values of a handler to a writer.
+   */
   private void printAll(PrintWriter writer, EnvironmentVariableHandler handler) {
     List<Pair<String, String>> shellEnvs = handler.getAllEnvironmentVariables();
     for(Pair<String, String> pair : shellEnvs) {
@@ -177,8 +208,11 @@ class CliEnvironment {
     }
   }
 
-  public static void printVariable(PrintWriter writer, String envName, String value) {
-    writer.print(envName);
+  /*
+   * Prints "name = value\n" to a writer.
+   */
+  public static void printVariable(PrintWriter writer, String name, String value) {
+    writer.print(name);
     writer.print(" = ");
     writer.print(value);
     writer.print('\n');

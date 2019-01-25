@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-import org.apache.samza.sql.client.util.CliUtil;
 import org.apache.samza.sql.client.util.Pair;
 
 import java.util.*;
@@ -29,27 +28,28 @@ import java.util.*;
  * the default value, etc.
  */
 public class EnvironmentVariableSpecs {
-  private Map<String, Spec> specMap = new HashMap<>();
+  private Map<String, Spec> specMap;
 
-  public EnvironmentVariableSpecs() {
+  /**
+   * @param specMap A map of environment variable name vs its specification
+   */
+  public EnvironmentVariableSpecs(Map<String, Spec> specMap) {
+    this.specMap = specMap;
   }
 
   /**
-   * @param envName name of the environment variable
-   * @param possibleValues Pass an empty array or null for unlimited possible values
-   * @param defaultValue default value of the environment variable
+   * Get the Spec object of an environment variable
+   * @param name name of the environment variable
+   * @return A Spec object describing the specification of the environment variable
    */
-  public void put(String envName, String[] possibleValues, String defaultValue) {
-    if(CliUtil.isNullOrEmpty(envName) || CliUtil.isNullOrEmpty(defaultValue))
-      throw new IllegalArgumentException();
-
-    specMap.put(envName, new Spec(possibleValues, defaultValue));
+  public Spec getSpec(String name) {
+    return specMap.get(name);
   }
 
-  public Spec getSpec(String envName) {
-    return specMap.get(envName);
-  }
-
+  /**
+   * Gets all supported environment variables and their Specs.
+   * @return A list of Pair containing the name and Spec of all environment variable.
+   */
   public List<Pair<String, Spec>> getAllSpecs() {
     List<Pair<String, Spec>> list = new ArrayList<>();
     Iterator<Map.Entry<String, Spec>> it =  specMap.entrySet().iterator();
@@ -60,19 +60,33 @@ public class EnvironmentVariableSpecs {
     return list;
   }
 
-  public class Spec {
+  /**
+   * Describes the specification of an environment variable.
+   */
+  public static class Spec {
     private String[] possibleValues;
     private String defaultValue;
 
-    Spec(String[] possibleValues, String defaultValue) {
+    /**
+     * @param possibleValues A list of possible valid values. Pass null or zero-length if there's no limitation.
+     * @param defaultValue The default value of the environment variable
+     */
+    public Spec(String[] possibleValues, String defaultValue) {
       this.possibleValues = possibleValues;
       this.defaultValue = defaultValue;
     }
 
+    /**
+     * @return Possible valid values of the environment variable. Returns null or a zero-length array if
+     * any value is acceptable.
+     */
     public String[] getPossibleValues() {
       return possibleValues;
     }
 
+    /**
+     * @return Default value of the environment variable.
+     */
     public String getDefaultValue() {
       return defaultValue;
     }

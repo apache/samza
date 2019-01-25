@@ -25,15 +25,19 @@ import org.apache.samza.sql.client.util.Pair;
 import java.util.*;
 
 public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVariableHandler{
-  protected EnvironmentVariableSpecs specs = new EnvironmentVariableSpecs();
+  private EnvironmentVariableSpecs specs;
   protected Map<String, String> envVars = new HashMap<>();
 
+  public EnvironmentVariableHandlerImpl() {
+    this.specs = initializeEnvironmentVariableSpecs();
+  }
+
   @Override
-  public int setEnvironmentVariable(String envName, String value) {
-    EnvironmentVariableSpecs.Spec spec = specs.getSpec(envName);
+  public int setEnvironmentVariable(String name, String value) {
+    EnvironmentVariableSpecs.Spec spec = specs.getSpec(name);
     if(spec == null) {
       if(isAcceptUnknowName()) {
-        return setEnvironmentVariableHelper(envName, value);
+        return setEnvironmentVariableHelper(name, value);
       } else {
         return -1;
       }
@@ -41,15 +45,15 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
 
     String[] possibleValues = spec.getPossibleValues();
     if (possibleValues == null || possibleValues.length == 0) {
-      return setEnvironmentVariableHelper(envName, value);
+      return setEnvironmentVariableHelper(name, value);
     }
 
     for (String s : possibleValues) {
       if (s.equalsIgnoreCase(value)) {
-        if(!processEnvironmentVariable(envName, value)) {
+        if(!processEnvironmentVariable(name, value)) {
           throw new CliException(); // should not reach here
         }
-        envVars.put(envName, value);
+        envVars.put(name, value);
         return 0;
       }
     }
@@ -57,8 +61,8 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
   }
 
   @Override
-  public String getEnvironmentVariable(String envName) {
-    return envVars.get(envName);
+  public String getEnvironmentVariable(String name) {
+    return envVars.get(name);
   }
 
   @Override
@@ -79,13 +83,17 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
 
   /**
    * Subclasses shall override this method to process their settings
-   * @param envName name of the environment variable
+   * @param name name of the environment variable
    * @param value value of the environment variable
    * @return succeed or not
    */
-  protected boolean processEnvironmentVariable(String envName, String value) {
-    return true;
-  }
+  protected abstract boolean processEnvironmentVariable(String name, String value);
+
+  /**
+   * Subclasses shall override this method to provide with their EnvironmentVariableSpecs
+   * @return An object of EnvironmentVariableSpecs
+   */
+  protected abstract EnvironmentVariableSpecs initializeEnvironmentVariableSpecs();
 
   /**
    * Subclasses shall override this method to if they want to accept environment variables
@@ -96,9 +104,9 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
     return false;
   }
 
-  private int setEnvironmentVariableHelper(String envName, String value) {
-    if(processEnvironmentVariable(envName, value)) {
-      envVars.put(envName, value);
+  private int setEnvironmentVariableHelper(String name, String value) {
+    if(processEnvironmentVariable(name, value)) {
+      envVars.put(name, value);
       return 0;
     } else {
       return -2;

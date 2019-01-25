@@ -28,19 +28,19 @@ import java.util.List;
  */
 public interface EnvironmentVariableHandler {
   /**
-   * @param envName Environment variable name
+   * @param name Environment variable name
    * @param value Value of the environment variable
    * @return 0 : succeed
-   * -1: invalid envName
+   * -1: invalid name
    * -2: invalid value
    */
-  public int setEnvironmentVariable(String envName, String value);
+  public int setEnvironmentVariable(String name, String value);
 
   /**
-   * @param envName Environment variable name
-   * @return value of environment variable envName. Returns null if envName doesn't exist.
+   * @param name Environment variable name
+   * @return value of the environment variable. Returns null if the variable doesn't exist.
    */
-  public String getEnvironmentVariable(String envName);
+  public String getEnvironmentVariable(String name);
 
   /**
    *

@@ -38,8 +38,6 @@ import org.jline.utils.InfoCmp;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -297,28 +295,28 @@ class CliShell {
       return;
     }
 
-    String envName = params[0].trim().toLowerCase();
-    String envValue = params[1].trim();
+    String name = params[0].trim().toLowerCase();
+    String value = params[1].trim();
 
-    int ret = env.setEnvironmentVariable(envName, envValue);
+    int ret = env.setEnvironmentVariable(name, value);
     if (ret == 0) {
-      writer.print(envName);
+      writer.print(name);
       writer.print(" set to ");
-      writer.println(envValue);
-      if(envName.equals(CliConstants.CONFIG_EXECUTOR)) {
+      writer.println(value);
+      if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
         executor.stop(exeContext);
         executor = env.getExecutor();
         executor.start(exeContext);
       }
     } else if (ret == -1) {
       writer.print("Unknow variable: ");
-      writer.println(envName);
+      writer.println(name);
     } else if (ret == -2) {
       writer.print("Invalid value: ");
-      writer.print(envValue);
-      String[] vals = env.getPossibleValues(envName);
+      writer.print(value);
+      String[] vals = env.getPossibleValues(name);
       if(vals != null && vals.length != 0) {
-        writer.print("Possible values:");
+        writer.print(" Possible values:");
         for (String s : vals) {
           writer.print(CliConstants.SPACE);
           writer.print(s);
