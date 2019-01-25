@@ -119,6 +119,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     }
   }
 
+
   /**
    * Checks if a request has expired.
    * @param request

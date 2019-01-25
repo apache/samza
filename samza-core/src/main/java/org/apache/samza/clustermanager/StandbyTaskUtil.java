@@ -15,9 +15,36 @@ import org.apache.samza.job.model.TaskMode;
  * Collection of util methods used for performing Standby-aware Container allocation in YARN.
  */
 public class StandbyTaskUtil {
-  private static final String CONTAINER_ID_SEPARATOR = "-";
+  private static final String STANDBY_CONTAINER_ID_SEPARATOR = "-";
   private static final String TASKNAME_SEPARATOR = "-";
   private static final String STANDBY_TASKNAME_PREFIX = "Standby";
+
+  /**
+   * Returns true if the containerName implies a standby container, false otherwise.
+   * @param containerID The desired containerID
+   * @return
+   */
+  public static boolean isStandbyContainer(String containerID) {
+    return containerID.contains(STANDBY_CONTAINER_ID_SEPARATOR);
+  }
+
+  // Helper method to generate buddy containerIDs by appending the replica-number to the active-container's id.
+  public final static String getStandbyContainerId(String activeContainerId, int replicaNumber) {
+    return activeContainerId.concat(STANDBY_CONTAINER_ID_SEPARATOR).concat(String.valueOf(replicaNumber));
+  }
+
+  // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
+  public final static TaskName getStandbyTaskName(TaskName activeTaskName, int replicaNum) {
+    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(TASKNAME_SEPARATOR)
+        .concat(activeTaskName.getTaskName())
+        .concat(TASKNAME_SEPARATOR)
+        .concat(String.valueOf(replicaNum)));
+  }
+
+  // Helper method to get the active task name by stripping the prefix "Standby" from the standby task name.
+  public final static TaskName getActiveTaskName(TaskName standbyTaskName) {
+    return new TaskName(standbyTaskName.getTaskName().split(TASKNAME_SEPARATOR)[1]);
+  }
 
   /**
    *  Given a containerID and job model, it returns the containerids of all containers that either have
@@ -66,23 +93,5 @@ public class StandbyTaskUtil {
         .filter(e -> e.getTaskMode().equals(taskMode))
         .map(taskModel -> taskModel.getTaskName())
         .collect(Collectors.toSet());
-  }
-
-  // Helper method to generate buddy containerIDs by appending the replica-number to the active-container's id.
-  public final static String getStandbyContainerId(String activeContainerId, int replicaNumber) {
-    return activeContainerId.concat(CONTAINER_ID_SEPARATOR).concat(String.valueOf(replicaNumber));
-  }
-
-  // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
-  public final static TaskName getStandbyTaskName(TaskName activeTaskName, int replicaNum) {
-    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(TASKNAME_SEPARATOR)
-        .concat(activeTaskName.getTaskName())
-        .concat(TASKNAME_SEPARATOR)
-        .concat(String.valueOf(replicaNum)));
-  }
-
-  // Helper method to get the active task name by stripping the prefix "Standby" from the standby task name.
-  public final static TaskName getActiveTaskName(TaskName standbyTaskName) {
-    return new TaskName(standbyTaskName.getTaskName().split(TASKNAME_SEPARATOR)[1]);
   }
 }
