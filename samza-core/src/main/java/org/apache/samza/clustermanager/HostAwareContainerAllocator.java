@@ -145,6 +145,12 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
   private boolean checkStandbyTaskConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost,
       SamzaResource samzaResource, SamzaApplicationState state) {
+
+    // If standby tasks are not enabled run streamprocessor and return true
+    if (!new JobConfig(config).getStandbyTasksEnabled()) {
+      runStreamProcessor(request, preferredHost);
+    }
+
     String containerID = request.getContainerID();
 
     if (checkStandbyConstraints(request, samzaResource, state)) {
@@ -170,12 +176,6 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   // container constraints, and the current set of pending and running containers
   private boolean checkStandbyConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
       SamzaApplicationState samzaApplicationState) {
-
-    // If standby tasks are not enabled return true
-    if (!new JobConfig(config).getStandbyTasksEnabled()) {
-      return true;
-    }
-
     String containerIDToStart = request.getContainerID();
     String host = samzaResource.getHost();
     List<String> containerIDsForStandbyConstraints = this.standbyContainerConstraints.get(containerIDToStart);

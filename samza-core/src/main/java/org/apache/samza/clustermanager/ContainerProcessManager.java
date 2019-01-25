@@ -185,12 +185,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     clusterResourceManager.start();
 
     log.info("Starting the Samza task manager");
-    // Request initial set of containers
-    Map<String, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
 
     state.containerCount.set(state.jobModelManager.jobModel().getContainers().size());
     state.neededContainers.set(state.jobModelManager.jobModel().getContainers().size());
 
+    // Request initial set of containers
+    Map<String, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
     containerAllocator.requestResources(containerToHostMapping);
 
     // Start container allocator thread
