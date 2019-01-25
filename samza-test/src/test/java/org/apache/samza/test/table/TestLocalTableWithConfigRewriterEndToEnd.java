@@ -73,10 +73,9 @@ public class TestLocalTableWithConfigRewriterEndToEnd extends AbstractIntegratio
       List<TableDescriptor> descriptors = Arrays.asList(
           new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new TestTableData.PageViewJsonSerde())),
           new InMemoryTableDescriptor("t2", KVSerde.of(new IntegerSerde(), new StringSerde())));
-      Map<String, String> jobConfig = new HashMap<>(config);
       Map<String, String> serdeConfig = TableConfigGenerator.generateSerdeConfig(descriptors);
-      Map<String, String> tableConfig = TableConfigGenerator.generate(new MapConfig(jobConfig, serdeConfig), descriptors);
-      return new MapConfig(jobConfig, serdeConfig, tableConfig);
+      Map<String, String> tableConfig = TableConfigGenerator.generate(new MapConfig(config, serdeConfig), descriptors);
+      return new MapConfig(config, serdeConfig, tableConfig);
     }
   }
 

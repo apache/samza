@@ -52,7 +52,7 @@ public class TableConfigGenerator {
    * @param tableDescriptors table descriptors, for which configuration to be generated
    * @return table configuration
    */
-  static public Map<String, String> generate(Config jobConfig, List<TableDescriptor> tableDescriptors) {
+  public static Map<String, String> generate(Config jobConfig, List<TableDescriptor> tableDescriptors) {
     Map<String, String> tableConfig = new HashMap<>();
     tableDescriptors.forEach(tableDescriptor -> tableConfig.putAll(tableDescriptor.toConfig(jobConfig)));
     LOG.info("TableConfigGenerator has generated configs {}", tableConfig);
@@ -65,7 +65,7 @@ public class TableConfigGenerator {
    * @param tableDescriptors table descriptors, for which serde configuration to be generated
    * @return serde configuration for tables
    */
-  static public Map<String, String> generateSerdeConfig(List<TableDescriptor> tableDescriptors) {
+  public static Map<String, String> generateSerdeConfig(List<TableDescriptor> tableDescriptors) {
 
     Map<String, String> serdeConfigs = new HashMap<>();
 
