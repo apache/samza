@@ -312,7 +312,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
         state.neededContainers.incrementAndGet();
         // Find out previously running container location
-        String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
+        String lastSeenOn = state.jobModelManager.getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
         if (!hostAffinityEnabled || lastSeenOn == null) {
           lastSeenOn = ResourceRequestState.ANY_HOST;
         }
