@@ -45,12 +45,12 @@ public class JobModelManagerTestUtil {
       ContainerModel container = new ContainerModel(String.valueOf(i), new HashMap<>());
       containers.put(String.valueOf(i), container);
     }
-    JobModel jobModel = new JobModel(config, containers, localityManager);
-    return new JobModelManager(jobModel, server, null);
+    JobModel jobModel = new JobModel(config, containers);
+    return new JobModelManager(jobModel, server, localityManager);
   }
 
   public static JobModelManager getJobModelManagerUsingReadModel(Config config, StreamMetadataCache streamMetadataCache, HttpServer server, LocalityManager localityManager, Map<String, LocationId> processorLocality) {
     JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), streamMetadataCache, new GrouperMetadataImpl(processorLocality, new HashMap<>(), new HashMap<>(), new HashMap<>()));
-    return new JobModelManager(new JobModel(jobModel.getConfig(), jobModel.getContainers(), localityManager), server, localityManager);
+    return new JobModelManager(new JobModel(jobModel.getConfig(), jobModel.getContainers()), server, localityManager);
   }
 }

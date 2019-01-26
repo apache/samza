@@ -418,7 +418,7 @@ public class TestContainerProcessManager {
   public void testAllBufferedResourcesAreUtilized() throws Exception {
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfigWithHostAffinity());
-    config.put("cluster-manager.container.count", "2");
+    config.put("job.container.count", "2");
     Config cfg = new MapConfig(config);
     // 1. Request two containers on hosts - host1 and host2
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
@@ -445,22 +445,24 @@ public class TestContainerProcessManager {
     // 2. When the task manager starts, there should have been a pending request on host1 and host2
     assertEquals(2, allocator.getContainerRequestState().numPendingRequests());
 
-    // 3. Allocate an extra resource on host1 and no resource on host2 yet.
+    // 3. Allocate resources on host1 and on host2, and an extra resource on host1
     SamzaResource resource1 = new SamzaResource(1, 1000, "host1", "id1");
-    SamzaResource resource2 = new SamzaResource(1, 1000, "host1", "id2");
+    SamzaResource resource2 = new SamzaResource(1, 1000, "host2", "id2");
+    SamzaResource resource3 = new SamzaResource(1, 1000, "host1", "id3");
     taskManager.onResourceAllocated(resource1);
     taskManager.onResourceAllocated(resource2);
 
     // 4. Wait for the container to start on host1 and immediately fail
-    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(2, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     taskManager.onStreamProcessorLaunchSuccess(resource1);
-    assertEquals("host2", allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
-    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+    taskManager.onStreamProcessorLaunchSuccess(resource2);
+    assertEquals(null, allocator.getContainerRequestState().peekPendingRequest());
+    assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     taskManager.onResourceCompleted(new SamzaResourceStatus(resource1.getResourceID(), "App Error", 1));
-    assertEquals(2, allocator.getContainerRequestState().numPendingRequests());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
     assertFalse(taskManager.shouldShutdown());
     assertFalse(state.jobHealthy.get());
@@ -469,14 +471,12 @@ public class TestContainerProcessManager {
 
     // 5. Do not allocate any further resource on host1, and verify that the re-run of the container on host1 uses the
     // previously allocated extra resource
-    SamzaResource resource3 = new SamzaResource(1, 1000, "host2", "id3");
     taskManager.onResourceAllocated(resource3);
 
-    if (!allocator.awaitContainersStart(2, 2, TimeUnit.SECONDS)) {
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
     taskManager.onStreamProcessorLaunchSuccess(resource3);
-
     assertTrue(state.jobHealthy.get());
   }
 

@@ -442,7 +442,7 @@ public class TestOperatorImplGraph {
     cms.put(cm0.getId(), cm0);
     cms.put(cm1.getId(), cm1);
 
-    JobModel jobModel = new JobModel(config, cms, null);
+    JobModel jobModel = new JobModel(config, cms);
     Multimap<SystemStream, String> streamToTasks = OperatorImplGraph.getStreamToConsumerTasks(jobModel);
     assertEquals(streamToTasks.get(ssp0.getSystemStream()).size(), 2);
     assertEquals(streamToTasks.get(ssp2.getSystemStream()).size(), 1);

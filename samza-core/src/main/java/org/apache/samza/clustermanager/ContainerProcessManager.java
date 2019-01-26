@@ -191,7 +191,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     state.neededContainers.set(containerCount);
 
     // Request initial set of containers
-    Map<String, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
+    Map<String, String> containerToHostMapping = state.jobModelManager.getAllContainerLocality();
 
     containerAllocator.requestResources(containerToHostMapping);
 

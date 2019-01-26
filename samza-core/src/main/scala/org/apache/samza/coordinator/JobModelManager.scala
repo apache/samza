@@ -20,6 +20,7 @@
 package org.apache.samza.coordinator
 
 import java.util
+import java.util.{Collections, HashMap, Map}
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.Partition
@@ -74,14 +75,13 @@ object JobModelManager extends Logging {
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager)
 
       val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
-
       updateTaskAssignments(jobModel, taskAssignmentManager, grouperMetadata)
 
       val server = new HttpServer
+      jobModelRef.set(jobModel)
       server.addServlet("/", new JobServlet(jobModelRef))
 
-      currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
+      currentJobModelManager = new JobModelManager(jobModel, server, localityManager)
       currentJobModelManager
     } finally {
       taskAssignmentManager.close()
@@ -355,6 +355,7 @@ class JobModelManager(
    */
   val localityManager: LocalityManager = null) extends Logging {
 
+  val localityMappings : Map[String, String] = scala.collection.mutable.Map[String, String]()
   debug("Got job model: %s." format jobModel)
 
   def start() {
@@ -363,6 +364,44 @@ class JobModelManager(
       server.start
       info("Started HTTP server: %s" format server.getUrl)
     }
+  }
+
+  private def populateContainerLocalityMappings(): Unit = {
+    val allMappings = localityManager.readContainerLocality
+    import scala.collection.JavaConversions._
+    for (containerId <- jobModel.getContainers.keySet) {
+      if (allMappings.containsKey(containerId)) localityMappings.put(containerId, allMappings.get(containerId).get(SetContainerHostMapping.HOST_KEY))
+      else localityMappings.put(containerId, null)
+    }
+  }
+
+  def getAllContainerLocality: util.Map[String, String] = {
+    if (localityManager != null) populateContainerLocalityMappings
+    else if(localityMappings.isEmpty) jobModel.getContainers.keys.foreach(containerId => localityMappings.put(containerId, null))
+
+    localityMappings
+  }
+
+
+  def getContainerToHostValue(containerId: String, key: String): String = {
+    val EMPTY_STRING: String = ""
+    if (localityManager == null) return EMPTY_STRING
+    val mappings = localityManager.readContainerLocality.get(containerId)
+    if (mappings == null) return EMPTY_STRING
+    if (!mappings.containsKey(key)) return EMPTY_STRING
+    mappings.get(key)
+  }
+
+  def getAllContainerToHostValues(key: String): util.Map[String, String] = {
+    if (localityManager == null)
+      return new util.HashMap[String, String]()
+    val allValues = new util.HashMap[String, String]
+    import scala.collection.JavaConversions._
+    for (entry <- localityManager.readContainerLocality.entrySet) {
+      val value = entry.getValue.get(key)
+      if (value != null) allValues.put(entry.getKey, value)
+    }
+    allValues
   }
 
   def stop() {
