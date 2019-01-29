@@ -51,7 +51,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
  *           - sessionKey (Scalar)
  *
  */
-@SamzaSqlUdf(name = "GetSqlField")
+@SamzaSqlUdf(name = "GetSqlField", description = "Get an element from complex Sql field.")
 public class GetSqlFieldUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {

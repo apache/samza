@@ -19,7 +19,9 @@
 
 package org.apache.samza.sql.data;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,7 +40,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
    * The variables that are shared among all cloned instance of {@link SamzaSqlExecutionContext}
    */
   private final SamzaSqlApplicationConfig sqlConfig;
-  private final Map<String, UdfMetadata> udfMetadata;
+  private final Map<String, List<UdfMetadata>> udfMetadata;
 
   /**
    * The variable that are not shared among all cloned instance of {@link SamzaSqlExecutionContext}
@@ -52,8 +54,11 @@ public class SamzaSqlExecutionContext implements Cloneable {
 
   public SamzaSqlExecutionContext(SamzaSqlApplicationConfig config) {
     this.sqlConfig = config;
-    udfMetadata =
-        this.sqlConfig.getUdfMetadata().stream().collect(Collectors.toMap(UdfMetadata::getName, Function.identity()));
+    udfMetadata = new HashMap<>();
+    for(UdfMetadata udf : this.sqlConfig.getUdfMetadata()) {
+      udfMetadata.putIfAbsent(udf.getName(), new ArrayList<>());
+      udfMetadata.get(udf.getName()).add(udf);
+    }
   }
 
   public ScalarUdf getOrCreateUdf(String clazz, String udfName) {
@@ -61,7 +66,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
   }
 
   public ScalarUdf createInstance(String clazz, String udfName) {
-    Config udfConfig = udfMetadata.get(udfName).getUdfConfig();
+    Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
     ScalarUdf scalarUdf = ReflectionUtils.createInstance(clazz);
     if (scalarUdf == null) {
       String msg = String.format("Couldn't create udf %s of class %s", udfName, clazz);

@@ -28,7 +28,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 /**
  * UDF that converts an object to it's string representation.
  */
-@SamzaSqlUdf(name = "convertToString")
+@SamzaSqlUdf(name = "convertToString", description = "Converts the object to string.")
 public class ConvertToStringUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {

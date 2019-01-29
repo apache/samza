@@ -36,5 +36,4 @@ public interface ScalarUdf {
    * @param udfConfig Config specific to the udf.
    */
   void init(Config udfConfig);
-
 }

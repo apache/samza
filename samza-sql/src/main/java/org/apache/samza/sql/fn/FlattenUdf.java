@@ -21,20 +21,20 @@ package org.apache.samza.sql.fn;
 
 import java.util.List;
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-@SamzaSqlUdf(name = "Flatten")
+@SamzaSqlUdf(name = "Flatten", description = "Flattens the array.")
 public class FlattenUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {
   }
 
-  @SamzaSqlUdfMethod
-  public Object execute(Object... arg) {
-    List value = (List) arg[0];
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ARRAY)
+  public Object execute(List value) {
     return value != null && !value.isEmpty() ? value.get(0) : value;
   }
 }
