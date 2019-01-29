@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -66,6 +67,16 @@ public interface MessageStream<M> {
    * @return the transformed {@link MessageStream}
    */
   <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
+
+  /**
+   * Applies the provided 1:n function to transform a message in this {@link MessageStream}
+   * to n messages in the transformed {@link MessageStream}
+   *
+   * @param asyncFlatMapFn the function to transform a message to zero or more messages
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <OM> MessageStream<OM> asyncFlatMap(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the

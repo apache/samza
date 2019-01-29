@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
@@ -159,21 +161,13 @@ public abstract class OperatorImpl<M, RM> {
         || taskModel.getSystemStreamPartitions().stream().anyMatch(ssp -> ssp.getSystemStream().equals(input));
   }
 
-  /**
-   * Handle the incoming {@code message} for this {@link OperatorImpl} and propagate results to registered operators.
-   * <p>
-   * Delegates to {@link #handleMessage(Object, MessageCollector, TaskCoordinator)} for handling the message.
-   *
-   * @param message  the input message
-   * @param collector  the {@link MessageCollector} for this message
-   * @param coordinator  the {@link TaskCoordinator} for this message
-   */
-  public final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  public final CompletionStage<Void> onAsyncMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     this.numMessage.inc();
     long startNs = this.highResClock.nanoTime();
-    Collection<RM> results;
+    CompletionStage<Collection<RM>> completableResultsFuture;
     try {
-      results = handleMessage(message, collector, coordinator);
+      completableResultsFuture = handleAsyncMessage(message, collector, coordinator);
     } catch (ClassCastException e) {
       String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
       String expectedType = e.getMessage().replaceFirst(".* cannot be cast to ", "");
@@ -184,19 +178,41 @@ public abstract class OperatorImpl<M, RM> {
               getOpImplId(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
     }
 
-    long endNs = this.highResClock.nanoTime();
-    this.handleMessageNs.update(endNs - startNs);
+    CompletionStage<Void> result = completableResultsFuture.thenCompose(results -> {
+      long endNs = this.highResClock.nanoTime();
+      this.handleMessageNs.update(endNs - startNs);
 
-    results.forEach(rm ->
-        this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));
+      return CompletableFuture.allOf(results.stream()
+          .flatMap(r -> this.registeredOperators.stream()
+              .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+          .toArray(CompletableFuture[]::new));
+    });
 
-    WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
-    if (watermarkFn != null) {
-      // check whether there is new watermark emitted from the user function
-      Long outputWm = watermarkFn.getOutputWatermark();
-      propagateWatermark(outputWm, collector, coordinator);
-    }
+    result.thenAccept(x -> {
+      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+      if (watermarkFn != null) {
+        // check whether there is new watermark emitted from the user function
+        Long outputWm = watermarkFn.getOutputWatermark();
+        propagateWatermark(outputWm, collector, coordinator);
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Handle the incoming {@code message} asynchronously and return a {@link CompletionStage} of the results to be propagated
+   * to the registered operators.
+   *
+   * @param message the input message
+   * @param collector the {@link MessageCollector} in the context
+   * @param coordinator the {@link TaskCoordinator} in the context
+   *
+   * @return a {@code CompletionStage} of the results of the transformation
+   */
+  protected CompletionStage<Collection<RM>> handleAsyncMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
+    return CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
   }
 
   /**
@@ -218,17 +234,23 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector  the {@link MessageCollector} in the context
    * @param coordinator  the {@link TaskCoordinator} in the context
    */
-  public final void onTimer(MessageCollector collector, TaskCoordinator coordinator) {
+  public final CompletionStage<Void> onTimer(MessageCollector collector, TaskCoordinator coordinator) {
     long startNs = this.highResClock.nanoTime();
     Collection<RM> results = handleTimer(collector, coordinator);
     long endNs = this.highResClock.nanoTime();
     this.handleTimerNs.update(endNs - startNs);
 
-    results.forEach(rm ->
-        this.registeredOperators.forEach(op ->
-            op.onMessage(rm, collector, coordinator)));
-    this.registeredOperators.forEach(op ->
-        op.onTimer(collector, coordinator));
+    CompletionStage<Void> resultFuture = CompletableFuture.allOf(
+        results.stream()
+            .flatMap(r -> this.registeredOperators.stream()
+                .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+            .toArray(CompletableFuture[]::new));
+
+    return resultFuture.thenCompose(x ->
+        CompletableFuture.allOf(this.registeredOperators
+            .stream()
+            .map(op -> op.onTimer(collector, coordinator))
+            .toArray(CompletableFuture[]::new)));
   }
 
   /**
@@ -252,12 +274,14 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  public final void aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
+  public final CompletionStage<Void> aggregateEndOfStream(EndOfStreamMessage eos, SystemStreamPartition ssp, MessageCollector collector,
       TaskCoordinator coordinator) {
     LOG.info("Received end-of-stream message from task {} in {}", eos.getTaskName(), ssp);
     eosStates.update(eos, ssp);
 
     SystemStream stream = ssp.getSystemStream();
+    CompletionStage<Void> endOfStreamFuture = CompletableFuture.completedFuture(null);
+
     if (eosStates.isEndOfStream(stream)) {
       LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
       if (eos.getTaskName() != null) {
@@ -265,16 +289,20 @@ public abstract class OperatorImpl<M, RM> {
         // broadcast the end-of-stream to all the peer partitions
         controlMessageSender.broadcastToOtherPartitions(new EndOfStreamMessage(), ssp, collector);
       }
-      // populate the end-of-stream through the dag
-      onEndOfStream(collector, coordinator);
 
-      if (eosStates.allEndOfStream()) {
-        // all inputs have been end-of-stream, shut down the task
-        LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
-        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-      }
+      // populate the end-of-stream through the dag
+      endOfStreamFuture = onEndOfStream(collector, coordinator)
+          .thenAccept(result -> {
+            if (eosStates.allEndOfStream()) {
+              // all inputs have been end-of-stream, shut down the task
+              LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+              coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+              coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+            }
+          });
     }
+
+    return endOfStreamFuture;
   }
 
   /**
@@ -283,16 +311,25 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  private final void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+  private CompletionStage<Void> onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    CompletionStage<Void> endOfStreamFuture = CompletableFuture.completedFuture(null);
+
     if (inputStreams.stream().allMatch(input -> eosStates.isEndOfStream(input))) {
       Collection<RM> results = handleEndOfStream(collector, coordinator);
 
-      results.forEach(rm ->
-          this.registeredOperators.forEach(op ->
-              op.onMessage(rm, collector, coordinator)));
+      CompletionStage<Void> resultFuture = CompletableFuture.allOf(
+          results.stream()
+              .flatMap(r -> this.registeredOperators.stream()
+                  .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+              .toArray(CompletableFuture[]::new));
 
-      this.registeredOperators.forEach(op -> op.onEndOfStream(collector, coordinator));
+      endOfStreamFuture = resultFuture.thenCompose(x ->
+          CompletableFuture.allOf(this.registeredOperators.stream()
+              .map(op -> op.onEndOfStream(collector, coordinator))
+              .toArray(CompletableFuture[]::new)));
     }
+
+    return endOfStreamFuture;
   }
 
   /**
@@ -316,11 +353,13 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  public final void aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
+  public final CompletionStage<Void> aggregateWatermark(WatermarkMessage watermarkMessage, SystemStreamPartition ssp,
       MessageCollector collector, TaskCoordinator coordinator) {
     LOG.debug("Received watermark {} from {}", watermarkMessage.getTimestamp(), ssp);
     watermarkStates.update(watermarkMessage, ssp);
     long watermark = watermarkStates.getWatermark(ssp.getSystemStream());
+    CompletionStage<Void> watermarkFuture = CompletableFuture.completedFuture(null);
+
     if (currentWatermark < watermark) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
 
@@ -330,11 +369,11 @@ public abstract class OperatorImpl<M, RM> {
         controlMessageSender.broadcastToOtherPartitions(new WatermarkMessage(watermark), ssp, collector);
       }
       // populate the watermark through the dag
-      onWatermark(watermark, collector, coordinator);
-
-      // update metrics
-      watermarkStates.updateAggregateMetric(ssp, watermark);
+      watermarkFuture = onWatermark(watermark, collector, coordinator)
+          .thenAccept(ignored -> watermarkStates.updateAggregateMetric(ssp, watermark));
     }
+
+    return watermarkFuture;
   }
 
   /**
@@ -345,16 +384,20 @@ public abstract class OperatorImpl<M, RM> {
    * @param collector message collector
    * @param coordinator task coordinator
    */
-  private final void onWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
+  private CompletionStage<Void> onWatermark(long watermark, MessageCollector collector, TaskCoordinator coordinator) {
     final long inputWatermarkMin;
     if (prevOperators.isEmpty()) {
       // for input operator, use the watermark time coming from the source input
       inputWatermarkMin = watermark;
     } else {
       // InputWatermark(op) = min { OutputWatermark(op') | op' is upstream of op}
-      inputWatermarkMin = prevOperators.stream().map(op -> op.getOutputWatermark()).min(Long::compare).get();
+      inputWatermarkMin = prevOperators.stream()
+          .map(op -> op.getOutputWatermark())
+          .min(Long::compare)
+          .get();
     }
 
+    CompletionStage<Void> watermarkFuture = CompletableFuture.completedFuture(null);
     if (currentWatermark < inputWatermarkMin) {
       // advance the watermark time of this operator
       currentWatermark = inputWatermarkMin;
@@ -375,26 +418,38 @@ public abstract class OperatorImpl<M, RM> {
       }
 
       if (!output.isEmpty()) {
-        output.forEach(rm ->
-            this.registeredOperators.forEach(op ->
-                op.onMessage(rm, collector, coordinator)));
+        watermarkFuture = CompletableFuture.allOf(
+            output.stream()
+                .flatMap(rm -> this.registeredOperators.stream()
+                    .map(op -> op.onAsyncMessage(rm, collector, coordinator)))
+                .toArray(CompletableFuture[]::new));
       }
 
-      propagateWatermark(outputWm, collector, coordinator);
+      watermarkFuture.thenCompose(res -> propagateWatermark(outputWm, collector, coordinator));
     }
+
+    return watermarkFuture;
   }
 
-  private void propagateWatermark(Long outputWm, MessageCollector collector, TaskCoordinator coordinator) {
+  private CompletionStage<Void> propagateWatermark(Long outputWm, MessageCollector collector, TaskCoordinator coordinator) {
+    CompletionStage<Void> watermarkFuture = CompletableFuture.completedFuture(null);
+
     if (outputWm != null) {
       if (outputWatermark < outputWm) {
         // advance the watermark
         outputWatermark = outputWm;
         LOG.debug("Advance output watermark to {} in operator {}", outputWatermark, getOpImplId());
-        this.registeredOperators.forEach(op -> op.onWatermark(outputWatermark, collector, coordinator));
+        watermarkFuture = CompletableFuture.allOf(
+            this.registeredOperators
+                .stream()
+                .map(op -> op.onWatermark(outputWatermark, collector, coordinator))
+                .toArray(CompletableFuture[]::new));
       } else if (outputWatermark > outputWm) {
         LOG.warn("Ignore watermark {} that is smaller than the previous watermark {}.", outputWm, outputWatermark);
       }
     }
+
+    return watermarkFuture;
   }
 
   /**
@@ -447,9 +502,12 @@ public abstract class OperatorImpl<M, RM> {
               final Collection<RM> output = scheduledFn.onCallback(key, time);
 
               if (!output.isEmpty()) {
-                output.forEach(rm ->
-                    registeredOperators.forEach(op ->
-                        op.onMessage(rm, collector, coordinator)));
+                CompletableFuture<Void> timerFuture = CompletableFuture.allOf(output.stream()
+                    .flatMap(r -> registeredOperators.stream()
+                        .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+                    .toArray(CompletableFuture[]::new));
+
+                timerFuture.join();
               }
             } else {
               throw new SamzaException(

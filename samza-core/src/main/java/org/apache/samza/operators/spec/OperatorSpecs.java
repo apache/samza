@@ -20,6 +20,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.system.descriptors.InputTransformer;
@@ -94,6 +95,21 @@ public class OperatorSpecs {
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
     return new FlatMapOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, opId);
   }
+
+  /**
+   * Creates a {@link AsyncOperatorSpec} for {@link AsyncFlatMapFunction}.
+   *
+   * @param asyncFlatMapFn  the transformation function
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
+   * @return  the {@link AsyncOperatorSpec}
+   */
+  public static <M, OM> AsyncOperatorSpec<M, OM> createAsyncOperatorSpec(
+      AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn, String opId) {
+    return new AsyncOperatorSpec<>((AsyncFlatMapFunction<M, OM>) asyncFlatMapFn, opId);
+  }
+
 
   /**
    * Creates a {@link SinkOperatorSpec} for the sink operator.

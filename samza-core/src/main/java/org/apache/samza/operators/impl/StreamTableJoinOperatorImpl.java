@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -75,6 +78,32 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
     return output != null ?
         Collections.singletonList(output)
       : Collections.emptyList();
+  }
+
+  protected CompletionStage<Collection<JM>> handleAsyncMessage(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
+    if (message == null) {
+      return CompletableFuture.completedFuture(Collections.emptyList());
+    }
+
+    K key = joinOpSpec.getJoinFn().getMessageKey(message);
+
+    return Optional.ofNullable(key)
+        .map(k -> table.getAsync(key)
+            .thenApply(val -> getJoinOutput(key, val, message)))
+        .orElse(CompletableFuture.completedFuture(Collections.emptyList()));
+  }
+
+  private Collection<JM> getJoinOutput(K key, Object value, M message) {
+    JM output = Optional.ofNullable(value)
+        .map(val -> (R) KV.of(key, val))
+        .map(record -> joinOpSpec.getJoinFn().apply(message, record))
+        .orElseGet(() -> joinOpSpec.getJoinFn().apply(message, null));
+
+    // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
+    // return null, when the corresponding record is absent in the table.
+    return output != null ?
+        Collections.singletonList(output) : Collections.emptyList();
   }
 
   @Override
