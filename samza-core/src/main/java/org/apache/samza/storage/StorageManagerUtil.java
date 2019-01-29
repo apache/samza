@@ -21,6 +21,7 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.FileUtil;
@@ -115,6 +116,16 @@ public class StorageManagerUtil {
   }
 
   /**
+   * Check if a store's disk footprint exists.
+   *
+   * @param storeDir the base directory of the store
+   * @return true if a non-empty storeDir exists, false otherwise
+   */
+  public static boolean storeExists(File storeDir) {
+    return storeDir.exists() && storeDir.list().length > 0;
+  }
+
+  /**
    * Read and return the contents of the offset file.
    *
    * @param storagePartitionDir the base directory of the store
@@ -138,5 +149,17 @@ public class StorageManagerUtil {
     }
 
     return offset;
+  }
+
+  /**
+   * Creates and returns a File pointing to the directory for the given store and task, given a particular base directory.
+   *
+   * @param storeBaseDir the base directory to use
+   * @param storeName the store name to use
+   * @param taskName the task name which is referencing the store
+   * @return the partition directory for the store
+   */
+  public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName) {
+    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
   }
 }

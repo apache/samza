@@ -36,10 +36,10 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.JsonSerdeV2Factory;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.MyTestUdf;
-import org.apache.samza.sql.testutil.SampleRelConverterFactory;
-import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.MyTestUdf;
+import org.apache.samza.sql.util.SampleRelConverterFactory;
+import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.junit.Assert;
 import org.junit.Before;
@@ -281,6 +281,46 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
       expectedMessages = expectedMessages + Math.max(1, index);
     }
     Assert.assertEquals(expectedMessages, outMessages.size());
+  }
+
+
+  @Test
+  public void testEndToEndComplexRecord() {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+
+    String sql1 =
+        "Insert into testavro.outputTopic"
+            + " select map_values['key0'] as string_value, array_values[0] as string_value, map_values, id, bytes_value, fixed_value, float_value "
+            + " from testavro.COMPLEX1";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+
+    Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+  @Ignore
+  @Test
+  public void testEndToEndNestedRecord() {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+
+    String sql1 =
+        "Insert into testavro.outputTopic"
+            + " select `phoneNumbers`[0].`kind`"
+            + " from testavro.PROFILE as p";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+
+    Assert.assertEquals(numMessages, outMessages.size());
   }
 
   @Test

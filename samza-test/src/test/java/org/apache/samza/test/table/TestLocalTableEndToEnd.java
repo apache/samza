@@ -26,9 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
-import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -47,14 +45,8 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
-import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
-import org.apache.samza.task.InitableTask;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
@@ -316,46 +308,4 @@ public class TestLocalTableEndToEnd extends AbstractIntegrationTestHarness {
     }
   }
 
-  @Test
-  public void testWithLowLevelApi() throws Exception {
-
-    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(TestTableData.generatePageViews(10)));
-    configs.put("streams.PageView.partitionCount", String.valueOf(4));
-    configs.put("task.inputs", "test.PageView");
-
-    Config config = new MapConfig(configs);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), config);
-    executeRun(runner, config);
-    runner.waitForFinish();
-  }
-
-  static public class MyTaskApplication implements TaskApplication {
-    @Override
-    public void describe(TaskApplicationDescriptor appDescriptor) {
-      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
-      GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      appDescriptor
-          .withInputStream(pageViewISD)
-          .withTable(new InMemoryTableDescriptor("t1", KVSerde.of(new IntegerSerde(), new PageViewJsonSerde())))
-          .withTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
-    }
-  }
-
-  static public class MyStreamTask implements StreamTask, InitableTask {
-    private ReadWriteTable<Integer, PageView> pageViewTable;
-    @Override
-    public void init(Context context) throws Exception {
-      pageViewTable = context.getTaskContext().getTable("t1");
-    }
-    @Override
-    public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {
-      PageView pv = (PageView) message.getMessage();
-      pageViewTable.put(pv.getMemberId(), pv);
-      PageView pv2 = pageViewTable.get(pv.getMemberId());
-      Assert.assertEquals(pv.getMemberId(), pv2.getMemberId());
-      Assert.assertEquals(pv.getPageKey(), pv2.getPageKey());
-    }
-  }
 }

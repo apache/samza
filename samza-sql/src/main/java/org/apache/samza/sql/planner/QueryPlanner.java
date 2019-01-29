@@ -33,9 +33,7 @@ import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.externalize.RelJsonWriter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -57,6 +55,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +87,7 @@ public class QueryPlanner {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
+      RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
 
       for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
         SchemaPlus previousLevelSchema = rootSchema;
@@ -104,7 +104,8 @@ public class QueryPlanner {
             previousLevelSchema = sourcePartSchema;
           } else {
             // If the source part is the last one, then fetch the schema corresponding to the stream and register.
-            RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
+            SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
+            RelDataType relationalSchema = relSchemaConverter.convertToRelSchema(sqlSchema);
             previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
             break;
           }

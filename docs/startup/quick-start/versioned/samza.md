@@ -48,7 +48,7 @@ You can build the project anytime by running:
 
 ### Create a Samza StreamApplication
 
-Now let’s write some code! An application written using Samza's [high-level API](/learn/documentation/{{site.version}}/api/api/high-level-api.html) implements the [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html) interface:
+Now let’s write some code! An application written using Samza's [high-level API](/learn/documentation/{{site.version}}/api/high-level-api.html) implements the [StreamApplication](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/application/StreamApplication.html) interface:
 
 {% highlight java %}
 package samzaapp;

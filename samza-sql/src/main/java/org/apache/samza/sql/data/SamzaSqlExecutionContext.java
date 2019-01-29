@@ -28,7 +28,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.testutil.ReflectionUtils;
+import org.apache.samza.sql.util.ReflectionUtils;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 

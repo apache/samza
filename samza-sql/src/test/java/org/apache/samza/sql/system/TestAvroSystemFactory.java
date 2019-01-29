@@ -330,6 +330,9 @@ public class TestAvroSystemFactory implements SystemFactory {
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));
       record.put("array_values", arrayValues);
+      Map<String, String> mapValues = new HashMap<>();
+      mapValues.put("key0", "value0");
+      record.put("map_values", mapValues);
       return record;
     }
   }

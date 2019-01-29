@@ -163,10 +163,10 @@ class TaskInstance(
 
   def registerConsumers {
     debug("Registering consumers for taskName: %s" format taskName)
-
     systemStreamPartitions.foreach(systemStreamPartition => {
       val startingOffset = getStartingOffset(systemStreamPartition)
-      consumerMultiplexer.register(systemStreamPartition, startingOffset)
+      val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
+      consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
       metrics.addOffsetGauge(systemStreamPartition, () =>
         if (sideInputSSPs.contains(systemStreamPartition)) {
           sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
