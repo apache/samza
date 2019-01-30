@@ -27,6 +27,7 @@ import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStream, _}
+import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.junit.Assert._
 import org.junit.{Before, Test}
@@ -65,6 +66,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private var offsetManager: OffsetManager = null
   @Mock
   private var taskStorageManager: TaskStorageManager = null
+  @Mock
+  private var taskTableManager: TableManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
   private var taskInstanceExceptionHandler: MockTaskInstanceExceptionHandler = null
   @Mock
@@ -212,7 +215,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     taskInstance.commit
 
-    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskStorageManager)
+    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskStorageManager, this.taskTableManager)
 
     // We must first get a snapshot of the checkpoint so it doesn't change while we flush. SAMZA-1384
     mockOrder.verify(this.offsetManager).buildCheckpoint(TASK_NAME)
@@ -222,6 +225,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     // Local state is next, to ensure that the state (particularly the offset file) never points to a newer changelog
     // offset than what is reflected in the on disk state.
     mockOrder.verify(this.taskStorageManager).flush()
+    // Tables are next
+    mockOrder.verify(this.taskTableManager).flush()
     // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
     mockOrder.verify(offsetManager).writeCheckpoint(TASK_NAME, checkpoint)
     verify(commitsCounter).inc()
@@ -260,6 +265,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.collector,
       offsetManager = this.offsetManager,
       storageManager = this.taskStorageManager,
+      tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,
       jobContext = this.jobContext,

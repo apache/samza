@@ -99,6 +99,15 @@ public class TableManager {
   }
 
   /**
+   * Flush all tables
+   */
+  public void flush() {
+    tableContexts.values().stream()
+        .filter(ctx -> ctx.table != null)
+        .forEach(ctx -> ctx.table.flush());
+  }
+
+  /**
    * Shutdown the table manager, internally it shuts down all tables
    */
   public void close() {
