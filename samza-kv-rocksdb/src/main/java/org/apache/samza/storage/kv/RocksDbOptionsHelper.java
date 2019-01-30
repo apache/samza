@@ -19,10 +19,10 @@
 
 package org.apache.samza.storage.kv;
 
+import java.io.File;
 import org.apache.samza.config.Config;
-import org.apache.samza.context.ContainerContext;
-import org.apache.samza.context.JobContext;
 import org.apache.samza.storage.StorageEngineFactory;
+import org.apache.samza.storage.StorageManagerUtil;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
@@ -43,7 +43,7 @@ public class RocksDbOptionsHelper {
   private static final String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   private static final String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
 
-  public static Options options(Config storeConfig, int numTasksForContainer, StorageEngineFactory.StoreMode storeMode) {
+  public static Options options(Config storeConfig, int numTasksForContainer, File storeDir, StorageEngineFactory.StoreMode storeMode) {
     Options options = new Options();
     Long writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024);
     // Cache size and write buffer size are specified on a per-container basis.
@@ -107,7 +107,11 @@ public class RocksDbOptionsHelper {
     options.setMaxLogFileSize(storeConfig.getLong(ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, 64 * 1024 * 1024L));
     options.setKeepLogFileNum(storeConfig.getLong(ROCKSDB_KEEP_LOG_FILE_NUM, 2));
 
-    if(storeMode.equals(StorageEngineFactory.StoreMode.BulkLoad)) {
+    // use prepareForBulk load only when i. the store is being requested in BulkLoad mode
+    // and ii. the storeDirectory does not exist (fresh restore), because bulk load does not work seamlessly with
+    // existing stores : https://github.com/facebook/rocksdb/issues/2734
+    if(storeMode.equals(StorageEngineFactory.StoreMode.BulkLoad) && !StorageManagerUtil.storeExists(storeDir)) {
+      log.info("Using prepareForBulkLoad for restore to " + storeDir);
       options.prepareForBulkLoad();
     }
 
