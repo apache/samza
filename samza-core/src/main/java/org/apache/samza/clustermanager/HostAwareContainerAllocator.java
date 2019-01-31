@@ -65,7 +65,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     this.requestTimeout = timeout;
 
     // if standbys are enabled, populate the standbyContainerConstraints map
-    if (!new JobConfig(config).getStandbyTasksEnabled()) {
+    if (new JobConfig(config).getStandbyTasksEnabled()) {
       JobModel jobModel = state.jobModelManager.jobModel();
       jobModel.getContainers().keySet().forEach(containerId -> standbyContainerConstraints.put(containerId,
           StandbyTaskUtil.getStandbyContainerConstraints(containerId, jobModel)));
