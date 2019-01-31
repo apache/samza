@@ -185,7 +185,8 @@ public class TestLocalTableWrite {
     ReadWriteTable table = createTable(false);
     table.flush();
     table.flush();
-    verify(kvStore, times(2)).flush();
+    // Note: store.flush() is NOT called here
+    verify(kvStore, times(0)).flush();
     Assert.assertEquals(2, numFlushes.getCount());
     Assert.assertTrue(flushNs.getSnapshot().getAverage() > 0);
     Assert.assertEquals(0, putNs.getSnapshot().getAverage(), 0.001);
