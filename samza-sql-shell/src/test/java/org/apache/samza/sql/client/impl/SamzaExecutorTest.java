@@ -20,18 +20,17 @@
 package org.apache.samza.sql.client.impl;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
+import org.apache.samza.sql.client.interfaces.ExecutorException;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import static org.apache.samza.sql.client.impl.SamzaExecutor.*;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
@@ -39,7 +38,7 @@ public class SamzaExecutorTest {
     private SamzaExecutor m_executor = new SamzaExecutor();
 
     @Test
-    public void testGetTableSchema() {
+    public void testGetTableSchema() throws ExecutorException {
         prepareEnvironmentVariable();
         SqlSchema ts = m_executor.getTableSchema(new ExecutionContext(), "kafka.ProfileChangeStream");
 
