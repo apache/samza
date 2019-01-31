@@ -20,21 +20,21 @@
 package org.apache.samza.sql.client.interfaces;
 
 /**
- * An executor shall throw an ExecutionException when it encounters an unrecoverable error.
+ * An executor shall throw an ExecutorException when it encounters an error.
  */
-public class ExecutionException extends RuntimeException {
-  public ExecutionException() {
+public class ExecutorException extends Exception {
+  public ExecutorException() {
   }
 
-  public ExecutionException(String message) {
+  public ExecutorException(String message) {
     super(message);
   }
 
-  public ExecutionException(String message, Throwable cause) {
+  public ExecutorException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public ExecutionException(Throwable cause) {
+  public ExecutorException(Throwable cause) {
     super(cause);
   }
 }

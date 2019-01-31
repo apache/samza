@@ -96,8 +96,9 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
   protected abstract EnvironmentVariableSpecs initializeEnvironmentVariableSpecs();
 
   /**
-   * Subclasses shall override this method to if they want to accept environment variables
-   * with unknown names
+   * Subclasses can override this method if they want to accept environment variables
+   * with unknown names. When an executor is not able to go through all the valid configurations
+   * it can use this method as a temporary workaround.
    * @return true if environment variables with unknown names are acceptable. This method returns false by default.
    */
   protected boolean isAcceptUnknowName() {

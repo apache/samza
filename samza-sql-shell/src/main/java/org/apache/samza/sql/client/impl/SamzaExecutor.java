@@ -93,7 +93,6 @@ public class SamzaExecutor implements SqlExecutor {
   private Map<Integer, SamzaSqlApplicationRunner> executions = new HashMap<>();
   private SamzaExecutorEnvironmentVariableHandler environmentVariableHandler =
           new SamzaExecutorEnvironmentVariableHandler();
-  private String lastErrorMsg = "";
 
   // -- implementation of SqlExecutor ------------------------------------------
 
@@ -102,7 +101,7 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public void stop(ExecutionContext context) {
+  public void stop(ExecutionContext context) throws ExecutorException {
     Iterator<Integer> iter = executions.keySet().iterator();
     while (iter.hasNext()) {
       stopExecution(context, iter.next());
@@ -117,38 +116,32 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public List<String> listTables(ExecutionContext context) {
-    lastErrorMsg = "";
+  public List<String> listTables(ExecutionContext context) throws ExecutorException {
     String address = environmentVariableHandler.getEnvironmentVariable(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS);
     if(address == null || address.isEmpty()) {
       address = DEFAULT_SERVER_ADDRESS;
     }
-    List<String> tables = null;
     try {
       ZkUtils zkUtils = new ZkUtils(new ZkClient(address, DEFAULT_ZOOKEEPER_CLIENT_TIMEOUT),
           new ZkConnection(address), false);
-      tables = JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
+      return JavaConversions.seqAsJavaList(zkUtils.getAllTopics())
         .stream()
         .map(x -> SAMZA_SYSTEM_KAFKA + "." + x)
         .collect(Collectors.toList());
     } catch (ZkTimeoutException ex) {
-      String msg = "listTables failed with exception ";
-      lastErrorMsg = msg + ex.toString();
-      LOG.error(msg, ex);
+      throw new ExecutorException(ex);
     }
-    return tables;
   }
 
   @Override
-  public SqlSchema getTableSchema(ExecutionContext context, String tableName) {
-    /**
+  public SqlSchema getTableSchema(ExecutionContext context, String tableName) throws ExecutorException {
+    /*
      *  currently Shell works only for systems that has Avro schemas
      */
-    lastErrorMsg = "";
     int execId = execIdSeq.incrementAndGet();
     Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
     Config samzaSqlConfig = new MapConfig(staticConfigs);
-    SqlSchema sqlSchema = null;
+    SqlSchema sqlSchema;
     try {
       SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(samzaSqlConfig);
       SqlIOConfig sourceInfo = ioResolver.fetchSourceInfo(tableName);
@@ -158,16 +151,13 @@ public class SamzaExecutor implements SqlExecutor {
                       (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
       sqlSchema =  schemaProvider.getSqlSchema();
     } catch (SamzaException ex) {
-      String msg = "getTableSchema failed with exception ";
-      lastErrorMsg = msg + ex.toString();
-      LOG.error(msg, ex);
+      throw new ExecutorException(ex);
     }
     return sqlSchema;
   }
 
   @Override
-  public QueryResult executeQuery(ExecutionContext context, String statement) {
-    lastErrorMsg = "";
+  public QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException{
     outputData.clear();
 
     int execId = execIdSeq.incrementAndGet();
@@ -180,15 +170,12 @@ public class SamzaExecutor implements SqlExecutor {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
       runner.run(null);
     } catch (SamzaException ex) {
-      String msg = "Execution failed with exception ";
-      lastErrorMsg = msg + ex.toString();
-      LOG.error(msg, ex);
-      return new QueryResult(execId, null, false);
+      throw new ExecutorException(ex);
     }
     executions.put(execId, runner);
     LOG.debug("Executing sql. Id ", execId);
 
-    return new QueryResult(execId, generateResultSchema(new MapConfig(staticConfigs)), true);
+    return new QueryResult(execId, generateResultSchema(new MapConfig(staticConfigs)));
   }
 
   @Override
@@ -215,18 +202,13 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) {
-    lastErrorMsg = "";
-
+  public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) throws ExecutorException{
     LOG.info("Sql file path: " + sqlFile.getPath());
-    List<String> executedStmts = new ArrayList<>();
+    List<String> executedStmts;
     try {
       executedStmts = Files.lines(Paths.get(sqlFile.getPath())).collect(Collectors.toList());
     } catch (IOException e) {
-      String msg = "Unable to parse the sql file " + sqlFile.getAbsolutePath();
-      lastErrorMsg = msg + e.toString();
-      LOG.error(msg, e);
-      return new NonQueryResult(-1, false);
+      throw new ExecutorException(e);
     }
     LOG.info("Sql statements in Sql file: " + executedStmts.toString());
 
@@ -234,18 +216,14 @@ public class SamzaExecutor implements SqlExecutor {
     List<String> nonSubmittedStmts = new ArrayList<>();
     validateExecutedStmts(executedStmts, submittedStmts, nonSubmittedStmts);
     if (submittedStmts.isEmpty()) {
-      lastErrorMsg = "Nothing to execute. Note: SELECT statements are ignored.";
-      LOG.warn("Nothing to execute. Statements in the Sql file: {}", nonSubmittedStmts);
-      return new NonQueryResult(-1, false);
+      throw new ExecutorException("Nothing to execute. Note: SELECT statements are ignored.");
     }
     NonQueryResult result = executeNonQuery(context, submittedStmts);
-    return new NonQueryResult(result.getExecutionId(), result.succeeded(), submittedStmts, nonSubmittedStmts);
+    return new NonQueryResult(result.getExecutionId(), submittedStmts, nonSubmittedStmts);
   }
 
   @Override
-  public NonQueryResult executeNonQuery(ExecutionContext context, List<String> statement) {
-    lastErrorMsg = "";
-
+  public NonQueryResult executeNonQuery(ExecutionContext context, List<String> statement) throws ExecutorException {
     int execId = execIdSeq.incrementAndGet();
     Map<String, String> staticConfigs = fetchSamzaSqlConfig(execId);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(formatSqlStmts(statement)));
@@ -255,86 +233,54 @@ public class SamzaExecutor implements SqlExecutor {
       runner = new SamzaSqlApplicationRunner(true, new MapConfig(staticConfigs));
       runner.run(null);
     } catch (SamzaException ex) {
-      String msg = "Execution of the query failed with exception ";
-      lastErrorMsg = msg + ex.toString();
-      LOG.error(msg, ex);
-      return new NonQueryResult(execId, false);
+      throw new ExecutorException(ex);
     }
     executions.put(execId, runner);
     LOG.debug("Executing sql. Id ", execId);
 
-    return new NonQueryResult(execId, true);
+    return new NonQueryResult(execId);
   }
 
   @Override
-  public boolean stopExecution(ExecutionContext context, int exeId) {
-    lastErrorMsg = "";
-
+  public void stopExecution(ExecutionContext context, int exeId) throws ExecutorException{
     SamzaSqlApplicationRunner runner = executions.get(exeId);
     if (runner != null) {
       LOG.debug("Stopping execution ", exeId);
-
       try {
         runner.kill();
-        } catch (SamzaException ex) {
-        String msg = "Stopping execution failed with exception ";
-        lastErrorMsg = msg + ex.toString();
-        LOG.warn(msg, ex);
-        return false;
+      } catch (SamzaException ex) {
+        throw new ExecutorException(ex);
       }
-
-      try {
-        Thread.sleep(500); // wait for a second
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-
-      return true;
     } else {
-      lastErrorMsg = "Trying to stop a non-existing SQL execution " + exeId;
-      LOG.warn(lastErrorMsg);
-      return false;
+      throw new ExecutorException("Trying to stop a non-existing SQL execution " + exeId);
     }
   }
 
   @Override
-  public boolean removeExecution(ExecutionContext context, int exeId) {
-    lastErrorMsg = "";
-
+  public void removeExecution(ExecutionContext context, int exeId) throws ExecutorException {
     SamzaSqlApplicationRunner runner = executions.get(exeId);
     if (runner != null) {
       if (runner.status().getStatusCode().equals(ApplicationStatus.StatusCode.Running)) {
-        lastErrorMsg = "Trying to remove a ongoing execution " + exeId;
-        LOG.error(lastErrorMsg);
-        return false;
+        throw new ExecutorException("Trying to remove an ongoing execution " + exeId);
       }
       executions.remove(exeId);
-      LOG.debug("Stopping execution ", exeId);
-      return true;
     } else {
-      lastErrorMsg = "Trying to remove a non-existing SQL execution " + exeId;
-      LOG.warn(lastErrorMsg);
-      return false;
+      throw new ExecutorException("Trying to remove a non-existing SQL execution " + exeId);
     }
   }
 
   @Override
-  public ExecutionStatus queryExecutionStatus(int execId) {
+  public ExecutionStatus queryExecutionStatus(int execId) throws ExecutorException {
     SamzaSqlApplicationRunner runner = executions.get(execId);
     if (runner == null) {
-      return null;
+      throw new ExecutorException("Execution " + execId + " does not exist.");
     }
     return queryExecutionStatus(runner);
   }
 
   @Override
-  public String getErrorMsg() {
-    return lastErrorMsg;
-  }
-
-  @Override
   public List<SqlFunction> listFunctions(ExecutionContext context) {
-    /**
+    /*
      * TODO: currently the Shell only shows some UDFs supported by Samza internally. We may need to require UDFs
      *       to provide a function of getting their "SamzaSqlUdfDisplayInfo", then we can get the UDF information from
      *       SamzaSqlApplicationConfig.udfResolver(or SamzaSqlApplicationConfig.udfMetadata) instead of registering
@@ -485,9 +431,9 @@ public class SamzaExecutor implements SqlExecutor {
     return formattedRow;
   }
 
-  private ExecutionStatus queryExecutionStatus(SamzaSqlApplicationRunner runner) {
-    lastErrorMsg = "";
-    switch (runner.status().getStatusCode()) {
+  private ExecutionStatus queryExecutionStatus(SamzaSqlApplicationRunner runner) throws ExecutorException {
+    ApplicationStatus.StatusCode code = runner.status().getStatusCode();
+    switch (code) {
       case New:
         return ExecutionStatus.New;
       case Running:
@@ -496,15 +442,11 @@ public class SamzaExecutor implements SqlExecutor {
         return ExecutionStatus.SuccessfulFinish;
       case UnsuccessfulFinish:
         return ExecutionStatus.UnsuccessfulFinish;
-      default:
-        lastErrorMsg = String.format("Unsupported execution status %s",
-                runner.status().getStatusCode().toString());
-        return null;
     }
+    throw new ExecutorException("Unsupported status code: "+ code);
   }
 
   private String getPrettyFormat(OutgoingMessageEnvelope envelope) {
-    lastErrorMsg = "";
     String value = new String((byte[]) envelope.getMessage());
     ObjectMapper mapper = new ObjectMapper();
     String formattedValue;
@@ -513,9 +455,7 @@ public class SamzaExecutor implements SqlExecutor {
       formattedValue = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
     } catch (IOException ex) {
       formattedValue = value;
-      String msg = "getPrettyFormat failed with exception while formatting json ";
-      lastErrorMsg = msg + ex.toString();
-      LOG.error(msg, ex);
+      LOG.error("getPrettyFormat failed with exception while formatting json ", ex);
     }
     return formattedValue;
   }
@@ -529,8 +469,8 @@ public class SamzaExecutor implements SqlExecutor {
     COMPACT
   }
 
-  public class SamzaExecutorEnvironmentVariableHandler extends EnvironmentVariableHandlerImpl {
-    public SamzaExecutorEnvironmentVariableHandler() {
+  class SamzaExecutorEnvironmentVariableHandler extends EnvironmentVariableHandlerImpl {
+    SamzaExecutorEnvironmentVariableHandler() {
     }
 
     protected EnvironmentVariableSpecs initializeEnvironmentVariableSpecs() {

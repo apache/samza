@@ -21,6 +21,7 @@ package org.apache.samza.sql.client.cli;
 
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableSpecs;
+import org.apache.samza.sql.client.interfaces.ExecutorException;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
@@ -48,7 +49,7 @@ class CliEnvironment {
   private String activeExecutorClassName;
   private static final Logger LOG = LoggerFactory.getLogger(CliEnvironment.class);
 
-  public CliEnvironment() {
+  CliEnvironment() {
     shellEnvHandler = new CliShellEnvironmentVariableHandler();
   }
 
@@ -56,19 +57,17 @@ class CliEnvironment {
    * @param name Environment variable name
    * @param value Value of the environment variable
    * @return 0 : succeed
+   * @throws ExecutorException When user sets an executor but not being able to create
    * -1: invalid name
    * -2: invalid value
    */
-  public int setEnvironmentVariable(String name, String value) {
+  int setEnvironmentVariable(String name, String value) throws ExecutorException{
     name = name.toLowerCase();
     if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
-      if(createShellExecutor(value)) {
-        activeExecutorClassName = value;
-        executorEnvHandler = executor.getEnvironmentVariableHandler();
-        return 0;
-      } else {
-        return -2;
-      }
+      createShellExecutor(value);
+      activeExecutorClassName = value;
+      executorEnvHandler = executor.getEnvironmentVariableHandler();
+      return 0;
     }
 
     EnvironmentVariableHandler handler = getAppropriateHandler(name);
@@ -136,17 +135,20 @@ class CliEnvironment {
    */
   public void finishInitialization() {
     if(executor == null) {
-      if(createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS)) {
+      try {
+        createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS);
         activeExecutorClassName = CliConstants.DEFAULT_EXECUTOR_CLASS;
         executorEnvHandler = executor.getEnvironmentVariableHandler();
-        if(delayedExecutorVars != null) {
+        if (delayedExecutorVars != null) {
           for (Map.Entry<String, String> entry : delayedExecutorVars.entrySet()) {
             setEnvironmentVariable(entry.getKey(), entry.getValue());
           }
           delayedExecutorVars = null;
         }
-      } else {
-        throw new CliException("Failed to create default executor: " + CliConstants.DEFAULT_EXECUTOR_CLASS);
+      } catch (ExecutorException e) {
+        // Convert checked exception ExecutorException to an unchecked exception as
+        // we have failed to create even the default executor thus not recoverable
+        throw new CliException(e);
       }
     }
 
@@ -172,17 +174,15 @@ class CliEnvironment {
     return executor;
   }
 
-  private boolean createShellExecutor(String executorClassName) {
+  private void createShellExecutor(String executorClassName) throws ExecutorException {
     try {
       Class<?> clazz = Class.forName(executorClassName);
       Constructor<?> ctor = clazz.getConstructor();
       executor = (SqlExecutor) ctor.newInstance();
     } catch (ClassNotFoundException | NoSuchMethodException
             | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-      LOG.debug("Failed to create executor. ", e);
-      return false;
+      throw new ExecutorException(e);
     }
-    return true;
   }
 
   /*

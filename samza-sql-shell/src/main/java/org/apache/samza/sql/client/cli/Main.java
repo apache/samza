@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.apache.samza.sql.client.interfaces.ExecutorException;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,7 @@ public class Main {
       }
 
       CliEnvironment environment = new CliEnvironment();
+      StringBuilder messageBuilder = new StringBuilder();
 
       if(!CliUtil.isNullOrEmpty(configFilePath)) {
         LOG.info("Configuration file path is: {}", configFilePath);
@@ -68,11 +70,17 @@ public class Main {
             }
             String key = strs[0].trim().toLowerCase();
             String value = strs[1].trim();
-            int result = environment.setEnvironmentVariable(key, value);
-            if(result == -1) { // CliEnvironment doesn't recognize the key.
-              LOG.warn("Unknowing shell environment variable: {}", key);
-            } else if(result == -2) { // Invalid value
-              LOG.warn("Unknowing shell environment value: {}", value);
+            try {
+              int result = environment.setEnvironmentVariable(key, value);
+              if (result == -1) { // CliEnvironment doesn't recognize the key.
+                LOG.warn("Unknowing shell environment variable: {}", key);
+              } else if (result == -2) { // Invalid value
+                LOG.warn("Unknowing shell environment value: {}", value);
+              }
+            } catch(ExecutorException e) {
+              messageBuilder.append("Warning: Failed to create executor: ").append(value).append('\n');
+              messageBuilder.append("Warning: Using default executor " + CliConstants.DEFAULT_EXECUTOR_CLASS);
+              LOG.error("Failed to create user specified executor {}", value, e);
             }
           }
         } catch (IOException e) {
@@ -81,8 +89,16 @@ public class Main {
       }
 
       environment.finishInitialization();
-      CliShell shell = new CliShell(environment);
-      shell.open();
+      CliShell shell;
+      try {
+        shell = new CliShell(environment);
+      } catch (ExecutorException e) {
+        System.out.println("Unable to initialize executor. Shell must exit. ");
+        LOG.error("Unable to initialize executor.", e);
+        return;
+      }
+
+      shell.open(messageBuilder.toString());
     }
 }
 
