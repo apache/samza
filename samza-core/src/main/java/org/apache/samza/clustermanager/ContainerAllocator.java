@@ -52,4 +52,9 @@ public class ContainerAllocator extends AbstractContainerAllocator {
       runStreamProcessor(request, ResourceRequestState.ANY_HOST);
     }
   }
+
+  @Override
+  public void resourceStopped(String containerID, String host) {
+    throw new UnsupportedOperationException();
+  }
 }

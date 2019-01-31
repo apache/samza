@@ -314,6 +314,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     }
   }
 
+  public void stopStreamProcessor(SamzaResource resource) {
+    synchronized (lock) {
+      log.info("Stopping resource {}", resource);
+      this.nmClientAsync.stopContainerAsync(allocatedResources.get(resource).getId(),
+          allocatedResources.get(resource).getNodeId());
+    }
+  }
+
   /**
    * Given a lookupContainerId from Yarn (for example: containerId_app_12345, this method returns the SamzaContainer ID
    * in the range [0,N-1] that maps to it.
@@ -521,6 +529,18 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   @Override
   public void onContainerStopped(ContainerId containerId) {
     log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {}", containerId);
+    String samzaContainerID = getIDForContainer(containerId.toString());
+
+    final YarnContainer container = state.runningYarnContainers.get(samzaContainerID);
+
+    // 1. remove the container from running state
+    state.runningYarnContainers.remove(samzaContainerID);
+
+    SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+        container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+
+    // 2. Invoke the stopped callback
+    clusterManagerCallback.onStreamProcessorStopped(resource);
   }
 
   @Override
@@ -549,6 +569,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   @Override
   public void onStopContainerError(ContainerId containerId, Throwable t) {
     log.info("Got an error when stopping container from the NodeManager. ContainerId: {}. Error: {}", containerId, t);
+
+    // TODO: handle stop container error in case of standby container stopping, by choosing another standby container and trying stop on that
   }
 
   /**

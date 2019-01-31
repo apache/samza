@@ -122,6 +122,10 @@ public abstract class ClusterResourceManager {
   public abstract void launchStreamProcessor(SamzaResource resource, CommandBuilder builder);
 
 
+  // Requests the stopping of a StreamProcessor, identified by the given resource
+  public abstract void stopStreamProcessor(SamzaResource resource);
+
+
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
 
 
@@ -155,6 +159,12 @@ public abstract class ClusterResourceManager {
      * @param resource the resource on which the StreamProcessor is launched
      */
     void onStreamProcessorLaunchSuccess(SamzaResource resource);
+
+    /**
+     * Callback invoked when a StreamProcessor on the {@link SamzaResource} has been successfully stopped.
+     * @param resource the resource on which the StreamProcessor is stopped
+     */
+    void onStreamProcessorStopped(SamzaResource resource);
 
     /**
      * Callback invoked when there is a failure in launching a StreamProcessor on the provided {@link SamzaResource}.

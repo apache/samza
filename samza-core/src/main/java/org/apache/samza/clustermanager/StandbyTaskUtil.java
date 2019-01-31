@@ -21,12 +21,16 @@ package org.apache.samza.clustermanager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.storage.kv.Entry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -36,6 +40,7 @@ public class StandbyTaskUtil {
   private static final String STANDBY_CONTAINER_ID_SEPARATOR = "-";
   private static final String TASKNAME_SEPARATOR = "-";
   private static final String STANDBY_TASKNAME_PREFIX = "Standby";
+  private static final Logger LOG = LoggerFactory.getLogger(StandbyTaskUtil.class);
 
   /**
    * Returns true if the containerName implies a standby container, false otherwise.
@@ -49,6 +54,11 @@ public class StandbyTaskUtil {
   // Helper method to generate buddy containerIDs by appending the replica-number to the active-container's id.
   public final static String getStandbyContainerId(String activeContainerId, int replicaNumber) {
     return activeContainerId.concat(STANDBY_CONTAINER_ID_SEPARATOR).concat(String.valueOf(replicaNumber));
+  }
+
+  // Helper method to generate active container's ID by removing the replica-number from the standby container's id.
+  public final static String getActiveContainerId(String standbyContainerID) {
+    return standbyContainerID.split(STANDBY_CONTAINER_ID_SEPARATOR)[0];
   }
 
   // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
@@ -112,4 +122,26 @@ public class StandbyTaskUtil {
         .map(taskModel -> taskModel.getTaskName())
         .collect(Collectors.toSet());
   }
+
+  public static Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID, List<String> standbyContainers,
+      SamzaApplicationState samzaApplicationState) {
+
+    LOG.info("Obtained standby container list {} for active container {}", standbyContainers, activeContainerID);
+
+    // return the first running standby container that we find
+    // TODO: improve this logic of finding a standby
+    for (String standbyContainer : standbyContainers) {
+      if (samzaApplicationState.runningContainers.keySet().contains(standbyContainer)) {
+        LOG.info("Returning standby container {} in running state for active container {}", standbyContainer,
+            activeContainerID);
+        return Optional.of(new Entry<>(standbyContainer, samzaApplicationState.runningContainers.get(standbyContainer)));
+      }
+    }
+
+    LOG.info("Did not find any suitable standby container for active container {}", activeContainerID);
+
+    // TODO: Handle case where all standby containers are in pending state
+    return Optional.empty();
+  }
+
 }

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.LinkedList;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -292,6 +293,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         // if the AM released the container.
         log.info("Released container {} was assigned task group ID {}. Requesting a new container for the task group.", containerIdStr, containerId);
 
+        state.failedContainersStatus.putIfAbsent(containerId, new LinkedList<>());
+        state.failedContainersStatus.get(containerId).add(containerStatus);
+
         state.neededContainers.incrementAndGet();
         state.jobHealthy.set(false);
 
@@ -305,7 +309,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         log.info("Container " + containerIdStr + " failed with exit code . " + exitStatus + " - " + containerStatus.getDiagnostics() + " containerID is " + containerId);
 
         state.failedContainers.incrementAndGet();
-        state.failedContainersStatus.put(containerIdStr, containerStatus);
+        state.failedContainersStatus.putIfAbsent(containerId, new LinkedList<>());
+        state.failedContainersStatus.get(containerId).add(containerStatus);
         state.jobHealthy.set(false);
 
         state.neededContainers.incrementAndGet();
@@ -434,6 +439,24 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
           "not issued", resource);
     }
+  }
+
+  @Override
+  public void onStreamProcessorStopped(SamzaResource resource) {
+    for (Map.Entry<String, SamzaResource> entry : state.runningContainers.entrySet()) {
+      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
+        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue()
+            + ". Releasing resource and notifying containerAllocator");
+
+        // Release the resource onStopped since it can anyway be reclaimed and notify the allocator about the stop
+        // the allocator is supposed to ask for new resources for the stopped container
+        clusterResourceManager.releaseResources(resource);
+        containerAllocator.resourceStopped(entry.getKey(), resource.getHost());
+        return;
+      }
+    }
+
+    log.error("No Matching container ID found for stopped resource: " + resource);
   }
 
   /**
