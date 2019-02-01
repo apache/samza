@@ -17,24 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.schema;
 
 /**
- * An executor shall throw an ExecutionException when it encounters an unrecoverable error.
+ * Type of the Samza SQL field
  */
-public class ExecutionException extends RuntimeException {
-  public ExecutionException() {
-  }
-
-  public ExecutionException(String message) {
-    super(message);
-  }
-
-  public ExecutionException(String message, Throwable cause) {
-    super(message, cause);
-  }
-
-  public ExecutionException(Throwable cause) {
-    super(cause);
-  }
+public enum SamzaSqlFieldType {
+  BYTE, // One-byte signed integer.
+  INT16, // two-byte signed integer.
+  INT32, // four-byte signed integer.
+  INT64, // eight-byte signed integer.
+  DECIMAL, // Decimal integer
+  FLOAT,
+  DOUBLE,
+  STRING, // String.
+  DATETIME, // Date and time.
+  BOOLEAN, // Boolean.
+  BYTES, // Byte array.
+  ARRAY,
+  MAP,
+  ROW, // The field is itself a nested row.
+  ANY
 }

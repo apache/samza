@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage.kv;
 
+import java.io.File;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
@@ -61,7 +62,7 @@ public class RocksDbKeyValueReader {
     valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName), serializerConfig);
 
     // get db options
-    Options options = RocksDbOptionsHelper.options(config, 1, StorageEngineFactory.StoreMode.ReadWrite);
+    Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);
 
     // open the db
     RocksDB.loadLibrary();

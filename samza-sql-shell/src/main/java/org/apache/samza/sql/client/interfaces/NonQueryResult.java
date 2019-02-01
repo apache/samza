@@ -26,30 +26,23 @@ import java.util.List;
  */
 public class NonQueryResult {
   private int execId; // execution ID of the statement(s) submitted
-  private boolean success; // whether the statement(s) submitted successfully
 
   // When user submits a batch of SQL statements, only the non-query ones will be submitted
   private List<String> submittedStmts;
   private List<String> nonSubmittedStmts;
 
-  public NonQueryResult(int execId, boolean success) {
+  public NonQueryResult(int execId) {
     this.execId = execId;
-    this.success = success;
   }
 
-  public NonQueryResult(int execId, boolean success, List<String> submittedStmts, List<String> nonSubmittedStmts) {
+  public NonQueryResult(int execId, List<String> submittedStmts, List<String> nonSubmittedStmts) {
     this.execId = execId;
-    this.success = success;
     this.submittedStmts = submittedStmts;
     this.nonSubmittedStmts = nonSubmittedStmts;
   }
 
   public int getExecutionId() {
     return execId;
-  }
-
-  public boolean succeeded() {
-    return success;
   }
 
   public List<String> getSubmittedStmts() {

@@ -30,7 +30,6 @@ import java.util.Set;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -142,13 +141,6 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    */
   private List<TaskGroup> getPreviousContainers(GrouperMetadata grouperMetadata, int taskCount) {
     Map<TaskName, String> taskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment();
-    taskToContainerId.values().forEach(id -> {
-        try {
-          int intId = Integer.parseInt(id);
-        } catch (NumberFormatException nfe) {
-          throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
-        }
-      });
 
     if (taskToContainerId.isEmpty()) {
       LOG.info("No task assignment map was saved.");

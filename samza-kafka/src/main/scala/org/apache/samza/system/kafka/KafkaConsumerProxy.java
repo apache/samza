@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -312,7 +313,8 @@ class KafkaConsumerProxy<K, V> {
       K key = record.key();
       Object value = record.value();
       IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record));
+          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record),
+              record.timestamp(), Instant.now().toEpochMilli());
       messages.add(imEnvelope);
     }
     if (LOG.isDebugEnabled()) {

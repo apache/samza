@@ -176,6 +176,7 @@ public class TestJobModelManager {
 
     // Mock the container to task assignment.
     when(mockTaskAssignmentManager.readTaskAssignment()).thenReturn(taskAssignment);
+    when(mockTaskAssignmentManager.readTaskModes()).thenReturn(Collections.singletonMap(new TaskName("task-0"), TaskMode.Active));
 
     GrouperMetadataImpl grouperMetadata = JobModelManager.getGrouperMetadata(new MapConfig(), mockLocalityManager, mockTaskAssignmentManager);
 
@@ -232,7 +233,7 @@ public class TestJobModelManager {
 
     // Verifications
     Mockito.verify(mockJobModel, atLeast(1)).getContainers();
-    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings((Iterable<String>) taskNames);
+    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
     Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-1", "test-container-id", TaskMode.Active);
     Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-2", "test-container-id", TaskMode.Active);
     Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-3", "test-container-id", TaskMode.Active);

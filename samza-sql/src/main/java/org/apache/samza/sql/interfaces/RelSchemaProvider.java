@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.interfaces;
 
-import org.apache.calcite.rel.type.RelDataType;
+import org.apache.samza.sql.schema.SqlSchema;
 
 
 /**
@@ -32,5 +32,5 @@ public interface RelSchemaProvider {
    * within a single schema.
    * @return Relational schema corresponding to the system stream.
    */
-  RelDataType getRelationalSchema();
+  SqlSchema getSqlSchema();
 }

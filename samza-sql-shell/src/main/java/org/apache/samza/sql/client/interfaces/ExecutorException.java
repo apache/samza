@@ -19,38 +19,22 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-
-import java.util.List;
-
 /**
- * A primitive representation of SQL schema which is just for display purpose.
+ * An executor shall throw an ExecutorException when it encounters an error.
  */
-public class SqlSchema {
-  private String[] names; // field names
-  private String[] typeNames; // names of field type
-
-  public SqlSchema(List<String> colNames, List<String> colTypeNames) {
-    if (colNames == null || colNames.size() == 0
-            || colTypeNames == null || colTypeNames.size() == 0
-            || colNames.size() != colTypeNames.size())
-      throw new IllegalArgumentException();
-
-    names = new String[colNames.size()];
-    names = colNames.toArray(names);
-
-    typeNames = new String[colTypeNames.size()];
-    typeNames = colTypeNames.toArray(typeNames);
+public class ExecutorException extends Exception {
+  public ExecutorException() {
   }
 
-  public int getFieldCount() {
-    return names.length;
+  public ExecutorException(String message) {
+    super(message);
   }
 
-  public String getFieldName(int colIdx) {
-    return names[colIdx];
+  public ExecutorException(String message, Throwable cause) {
+    super(message, cause);
   }
 
-  public String getFieldTypeName(int colIdx) {
-    return typeNames[colIdx];
+  public ExecutorException(Throwable cause) {
+    super(cause);
   }
 }

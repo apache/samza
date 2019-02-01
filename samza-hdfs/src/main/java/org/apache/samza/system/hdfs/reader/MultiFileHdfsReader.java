@@ -160,7 +160,8 @@ public class MultiFileHdfsReader {
     IncomingMessageEnvelope messageEnvelope = curReader.readNext();
     // Copy everything except for the offset. Turn the single-file style offset into a multi-file one
     return new IncomingMessageEnvelope(messageEnvelope.getSystemStreamPartition(), getCurOffset(),
-      messageEnvelope.getKey(), messageEnvelope.getMessage(), messageEnvelope.getSize());
+      messageEnvelope.getKey(), messageEnvelope.getMessage(), messageEnvelope.getSize(),
+      messageEnvelope.getEventTime(), messageEnvelope.getArrivalTime());
   }
 
   /**

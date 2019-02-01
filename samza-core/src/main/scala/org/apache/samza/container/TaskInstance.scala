@@ -163,10 +163,10 @@ class TaskInstance(
 
   def registerConsumers {
     debug("Registering consumers for taskName: %s" format taskName)
-
     systemStreamPartitions.foreach(systemStreamPartition => {
       val startingOffset = getStartingOffset(systemStreamPartition)
-      consumerMultiplexer.register(systemStreamPartition, startingOffset)
+      val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
+      consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
       metrics.addOffsetGauge(systemStreamPartition, () =>
         if (sideInputSSPs.contains(systemStreamPartition)) {
           sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
@@ -251,13 +251,16 @@ class TaskInstance(
     val checkpoint = offsetManager.buildCheckpoint(taskName)
 
     trace("Flushing producers for taskName: %s" format taskName)
-
     collector.flush
 
     trace("Flushing state stores for taskName: %s" format taskName)
-
     if (storageManager != null) {
       storageManager.flush
+    }
+
+    trace("Flushing tables for taskName: %s" format taskName)
+    if (tableManager != null) {
+      tableManager.flush
     }
 
     trace("Flushing side input stores for taskName: %s" format taskName)

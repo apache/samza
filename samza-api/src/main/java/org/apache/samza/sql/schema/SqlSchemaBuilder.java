@@ -17,17 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.schema;
 
 import java.util.ArrayList;
 import java.util.List;
 
+
 /**
- * Convenient class for building a SqlSchema object.
+ * Builder class to build the {@link SqlSchema}.
  */
 public class SqlSchemaBuilder {
-  private List<String> names = new ArrayList<>();
-  private List<String> typeNames = new ArrayList<>();
+  private List<String> fieldNames = new ArrayList<>();
+  private List<SqlFieldSchema> fieldSchemas = new ArrayList<>();
 
   private SqlSchemaBuilder() {
   }
@@ -36,28 +37,16 @@ public class SqlSchemaBuilder {
     return new SqlSchemaBuilder();
   }
 
-  public SqlSchemaBuilder addField(String name, String fieldType) {
+  public SqlSchemaBuilder addField(String name, SqlFieldSchema fieldType) {
     if (name == null || name.isEmpty() || fieldType == null)
       throw new IllegalArgumentException();
 
-    names.add(name);
-    typeNames.add(fieldType);
+    fieldNames.add(name);
+    fieldSchemas.add(fieldType);
     return this;
   }
 
-  public SqlSchemaBuilder appendFields(List<String> names, List<String> typeNames) {
-    if (names == null || names.size() == 0
-            || typeNames == null || typeNames.size() == 0
-            || names.size() != typeNames.size())
-      throw new IllegalArgumentException();
-
-    this.names.addAll(names);
-    this.typeNames.addAll(typeNames);
-
-    return this;
-  }
-
-  public SqlSchema toSchema() {
-    return new SqlSchema(names, typeNames);
+  public SqlSchema build() {
+    return new SqlSchema(fieldNames, fieldSchemas);
   }
 }
