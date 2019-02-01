@@ -155,7 +155,7 @@ public class SamzaApplicationState {
   public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
 
   // Map of active containers that are in failover, indexed by the active container's resourceID (at the time of failure)
-  public final ConcurrentMap<String, ContainerFailoverState> containerFailoverState = new ConcurrentHashMap<String, ContainerFailoverState>(0);
+  public final ConcurrentMap<String, ContainerFailoverState> failovers = new ConcurrentHashMap<String, ContainerFailoverState>(0);
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;

@@ -43,11 +43,6 @@ public class MockClusterResourceManagerCallback implements ClusterResourceManage
   }
 
   @Override
-  public void onStreamProcessorStopped(SamzaResource resource) {
-    // no op
-  }
-
-  @Override
   public void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t) {
     // no op
   }

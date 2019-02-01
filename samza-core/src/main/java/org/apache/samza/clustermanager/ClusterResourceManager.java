@@ -161,12 +161,6 @@ public abstract class ClusterResourceManager {
     void onStreamProcessorLaunchSuccess(SamzaResource resource);
 
     /**
-     * Callback invoked when a StreamProcessor on the {@link SamzaResource} has been successfully stopped.
-     * @param resource the resource on which the StreamProcessor is stopped
-     */
-    void onStreamProcessorStopped(SamzaResource resource);
-
-    /**
      * Callback invoked when there is a failure in launching a StreamProcessor on the provided {@link SamzaResource}.
      * @param resource the resource on which the StreamProcessor was submitted for launching
      * @param t the error in launching the StreamProcessor

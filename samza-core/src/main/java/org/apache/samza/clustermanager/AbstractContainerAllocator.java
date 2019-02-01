@@ -214,8 +214,6 @@ public abstract class AbstractContainerAllocator implements Runnable {
     }
   }
 
-  public abstract void resourceStopped(String containerID, String host);
-
   /**
    * Returns true if there are resources allocated on a host.
    * @param host  the host for which a resource is needed.

@@ -21,18 +21,26 @@ package org.apache.samza.clustermanager;
 public class ContainerFailoverState {
   public final String activeContainerID;
   public final String selectedStandbyContainerID;
+  public final SamzaResource standbyContainerResource;
 
-  public enum Status { FailoverInitiated, StandbyStopIssued, StandbyStopComplete }
+  public enum ContainerStatus { StopIssued, Stopped, ResourceRequested, StartIssued, Started }
 
-  public Status failoverStatus;
+  private ContainerStatus activeContainerStatus;
+  private ContainerStatus standbyContainerStatus;
 
-  public ContainerFailoverState(String activeContainerID, String selectedStandbyContainerID) {
+  public ContainerFailoverState(String activeContainerID, String selectedStandbyContainerID, SamzaResource standbyContainerResource) {
     this.activeContainerID = activeContainerID;
     this.selectedStandbyContainerID = selectedStandbyContainerID;
-    this.failoverStatus = Status.FailoverInitiated;
+    this.standbyContainerResource = standbyContainerResource;
+    this.activeContainerStatus = ContainerStatus.Stopped;
+    this.standbyContainerStatus = ContainerStatus.StopIssued;
   }
 
-  public void setFailoverStatus(Status status) {
-    this.failoverStatus = status;
+  public SamzaResource getStandbyContainerResource() {
+    return this.standbyContainerResource;
+  }
+
+  public void setStandbyContainerStatus(ContainerStatus status) {
+    this.standbyContainerStatus = status;
   }
 }

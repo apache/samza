@@ -528,19 +528,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   @Override
   public void onContainerStopped(ContainerId containerId) {
-    log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {}", containerId);
-    String samzaContainerID = getIDForContainer(containerId.toString());
-
-    final YarnContainer container = state.runningYarnContainers.get(samzaContainerID);
-
-    // 1. remove the container from running state
-    state.runningYarnContainers.remove(samzaContainerID);
-
-    SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-        container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-
-    // 2. Invoke the stopped callback
-    clusterManagerCallback.onStreamProcessorStopped(resource);
+    log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {} samzaContainerId {}",
+        containerId, getIDForContainer(containerId.toString()));
   }
 
   @Override

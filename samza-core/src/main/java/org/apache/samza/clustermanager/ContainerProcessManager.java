@@ -441,23 +441,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
   }
 
-  @Override
-  public void onStreamProcessorStopped(SamzaResource resource) {
-    for (Map.Entry<String, SamzaResource> entry : state.runningContainers.entrySet()) {
-      if (entry.getValue().getResourceID().equals(resource.getResourceID())) {
-        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue()
-            + ". Releasing resource and notifying containerAllocator");
-
-        // Release the resource onStopped since it can anyway be reclaimed and notify the allocator about the stop
-        // the allocator is supposed to ask for new resources for the stopped container
-        clusterResourceManager.releaseResources(resource);
-        containerAllocator.resourceStopped(entry.getKey(), resource.getHost());
-        return;
-      }
-    }
-
-    log.error("No Matching container ID found for stopped resource: " + resource);
-  }
 
   /**
    * An error in the callback terminates the JobCoordinator
