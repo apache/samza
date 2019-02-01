@@ -23,7 +23,7 @@ title: Event Hubs Connector
 
 The Samza EventHubs connector provides access to [Azure EventHubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-features), Microsoft’s data streaming service on Azure. An eventhub is similar to a Kafka topic and can have multiple partitions with producers and consumers. Each message produced or consumed from an event hub is an instance of [EventData](https://docs.microsoft.com/en-us/java/api/com.microsoft.azure.eventhubs._event_data). 
 
-The [hello-samza](https://github.com/apache/samza-hello-samza) project includes an [example](../../../tutorials/versioned/samza-event-hubs-standalone.md) of reading and writing to EventHubs.
+The [hello-samza](https://github.com/apache/samza-hello-samza) project includes an [example](../../../tutorials/versioned/samza-event-hubs-standalone.html) of reading and writing to EventHubs.
 
 ### Concepts
 

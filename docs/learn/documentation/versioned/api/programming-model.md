@@ -22,9 +22,9 @@ title: Programming Model
 Samza provides multiple programming APIs to fit your use case:
 
 1. Java APIs: Samza's provides two Java programming APIs that are ideal for building advanced Stream Processing applications. 
-    1. [High Level Streams API](high-level-api.md): Samza's flexible High Level Streams API lets you describe your complex stream processing pipeline in the form of a Directional Acyclic Graph (DAG) of operations on message streams. It provides a rich set of built-in operators that simplify common stream processing operations such as filtering, projection, repartitioning, joins, and windows.
-    2. [Low Level Task API](low-level-api.md): Samza's powerful Low Level Task API lets you write your application in terms of processing logic for each incoming message. 
-2. [Samza SQL](samza-sql.md): Samza SQL provides a declarative query language for describing your stream processing logic. It lets you manipulate streams using SQL predicates and UDFs instead of working with the physical implementation details.
+    1. [High Level Streams API](high-level-api.html): Samza's flexible High Level Streams API lets you describe your complex stream processing pipeline in the form of a Directional Acyclic Graph (DAG) of operations on message streams. It provides a rich set of built-in operators that simplify common stream processing operations such as filtering, projection, repartitioning, joins, and windows.
+    2. [Low Level Task API](low-level-api.html): Samza's powerful Low Level Task API lets you write your application in terms of processing logic for each incoming message. 
+2. [Samza SQL](samza-sql.html): Samza SQL provides a declarative query language for describing your stream processing logic. It lets you manipulate streams using SQL predicates and UDFs instead of working with the physical implementation details.
 3. Apache Beam API: Samza also provides a [Apache Beam runner](https://beam.apache.org/documentation/runners/capability-matrix/) to run applications written using the Apache Beam API. This is considered as an extension to the operators supported by the High Level Streams API in Samza.
 
 
