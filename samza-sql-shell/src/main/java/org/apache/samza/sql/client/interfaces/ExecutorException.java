@@ -19,28 +19,22 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-import org.apache.samza.sql.schema.SqlSchema;
-
-
 /**
- * Execution result of a SELECT statement. It doesn't contain data though.
+ * An executor shall throw an ExecutorException when it encounters an error.
  */
-public class QueryResult {
-  private int execId; // execution ID of the statement(s) submitted
-  private SqlSchema schema; // The schema of the data coming from the query
-
-  public QueryResult(int execId, SqlSchema schema) {
-    if (schema == null)
-      throw new IllegalArgumentException();
-    this.execId = execId;
-    this.schema = schema;
+public class ExecutorException extends Exception {
+  public ExecutorException() {
   }
 
-  public int getExecutionId() {
-    return execId;
+  public ExecutorException(String message) {
+    super(message);
   }
 
-  public SqlSchema getSchema() {
-    return schema;
+  public ExecutorException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
+  public ExecutorException(Throwable cause) {
+    super(cause);
   }
 }

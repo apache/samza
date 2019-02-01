@@ -32,6 +32,7 @@ class CliConstants {
   public static final String CONFIG_SHELL_PREFIX = "shell.";
   // Specifies the executor used by the shell
   public static final String CONFIG_EXECUTOR = "shell.executor";
+  public static final String DEFAULT_EXECUTOR_CLASS = "org.apache.samza.sql.client.impl.SamzaExecutor";
 
   public static final String VERSION = "0.0.1";
 
