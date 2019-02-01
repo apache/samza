@@ -116,6 +116,16 @@ public class StorageManagerUtil {
   }
 
   /**
+   * Check if a store's disk footprint exists.
+   *
+   * @param storeDir the base directory of the store
+   * @return true if a non-empty storeDir exists, false otherwise
+   */
+  public static boolean storeExists(File storeDir) {
+    return storeDir.exists() && storeDir.list().length > 0;
+  }
+
+  /**
    * Read and return the contents of the offset file.
    *
    * @param storagePartitionDir the base directory of the store

@@ -20,6 +20,7 @@
 package org.apache.samza.system;
 
 import java.nio.charset.Charset;
+import java.time.Instant;
 
 /**
  * This class represents a message envelope that is received by a StreamTask for each message that is received from a
@@ -36,7 +37,10 @@ public class IncomingMessageEnvelope {
   private final Object key;
   private final Object message;
   private final int size;
-  private long timestamp = 0L;
+  // the timestamp when this event occured, should be set by the event source, 0 means unassigned
+  private long eventTime = 0L;
+  // the timestamp when this event is pickedup by samza, 0 means unassgined
+  private long arrivalTime = 0L;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -66,14 +70,41 @@ public class IncomingMessageEnvelope {
     this.key = key;
     this.message = message;
     this.size = size;
+    this.arrivalTime = Instant.now().toEpochMilli();
   }
 
-  public void setTimestamp(long timestamp) {
-    this.timestamp = timestamp;
+  /**
+   * Constructs a new IncomingMessageEnvelope from specified components
+   * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
+   * from which the stream came, and the partition of the stream from which the message was received.
+   * @param offset The offset in the partition that the message was received from.
+   * @param key A deserialized key received from the partition offset.
+   * @param message A deserialized message received from the partition offset.
+   * @param size size of the message and key in bytes.
+   * @param eventTime the timestamp (in epochMillis) of when this event happened
+   * @param arrivalTime the timestamp (in epochMillis) of when this event arrived to (i.e., was picked-up by) Samza
+   */
+  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset,
+      Object key, Object message, int size, long eventTime, long arrivalTime) {
+    this(systemStreamPartition, offset, key, message, size);
+    this.eventTime = eventTime;
+    this.arrivalTime = arrivalTime;
   }
 
-  public long getTimestamp() {
-    return timestamp;
+  /**
+   * Getter for event time
+   * @return this.eventTime
+   */
+  public long getEventTime() {
+    return eventTime;
+  }
+
+  /**
+   * Getter for arrival time
+   * @return this.arrivalTime
+   */
+  public long getArrivalTime() {
+    return arrivalTime;
   }
 
   public SystemStreamPartition getSystemStreamPartition() {
@@ -159,6 +190,8 @@ public class IncomingMessageEnvelope {
 
   @Override
   public String toString() {
-    return "IncomingMessageEnvelope [systemStreamPartition=" + systemStreamPartition + ", offset=" + offset + ", key=" + key + ", message=" + message + "]";
+    return "IncomingMessageEnvelope [systemStreamPartition=" + systemStreamPartition + ", offset=" + offset +
+        ", key=" + key + ", message=" + message + ", eventTime=" + eventTime +
+        ", arrivalTime=" + arrivalTime + "]";
   }
 }

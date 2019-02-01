@@ -17,30 +17,26 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.util;
 
-import org.apache.samza.sql.schema.SqlSchema;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.samza.config.Config;
+import org.apache.samza.sql.udfs.SamzaSqlUdf;
+import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
+import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-/**
- * Execution result of a SELECT statement. It doesn't contain data though.
- */
-public class QueryResult {
-  private int execId; // execution ID of the statement(s) submitted
-  private SqlSchema schema; // The schema of the data coming from the query
-
-  public QueryResult(int execId, SqlSchema schema) {
-    if (schema == null)
-      throw new IllegalArgumentException();
-    this.execId = execId;
-    this.schema = schema;
+@SamzaSqlUdf(name = "MyTestArray")
+public class MyTestArrayUdf implements ScalarUdf {
+  @Override
+  public void init(Config udfConfig) {
   }
 
-  public int getExecutionId() {
-    return execId;
-  }
-
-  public SqlSchema getSchema() {
-    return schema;
+  @SamzaSqlUdfMethod
+  public List<String> execute(Object... args) {
+    Integer value = (Integer) args[0];
+    return IntStream.range(0, value).mapToObj(String::valueOf).collect(Collectors.toList());
   }
 }

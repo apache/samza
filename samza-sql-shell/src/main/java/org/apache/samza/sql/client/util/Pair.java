@@ -17,34 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.client.util;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.sql.schema.SamzaSqlFieldType;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public class Pair<L,R> {
+  private L l;
+  private R r;
 
-
-/**
- * Test UDF used by unit and integration tests.
- */
-@SamzaSqlUdf(name = "MyTest")
-public class MyTestUdf implements ScalarUdf {
-
-  private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
-
-  @SamzaSqlUdfMethod
-  public Integer execute(Object... value) {
-    return ((Integer) value[0]) * 2;
+  public Pair(L l, R r){
+    this.l = l;
+    this.r = r;
   }
 
-  @Override
-  public void init(Config udfConfig) {
-    LOG.info("Init called with {}", udfConfig);
+  public L getL(){
+    return l;
+  }
+
+  public R getR(){
+    return r;
+  }
+
+  public void setL(L l) {
+    this.l = l;
+  }
+
+  public void setR(R r){
+    this.r = r;
   }
 }
-
-

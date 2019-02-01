@@ -51,7 +51,7 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     rocksDbMetrics.newGauge("rocksdb.block-cache-size",
       () => RocksDbOptionsHelper.getBlockCacheSize(storageConfig, numTasksForContainer))
 
-    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, numTasksForContainer, storeMode)
+    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfig, numTasksForContainer, storeDir, storeMode)
     val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
     val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
     val rocksDb = new RocksDbKeyValueStore(

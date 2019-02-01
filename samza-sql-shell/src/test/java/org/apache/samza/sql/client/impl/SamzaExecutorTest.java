@@ -20,17 +20,17 @@
 package org.apache.samza.sql.client.impl;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
+import org.apache.samza.sql.client.interfaces.ExecutorException;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import static org.apache.samza.sql.client.impl.SamzaExecutor.*;
 import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
@@ -38,9 +38,9 @@ public class SamzaExecutorTest {
     private SamzaExecutor m_executor = new SamzaExecutor();
 
     @Test
-    public void testGetTableSchema() {
-        ExecutionContext context = getExecutionContext();
-        SqlSchema ts = m_executor.getTableSchema(context, "kafka.ProfileChangeStream");
+    public void testGetTableSchema() throws ExecutorException {
+        prepareEnvironmentVariable();
+        SqlSchema ts = m_executor.getTableSchema(new ExecutionContext(), "kafka.ProfileChangeStream");
 
         List<SqlSchema.SqlField> fields = ts.getFields();
         Assert.assertEquals("Name", fields.get(0).getFieldName());
@@ -57,8 +57,8 @@ public class SamzaExecutorTest {
     @Ignore
     @Test
     public void testGenerateResultSchema() {
-        ExecutionContext context = getExecutionContext();
-        Map<String, String> mapConf = fetchSamzaSqlConfig(1, context);
+        prepareEnvironmentVariable();
+        Map<String, String> mapConf = m_executor.fetchSamzaSqlConfig(1);
         SqlSchema ts = m_executor.generateResultSchema(new MapConfig(mapConf));
 
         List<SqlSchema.SqlField> fields = ts.getFields();
@@ -74,12 +74,11 @@ public class SamzaExecutorTest {
         Assert.assertEquals("BIGINT", fields.get(4).getFieldSchema().getFieldType().toString());
     }
 
-    private ExecutionContext getExecutionContext() {
+    private void prepareEnvironmentVariable() {
         ClassLoader classLoader = getClass().getClassLoader();
         File file = new File(classLoader.getResource("ProfileChangeStream.avsc").getFile());
-        Map<String, String> mapConf = new HashMap<>();
-        mapConf.put("samza.sql.relSchemaProvider.config.schemaDir", file.getParent());
-        mapConf.put(CFG_SQL_STMT, "insert into log.outputStream select * from kafka.ProfileChangeStream");
-        return new ExecutionContext(mapConf);
+        EnvironmentVariableHandler handler = m_executor.getEnvironmentVariableHandler();
+        handler.setEnvironmentVariable("samza.sql.relSchemaProvider.config.schemaDir", file.getParent());
+        handler.setEnvironmentVariable(CFG_SQL_STMT, "insert into log.outputStream select * from kafka.ProfileChangeStream");
     }
 }

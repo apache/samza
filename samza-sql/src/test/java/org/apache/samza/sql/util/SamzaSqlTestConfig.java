@@ -17,7 +17,7 @@
 * under the License.
 */
 
-package org.apache.samza.sql.testutil;
+package org.apache.samza.sql.util;
 
 import com.google.common.base.Joiner;
 import java.util.HashMap;
@@ -45,7 +45,7 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 
-import static org.apache.samza.sql.testutil.RemoteStoreIOResolverTestFactory.TEST_REMOTE_STORE_SYSTEM;
+import static org.apache.samza.sql.util.RemoteStoreIOResolverTestFactory.TEST_REMOTE_STORE_SYSTEM;
 
 
 /**
