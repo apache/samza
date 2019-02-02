@@ -43,4 +43,8 @@ public class ContainerFailoverState {
   public void setStandbyContainerStatus(ContainerStatus status) {
     this.standbyContainerStatus = status;
   }
+
+  public void setActiveContainerStatus(ContainerStatus status) {
+    this.activeContainerStatus = status;
+  }
 }
