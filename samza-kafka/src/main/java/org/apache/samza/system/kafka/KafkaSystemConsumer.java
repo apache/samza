@@ -365,7 +365,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       Map<TopicPartition, Long> topicPartitionsToTimeStamps = ImmutableMap.of(topicPartition, timestampInStartpoint);
 
       // Look up the offset by timestamp.
-      LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.",  topicPartition, timestampInStartpoint);
+      LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.", topicPartition, timestampInStartpoint);
       Map<TopicPartition, OffsetAndTimestamp> topicPartitionToOffsetTimestamps = kafkaConsumer.offsetsForTimes(topicPartitionsToTimeStamps);
       OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
 
