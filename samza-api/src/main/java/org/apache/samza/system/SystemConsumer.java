@@ -22,6 +22,8 @@ package org.apache.samza.system;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.startpoint.Startpoint;
 
 /**
  * <p>
@@ -29,7 +31,7 @@ import java.util.Set;
  * wishes to integrate with Samza. Examples of systems that one might want to
  * integrate would be systems like Kafka, Hadoop, Kestrel, SQS, etc.
  * </p>
- * 
+ *
  * <p>
  * SamzaContainer uses SystemConsumer to read messages from the underlying
  * system, and funnels the messages to the appropriate StreamTask instances. The
@@ -38,11 +40,11 @@ import java.util.Set;
  * repeat. If no IncomingMessageEnvelopes are returned, the SamzaContainer polls
  * again, but with a timeout of 10ms.
  * </p>
- * 
+ *
  * <p>
  * The SamzaContainer treats SystemConsumer in the following way:
  * </p>
- * 
+ *
  * <ul>
  * <li>Start will be called before stop.</li>
  * <li>Register will be called one or more times before start.</li>
@@ -63,17 +65,17 @@ import java.util.Set;
  * <li>Any exception thrown by the SystemConsumer means that the SamzaContainer
  * should halt.</li>
  * </ul>
- * 
+ *
  * <p>
  * There are generally three implementation styles to this interface:
  * </p>
- * 
+ *
  * <ol>
  * <li>Thread-based</li>
  * <li>Selector-based</li>
  * <li>Synchronous</li>
  * </ol>
- * 
+ *
  * <p>
  * Thread-based implementations typically use a series of threads to read from
  * an underlying system asynchronously, and put the resulting messages into a
@@ -82,12 +84,12 @@ import java.util.Set;
  * BlockingEnvelopeMap is a helper class that makes it easy to implement
  * thread-based implementations of SystemConsumer.
  * </p>
- * 
+ *
  * <p>
  * Selector-based implementations typically setup NIO-based non-blocking socket
  * that can be selected for new data when poll is called.
  * </p>
- * 
+ *
  * <p>
  * Synchronous implementations simply fetch directly from the underlying system
  * whenever poll is invoked. Synchronous implementations must take great care to
@@ -102,7 +104,7 @@ public interface SystemConsumer {
    * SystemStreamPartitions supplied are at head (have no new messages available
    * since the last poll invocation was made for each SystemStreamPartition).
    */
-  public static int BLOCK_ON_OUTSTANDING_MESSAGES = -1;
+  int BLOCK_ON_OUTSTANDING_MESSAGES = -1;
 
   /**
    * Tells the SystemConsumer to connect to the underlying system, and prepare
@@ -122,7 +124,7 @@ public interface SystemConsumer {
    * should try and read messages from all SystemStreamPartitions that are
    * registered to it. SystemStreamPartitions should only be registered before
    * start is called.
-   * 
+   *
    * @param systemStreamPartition
    *          The SystemStreamPartition object representing the Samza
    *          SystemStreamPartition to receive messages from.
@@ -137,9 +139,22 @@ public interface SystemConsumer {
   void register(SystemStreamPartition systemStreamPartition, String offset);
 
   /**
+   * Registers the {@link Startpoint} to the SystemConsumer. SystemConsumer
+   * should read the messages from all the registered SystemStreamPartitions.
+   * SystemStreamPartitions should be registered before the start is called.
+   *
+   * @param systemStreamPartition represents the SystemStreamPartition to be registered.
+   * @param startpoint represents the position in the SystemStreamPartition.
+   */
+  @InterfaceStability.Evolving
+  default void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
+    throw new UnsupportedOperationException("This operation is not supported.");
+  }
+
+  /**
    * Poll the SystemConsumer to get any available messages from the underlying
    * system.
-   * 
+   *
    * <p>
    * If the underlying implementation does not take care to adhere to the
    * timeout parameter, the SamzaContainer's performance will suffer
@@ -147,7 +162,7 @@ public interface SystemConsumer {
    * will block the entire main thread in SamzaContainer, and no messages will
    * be processed while blocking is occurring.
    * </p>
-   * 
+   *
    * @param systemStreamPartitions
    *          A set of SystemStreamPartition to poll for new messages. If
    *          SystemConsumer has messages available for other registered
