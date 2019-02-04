@@ -22,6 +22,7 @@
 
 package org.apache.samza.system.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -54,7 +55,7 @@ import org.slf4j.LoggerFactory;
 import scala.Option;
 
 
-public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements SystemConsumer, StartpointVisitor {
+public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements SystemConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemConsumer.class);
 
@@ -69,6 +70,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   private final Config config;
   private final boolean fetchThresholdBytesEnabled;
   private final KafkaSystemConsumerMetrics metrics;
+  private final KafkaStartpointVisitor kafkaStartpointVisitor;
 
   // This sink is used to transfer the messages from the proxy/consumer to the BlockingEnvelopeMap.
   final KafkaConsumerMessageSink messageSink;
@@ -103,6 +105,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     this.systemName = systemName;
     this.config = config;
     this.metrics = metrics;
+    this.kafkaStartpointVisitor = new KafkaStartpointVisitor(kafkaConsumer);
 
     fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
 
@@ -338,44 +341,55 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     return systemName;
   }
 
-  @Override
-  public void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
-    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
-    long offsetInStartpoint = Long.parseLong(startpointSpecific.getSpecificOffset());
-    LOG.info("Updating the consumer fetch offsets of topic partition: {} to {}.", topicPartition, offsetInStartpoint);
-    kafkaConsumer.seek(topicPartition, offsetInStartpoint);
-  }
+  @VisibleForTesting
+  static class KafkaStartpointVisitor implements StartpointVisitor {
 
-  @Override
-  public void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
-    Long timestampInStartpoint = startpointTimestamp.getTimestampOffset();
-    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
-    Map<TopicPartition, Long> topicPartitionsToTimeStamps = ImmutableMap.of(topicPartition, timestampInStartpoint);
+    private final Consumer kafkaConsumer;
 
-    // Look up the offset by timestamp.
-    LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.",  topicPartition, timestampInStartpoint);
-    Map<TopicPartition, OffsetAndTimestamp> topicPartitionToOffsetTimestamps = kafkaConsumer.offsetsForTimes(topicPartitionsToTimeStamps);
-    OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
+    KafkaStartpointVisitor(Consumer kafkaConsumer) {
+      this.kafkaConsumer = kafkaConsumer;
+    }
 
-    // Update the consumer fetch offsets.
-    LOG.info("Updating the consumer fetch offsets of the topic partition: {} to {}.", topicPartition, offsetAndTimeStamp.offset());
-    kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
-  }
+    @Override
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
+      TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
+      long offsetInStartpoint = Long.parseLong(startpointSpecific.getSpecificOffset());
+      LOG.info("Updating the consumer fetch offsets of topic partition: {} to {}.", topicPartition, offsetInStartpoint);
+      kafkaConsumer.seek(topicPartition, offsetInStartpoint);
+    }
 
-  @Override
-  public void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
-    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
-    Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
-    LOG.info("Seeking the kafka consumer to the first offset for the topic partition: {}.", topicPartitions);
-    kafkaConsumer.seekToBeginning(topicPartitions);
-  }
+    @Override
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+      Long timestampInStartpoint = startpointTimestamp.getTimestampOffset();
+      TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
+      Map<TopicPartition, Long> topicPartitionsToTimeStamps = ImmutableMap.of(topicPartition, timestampInStartpoint);
 
-  @Override
-  public void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
-    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
-    Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
-    LOG.info("Seeking the kafka consumer to the end offset for the topic partition: {}.", topicPartitions);
-    kafkaConsumer.seekToEnd(topicPartitions);
+      // Look up the offset by timestamp.
+      LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.",  topicPartition, timestampInStartpoint);
+      Map<TopicPartition, OffsetAndTimestamp> topicPartitionToOffsetTimestamps = kafkaConsumer.offsetsForTimes(topicPartitionsToTimeStamps);
+      OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
+
+      // Update the consumer fetch offsets.
+      LOG.info("Updating the consumer fetch offsets of the topic partition: {} to {}.", topicPartition, offsetAndTimeStamp.offset());
+      kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
+    }
+
+    @Override
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+      TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
+      Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
+      LOG.info("Seeking the kafka consumer to the first offset for the topic partition: {}.", topicPartitions);
+      kafkaConsumer.seekToBeginning(topicPartitions);
+    }
+
+    @Override
+    public void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+      TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
+      Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
+      LOG.info("Seeking the kafka consumer to the end offset for the topic partition: {}.", topicPartitions);
+      kafkaConsumer.seekToEnd(topicPartitions);
+    }
+
   }
 
   public class KafkaConsumerMessageSink {
