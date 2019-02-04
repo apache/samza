@@ -434,7 +434,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host.
     if (containerId != null) {
       log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResourceDueToLaunchFailOrExpiredRequest(containerId);
     } else {
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
           "not issued", resource);

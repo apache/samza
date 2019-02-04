@@ -195,6 +195,10 @@ public abstract class AbstractContainerAllocator implements Runnable {
     return resourceRequestState.peekPendingRequest();
   }
 
+  public void requestResourceDueToLaunchFailOrExpiredRequest(String containerID) {
+    requestResource(containerID, ResourceRequestState.ANY_HOST);
+  }
+
   /**
    * Method to request a resource from the cluster manager
    *

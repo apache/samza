@@ -123,25 +123,35 @@ public class StandbyTaskUtil {
         .collect(Collectors.toSet());
   }
 
-  public static Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID, List<String> standbyContainers,
-      SamzaApplicationState samzaApplicationState) {
+  public static Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID,
+      List<String> standbyContainerIDs, SamzaApplicationState state) {
 
-    LOG.info("Obtained standby container list {} for active container {}", standbyContainers, activeContainerID);
+    LOG.info("Standby containers {} for active container {}", standbyContainerIDs, activeContainerID);
 
-    // return the first running standby container that we find
-    // TODO: improve this logic of finding a standby
-    for (String standbyContainer : standbyContainers) {
-      if (samzaApplicationState.runningContainers.keySet().contains(standbyContainer)) {
-        LOG.info("Returning standby container {} in running state for active container {}", standbyContainer,
-            activeContainerID);
-        return Optional.of(new Entry<>(standbyContainer, samzaApplicationState.runningContainers.get(standbyContainer)));
+    // ResourceID of the active container at the time of its last failure
+    String activeContainerResourceID = state.failedContainersStatus.get(activeContainerID) == null ? null :
+        state.failedContainersStatus.get(activeContainerID).getLast().getResourceID();
+
+    // obtain any existing failover state
+    ContainerFailoverState failoverState = activeContainerResourceID == null ? null : state.failovers.get(activeContainerResourceID);
+
+    // Iterate over the list of running standby containers, to find a standby resource that we have not already
+    // used for a failover for this active resoruce
+    for (String standbyContainerID : standbyContainerIDs) {
+      if (state.runningContainers.containsKey(standbyContainerID)) {
+        SamzaResource standbyContainerResource = state.runningContainers.get(standbyContainerID);
+
+        // use this standby if there was no previous failover or if this standbyResource was not used for it
+        if (failoverState == null || !failoverState.isStandbyResourceUsed(standbyContainerResource.getResourceID())) {
+
+          LOG.info("Returning standby container {} in running state for active container {}", standbyContainerID,
+              activeContainerID);
+          return Optional.of(new Entry<>(standbyContainerID, standbyContainerResource));
+        }
       }
     }
 
-    LOG.info("Did not find any suitable standby container for active container {}", activeContainerID);
-
-    // TODO: Handle case where all standby containers are in pending state
+    LOG.info("Did not find any running standby container for active container {}", activeContainerID);
     return Optional.empty();
   }
-
 }

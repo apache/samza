@@ -18,33 +18,51 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.HashMap;
+import java.util.Map;
+
+
 public class ContainerFailoverState {
   public final String activeContainerID;
-  public final String selectedStandbyContainerID;
-  public final SamzaResource standbyContainerResource;
+  public final String activeContainerResourceID;
+
+  // Map of samza-container-resource ID to host, for each standby container selected for failover
+  public final Map<String, String> selectedStandbyContainers;
 
   public enum ContainerStatus { StopIssued, Stopped, ResourceRequested, StartIssued, Started }
-
   private ContainerStatus activeContainerStatus;
   private ContainerStatus standbyContainerStatus;
 
-  public ContainerFailoverState(String activeContainerID, String selectedStandbyContainerID, SamzaResource standbyContainerResource) {
+  public ContainerFailoverState(String activeContainerID, String activeContainerResourceID,
+      String selectedStandbyContainerResourceID, String standbyContainerHost) {
     this.activeContainerID = activeContainerID;
-    this.selectedStandbyContainerID = selectedStandbyContainerID;
-    this.standbyContainerResource = standbyContainerResource;
+    this.activeContainerResourceID = activeContainerResourceID;
+    this.selectedStandbyContainers = new HashMap<>();
+    this.selectedStandbyContainers.put(selectedStandbyContainerResourceID, standbyContainerHost);
+
     this.activeContainerStatus = ContainerStatus.Stopped;
     this.standbyContainerStatus = ContainerStatus.StopIssued;
   }
 
-  public SamzaResource getStandbyContainerResource() {
-    return this.standbyContainerResource;
+  // Check if this standbyContainerResourceID was used in this failover
+  public synchronized boolean isStandbyResourceUsed(String standbyContainerResourceID) {
+    return this.selectedStandbyContainers.keySet().contains(standbyContainerResourceID);
   }
 
-  public void setStandbyContainerStatus(ContainerStatus status) {
+  // Get the hostname corresponding to the standby resourceID
+  public synchronized String getStandbyContainerHostname(String standbyContainerResourceID) {
+    return selectedStandbyContainers.get(standbyContainerResourceID);
+  }
+
+  public synchronized void addStandbyContainer(String standbyContainerResourceID, String standbyContainerHost) {
+    this.selectedStandbyContainers.put(standbyContainerResourceID, standbyContainerHost);
+  }
+
+  public synchronized void setStandbyContainerStatus(ContainerStatus status) {
     this.standbyContainerStatus = status;
   }
 
-  public void setActiveContainerStatus(ContainerStatus status) {
+  public synchronized void setActiveContainerStatus(ContainerStatus status) {
     this.activeContainerStatus = status;
   }
 }
