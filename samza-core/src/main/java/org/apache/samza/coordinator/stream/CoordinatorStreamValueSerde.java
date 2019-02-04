@@ -68,7 +68,7 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
       return String.valueOf(setTaskModeMapping.getTaskMode());
     } else if (type.equalsIgnoreCase(SetTaskPartitionMapping.TYPE)) {
       SetTaskPartitionMapping setTaskPartitionMapping = new SetTaskPartitionMapping(message);
-      return setTaskPartitionMapping.getTaskName();
+      return setTaskPartitionMapping.getTaskNames();
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }

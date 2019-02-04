@@ -218,6 +218,8 @@ object JobModelManager extends Logging {
       taskAssignmentManager.deleteTaskContainerMappings(previousStandbyTasks.map(x => x._1.getTaskName).asJava)
     }
 
+    // SystemStreamPartition to list of taskNames is stored in the metadata store due to the 1 MB value size limit in kafka.
+    // Conversion to taskName to SystemStreamPartitions is done to wire-in the data to JobModel.
     val sspToTaskNameMap: util.Map[SystemStreamPartition, util.List[String]] = new util.HashMap[SystemStreamPartition, util.List[String]]()
 
     for (container <- jobModel.getContainers.values()) {

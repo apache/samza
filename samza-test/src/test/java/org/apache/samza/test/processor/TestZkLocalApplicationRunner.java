@@ -798,16 +798,17 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;
-    while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
+    while (true) {
       LOGGER.info("Waiting for new jobModel to be published");
-      Thread.sleep(jobModelWaitTimeInMillis);
-      jobModelWaitTimeInMillis = jobModelWaitTimeInMillis * 2;
-    }
+      jobModelVersion = zkUtils.getJobModelVersion();
+      jobModel = zkUtils.getJobModel(jobModelVersion);
+      ssps = getSystemStreamPartitions(jobModel);
 
-    // Read the latest JobModel for validation.
-    jobModelVersion = zkUtils.getJobModelVersion();
-    jobModel = zkUtils.getJobModel(jobModelVersion);
-    ssps = getSystemStreamPartitions(jobModel);
+      if (ssps.size() == 64) {
+        break;
+      }
+      Thread.sleep(jobModelWaitTimeInMillis);
+    }
 
     // Validate that the input partition count is 64 in the new JobModel.
     Assert.assertEquals(64, ssps.size());
@@ -823,6 +824,15 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Validate that the new JobModel has the expected task assignments.
     actualTaskAssignments = getTaskAssignments(jobModel);
+
+    for (Map.Entry<TaskName, Set<SystemStreamPartition>> entry : expectedTaskAssignments.entrySet()) {
+      TaskName taskName = entry.getKey();
+      Set<SystemStreamPartition> expectedSSPs = entry.getValue();
+      Assert.assertTrue(actualTaskAssignments.containsKey(taskName));
+      Set<SystemStreamPartition> actualSSPs = actualTaskAssignments.get(taskName);
+      Assert.assertEquals(actualSSPs, expectedSSPs);
+    }
+
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
   }
 
@@ -895,16 +905,18 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;
-    while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
+    while (true) {
       LOGGER.info("Waiting for new jobModel to be published");
-      Thread.sleep(jobModelWaitTimeInMillis);
-      jobModelWaitTimeInMillis = jobModelWaitTimeInMillis * 2;
-    }
+      jobModelVersion = zkUtils.getJobModelVersion();
+      jobModel = zkUtils.getJobModel(jobModelVersion);
+      ssps = getSystemStreamPartitions(jobModel);
 
-    // Read the latest JobModel for validation.
-    jobModelVersion = zkUtils.getJobModelVersion();
-    jobModel = zkUtils.getJobModel(jobModelVersion);
-    ssps = getSystemStreamPartitions(jobModel);
+      if (ssps.size() == 128) {
+        break;
+      }
+
+      Thread.sleep(jobModelWaitTimeInMillis);
+    }
 
     // Validate that the input partition count is 128 in the new JobModel.
     Assert.assertEquals(128, ssps.size());
@@ -945,6 +957,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   }
 
   private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
+    System.out.println(jobModel);
     Set<SystemStreamPartition> ssps = new HashSet<>();
     jobModel.getContainers().forEach((containerName, containerModel) -> {
         containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));

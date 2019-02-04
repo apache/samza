@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Used to persisting and reading the task-to-partition assignment information
+ * Used to persist and read the task-to-partition assignment information
  * into the metadata store.
  */
 public class TaskPartitionAssignmentManager {
@@ -76,6 +76,9 @@ public class TaskPartitionAssignmentManager {
    * @param taskNames the task names to which the partition is assigned to.
    */
   public void writeTaskPartitionAssignment(SystemStreamPartition partition, List<String> taskNames) {
+    // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
+    // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
+    // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
     String serializedKey = getKey(partition);
     if (taskNames == null || taskNames.isEmpty()) {
       LOG.info("Deleting the key: {} from the metadata store.", partition);

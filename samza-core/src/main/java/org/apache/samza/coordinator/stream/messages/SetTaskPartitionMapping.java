@@ -41,7 +41,7 @@ package org.apache.samza.coordinator.stream.messages;
  */
 public class SetTaskPartitionMapping extends CoordinatorStreamMessage {
 
-  private static final String TASK_NAME_KEY = "taskNames";
+  private static final String TASK_NAMES_KEY = "taskNames";
 
   public static final String TYPE = "set-task-partition-assignment";
 
@@ -59,16 +59,16 @@ public class SetTaskPartitionMapping extends CoordinatorStreamMessage {
    * of a samza job to the coordinator stream.
    * @param source      the source of the message.
    * @param partition   the system stream partition serialized as a string.
-   * @param taskName    the name of the task mapped to the system stream partition.
+   * @param taskNames    the taskNames mapped to the system stream partition.
    */
-  public SetTaskPartitionMapping(String source, String partition, String taskName) {
+  public SetTaskPartitionMapping(String source, String partition, String taskNames) {
     super(source);
     setType(TYPE);
     setKey(partition);
-    putMessageValue(TASK_NAME_KEY, taskName);
+    putMessageValue(TASK_NAMES_KEY, taskNames);
   }
 
-  public String getTaskName() {
-    return getMessageValue(TASK_NAME_KEY);
+  public String getTaskNames() {
+    return getMessageValue(TASK_NAMES_KEY);
   }
 }
