@@ -56,7 +56,7 @@ public interface SqlExecutor {
    * @param context The ExecutionContext at the time of the call.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public void start(ExecutionContext context) throws ExecutorException;
+  void start(ExecutionContext context) throws ExecutorException;
 
   /**
    * Indicates no further calls will be made thus it's safe for the executor to clean up.
@@ -64,20 +64,20 @@ public interface SqlExecutor {
    * @param context The ExecutionContext at the time of the call.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public void stop(ExecutionContext context) throws ExecutorException;
+  void stop(ExecutionContext context) throws ExecutorException;
 
   /**
    *
    * @return An EnvironmentVariableHandler that handles executor specific environment variables
    */
-  public EnvironmentVariableHandler getEnvironmentVariableHandler();
+  EnvironmentVariableHandler getEnvironmentVariableHandler();
 
   /**
    * @param context The ExecutionContext at the time of the call.
    * @return A list of table names. Could be empty.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String> listTables(ExecutionContext context) throws ExecutorException;
+  List<String> listTables(ExecutionContext context) throws ExecutorException;
 
   /**
    * @param context   The ExecutionContext at the time of the call.
@@ -85,7 +85,7 @@ public interface SqlExecutor {
    * @return Schema of the table.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public SqlSchema getTableSchema(ExecutionContext context, String tableName) throws ExecutorException;
+  SqlSchema getTableSchema(ExecutionContext context, String tableName) throws ExecutorException;
 
   /**
    * @param context   The ExecutionContext at the time of the call.
@@ -93,14 +93,14 @@ public interface SqlExecutor {
    * @return The query result.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException;
+  QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException;
 
 
   /**
    * @return how many rows available for reading.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public int getRowCount() throws ExecutorException;
+  int getRowCount() throws ExecutorException;
 
   /**
    * Row starts at 0. Executor shall keep the data retrieved.
@@ -112,7 +112,7 @@ public interface SqlExecutor {
    * @return A list of row data represented by a String array.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String[]> retrieveQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
+  List<String[]> retrieveQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
 
 
   /**
@@ -125,7 +125,7 @@ public interface SqlExecutor {
    * @return available data between startRow and endRow (both are inclusive)
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String[]> consumeQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
+  List<String[]> consumeQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
 
   /**
    * Executes all the NON-QUERY statements in the sqlFile.
@@ -136,7 +136,7 @@ public interface SqlExecutor {
    * @return Execution result.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public NonQueryResult executeNonQuery(ExecutionContext context, File file) throws ExecutorException;
+  NonQueryResult executeNonQuery(ExecutionContext context, File file) throws ExecutorException;
 
   /**
    * @param context    The ExecutionContext at the time of the call.
@@ -144,14 +144,14 @@ public interface SqlExecutor {
    * @return Execution result.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public NonQueryResult executeNonQuery(ExecutionContext context, List<String> statements) throws ExecutorException;
+  NonQueryResult executeNonQuery(ExecutionContext context, List<String> statements) throws ExecutorException;
 
   /**
    * @param context The ExecutionContext at the time of the call.
    * @param exeId   Execution ID.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public void stopExecution(ExecutionContext context, int exeId) throws ExecutorException;
+  void stopExecution(ExecutionContext context, int exeId) throws ExecutorException;
 
 
   /**
@@ -161,14 +161,14 @@ public interface SqlExecutor {
    * @param exeId   Execution ID.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public void removeExecution(ExecutionContext context, int exeId) throws ExecutorException;
+  void removeExecution(ExecutionContext context, int exeId) throws ExecutorException;
 
   /**
    * @param execId Execution ID.
    * @return ExecutionStatus.
    * @throws ExecutorException if the Executor encounters an error.
    */
-  public ExecutionStatus queryExecutionStatus(int execId) throws ExecutorException;
+  ExecutionStatus queryExecutionStatus(int execId) throws ExecutorException;
 
   /**
    * @param context The ExecutionContext at the time of the call.
@@ -176,4 +176,11 @@ public interface SqlExecutor {
    * @throws ExecutorException if the Executor encounters an error.
    */
   List<SqlFunction> listFunctions(ExecutionContext context) throws ExecutorException;
+
+  /**
+   * Gets the version of this executor.
+   * @return A String representing the version of the executor. This function does NOT throw an
+   * ExecutorException as the caller has nothing to do to "recover" if the function fails.
+   */
+  String getVersion();
 }
