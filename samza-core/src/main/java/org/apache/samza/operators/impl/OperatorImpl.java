@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
@@ -161,6 +162,12 @@ public abstract class OperatorImpl<M, RM> {
         || taskModel.getSystemStreamPartitions().stream().anyMatch(ssp -> ssp.getSystemStream().equals(input));
   }
 
+  @VisibleForTesting
+  final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    onAsyncMessage(message, collector, coordinator)
+        .toCompletableFuture().join();
+  }
+
   public final CompletionStage<Void> onAsyncMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.numMessage.inc();
@@ -179,23 +186,23 @@ public abstract class OperatorImpl<M, RM> {
     }
 
     CompletionStage<Void> result = completableResultsFuture.thenCompose(results -> {
-      long endNs = this.highResClock.nanoTime();
-      this.handleMessageNs.update(endNs - startNs);
+        long endNs = this.highResClock.nanoTime();
+        this.handleMessageNs.update(endNs - startNs);
 
-      return CompletableFuture.allOf(results.stream()
-          .flatMap(r -> this.registeredOperators.stream()
+        return CompletableFuture.allOf(results.stream()
+            .flatMap(r -> this.registeredOperators.stream()
               .map(op -> op.onAsyncMessage(r, collector, coordinator)))
-          .toArray(CompletableFuture[]::new));
-    });
+            .toArray(CompletableFuture[]::new));
+      });
 
     result.thenAccept(x -> {
-      WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
-      if (watermarkFn != null) {
-        // check whether there is new watermark emitted from the user function
-        Long outputWm = watermarkFn.getOutputWatermark();
-        propagateWatermark(outputWm, collector, coordinator);
-      }
-    });
+        WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+        if (watermarkFn != null) {
+          // check whether there is new watermark emitted from the user function
+          Long outputWm = watermarkFn.getOutputWatermark();
+          propagateWatermark(outputWm, collector, coordinator);
+        }
+      });
 
     return result;
   }
@@ -293,13 +300,13 @@ public abstract class OperatorImpl<M, RM> {
       // populate the end-of-stream through the dag
       endOfStreamFuture = onEndOfStream(collector, coordinator)
           .thenAccept(result -> {
-            if (eosStates.allEndOfStream()) {
-              // all inputs have been end-of-stream, shut down the task
-              LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
-              coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-              coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-            }
-          });
+              if (eosStates.allEndOfStream()) {
+                // all inputs have been end-of-stream, shut down the task
+                LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+                coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+                coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+              }
+            });
     }
 
     return endOfStreamFuture;

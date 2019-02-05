@@ -18,6 +18,7 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
@@ -126,12 +127,12 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
       }
 
       processFuture.whenComplete((val, ex) -> {
-        if (ex != null) {
-          callback.failure(ex);
-        } else {
-          callback.complete();
-        }
-      });
+          if (ex != null) {
+            callback.failure(ex);
+          } else {
+            callback.complete();
+          }
+        });
     }
   }
 
@@ -140,7 +141,7 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
     CompletableFuture<Void> windowFuture = CompletableFuture.allOf(operatorImplGraph.getAllInputOperators()
         .stream()
         .map(inputOperator -> inputOperator.onTimer(collector, coordinator))
-    .toArray(CompletableFuture[]::new));
+        .toArray(CompletableFuture[]::new));
 
     windowFuture.join();
   }
