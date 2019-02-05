@@ -20,6 +20,7 @@
 package org.apache.samza.sql.client.cli;
 
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
+import org.apache.samza.sql.client.interfaces.ExecutorException;
 import org.apache.samza.sql.client.interfaces.QueryResult;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.jline.keymap.BindingReader;
@@ -49,7 +50,7 @@ public class QueryResultLogView implements CliView {
   private SqlExecutor executor;
   private ExecutionContext exeContext;
   private volatile boolean keepRunning = true;
-  private boolean paused = false;
+  private volatile boolean paused = false;
 
   // Stupid BindingReader doesn't have a real nonblocking mode
   // Must create a new thread to get user input
@@ -61,7 +62,7 @@ public class QueryResultLogView implements CliView {
 
   // -- implementation of CliView -------------------------------------------
 
-  public void open(CliShell shell, QueryResult queryResult) {
+  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException{
     terminal = shell.getTerminal();
     executor = shell.getExecutor();
     exeContext = shell.getExeContext();
@@ -77,7 +78,6 @@ public class QueryResultLogView implements CliView {
           if (keepRunning)
             Thread.sleep(refreshInterval);
         } catch (InterruptedException e) {
-          continue;
         }
       }
 
@@ -87,17 +87,18 @@ public class QueryResultLogView implements CliView {
       }
     } finally {
       restoreTerminal(prevStatus);
+      if (inputThread.isAlive()) {
+        terminal.writer().println("Warning: input thread hang. Have to kill!");
+        terminal.writer().flush();
+        inputThread.interrupt();
+      }
     }
-    if (inputThread.isAlive()) {
-      terminal.writer().println("Warning: input thread hang. Have to kill!");
-      terminal.writer().flush();
-      inputThread.interrupt();
-    }
+
   }
 
   // ------------------------------------------------------------------------
 
-  private void display() {
+  private void display() throws ExecutorException{
     updateTerminalSize();
     int rowsInBuffer = executor.getRowCount();
     if (rowsInBuffer <= 0 || paused) {

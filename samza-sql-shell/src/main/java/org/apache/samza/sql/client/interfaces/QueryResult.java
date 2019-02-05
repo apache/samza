@@ -27,15 +27,14 @@ import org.apache.samza.sql.schema.SqlSchema;
  */
 public class QueryResult {
   private int execId; // execution ID of the statement(s) submitted
-  private boolean success; // whether the statement(s) submitted successfully
   private SqlSchema schema; // The schema of the data coming from the query
 
-  public QueryResult(int execId, SqlSchema schema, Boolean success) {
-    if (success && schema == null)
-      throw new IllegalArgumentException();
+  public QueryResult(int execId, SqlSchema schema) {
+    // TODO: after fixing the TODO in SamzaExecutor.executeQuery(), we can uncomment the following piece of code.
+    /*if (schema == null)
+      throw new IllegalArgumentException();*/
     this.execId = execId;
     this.schema = schema;
-    this.success = success;
   }
 
   public int getExecutionId() {
@@ -44,9 +43,5 @@ public class QueryResult {
 
   public SqlSchema getSchema() {
     return schema;
-  }
-
-  public boolean succeeded() {
-    return success;
   }
 }

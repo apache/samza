@@ -20,7 +20,6 @@
 package org.apache.samza.sql.data;
 
 import java.io.Serializable;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -125,6 +124,18 @@ public class SamzaSqlRelMessage implements Serializable {
 
   public Object getKey() {
     return key;
+  }
+
+  public void setEventTime(String eventTime) {
+    this.samzaSqlRelMsgMetadata.setEventTime(eventTime);
+  }
+
+  public void setArrivalTime(String arrivalTime) {
+    this.samzaSqlRelMsgMetadata.setArrivalTime(arrivalTime);
+  }
+
+  public void setScanTime(String scanTime) {
+    this.samzaSqlRelMsgMetadata.setScanTime(scanTime);
   }
 
   @Override

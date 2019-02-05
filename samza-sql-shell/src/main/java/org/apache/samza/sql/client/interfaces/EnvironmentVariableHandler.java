@@ -19,37 +19,38 @@
 
 package org.apache.samza.sql.client.interfaces;
 
+import org.apache.samza.sql.client.util.Pair;
+
 import java.util.List;
 
 /**
- * Represents a SQL function.
+ * An executor, or shell itself, need to handle environment variables to have their behavior customizable.
  */
-public interface SqlFunction {
+public interface EnvironmentVariableHandler {
   /**
-   * Gets the name of the function.
-   * @return name of the function
+   * @param name Environment variable name
+   * @param value Value of the environment variable
+   * @return 0 : succeed
+   * -1: invalid name
+   * -2: invalid value
    */
-  String getName();
+  public int setEnvironmentVariable(String name, String value);
 
   /**
-   * Gets the description of the function.
-   * @return description of the function.
+   * @param name Environment variable name
+   * @return value of the environment variable. Returns null if the variable doesn't exist.
    */
-  String getDescription();
+  public String getEnvironmentVariable(String name);
 
   /**
-   * Gets the argument types of the function as a List.
-   * @return A list containing the type names of the arguments.
+   *
+   * @return All environment variables and their value.
    */
-  List<String> getArgumentTypes();
+  public List<Pair<String, String>> getAllEnvironmentVariables();
 
   /**
-   * Gets the return type of the function.
-   * @return return type name
+   *
+   * @return The corresponding EnvironmentVariableSpec.
    */
-  String getReturnType();
-
-  /**
-   * Don't forget to implement toString()
-   */
+  public EnvironmentVariableSpecs getSpecs();
 }

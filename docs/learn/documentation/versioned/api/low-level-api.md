@@ -276,7 +276,7 @@ For example:
 
 ### Legacy Applications
 
-For legacy Low Level API applications, you can continue specifying your system, stream and store properties along with your task.class in configuration. An incomplete example of configuration for legacy task application looks like this (see the [configuration](../jobs/configuration.md) documentation for more detail):
+For legacy Low Level API applications, you can continue specifying your system, stream and store properties along with your task.class in configuration. An incomplete example of configuration for legacy task application looks like this (see the [configuration](../jobs/configuration.html) documentation for more detail):
 
 {% highlight jproperties %}
 

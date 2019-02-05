@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.inmemory;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -68,7 +69,8 @@ class InMemoryManager {
       offset = IncomingMessageEnvelope.END_OF_STREAM_OFFSET;
     }
 
-    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, offset, key, message);
+    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, offset, key, message,
+        0, 0L, Instant.now().toEpochMilli());
     bufferedMessages.get(ssp)
         .add(messageEnvelope);
   }

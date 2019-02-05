@@ -182,7 +182,8 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public void flush() {
-    instrument(metrics.numFlushes, metrics.flushNs, () -> kvStore.flush());
+    // Since the KV store will be flushed by task storage manager, only update metrics here
+    instrument(metrics.numFlushes, metrics.flushNs, () -> { });
   }
 
   @Override
