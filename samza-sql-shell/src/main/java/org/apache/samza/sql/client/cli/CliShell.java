@@ -119,9 +119,11 @@ class CliShell {
     // screen and we need it to show streaming results. Clear the screen instead.
     clearScreen();
     writer.write(CliConstants.WELCOME_MESSAGE);
+    printVersion();
     if(!CliUtil.isNullOrEmpty(message)) {
       writer.println(message);
     }
+    writer.println();
 
     try {
       // Check if jna.jar exists in class path
@@ -205,6 +207,10 @@ class CliShell {
               commandStop(command);
               break;
 
+            case VERSION:
+              commandVersion(command);
+              break;
+
             case INVALID_COMMAND:
               printHelpMessage();
               break;
@@ -240,6 +246,18 @@ class CliShell {
     } catch (IOException | ExecutorException e) {
       // Doesn't matter
     }
+  }
+
+  private void commandVersion(CliCommand command) {
+    printVersion();
+  }
+
+  private void printVersion() {
+    String version = String.format("Shell version %s, Executor is %s, version %s",
+            this.getClass().getPackage().getImplementationVersion(),
+            executor.getClass().getName(),
+            executor.getVersion());
+    writer.println(version);
   }
 
   private void commandClear() {

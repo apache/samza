@@ -30,8 +30,9 @@ public class QueryResult {
   private SqlSchema schema; // The schema of the data coming from the query
 
   public QueryResult(int execId, SqlSchema schema) {
-    if (schema == null)
-      throw new IllegalArgumentException();
+    // TODO: after fixing the TODO in SamzaExecutor.executeQuery(), we can uncomment the following piece of code.
+    /*if (schema == null)
+      throw new IllegalArgumentException();*/
     this.execId = execId;
     this.schema = schema;
   }
