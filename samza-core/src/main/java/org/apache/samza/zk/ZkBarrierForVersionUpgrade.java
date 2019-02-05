@@ -92,10 +92,6 @@ public class ZkBarrierForVersionUpgrade {
       this.str = str;
     }
 
-    public String getValue() {
-      return str;
-    }
-
     @Override
     public String toString() {
       return str;
@@ -129,7 +125,7 @@ public class ZkBarrierForVersionUpgrade {
         barrierParticipantsPath,
         barrierStatePath});
     LOG.info("Marking the barrier state: {} as {}.", barrierStatePath, State.NEW);
-    zkUtils.writeData(barrierStatePath, State.NEW.getValue());
+    zkUtils.writeData(barrierStatePath, State.NEW.toString());
 
     LOG.info("Subscribing child changes on the path: {} for barrier version: {}.", barrierParticipantsPath, version);
     zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants, zkUtils));
@@ -164,7 +160,7 @@ public class ZkBarrierForVersionUpgrade {
     State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
     if (Objects.equals(barrierState, State.NEW)) {
       LOG.info(String.format("Expiring the barrier version: %s. Marking the barrier state: %s as %s.", version, barrierStatePath, State.TIMED_OUT));
-      zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT.getValue());
+      zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT.toString());
     } else {
       LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", version, barrierState, State.TIMED_OUT));
     }
@@ -202,7 +198,7 @@ public class ZkBarrierForVersionUpgrade {
             State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
             if (Objects.equals(barrierState, State.NEW)) {
               LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
-              zkUtils.writeData(barrierStatePath, State.DONE.getValue()); // this will trigger notifications
+              zkUtils.writeData(barrierStatePath, State.DONE.toString()); // this will trigger notifications
             } else {
               LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
             }
