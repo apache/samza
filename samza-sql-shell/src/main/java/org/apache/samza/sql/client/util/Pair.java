@@ -17,24 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.client.util;
 
-/**
- * An executor shall throw an ExecutionException when it encounters an unrecoverable error.
- */
-public class ExecutionException extends RuntimeException {
-  public ExecutionException() {
+public class Pair<L,R> {
+  private L l;
+  private R r;
+
+  public Pair(L l, R r){
+    this.l = l;
+    this.r = r;
   }
 
-  public ExecutionException(String message) {
-    super(message);
+  public L getL(){
+    return l;
   }
 
-  public ExecutionException(String message, Throwable cause) {
-    super(message, cause);
+  public R getR(){
+    return r;
   }
 
-  public ExecutionException(Throwable cause) {
-    super(cause);
+  public void setL(L l) {
+    this.l = l;
+  }
+
+  public void setR(R r){
+    this.r = r;
   }
 }

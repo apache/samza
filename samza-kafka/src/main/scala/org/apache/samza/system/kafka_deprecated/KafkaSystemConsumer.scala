@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.kafka_deprecated
 
+import java.time.Instant
 import kafka.common.TopicAndPartition
 import org.apache.samza.util.Logging
 import kafka.message.Message
@@ -283,15 +284,16 @@ private[kafka_deprecated] class KafkaSystemConsumer(
         null
       }
 
-      if(fetchLimitByBytesEnabled ) {
-        val ime = new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, getMessageSize(msg.message))
-        ime.setTimestamp(if (!msg.message.isNull) msg.message.timestamp else 0L)
-        put(systemStreamPartition, ime)
-      } else {
-        val ime = new IncomingMessageEnvelope(systemStreamPartition, offset, key, message)
-        ime.setTimestamp(if (!msg.message.isNull) msg.message.timestamp else 0L)
-        put(systemStreamPartition, ime)
-      }
+      val eventTime = if (!msg.message.isNull) msg.message.timestamp else 0L
+      val arrivalTime = Instant.now().toEpochMilli()
+      val ime = if(fetchLimitByBytesEnabled ) {
+          new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, getMessageSize(msg.message),
+          eventTime, arrivalTime)
+        } else {
+          new IncomingMessageEnvelope(systemStreamPartition, offset, key, message, 0,
+            eventTime, arrivalTime)
+        }
+      put(systemStreamPartition, ime)
 
       setIsAtHead(systemStreamPartition, isAtHead)
     }

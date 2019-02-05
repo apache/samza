@@ -19,37 +19,22 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-import java.util.List;
-
 /**
- * Represents a SQL function.
+ * An executor shall throw an ExecutorException when it encounters an error.
  */
-public interface SqlFunction {
-  /**
-   * Gets the name of the function.
-   * @return name of the function
-   */
-  String getName();
+public class ExecutorException extends Exception {
+  public ExecutorException() {
+  }
 
-  /**
-   * Gets the description of the function.
-   * @return description of the function.
-   */
-  String getDescription();
+  public ExecutorException(String message) {
+    super(message);
+  }
 
-  /**
-   * Gets the argument types of the function as a List.
-   * @return A list containing the type names of the arguments.
-   */
-  List<String> getArgumentTypes();
+  public ExecutorException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-  /**
-   * Gets the return type of the function.
-   * @return return type name
-   */
-  String getReturnType();
-
-  /**
-   * Don't forget to implement toString()
-   */
+  public ExecutorException(Throwable cause) {
+    super(cause);
+  }
 }

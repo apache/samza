@@ -57,8 +57,8 @@ public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkClient zkClient = null;
-  private static final int SESSION_TIMEOUT_MS = 500;
-  private static final int CONNECTION_TIMEOUT_MS = 1000;
+  private static final int SESSION_TIMEOUT_MS = 5000;
+  private static final int CONNECTION_TIMEOUT_MS = 10000;
   private ZkUtils zkUtils;
 
   @Rule
@@ -77,6 +77,7 @@ public class TestZkUtils {
           new ZkConnection("127.0.0.1:" + zkServer.getPort(), SESSION_TIMEOUT_MS),
           CONNECTION_TIMEOUT_MS);
     } catch (Exception e) {
+      e.printStackTrace();
       Assert.fail("Client connection setup failed. Aborting tests..");
     }
     try {

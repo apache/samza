@@ -53,6 +53,7 @@ import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.sql.SamzaSqlInputMessage;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
@@ -79,7 +80,7 @@ public class QueryTranslator {
   private final SamzaSqlApplicationConfig sqlConfig;
   private final StreamApplicationDescriptor streamAppDescriptor;
   private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
-  private final Map<String, MessageStream<KV<Object, Object>>> inputMsgStreams;
+  private final Map<String, MessageStream<SamzaSqlInputMessage>> inputMsgStreams;
   private final Map<String, OutputStream> outputMsgStreams;
   private static final Logger LOG = LoggerFactory.getLogger(QueryTranslator.class);
   static int opId = 0;
