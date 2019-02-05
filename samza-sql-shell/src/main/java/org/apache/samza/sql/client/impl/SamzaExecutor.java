@@ -298,6 +298,11 @@ public class SamzaExecutor implements SqlExecutor {
     return udfs;
   }
 
+  @Override
+  public String getVersion() {
+    return this.getClass().getPackage().getImplementationVersion();
+  }
+
   static void saveOutputMessage(OutgoingMessageEnvelope messageEnvelope) {
     outputData.add(messageEnvelope);
   }

@@ -346,6 +346,12 @@ project(":samza-sql_$scalaVersion") {
 project(":samza-sql-shell_$scalaVersion") {
   apply plugin: 'java'
 
+  jar {
+    manifest {
+      attributes("Implementation-Version": "$version")
+    }
+  }
+
   dependencies {
     compile project(":samza-sql_$scalaVersion")
     compile project(":samza-tools_$scalaVersion")
