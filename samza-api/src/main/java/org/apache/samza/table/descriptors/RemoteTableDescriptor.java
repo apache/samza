@@ -240,49 +240,49 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       }
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
       if (defaultRateLimiter instanceof TablePart) {
-        tableConfig.putAll(((TablePart) defaultRateLimiter).toConfig(jobConfig, new MapConfig(tableConfig)));
+        addTablePartConfig((TablePart) defaultRateLimiter, jobConfig, tableConfig);
       }
     } else if (rateLimiter != null) {
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
       if (rateLimiter instanceof TablePart) {
-        tableConfig.putAll(((TablePart) rateLimiter).toConfig(jobConfig, new MapConfig(tableConfig)));
+        addTablePartConfig((TablePart) rateLimiter, jobConfig, tableConfig);
       }
     }
 
     // Handle readCredit functions
     if (readCreditFn != null) {
       addTableConfig(READ_CREDIT_FN, SerdeUtils.serialize("read credit function", readCreditFn), tableConfig);
-      tableConfig.putAll(readCreditFn.toConfig(jobConfig, new MapConfig(tableConfig)));
+      addTablePartConfig(readCreditFn, jobConfig, tableConfig);
     }
 
     // Handle writeCredit functions
     if (writeCreditFn != null) {
       addTableConfig(WRITE_CREDIT_FN, SerdeUtils.serialize("write credit function", writeCreditFn), tableConfig);
-      tableConfig.putAll(writeCreditFn.toConfig(jobConfig, new MapConfig(tableConfig)));
+      addTablePartConfig(writeCreditFn, jobConfig, tableConfig);
     }
 
     // Handle read retry policy
     if (readRetryPolicy != null) {
       addTableConfig(READ_RETRY_POLICY, SerdeUtils.serialize("read retry policy", readRetryPolicy), tableConfig);
-      tableConfig.putAll(readRetryPolicy.toConfig(jobConfig, new MapConfig(tableConfig)));
+      addTablePartConfig(readRetryPolicy, jobConfig, tableConfig);
     }
 
     // Handle write retry policy
     if (writeRetryPolicy != null) {
       addTableConfig(WRITE_RETRY_POLICY, SerdeUtils.serialize("write retry policy", writeRetryPolicy), tableConfig);
-      tableConfig.putAll(writeRetryPolicy.toConfig(jobConfig, new MapConfig(tableConfig)));
+      addTablePartConfig(writeRetryPolicy, jobConfig, tableConfig);
     }
 
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
 
     // Handle table reader function
     addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
-    tableConfig.putAll(readFn.toConfig(jobConfig, new MapConfig(tableConfig)));
+    addTablePartConfig(readFn, jobConfig, tableConfig);
 
     // Handle table write function
     if (writeFn != null) {
       addTableConfig(WRITE_FN, SerdeUtils.serialize("write function", writeFn), tableConfig);
-      tableConfig.putAll(writeFn.toConfig(jobConfig, new MapConfig(tableConfig)));
+      addTablePartConfig(writeFn, jobConfig, tableConfig);
     }
 
     return Collections.unmodifiableMap(tableConfig);
@@ -297,4 +297,15 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
         "too many threads for async callback executor.");
   }
+
+  /**
+   * Helper method to add table part config items to table configuration
+   * @param tablePart table part
+   * @param jobConfig job configuration
+   * @param tableConfig table configuration
+   */
+  protected void addTablePartConfig(TablePart tablePart, Config jobConfig, Map<String, String> tableConfig) {
+    tableConfig.putAll(tablePart.toConfig(jobConfig, new MapConfig(tableConfig)));
+  }
+
 }
