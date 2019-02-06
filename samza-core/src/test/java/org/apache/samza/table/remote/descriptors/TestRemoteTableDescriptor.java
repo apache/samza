@@ -20,6 +20,8 @@
 package org.apache.samza.table.remote.descriptors;
 
 import com.google.common.collect.ImmutableMap;
+
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -41,6 +43,7 @@ import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
 import org.apache.samza.table.remote.AsyncRemoteTable;
 import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.remote.RemoteTableProvider;
+import org.apache.samza.table.remote.TablePart;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -57,12 +60,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static org.mockito.Mockito.*;
+import static org.apache.samza.table.remote.TableRateLimiter.CreditFunction;
+
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 
 public class TestRemoteTableDescriptor {
-  private void doTestSerialize(RateLimiter rateLimiter, TableRateLimiter.CreditFunction readCredFn,
-      TableRateLimiter.CreditFunction writeCredFn) {
+
+  private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn) {
     String tableId = "1";
     RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
         .withReadFunction(createMockTableReadFunction())
@@ -132,6 +144,65 @@ public class TestRemoteTableDescriptor {
     desc.toConfig(new MapConfig());
   }
 
+  @Test
+  public void testTablePartToConfigDefault() {
+    TableReadFunction readFn = createMockTableReadFunction();
+    when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(1));
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
+        .withReadFunction(readFn)
+        .withReadRateLimit(100)
+        .toConfig(new MapConfig());
+    verify(readFn, times(1)).toConfig(any(), any());
+    Assert.assertEquals("v1", tableConfig.get("k1"));
+  }
+
+  @Test
+  public void testTablePartToConfig() {
+
+    int keys = 0;
+
+    TableReadFunction readFn = createMockTableReadFunction();
+    when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    TableWriteFunction writeFn = createMockTableWriteFunction();
+    when(writeFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    RateLimiter rateLimiter = createMockRateLimiter();
+    when(((TablePart) rateLimiter).toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    CreditFunction readCredFn = createMockCreditFunction();
+    when(readCredFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    CreditFunction writeCredFn = createMockCreditFunction();
+    when(writeCredFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    TableRetryPolicy readRetryPolicy = createMockTableRetryPolicy();
+    when(readRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    TableRetryPolicy writeRetryPolicy = createMockTableRetryPolicy();
+    when(writeRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
+        .withReadFunction(readFn)
+        .withWriteFunction(writeFn)
+        .withRateLimiter(rateLimiter, readCredFn, writeCredFn)
+        .withReadRetryPolicy(readRetryPolicy)
+        .withWriteRetryPolicy(writeRetryPolicy)
+        .toConfig(new MapConfig());
+
+    verify(readFn, times(1)).toConfig(any(), any());
+    verify(writeFn, times(1)).toConfig(any(), any());
+    verify((TablePart) rateLimiter, times(1)).toConfig(any(), any());
+    verify(readCredFn, times(1)).toConfig(any(), any());
+    verify(writeCredFn, times(1)).toConfig(any(), any());
+    verify(readRetryPolicy, times(1)).toConfig(any(), any());
+    verify(writeRetryPolicy, times(1)).toConfig(any(), any());
+
+    for (int n = 0; n < keys; n++) {
+      Assert.assertEquals("v" + n, tableConfig.get("k" + n));
+    }
+  }
+
   private Context createMockContext(TableDescriptor tableDescriptor) {
     Context context = mock(Context.class);
 
@@ -161,13 +232,14 @@ public class TestRemoteTableDescriptor {
     when(jobModel.getContainers()).thenReturn(ImmutableMap.of(containerId, containerModel));
 
     JobContext jobContext = mock(JobContext.class);
-    when(jobContext.getConfig()).thenReturn(new MapConfig(tableDescriptor.toConfig(new MapConfig())));
+    Config jobConfig = new MapConfig(tableDescriptor.toConfig(new MapConfig()));
+    when(jobContext.getConfig()).thenReturn(jobConfig);
     when(context.getJobContext()).thenReturn(jobContext);
 
     return context;
   }
 
-  static class CountingCreditFunction<K, V> implements TableRateLimiter.CreditFunction<K, V> {
+  static class CountingCreditFunction<K, V> implements CreditFunction<K, V> {
     int numCalls = 0;
     @Override
     public int getCredits(K key, V value) {
@@ -270,7 +342,11 @@ public class TestRemoteTableDescriptor {
   }
 
   private RateLimiter createMockRateLimiter() {
-    return mock(RateLimiter.class, withSettings().serializable());
+    return mock(RateLimiter.class, withSettings().serializable().extraInterfaces(TablePart.class));
+  }
+
+  private CreditFunction createMockCreditFunction() {
+    return mock(CreditFunction.class, withSettings().serializable());
   }
 
   private TableReadFunction createMockTableReadFunction() {
@@ -279,6 +355,16 @@ public class TestRemoteTableDescriptor {
 
   private TableWriteFunction createMockTableWriteFunction() {
     return mock(TableWriteFunction.class, withSettings().serializable());
+  }
+
+  private TableRetryPolicy createMockTableRetryPolicy() {
+    return mock(TableRetryPolicy.class, withSettings().serializable());
+  }
+
+  private Map<String, String> createConfigPair(int n) {
+    Map<String, String> config = new HashMap<>();
+    config.put("k" + n, "v" + n);
+    return config;
   }
 
   private void assertExists(String key, String tableId, Map<String, String> config) {
