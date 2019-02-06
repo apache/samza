@@ -327,12 +327,11 @@ object JobModelManager extends Logging {
 
     val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
 
-    var groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = null
-    if (isHostAffinityEnabled) {
+    val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (isHostAffinityEnabled) {
       val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
-      groups = sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
+      sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
-      groups = grouper.group(allSystemStreamPartitions)
+      grouper.group(allSystemStreamPartitions)
     }
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups))
 
