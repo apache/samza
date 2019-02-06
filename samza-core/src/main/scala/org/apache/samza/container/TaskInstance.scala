@@ -80,8 +80,6 @@ class TaskInstance(
     (storeName: String) => {
       if (storageManager != null && storageManager.getStore(storeName).isDefined) {
         storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
-      } else if (sideInputStorageManager != null && sideInputStorageManager.getStore(storeName) != null) {
-        sideInputStorageManager.getStore(storeName).asInstanceOf[KeyValueStore[_, _]]
       } else {
         null
       }
@@ -121,15 +119,15 @@ class TaskInstance(
     val sspsToRegister = systemStreamPartitions -- sideInputSSPs
     offsetManager.register(taskName, sspsToRegister)
   }
-
-  def startSideInputs {
-    if (sideInputStorageManager != null) {
-      debug("Starting side input storage manager for taskName: %s" format taskName)
-      sideInputStorageManager.init()
-    } else {
-      debug("Skipping side input storage manager initialization for taskName: %s" format taskName)
-    }
-  }
+//
+//  def startSideInputs {
+//    if (sideInputStorageManager != null) {
+//      debug("Starting side input storage manager for taskName: %s" format taskName)
+//      sideInputStorageManager.init()
+//    } else {
+//      debug("Skipping side input storage manager initialization for taskName: %s" format taskName)
+//    }
+//  }
 
   def startTableManager {
     if (tableManager != null) {
@@ -263,10 +261,10 @@ class TaskInstance(
       tableManager.flush
     }
 
-    trace("Flushing side input stores for taskName: %s" format taskName)
-    if (sideInputStorageManager != null) {
-      sideInputStorageManager.flush()
-    }
+//    trace("Flushing side input stores for taskName: %s" format taskName)
+//    if (sideInputStorageManager != null) {
+//      sideInputStorageManager.flush()
+//    }
 
     trace("Checkpointing offsets for taskName: %s" format taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint)
@@ -295,14 +293,14 @@ class TaskInstance(
     }
   }
 
-  def shutdownSideInputs {
-    if (sideInputStorageManager != null) {
-      debug("Shutting down side input storage manager for taskName: %s" format taskName)
-      sideInputStorageManager.stop()
-    } else {
-      debug("Skipping side input storage manager shutdown for taskName: %s" format taskName)
-    }
-  }
+//  def shutdownSideInputs {
+//    if (sideInputStorageManager != null) {
+//      debug("Shutting down side input storage manager for taskName: %s" format taskName)
+//      sideInputStorageManager.stop()
+//    } else {
+//      debug("Skipping side input storage manager shutdown for taskName: %s" format taskName)
+//    }
+//  }
 
   def shutdownTableManager {
     if (tableManager != null) {

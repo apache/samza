@@ -59,9 +59,11 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamPartitionIterator;
+import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
+import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -88,10 +90,13 @@ public class ContainerStorageManager {
   private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
   private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors;
 
-  private final Map<String, SystemConsumer> systemConsumers; // Mapping from storeSystemNames to SystemConsumers
+  private final Map<String, SystemConsumer> storeConsumers; // Mapping from storeSystemNames to SystemConsumers
   private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories; // Map of storageEngineFactories indexed by store name
   private final Map<String, SystemStream> changelogSystemStreams; // Map of changelog system-streams indexed by store name
   private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
+  private final Map<String, List<SystemStream>> sideInputSystemStreams; // Map of side input system-streams indexed by store name
+  private final Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessor;
+  private final Map<TaskName, TaskSideInputStorageManager> sideInputStorageManagers;
 
   private final StreamMetadataCache streamMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
@@ -112,6 +117,7 @@ public class ContainerStorageManager {
 
   public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
       SystemAdmins systemAdmins, Map<String, SystemStream> changelogSystemStreams,
+      Map<String, List<SystemStream>> sideInputSystemStreams,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, SamzaContainerMetrics samzaContainerMetrics,
@@ -121,6 +127,7 @@ public class ContainerStorageManager {
 
     this.containerModel = containerModel;
     this.changelogSystemStreams = changelogSystemStreams;
+    this.sideInputSystemStreams = sideInputSystemStreams;
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
     this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
@@ -150,10 +157,17 @@ public class ContainerStorageManager {
 
     // create taskStores for all tasks in the containerModel and each store in storageEngineFactories
     this.taskStores = createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, changelogSystemStreams,
-        serdes, taskInstanceMetrics, taskInstanceCollectors, StorageEngineFactory.StoreMode.BulkLoad);
+        serdes, taskInstanceMetrics, taskInstanceCollectors);
 
-    // create system consumers (1 per store system)
-    this.systemConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
+    // create system consumers (1 per store system in changelogSystemStreams)
+    this.storeConsumers = createStoreConsumers(changelogSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
+
+    // creating side input store processors, one per store per task
+    sideInputStoresToProcessor = createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams, this.taskInstanceMetrics);
+
+    // create side input storage managers
+    sideInputStorageManagers = createSideInputStorageManagers(containerModel,sideInputSystemStreams, taskStores,
+        sideInputStoresToProcessor, streamMetadataCache, this.loggedStoreBaseDirectory, systemAdmins, config, clock);
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
@@ -200,13 +214,14 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Create taskStores with the given store mode for all stores in storageEngineFactories.
+   * Create taskStores for all stores in storageEngineFactories.
+   * The store mode is chosen as bulk-load if its a non-sideinput store, and readWrite if its a side input store
    */
   private Map<TaskName, Map<String, StorageEngine>> createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, SystemStream> changelogSystemStreams, Map<String, Serde<Object>> serdes,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
-      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, StorageEngineFactory.StoreMode storeMode) {
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
 
     Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
 
@@ -220,6 +235,9 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storageEngineFactories.keySet()) {
+
+        StorageEngineFactory.StoreMode storeMode = this.sideInputSystemStreams.containsKey(storeName) ?
+            StorageEngineFactory.StoreMode.ReadWrite : StorageEngineFactory.StoreMode.BulkLoad;
 
         StorageEngine storageEngine =
             createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
@@ -252,11 +270,11 @@ public class ContainerStorageManager {
 
       for (String storeName : storageEngineFactories.keySet()) {
 
-        // if this store has been already created in the taskStores, then re-create and overwrite it only if it is a persistentStore
+        // if this store has been already created in the taskStores, then re-create and overwrite it only if it is a persistentStore and a non-sideInputStore
         if (this.taskStores.get(taskName).containsKey(storeName) && this.taskStores.get(taskName)
             .get(storeName)
             .getStoreProperties()
-            .isPersistedToDisk()) {
+            .isPersistedToDisk() && !sideInputSystemStreams.containsKey(storeName)) {
 
           StorageEngine storageEngine =
               createStore(storeName, taskName, taskModel, jobContext, containerContext, storageEngineFactories,
@@ -291,11 +309,15 @@ public class ContainerStorageManager {
         (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
             changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
 
-    // Use the logged-store-base-directory for change logged stores, and non-logged-store-base-dir for non logged stores
-    File storeDirectory =
-        (changeLogSystemStreamPartition != null) ? StorageManagerUtil.getStorePartitionDir(this.loggedStoreBaseDirectory,
-            storeName, taskName)
-            : StorageManagerUtil.getStorePartitionDir(this.nonLoggedStoreBaseDirectory, storeName, taskName);
+    // Use the logged-store-base-directory for change logged stores and side input stores, and non-logged-store-base-dir
+    // for non logged stores
+    File storeDirectory;
+    if (changeLogSystemStreamPartition != null || sideInputSystemStreams.containsKey(storeName)) {
+      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.loggedStoreBaseDirectory, storeName, taskName);
+    } else {
+      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.nonLoggedStoreBaseDirectory, storeName, taskName);
+    }
+
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
     if (storageConfig.getStorageKeySerde(storeName).isEmpty()) {
@@ -329,14 +351,71 @@ public class ContainerStorageManager {
             storeMetricsRegistry, changeLogSystemStreamPartition, jobContext, containerContext, storeMode);
   }
 
+
+  // Create side input store processors, one per store per task
+  private static Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config, ContainerModel containerModel,
+      Map<String, List<SystemStream>> sideInputSystemStreams, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+
+    Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessor = new HashMap<>();
+    containerModel.getTasks().forEach((taskName, taskModel) -> {
+      sideInputStoresToProcessor.put(taskName, new HashMap<>());
+      for (String storeName : sideInputSystemStreams.keySet()) {
+        if (config.getSideInputsProcessorSerializedInstance(storeName).isDefined()) {
+          sideInputStoresToProcessor.get(taskName)
+              .put(storeName, SerdeUtils.deserialize("Side Inputs Processor",
+                  config.getSideInputsProcessorSerializedInstance(storeName).get()));
+        } else {
+          sideInputStoresToProcessor.get(taskName)
+              .put(storeName, Util.getObj(config.getSideInputsProcessorFactory(storeName).get(),
+                  SideInputsProcessorFactory.class).getSideInputsProcessor(config,
+                  taskInstanceMetrics.get(taskName).registry()));
+        }
+      }
+    });
+
+    return sideInputStoresToProcessor;
+  }
+
+  // Create task side input storage managers, one per task
+  private static Map<TaskName, TaskSideInputStorageManager> createSideInputStorageManagers(ContainerModel containerModel,
+      Map<String, List<SystemStream>> sideInputSystemStreams, Map<TaskName, Map<String, StorageEngine>> taskStores,
+      Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessor,
+      StreamMetadataCache streamMetadataCache, File loggedStoreBaseDirectory, SystemAdmins systemAdmins, Config config, Clock clock) {
+    Map<TaskName, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
+    containerModel.getTasks().forEach((taskName, taskModel) -> {
+      if (sideInputSystemStreams.isEmpty()) {
+        sideInputStorageManagers.put(taskName, null);
+      } else {
+
+        Map<String, StorageEngine> sideInputStores = taskStores.get(taskName).entrySet().stream().
+            filter(store -> sideInputSystemStreams.containsKey(store.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
+        for (String storeName : sideInputStores.keySet()) {
+          List<SystemStream> storeSystemStreams = sideInputSystemStreams.get(storeName);
+          Set<SystemStreamPartition> storeSSPs = taskModel.getSystemStreamPartitions().stream().
+              filter(ssp -> storeSystemStreams.contains(ssp.getSystemStream())).collect(Collectors.toSet());
+          sideInputStoresToSSPs.put(storeName, storeSSPs);
+        }
+
+        sideInputStorageManagers.put(taskName,
+            new TaskSideInputStorageManager(taskName, streamMetadataCache, loggedStoreBaseDirectory.getPath(), sideInputStores,
+                sideInputStoresToProcessor.get(taskName), sideInputStoresToSSPs, systemAdmins, config, clock));
+      }
+    });
+
+    return sideInputStorageManagers;
+  }
+
+
   public void start() throws SamzaException {
     LOG.info("Restore started");
 
     // initialize each TaskStorageManager
     this.taskRestoreManagers.values().forEach(taskStorageManager -> taskStorageManager.initialize());
 
-    // Start consumers
-    this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.start());
+    // Start store consumers
+    this.storeConsumers.values().forEach(systemConsumer -> systemConsumer.start());
 
     // Create a thread pool for parallel restores (and stopping of persistent stores)
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
@@ -363,8 +442,8 @@ public class ContainerStorageManager {
 
     executorService.shutdown();
 
-    // Stop consumers
-    this.systemConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
+    // Stop store consumers
+    this.storeConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
 
     // Now re-create persistent stores in read-write mode, leave non-persistent stores as-is
     recreatePersistentTaskStoresInReadWriteMode(this.containerModel, jobContext, containerContext,
@@ -656,7 +735,7 @@ public class ContainerStorageManager {
         SystemStreamPartition systemStreamPartition =
             new SystemStreamPartition(changelogSystemStreamEntry.getValue(), taskModel.getChangelogPartition());
         SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(changelogSystemStreamEntry.getValue().getSystem());
-        SystemConsumer systemConsumer = systemConsumers.get(changelogSystemStreamEntry.getKey());
+        SystemConsumer systemConsumer = storeConsumers.get(changelogSystemStreamEntry.getKey());
 
         String offset = getStartingOffset(systemStreamPartition, systemAdmin);
 
@@ -705,7 +784,7 @@ public class ContainerStorageManager {
       LOG.debug("Restoring stores for task: {}", taskModel.getTaskName());
 
       for (String storeName : taskStoresToRestore) {
-        SystemConsumer systemConsumer = systemConsumers.get(storeName);
+        SystemConsumer systemConsumer = storeConsumers.get(storeName);
         SystemStream systemStream = changelogSystemStreams.get(storeName);
 
         SystemStreamPartitionIterator systemStreamPartitionIterator = new SystemStreamPartitionIterator(systemConsumer,
