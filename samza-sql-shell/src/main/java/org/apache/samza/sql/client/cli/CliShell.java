@@ -48,6 +48,7 @@ import java.util.*;
  * The shell UI.
  */
 class CliShell {
+  private static final Logger LOG = LoggerFactory.getLogger(CliShell.class);
   private final Terminal terminal;
   private final PrintWriter writer;
   private final LineReader lineReader;
@@ -57,7 +58,6 @@ class CliShell {
   private CliEnvironment env;
   private boolean keepRunning = true;
   private Map<Integer, String> executions = new TreeMap<>();
-  private static final Logger LOG = LoggerFactory.getLogger(CliShell.class);
 
   CliShell(CliEnvironment environment) throws ExecutorException{
     if (environment == null) {
