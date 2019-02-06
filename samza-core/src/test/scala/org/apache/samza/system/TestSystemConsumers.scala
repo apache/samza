@@ -340,7 +340,7 @@ class TestSystemConsumers {
     assertTrue(consumer.lastPoll.contains(systemStreamPartition1))
   }
 
-  @Test(expected = classOf[Exception])
+  @Test(expected = classOf[UnsupportedOperationException])
   def testSystemConsumersAndStartpointVisitor {
     val system = "test-system"
     val stream = "some-stream"

@@ -148,7 +148,7 @@ public interface SystemConsumer {
    */
   @InterfaceStability.Evolving
   default void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
-    throw new UnsupportedOperationException("This operation is not supported.");
+    throw new UnsupportedOperationException(String.format("Registering the ssp: %s with startpoint: %s is not supported.", systemStreamPartition, startpoint));
   }
 
   /**
