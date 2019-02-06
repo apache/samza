@@ -29,6 +29,7 @@ public class ContainerFailoverState {
   // Map of samza-container-resource ID to host, for each standby container selected for failover
   public final Map<String, String> selectedStandbyContainers;
 
+  // These fields are only used for logging
   public enum ContainerStatus { StopIssued, Stopped, ResourceRequested, StartIssued, Started }
   private ContainerStatus activeContainerStatus;
   private ContainerStatus standbyContainerStatus;
@@ -54,7 +55,8 @@ public class ContainerFailoverState {
     return selectedStandbyContainers.get(standbyContainerResourceID);
   }
 
-  public synchronized void addStandbyContainer(String standbyContainerResourceID, String standbyContainerHost) {
+  // Add the standbyContainer resource to the list of standbyContainers used in this failover
+  public synchronized void updateStandbyContainer(String standbyContainerResourceID, String standbyContainerHost) {
     this.selectedStandbyContainers.put(standbyContainerResourceID, standbyContainerHost);
   }
 
@@ -64,5 +66,13 @@ public class ContainerFailoverState {
 
   public synchronized void setActiveContainerStatus(ContainerStatus status) {
     this.activeContainerStatus = status;
+  }
+
+  @Override
+  public String toString() {
+    return "[activeContainerID: " + this.activeContainerID + " activeContainerResourceID: "
+        + this.activeContainerResourceID + " selectedStandbyContainers:" + selectedStandbyContainers
+        + " activeContainerStatus:" + activeContainerStatus + " lastStandbyContainerStatus:" + standbyContainerStatus
+        + "]";
   }
 }

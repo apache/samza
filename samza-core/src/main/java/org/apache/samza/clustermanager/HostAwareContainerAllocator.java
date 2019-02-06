@@ -89,7 +89,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       if (hasAllocatedResource(preferredHost)) {
         // Found allocated container at preferredHost
         log.info("Found a matched-container {} on the preferred host. Running on {}", containerID, preferredHost);
-        // Try to launch streamProcessor on this preferredHost
+        // Try to launch streamProcessor on this preferredHost if it all standby constraints are met
         checkStandbyTaskConstraintsAndRunStreamProcessor(request, preferredHost, peekAllocatedResource(preferredHost), state);
         state.matchedResourceRequests.incrementAndGet();
       } else {
@@ -102,6 +102,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         if (expired) {
           updateExpiryMetrics(request);
           if (resourceAvailableOnAnyHost) {
+            // if standby is not enabled, request a anyhost request
             if (!new JobConfig(config).getStandbyTasksEnabled()) {
               log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(),
                   request.getPreferredHost());
@@ -214,10 +215,12 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     return true;
   }
 
-  // Intercept resource requests, which are due to either a launch-failure or resource-request expired or standby
-  // constraints not met, if it is for a
-  // 1. a standby container, we proceed to make a anyhost request
-  // 2. an activeContainer, we try to fail-it-over to a standby
+  /**
+   * Intercept resource requests, which are due to either a launch-failure or resource-request expired or standby
+   * 1. a standby container, we proceed to make a anyhost request
+   * 2. an activeContainer, we try to fail-it-over to a standby
+   * @param containerID Identifier of the container that will be run when a resource is allocated
+   */
   @Override
   public void requestResourceDueToLaunchFailOrExpiredRequest(String containerID) {
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
@@ -232,7 +235,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   // 1. for ActiveContainers and instead choose a StandbyContainer to stop
   // 2. for a StandbyContainer (after it has been chosen for failover), to put the active on the standby's host
   // and request another resource for the standby
-  // 3. for a standbyContainer
+  // 3. for a standbyContainer (if not for a failover)
   @Override
   public void requestResource(String containerID, String preferredHost) {
 
@@ -266,7 +269,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
           failoverState = new ContainerFailoverState(containerID, activeContainerResourceID, standbyResourceID, standbyHost);
           this.state.failovers.put(activeContainerResourceID, failoverState);
         } else {
-          failoverState.addStandbyContainer(standbyResourceID, standbyHost);
+          failoverState.updateStandbyContainer(standbyResourceID, standbyHost);
           failoverState.setStandbyContainerStatus(ContainerFailoverState.ContainerStatus.StopIssued);
         }
 

@@ -441,7 +441,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
   }
 
-
   /**
    * An error in the callback terminates the JobCoordinator
    * @param e the underlying exception/error

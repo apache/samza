@@ -558,8 +558,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   @Override
   public void onStopContainerError(ContainerId containerId, Throwable t) {
     log.info("Got an error when stopping container from the NodeManager. ContainerId: {}. Error: {}", containerId, t);
+    String samzaContainerId = getIDForContainer(containerId.toString());
 
-    // TODO: handle stop container error in case of standby container stopping, by choosing another standby container and trying stop on that
+    if (samzaContainerId != null) {
+      YarnContainer container = state.runningYarnContainers.get(samzaContainerId);
+      log.info("Failed Stop on Yarn Container: {} had Samza ContainerId: {} ", containerId.toString(), samzaContainerId);
+      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+
+      log.info("Re-invoking stop stream processor for container: {}", containerId);
+      this.stopStreamProcessor(resource);// For now, we retry the stopping of the container
+      // TODO: handle stopContainerError in case of standby container, by choosing another standby to container and try to use that for failover
+    } else {
+      log.info("Got an invalid notification for container: {}", containerId.toString());
+    }
   }
 
   /**
