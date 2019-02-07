@@ -44,8 +44,6 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
   private final ScalarFunction myIncFunction;
   private final Method udfMethod;
   private final Method getUdfMethod;
-
-
   private final String udfName;
   private final UdfMetadata udfMetadata;
 
@@ -67,6 +65,10 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
 
   public int numberArguments() {
     return udfMetadata.getArguments().size();
+  }
+
+  public UdfMetadata getUdfMetadata() {
+    return udfMetadata;
   }
 
   @Override

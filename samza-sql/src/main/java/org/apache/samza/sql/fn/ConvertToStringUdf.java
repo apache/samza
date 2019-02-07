@@ -20,6 +20,7 @@
 package org.apache.samza.sql.fn;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
@@ -34,9 +35,9 @@ public class ConvertToStringUdf implements ScalarUdf {
   public void init(Config udfConfig) {
   }
 
-  @SamzaSqlUdfMethod
-  public String execute(Object... args) {
-    return args[0].toString();
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY)
+  public String execute(Object args) {
+    return args.toString();
   }
 }
 

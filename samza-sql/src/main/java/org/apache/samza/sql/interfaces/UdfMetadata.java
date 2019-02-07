@@ -37,14 +37,17 @@ public class UdfMetadata {
 
   private final Config udfConfig;
 
+  private final boolean disableArgCheck;
 
   private final List<SamzaSqlFieldType> arguments;
 
-  public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments) {
+  public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
+      boolean disableArgCheck) {
     this.name = name;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
     this.arguments = arguments;
+    this.disableArgCheck = disableArgCheck;
   }
 
   public Config getUdfConfig() {
@@ -71,4 +74,12 @@ public class UdfMetadata {
   public List<SamzaSqlFieldType> getArguments() {
     return arguments;
   }
+
+  /**
+   * @return Returns whether the argument check needs to be disabled.
+   */
+  public boolean isDisableArgCheck() {
+    return disableArgCheck;
+  }
+
 }

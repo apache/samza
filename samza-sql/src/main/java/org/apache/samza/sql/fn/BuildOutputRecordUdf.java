@@ -67,7 +67,7 @@ public class BuildOutputRecordUdf implements ScalarUdf {
   public void init(Config udfConfig) {
   }
 
-  @SamzaSqlUdfMethod
+  @SamzaSqlUdfMethod(disableArgumentCheck = true)
   public SamzaSqlRelRecord execute(Object... args) {
     int numOfArgs = args.length;
     Validate.isTrue(numOfArgs % 2 == 0, "numOfArgs should be an even number");

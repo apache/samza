@@ -55,7 +55,8 @@ public class TestSamzaSqlApplicationConfig {
             .collect(Collectors.toList()),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    Assert.assertEquals(numUdfs, samzaSqlApplicationConfig.getUdfMetadata().size());
+    // One of the UDF has an overload, hence + 1.
+    Assert.assertEquals(numUdfs + 1, samzaSqlApplicationConfig.getUdfMetadata().size());
     Assert.assertEquals(1, samzaSqlApplicationConfig.getInputSystemStreamConfigBySource().size());
     Assert.assertEquals(1, samzaSqlApplicationConfig.getOutputSystemStreamConfigsBySource().size());
   }

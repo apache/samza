@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.util.ListSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
+import org.apache.samza.sql.interfaces.UdfMetadata;
 
 
 public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
@@ -45,9 +46,17 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
 
   private SqlOperator getSqlOperator(SamzaSqlScalarFunctionImpl scalarFunction) {
     int numArguments = scalarFunction.numberArguments();
-    return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
-        o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.getChecker(numArguments, numArguments),
-        null, scalarFunction);
+    UdfMetadata udfMetadata = scalarFunction.getUdfMetadata();
+
+    if(udfMetadata.isDisableArgCheck()) {
+      return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
+          o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER,
+          null, scalarFunction);
+    } else {
+      return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
+          o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.getChecker(numArguments, numArguments),
+          null, scalarFunction);
+    }
   }
 
   @Override
