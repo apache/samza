@@ -75,8 +75,7 @@ public class SqlSchema {
   private List<SqlField> fields;
 
   public SqlSchema(List<String> colNames, List<SqlFieldSchema> colTypes) {
-    if (colNames == null || colNames.size() == 0 || colTypes == null || colTypes.size() == 0
-        || colNames.size() != colTypes.size()) {
+    if (colNames == null || colTypes == null || colNames.size() != colTypes.size()) {
       throw new IllegalArgumentException();
     }
 
