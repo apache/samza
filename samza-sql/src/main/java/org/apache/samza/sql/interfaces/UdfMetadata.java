@@ -32,13 +32,9 @@ import org.apache.samza.sql.schema.SamzaSqlFieldType;
 public class UdfMetadata {
 
   private final String name;
-
   private final Method udfMethod;
-
   private final Config udfConfig;
-
   private final boolean disableArgCheck;
-
   private final List<SamzaSqlFieldType> arguments;
 
   public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
