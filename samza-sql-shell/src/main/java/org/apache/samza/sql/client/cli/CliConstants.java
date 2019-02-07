@@ -34,9 +34,6 @@ class CliConstants {
   public static final String CONFIG_EXECUTOR = "shell.executor";
   public static final String DEFAULT_EXECUTOR_CLASS = "org.apache.samza.sql.client.impl.SamzaExecutor";
 
-  public static final String VERSION = "0.0.1";
-
-
   public static final String WELCOME_MESSAGE;
   static {
         WELCOME_MESSAGE =
@@ -51,7 +48,7 @@ class CliConstants {
 "   \\  \\:\\/:/        /  /:/        /  /:/     \\  \\:\\           /  /:/ \n"+
 "    \\  \\::/        /__/:/        /__/:/       \\  \\:\\         /__/:/ \n"+
 "     \\__\\/         \\__\\/         \\__\\/         \\__\\/         \\__\\/  \n\n"+
-"Welcome to Samza SQL shell (V" + VERSION + "). Enter HELP for all commands.\n\n";
+"Welcome to Samza SQL shell. Enter HELP for all commands.\n";
   }
 
   public static final char SPACE = '\u0020';

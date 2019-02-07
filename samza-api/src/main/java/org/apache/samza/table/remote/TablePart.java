@@ -17,39 +17,31 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.table.remote;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+
 
 /**
- * Represents a SQL function.
+ * A building block of a remote table
  */
-public interface SqlFunction {
-  /**
-   * Gets the name of the function.
-   * @return name of the function
-   */
-  String getName();
+@InterfaceStability.Unstable
+public interface TablePart {
 
   /**
-   * Gets the description of the function.
-   * @return description of the function.
+   * Generate configuration for this building block. There are situations where this object
+   * or its external dependencies may require certain configuration, this method allows
+   * generation and inclusion of them in the job configuration.
+   *
+   * @param jobConfig job configuration
+   * @param tableConfig so far generated configuration for this table
+   * @return configuration for this build block
    */
-  String getDescription();
+  default Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
+    return Collections.emptyMap();
+  }
 
-  /**
-   * Gets the argument types of the function as a List.
-   * @return A list containing the type names of the arguments.
-   */
-  List<String> getArgumentTypes();
-
-  /**
-   * Gets the return type of the function.
-   * @return return type name
-   */
-  String getReturnType();
-
-  /**
-   * Don't forget to implement toString()
-   */
 }
