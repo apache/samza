@@ -130,6 +130,9 @@ object JobModelManager extends Logging {
     val sspToTaskMapping: util.Map[SystemStreamPartition, util.List[String]] = taskPartitionAssignmentManager.readTaskPartitionAssignments()
     val taskPartitionAssignments: util.Map[TaskName, util.List[SystemStreamPartition]] = new util.HashMap[TaskName, util.List[SystemStreamPartition]]()
 
+    // Task to partition assignments is stored as {@see SystemStreamPartition} to list of {@see TaskName} in
+    // coordinator stream. This is done due to the 1 MB value size limit in a kafka topic. Conversion to
+    // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     sspToTaskMapping foreach { case (systemStreamPartition: SystemStreamPartition, taskNames: util.List[String]) =>
       for (task <- taskNames) {
         val taskName: TaskName = new TaskName(task)
@@ -218,8 +221,9 @@ object JobModelManager extends Logging {
       taskAssignmentManager.deleteTaskContainerMappings(previousStandbyTasks.map(x => x._1.getTaskName).asJava)
     }
 
-    // SystemStreamPartition to list of taskNames is stored in the metadata store due to the 1 MB value size limit in kafka.
-    // Conversion to taskName to SystemStreamPartitions is done to wire-in the data to JobModel.
+    // Task to partition assignments is stored as {@see SystemStreamPartition} to list of {@see TaskName} in
+    // coordinator stream. This is done due to the 1 MB value size limit in a kafka topic. Conversion to
+    // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     val sspToTaskNameMap: util.Map[SystemStreamPartition, util.List[String]] = new util.HashMap[SystemStreamPartition, util.List[String]]()
 
     for (container <- jobModel.getContainers.values()) {

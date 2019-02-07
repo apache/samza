@@ -47,7 +47,7 @@ public class TaskPartitionAssignmentManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskPartitionAssignmentManager.class);
 
-  private final ObjectMapper taskNameMapper = SamzaObjectMapper.getObjectMapper();
+  private final ObjectMapper taskNamesMapper = SamzaObjectMapper.getObjectMapper();
   private final ObjectMapper sspMapper = SamzaObjectMapper.getObjectMapper();
 
   private final Serde<String> valueSerde;
@@ -85,10 +85,10 @@ public class TaskPartitionAssignmentManager {
       metadataStore.delete(serializedSSPAsJson);
     } else {
       try {
-        String taskNameAsString = taskNameMapper.writeValueAsString(taskNames);
-        byte[] taskNameAsBytes = valueSerde.toBytes(taskNameAsString);
+        String taskNamesAsString = taskNamesMapper.writeValueAsString(taskNames);
+        byte[] taskNamesAsBytes = valueSerde.toBytes(taskNamesAsString);
         LOG.info("Storing the partition: {} and taskNames: {} into the metadata store.", serializedSSPAsJson, taskNames);
-        metadataStore.put(serializedSSPAsJson, taskNameAsBytes);
+        metadataStore.put(serializedSSPAsJson, taskNamesAsBytes);
       } catch (Exception e) {
         throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
       }
@@ -104,9 +104,9 @@ public class TaskPartitionAssignmentManager {
       Map<SystemStreamPartition, List<String>> sspToTaskNamesMap = new HashMap<>();
       Map<String, byte[]> allMetadataEntries = metadataStore.all();
       for (Map.Entry<String, byte[]> entry : allMetadataEntries.entrySet()) {
-        SystemStreamPartition systemStreamPartition = deserializeSSPInJsonFormat(entry.getKey());
-        String taskNameAsJson = valueSerde.fromBytes(entry.getValue());
-        List<String> taskNames = taskNameMapper.readValue(taskNameAsJson, new TypeReference<List<String>>() { });
+        SystemStreamPartition systemStreamPartition = deserializeSSPFromJson(entry.getKey());
+        String taskNamesAsJson = valueSerde.fromBytes(entry.getValue());
+        List<String> taskNames = taskNamesMapper.readValue(taskNamesAsJson, new TypeReference<List<String>>() { });
         sspToTaskNamesMap.put(systemStreamPartition, taskNames);
       }
       return sspToTaskNamesMap;
@@ -135,9 +135,9 @@ public class TaskPartitionAssignmentManager {
   }
 
   /**
-   * Serializes the {@param SystemStreamPartition} to json string using Jackson.
+   * Serializes the {@param SystemStreamPartition} to json string.
    * @param systemStreamPartition represents the input system stream partition.
-   * @return the SystemStreamPartition serialized to a json string.
+   * @return the SystemStreamPartition serialized to json.
    */
   private String serializeSSPToJson(SystemStreamPartition systemStreamPartition) {
     try {
@@ -152,7 +152,7 @@ public class TaskPartitionAssignmentManager {
    * @param sspAsJson the serialized SystemStreamPartition in json format.
    * @return the deserialized SystemStreamPartition.
    */
-  private SystemStreamPartition deserializeSSPInJsonFormat(String sspAsJson) {
+  private SystemStreamPartition deserializeSSPFromJson(String sspAsJson) {
     try {
       return sspMapper.readValue(sspAsJson, SystemStreamPartition.class);
     } catch (IOException e) {
