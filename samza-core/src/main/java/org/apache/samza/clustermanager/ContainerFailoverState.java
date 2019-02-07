@@ -22,6 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 
+/**
+ * Encapsulates metadata concerning the failover of an active container.
+ */
 public class ContainerFailoverState {
   public final String activeContainerID;
   public final String activeContainerResourceID;
