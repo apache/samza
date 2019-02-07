@@ -20,7 +20,7 @@
 {
     "name": "ComplexRecord",
     "version" : 1,
-    "namespace": "org.apache.samza.sql.system.avro",
+    "namespace": "org.apache.samza.sql.avro.schemas",
     "type": "record",
     "fields": [
         {
@@ -104,10 +104,27 @@
             "type": [ "null",
             {
                "name": "TestEnumType",
-               "namespace": "org.apache.samza.sql.system.avro",
+               "namespace": "org.apache.samza.sql.avro.schemas",
                "type": "enum",
                "doc": "My sample enum type",
                "symbols": ["foo", "bar"]
+            }
+          ]
+        },
+        {
+          "name": "union_value",
+          "doc": "union Value.",
+          "type": ["null", "int", "string"],
+          "default":null
+        },
+        {
+          "name" : "empty_record",
+          "type" : [ "null", {
+            "type" : "record",
+            "name" : "emptySubRecord",
+            "namespace" : "org.apache.samza.sql.avro.schemas",
+            "doc" : "",
+            "fields" : [ ]
             }
           ]
         },
@@ -119,7 +136,7 @@
               {
                 "type": "record",
                 "name": "SubRecord",
-                "namespace": "org.apache.samza.sql.system.avro",
+                "namespace": "org.apache.samza.sql.avro.schemas",
                 "doc": "Sub record",
                 "fields": [
                   {

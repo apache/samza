@@ -57,7 +57,6 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   private SqlSchema convertSchema(List<Schema.Field> fields) {
-    Validate.notEmpty(fields, "Fields cannot be empty");
 
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
