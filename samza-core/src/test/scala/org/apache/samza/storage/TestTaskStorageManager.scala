@@ -616,7 +616,7 @@ class TestTaskStorageManager extends MockitoSugar {
     })
 
     val mockSystemConsumer = mock[SystemConsumer]
-    when(mockSystemConsumer.register(any(), any())).thenAnswer(new Answer[Unit] {
+    when(mockSystemConsumer.register(any(classOf[SystemStreamPartition]), any(classOf[String]))).thenAnswer(new Answer[Unit] {
       override def answer(invocation: InvocationOnMock): Unit = {
         val args = invocation.getArguments
         if (ssp.equals(args.apply(0).asInstanceOf[SystemStreamPartition])) {
