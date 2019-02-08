@@ -181,6 +181,11 @@ public class TaskSideInputStorageManager {
     return startingOffsets.get(ssp);
   }
 
+  // Get the taskName associated with this instance.
+  public TaskName getTaskName() {
+    return this.taskName;
+  }
+
   /**
    * Gets the last processed offset for the given side input {@link SystemStreamPartition}.
    *

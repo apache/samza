@@ -542,7 +542,7 @@ object SamzaContainer extends Logging {
       changeLogSystemStreams.asJava, sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.asJava).asJava,
       storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
       taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
-      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, new SystemClock)
+      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, serdeManager, new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -563,9 +563,9 @@ object SamzaContainer extends Logging {
       val sideInputStoresToSSPs = sideInputStoresToSystemStreams.mapValues(sideInputSystemStreams =>
         taskSSPs.filter(ssp => sideInputSystemStreams.contains(ssp.getSystemStream)).asJava)
 
-      val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
-
-      info ("Got task side input SSPs: %s" format taskSideInputSSPs)
+//      val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
+//
+//      info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
       val storageManager = new TaskStorageManager(
         taskName = taskName,
@@ -595,7 +595,6 @@ object SamzaContainer extends Logging {
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
-          sideInputSSPs = taskSideInputSSPs,
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
