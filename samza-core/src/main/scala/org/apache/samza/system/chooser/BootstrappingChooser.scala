@@ -268,7 +268,7 @@ class BootstrappingChooser(
       systemStreamPartitionMetadata.getOffset(offsetType)
     }
 
-    info("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
+    trace("Check %s offset %s against %s for %s." format (offsetType, offset, offsetToCheck, systemStreamPartition))
 
     // Let's compare offset of the chosen message with offsetToCheck.
     val comparatorResult: Integer = if (offset == null || offsetToCheck == null) {

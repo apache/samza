@@ -558,7 +558,7 @@ public class ContainerStorageManager {
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();
 
-    // create a thread for starting sideInput reads
+    // create a thread for sideInput reads
     Thread readSideInputs = new Thread(() -> {
         while (!shutDownNow) {
           IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
