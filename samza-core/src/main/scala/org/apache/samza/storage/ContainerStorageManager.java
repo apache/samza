@@ -664,21 +664,18 @@ public class ContainerStorageManager {
   }
 
   public void shutdown() {
-    this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-        if (taskRestoreManager != null) {
-          LOG.debug("Shutting down task storage manager for taskName: {} ", taskInstance);
-          taskRestoreManager.stop();
-        } else {
-          LOG.debug("Skipping task storage manager shutdown for taskName: {}", taskInstance);
-        }
-      });
+    // shutdown all stores including persistent and non-persistent stores
+    this.taskStores.values().stream().flatMap(stores -> stores.values().stream())
+        .collect(Collectors.toList()).forEach(storageEngine -> storageEngine.stop());
 
+    // cancel all future sideInput flushes, and shutdown the executor
     if (sideInputsFlushFuture != null) {
       sideInputsFlushFuture.cancel(false);
     }
     sideInputsFlushExecutor.shutdown();
     this.shutDownSideInputRead = true;
 
+    // stop all sideinput system consumers
     if (sideInputSystemConsumers != null) {
       this.sideInputSystemConsumers.stop();
     }
@@ -1000,11 +997,14 @@ public class ContainerStorageManager {
      */
     public void stopPersistentStores() {
 
-      List<StorageEngine> persistentStores = this.taskStores.values().stream().filter(storageEngine -> {
-          return storageEngine.getStoreProperties().isPersistedToDisk();
-        }).collect(Collectors.toList());
+      Map<String, StorageEngine> persistentStores = this.taskStores.entrySet().stream().filter(e -> {
+          return e.getValue().getStoreProperties().isPersistedToDisk();
+        }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-      persistentStores.forEach(storageEngine -> { storageEngine.stop(); });
+      persistentStores.forEach((storeName, storageEngine) -> {
+          storageEngine.stop();
+          this.taskStores.remove(storeName);
+        });
       LOG.info("Stopped persistent stores {}", persistentStores);
     }
   }
