@@ -563,10 +563,6 @@ object SamzaContainer extends Logging {
       val sideInputStoresToSSPs = sideInputStoresToSystemStreams.mapValues(sideInputSystemStreams =>
         taskSSPs.filter(ssp => sideInputSystemStreams.contains(ssp.getSystemStream)).asJava)
 
-//      val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
-//
-//      info ("Got task side input SSPs: %s" format taskSideInputSSPs)
-
       val storageManager = new TaskStorageManager(
         taskName = taskName,
         containerStorageManager = containerStorageManager,
@@ -944,12 +940,6 @@ class SamzaContainer(
   def startStores {
     info("Starting container storage manager.")
     containerStorageManager.start()
-
-    taskInstances.values.foreach(taskInstance => {
-      val startTime = System.currentTimeMillis()
-      info("Starting side inputs in task instance %s" format taskInstance.taskName)
-//      taskInstance.startSideInputs
-    })
   }
 
   def startTableManager: Unit = {
@@ -1085,9 +1075,6 @@ class SamzaContainer(
   def shutdownStores {
     info("Shutting down container storage manager.")
     containerStorageManager.shutdown()
-
-    info("Shutting down task instance side inputs.")
-//    taskInstances.values.foreach(_.shutdownSideInputs)
   }
 
   def shutdownTableManager: Unit = {

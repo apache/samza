@@ -103,7 +103,6 @@ public class TestAsyncRunLoop {
         null,
         null,
         null,
-        new scala.collection.immutable.HashSet<>(),
         null,
         mock(JobContext.class),
         mock(ContainerContext.class),

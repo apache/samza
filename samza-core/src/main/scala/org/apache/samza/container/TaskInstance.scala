@@ -58,7 +58,6 @@ class TaskInstance(
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
   timerExecutor : ScheduledExecutorService = null,
-  sideInputSSPs: Set[SystemStreamPartition] = Set(),
   sideInputStorageManager: TaskSideInputStorageManager = null,
   jobContext: JobContext,
   containerContext: ContainerContext,
@@ -115,19 +114,8 @@ class TaskInstance(
 
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)
-
-    val sspsToRegister = systemStreamPartitions -- sideInputSSPs
-    offsetManager.register(taskName, sspsToRegister)
+    offsetManager.register(taskName, systemStreamPartitions)
   }
-//
-//  def startSideInputs {
-//    if (sideInputStorageManager != null) {
-//      debug("Starting side input storage manager for taskName: %s" format taskName)
-//      sideInputStorageManager.init()
-//    } else {
-//      debug("Skipping side input storage manager initialization for taskName: %s" format taskName)
-//    }
-//  }
 
   def startTableManager {
     if (tableManager != null) {
@@ -166,11 +154,8 @@ class TaskInstance(
       val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
       consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
       metrics.addOffsetGauge(systemStreamPartition, () =>
-        if (sideInputSSPs.contains(systemStreamPartition)) {
-          sideInputStorageManager.getLastProcessedOffset(systemStreamPartition)
-        } else {
           offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
-        })
+        )
     })
   }
 
@@ -191,25 +176,22 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, incomingMessageSsp))
 
-      if (sideInputSSPs.contains(incomingMessageSsp) && !envelope.isEndOfStream) {
-        sideInputStorageManager.process(envelope)
-      } else {
-        if (isAsyncTask) {
-          exceptionHandler.maybeHandle {
-            val callback = callbackFactory.createCallback()
-            task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-          }
-        } else {
-          exceptionHandler.maybeHandle {
-            task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
-          }
-
-          trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-            format (taskName, incomingMessageSsp, envelope.getOffset))
-
-          offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
+      if (isAsyncTask) {
+        exceptionHandler.maybeHandle {
+          val callback = callbackFactory.createCallback()
+          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
         }
+      } else {
+        exceptionHandler.maybeHandle {
+          task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
+        }
+
+        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
+          format(taskName, incomingMessageSsp, envelope.getOffset))
+
+        offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
       }
+
     }
   }
 
@@ -261,11 +243,6 @@ class TaskInstance(
       tableManager.flush
     }
 
-//    trace("Flushing side input stores for taskName: %s" format taskName)
-//    if (sideInputStorageManager != null) {
-//      sideInputStorageManager.flush()
-//    }
-
     trace("Checkpointing offsets for taskName: %s" format taskName)
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
@@ -292,15 +269,6 @@ class TaskInstance(
       debug("Skipping stream task shutdown for taskName: %s" format taskName)
     }
   }
-
-//  def shutdownSideInputs {
-//    if (sideInputStorageManager != null) {
-//      debug("Shutting down side input storage manager for taskName: %s" format taskName)
-//      sideInputStorageManager.stop()
-//    } else {
-//      debug("Skipping side input storage manager shutdown for taskName: %s" format taskName)
-//    }
-//  }
 
   def shutdownTableManager {
     if (tableManager != null) {
@@ -355,13 +323,7 @@ class TaskInstance(
   }
 
   private def getStartingOffset(systemStreamPartition: SystemStreamPartition) = {
-    val offset =
-      if (sideInputSSPs.contains(systemStreamPartition)) {
-        Option(sideInputStorageManager.getStartingOffset(systemStreamPartition))
-      } else {
-        offsetManager.getStartingOffset(taskName, systemStreamPartition)
-      }
-
+    val offset = offsetManager.getStartingOffset(taskName, systemStreamPartition)
     val startingOffset = offset.getOrElse(
       throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
 
