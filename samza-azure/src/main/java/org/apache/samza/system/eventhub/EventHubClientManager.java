@@ -40,7 +40,7 @@ public interface EventHubClientManager {
    * denote that the close invocation should block until all the teardown
    * operations for the {@link EventHubClient} are completed
    */
-  public static int BLOCK_UNTIL_CLOSE = -1;
+  int BLOCK_UNTIL_CLOSE = -1;
 
   /**
    * Lifecycle hook to perform initializations for the creation of

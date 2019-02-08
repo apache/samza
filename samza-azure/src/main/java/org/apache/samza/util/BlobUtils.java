@@ -129,8 +129,7 @@ public class BlobUtils {
       LOG.error("Job Model details don't exist on the blob.");
       return null;
     }
-    JobModel jm = jmBundle.getCurrJobModel();
-    return jm;
+    return jmBundle.getCurrJobModel();
   }
 
   /**
@@ -146,8 +145,7 @@ public class BlobUtils {
       LOG.error("Job Model details don't exist on the blob.");
       return null;
     }
-    String jmVersion = jmBundle.getCurrJobModelVersion();
-    return jmVersion;
+    return jmBundle.getCurrJobModelVersion();
   }
 
   /**
@@ -192,14 +190,12 @@ public class BlobUtils {
       LOG.error("Failed to read barrier state from blob.", e);
       throw new AzureException(e);
     }
-    String state;
     try {
-      state = SamzaObjectMapper.getObjectMapper().readValue(data, String.class);
+      return SamzaObjectMapper.getObjectMapper().readValue(data, String.class);
     } catch (IOException e) {
-      LOG.error("Failed to parse byte data: " + data + " for barrier state retrieved from the blob.", e);
+      LOG.error("Failed to parse byte data: " + Arrays.toString(data) + " for barrier state retrieved from the blob.", e);
       throw new SamzaException(e);
     }
-    return state;
   }
 
   /**
@@ -242,14 +238,12 @@ public class BlobUtils {
       LOG.error("Failed to read the list of live processors from the blob.", new AzureException(e));
       throw new AzureException(e);
     }
-    List<String> list;
     try {
-      list = SamzaObjectMapper.getObjectMapper().readValue(data, List.class);
+      return SamzaObjectMapper.getObjectMapper().readValue(data, List.class);
     } catch (IOException e) {
-      LOG.error("Failed to parse byte data: " + data + " for live processor list retrieved from the blob", new SamzaException(e));
+      LOG.error("Failed to parse byte data: " + Arrays.toString(data) + " for live processor list retrieved from the blob", new SamzaException(e));
       throw new SamzaException(e);
     }
-    return list;
   }
 
   public CloudBlobClient getBlobClient() {
@@ -273,10 +267,9 @@ public class BlobUtils {
       throw new AzureException(e);
     }
     try {
-      JobModelBundle jmBundle = SamzaObjectMapper.getObjectMapper().readValue(data, JobModelBundle.class);
-      return jmBundle;
+      return SamzaObjectMapper.getObjectMapper().readValue(data, JobModelBundle.class);
     } catch (IOException e) {
-      LOG.error("Failed to parse byte data: " + data + " for JobModel details retrieved from the blob", e);
+      LOG.error("Failed to parse byte data: " + Arrays.toString(data) + " for JobModel details retrieved from the blob", e);
       throw new SamzaException(e);
     }
   }
