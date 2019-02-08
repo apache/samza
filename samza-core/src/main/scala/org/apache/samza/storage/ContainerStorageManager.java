@@ -36,11 +36,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -95,6 +99,7 @@ import scala.collection.JavaConverters;
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
+  private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
@@ -125,7 +130,10 @@ public class ContainerStorageManager {
   private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata = new ConcurrentHashMap<>();
   // Recorded sspMetadata of the sideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
   private CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
-  private volatile boolean shutDownNow = false;
+  private volatile boolean shutDownSideInputRead = false;
+  private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
+  private ScheduledFuture sideInputsFlushFuture;
 
   private final File loggedStoreBaseDirectory;
   private final File nonLoggedStoreBaseDirectory;
@@ -467,9 +475,7 @@ public class ContainerStorageManager {
 
 
   public void start() throws SamzaException {
-
     restoreStores();
-
     if (!this.sideInputSystemStreams.isEmpty()) {
       startSideInputs();
     }
@@ -526,7 +532,16 @@ public class ContainerStorageManager {
     LOG.info("SideInput Restore started");
 
     // initialize the sideInputStorageManagers
-    this.sideInputStorageManagers.values().stream().collect(Collectors.toSet()).forEach(sideInputStorageManager -> sideInputStorageManager.init());
+    Set<TaskSideInputStorageManager> sideInputStorageManagerSet = this.sideInputStorageManagers.values().stream().collect(Collectors.toSet());
+    sideInputStorageManagerSet.forEach(sideInputStorageManager -> sideInputStorageManager.init());
+
+    // start the checkpointing thread
+    sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
+      @Override
+      public void run() {
+        sideInputStorageManagerSet.forEach(sideInputStorageManager -> sideInputStorageManager.flush());
+      }
+    }, 0, new TaskConfig(config).getCommitMs(), TimeUnit.MILLISECONDS);
 
     // set the latch to the number of sideInput SSPs
     this.sideInputsCaughtUp = new CountDownLatch(this.sideInputStorageManagers.keySet().size());
@@ -560,7 +575,7 @@ public class ContainerStorageManager {
 
     // create a thread for sideInput reads
     Thread readSideInputs = new Thread(() -> {
-        while (!shutDownNow) {
+        while (!shutDownSideInputRead) {
           IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
           if (envelope != null) {
 
@@ -658,8 +673,15 @@ public class ContainerStorageManager {
         }
       });
 
-    this.shutDownNow = true;
-    this.sideInputSystemConsumers.stop();
+    if (sideInputsFlushFuture != null) {
+      sideInputsFlushFuture.cancel(false);
+    }
+    sideInputsFlushExecutor.shutdown();
+    this.shutDownSideInputRead = true;
+
+    if (sideInputSystemConsumers != null) {
+      this.sideInputSystemConsumers.stop();
+    }
     this.sideInputStorageManagers.values().stream().collect(Collectors.toSet()).
         forEach(sideInputStorageManager -> sideInputStorageManager.stop());
 
