@@ -141,8 +141,9 @@ public class TaskSideInputStorageManager {
 
   /**
    * Flushes the contents of the underlying store and writes the offset file to disk.
+   * Synchronized inorder to be exclusive with process()
    */
-  public void flush() {
+  public synchronized void flush() {
     LOG.info("Flushing the side input stores.");
     stores.values().forEach(StorageEngine::flush);
     writeOffsetFiles();
@@ -206,10 +207,11 @@ public class TaskSideInputStorageManager {
 
   /**
    * Processes the incoming side input message envelope and updates the last processed offset for its SSP.
+   * Synchronized inorder to be exclusive with flush().
    *
    * @param message incoming message to be processed
    */
-  public void process(IncomingMessageEnvelope message) {
+  public synchronized void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
     Set<String> storeNames = sspsToStores.get(ssp);
 

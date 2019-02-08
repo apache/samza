@@ -535,7 +535,7 @@ public class ContainerStorageManager {
     Set<TaskSideInputStorageManager> sideInputStorageManagerSet = this.sideInputStorageManagers.values().stream().collect(Collectors.toSet());
     sideInputStorageManagerSet.forEach(sideInputStorageManager -> sideInputStorageManager.init());
 
-    // start the checkpointing thread
+    // start the checkpointing thread at the commit-ms frequency
     sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
