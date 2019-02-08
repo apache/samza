@@ -452,8 +452,8 @@ public class ContainerStorageManager {
               sideInputStoresToProcessor.get(taskName), sideInputStoresToSSPs, systemAdmins, config, clock);
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
-            sideInputStorageManagers.put(ssp, taskSideInputStorageManager);
-          });
+              sideInputStorageManagers.put(ssp, taskSideInputStorageManager);
+            });
 
           LOG.info("Created taskSideInputStorageManager for task {}, sideInputStores {} and loggedStoreBaseDirectory {}", taskName, sideInputStores, loggedStoreBaseDirectory);
         }
@@ -675,9 +675,9 @@ public class ContainerStorageManager {
 
   public void shutdown() {
     // stop all nonsideinputstores including persistent and non-persistent stores
-    this.containerModel.getTasks().forEach(((taskName, taskModel) -> {
-        getNonSideInputStores(taskName).forEach((storeName, store) -> store.stop());
-      }));
+    this.containerModel.getTasks().forEach((taskName, taskModel) ->
+        getNonSideInputStores(taskName).forEach((storeName, store) -> store.stop())
+    );
 
     // cancel all future sideInput flushes, and shutdown the executor
     if (sideInputsFlushFuture != null) {
