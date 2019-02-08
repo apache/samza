@@ -270,7 +270,7 @@ public class ContainerStorageManager {
     containerModel.getTasks().forEach((taskName, taskModel) -> {
 
         Map<String, StorageEngine> nonSideInputStores = taskStores.get(taskName).entrySet().stream().
-            filter(e -> changelogSystemStreams.containsKey(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            filter(e -> !sideInputSystemStreams.containsKey(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         taskRestoreManagers.put(taskName,
             new TaskRestoreManager(taskModel, changelogSystemStreams, nonSideInputStores, systemAdmins, clock));
