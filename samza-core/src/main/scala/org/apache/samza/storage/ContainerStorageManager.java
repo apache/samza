@@ -567,7 +567,7 @@ public class ContainerStorageManager {
       initialSideInputSSPMetadata.put(ssp, sspMetadata);
 
       // check if the ssp is caught to upcoming, even at start
-      checkSideInputCaughtUp(ssp, startingOffset, SystemStreamMetadata.OffsetType.UPCOMING);
+      checkSideInputCaughtUp(ssp, startingOffset, SystemStreamMetadata.OffsetType.UPCOMING, false);
     }
 
     // start the systemConsumers for consuming input
@@ -579,10 +579,11 @@ public class ContainerStorageManager {
           IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
           if (envelope != null) {
 
-            sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
+            if (!envelope.isEndOfStream())
+              sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
 
             checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                SystemStreamMetadata.OffsetType.NEWEST);
+                SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
 
           } else {
             LOG.trace("No incoming message was available");
@@ -604,7 +605,14 @@ public class ContainerStorageManager {
 
 
   // Method to check if the given offset means the stream is caught up for reads
-  private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType) {
+  private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
+
+    if (isEndOfStream) {
+      this.initialSideInputSSPMetadata.remove(ssp);
+      this.sideInputsCaughtUp.countDown();
+      LOG.info("Side input ssp {} has caught up to offset {} ({}).", ssp, offset, offsetType);
+      return;
+    }
 
     SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata = this.initialSideInputSSPMetadata.get(ssp);
     String offsetToCheck = sspMetadata == null ? null : sspMetadata.getOffset(offsetType);
@@ -664,8 +672,9 @@ public class ContainerStorageManager {
   }
 
   public void shutdown() {
-    // shutdown all stores including persistent and non-persistent stores
-    this.taskStores.values().stream().flatMap(stores -> stores.values().stream())
+    // shutdown all nonsideinputstores including persistent and non-persistent stores
+    this.taskStores.values().stream().flatMap(stores -> stores.entrySet().stream())
+        .filter(x -> !sideInputSystemStreams.containsKey(x.getKey())).map(x -> x.getValue())
         .collect(Collectors.toList()).forEach(storageEngine -> storageEngine.stop());
 
     // cancel all future sideInput flushes, and shutdown the executor
