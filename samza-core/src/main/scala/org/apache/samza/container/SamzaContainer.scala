@@ -26,7 +26,7 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.{Base64}
+import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
@@ -44,7 +44,7 @@ import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
-import org.apache.samza.job.model.{ContainerModel, JobModel}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -550,7 +550,8 @@ object SamzaContainer extends Logging {
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
     // Create taskInstances
-    val taskInstances: Map[TaskName, TaskInstance] = taskModels.map(taskModel => {
+    val taskInstances: Map[TaskName, TaskInstance] = taskModels
+      .filter(taskModel => taskModel.getTaskMode.eq(TaskMode.Active)).map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
@@ -770,7 +771,10 @@ class SamzaContainer(
         containerListener.afterStart()
       }
       metrics.containerStartupTime.update(System.nanoTime() - startTime)
-      runLoop.run
+      if (taskInstances.size > 0)
+        runLoop.run
+      else
+        Thread.sleep(Long.MaxValue)
     } catch {
       case e: Throwable =>
         if (status.equals(SamzaContainerStatus.STARTED)) {
@@ -982,9 +986,10 @@ class SamzaContainer(
 
     taskInstances.values.foreach(_.registerConsumers)
 
-    info("Starting consumer multiplexer.")
-
-    consumerMultiplexer.start
+    if (taskInstances.size > 0) {
+      info("Starting consumer multiplexer.")
+      consumerMultiplexer.start
+    }
   }
 
   def startSecurityManger {
