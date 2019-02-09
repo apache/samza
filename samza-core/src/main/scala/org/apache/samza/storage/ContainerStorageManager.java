@@ -498,7 +498,7 @@ public class ContainerStorageManager {
             sideInputStoresToSSPs.put(storeName, storeSSPs);
           }
 
-          TaskSideInputStorageManager taskSideInputStorageManager = new TaskSideInputStorageManager(taskName, streamMetadataCache, loggedStoreBaseDirectory.getPath(), sideInputStores,
+          TaskSideInputStorageManager taskSideInputStorageManager = new TaskSideInputStorageManager(taskName, streamMetadataCache, loggedStoreBaseDirectory, sideInputStores,
               sideInputStoresToProcessor.get(taskName), sideInputStoresToSSPs, systemAdmins, config, clock);
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {

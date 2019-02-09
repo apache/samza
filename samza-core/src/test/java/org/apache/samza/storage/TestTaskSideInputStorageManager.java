@@ -288,7 +288,7 @@ public class TestTaskSideInputStorageManager {
     }
 
     TaskSideInputStorageManager build() {
-      return spy(new TaskSideInputStorageManager(taskName, streamMetadataCache, storeBaseDir, stores,
+      return spy(new TaskSideInputStorageManager(taskName, streamMetadataCache, new File(storeBaseDir), stores,
           storeToProcessor, storeToSSps, systemAdmins, mock(Config.class), clock));
     }
   }

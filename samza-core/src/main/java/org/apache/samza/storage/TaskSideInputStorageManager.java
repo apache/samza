@@ -75,7 +75,7 @@ public class TaskSideInputStorageManager {
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
   private final Map<String, StorageEngine> stores;
-  private final String storeBaseDir;
+  private final File storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
   private final Map<SystemStreamPartition, Set<String>> sspsToStores;
   private final StreamMetadataCache streamMetadataCache;
@@ -88,7 +88,7 @@ public class TaskSideInputStorageManager {
   public TaskSideInputStorageManager(
       TaskName taskName,
       StreamMetadataCache streamMetadataCache,
-      String storeBaseDir,
+      File storeBaseDir,
       Map<String, StorageEngine> sideInputStores,
       Map<String, SideInputsProcessor> storesToProcessor,
       Map<String, Set<SystemStreamPartition>> storesToSSPs,
@@ -305,7 +305,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
+    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName);
   }
 
   /**
