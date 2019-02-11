@@ -70,8 +70,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
     final String groupId = createConsumerGroupId(config);
 
-    Map<String, Object> consumerProps = new HashMap<>();
-    consumerProps.putAll(subConf);
+    Map<String, Object> consumerProps = new HashMap<>(subConf);
 
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -114,8 +113,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
 
     // Override default max poll config if there is no value
-    consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
-        (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
+    consumerProps.putIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
     return new KafkaConsumerConfig(consumerProps, systemName);
   }
@@ -193,7 +191,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
         return autoOffsetReset;
       }
       // translate old kafka consumer values into new ones (SAMZA-1987 top remove it)
-      String newAutoOffsetReset = null;
+      String newAutoOffsetReset;
       switch (autoOffsetReset) {
         case "largest":
           newAutoOffsetReset = KAFKA_OFFSET_LATEST;

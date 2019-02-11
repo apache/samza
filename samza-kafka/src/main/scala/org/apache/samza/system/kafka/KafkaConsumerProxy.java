@@ -56,7 +56,7 @@ class KafkaConsumerProxy<K, V> {
 
   private static final int SLEEP_MS_WHILE_NO_TOPIC_PARTITION = 100;
 
-  final Thread consumerPollThread;
+  private final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
@@ -186,7 +186,7 @@ class KafkaConsumerProxy<K, V> {
 
   // creates a separate thread for getting the messages.
   private Runnable createProxyThreadRunnable() {
-    Runnable runnable = () -> {
+    return () -> {
       isRunning = true;
 
       try {
@@ -207,8 +207,6 @@ class KafkaConsumerProxy<K, V> {
         LOG.info("KafkaConsumerProxy for system {} has stopped.", systemName);
       }
     };
-
-    return runnable;
   }
 
   private void fetchMessages() {
@@ -304,11 +302,7 @@ class KafkaConsumerProxy<K, V> {
       updateMetrics(record, tp);
 
       SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
-      List<IncomingMessageEnvelope> messages = results.get(ssp);
-      if (messages == null) {
-        messages = new ArrayList<>();
-        results.put(ssp, messages);
-      }
+      List<IncomingMessageEnvelope> messages = results.computeIfAbsent(ssp, k -> new ArrayList<>());
 
       K key = record.key();
       Object value = record.value();
@@ -341,7 +335,7 @@ class KafkaConsumerProxy<K, V> {
     if (lag == null) {
       throw new SamzaException("Unknown/unregistered ssp in latestLags. ssp=" + ssp + "; system=" + systemName);
     }
-    long currentSSPLag = lag.longValue(); // lag between the current offset and the highwatermark
+    long currentSSPLag = lag; // lag between the current offset and the highwatermark
     if (currentSSPLag < 0) {
       return;
     }
@@ -379,7 +373,7 @@ class KafkaConsumerProxy<K, V> {
 
     // populate the MetricNames first time
     if (perPartitionMetrics.isEmpty()) {
-      HashMap<String, String> tags = new HashMap<>();
+      Map<String, String> tags = new HashMap<>();
       tags.put("client-id", clientId); // this is required by the KafkaConsumer to get the metrics
 
       for (SystemStreamPartition ssp : ssps) {
@@ -411,10 +405,10 @@ class KafkaConsumerProxy<K, V> {
       Long lag = latestLags.get(ssp);
       LOG.trace("Latest offset of {} is  {}; lag = {}", ssp, offset, lag);
       if (lag != null && offset != null && lag >= 0) {
-        long streamEndOffset = offset.longValue() + lag.longValue();
+        long streamEndOffset = offset + lag;
         // update the metrics
         kafkaConsumerMetrics.setHighWatermarkValue(tp, streamEndOffset);
-        kafkaConsumerMetrics.setLagValue(tp, lag.longValue());
+        kafkaConsumerMetrics.setLagValue(tp, lag);
       }
     }
   }
