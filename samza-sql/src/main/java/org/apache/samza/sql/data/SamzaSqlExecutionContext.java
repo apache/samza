@@ -42,7 +42,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
   private final SamzaSqlApplicationConfig sqlConfig;
 
   // Maps the UDF name to list of all UDF methods associated with the name.
-  // Since we support polymorphism there can multiple udfMetadata associated with the single name.
+  // Since we support polymorphism there can be multiple udfMetadata associated with the single name.
   private final Map<String, List<UdfMetadata>> udfMetadata;
 
   /**
@@ -69,7 +69,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
   }
 
   public ScalarUdf createInstance(String clazz, String udfName) {
-    
+
     // Configs should be same for all the UDF methods within a UDF. Hence taking the first one.
     Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
     ScalarUdf scalarUdf = ReflectionUtils.createInstance(clazz);
