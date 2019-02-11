@@ -61,7 +61,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
  * If no args is provided, it returns an empty SamzaSqlRelRecord (with empty field names and values list).
  */
 
-@SamzaSqlUdf(name="BuildOutputRecord" , description = "Creates an Output record.")
+@SamzaSqlUdf(name = "BuildOutputRecord", description = "Creates an Output record.")
 public class BuildOutputRecordUdf implements ScalarUdf {
   @Override
   public void init(Config udfConfig) {

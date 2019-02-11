@@ -45,7 +45,7 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
   }
 
   private SqlOperator getSqlOperator(SamzaSqlScalarFunctionImpl scalarFunction) {
-    int numArguments = scalarFunction.numberArguments();
+    int numArguments = scalarFunction.numberOfArguments();
     UdfMetadata udfMetadata = scalarFunction.getUdfMetadata();
 
     if(udfMetadata.isDisableArgCheck()) {

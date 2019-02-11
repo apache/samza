@@ -38,7 +38,10 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
-
+/**
+ * Calcite implementation for Samza SQL UDF.
+ * This class contains logic to generate the java code to execute {@link org.apache.samza.sql.udfs.SamzaSqlUdf}.
+ */
 public class SamzaSqlScalarFunctionImpl implements ScalarFunction, ImplementableFunction {
 
   private final ScalarFunction myIncFunction;
@@ -63,7 +66,7 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
     return udfName;
   }
 
-  public int numberArguments() {
+  public int numberOfArguments() {
     return udfMetadata.getArguments().size();
   }
 
