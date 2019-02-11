@@ -156,7 +156,7 @@ public class ContainerStorageManager {
     this.sideInputSystemStreams = new HashMap<>(sideInputSystemStreams);
     this.sideInputSSPs = new HashMap<>();
 
-    // Add all side inputs to sideInputSSPs
+    // Add all side inputs to the map of sideInputSSPs indexed by taskName
     containerModel.getTasks().forEach((taskName, taskModel) -> {
         sideInputSystemStreams.keySet().forEach(storeName -> {
             Set<SystemStreamPartition> taskSideInputSSPs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
@@ -171,7 +171,8 @@ public class ContainerStorageManager {
             containerModel.getTasks().forEach((taskName, taskModel) -> { changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), storeName); })
     );
 
-    // Handle standby tasks, remove changeLogSSPs of standby tasks and add them to the task's sideInputSSPs
+    // We now handle standby tasks. For each standby task, we remove its changeLogSSPs from changelogSSP map and add it to the task's sideInputSSPs
+    // The task's sideInputManager will now consume and restore these as well.
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
         changelogSystemStreams.forEach((storeName, systemStream) -> {
             SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
