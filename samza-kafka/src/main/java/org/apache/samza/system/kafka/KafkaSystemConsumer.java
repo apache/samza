@@ -25,8 +25,10 @@ package org.apache.samza.system.kafka;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,9 +39,11 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
+import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
 import org.apache.samza.startpoint.StartpointSpecific;
 import org.apache.samza.startpoint.StartpointTimestamp;
@@ -77,10 +81,15 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   // This proxy contains a separate thread, which reads kafka messages (with consumer.poll()) and populates
   // BlockingEnvelopMap's buffers.
-  final private KafkaConsumerProxy proxy;
+  @VisibleForTesting
+  KafkaConsumerProxy proxy;
 
   // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
   final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
+
+  // Holds mapping from {@code TopicPartition} to registered {@code Startpoint}. This will be used in the start().
+  final Map<TopicPartition, Startpoint> topicPartitionToStartpointMap = new HashMap<>();
+
   final Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
 
   long perPartitionFetchThreshold;
@@ -97,7 +106,12 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    */
   public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
       KafkaSystemConsumerMetrics metrics, Clock clock) {
+    this(kafkaConsumer, systemName, config, clientId, metrics, clock, new KafkaStartpointVisitor(kafkaConsumer));
+  }
 
+  @VisibleForTesting
+  KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
+      KafkaSystemConsumerMetrics metrics, Clock clock, KafkaStartpointVisitor kafkaStartpointVisitor) {
     super(metrics.registry(), clock, metrics.getClass().getName());
 
     this.kafkaConsumer = kafkaConsumer;
@@ -105,16 +119,16 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     this.systemName = systemName;
     this.config = config;
     this.metrics = metrics;
-    this.kafkaStartpointVisitor = new KafkaStartpointVisitor(kafkaConsumer);
+    this.kafkaStartpointVisitor = kafkaStartpointVisitor;
 
     fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
 
     // create a sink for passing the messages between the proxy and the consumer
-    messageSink = new KafkaConsumerMessageSink();
+    this.messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
     String metricName = String.format("%s-%s", systemName, clientId);
-    proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
+    this.proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
     LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
   }
 
@@ -152,11 +166,14 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   private void startSubscription() {
     //subscribe to all the registered TopicPartitions
-    LOG.info("{}: Consumer subscribes to {}", this, topicPartitionsToSSP.keySet());
+    Set<TopicPartition> registeredTopicPartitions = new HashSet<>();
+    registeredTopicPartitions.addAll(topicPartitionsToSSP.keySet());
+    registeredTopicPartitions.addAll(topicPartitionToStartpointMap.keySet());
+    LOG.info("{}: Consumer subscribes to {}", this, registeredTopicPartitions);
     try {
       synchronized (kafkaConsumer) {
         // we are using assign (and not subscribe), so we need to specify both topic and partition
-        kafkaConsumer.assign(topicPartitionsToSSP.keySet());
+        kafkaConsumer.assign(registeredTopicPartitions);
       }
     } catch (Exception e) {
       throw new SamzaException("Consumer subscription failed for " + this, e);
@@ -174,26 +191,35 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       LOG.error ("{}: Consumer is not subscribed to any SSPs", this);
     }
 
-    topicPartitionsToOffset.forEach((tp, startingOffsetString) -> {
-      long startingOffset = Long.valueOf(startingOffsetString);
-
-      try {
-        synchronized (kafkaConsumer) {
-          kafkaConsumer.seek(tp, startingOffset); // this value should already be the 'upcoming' value
-        }
-      } catch (Exception e) {
-        // all recoverable execptions are handled by the client.
-        // if we get here there is nothing left to do but bail out.
-        String msg =
-            String.format("%s: Got Exception while seeking to %s for partition %s", this, startingOffsetString, tp);
-        LOG.error(msg, e);
-        throw new SamzaException(msg, e);
-      }
-
-      LOG.info("{}: Changing consumer's starting offset for tp = {} to {}", this, tp, startingOffsetString);
-
+    // If both the startpoint and checkpointed offsets are present for a topic partition,
+    // then give precedence to the startpoint.
+    topicPartitionToStartpointMap.forEach((topicPartition, startpoint) -> {
+      Partition partition = new Partition(topicPartition.partition());
+      SystemStreamPartition systemStreamPartition = new SystemStreamPartition(systemName, topicPartition.topic(), partition);
+      startpoint.apply(systemStreamPartition, kafkaStartpointVisitor);
       // add the partition to the proxy
-      proxy.addTopicPartition(topicPartitionsToSSP.get(tp), startingOffset);
+      proxy.addTopicPartition(topicPartitionsToSSP.get(topicPartition), kafkaConsumer.position(topicPartition));
+    });
+
+    topicPartitionsToOffset.forEach((topicPartition, startingOffsetString) -> {
+      if (!topicPartitionToStartpointMap.containsKey(topicPartition)) {
+        long startingOffset = Long.valueOf(startingOffsetString);
+        try {
+          // {@code KafkaConsumer} is not thread safe.
+          synchronized (kafkaConsumer) {
+            kafkaConsumer.seek(topicPartition, startingOffset); // this value should already be the 'upcoming' value
+          }
+          LOG.info("{}: Changing consumer's starting offset for topicPartition = {} to {}", this, topicPartition, startingOffsetString);
+        } catch (Exception e) {
+          // all recoverable execptions are handled by the client.
+          // if we get here there is nothing left to do but bail out.
+          String msg = String.format("%s: Got Exception while seeking to %s for partition %s", this, startingOffsetString, topicPartition);
+          LOG.error(msg, e);
+          throw new SamzaException(msg, e);
+        }
+        // add the partition to the proxy
+        proxy.addTopicPartition(topicPartitionsToSSP.get(topicPartition), kafkaConsumer.position(topicPartition));
+      }
     });
 
     // start the proxy thread
@@ -223,7 +249,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     if (numPartitions != topicPartitionsToOffset.size()) {
       throw new SamzaException("topicPartitionsToSSP.size() doesn't match topicPartitionsToOffset.size()");
     }
-
 
     if (numPartitions > 0) {
       perPartitionFetchThreshold = fetchThreshold / numPartitions;
@@ -296,6 +321,27 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     metrics.registerTopicAndPartition(toTopicAndPartition(tp));
   }
 
+  @Override
+  public void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
+    if (started.get()) {
+      String exceptionMessage = String.format("KafkaSystemConsumer: %s had started. Registration of ssp: %s, startpoint: %s failed.", this, systemStreamPartition, startpoint);
+      throw new SamzaException(exceptionMessage);
+    }
+
+    if (!Objects.equals(systemStreamPartition.getSystem(), systemName)) {
+      LOG.warn("{}: ignoring SSP {}, because this consumer's system doesn't match.", this, systemStreamPartition);
+      return;
+    }
+
+    LOG.debug("Registering the ssp: {}, startpoint: {} with the consumer.", systemStreamPartition, startpoint);
+
+    super.register(systemStreamPartition, startpoint);
+
+    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
+    topicPartitionToStartpointMap.put(topicPartition, startpoint);
+    metrics.registerTopicAndPartition(toTopicAndPartition(topicPartition));
+  }
+
   /**
    * Compare two String offsets.
    * Note. There is a method in KafkaSystemAdmin that does that, but that would require instantiation of systemadmin for each consumer.
@@ -355,7 +401,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
       long offsetInStartpoint = Long.parseLong(startpointSpecific.getSpecificOffset());
       LOG.info("Updating the consumer fetch offsets of topic partition: {} to {}.", topicPartition, offsetInStartpoint);
-      kafkaConsumer.seek(topicPartition, offsetInStartpoint);
+
+      // KafkaConsumer is not thread-safe.
+      synchronized (kafkaConsumer) {
+        kafkaConsumer.seek(topicPartition, offsetInStartpoint);
+      }
     }
 
     @Override
@@ -371,7 +421,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
       // Update the consumer fetch offsets.
       LOG.info("Updating the consumer fetch offsets of the topic partition: {} to {}.", topicPartition, offsetAndTimeStamp.offset());
-      kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
+
+      // KafkaConsumer is not thread-safe.
+      synchronized (kafkaConsumer) {
+        kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
+      }
     }
 
     @Override
@@ -379,7 +433,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
       Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
       LOG.info("Seeking the kafka consumer to the first offset for the topic partition: {}.", topicPartitions);
-      kafkaConsumer.seekToBeginning(topicPartitions);
+
+      // KafkaConsumer is not thread-safe.
+      synchronized (kafkaConsumer) {
+        kafkaConsumer.seekToBeginning(topicPartitions);
+      }
     }
 
     @Override
@@ -387,7 +445,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
       Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
       LOG.info("Seeking the kafka consumer to the end offset for the topic partition: {}.", topicPartitions);
-      kafkaConsumer.seekToEnd(topicPartitions);
+
+      // KafkaConsumer is not thread-safe.
+      synchronized (kafkaConsumer) {
+        kafkaConsumer.seekToEnd(topicPartitions);
+      }
     }
 
   }

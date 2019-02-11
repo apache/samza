@@ -44,6 +44,7 @@ import org.apache.samza.startpoint.StartpointUpcoming;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.kafka.KafkaSystemConsumer.KafkaStartpointVisitor;
+import org.apache.samza.testUtils.TestClock;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
@@ -51,7 +52,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.*;
-
 
 public class TestKafkaSystemConsumer {
   private final String TEST_SYSTEM = "test-system";
@@ -310,7 +310,54 @@ public class TestKafkaSystemConsumer {
 
     // Mock verifications.
     Mockito.verify(consumer).seekToEnd(ImmutableList.of(testTopicPartition));
+  }
 
+  @Test
+  public void testStartInvocationAfterStartPointsRegistrationShouldInvokeTheStartPointApplyMethod() {
+    // Initialize the constants required for the test.
+    Consumer mockConsumer = Mockito.mock(Consumer.class);
+    String testSystemName = "testSystem";
+    String testStreamName = "testStream";
+    Config testConfig = new MapConfig();
+    String testClientId = "testClientId";
+    KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics = new KafkaSystemConsumerMetrics(testSystemName, new NoOpMetricsRegistry());
+
+    // Test system stream partitions.
+    SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(testSystemName, testStreamName, new Partition(0));
+    SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(testSystemName, testStreamName, new Partition(1));
+    SystemStreamPartition testSystemStreamPartition3 = new SystemStreamPartition(testSystemName, testStreamName, new Partition(2));
+    SystemStreamPartition testSystemStreamPartition4 = new SystemStreamPartition(testSystemName, testStreamName, new Partition(3));
+
+    // Different kinds of {@code Startpoint}.
+    StartpointSpecific startPointSpecific = new StartpointSpecific("100");
+    StartpointTimestamp startpointTimestamp = new StartpointTimestamp(100L);
+    StartpointOldest startpointOldest = new StartpointOldest();
+    StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
+
+    // Mock the visit methods of KafkaStartpointVisitor.
+    KafkaStartpointVisitor mockStartPointVisitor = Mockito.mock(KafkaStartpointVisitor.class);
+    Mockito.doNothing().when(mockStartPointVisitor).visit(testSystemStreamPartition1, startPointSpecific);
+    Mockito.doNothing().when(mockStartPointVisitor).visit(testSystemStreamPartition2, startpointTimestamp);
+    Mockito.doNothing().when(mockStartPointVisitor).visit(testSystemStreamPartition3, startpointOldest);
+    Mockito.doNothing().when(mockStartPointVisitor).visit(testSystemStreamPartition4, startpointUpcoming);
+
+    // Instantiate KafkaSystemConsumer for testing.
+    KafkaSystemConsumer kafkaSystemConsumer = new KafkaSystemConsumer(mockConsumer, testSystemName, testConfig,
+                                                                      testClientId, kafkaSystemConsumerMetrics, new TestClock(), mockStartPointVisitor);
+    kafkaSystemConsumer.proxy = Mockito.mock(KafkaConsumerProxy.class);
+
+    // Invoke the KafkaSystemConsumer register API with different type of startpoints.
+    kafkaSystemConsumer.register(testSystemStreamPartition1, startPointSpecific);
+    kafkaSystemConsumer.register(testSystemStreamPartition2, startpointTimestamp);
+    kafkaSystemConsumer.register(testSystemStreamPartition3, startpointOldest);
+    kafkaSystemConsumer.register(testSystemStreamPartition4, startpointUpcoming);
+    kafkaSystemConsumer.start();
+
+    // Mock verifications.
+    Mockito.verify(mockStartPointVisitor).visit(testSystemStreamPartition1, startPointSpecific);
+    Mockito.verify(mockStartPointVisitor).visit(testSystemStreamPartition2, startpointTimestamp);
+    Mockito.verify(mockStartPointVisitor).visit(testSystemStreamPartition3, startpointOldest);
+    Mockito.verify(mockStartPointVisitor).visit(testSystemStreamPartition4, startpointUpcoming);
   }
 
   // mock kafkaConsumer and SystemConsumer
