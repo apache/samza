@@ -183,8 +183,8 @@ public class ContainerStorageManager {
           });
       });
 
-    // ChangelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to side inputs above)
-    this.changelogSystemStreams = changelogSSPToStore.entrySet().stream().collect(Collectors.toMap(x -> x.getValue(), x -> x.getKey().getSystemStream()));
+    // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to side inputs above)
+    this.changelogSystemStreams = changelogSSPToStore.entrySet().stream().collect(Collectors.toMap(x -> x.getValue(), x -> x.getKey().getSystemStream(), (x, y) -> x));
     LOG.info("Starting with changelogSystemStreams = {} sideInputSystemStreams = {}", this.changelogSystemStreams, this.sideInputSystemStreams);
 
     this.storageEngineFactories = storageEngineFactories;
