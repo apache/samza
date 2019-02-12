@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -37,28 +36,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Locality Manager is used to persist and read the container-to-host
- * assignment information from the coordinator stream.
+ * Used for persisting and reading the container-to-host assignment information into the metadata store.
  * */
 public class LocalityManager {
   private static final Logger LOG = LoggerFactory.getLogger(LocalityManager.class);
 
-  private final Config config;
-  private final Serde<String> keySerde;
   private final Serde<String> valueSerde;
   private final MetadataStore metadataStore;
 
   /**
    * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
-   * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
-   * serialize messages before reading/writing into coordinator stream.
+   * Uses the {@link CoordinatorStreamValueSerde} to serialize messages before
+   * reading/writing into metadata store.
    *
    * @param config the configuration required for setting up metadata store.
    * @param metricsRegistry the registry for reporting metrics.
    */
   public LocalityManager(Config config, MetricsRegistry metricsRegistry) {
-    this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetContainerHostMapping.TYPE),
-         new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE));
+    this(config, metricsRegistry, new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE));
   }
 
   /**
@@ -69,15 +64,12 @@ public class LocalityManager {
    * Key and value serializer are different for yarn (uses CoordinatorStreamMessage) and standalone (native ObjectOutputStream for serialization) modes.
    * @param config the configuration required for setting up metadata store.
    * @param metricsRegistry the registry for reporting metrics.
-   * @param keySerde the key serializer.
    * @param valueSerde the value serializer.
    */
-  LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> valueSerde) {
-    this.config = config;
+  LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> valueSerde) {
     MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
     this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
     this.metadataStore.init();
-    this.keySerde = keySerde;
     this.valueSerde = valueSerde;
   }
 
@@ -115,7 +107,7 @@ public class LocalityManager {
     Map<String, String> existingMappings = containerToHostMapping.get(containerId);
     String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
     if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
-      LOG.info("Container {} moved from {} to {}", new Object[]{containerId, existingHostMapping, hostName});
+      LOG.info("Container {} moved from {} to {}", containerId, existingHostMapping, hostName);
     } else {
       LOG.info("Container {} started at {}", containerId, hostName);
     }
