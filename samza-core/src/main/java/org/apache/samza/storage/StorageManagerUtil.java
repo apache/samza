@@ -178,7 +178,7 @@ public class StorageManagerUtil {
    */
   public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs) {
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
-    String fileContents;
+    String fileContents = null;
     File offsetFileRef = new File(storagePartitionDir, OFFSET_FILE_NAME);
     String storePath = storagePartitionDir.getPath();
 
@@ -186,15 +186,12 @@ public class StorageManagerUtil {
       LOG.info("Found offset file in storage partition directory: {}", storePath);
       try {
         fileContents = FileUtil.readWithChecksum(offsetFileRef);
-        try {
-          offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
-        } catch (JsonParseException | JsonMappingException e) {
-          LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
-          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : offsets;
-        } catch (IOException e) {
-          LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
-          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : offsets;
-        }
+        offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
+      }
+      catch (JsonParseException | JsonMappingException e) {
+        LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
+        final String finalFileContents = fileContents;
+        offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(ssp -> ssp, offset -> finalFileContents)) : offsets;
       } catch (Exception e) {
         LOG.warn("Failed to read offset file in storage partition directory: {}", storePath, e);
       }
