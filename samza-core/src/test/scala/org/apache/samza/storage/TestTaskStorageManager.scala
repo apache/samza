@@ -22,7 +22,6 @@ package org.apache.samza.storage
 
 import java.io.{File, FileOutputStream, ObjectOutputStream}
 import java.util
-import java.util.Optional
 
 import org.apache.samza.Partition
 import org.apache.samza.config._
@@ -122,14 +121,14 @@ class TestTaskStorageManager extends MockitoSugar {
     // Test 2: flush should update the offset file
     taskManager.flush()
     assertTrue(offsetFile.exists())
-    assertEquals("50", FileUtil.readWithChecksum(offsetFile))
+    assertEquals("{\"kafka.testStream.0\":\"50\"}", FileUtil.readWithChecksum(offsetFile))
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is updated correctly
     when(mockSSPMetadataCache.getMetadata(ssp)).thenReturn(new SystemStreamPartitionMetadata("0", "100", "101"))
     taskManager.stop()
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
-    assertEquals("100", FileUtil.readWithChecksum(offsetFile))
+    assertEquals("{\"kafka.testStream.0\":\"100\"}", FileUtil.readWithChecksum(offsetFile))
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the correct offset
     sspMetadata = new SystemStreamPartitionMetadata("0", "150", "151")
@@ -342,7 +341,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFile.exists())
-    assertEquals("Found incorrect value in offset file!", "100", FileUtil.readWithChecksum(offsetFile))
+    assertEquals("Found incorrect value in offset file!", "{\"kafka.testStream.0\":\"100\"}", FileUtil.readWithChecksum(offsetFile))
   }
 
   /**
@@ -386,7 +385,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    assertEquals("Found incorrect value in offset file!", "100", FileUtil.readWithChecksum(offsetFilePath))
+    assertEquals("Found incorrect value in offset file!", "{\"kafka.testStream.0\":\"100\"}", FileUtil.readWithChecksum(offsetFilePath))
 
     assertTrue("Offset file got created for a store that is not persisted to the disk!!", !anotherOffsetPath.exists())
   }
@@ -431,7 +430,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    assertEquals("Found incorrect value in offset file!", "100", FileUtil.readWithChecksum(offsetFilePath))
+    assertEquals("Found incorrect value in offset file!", "{\"kafka.testStream.0\":\"100\"}", FileUtil.readWithChecksum(offsetFilePath))
 
     //Invoke test method again
     taskStorageManager.flush()
@@ -475,7 +474,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    assertEquals("Found incorrect value in offset file!", "139", FileUtil.readWithChecksum(offsetFilePath))
+    assertEquals("Found incorrect value in offset file!", "{\"kafka.testStream.0\":\"139\"}", FileUtil.readWithChecksum(offsetFilePath))
 
     // Flush again
     when(sspMetadataCache.getMetadata(ssp)).thenReturn(new SystemStreamPartitionMetadata("20", "193", "194"))
@@ -485,7 +484,7 @@ class TestTaskStorageManager extends MockitoSugar {
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    assertEquals("Found incorrect value in offset file!", "193", FileUtil.readWithChecksum(offsetFilePath))
+    assertEquals("Found incorrect value in offset file!", "{\"kafka.testStream.0\":\"193\"}", FileUtil.readWithChecksum(offsetFilePath))
   }
 
   @Test
