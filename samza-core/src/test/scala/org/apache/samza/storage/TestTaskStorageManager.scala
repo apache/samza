@@ -566,6 +566,22 @@ class TestTaskStorageManager extends MockitoSugar {
     testChangelogConsumerOffsetRegistration(oldestOffset, newestOffset, upcomingOffset, expectedRegisteredOffset, fileOffset, writeOffsetFile)
   }
 
+  @Test
+  def testReadOfOldOffsetFormat(): Unit = {
+    // Create a file in old single-offset format, with a sample offset
+    val storeDirectory = StorageManagerUtil.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName)
+    val storeFile = new File(storeDirectory, "store.sst")
+    val offsetFile = new File(storeDirectory, "OFFSET")
+    val sampleOldOffset = "912321"
+    FileUtil.writeWithChecksum(offsetFile, sampleOldOffset)
+
+
+    // read offset against a given ssp from the file
+    var ssp = new SystemStreamPartition("kafka", "test-stream", new Partition(0))
+    val offsets = StorageManagerUtil.readOffsetFile(storeDirectory, Set(ssp).asJava)
+    assertTrue(offsets.get(ssp).equals(sampleOldOffset))
+  }
+
   private def testChangelogConsumerOffsetRegistration(oldestOffset: String, newestOffset: String, upcomingOffset: String, expectedRegisteredOffset: String, fileOffset: String, writeOffsetFile: Boolean): Unit = {
     val systemName = "kafka"
     val streamName = "testStream"
