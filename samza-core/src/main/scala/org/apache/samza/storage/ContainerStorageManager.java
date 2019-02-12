@@ -562,7 +562,10 @@ public class ContainerStorageManager {
             (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
       }
 
-      SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+      // if the store has no changelog, simply use null
+      SystemStreamPartition changelogSSP = null ;
+      if (changelogSystemStreams.containsKey(storeName))
+        changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
 
       return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
           && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP)) && !StorageManagerUtil.isStaleStore(
