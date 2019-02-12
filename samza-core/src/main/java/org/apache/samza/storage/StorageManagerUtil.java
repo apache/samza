@@ -22,6 +22,7 @@ package org.apache.samza.storage;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -42,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
-  private static final String OFFSET_FILE_NAME = "OFFSET";
+  public static final String OFFSET_FILE_NAME = "OFFSET";
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
@@ -138,12 +139,11 @@ public class StorageManagerUtil {
    * @return
    * @throws IOException
    */
-  public static File writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
+  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
       Map<SystemStreamPartition, String> offsets) throws IOException {
     File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
     String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil.writeWithChecksum(offsetFile, fileContents);
-    return offsetFile;
   }
 
   /**
@@ -176,7 +176,7 @@ public class StorageManagerUtil {
    * @return the content of the offset file if it exists for the store, null otherwise.
    */
   public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs) {
-    Map<SystemStreamPartition, String> offsets = null;
+    Map<SystemStreamPartition, String> offsets = new HashMap<>();
     String fileContents;
     File offsetFileRef = new File(storagePartitionDir, OFFSET_FILE_NAME);
     String storePath = storagePartitionDir.getPath();
@@ -189,10 +189,10 @@ public class StorageManagerUtil {
           offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
         } catch (JsonParseException | JsonMappingException e) {
           LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
-          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : null;
+          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : offsets;
         } catch (IOException e) {
           LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
-          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : null;
+          offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(x -> x, y -> fileContents)) : offsets;
         }
       } catch (Exception e) {
         LOG.warn("Failed to read offset file in storage partition directory: {}", storePath, e);

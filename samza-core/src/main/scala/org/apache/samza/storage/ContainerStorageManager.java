@@ -531,12 +531,16 @@ public class ContainerStorageManager {
             LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
             FileUtil.rm(loggedStorePartitionDir);
           } else {
-            SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+
+            // if the store has no changelogSSP, simply use null
+            SystemStreamPartition changelogSSP = null;
+            if (changelogSystemStreams.containsKey(storeName))
+              changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
             Map<SystemStreamPartition, String> offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
             LOG.info("Read offset " + offset + " for the store " + storeName + " from logged storage partition directory "
                 + loggedStorePartitionDir);
 
-            if (offset != null) {
+            if (offset.get(changelogSSP) != null) {
               fileOffsets.put(
                   new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()),
                   offset.get(changelogSSP));
@@ -562,7 +566,7 @@ public class ContainerStorageManager {
             (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
       }
 
-      // if the store has no changelog, simply use null
+      // if the store has no changelogSSP, simply use null
       SystemStreamPartition changelogSSP = null;
       if (changelogSystemStreams.containsKey(storeName))
         changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
