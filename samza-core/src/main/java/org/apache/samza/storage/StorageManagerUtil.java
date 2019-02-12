@@ -35,6 +35,7 @@ import org.apache.samza.util.FileUtil;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.ObjectWriter;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +47,7 @@ public class StorageManagerUtil {
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<HashMap<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<HashMap<SystemStreamPartition, String>>() { };
+  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
 
 
   /**
@@ -128,8 +130,34 @@ public class StorageManagerUtil {
     return hasValidOffsetFile;
   }
 
-  public static File getOffsetFile(File storeDirectory) {
-    return new File(storeDirectory, OFFSET_FILE_NAME);
+  /**
+   * Write the given SSP-Offset map into the offsets file.
+   * @param storeBaseDir the base directory of the store
+   * @param storeName the store name to use
+   * @param taskName the task name which is referencing the store
+   * @param offsets The SSP-offset to write
+   * @return
+   * @throws IOException
+   */
+  public static File writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
+      Map<SystemStreamPartition, String> offsets) throws IOException {
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+    FileUtil.writeWithChecksum(offsetFile, fileContents);
+    return offsetFile;
+  }
+
+  /**
+   *  Delete the offset file for this task and store, if one exists.
+   * @param storeBaseDir the base directory of the store
+   * @param storeName the store name to use
+   * @param taskName the task name which is referencing the store
+   */
+  public static void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    if (offsetFile.exists()) {
+      FileUtil.rm(offsetFile);
+    }
   }
 
   /**
