@@ -114,6 +114,7 @@ public class StorageManagerUtil {
    * An offset file associated with logged store {@code storeDir} is valid if it exists and is not empty.
    *
    * @param storeDir the base directory of the store
+   * @param storeSSPs storeSSPs (if any) associated with the store
    * @return true if the offset file is valid. false otherwise.
    */
   public static boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs) {
@@ -136,8 +137,7 @@ public class StorageManagerUtil {
    * @param storeName the store name to use
    * @param taskName the task name which is referencing the store
    * @param offsets The SSP-offset to write
-   * @return
-   * @throws IOException
+   * @throws IOException because of deserializing to json
    */
   public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
       Map<SystemStreamPartition, String> offsets) throws IOException {
@@ -173,6 +173,7 @@ public class StorageManagerUtil {
    * Read and return the contents of the offset file.
    *
    * @param storagePartitionDir the base directory of the store
+   * @param storeSSPs SSPs associated with the store (if any)
    * @return the content of the offset file if it exists for the store, null otherwise.
    */
   public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs) {
