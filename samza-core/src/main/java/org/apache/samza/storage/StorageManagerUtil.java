@@ -187,8 +187,7 @@ public class StorageManagerUtil {
       try {
         fileContents = FileUtil.readWithChecksum(offsetFileRef);
         offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
-      }
-      catch (JsonParseException | JsonMappingException e) {
+      } catch (JsonParseException | JsonMappingException e) {
         LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
         final String finalFileContents = fileContents;
         offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(ssp -> ssp, offset -> finalFileContents)) : offsets;
