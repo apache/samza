@@ -45,8 +45,6 @@ class TaskStorageManager(
     case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk
   }
 
-  val offsetFileName = "OFFSET"
-
   def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
 
   def init {
@@ -91,7 +89,7 @@ class TaskStorageManager(
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
         val loggedStorePartitionDir = StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDir, storeName, taskName)
-        val offsetFile = new File(loggedStorePartitionDir, offsetFileName)
+        val offsetFile = StorageManagerUtil.getOffsetFile(loggedStorePartitionDir)
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
           FileUtil.writeWithChecksum(offsetFile, newestOffset)

@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -466,8 +467,6 @@ public class ContainerStorageManager {
    * with the respective consumer, restoring stores, and stopping stores.
    */
   private class TaskRestoreManager {
-
-    private final static String OFFSET_FILE_NAME = "OFFSET";
     private final Map<String, StorageEngine> taskStores; // Map of all StorageEngines for this task indexed by store name
     private final Set<String> taskStoresToRestore;
     // Set of store names which need to be restored by consuming using system-consumers (see registerStartingOffsets)
@@ -532,14 +531,15 @@ public class ContainerStorageManager {
             LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
             FileUtil.rm(loggedStorePartitionDir);
           } else {
-            String offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, OFFSET_FILE_NAME);
+            SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+            Map<SystemStreamPartition, String> offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
             LOG.info("Read offset " + offset + " for the store " + storeName + " from logged storage partition directory "
                 + loggedStorePartitionDir);
 
             if (offset != null) {
               fileOffsets.put(
                   new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()),
-                  offset);
+                  offset.get(changelogSSP));
             }
           }
         });
@@ -562,9 +562,11 @@ public class ContainerStorageManager {
             (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
       }
 
+      SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+
       return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
-          && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, OFFSET_FILE_NAME) && !StorageManagerUtil.isStaleStore(
-          loggedStoreDir, OFFSET_FILE_NAME, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
+          && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP)) && !StorageManagerUtil.isStaleStore(
+          loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
     }
 
     /**

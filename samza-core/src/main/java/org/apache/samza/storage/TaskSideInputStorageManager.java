@@ -65,7 +65,6 @@ import scala.collection.JavaConverters;
  */
 public class TaskSideInputStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskSideInputStorageManager.class);
-  private static final String OFFSET_FILE = "SIDE-INPUT-OFFSETS";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<HashMap<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
@@ -75,7 +74,7 @@ public class TaskSideInputStorageManager {
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
   private final Map<String, StorageEngine> stores;
-  private final String storeBaseDir;
+  private final File storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
   private final Map<SystemStreamPartition, Set<String>> sspsToStores;
   private final StreamMetadataCache streamMetadataCache;
@@ -97,7 +96,7 @@ public class TaskSideInputStorageManager {
       Clock clock) {
     this.clock = clock;
     this.stores = sideInputStores;
-    this.storeBaseDir = storeBaseDir;
+    this.storeBaseDir = new File(storeBaseDir);
     this.storeToSSps = storesToSSPs;
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
@@ -259,7 +258,7 @@ public class TaskSideInputStorageManager {
 
             try {
               String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
-              File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
+              File offsetFile = StorageManagerUtil.getOffsetFile(getStoreLocation(storeName));
               FileUtil.writeWithChecksum(offsetFile, fileContents);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
@@ -284,8 +283,8 @@ public class TaskSideInputStorageManager {
         File storeLocation = getStoreLocation(storeName);
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
-            String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
-            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
+
+            Map<SystemStreamPartition, String> offsets = StorageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName));
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
             LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
@@ -298,7 +297,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
+    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName);
   }
 
   /**
@@ -368,8 +367,8 @@ public class TaskSideInputStorageManager {
 
   private boolean isValidSideInputStore(String storeName, File storeLocation) {
     return isPersistedStore(storeName)
-        && !StorageManagerUtil.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
-        && StorageManagerUtil.isOffsetFileValid(storeLocation, OFFSET_FILE);
+        && !StorageManagerUtil.isStaleStore(storeLocation, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
+        && StorageManagerUtil.isOffsetFileValid(storeLocation, storeToSSps.get(storeName));
   }
 
   private boolean isPersistedStore(String storeName) {
