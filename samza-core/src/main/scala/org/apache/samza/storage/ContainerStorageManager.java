@@ -165,7 +165,7 @@ public class ContainerStorageManager {
           });
       });
 
-    // Create a map of changeLogSSP to storeName across all tasks
+    // Create a map of changeLogSSP to storeName across all tasks, assuming no stores have the same changelogSSP
     Map<SystemStreamPartition, String> changelogSSPToStore = new HashMap<>();
     changelogSystemStreams.forEach((storeName, systemStream) ->
             containerModel.getTasks().forEach((taskName, taskModel) -> { changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), storeName); })
