@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.util.function.Predicate;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.table.remote.TablePart;
 
 
 /**
@@ -35,7 +36,8 @@ import com.google.common.base.Preconditions;
  *
  * Retry libraries can implement a subset or all features as described by this common policy.
  */
-public class TableRetryPolicy implements Serializable {
+public class TableRetryPolicy implements TablePart, Serializable {
+
   enum BackoffType {
     /**
      * No backoff in between two retry attempts.

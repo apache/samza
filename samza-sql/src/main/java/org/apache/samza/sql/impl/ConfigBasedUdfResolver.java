@@ -23,7 +23,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.StringUtils;
@@ -31,6 +33,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
@@ -74,16 +77,15 @@ public class ConfigBasedUdfResolver implements UdfResolver {
       }
 
       SamzaSqlUdf sqlUdf;
+      Map<SamzaSqlUdfMethod, Method> udfMethods = new HashMap<>();
       SamzaSqlUdfMethod sqlUdfMethod = null;
-      Method udfMethod = null;
 
       sqlUdf = udfClass.getAnnotation(SamzaSqlUdf.class);
       Method[] methods = udfClass.getMethods();
       for (Method method : methods) {
         sqlUdfMethod = method.getAnnotation(SamzaSqlUdfMethod.class);
         if (sqlUdfMethod != null) {
-          udfMethod = method;
-          break;
+          udfMethods.put(sqlUdfMethod, method);
         }
       }
 
@@ -93,7 +95,7 @@ public class ConfigBasedUdfResolver implements UdfResolver {
         throw new SamzaException(msg);
       }
 
-      if (sqlUdfMethod == null) {
+      if (udfMethods.isEmpty()) {
         String msg = String.format("UdfClass %s doesn't have any methods annotated with SamzaSqlUdfMethod", udfClass);
         LOG.error(msg);
         throw new SamzaException(msg);
@@ -101,7 +103,11 @@ public class ConfigBasedUdfResolver implements UdfResolver {
 
       if (sqlUdf.enabled()) {
         String udfName = sqlUdf.name();
-        udfs.add(new UdfMetadata(udfName, udfMethod, udfConfig.subset(udfName + ".")));
+        for (Map.Entry<SamzaSqlUdfMethod, Method> udfMethod : udfMethods.entrySet()) {
+          List<SamzaSqlFieldType> params = Arrays.asList(udfMethod.getKey().params());
+          udfs.add(new UdfMetadata(udfName, udfMethod.getValue(), udfConfig.subset(udfName + "."), params,
+              udfMethod.getKey().disableArgumentCheck()));
+        }
       }
     }
   }
