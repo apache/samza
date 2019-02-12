@@ -563,7 +563,7 @@ public class ContainerStorageManager {
       }
 
       // if the store has no changelog, simply use null
-      SystemStreamPartition changelogSSP = null ;
+      SystemStreamPartition changelogSSP = null;
       if (changelogSystemStreams.containsKey(storeName))
         changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
 
