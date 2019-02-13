@@ -127,15 +127,16 @@ public class StandbyContainerState {
     return true;
   }
 
-
-  // Helper method to select a standby for a given activeContainerID
-  public Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID, SamzaApplicationState state) {
+  /**
+   * Helper method to select a standby for a given activeContainerID
+   * @param activeContainerID Samza containerID of the active container
+   * @param activeContainerResourceID ResourceID of the active container at the time of its last failure
+   * @param state SamzaApplication State object
+   * @return
+   */
+  public Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID, String activeContainerResourceID, SamzaApplicationState state) {
 
     log.info("Standby containers {} for active container {}", this.standbyContainerConstraints.get(activeContainerID), activeContainerID);
-
-    // ResourceID of the active container at the time of its last failure
-    String activeContainerResourceID = state.failedContainersStatus.get(activeContainerID) == null ? null :
-        state.failedContainersStatus.get(activeContainerID).getLast().getResourceID();
 
     // obtain any existing failover metadata
     Optional<StandbyContainerState.FailoverMetadata> failoverMetadata =

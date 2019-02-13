@@ -19,7 +19,6 @@
 
 package org.apache.samza.clustermanager;
 
-import java.util.LinkedList;
 import org.apache.samza.coordinator.JobModelManager;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,7 +81,7 @@ public class SamzaApplicationState {
    * ContainerStatuses of failed containers indexed by samzaContainerId.
    * Written by the AMRMCallbackThread, read by the ContainerAllocator thread when performing active-standby container failover.
    */
-  public final ConcurrentMap<String, LinkedList<SamzaResourceStatus>> failedContainersStatus = new ConcurrentHashMap<String, LinkedList<SamzaResourceStatus>>();
+  public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<String, SamzaResourceStatus>();
 
   /**
    * Number of containers configured for the job
