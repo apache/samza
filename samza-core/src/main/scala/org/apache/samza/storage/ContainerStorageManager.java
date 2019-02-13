@@ -532,18 +532,13 @@ public class ContainerStorageManager {
             FileUtil.rm(loggedStorePartitionDir);
           } else {
 
-            // if the store has no changelogSSP, simply use null
-            SystemStreamPartition changelogSSP = null;
-            if (changelogSystemStreams.containsKey(storeName))
-              changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-            Map<SystemStreamPartition, String> offset = StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
-            LOG.info("Read offset " + offset + " for the store " + storeName + " from logged storage partition directory "
-                + loggedStorePartitionDir);
+            SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+            Map<SystemStreamPartition, String> offset =
+                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
+            LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
 
-            if (offset.get(changelogSSP) != null) {
-              fileOffsets.put(
-                  new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()),
-                  offset.get(changelogSSP));
+            if (offset.containsKey(changelogSSP)) {
+              fileOffsets.put(changelogSSP, offset.get(changelogSSP));
             }
           }
         });
@@ -566,14 +561,12 @@ public class ContainerStorageManager {
             (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
       }
 
-      // if the store has no changelogSSP, simply use null
-      SystemStreamPartition changelogSSP = null;
-      if (changelogSystemStreams.containsKey(storeName))
-        changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-
-      return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
-          && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP)) && !StorageManagerUtil.isStaleStore(
-          loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
+      if (changelogSystemStreams.containsKey(storeName)) {
+        SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+        return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP))
+            && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
+      }
+        return false;
     }
 
     /**
