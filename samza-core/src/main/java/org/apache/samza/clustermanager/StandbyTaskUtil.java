@@ -132,8 +132,10 @@ public class StandbyTaskUtil {
     String activeContainerResourceID = state.failedContainersStatus.get(activeContainerID) == null ? null :
         state.failedContainersStatus.get(activeContainerID).getLast().getResourceID();
 
-    // obtain any existing failover state
-    ContainerFailoverState failoverState = activeContainerResourceID == null ? null : state.failovers.get(activeContainerResourceID);
+    // obtain any existing failover metadata
+    Optional<ContainerFailoverState.FailoverMetadata> failoverMetadata =
+        activeContainerResourceID == null ? Optional.empty()
+            : state.containerFailoverState.getFailoverMetadata(activeContainerResourceID);
 
     // Iterate over the list of running standby containers, to find a standby resource that we have not already
     // used for a failover for this active resoruce
@@ -142,7 +144,7 @@ public class StandbyTaskUtil {
         SamzaResource standbyContainerResource = state.runningContainers.get(standbyContainerID);
 
         // use this standby if there was no previous failover or if this standbyResource was not used for it
-        if (failoverState == null || !failoverState.isStandbyResourceUsed(standbyContainerResource.getResourceID())) {
+        if (!failoverMetadata.isPresent() || !failoverMetadata.get().isStandbyResourceUsed(standbyContainerResource.getResourceID())) {
 
           LOG.info("Returning standby container {} in running state for active container {}", standbyContainerID,
               activeContainerID);

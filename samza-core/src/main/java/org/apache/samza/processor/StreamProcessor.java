@@ -406,6 +406,7 @@ public class StreamProcessor {
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
             containerExcecutorService.submit(container);
+
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }

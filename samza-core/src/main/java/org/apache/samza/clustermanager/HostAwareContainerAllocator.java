@@ -285,15 +285,8 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       String standbyHost = standbyResource.getHost();
 
       // update the failover state
-      ContainerFailoverState failoverState = state.failovers.get(activeContainerResourceID);
-      if (failoverState == null) {
-        failoverState = new ContainerFailoverState(containerID, activeContainerResourceID, standbyResourceID, standbyHost);
-        this.state.failovers.put(activeContainerResourceID, failoverState);
-      } else {
-        failoverState.updateStandbyContainer(standbyResourceID, standbyHost);
-        failoverState.setStandbyContainerStatus(ContainerFailoverState.ContainerStatus.StopIssued);
-      }
-
+      ContainerFailoverState failoverState = state.containerFailoverState;
+      failoverState.initiatedFailover(containerID, activeContainerResourceID, standbyResourceID, standbyHost);
       log.info("initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
           + "for active container {}", standbyContainerId, standbyResourceID, containerID);
       state.failoversToStandby.incrementAndGet();
@@ -324,19 +317,16 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private void handleStandbyContainerStop(String containerID, String preferredHost) {
     String containerResourceId = state.failedContainersStatus.get(containerID) == null ? null : state.failedContainersStatus.get(containerID).getLast().getResourceID();
-    Optional<ContainerFailoverState> containerFailoverState = checkIfUsedForFailover(containerResourceId, state.failovers);
+    Optional<ContainerFailoverState.FailoverMetadata> failoverMetadata = state.containerFailoverState.checkIfUsedForFailover(containerResourceId);
 
-    if (containerResourceId != null && containerFailoverState.isPresent()) {
+    if (containerResourceId != null && failoverMetadata.isPresent()) {
 
-      String activeContainerID = containerFailoverState.get().activeContainerID;
-      String standbyContainerHostname = containerFailoverState.get().getStandbyContainerHostname(containerResourceId);
+      String activeContainerID = failoverMetadata.get().activeContainerID;
+      String standbyContainerHostname = failoverMetadata.get().getStandbyContainerHostname(containerResourceId);
 
-      containerFailoverState.get().setStandbyContainerStatus(ContainerFailoverState.ContainerStatus.Stopped);
       log.info("Requesting resource for active container {} on host {}, and backup container {} on any host",
           activeContainerID, standbyContainerHostname, containerID);
 
-      containerFailoverState.get().setStandbyContainerStatus(ContainerFailoverState.ContainerStatus.ResourceRequested);
-      containerFailoverState.get().setActiveContainerStatus(ContainerFailoverState.ContainerStatus.ResourceRequested);
       state.standbyStopsComplete.incrementAndGet();
 
       super.requestResource(activeContainerID, standbyContainerHostname); // request standbycontainer's host for active-container
@@ -348,24 +338,5 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       return;
     }
   }
-
-  // Helper method to check if this standbyContainerResource is present in the failoverState for an active container.
-  // This is used to determine if we requested a stop a container.
-  private static Optional<ContainerFailoverState> checkIfUsedForFailover(String standbyContainerResourceId,
-      Map<String, ContainerFailoverState> failovers) {
-
-    if (standbyContainerResourceId == null) return Optional.empty();
-
-    for (ContainerFailoverState failoverState : failovers.values()) {
-      if (failoverState.isStandbyResourceUsed(standbyContainerResourceId)) {
-        log.info("Standby container with resource id {} was selected for failover of active container {}",
-            standbyContainerResourceId, failoverState.activeContainerID);
-        return Optional.of(failoverState);
-      }
-    }
-    return Optional.empty();
-  }
-
-
 
 }
