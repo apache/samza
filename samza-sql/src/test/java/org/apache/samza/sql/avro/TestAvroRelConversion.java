@@ -56,6 +56,7 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
+import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.planner.RelSchemaConverter;
 import org.apache.samza.sql.schema.SqlSchema;
@@ -194,6 +195,7 @@ public class TestAvroRelConversion {
   @Test
   public void testComplexRecordConversion() throws IOException {
     GenericData.Record record = new GenericData.Record(ComplexRecord.SCHEMA$);
+
     record.put("id", id);
     record.put("bool_value", boolValue);
     record.put("double_value", doubleValue);
@@ -204,7 +206,7 @@ public class TestAvroRelConversion {
     record.put("long_value", longValue);
     record.put("array_values", arrayValue);
     record.put("map_values", mapValue);
-    record.put("union_value", id);
+    record.put("union_value", testStrValue);
 
     ComplexRecord complexRecord = new ComplexRecord();
     complexRecord.id = id;
@@ -219,18 +221,10 @@ public class TestAvroRelConversion {
     complexRecord.array_values.addAll(arrayValue);
     complexRecord.map_values = new HashMap<>();
     complexRecord.map_values.putAll(mapValue);
-    complexRecord.union_value = id;
-
-    byte[] serializedData = bytesFromGenericRecord(record);
-    validateAvroSerializedData(serializedData, id);
-
-    serializedData = encodeAvroSpecificRecord(ComplexRecord.class, complexRecord);
-    validateAvroSerializedData(serializedData, id);
-
-    record.put("union_value", testStrValue);
     complexRecord.union_value = testStrValue;
 
-    serializedData = bytesFromGenericRecord(record);
+
+    byte[] serializedData = bytesFromGenericRecord(record);
     validateAvroSerializedData(serializedData, testStrValue);
 
     serializedData = encodeAvroSpecificRecord(ComplexRecord.class, complexRecord);

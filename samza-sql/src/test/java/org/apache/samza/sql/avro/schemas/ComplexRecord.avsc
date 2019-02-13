@@ -112,12 +112,6 @@
           ]
         },
         {
-          "name": "union_value",
-          "doc": "union Value.",
-          "type": ["null", "int", "string"],
-          "default":null
-        },
-        {
           "name" : "empty_record",
           "type" : [ "null", {
             "type" : "record",
@@ -155,6 +149,12 @@
                 ]
               }
             ]
+        },
+        {
+          "name": "union_value",
+          "doc": "union Value.",
+          "type": ["null", "SubRecord", "string"],
+          "default":null
         }
     ]
 }

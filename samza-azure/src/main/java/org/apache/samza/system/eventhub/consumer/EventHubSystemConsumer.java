@@ -104,7 +104,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemConsumer.class);
 
   // Overall timeout for EventHubClient exponential backoff policy
-  private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10L);
+  private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10);
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
 
   public static final String START_OF_STREAM = ClientConstants.START_OF_STREAM; // -1
@@ -394,28 +394,24 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private synchronized void shutdownEventHubsManagers() {
     // There could be potentially many Receivers and EventHubManagers, so close the managers in parallel
     LOG.info("Start shutting down eventhubs receivers");
-    ShutdownUtil.boundedShutdown(streamPartitionReceivers.values().stream().map(receiver -> new Runnable() {
-      @Override
-      public void run() {
+    ShutdownUtil.boundedShutdown(streamPartitionReceivers.values().stream().map(receiver ->
+      (Runnable) () -> {
         try {
           receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           LOG.error("Failed to shutdown receiver.", e);
         }
-      }
-    }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+      }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 
     LOG.info("Start shutting down eventhubs managers");
-    ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager -> new Runnable() {
-      @Override
-      public void run() {
+    ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager ->
+      (Runnable) () -> {
         try {
           manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
         } catch (Exception e) {
           LOG.error("Failed to shutdown eventhubs manager.", e);
         }
-      }
-    }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
+      }).collect(Collectors.toList()), "EventHubSystemConsumer.ClientManager#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 
     perPartitionEventHubManagers.clear();
     perStreamEventHubManagers.clear();
@@ -447,7 +443,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     private final Counter errorRate;
     private final Interceptor interceptor;
     private final Integer maxEventCount;
-    SystemStreamPartition ssp;
+    private final SystemStreamPartition ssp;
 
     PartitionReceiverHandlerImpl(SystemStreamPartition ssp, Counter eventReadRate, Counter eventByteReadRate,
         SamzaHistogram readLatency, Counter readErrors, Interceptor interceptor, int maxEventCount) {
@@ -521,7 +517,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
               throwable);
           try {
             // Add a fixed delay so that we don't keep retrying when there are long-lasting failures
-            Thread.sleep(Duration.ofSeconds(2).toMillis());
+            TimeUnit.SECONDS.sleep(2);
           } catch (InterruptedException e) {
             LOG.warn("Interrupted during sleep before renew", e);
           }
