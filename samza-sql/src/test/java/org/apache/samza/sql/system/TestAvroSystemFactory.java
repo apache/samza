@@ -42,6 +42,7 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
+import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
@@ -319,6 +320,7 @@ public class TestAvroSystemFactory implements SystemFactory {
     }
 
     private Object createComplexRecord(int index) {
+
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
@@ -330,6 +332,11 @@ public class TestAvroSystemFactory implements SystemFactory {
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));
       record.put("array_values", arrayValues);
+//      record.put("union_value", "unionStrValue");
+      GenericRecord subRecord = new GenericData.Record(SubRecord.SCHEMA$);
+      subRecord.put("id", index);
+      subRecord.put("sub_values", arrayValues);
+      record.put("union_value", subRecord);
       Map<String, String> mapValues = new HashMap<>();
       mapValues.put("key0", "value0");
       record.put("map_values", mapValues);

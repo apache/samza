@@ -20,7 +20,7 @@ package org.apache.samza.sql.avro.schemas;
 
 @SuppressWarnings("all")
 public class ComplexRecord extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"ComplexRecord\",\"namespace\":\"org.apache.samza.sql.avro.schemas\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"Record id.\",\"default\":null},{\"name\":\"bool_value\",\"type\":[\"null\",\"boolean\"],\"doc\":\"Boolean Value.\",\"default\":null},{\"name\":\"double_value\",\"type\":[\"null\",\"double\"],\"doc\":\"double Value.\",\"default\":null},{\"name\":\"float_value\",\"type\":[\"null\",\"float\"],\"doc\":\"float Value.\",\"default\":null},{\"name\":\"string_value\",\"type\":[\"null\",\"string\"],\"doc\":\"string Value.\",\"default\":null},{\"name\":\"bytes_value\",\"type\":[\"null\",\"bytes\"],\"doc\":\"bytes Value.\",\"default\":null},{\"name\":\"long_value\",\"type\":[\"null\",\"long\"],\"doc\":\"long Value.\",\"default\":null},{\"name\":\"fixed_value\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"MyFixed\",\"size\":16}],\"doc\":\"fixed Value.\"},{\"name\":\"array_values\",\"type\":[\"null\",{\"type\":\"array\",\"items\":\"string\"}],\"doc\":\"array values in the record.\",\"default\":[]},{\"name\":\"map_values\",\"type\":[\"null\",{\"type\":\"map\",\"values\":\"string\"}],\"doc\":\"map values in the record.\",\"default\":[]},{\"name\":\"enum_value\",\"type\":[\"null\",{\"type\":\"enum\",\"name\":\"TestEnumType\",\"symbols\":[\"foo\",\"bar\"]}],\"doc\":\"enum value.\",\"default\":[]},{\"name\":\"union_value\",\"type\":[\"null\",\"int\",\"string\"],\"doc\":\"union Value.\",\"default\":null},{\"name\":\"empty_record\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"emptySubRecord\",\"fields\":[]}]},{\"name\":\"array_records\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"SubRecord\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"sub record id\"},{\"name\":\"sub_values\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"doc\":\"Sub record \"}]}],\"doc\":\"array of records.\",\"default\":[]}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = org.apache.avro.Schema.parse("{\"type\":\"record\",\"name\":\"ComplexRecord\",\"namespace\":\"org.apache.samza.sql.avro.schemas\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"Record id.\",\"default\":null},{\"name\":\"bool_value\",\"type\":[\"null\",\"boolean\"],\"doc\":\"Boolean Value.\",\"default\":null},{\"name\":\"double_value\",\"type\":[\"null\",\"double\"],\"doc\":\"double Value.\",\"default\":null},{\"name\":\"float_value\",\"type\":[\"null\",\"float\"],\"doc\":\"float Value.\",\"default\":null},{\"name\":\"string_value\",\"type\":[\"null\",\"string\"],\"doc\":\"string Value.\",\"default\":null},{\"name\":\"bytes_value\",\"type\":[\"null\",\"bytes\"],\"doc\":\"bytes Value.\",\"default\":null},{\"name\":\"long_value\",\"type\":[\"null\",\"long\"],\"doc\":\"long Value.\",\"default\":null},{\"name\":\"fixed_value\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"MyFixed\",\"size\":16}],\"doc\":\"fixed Value.\"},{\"name\":\"array_values\",\"type\":[\"null\",{\"type\":\"array\",\"items\":\"string\"}],\"doc\":\"array values in the record.\",\"default\":[]},{\"name\":\"map_values\",\"type\":[\"null\",{\"type\":\"map\",\"values\":\"string\"}],\"doc\":\"map values in the record.\",\"default\":[]},{\"name\":\"enum_value\",\"type\":[\"null\",{\"type\":\"enum\",\"name\":\"TestEnumType\",\"symbols\":[\"foo\",\"bar\"]}],\"doc\":\"enum value.\",\"default\":[]},{\"name\":\"empty_record\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"emptySubRecord\",\"fields\":[]}]},{\"name\":\"array_records\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"SubRecord\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"doc\":\"sub record id\"},{\"name\":\"sub_values\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"doc\":\"Sub record \"}]}],\"doc\":\"array of records.\",\"default\":[]},{\"name\":\"union_value\",\"type\":[\"null\",\"SubRecord\",\"string\"],\"doc\":\"union Value.\",\"default\":null}]}");
   /** Record id. */
   public java.lang.Integer id;
   /** Boolean Value. */
@@ -43,11 +43,11 @@ public class ComplexRecord extends org.apache.avro.specific.SpecificRecordBase i
   public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> map_values;
   /** enum value. */
   public org.apache.samza.sql.avro.schemas.TestEnumType enum_value;
-  /** union Value. */
-  public java.lang.Object union_value;
   public org.apache.samza.sql.avro.schemas.emptySubRecord empty_record;
   /** array of records. */
   public org.apache.samza.sql.avro.schemas.SubRecord array_records;
+  /** union Value. */
+  public java.lang.Object union_value;
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
   // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
@@ -63,9 +63,9 @@ public class ComplexRecord extends org.apache.avro.specific.SpecificRecordBase i
     case 8: return array_values;
     case 9: return map_values;
     case 10: return enum_value;
-    case 11: return union_value;
-    case 12: return empty_record;
-    case 13: return array_records;
+    case 11: return empty_record;
+    case 12: return array_records;
+    case 13: return union_value;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -84,9 +84,9 @@ public class ComplexRecord extends org.apache.avro.specific.SpecificRecordBase i
     case 8: array_values = (java.util.List<java.lang.CharSequence>)value$; break;
     case 9: map_values = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
     case 10: enum_value = (org.apache.samza.sql.avro.schemas.TestEnumType)value$; break;
-    case 11: union_value = (java.lang.Object)value$; break;
-    case 12: empty_record = (org.apache.samza.sql.avro.schemas.emptySubRecord)value$; break;
-    case 13: array_records = (org.apache.samza.sql.avro.schemas.SubRecord)value$; break;
+    case 11: empty_record = (org.apache.samza.sql.avro.schemas.emptySubRecord)value$; break;
+    case 12: array_records = (org.apache.samza.sql.avro.schemas.SubRecord)value$; break;
+    case 13: union_value = (java.lang.Object)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
