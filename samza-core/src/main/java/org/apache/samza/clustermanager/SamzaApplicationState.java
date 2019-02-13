@@ -155,13 +155,13 @@ public class SamzaApplicationState {
   public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
 
   /**
-   * Number of active container containerFailoverState initiated in which a standby container was found.
+   * Number of active container standbyContainerState initiated in which a standby container was found.
    * If two standby containers had to selected for one failing active, it counts as two.
    */
   public final AtomicInteger failoversToStandby = new AtomicInteger(0);
 
   /**
-   * Number of active container containerFailoverState initiated in which a standby container was NOT found.
+   * Number of active container standbyContainerState initiated in which a standby container was NOT found.
   */
   public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
 
@@ -170,10 +170,11 @@ public class SamzaApplicationState {
    */
   public final AtomicInteger standbyStopsComplete = new AtomicInteger(0);
 
-  // State concerning all container containerFailoverState
-  public final ContainerFailoverState containerFailoverState = new ContainerFailoverState();
+  // State concerning all container standbyContainerState
+  public final StandbyContainerState standbyContainerState;
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
+    this.standbyContainerState = new StandbyContainerState(jobModelManager.jobModel());
   }
 }

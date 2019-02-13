@@ -21,16 +21,12 @@ package org.apache.samza.clustermanager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
-import org.apache.samza.storage.kv.Entry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -40,7 +36,6 @@ public class StandbyTaskUtil {
   private static final String STANDBY_CONTAINER_ID_SEPARATOR = "-";
   private static final String TASKNAME_SEPARATOR = "-";
   private static final String STANDBY_TASKNAME_PREFIX = "Standby";
-  private static final Logger LOG = LoggerFactory.getLogger(StandbyTaskUtil.class);
 
   /**
    * Returns true if the containerName implies a standby container, false otherwise.
@@ -123,37 +118,4 @@ public class StandbyTaskUtil {
         .collect(Collectors.toSet());
   }
 
-  public static Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID,
-      List<String> standbyContainerIDs, SamzaApplicationState state) {
-
-    LOG.info("Standby containers {} for active container {}", standbyContainerIDs, activeContainerID);
-
-    // ResourceID of the active container at the time of its last failure
-    String activeContainerResourceID = state.failedContainersStatus.get(activeContainerID) == null ? null :
-        state.failedContainersStatus.get(activeContainerID).getLast().getResourceID();
-
-    // obtain any existing failover metadata
-    Optional<ContainerFailoverState.FailoverMetadata> failoverMetadata =
-        activeContainerResourceID == null ? Optional.empty()
-            : state.containerFailoverState.getFailoverMetadata(activeContainerResourceID);
-
-    // Iterate over the list of running standby containers, to find a standby resource that we have not already
-    // used for a failover for this active resoruce
-    for (String standbyContainerID : standbyContainerIDs) {
-      if (state.runningContainers.containsKey(standbyContainerID)) {
-        SamzaResource standbyContainerResource = state.runningContainers.get(standbyContainerID);
-
-        // use this standby if there was no previous failover or if this standbyResource was not used for it
-        if (!failoverMetadata.isPresent() || !failoverMetadata.get().isStandbyResourceUsed(standbyContainerResource.getResourceID())) {
-
-          LOG.info("Returning standby container {} in running state for active container {}", standbyContainerID,
-              activeContainerID);
-          return Optional.of(new Entry<>(standbyContainerID, standbyContainerResource));
-        }
-      }
-    }
-
-    LOG.info("Did not find any running standby container for active container {}", activeContainerID);
-    return Optional.empty();
-  }
 }

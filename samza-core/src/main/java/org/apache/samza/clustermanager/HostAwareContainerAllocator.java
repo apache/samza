@@ -18,13 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.job.model.JobModel;
 import org.apache.samza.storage.kv.Entry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,22 +49,10 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private final int requestTimeout;
 
-  // Map of activeContainerIDs to its corresponding standby containers, and standbyContainerIDs to its corresponding
-  // active container and other corresponding standbyContainers
-  private final Map<String, List<String>> standbyContainerConstraints = new HashMap<>();
-
   public HostAwareContainerAllocator(ClusterResourceManager manager ,
       int timeout, Config config, SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
-
-    // if standbys are enabled, populate the standbyContainerConstraints map
-    if (new JobConfig(config).getStandbyTasksEnabled()) {
-      JobModel jobModel = state.jobModelManager.jobModel();
-      jobModel.getContainers().keySet().forEach(containerId -> standbyContainerConstraints.put(containerId,
-          StandbyTaskUtil.getStandbyContainerConstraints(containerId, jobModel)));
-      log.info("Populated standbyContainerConstraints map {}", standbyContainerConstraints);
-    }
   }
 
   /**
@@ -167,7 +151,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
     String containerID = request.getContainerID();
 
-    if (checkStandbyConstraints(request, samzaResource, state)) {
+    if (state.standbyContainerState.checkStandbyConstraints(request, samzaResource, state.runningContainers, state.pendingContainers)) {
       // This resource can be used to launch this container
       log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
           preferredHost, samzaResource.getHost());
@@ -186,36 +170,6 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     }
   }
 
-  // Helper method to check if this SamzaResourceRequest for a container can be met on this resource, given standby
-  // container constraints, and the current set of pending and running containers
-  private boolean checkStandbyConstraints(SamzaResourceRequest request, SamzaResource samzaResource,
-      SamzaApplicationState samzaApplicationState) {
-    String containerIDToStart = request.getContainerID();
-    String host = samzaResource.getHost();
-    List<String> containerIDsForStandbyConstraints = this.standbyContainerConstraints.get(containerIDToStart);
-
-    // Check if any of these conflicting containers are running/launching on host
-    for (String containerID : containerIDsForStandbyConstraints) {
-      SamzaResource resource = samzaApplicationState.pendingContainers.get(containerID);
-
-      // return false if a conflicting container is pending for launch on the host
-      if (resource != null && resource.getHost().equals(host)) {
-        log.info("Container {} cannot be started on host {} because container {} is already scheduled on this host",
-            containerIDToStart, samzaResource.getHost(), containerID);
-        return false;
-      }
-
-      // return false if a conflicting container is running on the host
-      resource = samzaApplicationState.runningContainers.get(containerID);
-      if (resource != null && resource.getHost().equals(host)) {
-        log.info("Container {} cannot be started on host {} because container {} is already running on this host",
-            containerIDToStart, samzaResource.getHost(), containerID);
-        return false;
-      }
-    }
-
-    return true;
-  }
 
   /**
    * Intercept resource requests, which are due to either a launch-failure or resource-request expired or standby
@@ -271,8 +225,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     * @param containerID the containerID of the active container
    */
   private void initiateActiveContainerFailover(String containerID) {
-    Optional<Entry<String, SamzaResource>> standbyContainer =
-        StandbyTaskUtil.selectStandby(containerID, this.standbyContainerConstraints.get(containerID), this.state);
+    Optional<Entry<String, SamzaResource>> standbyContainer = state.standbyContainerState.selectStandby(containerID, this.state);
 
     // If we find a standbyContainer, we initiate a failover
     if (standbyContainer.isPresent()) {
@@ -285,8 +238,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
       String standbyHost = standbyResource.getHost();
 
       // update the failover state
-      ContainerFailoverState failoverState = state.containerFailoverState;
-      failoverState.initiatedFailover(containerID, activeContainerResourceID, standbyResourceID, standbyHost);
+      state.standbyContainerState.initiatedFailover(containerID, activeContainerResourceID, standbyResourceID, standbyHost);
       log.info("initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
           + "for active container {}", standbyContainerId, standbyResourceID, containerID);
       state.failoversToStandby.incrementAndGet();
@@ -297,8 +249,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     } else {
 
       // If we dont find a standbyContainer, we proceed with the ANYHOST request
-      log.info("No standby container found for active container {}, making a request for {}", containerID,
-          ResourceRequestState.ANY_HOST);
+      log.info("No standby container found for active container {}, making a request for {}", containerID, ResourceRequestState.ANY_HOST);
       state.failoversToAnyHost.incrementAndGet();
       super.requestResource(containerID, ResourceRequestState.ANY_HOST);
       return;
@@ -317,7 +268,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   private void handleStandbyContainerStop(String containerID, String preferredHost) {
     String containerResourceId = state.failedContainersStatus.get(containerID) == null ? null : state.failedContainersStatus.get(containerID).getLast().getResourceID();
-    Optional<ContainerFailoverState.FailoverMetadata> failoverMetadata = state.containerFailoverState.checkIfUsedForFailover(containerResourceId);
+    Optional<StandbyContainerState.FailoverMetadata> failoverMetadata = state.standbyContainerState.checkIfUsedForFailover(containerResourceId);
 
     if (containerResourceId != null && failoverMetadata.isPresent()) {
 
