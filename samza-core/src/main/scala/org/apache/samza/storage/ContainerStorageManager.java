@@ -566,7 +566,8 @@ public class ContainerStorageManager {
         return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP))
             && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
       }
-        return false;
+
+      return false;
     }
 
     /**
