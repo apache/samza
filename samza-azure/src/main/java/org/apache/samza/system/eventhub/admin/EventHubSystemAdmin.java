@@ -50,7 +50,7 @@ import java.util.concurrent.TimeoutException;
 
 public class EventHubSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemAdmin.class);
-  private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
+  private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1).toMillis();
 
   private final EventHubClientManagerFactory eventHubClientManagerFactory;
   private final String systemName;
@@ -83,21 +83,18 @@ public class EventHubSystemAdmin implements SystemAdmin {
   }
 
   // PartitionRuntimeInformation does not implement toString()
-  private String printPartitionRuntimeInfo(PartitionRuntimeInformation runtimeInformation) {
-    if (runtimeInformation == null) {
+  private String printPartitionRuntimeInfo(PartitionRuntimeInformation runtimeInfo) {
+    if (runtimeInfo == null) {
       return "[PartitionRuntimeInformation: null]";
     }
-    StringBuilder stringBuilder = new StringBuilder();
-    stringBuilder.append("[PartitionRuntimeInformation:");
-    stringBuilder.append(" eventHubPath=").append(runtimeInformation.getEventHubPath());
-    stringBuilder.append(" partitionId=").append(runtimeInformation.getPartitionId());
-    stringBuilder.append(" lastEnqueuedTimeUtc=").append(runtimeInformation.getLastEnqueuedTimeUtc().toString());
-    stringBuilder.append(" lastEnqueuedOffset=").append(runtimeInformation.getLastEnqueuedOffset());
     // calculate the number of messages in the queue
-    stringBuilder.append(" numMessages=")
-        .append(runtimeInformation.getLastEnqueuedSequenceNumber() - runtimeInformation.getBeginSequenceNumber());
-    stringBuilder.append("]");
-    return stringBuilder.toString();
+    return "[PartitionRuntimeInformation:"
+      + " eventHubPath=" + runtimeInfo.getEventHubPath()
+      + " partitionId=" + runtimeInfo.getPartitionId()
+      + " lastEnqueuedTimeUtc=" + runtimeInfo.getLastEnqueuedTimeUtc()
+      + " lastEnqueuedOffset=" + runtimeInfo.getLastEnqueuedOffset()
+      + " numMessages=" + (runtimeInfo.getLastEnqueuedSequenceNumber() - runtimeInfo.getBeginSequenceNumber())
+      + "]";
   }
 
   @Override
