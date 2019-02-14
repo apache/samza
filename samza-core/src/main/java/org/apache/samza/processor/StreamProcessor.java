@@ -121,6 +121,7 @@ public class StreamProcessor {
   private final Optional<ExternalContext> externalContextOptional;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
+  private final long taskStartMs = 600000L; // The amount of time to wait for a container to start, before killing it
   private final long taskShutdownMs;
   private final String processorId;
   private final ExecutorService containerExcecutorService;
@@ -129,6 +130,7 @@ public class StreamProcessor {
 
   private volatile Throwable containerException = null;
 
+  private CountDownLatch containerStartLatch = new CountDownLatch(1);
   volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
 
   /**
@@ -401,11 +403,23 @@ public class StreamProcessor {
       public void onNewJobModel(String processorId, JobModel jobModel) {
         synchronized (lock) {
           if (state == State.IN_REBALANCE) {
+            containerStartLatch = new CountDownLatch(1);
             containerShutdownLatch = new CountDownLatch(1);
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
             containerExcecutorService.submit(container);
+
+            try {
+              LOGGER.info("Waiting {} ms for the container: {} to startup.", taskStartMs, container);
+
+              if(!containerStartLatch.await(taskStartMs, TimeUnit.MILLISECONDS)) {
+                LOGGER.error("Timed out {} ms while waiting for the container: {} to startup. Interrupting the container: {} thread to die", taskStartMs, container, container);
+                containerExcecutorService.shutdownNow();
+              }
+            } catch (InterruptedException e) {
+              LOGGER.error("Exception occurred when starting the container: {}.", container, e);
+            }
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -468,6 +482,7 @@ public class StreamProcessor {
     @Override
     public void afterStart() {
       LOGGER.warn("Received container start notification for container: {} in stream processor: {}.", container, processorId);
+      containerStartLatch.countDown();
       if (!processorOnStartCalled) {
         processorListener.afterStart();
         processorOnStartCalled = true;
