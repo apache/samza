@@ -413,7 +413,7 @@ public class StreamProcessor {
             try {
               LOGGER.info("Waiting {} ms for the container: {} to startup.", taskStartMs, container);
 
-              if(!containerStartLatch.await(taskStartMs, TimeUnit.MILLISECONDS)) {
+              if (!containerStartLatch.await(taskStartMs, TimeUnit.MILLISECONDS)) {
                 LOGGER.error("Timed out {} ms while waiting for the container: {} to startup. Interrupting the container: {} thread to die", taskStartMs, container, container);
                 containerExcecutorService.shutdownNow();
               }
