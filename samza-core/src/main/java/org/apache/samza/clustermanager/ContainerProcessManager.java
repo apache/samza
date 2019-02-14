@@ -79,6 +79,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final AbstractContainerAllocator containerAllocator;
   private final Thread allocatorThread;
 
+  // The StandbyContainerManager manages standby-aware allocation and failover of containers
+  private final Optional<StandbyContainerManager> standbyContainerManager;
+
   /**
    * A standard interface to request resources.
    */
@@ -117,6 +120,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
     this.containerAllocator = allocator;
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    this.standbyContainerManager = Optional.empty();
   }
 
   public ContainerProcessManager(Config config,
@@ -132,8 +136,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
 
+    if (jobConfig.getStandbyTasksEnabled()) {
+      this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
+    } else {
+      this.standbyContainerManager = Optional.empty();
+    }
+
     if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, state);
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
     } else {
       this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
     }
@@ -157,10 +167,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     this.clusterResourceManager = resourceManager;
     this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
-
+    this.standbyContainerManager = Optional.empty();
 
     if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, state);
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
     } else {
       this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
     }
@@ -300,7 +310,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.jobHealthy.set(false);
 
         // handle container stop due to node fail
-        this.handleContainerStop(containerId, containerStatus.getResourceID(), ResourceRequestState.ANY_HOST);
+        this.handleContainerStop(containerId, containerStatus.getResourceID(), ResourceRequestState.ANY_HOST, exitStatus);
         break;
 
       default:
@@ -373,7 +383,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         }
 
         if (!tooManyFailedContainers) {
-          handleContainerStop(containerId, containerStatus.getResourceID(), lastSeenOn);
+          handleContainerStop(containerId, containerStatus.getResourceID(), lastSeenOn, exitStatus);
         }
 
     }
@@ -428,10 +438,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     String containerId = getPendingContainerId(resource.getResourceID());
     log.info("Failed container ID: {} for resourceId: {}", containerId, resource.getResourceID());
 
-    // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host.
-    if (containerId != null) {
+    // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host, if standby are not enabled
+    // otherwise calling standbyContainerManager
+    if (containerId != null && standbyContainerManager.isPresent()) {
+      this.standbyContainerManager.get().handleContainerLaunchFail(containerId, resource.getResourceID(), containerAllocator);
+    } else if (containerId != null) {
       log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      containerAllocator.requestResourceDueToLaunchFailOrExpiredRequest(containerId);
+      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
     } else {
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
           "not issued", resource);
@@ -484,107 +497,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     return null;
   }
 
-
-  // We handle failure of containers,
-  // 0. for ActiveContainers, which failed due to "unknown" reason, we start them on the preferred host which are to be re-started on a preferredHost
-  // 1. for ActiveContainers and instead choose a StandbyContainer to stop
-  // 2. for a StandbyContainer (after it has been chosen for failover), to put the active on the standby's host
-  // and request another resource for the standby
-  // 3. for a standbyContainer (if not for a failover)
-  public void handleContainerStop(String containerID, String resourceID, String preferredHost) {
-
-    // If StandbyTasks are not enabled, we simply forward the resource requests
-    if (!jobConfig.getStandbyTasksEnabled()) {
-      containerAllocator.requestResource(containerID, preferredHost);
+  private void handleContainerStop(String containerID, String resourceID, String preferredHost, int exitStatus) {
+    if (standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerStop(containerID, resourceID, preferredHost, exitStatus, containerAllocator);
       return;
     }
 
-    // If its an anyhost request for an active container, then we select a standby container to stop and place this activeContainer on that standby's host
-    // we may have already chosen a standby (which didnt work for a failover)
-    if (!StandbyTaskUtil.isStandbyContainer(containerID)) {
-
-      if (preferredHost.equals(ResourceRequestState.ANY_HOST))
-        initiateActiveContainerFailover(containerID, resourceID);
-      else {
-        // If its a preferred-host request for an active container, we proceed with it asis
-        log.info("Requesting resource for active-container {} on host {}", containerID, preferredHost);
-        containerAllocator.requestResource(containerID, preferredHost);
-        return;
-      }
-    } else {
-
-      // handle stop for a standy container, we need to check if we stopped the container for failover
-      handleStandbyContainerStop(containerID, resourceID, preferredHost);
-    }
+    // If StandbyTasks are not enabled, we simply make a request for the preferredHost
+    containerAllocator.requestResource(containerID, preferredHost);
   }
-
-  /** Method to handle failover for an active container.
-   *  We try to find a standby for the active container, and issue a stop on it.
-   *  If we do not find a standby container, we simply issue an anyhost request to place it.
-   *
-   * @param containerID the containerID of the active container
-   */
-  private void initiateActiveContainerFailover(String containerID, String resourceID) {
-    Optional<Entry<String, SamzaResource>> standbyContainer = state.standbyContainerState.selectStandby(containerID, resourceID, this.state);
-
-    // If we find a standbyContainer, we initiate a failover
-    if (standbyContainer.isPresent()) {
-
-      // ResourceID of the active container at the time of its last failure
-      String standbyContainerId = standbyContainer.get().getKey();
-      SamzaResource standbyResource = standbyContainer.get().getValue();
-      String standbyResourceID = standbyResource.getResourceID();
-      String standbyHost = standbyResource.getHost();
-
-      // update the failover state
-      state.standbyContainerState.initiatedFailover(containerID, resourceID, standbyResourceID, standbyHost);
-      log.info("initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
-          + "for active container {}", standbyContainerId, standbyResourceID, containerID);
-      state.failoversToStandby.incrementAndGet();
-
-      this.clusterResourceManager.stopStreamProcessor(standbyResource);
-      return;
-
-    } else {
-
-      // If we dont find a standbyContainer, we proceed with the ANYHOST request
-      log.info("No standby container found for active container {}, making a request for {}", containerID, ResourceRequestState.ANY_HOST);
-      state.failoversToAnyHost.incrementAndGet();
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
-      return;
-    }
-  }
-
-  /**
-   *  If the resource request is for a standby container, then either
-   *    a. during a failover, the standby container was stopped for an active's start, then
-   *       1. request a resource on the standby's host to place the activeContainer, and
-   *       2. request anyhost to place this standby
-   *
-   *    b. independent of a failover, the standby container stopped for some reason, in which proceed with its resource-request
-   * @param containerID
-   * @param preferredHost
-   */
-  private void handleStandbyContainerStop(String containerID, String resourceID, String preferredHost) {
-    Optional<StandbyContainerState.FailoverMetadata> failoverMetadata = state.standbyContainerState.checkIfUsedForFailover(resourceID);
-
-    if (failoverMetadata.isPresent()) {
-      String activeContainerID = failoverMetadata.get().activeContainerID;
-      String standbyContainerHostname = failoverMetadata.get().getStandbyContainerHostname(resourceID);
-
-      log.info("Requesting resource for active container {} on host {}, and backup container {} on any host",
-          activeContainerID, standbyContainerHostname, containerID);
-
-      state.standbyStopsComplete.incrementAndGet();
-
-      containerAllocator.requestResource(activeContainerID, standbyContainerHostname); // request standbycontainer's host for active-container
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST); // request anyhost for standby container
-      return;
-    } else {
-      log.info("Issuing request for standby container {} on host {}, since this is not for a failover", containerID, preferredHost);
-      containerAllocator.requestResource(containerID, preferredHost);
-      return;
-    }
-  }
-
 }

@@ -169,11 +169,7 @@ public class SamzaApplicationState {
    */
   public final AtomicInteger standbyStopsComplete = new AtomicInteger(0);
 
-  // State concerning all container standbyContainerState
-  public final StandbyContainerState standbyContainerState;
-
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
-    this.standbyContainerState = new StandbyContainerState(jobModelManager.jobModel());
   }
 }

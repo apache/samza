@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.slf4j.Logger;
@@ -46,11 +47,13 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    * Tracks the expiration of a request for resources.
    */
   private final int requestTimeout;
+  private final Optional<StandbyContainerManager> standbyContainerManager;
 
   public HostAwareContainerAllocator(ClusterResourceManager manager ,
-      int timeout, Config config, SamzaApplicationState state) {
+      int timeout, Config config, Optional<StandbyContainerManager> standbyContainerManager, SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
+    this.standbyContainerManager = standbyContainerManager;
   }
 
   /**
