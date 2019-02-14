@@ -416,9 +416,15 @@ public class StreamProcessor {
               if (!containerStartLatch.await(taskStartMs, TimeUnit.MILLISECONDS)) {
                 LOGGER.error("Timed out {} ms while waiting for the container: {} to startup. Interrupting the container: {} thread to die", taskStartMs, container, container);
                 containerExcecutorService.shutdownNow();
+                state = State.STOPPED;
+                jobCoordinator.stop();
+                processorListener.afterFailure(new TimeoutException("Container start timed out after "+taskStartMs+ " ms"));
               }
             } catch (InterruptedException e) {
               LOGGER.error("Exception occurred when starting the container: {}.", container, e);
+              state = State.STOPPED;
+              jobCoordinator.stop();
+              processorListener.afterFailure(new TimeoutException("Container start timed out after "+taskStartMs+ " ms"));
             }
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
