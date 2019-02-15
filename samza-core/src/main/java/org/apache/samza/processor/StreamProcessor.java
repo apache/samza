@@ -130,7 +130,7 @@ public class StreamProcessor {
 
   private volatile Throwable containerException = null;
 
-  private CountDownLatch containerStartLatch = new CountDownLatch(1);
+  private volatile CountDownLatch containerStartLatch = new CountDownLatch(1);
   volatile CountDownLatch containerShutdownLatch = new CountDownLatch(1);
 
   /**
