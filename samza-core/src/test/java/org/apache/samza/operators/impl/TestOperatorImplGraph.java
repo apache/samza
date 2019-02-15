@@ -20,7 +20,6 @@
 package org.apache.samza.operators.impl;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import org.apache.samza.Partition;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
@@ -674,7 +673,7 @@ public class TestOperatorImplGraph {
       }
 
       if (perTaskCloseList.get(this.taskName) == null) {
-        perTaskCloseList.put(taskName, Collections.singletonList(opId));
+        perTaskCloseList.put(taskName, new ArrayList<>(Collections.singletonList(opId)));
       } else {
         perTaskCloseList.get(taskName).add(opId);
       }
@@ -686,7 +685,7 @@ public class TestOperatorImplGraph {
     public void init(Context context) {
       TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
       if (perTaskFunctionMap.get(taskName) == null) {
-        perTaskFunctionMap.put(taskName, ImmutableMap.of(opId, BaseTestFunction.this));
+        perTaskFunctionMap.put(taskName, new HashMap<>(Collections.singletonMap(opId, BaseTestFunction.this)));
       } else {
         if (perTaskFunctionMap.get(taskName).containsKey(opId)) {
           throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
@@ -694,7 +693,7 @@ public class TestOperatorImplGraph {
         perTaskFunctionMap.get(taskName).put(opId, this);
       }
       if (perTaskInitList.get(taskName) == null) {
-        perTaskInitList.put(taskName, Collections.singletonList(opId));
+        perTaskInitList.put(taskName, new ArrayList<>(Collections.singletonList(opId)));
       } else {
         perTaskInitList.get(taskName).add(opId);
       }
