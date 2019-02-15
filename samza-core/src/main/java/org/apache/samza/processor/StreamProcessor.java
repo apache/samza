@@ -35,6 +35,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ApplicationContainerContext;
@@ -121,7 +122,9 @@ public class StreamProcessor {
   private final Optional<ExternalContext> externalContextOptional;
   private final Map<String, MetricsReporter> customMetricsReporter;
   private final Config config;
-  private final long taskStartMs = 600000L; // The amount of time to wait for a container to start, before killing it
+  private final long taskStartMs;
+  // The amount of time to wait for a container to start, before killing it, it is set to the BarrierTimeout minus the containerShutdownTimeout
+  // Because in the worst case, a jobModel change will involve the shutdown of a container and a start of another container
   private final long taskShutdownMs;
   private final String processorId;
   private final ExecutorService containerExcecutorService;
@@ -244,12 +247,15 @@ public class StreamProcessor {
     this.applicationDefinedTaskContextFactoryOptional = applicationDefinedTaskContextFactoryOptional;
     this.externalContextOptional = externalContextOptional;
     this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
+    // the timeout for containerStart is set to the BarrierTimeout minus the containerShutdownTimeout
+    this.taskStartMs = (new ZkConfig(config)).getZkBarrierTimeoutMs() - taskShutdownMs;
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
     this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
     this.processorListener = listenerFactory.createInstance(this);
+    LOGGER.info("Created StreamProcessor with taskStartMs {}, taskShutdownMs {}.", this.taskStartMs, this.taskShutdownMs);
   }
 
   /**
