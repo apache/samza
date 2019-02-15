@@ -418,13 +418,15 @@ public class StreamProcessor {
                 containerExcecutorService.shutdownNow();
                 state = State.STOPPED;
                 jobCoordinator.stop();
-                processorListener.afterFailure(new TimeoutException("Container start timed out after "+taskStartMs+ " ms"));
+                processorListener.afterFailure(
+                    new TimeoutException("Container start timed out after " + taskStartMs + " ms"));
               }
             } catch (InterruptedException e) {
               LOGGER.error("Exception occurred when starting the container: {}.", container, e);
               state = State.STOPPED;
               jobCoordinator.stop();
-              processorListener.afterFailure(new TimeoutException("Container start timed out after "+taskStartMs+ " ms"));
+              processorListener.afterFailure(
+                  new TimeoutException("Container start timed out after " + taskStartMs + " ms"));
             }
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
