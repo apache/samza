@@ -45,7 +45,7 @@ public class LocalJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalJobPlanner.class);
   private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
 
-  private final String uid = UUID.randomUUID().toString();;
+  private final String uid = UUID.randomUUID().toString();
 
   public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
     super(descriptor);

@@ -840,8 +840,7 @@ public class TestExecutionPlanner {
           intermediateStreams.remove(edge.getStreamSpec().getId());
         }
       });
-    assertEquals(new HashSet<String>() { { this.add(intermediateStream1); this.add(intermediateBroadcast); } }.toArray(),
-        intermediateStreams.toArray());
+    assertEquals(new HashSet<>(Arrays.asList(intermediateStream1, intermediateBroadcast)), intermediateStreams);
   }
 
   @Test

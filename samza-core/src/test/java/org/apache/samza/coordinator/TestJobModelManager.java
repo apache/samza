@@ -125,7 +125,7 @@ public class TestJobModelManager {
     Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
     this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
 
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", "abc-affinity"); } });
+    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), ImmutableMap.of("0", "abc-affinity"));
   }
 
   @Test
@@ -157,7 +157,7 @@ public class TestJobModelManager {
 
     this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
 
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", null); } });
+    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), Collections.singletonMap("0", null));
   }
 
   @Test
