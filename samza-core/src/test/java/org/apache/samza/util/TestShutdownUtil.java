@@ -41,9 +41,9 @@ public class TestShutdownUtil {
     };
     long start = System.currentTimeMillis();
     Assert.assertTrue("expect the shutdown task to terminate",
-        ShutdownUtil.boundedShutdown(Collections.singletonList(shortRunnable), "testLongTimeout", longTimeout));
+        ShutdownUtil.boundedExecution(Collections.singletonList(shortRunnable), "testLongTimeout", longTimeout));
     long end = System.currentTimeMillis();
-    Assert.assertTrue("boundedShutdown should complete if the shutdown function completes earlier",
+    Assert.assertTrue("boundedExecution should complete if the shutdown function completes earlier",
         (end - start) < longTimeout / 2);
 
     Runnable longRunnable = () -> {
@@ -55,9 +55,9 @@ public class TestShutdownUtil {
     };
     start = System.currentTimeMillis();
     Assert.assertFalse("expect the shutdown task to be unfinished",
-        ShutdownUtil.boundedShutdown(Collections.singletonList(longRunnable), "testShortTimeout", shortTimeout));
+        ShutdownUtil.boundedExecution(Collections.singletonList(longRunnable), "testShortTimeout", shortTimeout));
     end = System.currentTimeMillis();
-    Assert.assertTrue("boundedShutdown should complete even if the shutdown function takes long time",
+    Assert.assertTrue("boundedExecution should complete even if the shutdown function takes long time",
         (end - start) < longTimeout / 2);
   }
 }
