@@ -19,6 +19,7 @@
 
 package org.apache.samza.task;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,6 +42,8 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
@@ -48,6 +51,7 @@ import org.apache.samza.system.TestSystemConsumers;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
+import org.mockito.Mockito;
 import scala.Option;
 import scala.collection.JavaConverters;
 
@@ -638,7 +642,9 @@ public class TestAsyncRunLoop {
 
     HashMap<String, SystemConsumer> systemConsumerMap = new HashMap<>();
     systemConsumerMap.put("system1", mockConsumer);
-    SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap);
+    SystemAdmins systemAdmins = new SystemAdmins(ImmutableMap.of("testSystem", Mockito.mock(SystemAdmin.class), "system1", Mockito.mock(SystemAdmin.class)));
+
+    SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap, systemAdmins);
 
     TaskName taskName1 = new TaskName("task1");
     TaskName taskName2 = new TaskName("task2");

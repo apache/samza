@@ -38,6 +38,10 @@ public class SystemAdmins {
     this.systemAdminMap = systemConfig.getSystemAdmins();
   }
 
+  public SystemAdmins(Map<String, SystemAdmin> systemAdminMap) {
+    this.systemAdminMap = systemAdminMap;
+  }
+
   /**
    * Creates a new instance of {@link SystemAdmins} with an empty admin mapping.
    * @return New empty instance of {@link SystemAdmins}
