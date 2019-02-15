@@ -75,7 +75,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         // Found allocated container at preferredHost
         log.info("Found a matched-container {} on the preferred host. Running on {}", containerID, preferredHost);
         // Try to launch streamProcessor on this preferredHost if it all standby constraints are met
-        checkStandbyTaskConstraintsAndRunStreamProcessor(request, preferredHost, peekAllocatedResource(preferredHost), state);
+        checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost, peekAllocatedResource(preferredHost));
         state.matchedResourceRequests.incrementAndGet();
       } else {
         log.info("Did not find any allocated resources on preferred host {} for running container id {}",
@@ -86,25 +86,27 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
 
         if (expired) {
           updateExpiryMetrics(request);
-          if (resourceAvailableOnAnyHost) {
-            // if standby is not enabled, request a anyhost request
-            if (!new JobConfig(config).getStandbyTasksEnabled()) {
-              log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(),
-                  request.getPreferredHost());
-              runStreamProcessor(request, ResourceRequestState.ANY_HOST);
-            } else if (StandbyTaskUtil.isStandbyContainer(containerID)) {
-              // only standby resources can be on anyhost rightaway
-              checkStandbyTaskConstraintsAndRunStreamProcessor(request, ResourceRequestState.ANY_HOST,
-                  peekAllocatedResource(ResourceRequestState.ANY_HOST), state);
+
+          if (standbyContainerManager.isPresent()) {
+
+            // if standby is enabled and an alternative-anyhost-resource is available, we try to use it
+            if (resourceAvailableOnAnyHost) {
+              standbyContainerManager.get().handleExpiredResourceRequest(containerID, request, Optional.of(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
             } else {
-              // re-requesting resource for active container
-              resourceRequestState.cancelResourceRequest(request);
-              requestResourceDueToLaunchFailOrExpiredRequest(containerID);
+              standbyContainerManager.get().handleExpiredResourceRequest(containerID, request, Optional.empty(), this, resourceRequestState);
             }
+
           } else {
-            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
-            resourceRequestState.cancelResourceRequest(request);
-            requestResourceDueToLaunchFailOrExpiredRequest(containerID);
+
+            if (resourceAvailableOnAnyHost) {
+              log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
+              runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+            } else {
+              log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
+              resourceRequestState.cancelResourceRequest(request);
+              requestResource(containerID, ResourceRequestState.ANY_HOST);
+            }
+
           }
         } else {
           log.info("Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
@@ -139,52 +141,14 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     }
   }
 
-  // Method to run a container on the given resource if it meets all standby constraints. If not, we re-request resource
-  // for the container (similar to the case when we re-request for a launch-fail or request expiry).
-  private boolean checkStandbyTaskConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost,
-      SamzaResource samzaResource, SamzaApplicationState state) {
-
-    // If standby tasks are not enabled run streamprocessor and return true
-    if (!new JobConfig(config).getStandbyTasksEnabled()) {
+  private void checkStandbyConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost, SamzaResource samzaResource) {
+    // If standby tasks are not enabled run streamprocessor on the given host
+    if (!this.standbyContainerManager.isPresent()) {
       runStreamProcessor(request, preferredHost);
-      return true;
+      return;
     }
 
-    String containerID = request.getContainerID();
-
-    if (state.standbyContainerState.checkStandbyConstraints(request, samzaResource, state.runningContainers, state.pendingContainers)) {
-      // This resource can be used to launch this container
-      log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
-          preferredHost, samzaResource.getHost());
-      runStreamProcessor(request, preferredHost);
-      state.successfulStandbyAllocations.incrementAndGet();
-      return true;
-    } else {
-      // This resource cannot be used to launch this container, so we treat it like a launch fail, and issue an ANY_HOST request
-      log.info("Running container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource, and making a new ANY_HOST request",
-          containerID, samzaResource.getHost());
-      resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
-      resourceRequestState.cancelResourceRequest(request);
-      requestResourceDueToLaunchFailOrExpiredRequest(containerID);
-      state.failedStandbyAllocations.incrementAndGet();
-      return false;
-    }
-  }
-
-
-  /**
-   * Intercept resource requests, which are due to either a launch-failure or resource-request expired or standby
-   * 1. a standby container, we proceed to make a anyhost request
-   * 2. an activeContainer, we try to fail-it-over to a standby
-   * @param containerID Identifier of the container that will be run when a resource is allocated
-   */
-  @Override
-  public void requestResourceDueToLaunchFailOrExpiredRequest(String containerID) {
-    if (StandbyTaskUtil.isStandbyContainer(containerID)) {
-      log.info("Handling rerequesting for container {} using an any host request");
-      super.requestResource(containerID, ResourceRequestState.ANY_HOST); // proceed with a the anyhost request
-    } else {
-      requestResource(containerID, ResourceRequestState.ANY_HOST); // invoke local method & select a new standby if possible
-    }
+    this.standbyContainerManager.get().checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost,
+        samzaResource, this, resourceRequestState);
   }
 }

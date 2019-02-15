@@ -196,17 +196,6 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   *  Method to handle re-requesting of resource for a given container, in cases where
-   *  a prior resource request for the container, expired or the launch failed (due to a startup-fail, or
-   *  standby constraints not being met).
-   * @param containerID Identifier of the container that will be run when a resource is allocated
-   *
-   */
-  public void requestResourceDueToLaunchFailOrExpiredRequest(String containerID) {
-    requestResource(containerID, ResourceRequestState.ANY_HOST);
-  }
-
-  /**
    * Method to request a resource from the cluster manager
    *
    * @param containerID Identifier of the container that will be run when a resource is allocated for

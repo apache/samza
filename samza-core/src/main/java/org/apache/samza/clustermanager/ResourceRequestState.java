@@ -238,6 +238,7 @@ public class ResourceRequestState {
    *
    * @param resource the {@link SamzaResource} to release.
    */
+  is this also being called on containerLaunchFail?
   public void releaseUnstartableContainer(SamzaResource resource, String preferredHost) {
     synchronized (lock) {
       log.info("Releasing unstartable container {} on host {}", resource.getResourceID(), resource.getHost());
