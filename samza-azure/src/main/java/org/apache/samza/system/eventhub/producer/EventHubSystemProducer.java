@@ -59,6 +59,7 @@ import com.microsoft.azure.eventhubs.impl.EventDataImpl;
 public class EventHubSystemProducer extends AsyncSystemProducer {
   private static final Logger LOG = LoggerFactory.getLogger(EventHubSystemProducer.class.getName());
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
+  private static final long DEFAULT_CREATE_PARTITION_SENDER_TIMEOUT_MILLIS = Duration.ofMinutes(1L).toMillis();
 
   public static final String PRODUCE_TIMESTAMP = "produce-timestamp";
   public static final String KEY = "key";
@@ -164,7 +165,7 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
               EventHubClientManager perPartitionClientManager =
                   createOrGetEventHubClientManagerForPartition(streamId, i);
               PartitionSender partitionSender =
-                  perPartitionClientManager.getEventHubClient().createPartitionSenderSync(partitionId);
+                  perPartitionClientManager.getEventHubClient().createPartitionSender(partitionId).get(DEFAULT_CREATE_PARTITION_SENDER_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
               partitionSenders.put(i, partitionSender);
             }
 
