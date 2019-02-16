@@ -132,19 +132,19 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
       try {
         // Consumer calls
         PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
-            .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
-              String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-              startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
-              return CompletableFuture.completedFuture(mockPartitionReceiver);
-            });
+              .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
+                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                  startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
+                  return CompletableFuture.completedFuture(mockPartitionReceiver);
+                });
 
         PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
-            .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
-              String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-              EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
-              startingOffsets.put(partitionId, offset);
-              return CompletableFuture.completedFuture(mockPartitionReceiver);
-            });
+              .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
+                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                  EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
+                  startingOffsets.put(partitionId, offset);
+                  return CompletableFuture.completedFuture(mockPartitionReceiver);
+                });
 
         PowerMockito.when(mockEventHubClient.getPartitionRuntimeInformation(anyString())).thenReturn(partitionFuture);
 

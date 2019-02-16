@@ -282,7 +282,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
           // If no such offset exists Eventhub will return an error.
           receiver = eventHubClientManager.getEventHubClient()
               .createReceiver(consumerGroup, partitionId.toString(),
-                  EventPosition.fromOffset(offset, /* inclusiveFlag */false)).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);;
+                  EventPosition.fromOffset(offset, /* inclusiveFlag */false)).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         receiver.setPrefetchCount(prefetchCount);
