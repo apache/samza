@@ -50,7 +50,7 @@ public class ShutdownUtil {
    * @param timeoutMs timeout in ms
    * @return true if all tasks terminate in the end
    */
-  public static boolean boundedExecution(List<Runnable> shutdownTasks, String message, long timeoutMs) {
+  public static boolean boundedShutdown(List<Runnable> shutdownTasks, String message, long timeoutMs) {
     ExecutorService shutdownExecutorService = Executors.newCachedThreadPool(
         new ThreadFactoryBuilder().setNameFormat(message + "-%d").setDaemon(true).build());
     shutdownTasks.forEach(shutdownExecutorService::submit);

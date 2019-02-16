@@ -29,7 +29,6 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,7 +105,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   // Overall timeout for EventHubClient exponential backoff policy
   private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10);
-  private static final long DEFAULT_INITIALIZE_EVENTHUBSMANAGERS_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
 
   public static final String START_OF_STREAM = ClientConstants.START_OF_STREAM; // -1
@@ -256,13 +254,6 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     return eventHubClientManager;
   }
 
-  private void boundedInitializeEventHubsManagers() {
-    if (!ShutdownUtil.boundedExecution(Collections.singletonList(() -> initializeEventHubsManagers()),
-        "EventHubSystemConsumer.initializeEventHubManagers", DEFAULT_INITIALIZE_EVENTHUBSMANAGERS_TIMEOUT_MILLIS)) {
-      throw new SamzaException("Initializing eventHubManagers timed out after " + DEFAULT_INITIALIZE_EVENTHUBSMANAGERS_TIMEOUT_MILLIS + " ms.");
-    }
-  }
-
   private synchronized void initializeEventHubsManagers() {
     LOG.info("Starting EventHubSystemConsumer. Count of SSPs registered: " + streamPartitionOffsets.entrySet().size());
     eventHubNonTransientError.set(null);
@@ -323,7 +314,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       return;
     }
     isStarted = true;
-    boundedInitializeEventHubsManagers();
+    initializeEventHubsManagers();
     LOG.info("EventHubSystemConsumer started");
   }
 
@@ -363,7 +354,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     try {
       LOG.info("Start to renew eventhubs client");
       shutdownEventHubsManagers(); // The shutdown is in parallel and time bounded
-      boundedInitializeEventHubsManagers();
+      initializeEventHubsManagers();
     } catch (Exception e) {
       LOG.error("Failed to renew eventhubs client", e);
       eventHubNonTransientError.set(e);
@@ -403,7 +394,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
   private synchronized void shutdownEventHubsManagers() {
     // There could be potentially many Receivers and EventHubManagers, so close the managers in parallel
     LOG.info("Start shutting down eventhubs receivers");
-    ShutdownUtil.boundedExecution(streamPartitionReceivers.values().stream().map(receiver ->
+    ShutdownUtil.boundedShutdown(streamPartitionReceivers.values().stream().map(receiver ->
       (Runnable) () -> {
         try {
           receiver.close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
@@ -413,7 +404,7 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       }).collect(Collectors.toList()), "EventHubSystemConsumer.Receiver#close", DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
 
     LOG.info("Start shutting down eventhubs managers");
-    ShutdownUtil.boundedExecution(perPartitionEventHubManagers.values().stream().map(manager ->
+    ShutdownUtil.boundedShutdown(perPartitionEventHubManagers.values().stream().map(manager ->
       (Runnable) () -> {
         try {
           manager.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS);
