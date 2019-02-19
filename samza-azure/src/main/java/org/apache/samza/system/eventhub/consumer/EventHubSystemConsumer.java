@@ -105,6 +105,8 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
 
   // Overall timeout for EventHubClient exponential backoff policy
   private static final Duration DEFAULT_EVENTHUB_RECEIVER_TIMEOUT = Duration.ofMinutes(10);
+  private static final Duration DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT = Duration.ofMinutes(1);
+
   private static final long DEFAULT_SHUTDOWN_TIMEOUT_MILLIS = Duration.ofSeconds(15).toMillis();
 
   public static final String START_OF_STREAM = ClientConstants.START_OF_STREAM; // -1
@@ -274,13 +276,13 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
           // If the offset is greater than the newest offset, use the use current Instant as
           // offset to fetch in Eventhub.
           receiver = eventHubClientManager.getEventHubClient()
-              .createReceiverSync(consumerGroup, partitionId.toString(), EventPosition.fromEnqueuedTime(Instant.now()));
+              .createReceiver(consumerGroup, partitionId.toString(), EventPosition.fromEnqueuedTime(Instant.now())).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         } else {
           // EventHub will return the first message AFTER the offset that was specified in the fetch request.
           // If no such offset exists Eventhub will return an error.
           receiver = eventHubClientManager.getEventHubClient()
-              .createReceiverSync(consumerGroup, partitionId.toString(),
-                  EventPosition.fromOffset(offset, /* inclusiveFlag */false));
+              .createReceiver(consumerGroup, partitionId.toString(),
+                  EventPosition.fromOffset(offset, /* inclusiveFlag */false)).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         receiver.setPrefetchCount(prefetchCount);

@@ -131,24 +131,26 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
 
       try {
         // Consumer calls
-        PowerMockito.when(mockEventHubClient.createReceiverSync(anyString(), anyString(), anyObject()))
-                .then((Answer<PartitionReceiver>) invocationOnMock -> {
-                    String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-                    startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
-                    return mockPartitionReceiver;
-                  });
-        PowerMockito.when(mockEventHubClient.createReceiverSync(anyString(), anyString(), anyObject()))
-                .then((Answer<PartitionReceiver>) invocationOnMock -> {
-                    String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-                    EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
-                    startingOffsets.put(partitionId, offset);
-                    return mockPartitionReceiver;
-                  });
+        PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
+              .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
+                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                  startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
+                  return CompletableFuture.completedFuture(mockPartitionReceiver);
+                });
+
+        PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
+              .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
+                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                  EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
+                  startingOffsets.put(partitionId, offset);
+                  return CompletableFuture.completedFuture(mockPartitionReceiver);
+                });
+
         PowerMockito.when(mockEventHubClient.getPartitionRuntimeInformation(anyString())).thenReturn(partitionFuture);
 
         // Producer calls
-        PowerMockito.when(mockEventHubClient.createPartitionSenderSync("0")).thenReturn(mockPartitionSender0);
-        PowerMockito.when(mockEventHubClient.createPartitionSenderSync("1")).thenReturn(mockPartitionSender1);
+        PowerMockito.when(mockEventHubClient.createPartitionSender("0")).thenReturn(CompletableFuture.completedFuture(mockPartitionSender0));
+        PowerMockito.when(mockEventHubClient.createPartitionSender("1")).thenReturn(CompletableFuture.completedFuture(mockPartitionSender1));
 
         PowerMockito.when(mockEventHubClient.getRuntimeInformation()).thenReturn(future);
 
