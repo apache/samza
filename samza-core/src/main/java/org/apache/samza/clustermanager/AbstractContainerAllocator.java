@@ -55,7 +55,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private final TaskConfig taskConfig;
 
-  protected final Config config;
+  private final Config config;
 
   /**
    * A ClusterResourceManager for the allocator to request for resources.
@@ -202,7 +202,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *                            this request
    * @param preferredHost Name of the host that you prefer to run the container on
    */
-  public void requestResource(String containerID, String preferredHost) {
+  public final void requestResource(String containerID, String preferredHost) {
     SamzaResourceRequest request = new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
         preferredHost, containerID);
     resourceRequestState.addResourceRequest(request);

@@ -568,8 +568,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
       log.info("Re-invoking stop stream processor for container: {}", containerId);
       this.stopStreamProcessor(resource);// For now, we retry the stopping of the container
-      // TODO: Better the handling of stopContainerError in case of standby container, by choosing another standby to
-      // container and try to use that for failover
     } else {
       log.info("Got an invalid notification for container: {}", containerId.toString());
     }
