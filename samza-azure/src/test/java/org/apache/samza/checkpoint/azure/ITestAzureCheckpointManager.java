@@ -19,7 +19,6 @@
 
 package org.apache.samza.checkpoint.azure;
 
-import junit.framework.Assert;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;

@@ -34,6 +34,12 @@ import org.apache.samza.sql.schema.SamzaSqlFieldType;
 public @interface SamzaSqlUdfMethod {
 
   /**
+   * Whether the argument check needs to be disabled. This is useful if the udf takes in
+   * dynamic number of arguments
+   */
+  boolean disableArgumentCheck() default false;
+
+  /**
    * Type of the arguments for the Samza SQL udf method
    */
   SamzaSqlFieldType[] params() default {};

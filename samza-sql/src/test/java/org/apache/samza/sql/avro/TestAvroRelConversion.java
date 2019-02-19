@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.avro;
 
@@ -56,9 +56,10 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
+import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.planner.RelSchemaConverter;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
@@ -194,6 +195,7 @@ public class TestAvroRelConversion {
   @Test
   public void testComplexRecordConversion() throws IOException {
     GenericData.Record record = new GenericData.Record(ComplexRecord.SCHEMA$);
+
     record.put("id", id);
     record.put("bool_value", boolValue);
     record.put("double_value", doubleValue);
@@ -204,6 +206,7 @@ public class TestAvroRelConversion {
     record.put("long_value", longValue);
     record.put("array_values", arrayValue);
     record.put("map_values", mapValue);
+    record.put("union_value", testStrValue);
 
     ComplexRecord complexRecord = new ComplexRecord();
     complexRecord.id = id;
@@ -218,12 +221,14 @@ public class TestAvroRelConversion {
     complexRecord.array_values.addAll(arrayValue);
     complexRecord.map_values = new HashMap<>();
     complexRecord.map_values.putAll(mapValue);
+    complexRecord.union_value = testStrValue;
+
 
     byte[] serializedData = bytesFromGenericRecord(record);
-    validateAvroSerializedData(serializedData);
+    validateAvroSerializedData(serializedData, testStrValue);
 
     serializedData = encodeAvroSpecificRecord(ComplexRecord.class, complexRecord);
-    validateAvroSerializedData(serializedData);
+    validateAvroSerializedData(serializedData, testStrValue);
   }
 
   @Test
@@ -239,7 +244,6 @@ public class TestAvroRelConversion {
     addressRecord.put("streetnum", streetNumRecord);
     record.put("address", addressRecord);
     record.put("selfEmployed", "True");
-
 
     GenericData.Record phoneNumberRecordH = new GenericData.Record(PhoneNumber.SCHEMA$);
     phoneNumberRecordH.put("kind", Kind.Home);
@@ -299,7 +303,6 @@ public class TestAvroRelConversion {
     record.put("address", addressRecord);
     record.put("selfEmployed", "True");
 
-
     List<GenericData.Record> phoneNumbers = null;
     record.put("phoneNumbers", phoneNumbers);
 
@@ -336,11 +339,12 @@ public class TestAvroRelConversion {
     return outputStream.toByteArray();
   }
 
-  private void validateAvroSerializedData(byte[] serializedData) throws IOException {
+  private void validateAvroSerializedData(byte[] serializedData, Object unionValue) throws IOException {
     GenericRecord complexRecordValue = genericRecordFromBytes(serializedData, ComplexRecord.SCHEMA$);
 
     SamzaSqlRelMessage message = complexRecordAvroRelConverter.convertToRelMessage(new KV<>("key", complexRecordValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getFieldNames().size(), ComplexRecord.SCHEMA$.getFields().size() + 1);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getFieldNames().size(),
+        ComplexRecord.SCHEMA$.getFields().size() + 1);
 
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("id").get(), id);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
@@ -348,11 +352,15 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
-    Assert.assertTrue(
-        arrayValue.stream()
-            .map(Utf8::new)
-            .collect(Collectors.toList())
-            .equals(message.getSamzaSqlRelRecord().getField("array_values").get()));
+    if (unionValue instanceof String) {
+      Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), new Utf8((String) unionValue));
+    } else {
+      Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), unionValue);
+    }
+    Assert.assertTrue(arrayValue.stream()
+        .map(Utf8::new)
+        .collect(Collectors.toList())
+        .equals(message.getSamzaSqlRelRecord().getField("array_values").get()));
     Assert.assertTrue(mapValue.entrySet()
         .stream()
         .collect(Collectors.toMap(x -> new Utf8(x.getKey()), y -> new Utf8(y.getValue())))
