@@ -21,6 +21,7 @@ package org.apache.samza.clustermanager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -73,7 +74,7 @@ public class TestHostAwareContainerAllocator {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, state);
+    containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, Optional.empty(), state);
     requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);

@@ -20,7 +20,6 @@ package org.apache.samza.clustermanager;
 
 import java.util.Optional;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
