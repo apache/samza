@@ -164,11 +164,6 @@ public class SamzaApplicationState {
   */
   public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
 
-  /**
-   * Number of stops of standby containers that completed.
-   */
-  public final AtomicInteger standbyStopsComplete = new AtomicInteger(0);
-
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
   }

@@ -140,8 +140,6 @@ public class StandbyContainerManager {
       log.info("Requesting resource for active container {} on host {}, and backup container {} on any host",
           activeContainerID, standbyContainerHostname, standbyContainerID);
 
-      samzaApplicationState.standbyStopsComplete.incrementAndGet();
-
       containerAllocator.requestResource(activeContainerID,
           standbyContainerHostname); // request standbycontainer's host for active-container
       containerAllocator.requestResource(standbyContainerID,
