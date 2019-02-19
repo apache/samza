@@ -139,6 +139,39 @@ public class TestContainerAllocator {
   }
 
   /**
+   * Test requestContainers with containerToHostMapping with host.affinity disabled
+   */
+  @Test
+  public void testRequestContainersWithExistingHosts() throws Exception {
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
+      {
+        put("0", "prev_host");
+        put("1", "prev_host");
+        put("2", "prev_host");
+        put("3", "prev_host");
+      }
+    };
+
+    allocatorThread.start();
+
+    containerAllocator.requestResources(containersToHostMapping);
+
+    assertEquals(4, manager.resourceRequests.size());
+
+    assertNotNull(requestState);
+
+    assertEquals(requestState.numPendingRequests(), 4);
+
+    // If host-affinty is not enabled, it doesn't update the requestMap
+    assertNotNull(requestState.getRequestsToCountMap());
+    assertEquals(requestState.getRequestsToCountMap().keySet().size(), 0);
+
+    assertNotNull(state);
+    assertEquals(state.anyHostRequests.get(), 4);
+    assertEquals(state.preferredHostRequests.get(), 0);
+  }
+
+  /**
    * Test request containers with no containerToHostMapping makes the right number of requests
    */
   @Test

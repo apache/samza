@@ -55,6 +55,8 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private final TaskConfig taskConfig;
 
+  private final ClusterManagerConfig clusterManagerConfig;
+
   private final Config config;
 
   /**
@@ -92,6 +94,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
     this.containerNumCpuCores = clusterManagerConfig.getNumCores();
     this.taskConfig = new TaskConfig(config);
+    this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.state = state;
     this.config = config;
   }
@@ -171,7 +174,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     for (Map.Entry<String, String> entry : resourceToHostMappings.entrySet()) {
       String containerId = entry.getKey();
       String preferredHost = entry.getValue();
-      if (preferredHost == null)
+      if (preferredHost == null || !clusterManagerConfig.getHostAffinityEnabled())
         preferredHost = ResourceRequestState.ANY_HOST;
 
       requestResource(containerId, preferredHost);
