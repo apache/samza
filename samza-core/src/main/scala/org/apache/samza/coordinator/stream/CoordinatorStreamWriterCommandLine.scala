@@ -19,8 +19,12 @@
 
 package org.apache.samza.coordinator.stream
 
+import java.util
+
 import org.apache.samza.util.CommandLine
 import joptsimple.OptionSet
+import org.apache.samza.config.{ApplicationConfig, JobConfig, MapConfig}
+import org.apache.samza.job.JobRunner.{info, warn, _}
 
 class CoordinatorStreamWriterCommandLine extends CommandLine {
 
@@ -67,5 +71,28 @@ class CoordinatorStreamWriterCommandLine extends CommandLine {
     }
 
     value
+  }
+
+  def genJobConfigs(config: MapConfig): MapConfig = {
+    var genConfig = new util.HashMap[String, String](config)
+
+    if (genConfig.containsKey(JobConfig.JOB_ID))
+      warn("%s is a deprecated configuration, use %s instead." format(JobConfig.JOB_ID, ApplicationConfig.APP_ID))
+
+    if (genConfig.containsKey(JobConfig.JOB_NAME))
+      warn("%s is a deprecated configuration, use %s instead." format(JobConfig.JOB_NAME, ApplicationConfig.APP_NAME))
+
+    if (genConfig.containsKey(ApplicationConfig.APP_NAME)) {
+      val appName = genConfig.get(ApplicationConfig.APP_NAME)
+      info("app.name is defined, setting job.name equal to app.name value: %s" format(appName))
+      genConfig.put(JobConfig.JOB_NAME, appName)
+    }
+
+    if (genConfig.containsKey(ApplicationConfig.APP_ID)) {
+      val appId = genConfig.get(ApplicationConfig.APP_ID)
+      info("app.id is defined, setting job.id equal to app.name value: %s" format(appId))
+      genConfig.put(JobConfig.JOB_ID, appId)
+    }
+    new MapConfig(genConfig)
   }
 }

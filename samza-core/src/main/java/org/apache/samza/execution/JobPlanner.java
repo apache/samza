@@ -172,18 +172,18 @@ public abstract class JobPlanner {
     }
 
     if (allowedUserConfig.containsKey(JobConfig.JOB_NAME())) {
-      LOG.warn("{} is a deprecated configuration, use use job.name instead.", JobConfig.JOB_NAME());
+      LOG.warn("{} is a deprecated configuration, use use app.name instead.", JobConfig.JOB_NAME());
     }
 
     if (allowedUserConfig.containsKey(ApplicationConfig.APP_NAME)) {
       String appName =  allowedUserConfig.get(ApplicationConfig.APP_NAME);
-      LOG.warn("app.name is defined, setting job.name equal to app.name value: {}", appName);
+      LOG.info("app.name is defined, setting job.name equal to app.name value: {}", appName);
       allowedUserConfig.put(JobConfig.JOB_NAME(), appName);
     }
 
     if (allowedUserConfig.containsKey(ApplicationConfig.APP_ID)) {
       String appId =  allowedUserConfig.get(ApplicationConfig.APP_ID);
-      LOG.warn("app.id is defined, setting job.id equal to app.name value: {}", appId);
+      LOG.info("app.id is defined, setting job.id equal to app.name value: {}", appId);
       allowedUserConfig.put(JobConfig.JOB_ID(), appId);
     }
   }

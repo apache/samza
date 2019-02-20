@@ -20,18 +20,15 @@
 package org.apache.samza.checkpoint
 
 import java.net.URI
+import java.util
 import java.util.regex.Pattern
-
 import joptsimple.ArgumentAcceptingOptionSpec
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigRewriter
-import org.apache.samza.config.JobConfig
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config._
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.JobRunner._
+import org.apache.samza.job.JobRunner.{info, warn, _}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.CommandLine
@@ -39,12 +36,10 @@ import org.apache.samza.util.Logging
 import org.apache.samza.util.Util
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
-
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.storage.ChangelogStreamManager
-
 import scala.collection.mutable.ListBuffer
 
 
@@ -126,6 +121,29 @@ object CheckpointTool {
       }
       config
     }
+
+    def genJobConfigs(config: MapConfig): MapConfig = {
+      var genConfig = new util.HashMap[String, String](config)
+
+      if (genConfig.containsKey(JobConfig.JOB_ID))
+        warn("%s is a deprecated configuration, use %s instead." format(JobConfig.JOB_ID, ApplicationConfig.APP_ID))
+
+      if (genConfig.containsKey(JobConfig.JOB_NAME))
+        warn("%s is a deprecated configuration, use %s instead." format(JobConfig.JOB_NAME, ApplicationConfig.APP_NAME))
+
+      if (genConfig.containsKey(ApplicationConfig.APP_NAME)) {
+        val appName = genConfig.get(ApplicationConfig.APP_NAME)
+        info("app.name is defined, setting job.name equal to app.name value: %s" format(appName))
+        genConfig.put(JobConfig.JOB_NAME, appName)
+      }
+
+      if (genConfig.containsKey(ApplicationConfig.APP_ID)) {
+        val appId = genConfig.get(ApplicationConfig.APP_ID)
+        info("app.id is defined, setting job.id equal to app.name value: %s" format(appId))
+        genConfig.put(JobConfig.JOB_ID, appId)
+      }
+      new MapConfig(genConfig)
+    }
   }
 
   def apply(config: Config, offsets: TaskNameToCheckpointMap): CheckpointTool = {
@@ -153,7 +171,8 @@ object CheckpointTool {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
-    val rewrittenConfig = rewriteConfig(new JobConfig(config))
+    val mergedConfig = cmdline.genJobConfigs(config)
+    val rewrittenConfig = rewriteConfig(new JobConfig(mergedConfig))
     info(s"Using the rewritten config: $rewrittenConfig")
     val tool = CheckpointTool(rewrittenConfig, cmdline.newOffsets)
     tool.run()

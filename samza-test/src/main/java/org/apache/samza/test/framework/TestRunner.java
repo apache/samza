@@ -34,6 +34,7 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -104,7 +105,7 @@ public class TestRunner {
   private TestRunner() {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
-    configs.put(JobConfig.JOB_NAME(), JOB_NAME);
+    configs.put(ApplicationConfig.APP_NAME, JOB_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());

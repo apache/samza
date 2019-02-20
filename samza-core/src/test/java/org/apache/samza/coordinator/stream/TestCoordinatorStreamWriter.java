@@ -50,9 +50,10 @@ public class TestCoordinatorStreamWriter {
 
     Map<String, String> configMap = new HashMap<>();
     configMap.put("systems.coordinatorStreamWriter.samza.factory", "org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory");
-    configMap.put("job.name", "coordinator-stream-writer-test");
+    configMap.put("app.name", "coordinator-stream-writer-test");
     configMap.put("job.coordinator.system", "coordinatorStreamWriter");
-    Config config = new MapConfig(configMap);
+    CoordinatorStreamWriterCommandLine cswl = new CoordinatorStreamWriterCommandLine();
+    Config config = cswl.genJobConfigs(new MapConfig(configMap));
     coordinatorStreamWriter = new CoordinatorStreamWriter(config);
     boolean exceptionHappened = false;
 
