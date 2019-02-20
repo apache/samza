@@ -32,6 +32,7 @@ import org.apache.samza.sql.util.JsonUtil;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.sql.util.RemoteStoreIOResolverTestFactory;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 
@@ -52,6 +53,8 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
+  // SAMZA-2110 We need to enable this when we have a true support for Null records
+  @Ignore
   @Test
   public void testSinkEndToEndWithKeyWithNullRecords() {
     int numMessages = 20;
@@ -212,6 +215,8 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
+  // SAMZA-2110 We need to enable this when we have a true support for null records.
+  @Ignore
   @Test
   public void testSameJoinTargetSinkEndToEndRightOuterJoin() {
     int numMessages = 21;

@@ -153,7 +153,6 @@ public class AvroRelConverter implements SamzaRelConverter {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();
-    int nullFieldValueCount = 0;
     for (int index = 0; index < fieldNames.size(); index++) {
       if (!fieldNames.get(index).equalsIgnoreCase(SamzaSqlRelMessage.KEY_NAME)) {
         String fieldName = fieldNames.get(index);
@@ -167,26 +166,19 @@ public class AvroRelConverter implements SamzaRelConverter {
          * We ignore the fields which doesn't have corresponding schema in the output topic.
          */
         if (schema.getField(fieldName) == null) {
-          nullFieldValueCount++;
           LOG.debug("Schema with Name {} and Namespace {} doesn't contain the fieldName {}, Skipping it.",
               schema.getName(), schema.getNamespace(), fieldName);
           continue;
         }
 
         Object relObj = values.get(index);
-        if (relObj == null) {
-          nullFieldValueCount++;
-        }
         Schema fieldSchema = schema.getField(fieldName).schema();
         record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
-      } else {
-        // Count key towards null field values for accounting purposes.
-        nullFieldValueCount++;
       }
     }
 
     // If all field values in the record are null, return a null record.
-    return (nullFieldValueCount == fieldNames.size()) ? null : record;
+    return record;
   }
 
   static public Object convertToAvroObject(Object relObj, Schema schema) {
