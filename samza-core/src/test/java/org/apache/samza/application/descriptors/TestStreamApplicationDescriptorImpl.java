@@ -428,32 +428,32 @@ public class TestStreamApplicationDescriptorImpl {
   @Test
   public void testGetNextOpIdIncrementsId() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_NAME, "jobName");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
     configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
-    assertEquals("jobName-1234-merge-0", streamAppDesc.getNextOpId(OpCode.MERGE, null));
-    assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
-    assertEquals("jobName-1234-map-2", streamAppDesc.getNextOpId(OpCode.MAP, null));
+    assertEquals("appName-1234-merge-0", streamAppDesc.getNextOpId(OpCode.MERGE, null));
+    assertEquals("appName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
+    assertEquals("appName-1234-map-2", streamAppDesc.getNextOpId(OpCode.MAP, null));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetNextOpIdRejectsDuplicates() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_NAME, "jobName");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
     configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
-    assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
+    assertEquals("appName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
     streamAppDesc.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
 
   @Test
   public void testOpIdValidation() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_NAME, "jobName");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
     configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 

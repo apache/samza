@@ -122,7 +122,7 @@ public class CoordinatorStreamWriter {
     String key = cmdline.loadKey(options);
     String value = cmdline.loadValue(options);
 
-    CoordinatorStreamWriter writer = new CoordinatorStreamWriter(generatedConfig);
+    CoordinatorStreamWriter writer = new CoordinatorStreamWriter(new MapConfig(generatedConfig, userConfig));
     writer.start();
     writer.sendMessage(type, key, value);
     writer.stop();
