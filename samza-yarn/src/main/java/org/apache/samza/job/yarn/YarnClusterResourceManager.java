@@ -227,7 +227,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    log.info("Requesting resources on  " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
+    log.info("Requesting resources on " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
 
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();

@@ -204,8 +204,7 @@ public class StandbyContainerManager {
   private Optional<Entry<String, SamzaResource>> selectStandby(String activeContainerID,
       String activeContainerResourceID) {
 
-    log.info("Standby containers available {} for active container {}",
-        this.standbyContainerConstraints.get(activeContainerID), activeContainerID);
+    log.info("Standby containers {} for active container {}", this.standbyContainerConstraints.get(activeContainerID), activeContainerID);
 
     // obtain any existing failover metadata
     Optional<StandbyContainerManager.FailoverMetadata> failoverMetadata =
@@ -319,8 +318,7 @@ public class StandbyContainerManager {
 
     if (checkStandbyConstraints(request, samzaResource)) {
       // This resource can be used to launch this container
-      log.info("Running container {} on preferred host {} meets standby constraints, launching on {}", containerID,
-          preferredHost, samzaResource.getHost());
+      log.info("Running container {} on {} meets standby constraints, preferredHost = {}", containerID, samzaResource.getHost(), preferredHost);
       containerAllocator.runStreamProcessor(request, preferredHost);
       samzaApplicationState.successfulStandbyAllocations.incrementAndGet();
 
