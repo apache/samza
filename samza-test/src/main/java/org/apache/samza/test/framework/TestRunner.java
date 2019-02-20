@@ -81,7 +81,7 @@ import org.slf4j.LoggerFactory;
  *  <ol>
  *    <li>"job.coordination.factory" = {@link PassthroughJobCoordinatorFactory}</li>
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
- *    <li>"job.name" = "test-samza"</li>
+ *    <li>"app.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
  *    <li>"job.default.system" = {@code JOB_DEFAULT_SYSTEM}</li>
  *    <li>"job.host-affinity.enabled" = "false"</li>
@@ -92,7 +92,7 @@ import org.slf4j.LoggerFactory;
 public class TestRunner {
   private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
   private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
-  private static final String JOB_NAME = "samza-test";
+  private static final String APP_NAME = "samza-test";
 
   private Map<String, String> configs;
   private SamzaApplication app;
@@ -105,7 +105,7 @@ public class TestRunner {
   private TestRunner() {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
-    configs.put(ApplicationConfig.APP_NAME, JOB_NAME);
+    configs.put(ApplicationConfig.APP_NAME, APP_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());

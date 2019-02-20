@@ -46,6 +46,7 @@ import org.scalatest.mockito.MockitoSugar
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.util.JobConfigUtil
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = _
@@ -78,7 +79,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
 
   @Before
   def setup() {
-    config = new MapConfig(Map(
+    val userDefinedConfig: MapConfig = new MapConfig(Map(
       ApplicationConfig.APP_NAME -> "test",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       TaskConfig.INPUT_STREAMS -> "test.foo",
@@ -86,9 +87,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getName,
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
-    ).asJava)
-    val ccl = new CheckpointToolCommandLine
-    config = ccl.genJobConfigs(config)
+    ).asJava);
+    val generatedJobConfig = JobConfigUtil.generateJobIdAndName(userDefinedConfig);
+    config = new MapConfig(userDefinedConfig, generatedJobConfig)
     val metadata = new SystemStreamMetadata("foo", Map[Partition, SystemStreamPartitionMetadata](
       new Partition(0) -> new SystemStreamPartitionMetadata("0", "100", "101"),
       new Partition(1) -> new SystemStreamPartitionMetadata("0", "200", "201")
@@ -146,7 +147,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     val offsetMap: TaskNameToCheckpointMap = Map(tn0 -> Map(new SystemStreamPartition("test", "foo", p0) -> "42"),
       tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"))
     val coordinatorStreamManager = mock[CoordinatorStreamManager]
-    val userDefinedConfig: Config = new MapConfig(Map(
+    val userDefinedConfig: MapConfig = new MapConfig(Map(
       ApplicationConfig.APP_NAME -> "test",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       TaskConfig.INPUT_STREAMS -> "test.foo",
@@ -155,10 +156,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
-    val ccl = new CheckpointToolCommandLine
-    val generatedConfigs = ccl.genJobConfigs(new MapConfig(userDefinedConfig))
-
-    when(coordinatorStreamManager.getConfig).thenReturn(generatedConfigs)
+    val generatedConfigs = JobConfigUtil.generateJobIdAndName(userDefinedConfig);
+    val mergedConfigs = new MapConfig(userDefinedConfig, generatedConfigs);
+    when(coordinatorStreamManager.getConfig).thenReturn(mergedConfigs)
 
     val checkpointTool: CheckpointTool = new CheckpointTool(offsetMap, coordinatorStreamManager)
     checkpointTool.run()
@@ -168,6 +168,6 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     verify(TestCheckpointTool.checkpointManager)
       .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
     verify(coordinatorStreamManager).getConfig
-    assert(TestCheckpointTool.coordinatorConfig == generatedConfigs)
+    assert(TestCheckpointTool.coordinatorConfig == mergedConfigs)
   }
 }

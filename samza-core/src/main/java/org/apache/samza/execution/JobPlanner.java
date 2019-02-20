@@ -32,9 +32,11 @@ import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,12 +84,12 @@ public abstract class JobPlanner {
             userConfig.get(TaskConfig.INPUT_STREAMS()));
         allowedUserConfig.remove(TaskConfig.INPUT_STREAMS());
       }
-
       generatedConfig.putAll(getGeneratedConfig(runId));
     }
 
     // Generate job.id and job.name configs from app.id and app.name if defined
-    generateJobIdAndName(allowedUserConfig);
+    MapConfig generatedJobConfigs = JobConfigUtil.generateJobIdAndName(new MapConfig(allowedUserConfig));
+    allowedUserConfig.putAll(generatedJobConfigs);
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
     Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig);
@@ -157,34 +159,5 @@ public abstract class JobPlanner {
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
         systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
     return systemStreamConfigs;
-  }
-
-  /**
-   * Generates job.id from app.id and job.name from app.name config
-   * If both job.id and app.id is defined, app.id takes precedence and job.id is set to value of app.id
-   * If both job.name and app.name is defined, app.name takes precedence and job.name is set to value of app.name
-   *
-   * @param allowedUserConfig configs passed from user
-   */
-  void generateJobIdAndName(Map<String, String> allowedUserConfig) {
-    if (allowedUserConfig.containsKey(JobConfig.JOB_ID())) {
-      LOG.warn("{} is a deprecated configuration, use app.id instead.", JobConfig.JOB_ID());
-    }
-
-    if (allowedUserConfig.containsKey(JobConfig.JOB_NAME())) {
-      LOG.warn("{} is a deprecated configuration, use use app.name instead.", JobConfig.JOB_NAME());
-    }
-
-    if (allowedUserConfig.containsKey(ApplicationConfig.APP_NAME)) {
-      String appName =  allowedUserConfig.get(ApplicationConfig.APP_NAME);
-      LOG.info("app.name is defined, setting job.name equal to app.name value: {}", appName);
-      allowedUserConfig.put(JobConfig.JOB_NAME(), appName);
-    }
-
-    if (allowedUserConfig.containsKey(ApplicationConfig.APP_ID)) {
-      String appId =  allowedUserConfig.get(ApplicationConfig.APP_ID);
-      LOG.info("app.id is defined, setting job.id equal to app.name value: {}", appId);
-      allowedUserConfig.put(JobConfig.JOB_ID(), appId);
-    }
   }
 }

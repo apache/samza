@@ -25,6 +25,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.util.JobConfigUtil;
 import org.codehaus.jackson.type.TypeReference;
 import org.junit.Test;
 
@@ -48,12 +49,12 @@ public class TestCoordinatorStreamWriter {
   @Test
   public void testCoordinatorStream() {
 
-    Map<String, String> configMap = new HashMap<>();
-    configMap.put("systems.coordinatorStreamWriter.samza.factory", "org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory");
-    configMap.put("app.name", "coordinator-stream-writer-test");
-    configMap.put("job.coordinator.system", "coordinatorStreamWriter");
-    CoordinatorStreamWriterCommandLine cswl = new CoordinatorStreamWriterCommandLine();
-    Config config = cswl.genJobConfigs(new MapConfig(configMap));
+    Map<String, String> userConfigs = new HashMap<>();
+    userConfigs.put("systems.coordinatorStreamWriter.samza.factory", "org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory");
+    userConfigs.put("app.name", "coordinator-stream-writer-test");
+    userConfigs.put("job.coordinator.system", "coordinatorStreamWriter");
+    Config generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(userConfigs));
+    MapConfig config = new MapConfig(userConfigs, generatedConfig);
     coordinatorStreamWriter = new CoordinatorStreamWriter(config);
     boolean exceptionHappened = false;
 

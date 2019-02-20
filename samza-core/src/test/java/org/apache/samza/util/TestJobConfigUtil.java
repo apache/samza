@@ -17,43 +17,36 @@
  * under the License.
  */
 
-package org.apache.samza.execution;
+package org.apache.samza.util;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 
-@RunWith(MockitoJUnitRunner.class)
-@PrepareForTest({JobPlanner.class})
-public class TestJobPlanner {
+public class TestJobConfigUtil {
 
   @Test
   public void testJobNameIdConfigGeneration() {
-    JobPlanner planner = Mockito.mock(JobPlanner.class, Mockito.CALLS_REAL_METHODS);
     Map<String, String> testConfig = new HashMap<>();
     testConfig.put("app.name", "samza-app");
     testConfig .put("app.id", "id");
-    planner.generateJobIdAndName(testConfig);
-    Assert.assertEquals(testConfig.get("job.name"), "samza-app");
-    Assert.assertEquals(testConfig.get("job.id"), "id");
+    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(testConfig));
+    Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
+    Assert.assertEquals(generatedConfig.get("job.id"), "id");
   }
 
   @Test
   public void testAppConfigPrecedence() {
-    JobPlanner planner = Mockito.mock(JobPlanner.class, Mockito.CALLS_REAL_METHODS);
     Map<String, String> testConfig = new HashMap<>();
     testConfig.put("app.name", "samza-app");
     testConfig .put("app.id", "id");
     testConfig .put("job.id", "should-not-exist-id");
     testConfig .put("job.name", "should-not-exist-name");
-    planner.generateJobIdAndName(testConfig);
-    Assert.assertEquals(testConfig.get("job.name"), "samza-app");
-    Assert.assertEquals(testConfig.get("job.id"), "id");
+    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(testConfig));
+    Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
+    Assert.assertEquals(generatedConfig.get("job.id"), "id");
   }
 
 }

@@ -90,8 +90,8 @@ public class TestJoinOperator {
   @Test(expected = SamzaException.class)
   public void joinWithSelfThrowsException() throws Exception {
     Map<String, String> mapConfig = new HashMap<>();
-    mapConfig.put("job.name", "jobName");
-    mapConfig.put("job.id", "jobId");
+    mapConfig.put("app.name", "appName");
+    mapConfig.put("app.id", "appId");
     StreamTestUtils.addStreamConfigs(mapConfig, "inStream", "insystem", "instream");
     Config config = new MapConfig(mapConfig);
 
