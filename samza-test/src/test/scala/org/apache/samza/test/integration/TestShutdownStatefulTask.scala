@@ -54,7 +54,7 @@ object TestShutdownStatefulTask {
 class TestShutdownStatefulTask extends StreamTaskTestUtil {
 
   StreamTaskTestUtil(Map(
-    "app.name" -> "state-stateful-world",
+    "job.name" -> "state-stateful-world",
     "task.class" -> "org.apache.samza.test.integration.ShutdownStateStoreTask",
     "task.commit.ms" -> "-1",
     "stores.loggedstore.factory" -> "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory",
