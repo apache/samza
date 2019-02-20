@@ -123,7 +123,8 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     runApplication(new MapConfig(staticConfigs));
 
     List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
-        .map(x -> x.getMessage() == null ? null : Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .map(x -> x.getMessage() == null || ((GenericRecord) x.getMessage()).get("id") == null ? null
+            : Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
         .filter(Objects::nonNull)
         .sorted()
         .collect(Collectors.toList());
