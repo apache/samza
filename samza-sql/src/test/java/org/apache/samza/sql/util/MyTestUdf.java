@@ -20,6 +20,7 @@
 package org.apache.samza.sql.util;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
@@ -30,15 +31,21 @@ import org.slf4j.LoggerFactory;
 /**
  * Test UDF used by unit and integration tests.
  */
-@SamzaSqlUdf(name = "MyTest")
+@SamzaSqlUdf(name = "MyTest", description = "Test UDF.")
 public class MyTestUdf implements ScalarUdf {
 
   private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
 
-  @SamzaSqlUdfMethod
-  public Integer execute(Object... value) {
-    return ((Integer) value[0]) * 2;
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.INT32)
+  public Integer execute(Integer value) {
+    return value * 2;
   }
+
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY)
+  public Integer execute(Object value) {
+    return ((Integer) value) * 2;
+  }
+
 
   @Override
   public void init(Config udfConfig) {

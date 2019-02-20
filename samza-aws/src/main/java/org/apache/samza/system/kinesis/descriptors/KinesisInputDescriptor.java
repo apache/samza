@@ -67,7 +67,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withRegion(String region) {
-    this.region = Optional.of(StringUtils.stripToNull(region));
+    this.region = Optional.ofNullable(StringUtils.stripToNull(region));
     return this;
   }
 
@@ -77,7 +77,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withAccessKey(String accessKey) {
-    this.accessKey = Optional.of(StringUtils.stripToNull(accessKey));
+    this.accessKey = Optional.ofNullable(StringUtils.stripToNull(accessKey));
     return this;
   }
 
@@ -87,7 +87,7 @@ public class KinesisInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KinesisInputDescriptor<StreamMessageType> withSecretKey(String secretKey) {
-    this.secretKey = Optional.of(StringUtils.stripToNull(secretKey));
+    this.secretKey = Optional.ofNullable(StringUtils.stripToNull(secretKey));
     return this;
   }
 
@@ -110,13 +110,13 @@ public class KinesisInputDescriptor<StreamMessageType>
     String clientConfigPrefix =
         String.format(KinesisConfig.CONFIG_STREAM_KINESIS_CLIENT_LIB_CONFIG, systemName, streamId);
 
-    this.region.ifPresent(
+    region.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_REGION, systemName, streamId), val));
-    this.accessKey.ifPresent(
+    accessKey.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_ACCESS_KEY, systemName, streamId), val));
-    this.secretKey.ifPresent(
+    secretKey.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_SECRET_KEY, systemName, streamId), val));
-    this.kclConfig.forEach((k, v) -> config.put(clientConfigPrefix + k, v));
+    kclConfig.forEach((k, v) -> config.put(clientConfigPrefix + k, v));
 
     return config;
   }

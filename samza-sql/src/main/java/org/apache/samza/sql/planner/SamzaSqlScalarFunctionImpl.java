@@ -35,22 +35,27 @@ import org.apache.calcite.schema.ImplementableFunction;
 import org.apache.calcite.schema.ScalarFunction;
 import org.apache.calcite.schema.impl.ScalarFunctionImpl;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
+import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
-
+/**
+ * Calcite implementation for Samza SQL UDF.
+ * This class contains logic to generate the java code to execute {@link org.apache.samza.sql.udfs.SamzaSqlUdf}.
+ */
 public class SamzaSqlScalarFunctionImpl implements ScalarFunction, ImplementableFunction {
 
   private final ScalarFunction myIncFunction;
   private final Method udfMethod;
   private final Method getUdfMethod;
-
-
   private final String udfName;
+  private final UdfMetadata udfMetadata;
 
-  public SamzaSqlScalarFunctionImpl(String udfName, Method udfMethod) {
-    myIncFunction = ScalarFunctionImpl.create(udfMethod);
-    this.udfName = udfName;
-    this.udfMethod = udfMethod;
+  public SamzaSqlScalarFunctionImpl(UdfMetadata udfMetadata) {
+
+    myIncFunction = ScalarFunctionImpl.create(udfMetadata.getUdfMethod());
+    this.udfMetadata = udfMetadata;
+    this.udfName = udfMetadata.getName();
+    this.udfMethod = udfMetadata.getUdfMethod();
     this.getUdfMethod = Arrays.stream(SamzaSqlExecutionContext.class.getMethods())
         .filter(x -> x.getName().equals("getOrCreateUdf"))
         .findFirst()
@@ -61,17 +66,23 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
     return udfName;
   }
 
+  public int numberOfArguments() {
+    return udfMetadata.getArguments().size();
+  }
+
+  public UdfMetadata getUdfMetadata() {
+    return udfMetadata;
+  }
+
   @Override
   public CallImplementor getImplementor() {
     return RexImpTable.createImplementor((translator, call, translatedOperands) -> {
       final Expression context = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
       final Expression getUdfInstance = Expressions.call(ScalarUdf.class, context, getUdfMethod,
           Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName));
-      final Expression callExpression = Expressions.convert_(Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
-          translatedOperands), Object.class);
-      // The Janino compiler which is used to compile the expressions doesn't seem to understand the Type of the ScalarUdf.execute
-      // because it is a generic. To work around that we are explicitly casting it to the return type.
-      return Expressions.convert_(callExpression, udfMethod.getReturnType());
+      final Expression callExpression = Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
+          translatedOperands);
+      return callExpression;
     }, NullPolicy.NONE, false);
   }
 

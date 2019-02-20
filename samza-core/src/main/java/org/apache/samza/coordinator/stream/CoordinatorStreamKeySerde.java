@@ -19,7 +19,6 @@
 package org.apache.samza.coordinator.stream;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.serializers.JsonSerde;
@@ -29,6 +28,8 @@ import org.apache.samza.serializers.Serde;
  * Serializer for keys written into coordinator stream.
  */
 public class CoordinatorStreamKeySerde implements Serde<String> {
+
+  private static final int KEY_INDEX = 2;
 
   private final Serde<List<?>> keySerde;
   private final String type;
@@ -40,8 +41,8 @@ public class CoordinatorStreamKeySerde implements Serde<String> {
 
   @Override
   public String fromBytes(byte[] bytes) {
-    CoordinatorStreamMessage message = new CoordinatorStreamMessage(keySerde.fromBytes(bytes).toArray(), new HashMap<>());
-    return message.getKey();
+    Object[] keyArray = keySerde.fromBytes(bytes).toArray();
+    return (String) keyArray[KEY_INDEX];
   }
 
   @Override

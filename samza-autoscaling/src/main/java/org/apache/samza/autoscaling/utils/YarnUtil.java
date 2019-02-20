@@ -44,12 +44,12 @@ import java.util.Map;
  */
 public class YarnUtil {
   private static final Logger log = LoggerFactory.getLogger(YarnUtil.class);
-  private CloseableHttpClient httpclient;
-  private HttpHost rmServer;
-  private YarnClient yarnClient;
+  private final CloseableHttpClient httpClient;
+  private final HttpHost rmServer;
+  private final YarnClient yarnClient;
 
   public YarnUtil(String rmAddress, int rmPort) {
-    this.httpclient = HttpClientBuilder.create().build();
+    this.httpClient = HttpClientBuilder.create().build();
     this.rmServer = new HttpHost(rmAddress, rmPort, "http");
     log.info("setting rm server to : " + rmServer);
     YarnConfiguration hConfig = new YarnConfiguration();
@@ -70,17 +70,15 @@ public class YarnUtil {
 
     try {
       HttpGet getRequest = new HttpGet("/ws/v1/cluster/apps");
-      HttpResponse httpResponse = httpclient.execute(rmServer, getRequest);
+      HttpResponse httpResponse = httpClient.execute(rmServer, getRequest);
       String applications = EntityUtils.toString(httpResponse.getEntity());
       log.debug("applications: " + applications);
 
       List<Map<String, String>> applicationList = parseYarnApplications(applications);
       String name = jobName + "_" + jobID;
       for (Map<String, String> application : applicationList) {
-        if (application.containsKey("state") && application.containsKey("name") && application.containsKey("id")) {
-          if (application.get("state").toString().equals("RUNNING") && application.get("name").toString().equals(name)) {
-            return application.get("id").toString();
-          }
+        if ("RUNNING".equals(application.get("state")) && name.equals(application.get("name")) && application.containsKey("id")) {
+          return application.get("id");
         }
       }
     } catch (NullPointerException | IOException e) {
@@ -150,7 +148,7 @@ public class YarnUtil {
    */
   public void stop() {
     try {
-      httpclient.close();
+      httpClient.close();
     } catch (IOException e) {
       log.error("HTTP Client failed to close.", e);
     }

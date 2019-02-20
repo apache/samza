@@ -65,8 +65,7 @@ public class TestKinesisSystemConsumer {
   private static final String SYSTEM_CONSUMER_REGISTER_OFFSET = "0000"; // Could be any string
 
   @Test
-  public void testProcessRecords() throws InterruptedException, ShutdownException, InvalidStateException,
-                                          NoSuchFieldException, IllegalAccessException {
+  public void testProcessRecords() throws InterruptedException, NoSuchFieldException, IllegalAccessException {
     String system = "kinesis";
     String stream = "stream";
     int numShards = 2;
@@ -76,9 +75,7 @@ public class TestKinesisSystemConsumer {
   }
 
   @Test
-  public void testProcessRecordsWithEmptyRecordList() throws InterruptedException, ShutdownException,
-                                                             InvalidStateException, NoSuchFieldException,
-                                                             IllegalAccessException {
+  public void testProcessRecordsWithEmptyRecordList() throws InterruptedException, NoSuchFieldException, IllegalAccessException {
     String system = "kinesis";
     String stream = "stream";
     int numShards = 1;
@@ -96,8 +93,7 @@ public class TestKinesisSystemConsumer {
    * 5. Shutting down (due to re-assignment or lease expiration) record processors.
    */
   private void testProcessRecordsHelper(String system, String stream, int numShards, int numRecordsPerShard)
-      throws InterruptedException, ShutdownException, InvalidStateException,
-             NoSuchFieldException, IllegalAccessException {
+      throws InterruptedException, NoSuchFieldException, IllegalAccessException {
 
     KinesisConfig kConfig = new KinesisConfig(new MapConfig());
     // Create consumer
@@ -140,24 +136,22 @@ public class TestKinesisSystemConsumer {
         try {
           KinesisRecordProcessor processor = sspToProcessorMap.get(ssp);
 
-          if (numRecordsPerShard > 0) {
-            // Verify that the read messages are received in order and are the same as input records
-            Assert.assertEquals(messages.get(ssp).size(), numRecordsPerShard);
-            List<IncomingMessageEnvelope> envelopes = messages.get(ssp);
-            List<Record> inputRecords = inputRecordMap.get(processor);
-            verifyRecords(envelopes, inputRecords, processor.getShardId());
+          // Verify that the read messages are received in order and are the same as input records
+          Assert.assertEquals(messages.get(ssp).size(), numRecordsPerShard);
+          List<IncomingMessageEnvelope> envelopes = messages.get(ssp);
+          List<Record> inputRecords = inputRecordMap.get(processor);
+          verifyRecords(envelopes, inputRecords, processor.getShardId());
 
-            // Call checkpoint on consumer and verify that the checkpoint is called with the right offset
-            IncomingMessageEnvelope lastEnvelope = envelopes.get(envelopes.size() - 1);
-            consumer.onCheckpoint(Collections.singletonMap(ssp, lastEnvelope.getOffset()));
-            ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
-            verify(getCheckpointer(processor)).checkpoint(argument.capture());
-            Assert.assertEquals(inputRecords.get(inputRecords.size() - 1).getSequenceNumber(), argument.getValue());
-          }
+          // Call checkpoint on consumer and verify that the checkpoint is called with the right offset
+          IncomingMessageEnvelope lastEnvelope = envelopes.get(envelopes.size() - 1);
+          consumer.afterCheckpoint(Collections.singletonMap(ssp, lastEnvelope.getOffset()));
+          ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
+          verify(getCheckpointer(processor)).checkpoint(argument.capture());
+          Assert.assertEquals(inputRecords.get(inputRecords.size() - 1).getSequenceNumber(), argument.getValue());
 
           // Call shutdown (with ZOMBIE reason) on processor and verify if shutdown freed the ssp mapping
           shutDownProcessor(processor, ShutdownReason.ZOMBIE);
-          Assert.assertTrue(!sspToProcessorMap.containsValue(processor));
+          Assert.assertFalse(sspToProcessorMap.containsValue(processor));
           Assert.assertTrue(isSspAvailable(consumer, ssp));
         } catch (NoSuchFieldException | IllegalAccessException | InvalidStateException | ShutdownException ex) {
           throw new RuntimeException(ex);
@@ -221,7 +215,7 @@ public class TestKinesisSystemConsumer {
         Assert.assertEquals(kinesisMessageEnvelope.getShardId(), shardId);
         ByteBuffer outputData = ByteBuffer.wrap((byte[]) kinesisMessageEnvelope.getMessage());
         record.getData().rewind();
-        Assert.assertTrue(outputData.equals(record.getData()));
+        Assert.assertEquals(outputData, record.getData());
         verifyOffset(envelope.getOffset(), record, shardId);
       });
   }

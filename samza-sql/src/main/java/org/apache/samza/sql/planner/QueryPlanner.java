@@ -113,7 +113,7 @@ public class QueryPlanner {
       }
 
       List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()
-          .map(x -> new SamzaSqlScalarFunctionImpl(x.getName(), x.getUdfMethod()))
+          .map(x -> new SamzaSqlScalarFunctionImpl(x))
           .collect(Collectors.toList());
 
       final List<RelTraitDef> traitDefs = new ArrayList<>();

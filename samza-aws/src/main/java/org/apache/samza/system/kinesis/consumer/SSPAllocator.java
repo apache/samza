@@ -46,10 +46,10 @@ class SSPAllocator {
   private final Map<String, Set<SystemStreamPartition>> availableSsps = new HashMap<>();
 
   synchronized SystemStreamPartition allocate(String stream) throws NoAvailablePartitionException {
-    Validate.isTrue(availableSsps.get(stream) != null,
+    Validate.notNull(availableSsps.get(stream),
         String.format("availableSsps is null for stream %s", stream));
 
-    if (availableSsps.get(stream).size() <= 0) {
+    if (availableSsps.get(stream).isEmpty()) {
       // Set a flag in system consumer so that it could throw an exception in the subsequent poll.
       throw new NoAvailablePartitionException(String.format("More shards detected for stream %s than initially"
           + " registered. Could be the result of dynamic resharding.", stream));
