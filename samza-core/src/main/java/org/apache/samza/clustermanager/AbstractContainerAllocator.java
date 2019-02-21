@@ -55,8 +55,6 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private final TaskConfig taskConfig;
 
-  private final ClusterManagerConfig clusterManagerConfig;
-
   private final Config config;
 
   /**
@@ -94,7 +92,6 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
     this.containerNumCpuCores = clusterManagerConfig.getNumCores();
     this.taskConfig = new TaskConfig(config);
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.state = state;
     this.config = config;
   }
