@@ -304,7 +304,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         // if the AM released the container.
         log.info("Released container {} was assigned task group ID {}. Requesting a new container for the task group.", containerIdStr, containerId);
 
-        state.failedContainersStatus.put(containerIdStr, containerStatus);
+        state.failedContainersStatus.put(containerId, containerStatus);
 
         state.neededContainers.incrementAndGet();
         state.jobHealthy.set(false);
@@ -319,7 +319,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         log.info("Container " + containerIdStr + " failed with exit code . " + exitStatus + " - " + containerStatus.getDiagnostics() + " containerID is " + containerId);
 
         state.failedContainers.incrementAndGet();
-        state.failedContainersStatus.put(containerIdStr, containerStatus);
+        state.failedContainersStatus.put(containerId, containerStatus);
         state.jobHealthy.set(false);
 
         state.neededContainers.incrementAndGet();
