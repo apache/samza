@@ -50,8 +50,12 @@ public class ApplicationRunnerMain {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
+    invokeApplicationRunner(orgConfig, op);
+  }
+
+  public static ApplicationRunner invokeApplicationRunner(Config orgConfig, ApplicationRunnerOperation op) {
+    Config config = Util.rewriteConfig(orgConfig);
 
     ApplicationRunner appRunner =
         ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
@@ -69,5 +73,6 @@ public class ApplicationRunnerMain {
       default:
         throw new IllegalArgumentException("Unrecognized operation: " + op);
     }
+    return appRunner;
   }
 }
