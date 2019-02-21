@@ -811,7 +811,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
 
     containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, mockSystemAdmins,
-      changeLogSystemStreams.asJava, Map[String, util.List[SystemStream]]().asJava, storageEngineFactories.asJava, systemFactories.asJava, mockSerdes.asJava, config,
+      changeLogSystemStreams.asJava, Map[String, util.Set[SystemStream]]().asJava, storageEngineFactories.asJava, systemFactories.asJava, mockSerdes.asJava, config,
       new HashMap[TaskName, TaskInstanceMetrics]().asJava, Mockito.mock(classOf[SamzaContainerMetrics]), Mockito.mock(classOf[JobContext]),
       Mockito.mock(classOf[ContainerContext]), new HashMap[TaskName, TaskInstanceCollector].asJava, loggedStoreBaseDir, TaskStorageManagerBuilder.defaultStoreBaseDir, 1,
       null, new SystemClock)

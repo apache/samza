@@ -542,7 +542,7 @@ object SamzaContainer extends Logging {
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
     val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins,
-      changeLogSystemStreams.asJava, sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.asJava).asJava,
+      changeLogSystemStreams.asJava, sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
       storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
       taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
       loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, serdeManager, new SystemClock)
