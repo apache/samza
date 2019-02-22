@@ -102,6 +102,12 @@ import scala.collection.JavaConverters;
  *
  *  b) performing individual task stores' restores in parallel.
  *
+ *  and
+ *  c) restoring sideInputs.
+ *  It provides bootstrap semantics for sideinputs -- the main thread is blocked until
+ *  all sideInputSSPs have not caught up. Side input store flushes are not in sync with task-commit, although
+ *  they happen at the same frequency.
+ *  In case, where a user explicitly requests a task-commit, it will not include committing side inputs.
  */
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
