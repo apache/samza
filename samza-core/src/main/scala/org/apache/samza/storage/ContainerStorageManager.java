@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,6 +134,8 @@ public class ContainerStorageManager {
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
   private ScheduledFuture sideInputsFlushFuture;
+  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1);
+  private volatile Optional<Throwable> sideInputException = Optional.empty();
 
   private final File loggedStoreBaseDirectory;
   private final File nonLoggedStoreBaseDirectory;
@@ -275,7 +278,7 @@ public class ContainerStorageManager {
             this.taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
             this.sideInputSystemStreams.put(storeName, Collections.singleton(ssp.getSystemStream()));
             this.taskSideInputSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
-            });
+          });
       });
 
     // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to side inputs above)
@@ -672,11 +675,22 @@ public class ContainerStorageManager {
         }
       });
 
+    readSideInputs.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      @Override
+      public void uncaughtException(Thread t, Throwable e) {
+        sideInputException = Optional.of(e);
+        sideInputsCaughtUp.countDown();
+      }
+    });
+
     try {
       readSideInputs.start();
-
-      // Make the main thread wait until all sideInputs have been caughtup
+      // Make the main thread wait until all sideInputs have been caughtup or thrown an exception
       this.sideInputsCaughtUp.await();
+
+      if (sideInputException.isPresent()) { // Throw exception if there was an exception in catching-up sideInputs
+        throw new SamzaException("Exception in restoring side inputs", sideInputException.get());
+      }
     } catch (InterruptedException e) {
       throw new SamzaException("Side inputs read was interrupted", e);
     }
@@ -712,10 +726,10 @@ public class ContainerStorageManager {
     // latest offset.
     if (comparatorResult != null && comparatorResult.intValue() >= 0) {
 
+      LOG.info("Side input ssp {} has caught up to offset {} ({}).", ssp, offset, offsetType);
       // if its caught up, we remove the ssp from the map, and countDown the latch
       this.initialSideInputSSPMetadata.remove(ssp);
       this.sideInputsCaughtUp.countDown();
-      LOG.info("Side input ssp {} has caught up to offset {} ({}).", ssp, offset, offsetType);
       return;
     }
   }
@@ -758,17 +772,26 @@ public class ContainerStorageManager {
         getNonSideInputStores(taskName).forEach((storeName, store) -> store.stop())
     );
 
-    // cancel all future sideInput flushes, and shutdown the executor
-    if (sideInputsFlushFuture != null) {
-      sideInputsFlushFuture.cancel(false);
-    }
-    sideInputsFlushExecutor.shutdown();
+    // stop reading sideInputs
     this.shutDownSideInputRead = true;
 
     // stop all sideinput consumers and stores
     if (sideInputSystemConsumers != null) {
       this.sideInputSystemConsumers.stop();
     }
+
+    // cancel all future sideInput flushes, shutdown the executor, and await for finish
+    if (sideInputsFlushFuture != null) {
+      sideInputsFlushFuture.cancel(false);
+    }
+    sideInputsFlushExecutor.shutdown();
+    try {
+      sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      throw new SamzaException("Exception while shutting down side inputs", e);
+    }
+
+    // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
     this.sideInputStorageManagers.values().stream().collect(Collectors.toSet()).
         forEach(sideInputStorageManager -> sideInputStorageManager.stop());
 
