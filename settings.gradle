@@ -49,7 +49,7 @@ scalaModules.each {
 
 rootProject.children.each {
   if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+    it.name = it.name + "_" + scalaSuffix
   }
 }
 
