@@ -24,6 +24,8 @@ import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.context.Context;
+import org.apache.samza.context.JobContextMetadata;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
@@ -86,6 +88,8 @@ public class OperatorImplGraph {
 
   private final Clock clock;
 
+  private JobContextMetadata jobContextMetadata;
+
   /**
    * Constructs the DAG of {@link OperatorImpl}s corresponding to the the DAG of {@link OperatorSpec}s
    * in the {@code specGraph}.
@@ -99,10 +103,11 @@ public class OperatorImplGraph {
     StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
     // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
     TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    this.jobContextMetadata = new JobContextMetadata(taskContext.getJobModel(), taskContext.getStreamMetadataCache());
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)
             ? getProducerTaskCountForIntermediateStreams(
-                getStreamToConsumerTasks(taskContext.getJobModel()),
+                getStreamToConsumerTasks(jobContextMetadata.getJobModel()),
                 getIntermediateToInputStreamsMap(specGraph, streamConfig))
             : Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
@@ -110,10 +115,10 @@ public class OperatorImplGraph {
       });
 
     // set states for end-of-stream
-    taskContext.registerObject(EndOfStreamStates.class.getName(),
+    jobContextMetadata.registerObject(EndOfStreamStates.class.getName(),
         new EndOfStreamStates(taskContext.getTaskModel().getSystemStreamPartitions(), producerTaskCounts));
     // set states for watermark
-    taskContext.registerObject(WatermarkStates.class.getName(),
+    jobContextMetadata.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(taskContext.getTaskModel().getSystemStreamPartitions(), producerTaskCounts,
             context.getContainerContext().getContainerMetricsRegistry()));
 
@@ -166,7 +171,7 @@ public class OperatorImplGraph {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, context);
-      operatorImpl.init(context);
+      operatorImpl.init(context,this.jobContextMetadata);
       operatorImpl.registerInputStream(inputStream);
 
       if (operatorSpec.getScheduledFn() != null) {

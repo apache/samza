@@ -29,69 +29,80 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.TableManager;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 
 public class TaskContextImpl implements TaskContext {
-    private final TaskModel taskModel;
-    private final MetricsRegistry taskMetricsRegistry;
-    private final Function<String, KeyValueStore> keyValueStoreProvider;
-    private final TableManager tableManager;
-    private final CallbackScheduler callbackScheduler;
-    private final OffsetManager offsetManager;
+  private final TaskModel taskModel;
+  private final MetricsRegistry taskMetricsRegistry;
+  private final Function<String, KeyValueStore> keyValueStoreProvider;
+  private final TableManager tableManager;
+  private final CallbackScheduler callbackScheduler;
+  private final OffsetManager offsetManager;
+  private final JobModel jobModel;
+  private final StreamMetadataCache streamMetadataCache;
 
+  public TaskContextImpl(TaskModel taskModel,
+      MetricsRegistry taskMetricsRegistry,
+      Function<String, KeyValueStore> keyValueStoreProvider,
+      TableManager tableManager,
+      CallbackScheduler callbackScheduler,
+      OffsetManager offsetManager,
+      JobModel jobModel,
+      StreamMetadataCache streamMetadataCache) {
+    this.taskModel = taskModel;
+    this.taskMetricsRegistry = taskMetricsRegistry;
+    this.keyValueStoreProvider = keyValueStoreProvider;
+    this.tableManager = tableManager;
+    this.callbackScheduler = callbackScheduler;
+    this.offsetManager = offsetManager;
+    this.jobModel = jobModel;
+    this.streamMetadataCache = streamMetadataCache;
+  }
 
-    public TaskContextImpl(TaskModel taskModel,
-                           MetricsRegistry taskMetricsRegistry,
-                           Function<String, KeyValueStore> keyValueStoreProvider,
-                           TableManager tableManager,
-                           CallbackScheduler callbackScheduler,
-                           OffsetManager offsetManager,
-                           JobModel jobModel,
-                           StreamMetadataCache streamMetadataCache) {
-        this.taskModel = taskModel;
-        this.taskMetricsRegistry = taskMetricsRegistry;
-        this.keyValueStoreProvider = keyValueStoreProvider;
-        this.tableManager = tableManager;
-        this.callbackScheduler = callbackScheduler;
-        this.offsetManager = offsetManager;
+  @Override
+  public TaskModel getTaskModel() {
+    return this.taskModel;
+  }
+
+  @Override
+  public MetricsRegistry getTaskMetricsRegistry() {
+    return this.taskMetricsRegistry;
+  }
+
+  @Override
+  public KeyValueStore getStore(String storeName) {
+    KeyValueStore store = this.keyValueStoreProvider.apply(storeName);
+    if (store == null) {
+      throw new IllegalArgumentException(String.format("No store found for storeName: %s", storeName));
     }
+    return store;
+  }
 
-    @Override
-    public TaskModel getTaskModel() {
-        return this.taskModel;
-    }
+  @Override
+  public <K, V> ReadWriteTable<K, V> getTable(String tableId) {
+    return this.tableManager.getTable(tableId);
+  }
 
-    @Override
-    public MetricsRegistry getTaskMetricsRegistry() {
-        return this.taskMetricsRegistry;
-    }
+  @Override
+  public CallbackScheduler getCallbackScheduler() {
+    return this.callbackScheduler;
+  }
 
-    @Override
-    public KeyValueStore getStore(String storeName) {
-        KeyValueStore store = this.keyValueStoreProvider.apply(storeName);
-        if (store == null) {
-            throw new IllegalArgumentException(String.format("No store found for storeName: %s", storeName));
-        }
-        return store;
-    }
+  @Override
+  public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
+    this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
+  }
 
-    @Override
-    public <K, V> ReadWriteTable<K, V> getTable(String tableId) {
-        return this.tableManager.getTable(tableId);
-    }
+  // TODO SAMZA-1935: below methods are used by operator code; they should be decoupled from this client API
 
-    @Override
-    public CallbackScheduler getCallbackScheduler() {
-        return this.callbackScheduler;
-    }
+  public JobModel getJobModel() {
+    return this.jobModel;
+  }
 
-    @Override
-    public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
-        this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
-    }
-
-    // TODO SAMZA-1935: below methods are used by operator code; they should be decoupled from this client API
-
-
+  public StreamMetadataCache getStreamMetadataCache() {
+    return this.streamMetadataCache;
+  }
 }
