@@ -34,12 +34,12 @@ public class ApplicationRunnerUtil {
    * invokes the appropriate operation on the runner based on the specified {@link ApplicationRunnerOperation}.
    * It returns the runner so that the caller could get the status of application on STATUS op.
    *
-   * @param orgConfig the original configuration of the application
+   * @param originalConfig the original configuration of the application
    * @param op the {@link ApplicationRunnerOperation} that needs to be performed on the Application.
    * @return the {@link ApplicationRunner} object.
    */
-  public static ApplicationRunner invokeApplicationRunner(Config orgConfig, ApplicationRunnerOperation op) {
-    Config config = Util.rewriteConfig(orgConfig);
+  public static ApplicationRunner invoke(Config originalConfig, ApplicationRunnerOperation op) {
+    Config config = Util.rewriteConfig(originalConfig);
 
     ApplicationRunner appRunner =
         ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
