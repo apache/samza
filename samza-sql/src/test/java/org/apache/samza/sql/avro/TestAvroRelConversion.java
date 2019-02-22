@@ -62,6 +62,7 @@ import org.apache.samza.sql.planner.RelSchemaConverter;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -280,6 +281,8 @@ public class TestAvroRelConversion {
     }
   }
 
+  // SAMZA-2110 We need to enable this when we have a true support for Null records
+  @Ignore
   @Test
   public void testRecordConversionWithNullPayload() throws IOException {
     GenericData.Record record = null;
