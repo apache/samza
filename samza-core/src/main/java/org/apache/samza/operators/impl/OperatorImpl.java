@@ -22,9 +22,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.context.ContainerContext;
-import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContextImpl;
+import org.apache.samza.context.*;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -91,7 +89,7 @@ public abstract class OperatorImpl<M, RM> {
    *
    * @param context the {@link Context} for the task
    */
-  public final void init(Context context) {
+  public final void init(Context context, JobContextMetadata jobContextMetadata) {
     String opId = getOpImplId();
 
     if (initialized) {
@@ -114,11 +112,11 @@ public abstract class OperatorImpl<M, RM> {
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
 
     // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
-    final TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    final TaskContext taskContext =  context.getTaskContext();
     this.taskName = taskContext.getTaskModel().getTaskName();
-    this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
-    this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
-    this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
+    this.eosStates = (EndOfStreamStates) jobContextMetadata.fetchObject(EndOfStreamStates.class.getName());
+    this.watermarkStates = (WatermarkStates) jobContextMetadata.fetchObject(WatermarkStates.class.getName());
+    this.controlMessageSender = new ControlMessageSender(jobContextMetadata.getStreamMetadataCache());
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);
