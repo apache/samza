@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 public class TaskAssignmentManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskAssignmentManager.class);
 
-  private final Config config;
   private final Map<String, String> taskNameToContainerId = new HashMap<>();
   private final Serde<String> keySerde;
   private final Serde<String> containerIdSerde;
@@ -55,8 +54,8 @@ public class TaskAssignmentManager {
 
   /**
    * Builds the TaskAssignmentManager based upon {@link Config} and {@link MetricsRegistry}.
-   * Uses {@link CoordinatorStreamKeySerde} and {@link CoordinatorStreamValueSerde} to
-   * serialize messages before reading/writing into coordinator stream.
+   * Uses {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing
+   * into the metadata store.
    *
    * @param config the configuration required for setting up metadata store.
    * @param metricsRegistry the registry for reporting metrics.
@@ -81,7 +80,6 @@ public class TaskAssignmentManager {
    * @param taskModeSerde the task-mode serializer.
    */
   public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> containerIdSerde, Serde<String> taskModeSerde) {
-    this.config = config;
     this.keySerde = keySerde;
     this.containerIdSerde = containerIdSerde;
     this.taskModeSerde = taskModeSerde;

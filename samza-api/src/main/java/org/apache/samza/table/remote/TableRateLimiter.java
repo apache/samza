@@ -58,7 +58,7 @@ public class TableRateLimiter<K, V> {
    * @param <V> the type of the value
    */
   @InterfaceStability.Unstable
-  public interface CreditFunction<K, V> extends Serializable {
+  public interface CreditFunction<K, V> extends TablePart, Serializable {
     /**
      * Get the number of credits required for the {@code key} and {@code value} pair.
      * @param key table key

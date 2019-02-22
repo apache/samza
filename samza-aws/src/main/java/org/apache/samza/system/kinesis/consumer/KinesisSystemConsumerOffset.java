@@ -40,9 +40,9 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class KinesisSystemConsumerOffset {
 
   @JsonProperty("shardId")
-  private String shardId;
+  private final String shardId;
   @JsonProperty("seqNumber")
-  private String seqNumber;
+  private final String seqNumber;
 
   @JsonCreator
   KinesisSystemConsumerOffset(@JsonProperty("shardId") String shardId,
@@ -91,10 +91,7 @@ public class KinesisSystemConsumerOffset {
       return false;
     }
     String thatSeqNumber = ((KinesisSystemConsumerOffset) o).getSeqNumber();
-    if (!(seqNumber == null ? thatSeqNumber == null : seqNumber.equals(thatSeqNumber))) {
-      return false;
-    }
-    return true;
+    return seqNumber == null ? thatSeqNumber == null : seqNumber.equals(thatSeqNumber);
   }
 
   @Override

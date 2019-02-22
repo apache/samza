@@ -37,8 +37,8 @@ public class AzureLock implements DistributedLockWithState {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureLock.class);
   private static final int LEASE_TIME_IN_SEC = 60;
-  private AtomicBoolean hasLock;
-  private AtomicReference<String> leaseId;
+  private final AtomicBoolean hasLock;
+  private final AtomicReference<String> leaseId;
   private final LeaseBlobManager leaseBlobManager;
 
   public AzureLock(BlobUtils blobUtils) {

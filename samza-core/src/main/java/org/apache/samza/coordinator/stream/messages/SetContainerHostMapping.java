@@ -70,21 +70,4 @@ public class SetContainerHostMapping extends CoordinatorStreamMessage {
   public String getHostLocality() {
     return getMessageValue(HOST_KEY);
   }
-
-  /**
-   * Returns the JMX url of the container.
-   * @return the JMX url
-   */
-  public String getJmxUrl() {
-    return getMessageValue(JMX_URL_KEY);
-  }
-
-  /**
-   * Returns the JMX tunneling url of the container
-   * @return the JMX tunneling url
-   */
-  public String getJmxTunnelingUrl() {
-    return getMessageValue(JMX_TUNNELING_URL_KEY);
-  }
-
 }
