@@ -174,10 +174,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(numMessages, outMessagesSet.size());
     Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(new ArrayList<>(outMessagesSet)));
   }
-
-  // The below test won't work until SAMZA-1990 is fixed. Currently, Samza framework does not allow same system stream
-  // to be used as both input and output stream.
-  @Ignore
+  
   @Test
   public void testEndToEndMultiSqlStmtsWithSameSystemStreamAsInputAndOutput() {
     int numMessages = 20;
