@@ -111,7 +111,6 @@ public abstract class OperatorImpl<M, RM> {
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
 
-    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
     final TaskContext taskContext =  context.getTaskContext();
     this.taskName = taskContext.getTaskModel().getTaskName();
     this.eosStates = (EndOfStreamStates) jobContextMetadata.fetchObject(EndOfStreamStates.class.getName());

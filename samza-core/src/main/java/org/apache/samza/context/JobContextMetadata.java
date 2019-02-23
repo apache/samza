@@ -27,28 +27,28 @@ import java.util.Map;
 
 
 public class JobContextMetadata {
-    private final JobModel jobModel;
-    private final StreamMetadataCache streamMetadataCache;
-    private final Map<String, Object> objectRegistry = new HashMap<>();
+  private final JobModel jobModel;
+  private final StreamMetadataCache streamMetadataCache;
+  private final Map<String, Object> objectRegistry = new HashMap<>();
 
-    public JobContextMetadata(JobModel jobModel, StreamMetadataCache streamMetadataCache) {
-        this.jobModel = jobModel;
-        this.streamMetadataCache = streamMetadataCache;
-    }
+  public JobContextMetadata(JobModel jobModel, StreamMetadataCache streamMetadataCache) {
+    this.jobModel = jobModel;
+    this.streamMetadataCache = streamMetadataCache;
+  }
 
-    public void registerObject(String name, Object value) {
-        this.objectRegistry.put(name, value);
-    }
+  public void registerObject(String name, Object value) {
+    this.objectRegistry.put(name, value);
+  }
 
-    public Object fetchObject(String name) {
-        return this.objectRegistry.get(name);
-    }
+  public Object fetchObject(String name) {
+    return this.objectRegistry.get(name);
+  }
 
-    public JobModel getJobModel() {
-        return this.jobModel;
-    }
+  public JobModel getJobModel() {
+    return this.jobModel;
+  }
 
-    public StreamMetadataCache getStreamMetadataCache() {
-        return this.streamMetadataCache;
-    }
+  public StreamMetadataCache getStreamMetadataCache() {
+    return this.streamMetadataCache;
+  }
 }
