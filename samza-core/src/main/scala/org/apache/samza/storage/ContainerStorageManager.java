@@ -447,9 +447,9 @@ public class ContainerStorageManager {
     // for non logged stores
     File storeDirectory;
     if (changeLogSystemStreamPartition != null || sideInputSystemStreams.containsKey(storeName)) {
-      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.loggedStoreBaseDirectory, storeName, taskName);
+      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.loggedStoreBaseDirectory, storeName, taskName, taskModel.getTaskMode());
     } else {
-      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.nonLoggedStoreBaseDirectory, storeName, taskName);
+      storeDirectory = StorageManagerUtil.getStorePartitionDir(this.nonLoggedStoreBaseDirectory, storeName, taskName, taskModel.getTaskMode());
     }
 
     this.storeDirectoryPaths.add(storeDirectory.toPath());
@@ -544,7 +544,7 @@ public class ContainerStorageManager {
             sideInputStoresToSSPs.put(storeName, storeSSPs);
           }
 
-          TaskSideInputStorageManager taskSideInputStorageManager = new TaskSideInputStorageManager(taskName, streamMetadataCache, loggedStoreBaseDirectory, sideInputStores,
+          TaskSideInputStorageManager taskSideInputStorageManager = new TaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache, loggedStoreBaseDirectory, sideInputStores,
               taskSideInputProcessors.get(taskName), sideInputStoresToSSPs, systemAdmins, config, clock);
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
@@ -907,7 +907,7 @@ public class ContainerStorageManager {
 
       taskStores.keySet().forEach(storeName -> {
           File nonLoggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName());
+              StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
           LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
           if (nonLoggedStorePartitionDir.exists()) {
@@ -916,7 +916,7 @@ public class ContainerStorageManager {
           }
 
           File loggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName());
+              StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
           LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
           // Delete the logged store if it is not valid.
@@ -972,7 +972,7 @@ public class ContainerStorageManager {
           if (storageEngine.getStoreProperties().isLoggedStore()) {
 
             File loggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
 
             LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
@@ -982,7 +982,7 @@ public class ContainerStorageManager {
             }
           } else {
             File nonLoggedStorePartitionDir =
-                StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName());
+                StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
             LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
                 + " for store: " + storeName);
             nonLoggedStorePartitionDir.mkdirs();

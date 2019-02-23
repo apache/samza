@@ -28,6 +28,7 @@ import java.util.Set;
 
 import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
@@ -139,9 +140,9 @@ public class StorageManagerUtil {
    * @param offsets The SSP-offset to write
    * @throws IOException because of deserializing to json
    */
-  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
+  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode,
       Map<SystemStreamPartition, String> offsets) throws IOException {
-    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode), OFFSET_FILE_NAME);
     String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil.writeWithChecksum(offsetFile, fileContents);
   }
@@ -153,7 +154,7 @@ public class StorageManagerUtil {
    * @param taskName the task name which is referencing the store
    */
   public static void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
-    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName, TaskMode.Active), OFFSET_FILE_NAME);
     if (offsetFile.exists()) {
       FileUtil.rm(offsetFile);
     }
@@ -207,9 +208,11 @@ public class StorageManagerUtil {
    * @param storeBaseDir the base directory to use
    * @param storeName the store name to use
    * @param taskName the task name which is referencing the store
+   * @param taskMode
    * @return the partition directory for the store
    */
-  public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName) {
+  public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode) {
+    // TODO: use task-Mode to decide the storePartitionDir -- standby's dir should be the same as active
     return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
   }
 }
