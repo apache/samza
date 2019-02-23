@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
@@ -288,7 +289,7 @@ public class TestTaskSideInputStorageManager {
     }
 
     TaskSideInputStorageManager build() {
-      return spy(new TaskSideInputStorageManager(taskName, streamMetadataCache, new File(storeBaseDir), stores,
+      return spy(new TaskSideInputStorageManager(taskName, TaskMode.Active, streamMetadataCache, new File(storeBaseDir), stores,
           storeToProcessor, storeToSSps, systemAdmins, mock(Config.class), clock));
     }
   }

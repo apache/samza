@@ -39,6 +39,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -72,12 +73,14 @@ public class TaskSideInputStorageManager {
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
+  private final TaskMode taskMode;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
   public TaskSideInputStorageManager(
       TaskName taskName,
+      TaskMode taskMode,
       StreamMetadataCache streamMetadataCache,
       File storeBaseDir,
       Map<String, StorageEngine> sideInputStores,
@@ -93,6 +96,7 @@ public class TaskSideInputStorageManager {
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
     this.taskName = taskName;
+    this.taskMode = taskMode;
     this.storeToProcessor = storesToProcessor;
 
     validateStoreConfiguration();
@@ -256,7 +260,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, offsets);
+              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
@@ -294,7 +298,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName);
+    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode);
   }
 
   /**
