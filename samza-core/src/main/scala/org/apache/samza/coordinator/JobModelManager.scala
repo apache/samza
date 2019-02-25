@@ -110,7 +110,7 @@ object JobModelManager extends Logging {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
     val taskModes: util.Map[TaskName, TaskMode] = taskAssignmentManager.readTaskModes()
 
-    // we read the taskAssignment only for ActiveTasks
+    // We read the taskAssignment only for ActiveTasks
     val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment().
       filterKeys(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
 
@@ -134,7 +134,8 @@ object JobModelManager extends Logging {
     // coordinator stream. This is done due to the 1 MB value size limit in a kafka topic. Conversion to
     // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     sspToTaskMapping foreach { case (systemStreamPartition: SystemStreamPartition, taskNames: util.List[String]) =>
-      for (task <- taskNames) {
+      // We read the partition assignments only for active-tasks
+      for (task <- taskNames.filter(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))) {
         val taskName: TaskName = new TaskName(task)
         if (!taskPartitionAssignments.containsKey(taskName)) {
           taskPartitionAssignments.put(taskName, new util.ArrayList[SystemStreamPartition]())
@@ -216,7 +217,7 @@ object JobModelManager extends Logging {
     // if the set of standby tasks has changed, e.g., when the replication-factor changed, or the active-tasks-set has
     // changed, we log a warning and delete the existing mapping for these tasks
     val previousStandbyTasks = taskAssignmentManager.readTaskModes().filter(x => x._2.eq(TaskMode.Standby))
-    if(standbyTaskNames.asScala != previousStandbyTasks.keySet) {
+    if(standbyTaskNames.asScala.eq(previousStandbyTasks.keySet)) {
       info("The set of standby tasks has changed, current standby tasks %s, previous standby tasks %s" format (standbyTaskNames, previousStandbyTasks.keySet))
       taskAssignmentManager.deleteTaskContainerMappings(previousStandbyTasks.map(x => x._1.getTaskName).asJava)
     }
