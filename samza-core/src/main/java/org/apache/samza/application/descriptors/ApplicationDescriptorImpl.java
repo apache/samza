@@ -311,9 +311,12 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
             ". Values will not be (de)serialized");
       }
       streamSerdes.put(streamId, KV.of(keySerde, valueSerde));
-    } else if (!currentSerdePair.getKey().equals(keySerde) || !currentSerdePair.getValue().equals(valueSerde)) {
+    } else if (!currentSerdePair.getKey().getClass().equals(keySerde.getClass())
+        || !currentSerdePair.getValue().getClass().equals(valueSerde.getClass())) {
       throw new IllegalArgumentException(String.format("Serde for streamId: %s is already defined. Cannot change it to "
           + "different serdes.", streamId));
+    } else {
+      LOGGER.warn("Using previously defined serde for streamId: " + streamId + ".");
     }
     return streamSerdes.get(streamId);
   }
