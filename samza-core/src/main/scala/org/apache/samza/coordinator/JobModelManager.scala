@@ -134,13 +134,16 @@ object JobModelManager extends Logging {
     // coordinator stream. This is done due to the 1 MB value size limit in a kafka topic. Conversion to
     // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     sspToTaskMapping foreach { case (systemStreamPartition: SystemStreamPartition, taskNames: util.List[String]) =>
-      // We read the partition assignments only for active-tasks
-      for (task <- taskNames.filter(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))) {
+      for (task <- taskNames) {
         val taskName: TaskName = new TaskName(task)
-        if (!taskPartitionAssignments.containsKey(taskName)) {
-          taskPartitionAssignments.put(taskName, new util.ArrayList[SystemStreamPartition]())
+
+        // We read the partition assignments only for active-tasks
+        if (taskModes.get(taskName).eq(TaskMode.Active)) {
+          if (!taskPartitionAssignments.containsKey(taskName)) {
+            taskPartitionAssignments.put(taskName, new util.ArrayList[SystemStreamPartition]())
+          }
+          taskPartitionAssignments.get(taskName).add(systemStreamPartition)
         }
-        taskPartitionAssignments.get(taskName).add(systemStreamPartition)
       }
     }
     new GrouperMetadataImpl(processorLocality, taskLocality, taskPartitionAssignments, taskNameToProcessorId)
