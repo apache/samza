@@ -360,11 +360,15 @@ public class StandbyContainerManager {
       // A standby container can be started on the anyhost-alternative-resource rightaway provided it passes all the
       // standby constraints
 
+      log.info("Handling expired request, standby container {} can be started on alternative resource {}", containerID, alternativeResource.get());
+
       checkStandbyConstraintsAndRunStreamProcessor(request, ResourceRequestState.ANY_HOST, alternativeResource.get(),
           containerAllocator, resourceRequestState);
 
     } else if (StandbyTaskUtil.isStandbyContainer(containerID) && !alternativeResource.isPresent()) {
       // If there is no alternative-resource for the standby container we make a new anyhost request
+
+      log.info("Handling expired request, requesting anyHost resource for standby container {}", containerID);
 
       resourceRequestState.cancelResourceRequest(request);
       containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
@@ -374,18 +378,36 @@ public class StandbyContainerManager {
       // An active container can be started on the alternative-any-host resource rightaway, if it has no prior failure,
       // that is, it has no recorded failure status
 
+      log.info("Handling expired request, trying to run active container {} on alternative resource {}", containerID, alternativeResource.get());
+
       checkStandbyConstraintsAndRunStreamProcessor(request, ResourceRequestState.ANY_HOST, alternativeResource.get(),
           containerAllocator, resourceRequestState);
 
-    } else if (!StandbyTaskUtil.isStandbyContainer(containerID)) {
+    } else if (!StandbyTaskUtil.isStandbyContainer(containerID) &&
+        !samzaApplicationState.failedContainersStatus.containsKey(containerID) && !alternativeResource.isPresent()) {
+      // An active container has no prior failure, and there is no-alternative-anyhost resource, so we make a new anyhost
+      // request
+
+      log.info("Handling expired request, checking if active container {} can be put on alternative resource {}", containerID, alternativeResource.get());
+
+      resourceRequestState.cancelResourceRequest(request);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+
+    } else if (!StandbyTaskUtil.isStandbyContainer(containerID) &&
+        samzaApplicationState.failedContainersStatus.containsKey(containerID)) {
       // An active container that had failed, and whose subsequent resource request has expired, needs to be failed over to
       // a new standby-candidate, so we initiate a failover
+
+      log.info("Handling expired request, initiating failover for active container {}", containerID);
 
       resourceRequestState.cancelResourceRequest(request);
 
       // we use the activeContainer's last known resourceID to initiate the failover
       String lastKnownResourceID = samzaApplicationState.failedContainersStatus.get(containerID).getResourceID();
       initiateActiveContainerFailover(containerID, lastKnownResourceID, containerAllocator);
+
+    } else {
+      log.error("Handling expired request, invalid state containerID {}, resource request {}", containerID, request);
     }
   }
 
