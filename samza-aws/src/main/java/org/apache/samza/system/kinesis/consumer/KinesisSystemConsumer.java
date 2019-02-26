@@ -212,8 +212,8 @@ public class KinesisSystemConsumer extends BlockingEnvelopeMap implements Checkp
   }
 
   @Override
-  public void onCheckpoint(Map<SystemStreamPartition, String> sspOffsets) {
-    LOG.info("onCheckpoint called with sspOffsets {}", sspOffsets);
+  public void afterCheckpoint(Map<SystemStreamPartition, String> sspOffsets) {
+    LOG.info("afterCheckpoint called with sspOffsets {}", sspOffsets);
     sspOffsets.forEach((ssp, offset) -> {
         KinesisRecordProcessor processor = processors.get(ssp);
         KinesisSystemConsumerOffset kinesisOffset = KinesisSystemConsumerOffset.parse(offset);

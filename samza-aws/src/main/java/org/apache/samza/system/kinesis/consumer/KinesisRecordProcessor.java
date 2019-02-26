@@ -63,7 +63,7 @@ public class KinesisRecordProcessor implements IRecordProcessor {
   private final SystemStreamPartition ssp;
 
   private String shardId;
-  private KinesisRecordProcessorListener listener;
+  private final KinesisRecordProcessorListener listener;
   private IRecordProcessorCheckpointer checkpointer;
   private ExtendedSequenceNumber initSeqNumber;
 
@@ -85,7 +85,7 @@ public class KinesisRecordProcessor implements IRecordProcessor {
    */
   @Override
   public void initialize(InitializationInput initializationInput) {
-    Validate.isTrue(listener != null, "There is no listener set for the processor.");
+    Validate.notNull(listener, "There is no listener set for the processor.");
     initSeqNumber = initializationInput.getExtendedSequenceNumber();
     shardId = initializationInput.getShardId();
     LOG.info("Initialization done for {} with sequence {}", this,

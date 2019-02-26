@@ -43,8 +43,8 @@ import org.apache.samza.system.eventhub.EventHubConfig;
  */
 public class EventHubsInputDescriptor<StreamMessageType>
     extends InputDescriptor<StreamMessageType, EventHubsInputDescriptor<StreamMessageType>> {
-  private String namespace;
-  private String entityPath;
+  private final String namespace;
+  private final String entityPath;
   private Optional<String> sasKeyName = Optional.empty();
   private Optional<String> sasToken = Optional.empty();
   private Optional<String> consumerGroup = Optional.empty();
@@ -76,7 +76,7 @@ public class EventHubsInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public EventHubsInputDescriptor<StreamMessageType> withSasKeyName(String sasKeyName) {
-    this.sasKeyName = Optional.of(StringUtils.stripToNull(sasKeyName));
+    this.sasKeyName = Optional.ofNullable(StringUtils.stripToNull(sasKeyName));
     return this;
   }
 
@@ -87,7 +87,7 @@ public class EventHubsInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public EventHubsInputDescriptor<StreamMessageType> withSasKey(String sasToken) {
-    this.sasToken = Optional.of(StringUtils.stripToNull(sasToken));
+    this.sasToken = Optional.ofNullable(StringUtils.stripToNull(sasToken));
     return this;
   }
 
@@ -99,13 +99,13 @@ public class EventHubsInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public EventHubsInputDescriptor<StreamMessageType> withConsumerGroup(String consumerGroup) {
-    this.consumerGroup = Optional.of(StringUtils.stripToNull(consumerGroup));
+    this.consumerGroup = Optional.ofNullable(StringUtils.stripToNull(consumerGroup));
     return this;
   }
 
   @Override
   public Map<String, String> toConfig() {
-    HashMap<String, String> ehConfigs = new HashMap<>(super.toConfig());
+    Map<String, String> ehConfigs = new HashMap<>(super.toConfig());
 
     String streamId = getStreamId();
 
@@ -116,7 +116,7 @@ public class EventHubsInputDescriptor<StreamMessageType>
         ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_KEY_NAME, streamId), keyName));
     sasToken.ifPresent(key ->
         ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_SAS_TOKEN, streamId), key));
-    this.consumerGroup.ifPresent(consumerGroupName ->
+    consumerGroup.ifPresent(consumerGroupName ->
         ehConfigs.put(String.format(EventHubConfig.CONFIG_STREAM_CONSUMER_GROUP, streamId), consumerGroupName));
     return ehConfigs;
   }

@@ -49,7 +49,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemConsumer.class);
 
-  private static final long FETCH_THRESHOLD = 50000;
+  private static final long FETCH_THRESHOLD = 10000;
   private static final long FETCH_THRESHOLD_BYTES = -1L;
 
   protected final Consumer<K, V> kafkaConsumer;

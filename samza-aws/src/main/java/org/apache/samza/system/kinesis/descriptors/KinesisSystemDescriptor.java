@@ -72,7 +72,7 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
    * @return this system descriptor
    */
   public KinesisSystemDescriptor withRegion(String region) {
-    this.region = Optional.of(StringUtils.stripToNull(region));
+    this.region = Optional.ofNullable(StringUtils.stripToNull(region));
     return this;
   }
 
@@ -102,7 +102,7 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
    * @return this system descriptor
    */
   public KinesisSystemDescriptor withProxyHost(String proxyHost) {
-    this.proxyHost = Optional.of(StringUtils.stripToNull(proxyHost));
+    this.proxyHost = Optional.ofNullable(StringUtils.stripToNull(proxyHost));
     return this;
   }
 
@@ -121,18 +121,18 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
     Map<String, String> config = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    this.region.ifPresent(
+    region.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_SYSTEM_REGION, systemName), val));
-    this.proxyHost.ifPresent(
+    proxyHost.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_HOST, systemName), val));
-    this.proxyPort.ifPresent(
+    proxyPort.ifPresent(
         val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_PORT, systemName), String.valueOf(val)));
 
-    final String kclConfigPrefix = String.format(KinesisConfig.CONFIG_SYSTEM_KINESIS_CLIENT_LIB_CONFIG, systemName);
-    this.kclConfig.forEach((k, v) -> config.put(kclConfigPrefix + k, v));
+    String kclConfigPrefix = String.format(KinesisConfig.CONFIG_SYSTEM_KINESIS_CLIENT_LIB_CONFIG, systemName);
+    kclConfig.forEach((k, v) -> config.put(kclConfigPrefix + k, v));
 
-    final String awsConfigPrefix = String.format(KinesisConfig.CONFIG_AWS_CLIENT_CONFIG, systemName);
-    this.awsConfig.forEach((k, v) -> config.put(awsConfigPrefix + k, v));
+    String awsConfigPrefix = String.format(KinesisConfig.CONFIG_AWS_CLIENT_CONFIG, systemName);
+    awsConfig.forEach((k, v) -> config.put(awsConfigPrefix + k, v));
 
     return config;
   }

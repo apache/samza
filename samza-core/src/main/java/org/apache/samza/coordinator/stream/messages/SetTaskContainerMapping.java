@@ -68,6 +68,4 @@ public class SetTaskContainerMapping extends CoordinatorStreamMessage {
   public String getTaskAssignment() {
     return getMessageValue(CONTAINER_KEY);
   }
-
-
 }

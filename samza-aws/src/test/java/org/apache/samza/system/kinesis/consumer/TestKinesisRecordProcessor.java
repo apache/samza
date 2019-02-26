@@ -56,20 +56,16 @@ public class TestKinesisRecordProcessor {
       KinesisRecordProcessor.POLL_INTERVAL_DURING_PARENT_SHARD_SHUTDOWN_MS + 1000;
 
   @Test
-  public void testLifeCycleWithEvents() throws InterruptedException, ShutdownException, InvalidStateException,
-                                               NoSuchFieldException, IllegalAccessException {
+  public void testLifeCycleWithEvents() {
     testLifeCycleHelper(5);
   }
 
   @Test
-  public void testLifeCycleWithNoEvents() throws InterruptedException, ShutdownException, InvalidStateException,
-                                                 NoSuchFieldException, IllegalAccessException {
+  public void testLifeCycleWithNoEvents() {
     testLifeCycleHelper(0);
   }
 
-  private void testLifeCycleHelper(int numRecords) throws InterruptedException, ShutdownException,
-                                                          InvalidStateException, NoSuchFieldException,
-                                                          IllegalAccessException {
+  private void testLifeCycleHelper(int numRecords) {
     String system = "kinesis";
     String stream = "stream";
     final CountDownLatch receivedShutdownLatch = new CountDownLatch(1);
@@ -102,7 +98,7 @@ public class TestKinesisRecordProcessor {
     // Verification steps
 
     // Verify there is a receivedRecords call to listener.
-    Assert.assertTrue("Unable to receive records.", receivedRecordsLatch.getCount() == 0);
+    Assert.assertEquals("Unable to receive records.", 0, receivedRecordsLatch.getCount());
 
     if (numRecords > 0) {
       // Call checkpoint on last record
@@ -114,7 +110,7 @@ public class TestKinesisRecordProcessor {
     shutDownProcessor(processor, ShutdownReason.ZOMBIE);
 
     // Verify that the processor is shutdown.
-    Assert.assertTrue("Unable to shutdown processor.", receivedShutdownLatch.getCount() == 0);
+    Assert.assertEquals("Unable to shutdown processor.", 0, receivedShutdownLatch.getCount());
   }
 
   /**
@@ -125,8 +121,7 @@ public class TestKinesisRecordProcessor {
    * before it processed any records.
    */
   @Test
-  public void testCheckpointAfterInit() throws InterruptedException, ShutdownException, InvalidStateException,
-                                               NoSuchFieldException, IllegalAccessException {
+  public void testCheckpointAfterInit() {
     String system = "kinesis";
     String stream = "stream";
     final CountDownLatch receivedShutdownLatch = new CountDownLatch(1);
@@ -160,26 +155,21 @@ public class TestKinesisRecordProcessor {
     shutDownProcessor(processor, ShutdownReason.ZOMBIE);
 
     // Verify that the processor is shutdown.
-    Assert.assertTrue("Unable to shutdown processor.", receivedShutdownLatch.getCount() == 0);
+    Assert.assertEquals("Unable to shutdown processor.", 0, receivedShutdownLatch.getCount());
   }
 
   @Test
-  public void testShutdownDuringReshardWithEvents() throws InterruptedException, ShutdownException,
-                                                           InvalidStateException, NoSuchFieldException,
-                                                           IllegalAccessException {
+  public void testShutdownDuringReshardWithEvents() throws InterruptedException {
     testShutdownDuringReshardHelper(5);
   }
 
   @Test
-  public void testShutdownDuringReshardWithNoEvents() throws InterruptedException, ShutdownException,
-                                                             InvalidStateException, NoSuchFieldException,
-                                                             IllegalAccessException {
+  public void testShutdownDuringReshardWithNoEvents() throws InterruptedException {
     testShutdownDuringReshardHelper(0);
   }
 
   private void testShutdownDuringReshardHelper(int numRecords)
-      throws InterruptedException, ShutdownException, InvalidStateException, NoSuchFieldException,
-             IllegalAccessException {
+      throws InterruptedException {
     String system = "kinesis";
     String stream = "stream";
     final CountDownLatch receivedShutdownLatch = new CountDownLatch(1);
@@ -212,7 +202,7 @@ public class TestKinesisRecordProcessor {
     // Verification steps
 
     // Verify there is a receivedRecords call to listener.
-    Assert.assertTrue("Unable to receive records.", receivedRecordsLatch.getCount() == 0);
+    Assert.assertEquals("Unable to receive records.", 0, receivedRecordsLatch.getCount());
 
     // Call shutdown (with TERMINATE reason) on processor and verify that the processor does not call shutdown on the
     // listener until checkpoint is called for the last record consumed from shard.
@@ -240,7 +230,7 @@ public class TestKinesisRecordProcessor {
   }
 
   static Map<KinesisRecordProcessor, List<Record>> generateRecords(int numRecordsPerShard,
-      List<KinesisRecordProcessor> processors) throws ShutdownException, InvalidStateException {
+      List<KinesisRecordProcessor> processors) {
     Map<KinesisRecordProcessor, List<Record>> processorRecordMap = new HashMap<>();
     processors.forEach(processor -> {
         try {
