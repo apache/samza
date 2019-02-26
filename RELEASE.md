@@ -121,7 +121,7 @@ the org.apache.samza repository listed under "Staging Repositories".
 
 The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.10 and 2.12:
 
-* Set the desired `scalaVersion` in `gradle.properties`.
+* Set the desired `scalaSuffix` in `gradle.properties`.
 * Run `./gradlew clean uploadArchives` to generate and upload the Samza artifacts.
 * Login to the [repository web interface](https://repository.apache.org/) with your Apache LDAP 
 credentials, "close" the created repository and "release" it.

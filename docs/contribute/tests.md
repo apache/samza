@@ -41,7 +41,7 @@ Samza's unit tests can also be run against all supported permutations of Scala a
 
 To run the tests against a specific combination:
 
-    ./gradlew -PscalaVersion=2.10 -PyarnVersion=2.4.0 clean check
+    ./gradlew -PscalaSuffix=2.10 -PyarnVersion=2.4.0 clean check
 
 To run Samza's unit tests against all permutations, run:
 
