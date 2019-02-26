@@ -113,6 +113,7 @@ public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
+  private static final String SIDEINPUTS_METRICS_NAME = "samza-container-%s-sideinputs";
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
@@ -134,6 +135,13 @@ public class ContainerStorageManager {
   private final JobContext jobContext;
   private final ContainerContext containerContext;
 
+  private final File loggedStoreBaseDirectory;
+  private final File nonLoggedStoreBaseDirectory;
+  private final Set<Path> storeDirectoryPaths; // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
+
+  private final int parallelRestoreThreadPoolSize;
+  private final int maxChangeLogStreamPartitions; // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
+
   /* Sideinput related parameters */
   private final Map<String, Set<SystemStream>> sideInputSystemStreams; // Map of side input system-streams indexed by store name
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs;
@@ -141,8 +149,8 @@ public class ContainerStorageManager {
   private final Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers; // Map of sideInput storageManagers indexed by ssp, for simpler lookup for process()
   private final Map<String, SystemConsumer> sideInputConsumers; // Mapping from storeSystemNames to SystemConsumers
   private SystemConsumers sideInputSystemConsumers;
-  private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata = new ConcurrentHashMap<>();
-  // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
+  private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
+      = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
   private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
   private volatile boolean shutDownSideInputRead = false;
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
@@ -150,13 +158,6 @@ public class ContainerStorageManager {
   private ScheduledFuture sideInputsFlushFuture;
   private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1);
   private volatile Optional<Throwable> sideInputException = Optional.empty();
-
-  private final File loggedStoreBaseDirectory;
-  private final File nonLoggedStoreBaseDirectory;
-  private final Set<Path> storeDirectoryPaths; // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
-
-  private final int parallelRestoreThreadPoolSize;
-  private final int maxChangeLogStreamPartitions; // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
 
   private final Config config;
 
@@ -233,7 +234,7 @@ public class ContainerStorageManager {
           this.sideInputSystemStreams.values().stream().flatMap(Set::stream).collect(Collectors.toSet())).toSet(), false);
 
       SystemConsumersMetrics systemConsumersMetrics = new SystemConsumersMetrics(
-          new MetricsRegistryMap("samza-container-" + containerModel.getId() + "-sideinputs"));
+          new MetricsRegistryMap(String.format(SIDEINPUTS_METRICS_NAME, containerModel.getId())));
 
       MessageChooser chooser = DefaultChooser.apply(inputStreamMetadata, new RoundRobinChooserFactory(), config,
           systemConsumersMetrics.registry(), systemAdmins);
@@ -637,7 +638,12 @@ public class ContainerStorageManager {
     sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
-        getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.flush());
+        try {
+          getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.flush());
+        } catch (Exception e) {
+          LOG.error("Exception during flushing side inputs", e);
+          sideInputException = Optional.of(e);
+        }
       }
     }, 0, new TaskConfig(config).getCommitMs(), TimeUnit.MILLISECONDS);
 
@@ -706,6 +712,7 @@ public class ContainerStorageManager {
         throw new SamzaException("Exception in restoring side inputs", sideInputException.get());
       }
     } catch (InterruptedException e) {
+      sideInputException = Optional.of(e);
       throw new SamzaException("Side inputs read was interrupted", e);
     }
 

@@ -208,7 +208,7 @@ public class StorageManagerUtil {
    * @param storeBaseDir the base directory to use
    * @param storeName the store name to use
    * @param taskName the task name which is referencing the store
-   * @param taskMode
+   * @param taskMode the mode of the given task
    * @return the partition directory for the store
    */
   public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode) {
