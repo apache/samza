@@ -21,7 +21,9 @@ package org.apache.samza.sql.interfaces;
 
 import java.lang.reflect.Method;
 
+import java.util.List;
 import org.apache.samza.config.Config;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
 
 
 /**
@@ -30,15 +32,18 @@ import org.apache.samza.config.Config;
 public class UdfMetadata {
 
   private final String name;
-
   private final Method udfMethod;
-
   private final Config udfConfig;
+  private final boolean disableArgCheck;
+  private final List<SamzaSqlFieldType> arguments;
 
-  public UdfMetadata(String name, Method udfMethod, Config udfConfig) {
+  public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
+      boolean disableArgCheck) {
     this.name = name;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
+    this.arguments = arguments;
+    this.disableArgCheck = disableArgCheck;
   }
 
   public Config getUdfConfig() {
@@ -58,4 +63,19 @@ public class UdfMetadata {
   public String getName() {
     return name;
   }
+
+  /**
+   * @return Returns the list of arguments that the udf should take.
+   */
+  public List<SamzaSqlFieldType> getArguments() {
+    return arguments;
+  }
+
+  /**
+   * @return Returns whether the argument check needs to be disabled.
+   */
+  public boolean isDisableArgCheck() {
+    return disableArgCheck;
+  }
+
 }

@@ -18,7 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
+
 import java.util.Optional;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,6 +118,28 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     }
   }
 
+
+  /**
+   * Since host-affinity is enabled, all container processes will be requested on their preferred host. If the job is
+   * run for the first time, it will get matched to any available host.
+   *
+   * @param resourceToHostMapping A Map of [containerId, hostName] containerId is the ID of the container process
+   *                               to run on the resource. hostName is the host on which the resource must be allocated.
+   *                                The hostName value is null when host-affinity is enabled and job is run for the
+   *                                first time
+   */
+  @Override
+  public void requestResources(Map<String, String> resourceToHostMapping) {
+    for (Map.Entry<String, String> entry : resourceToHostMapping.entrySet()) {
+      String containerId = entry.getKey();
+      String preferredHost = entry.getValue();
+      if (preferredHost == null) {
+        log.info("Preferred host not found for container id: {}", containerId);
+        preferredHost = ResourceRequestState.ANY_HOST;
+      }
+      requestResource(containerId, preferredHost);
+    }
+  }
 
   /**
    * Checks if a request has expired.

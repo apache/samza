@@ -21,19 +21,19 @@ package org.apache.samza.system
 
 
 import java.util
+import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
+import java.util.Collections
+import java.util.HashMap
+import java.util.HashSet
+import java.util.Queue
+import java.util.Set
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
-import org.apache.samza.startpoint.{Startpoint, StartpointVisitor}
+import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
-import java.util.ArrayDeque
-import java.util.Collections
-import java.util.HashSet
-import java.util.HashMap
-import java.util.Queue
-import java.util.Set
 
 
 object SystemConsumers {
@@ -205,8 +205,8 @@ class SystemConsumers (
 
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
-      if (startpoint != null && consumer.isInstanceOf[StartpointVisitor]) {
-        startpoint.apply(systemStreamPartition, consumer.asInstanceOf[StartpointVisitor])
+      if (startpoint != null) {
+        consumer.register(systemStreamPartition, startpoint)
       } else {
         consumer.register(systemStreamPartition, offset)
       }

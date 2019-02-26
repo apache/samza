@@ -16,25 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.sql.util;
 
-package org.apache.samza.sql.fn;
-
-import java.util.List;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-@SamzaSqlUdf(name = "Flatten", description = "Flattens the array.")
-public class FlattenUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
+/**
+ * UDF to test polymorphism.
+ */
+@SamzaSqlUdf(name = "MyTestPoly", description = "Test Polymorphism UDF.")
+public class MyTestPolyUdf implements ScalarUdf {
+  private static final Logger LOG = LoggerFactory.getLogger(MyTestPolyUdf.class);
+
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.INT32)
+  public Integer execute(Integer value) {
+    return value * 2;
   }
 
-  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ARRAY)
-  public Object execute(List value) {
-    return value != null && !value.isEmpty() ? value.get(0) : value;
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY)
+  public Integer execute(String value) {
+    return value.length() * 2;
+  }
+
+
+  @Override
+  public void init(Config udfConfig) {
+    LOG.info("Init called with {}", udfConfig);
   }
 }

@@ -42,6 +42,7 @@ enum CliCommandType {
   CLEAR("CLEAR", "\tClears the screen.", "CLEAR"),
   EXIT("EXIT", "\tExits the shell.", "Exit"),
   QUIT("QUIT", "\tQuits the shell.", "QUIT"),
+  VERSION("VERSION", "\tShows version information", "VERSION"),
 
   INVALID_COMMAND("INVALID_COMMAND", "INVALID_COMMAND", "INVALID_COMMAND");
 

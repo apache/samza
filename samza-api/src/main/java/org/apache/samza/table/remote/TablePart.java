@@ -17,24 +17,31 @@
  * under the License.
  */
 
-package org.apache.samza.sql.fn;
+package org.apache.samza.table.remote;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
-import org.apache.samza.sql.schema.SamzaSqlFieldType;
-import org.apache.samza.sql.udfs.SamzaSqlUdf;
-import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
-import org.apache.samza.sql.udfs.ScalarUdf;
 
 
-@SamzaSqlUdf(name = "Flatten", description = "Flattens the array.")
-public class FlattenUdf implements ScalarUdf {
-  @Override
-  public void init(Config udfConfig) {
+/**
+ * A building block of a remote table
+ */
+@InterfaceStability.Unstable
+public interface TablePart {
+
+  /**
+   * Generate configuration for this building block. There are situations where this object
+   * or its external dependencies may require certain configuration, this method allows
+   * generation and inclusion of them in the job configuration.
+   *
+   * @param jobConfig job configuration
+   * @param tableConfig so far generated configuration for this table
+   * @return configuration for this build block
+   */
+  default Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
+    return Collections.emptyMap();
   }
 
-  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ARRAY)
-  public Object execute(List value) {
-    return value != null && !value.isEmpty() ? value.get(0) : value;
-  }
 }

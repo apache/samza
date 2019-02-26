@@ -175,7 +175,10 @@ public class SamzaExecutor implements SqlExecutor {
     executions.put(execId, runner);
     LOG.debug("Executing sql. Id ", execId);
 
-    return new QueryResult(execId, generateResultSchema(new MapConfig(staticConfigs)));
+    SqlSchema resultSchema = null;
+    // TODO: after fixing the TODO in generateResultSchema function, we can uncomment the following piece of code.
+    // resultSchema = generateResultSchema(new MapConfig(staticConfigs));
+    return new QueryResult(execId, resultSchema);
   }
 
   @Override
@@ -293,6 +296,11 @@ public class SamzaExecutor implements SqlExecutor {
         SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN)));
 
     return udfs;
+  }
+
+  @Override
+  public String getVersion() {
+    return this.getClass().getPackage().getImplementationVersion();
   }
 
   static void saveOutputMessage(OutgoingMessageEnvelope messageEnvelope) {
@@ -416,7 +424,8 @@ public class SamzaExecutor implements SqlExecutor {
       colTypeNames.add(dataTypeField.getType().toString());
     }
 
-    // TODO Need to find a way to convert the relational to SQL Schema
+    // TODO: Need to find a way to convert the relational to SQL Schema. After fixing this TODO, please resolve the TODOs
+    // in QueryResult class and executeQuery().
     return new SqlSchema(colNames, Collections.emptyList());
   }
 

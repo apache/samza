@@ -21,16 +21,34 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.FileUtil;
+import org.codehaus.jackson.JsonParseException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.ObjectWriter;
+import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
+  public static final String OFFSET_FILE_NAME = "OFFSET";
+  private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
+  private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
+            new TypeReference<Map<SystemStreamPartition, String>>() { };
+  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
+
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -70,17 +88,15 @@ public class StorageManagerUtil {
    * the {@code storeDeleteRetentionInMs}, then the store is considered stale.
    *
    * @param storeDir the base directory of the store
-   * @param offsetFileName the offset file name
    * @param storeDeleteRetentionInMs store delete retention in millis
    * @param currentTimeMs current time in ms
    * @return true if the store is stale, false otherwise
    */
-  public static boolean isStaleStore(
-      File storeDir, String offsetFileName, long storeDeleteRetentionInMs, long currentTimeMs) {
+  public static boolean isStaleStore(File storeDir, long storeDeleteRetentionInMs, long currentTimeMs) {
     boolean isStaleStore = false;
     String storePath = storeDir.toPath().toString();
     if (storeDir.exists()) {
-      File offsetFileRef = new File(storeDir, offsetFileName);
+      File offsetFileRef = new File(storeDir, OFFSET_FILE_NAME);
       long offsetFileLastModifiedTime = offsetFileRef.lastModified();
       if ((currentTimeMs - offsetFileLastModifiedTime) >= storeDeleteRetentionInMs) {
         LOG.info(
@@ -98,14 +114,14 @@ public class StorageManagerUtil {
    * An offset file associated with logged store {@code storeDir} is valid if it exists and is not empty.
    *
    * @param storeDir the base directory of the store
-   * @param offsetFileName name of the offset file
+   * @param storeSSPs storeSSPs (if any) associated with the store
    * @return true if the offset file is valid. false otherwise.
    */
-  public static boolean isOffsetFileValid(File storeDir, String offsetFileName) {
+  public static boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs) {
     boolean hasValidOffsetFile = false;
     if (storeDir.exists()) {
-      String offsetContents = readOffsetFile(storeDir, offsetFileName);
-      if (offsetContents != null && !offsetContents.isEmpty()) {
+      Map<SystemStreamPartition, String> offsetContents = readOffsetFile(storeDir, storeSSPs);
+      if (offsetContents != null && !offsetContents.isEmpty() && offsetContents.keySet().equals(storeSSPs)) {
         hasValidOffsetFile = true;
       } else {
         LOG.info("Offset file is not valid for store: {}.", storeDir.toPath());
@@ -113,6 +129,34 @@ public class StorageManagerUtil {
     }
 
     return hasValidOffsetFile;
+  }
+
+  /**
+   * Write the given SSP-Offset map into the offsets file.
+   * @param storeBaseDir the base directory of the store
+   * @param storeName the store name to use
+   * @param taskName the task name which is referencing the store
+   * @param offsets The SSP-offset to write
+   * @throws IOException because of deserializing to json
+   */
+  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
+      Map<SystemStreamPartition, String> offsets) throws IOException {
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+    FileUtil.writeWithChecksum(offsetFile, fileContents);
+  }
+
+  /**
+   *  Delete the offset file for this task and store, if one exists.
+   * @param storeBaseDir the base directory of the store
+   * @param storeName the store name to use
+   * @param taskName the task name which is referencing the store
+   */
+  public static void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    if (offsetFile.exists()) {
+      FileUtil.rm(offsetFile);
+    }
   }
 
   /**
@@ -129,18 +173,24 @@ public class StorageManagerUtil {
    * Read and return the contents of the offset file.
    *
    * @param storagePartitionDir the base directory of the store
-   * @param offsetFileName name of the offset file
+   * @param storeSSPs SSPs associated with the store (if any)
    * @return the content of the offset file if it exists for the store, null otherwise.
    */
-  public static String readOffsetFile(File storagePartitionDir, String offsetFileName) {
-    String offset = null;
-    File offsetFileRef = new File(storagePartitionDir, offsetFileName);
+  public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs) {
+    Map<SystemStreamPartition, String> offsets = new HashMap<>();
+    String fileContents = null;
+    File offsetFileRef = new File(storagePartitionDir, OFFSET_FILE_NAME);
     String storePath = storagePartitionDir.getPath();
 
     if (offsetFileRef.exists()) {
       LOG.info("Found offset file in storage partition directory: {}", storePath);
       try {
-        offset = FileUtil.readWithChecksum(offsetFileRef);
+        fileContents = FileUtil.readWithChecksum(offsetFileRef);
+        offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
+      } catch (JsonParseException | JsonMappingException e) {
+        LOG.info("Exception in json-parsing offset file {} {}, reading as string offset-value", storagePartitionDir.toPath(), OFFSET_FILE_NAME);
+        final String finalFileContents = fileContents;
+        offsets = (storeSSPs.size() == 1) ? storeSSPs.stream().collect(Collectors.toMap(ssp -> ssp, offset -> finalFileContents)) : offsets;
       } catch (Exception e) {
         LOG.warn("Failed to read offset file in storage partition directory: {}", storePath, e);
       }
@@ -148,7 +198,7 @@ public class StorageManagerUtil {
       LOG.info("No offset file found in storage partition directory: {}", storePath);
     }
 
-    return offset;
+    return offsets;
   }
 
   /**

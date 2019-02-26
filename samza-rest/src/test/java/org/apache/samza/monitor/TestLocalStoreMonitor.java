@@ -31,6 +31,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
+import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
 import org.junit.Assert;
@@ -195,7 +196,7 @@ public class TestLocalStoreMonitor {
   }
 
   private static File createOffsetFile(File taskStoreDir) throws Exception {
-    File offsetFile = new File(taskStoreDir, "OFFSET");
+    File offsetFile = new File(taskStoreDir, StorageManagerUtil.OFFSET_FILE_NAME);
     offsetFile.createNewFile();
     return offsetFile;
   }

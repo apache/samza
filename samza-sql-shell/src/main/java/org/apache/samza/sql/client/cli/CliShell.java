@@ -34,7 +34,8 @@ import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import org.jline.utils.InfoCmp;
-import org.jline.utils.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +48,7 @@ import java.util.*;
  * The shell UI.
  */
 class CliShell {
+  private static final Logger LOG = LoggerFactory.getLogger(CliShell.class);
   private final Terminal terminal;
   private final PrintWriter writer;
   private final LineReader lineReader;
@@ -119,9 +121,11 @@ class CliShell {
     // screen and we need it to show streaming results. Clear the screen instead.
     clearScreen();
     writer.write(CliConstants.WELCOME_MESSAGE);
+    printVersion();
     if(!CliUtil.isNullOrEmpty(message)) {
       writer.println(message);
     }
+    writer.println();
 
     try {
       // Check if jna.jar exists in class path
@@ -205,6 +209,10 @@ class CliShell {
               commandStop(command);
               break;
 
+            case VERSION:
+              commandVersion(command);
+              break;
+
             case INVALID_COMMAND:
               printHelpMessage();
               break;
@@ -217,7 +225,7 @@ class CliShell {
           }
         } catch (ExecutorException e) {
           writer.println("Error: " + e);
-          Log.error("Error in {}: ", command.getCommandType(), e);
+          LOG.error("Error in {}: ", command.getCommandType(), e);
           writer.flush();
         }
       }
@@ -240,6 +248,18 @@ class CliShell {
     } catch (IOException | ExecutorException e) {
       // Doesn't matter
     }
+  }
+
+  private void commandVersion(CliCommand command) {
+    printVersion();
+  }
+
+  private void printVersion() {
+    String version = String.format("Shell version %s, Executor is %s, version %s",
+            this.getClass().getPackage().getImplementationVersion(),
+            executor.getClass().getName(),
+            executor.getVersion());
+    writer.println(version);
   }
 
   private void commandClear() {
@@ -425,7 +445,7 @@ class CliShell {
         ExecutionStatus execStatus = executor.queryExecutionStatus(id);
         status = execStatus.name();
       } catch (ExecutorException e) {
-        Log.error("Error in commandLs: ", e);
+        LOG.error("Error in commandLs: ", e);
       }
 
       int cmdStartIdx = 0;
@@ -497,7 +517,7 @@ class CliShell {
         executions.remove(id);
       } catch (ExecutorException e) {
         writer.println("Error: " + e);
-        Log.error("Error in commandRm: ", e);
+        LOG.error("Error in commandRm: ", e);
       }
     }
     writer.flush();
@@ -561,7 +581,7 @@ class CliShell {
         writer.println(String.format("Request to stop execution %d was sent.", id));
       } catch (ExecutorException e) {
         writer.println("Error: " + e);
-        Log.error("Error in commandStop: ", e);
+        LOG.error("Error in commandStop: ", e);
       }
     }
     writer.flush();

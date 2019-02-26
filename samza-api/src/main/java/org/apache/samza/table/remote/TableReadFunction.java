@@ -46,7 +46,7 @@ import com.google.common.collect.Iterables;
  * @param <V> the type of the value in this table
  */
 @InterfaceStability.Unstable
-public interface TableReadFunction<K, V> extends Serializable, InitableFunction, ClosableFunction {
+public interface TableReadFunction<K, V> extends TablePart, InitableFunction, ClosableFunction, Serializable {
   /**
    * Fetch single table record for a specified {@code key}. This method must be thread-safe.
    * The default implementation calls getAsync and blocks on the completion afterwards.
