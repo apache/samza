@@ -388,7 +388,7 @@ public class StandbyContainerManager {
       // An active container has no prior failure, and there is no-alternative-anyhost resource, so we make a new anyhost
       // request
 
-      log.info("Handling expired request, checking if active container {} can be put on alternative resource {}", containerID, alternativeResource.get());
+      log.info("Handling expired request, requesting anyHost resource for active container {} because this active container has never failed", containerID);
 
       resourceRequestState.cancelResourceRequest(request);
       containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
