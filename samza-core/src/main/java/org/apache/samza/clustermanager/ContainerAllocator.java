@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,4 +53,21 @@ public class ContainerAllocator extends AbstractContainerAllocator {
       runStreamProcessor(request, ResourceRequestState.ANY_HOST);
     }
   }
+
+  /**
+   * Since host-affinity is not enabled, the container id to host mappings will be ignored and all resources will be
+   * matched to any available host.
+   *
+   * @param resourceToHostMapping A Map of [containerId, hostName] containerId is the ID of the container process
+   *                               to run on the resource. The hostName will be ignored and each container process will
+   *                               be matched to any available host.
+   */
+  @Override
+  public void requestResources(Map<String, String> resourceToHostMapping)  {
+    for (Map.Entry<String, String> entry : resourceToHostMapping.entrySet()) {
+      String containerId = entry.getKey();
+      requestResource(containerId, ResourceRequestState.ANY_HOST);
+    }
+  }
+
 }
