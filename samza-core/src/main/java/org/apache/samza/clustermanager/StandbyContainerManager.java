@@ -144,12 +144,10 @@ public class StandbyContainerManager {
           standbyContainerHostname); // request standbycontainer's host for active-container
       containerAllocator.requestResource(standbyContainerID,
           ResourceRequestState.ANY_HOST); // request anyhost for standby container
-      return;
     } else {
       log.info("Issuing request for standby container {} on host {}, since this is not for a failover",
           standbyContainerID, preferredHost);
       containerAllocator.requestResource(standbyContainerID, preferredHost);
-      return;
     }
   }
 
@@ -180,7 +178,6 @@ public class StandbyContainerManager {
       samzaApplicationState.failoversToStandby.incrementAndGet();
 
       this.clusterResourceManager.stopStreamProcessor(standbyResource);
-      return;
     } else {
 
       // If we dont find a standbyContainer, we proceed with the ANYHOST request
@@ -188,7 +185,6 @@ public class StandbyContainerManager {
           ResourceRequestState.ANY_HOST);
       samzaApplicationState.failoversToAnyHost.incrementAndGet();
       containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
-      return;
     }
   }
 
