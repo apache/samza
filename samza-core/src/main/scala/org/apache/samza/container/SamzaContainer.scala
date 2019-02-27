@@ -426,18 +426,20 @@ object SamzaContainer extends Logging {
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val metadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
+    val startpointMetadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
       .map(Util.getObj(_, classOf[MetadataStoreFactory]))
       .orNull
-    val startpointManager = {
+    val startpointManager = if (startpointMetadataStoreFactory != null) {
       try {
-        Option(new StartpointManager(metadataStoreFactory, config, samzaContainerMetrics.registry))
+        Option(new StartpointManager(startpointMetadataStoreFactory, config, samzaContainerMetrics.registry))
       } catch {
         case e: Exception => {
           error("Unable to get an instance of the StartpointManager. Continuing without one.", e)
           None
         }
       }
+    } else {
+      None
     }
 
     // create a map of consumers with callbacks to pass to the OffsetManager
