@@ -500,10 +500,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private void handleContainerStop(String containerID, String resourceID, String preferredHost, int exitStatus) {
     if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerStop(containerID, resourceID, preferredHost, exitStatus, containerAllocator);
-      return;
+    } else {
+      // If StandbyTasks are not enabled, we simply make a request for the preferredHost
+      containerAllocator.requestResource(containerID, preferredHost);
     }
-
-    // If StandbyTasks are not enabled, we simply make a request for the preferredHost
-    containerAllocator.requestResource(containerID, preferredHost);
   }
 }

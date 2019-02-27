@@ -153,11 +153,9 @@ public class StandbyContainerManager {
     }
   }
 
-  /** Method to handle failover for a container.
-   *  If it is an active container,
+  /** Method to handle failover for an active container.
    *  We try to find a standby for the active container, and issue a stop on it.
    *  If we do not find a standby container, we simply issue an anyhost request to place it.
-   *  If it is standby container, we simply forward the request to the containerAllocator
    *
    * @param containerID the samzaContainerID of the active-container
    * @param resourceID  the samza-resource-ID of the container when it failed (used to index failover-state)
@@ -217,9 +215,8 @@ public class StandbyContainerManager {
       if (samzaApplicationState.runningContainers.containsKey(standbyContainerID)) {
         SamzaResource standbyContainerResource = samzaApplicationState.runningContainers.get(standbyContainerID);
 
-        // use this standby if there was no previous failover or if this standbyResource was not used for it
-        if (!failoverMetadata.isPresent() || !failoverMetadata.get()
-            .isStandbyResourceUsed(standbyContainerResource.getResourceID())) {
+        // use this standby if there was no previous failover for which this standbyResource was used
+        if (!(failoverMetadata.isPresent() && failoverMetadata.get().isStandbyResourceUsed(standbyContainerResource.getResourceID()))) {
 
           log.info("Returning standby container {} in running state for active container {}", standbyContainerID,
               activeContainerID);
