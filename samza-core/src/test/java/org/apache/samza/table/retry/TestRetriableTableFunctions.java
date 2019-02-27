@@ -85,7 +85,7 @@ public class TestRetriableTableFunctions {
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(true).when(readFn).isRetriable(any());
 
-    int [] times = new int[] {0};
+    int[] times = {0};
     Map<String, String> map = new HashMap<>();
     map.put("foo1", "bar1");
     map.put("foo2", "bar2");
@@ -193,7 +193,7 @@ public class TestRetriableTableFunctions {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any());
     doReturn(true).when(writeFn).isRetriable(any());
 
-    int [] times = new int[] {0};
+    int[] times = new int[] {0};
     List<Entry<String, String>> records = new ArrayList<>();
     records.add(new Entry<>("foo1", "bar1"));
     records.add(new Entry<>("foo2", "bar2"));
@@ -288,7 +288,7 @@ public class TestRetriableTableFunctions {
     // Table fn classification only retries on IllegalArgumentException
     doAnswer(arg -> arg.getArgumentAt(0, Throwable.class) instanceof IllegalArgumentException).when(readFn).isRetriable(any());
 
-    int [] times = new int[1];
+    int[] times = new int[1];
     doAnswer(arg -> {
         if (times[0]++ == 0) {
           CompletableFuture<String> future = new CompletableFuture();

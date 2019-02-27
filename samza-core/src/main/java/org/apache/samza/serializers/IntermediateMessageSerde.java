@@ -68,7 +68,7 @@ public class IntermediateMessageSerde implements Serde<Object> {
     try {
       final Object object;
       final MessageType type = MessageType.values()[bytes[0]];
-      final byte [] data = Arrays.copyOfRange(bytes, 1, bytes.length);
+      final byte[] data = Arrays.copyOfRange(bytes, 1, bytes.length);
       switch (type) {
         case USER_MESSAGE:
           object = userMessageSerde.fromBytes(data);
@@ -103,7 +103,7 @@ public class IntermediateMessageSerde implements Serde<Object> {
 
   @Override
   public byte[] toBytes(Object object) {
-    final byte [] data;
+    final byte[] data;
     final MessageType type = MessageType.of(object);
     switch (type) {
       case USER_MESSAGE:
@@ -119,7 +119,7 @@ public class IntermediateMessageSerde implements Serde<Object> {
         throw new SamzaException("Unknown message type: " + type.name());
     }
 
-    final byte [] bytes = new byte[data.length + 1];
+    final byte[] bytes = new byte[data.length + 1];
     bytes[0] = (byte) type.ordinal();
     System.arraycopy(data, 0, bytes, 1, data.length);
 
