@@ -143,24 +143,27 @@ public class SamzaApplicationState {
   public final AtomicInteger redundantNotifications = new AtomicInteger(0);
 
   /**
-   * Number of container allocations that proceeded because they met standby container constraints.
+   * Number of container allocations from the RM, that were used to launch containers because launching a container
+   * on the given resource met standby container constraints.
    */
   public final AtomicInteger successfulStandbyAllocations = new AtomicInteger(0);
 
   /**
-   * Number of container allocations that were dis-allowed because they
-   * did not meet standby container constraints.
+   * Number of container allocations from the RM, that did not meet standby container constraints, in which case the
+   * existing resource was given back to the RM, and a new ANY-HOST request had to be made.
    */
   public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
 
   /**
-   * Number of active container standbyContainerState initiated in which a standby container was found.
-   * If two standby containers had to selected for one failing active, it counts as two.
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which a
+   * running standby container was available for the failover.
+   * If two standby containers were used for one failing active, it counts as two.
    */
   public final AtomicInteger failoversToStandby = new AtomicInteger(0);
 
   /**
-   * Number of active container standbyContainerState initiated in which a standby container was NOT found.
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which no
+   * running standby container was available for the failover.
   */
   public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
 
