@@ -193,7 +193,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *                            this request
    * @param preferredHost Name of the host that you prefer to run the container on
    */
-  public final void issueResourceRequest(String containerID, String preferredHost) {
+  public final void requestResource(String containerID, String preferredHost) {
     SamzaResourceRequest request = getResourceRequest(containerID, preferredHost);
     issueResourceRequest(request);
   }

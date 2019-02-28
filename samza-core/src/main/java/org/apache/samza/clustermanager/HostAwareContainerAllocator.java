@@ -89,26 +89,19 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
           updateExpiryMetrics(request);
 
           if (standbyContainerManager.isPresent()) {
+            standbyContainerManager.get().handleExpiredResourceRequest(containerID, request,
+                Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
 
-            // if standby is enabled and an alternative-anyhost-resource is available, we try to use it
-            if (resourceAvailableOnAnyHost) {
-              standbyContainerManager.get().handleExpiredResourceRequest(containerID, request, Optional.of(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
-            } else {
-              standbyContainerManager.get().handleExpiredResourceRequest(containerID, request, Optional.empty(), this, resourceRequestState);
-            }
-
-          } else {
-
-            if (resourceAvailableOnAnyHost) {
+          } else if (resourceAvailableOnAnyHost) {
               log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
               runStreamProcessor(request, ResourceRequestState.ANY_HOST);
-            } else {
+
+          } else {
               log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
               resourceRequestState.cancelResourceRequest(request);
-              issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
-            }
-
+              requestResource(containerID, ResourceRequestState.ANY_HOST);
           }
+
         } else {
           log.info("Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
               new Object[]{request.getContainerID(), request.getPreferredHost(), request.getRequestTimestampMs(), requestTimeout});
@@ -137,7 +130,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         log.info("Preferred host not found for container id: {}", containerId);
         preferredHost = ResourceRequestState.ANY_HOST;
       }
-      issueResourceRequest(containerId, preferredHost);
+      requestResource(containerId, preferredHost);
     }
   }
 

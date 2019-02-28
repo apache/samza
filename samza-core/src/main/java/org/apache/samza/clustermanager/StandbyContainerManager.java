@@ -96,7 +96,7 @@ public class StandbyContainerManager {
       // in all other cases, request resource for the failed container
         default:
           log.info("Requesting resource for active-container {} on host {}", containerID, preferredHost);
-          containerAllocator.issueResourceRequest(containerID, preferredHost);
+          containerAllocator.requestResource(containerID, preferredHost);
           break;
       }
     }
@@ -113,7 +113,7 @@ public class StandbyContainerManager {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
       log.info("Handling launch fail for standby-container {}, requesting resource on any host {}", containerID);
-      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
     } else {
       initiateActiveContainerFailover(containerID, resourceID, containerAllocator);
     }
@@ -154,7 +154,7 @@ public class StandbyContainerManager {
     } else {
       log.info("Issuing request for standby container {} on host {}, since this is not for a failover",
           standbyContainerID, preferredHost);
-      containerAllocator.issueResourceRequest(standbyContainerID, preferredHost);
+      containerAllocator.requestResource(standbyContainerID, preferredHost);
     }
   }
 
@@ -190,7 +190,7 @@ public class StandbyContainerManager {
       log.info("No standby container found for active container {}, making a request for {}", containerID,
           ResourceRequestState.ANY_HOST);
       samzaApplicationState.failoversToAnyHost.incrementAndGet();
-      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -327,7 +327,7 @@ public class StandbyContainerManager {
           containerID, samzaResource.getHost());
       resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
       samzaApplicationState.failedStandbyAllocations.incrementAndGet();
     } else {
       // This resource cannot be used to launch this active container container, so we initiate a failover
@@ -341,7 +341,7 @@ public class StandbyContainerManager {
       // if this active-container has never failed, then simple request anyhost
       if (!failoverMetadata.isPresent()) {
         log.info("Requesting ANY_HOST for active container {}", containerID);
-        containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+        containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
       } else {
         log.info("Initiating failover for active container {}", containerID);
         // we use the activeContainer's last resourceID to initiate the failover
@@ -388,7 +388,7 @@ public class StandbyContainerManager {
       // If there is no alternative-resource for the standby container we make a new anyhost request
       log.info("Handling expired request, requesting anyHost resource for standby container {}", containerID);
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -413,7 +413,7 @@ public class StandbyContainerManager {
       log.info("Handling expired request, requesting anyHost resource for active container {} because this active container has never failed", containerID);
 
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
 
     } else if (failoverMetadata.isPresent()) {
       // An active container that had failed, and whose subsequent resource request has expired, needs to be failed over to

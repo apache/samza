@@ -441,7 +441,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       this.standbyContainerManager.get().handleContainerLaunchFail(containerId, resource.getResourceID(), containerAllocator);
     } else if (containerId != null) {
       log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      containerAllocator.issueResourceRequest(containerId, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
     } else {
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
           "not issued", resource);
@@ -499,7 +499,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       standbyContainerManager.get().handleContainerStop(containerID, resourceID, preferredHost, exitStatus, containerAllocator);
     } else {
       // If StandbyTasks are not enabled, we simply make a request for the preferredHost
-      containerAllocator.issueResourceRequest(containerID, preferredHost);
+      containerAllocator.requestResource(containerID, preferredHost);
     }
   }
 }

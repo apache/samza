@@ -66,7 +66,7 @@ public class ContainerAllocator extends AbstractContainerAllocator {
   public void requestResources(Map<String, String> resourceToHostMapping)  {
     for (Map.Entry<String, String> entry : resourceToHostMapping.entrySet()) {
       String containerId = entry.getKey();
-      issueResourceRequest(containerId, ResourceRequestState.ANY_HOST);
+      requestResource(containerId, ResourceRequestState.ANY_HOST);
     }
   }
 
