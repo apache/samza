@@ -224,7 +224,7 @@ public class ContainerStorageManager {
     this.sideInputConsumers = createConsumers(this.sideInputSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // create SystemConsumers for consuming from taskSideInputSSPs, if sideInputs are being used
-    if (!this.sideInputConsumers.isEmpty()) {
+    if (sideInputsPresent()) {
 
       scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(JavaConversions.asScalaSet(
           this.sideInputSystemStreams.values().stream().flatMap(Set::stream).collect(Collectors.toSet())).toSet(), false);
@@ -798,27 +798,25 @@ public class ContainerStorageManager {
         getNonSideInputStores(taskName).forEach((storeName, store) -> store.stop())
     );
 
-    // stop reading sideInputs
-    this.shutDownSideInputRead = true;
-
     // stop all sideinput consumers and stores
     if (sideInputsPresent()) {
+      // stop reading sideInputs
+      this.shutDownSideInputRead = true;
+
       this.sideInputSystemConsumers.stop();
-    }
 
-    // cancel all future sideInput flushes, shutdown the executor, and await for finish
-    if (sideInputsFlushFuture != null) {
+      // cancel all future sideInput flushes, shutdown the executor, and await for finish
       sideInputsFlushFuture.cancel(false);
-    }
-    sideInputsFlushExecutor.shutdown();
-    try {
-      sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
-      throw new SamzaException("Exception while shutting down side inputs", e);
-    }
+      sideInputsFlushExecutor.shutdown();
+      try {
+        sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        throw new SamzaException("Exception while shutting down side inputs", e);
+      }
 
-    // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
-    this.getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.stop());
+      // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
+      this.getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.stop());
+    }
     LOG.info("Shutdown complete");
   }
 
