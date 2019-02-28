@@ -250,7 +250,7 @@ public class TaskSideInputStorageManager {
    * Its contents are a JSON encoded mapping from each side input SSP to its last processed offset, and a checksum.
    */
   @VisibleForTesting
-  void  writeOffsetFiles() {
+  void writeOffsetFiles() {
     storeToSSps.entrySet().stream()
         .filter(entry -> isPersistedStore(entry.getKey())) // filter out in-memory side input stores
         .forEach((entry) -> {

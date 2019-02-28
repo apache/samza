@@ -145,7 +145,6 @@ public class ContainerStorageManager {
   /* Sideinput related parameters */
   private final Map<String, Set<SystemStream>> sideInputSystemStreams; // Map of side input system-streams indexed by store name
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs;
-  private final Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors;
   private final Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers; // Map of sideInput storageManagers indexed by ssp, for simpler lookup for process()
   private final Map<String, SystemConsumer> sideInputConsumers; // Mapping from storeSystemNames to SystemConsumers
   private SystemConsumers sideInputSystemConsumers;
@@ -154,7 +153,7 @@ public class ContainerStorageManager {
   private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
   private volatile boolean shutDownSideInputRead = false;
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
   private ScheduledFuture sideInputsFlushFuture;
   private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1);
   private volatile Optional<Throwable> sideInputException = Optional.empty();
@@ -217,9 +216,6 @@ public class ContainerStorageManager {
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
-
-    // creating side input store processors, one per store per task
-    taskSideInputProcessors = createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams, this.taskInstanceMetrics);
 
     // create side input storage managers
     sideInputStorageManagers = createSideInputStorageManagers(clock);
@@ -410,8 +406,8 @@ public class ContainerStorageManager {
 
       for (String storeName : nonSideInputStores.keySet()) {
 
-        // if this store has been already then re-create and overwrite it only if it is a
-        // persistentStore and a non-sideInputStore, because sideInputStores are created in RW mode
+        // if this store has been already created then re-create and overwrite it only if it is a
+        // persistentStore and a non-sideInputStore, because sideInputStores are always created in RW mode
         if (nonSideInputStores.get(storeName).getStoreProperties().isPersistedToDisk()) {
 
           StorageEngine storageEngine =
@@ -531,11 +527,13 @@ public class ContainerStorageManager {
   // Create task side input storage managers, one per task, index by the SSP they are responsible for consuming
   private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
 
+    // creating side input store processors, one per store per task
+    Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors = createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams, this.taskInstanceMetrics);
+
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 
-    containerModel.getTasks().forEach((taskName, taskModel) -> {
-
-        if (!sideInputSystemStreams.isEmpty()) {
+    if (sideInputsPresent()) {
+      containerModel.getTasks().forEach((taskName, taskModel) -> {
 
           Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
           Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
@@ -545,17 +543,19 @@ public class ContainerStorageManager {
             sideInputStoresToSSPs.put(storeName, storeSSPs);
           }
 
-          TaskSideInputStorageManager taskSideInputStorageManager = new TaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache, loggedStoreBaseDirectory, sideInputStores,
-              taskSideInputProcessors.get(taskName), sideInputStoresToSSPs, systemAdmins, config, clock);
+          TaskSideInputStorageManager taskSideInputStorageManager =
+              new TaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache,
+                  loggedStoreBaseDirectory, sideInputStores, taskSideInputProcessors.get(taskName), sideInputStoresToSSPs,
+                  systemAdmins, config, clock);
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
               sideInputStorageManagers.put(ssp, taskSideInputStorageManager);
             });
 
-          LOG.info("Created taskSideInputStorageManager for task {}, sideInputStores {} and loggedStoreBaseDirectory {}", taskName, sideInputStores, loggedStoreBaseDirectory);
-        }
-      });
-
+          LOG.info("Created taskSideInputStorageManager for task {}, sideInputStores {} and loggedStoreBaseDirectory {}",
+              taskName, sideInputStores, loggedStoreBaseDirectory);
+        });
+    }
     return sideInputStorageManagers;
   }
 
@@ -576,7 +576,7 @@ public class ContainerStorageManager {
 
   public void start() throws SamzaException {
     restoreStores();
-    if (!this.sideInputSystemStreams.isEmpty()) {
+    if (sideInputsPresent()) {
       startSideInputs();
     }
   }
@@ -593,7 +593,7 @@ public class ContainerStorageManager {
 
     // Create a thread pool for parallel restores (and stopping of persistent stores)
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
-        new ThreadFactoryBuilder().setNameFormat(RESTORE_THREAD_NAME).build());
+        new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
     List<Future> taskRestoreFutures = new ArrayList<>(this.taskRestoreManagers.entrySet().size());
 
@@ -695,6 +695,7 @@ public class ContainerStorageManager {
         }
       });
 
+    readSideInputs.setDaemon(true);
     readSideInputs.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
       @Override
       public void uncaughtException(Thread t, Throwable e) {
@@ -720,6 +721,9 @@ public class ContainerStorageManager {
     LOG.info("SideInput Restore complete");
   }
 
+  private boolean sideInputsPresent() {
+    return !this.sideInputSystemStreams.isEmpty();
+  }
 
   // Method to check if the given offset means the stream is caught up for reads
   private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
@@ -798,7 +802,7 @@ public class ContainerStorageManager {
     this.shutDownSideInputRead = true;
 
     // stop all sideinput consumers and stores
-    if (sideInputSystemConsumers != null) {
+    if (sideInputsPresent()) {
       this.sideInputSystemConsumers.stop();
     }
 
@@ -814,9 +818,7 @@ public class ContainerStorageManager {
     }
 
     // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
-    this.sideInputStorageManagers.values().stream().collect(Collectors.toSet()).
-        forEach(sideInputStorageManager -> sideInputStorageManager.stop());
-
+    this.getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.stop());
     LOG.info("Shutdown complete");
   }
 
