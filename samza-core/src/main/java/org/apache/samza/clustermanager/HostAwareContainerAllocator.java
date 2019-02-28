@@ -93,13 +93,13 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
                 Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
 
           } else if (resourceAvailableOnAnyHost) {
-              log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
-              runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+            log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
+            runStreamProcessor(request, ResourceRequestState.ANY_HOST);
 
           } else {
-              log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
-              resourceRequestState.cancelResourceRequest(request);
-              requestResource(containerID, ResourceRequestState.ANY_HOST);
+            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
+            resourceRequestState.cancelResourceRequest(request);
+            requestResource(containerID, ResourceRequestState.ANY_HOST);
           }
 
         } else {
