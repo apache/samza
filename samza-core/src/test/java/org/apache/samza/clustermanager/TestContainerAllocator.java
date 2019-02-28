@@ -225,7 +225,7 @@ public class TestContainerAllocator {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource("0", "abc");
+    containerAllocator.issueResourceRequest("0", "abc");
 
     containerAllocator.addResource(resource);
     containerAllocator.addResource(resource1);

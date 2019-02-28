@@ -105,7 +105,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
             } else {
               log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
               resourceRequestState.cancelResourceRequest(request);
-              requestResource(containerID, ResourceRequestState.ANY_HOST);
+              issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
             }
 
           }
@@ -137,7 +137,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
         log.info("Preferred host not found for container id: {}", containerId);
         preferredHost = ResourceRequestState.ANY_HOST;
       }
-      requestResource(containerId, preferredHost);
+      issueResourceRequest(containerId, preferredHost);
     }
   }
 

@@ -19,9 +19,11 @@
 package org.apache.samza.clustermanager;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.storage.kv.Entry;
@@ -94,7 +96,7 @@ public class StandbyContainerManager {
       // in all other cases, request resource for the failed container
         default:
           log.info("Requesting resource for active-container {} on host {}", containerID, preferredHost);
-          containerAllocator.requestResource(containerID, preferredHost);
+          containerAllocator.issueResourceRequest(containerID, preferredHost);
           break;
       }
     }
@@ -111,7 +113,7 @@ public class StandbyContainerManager {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
       log.info("Handling launch fail for standby-container {}, requesting resource on any host {}", containerID);
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
     } else {
       initiateActiveContainerFailover(containerID, resourceID, containerAllocator);
     }
@@ -140,14 +142,19 @@ public class StandbyContainerManager {
       log.info("Requesting resource for active container {} on host {}, and backup container {} on any host",
           activeContainerID, standbyContainerHostname, standbyContainerID);
 
-      containerAllocator.requestResource(activeContainerID,
-          standbyContainerHostname); // request standbycontainer's host for active-container
-      containerAllocator.requestResource(standbyContainerID,
-          ResourceRequestState.ANY_HOST); // request anyhost for standby container
+      SamzaResourceRequest resourceRequestForActive = containerAllocator.getResourceRequest(activeContainerID, standbyContainerHostname); // request standbycontainer's host for active-container
+      SamzaResourceRequest resourceRequestForStandby = containerAllocator.getResourceRequest(standbyContainerID, ResourceRequestState.ANY_HOST); // request anyhost for standby container
+
+      // record the resource requests, before issuing them to avoid race with allocation-thread
+      failoverMetadata.get().recordResourceRequest(resourceRequestForActive);
+      failoverMetadata.get().recordResourceRequest(resourceRequestForStandby);
+
+      containerAllocator.issueResourceRequest(resourceRequestForActive);
+      containerAllocator.issueResourceRequest(resourceRequestForStandby);
     } else {
       log.info("Issuing request for standby container {} on host {}, since this is not for a failover",
           standbyContainerID, preferredHost);
-      containerAllocator.requestResource(standbyContainerID, preferredHost);
+      containerAllocator.issueResourceRequest(standbyContainerID, preferredHost);
     }
   }
 
@@ -165,7 +172,6 @@ public class StandbyContainerManager {
     // If we find a standbyContainer, we initiate a failover
     if (standbyContainer.isPresent()) {
 
-      // ResourceID of the active container at the time of its last failure
       String standbyContainerId = standbyContainer.get().getKey();
       SamzaResource standbyResource = standbyContainer.get().getValue();
       String standbyResourceID = standbyResource.getResourceID();
@@ -184,7 +190,7 @@ public class StandbyContainerManager {
       log.info("No standby container found for active container {}, making a request for {}", containerID,
           ResourceRequestState.ANY_HOST);
       samzaApplicationState.failoversToAnyHost.incrementAndGet();
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -321,7 +327,7 @@ public class StandbyContainerManager {
           containerID, samzaResource.getHost());
       resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
       samzaApplicationState.failedStandbyAllocations.incrementAndGet();
     } else {
       // This resource cannot be used to launch this active container container, so we initiate a failover
@@ -330,14 +336,16 @@ public class StandbyContainerManager {
       resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
       resourceRequestState.cancelResourceRequest(request);
 
+      Optional<FailoverMetadata> failoverMetadata = getFailoverMetadata(request);
+
       // if this active-container has never failed, then simple request anyhost
-      if (!samzaApplicationState.failedContainersStatus.containsKey(containerID)) {
+      if (!failoverMetadata.isPresent()) {
         log.info("Requesting ANY_HOST for active container {}", containerID);
-        containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+        containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
       } else {
         log.info("Initiating failover for active container {}", containerID);
-        // we use the activeContainer's last known resourceID to initiate the failover
-        String lastKnownResourceID = samzaApplicationState.failedContainersStatus.get(containerID).getResourceID();
+        // we use the activeContainer's last resourceID to initiate the failover
+        String lastKnownResourceID = failoverMetadata.get().activeContainerResourceID;
         initiateActiveContainerFailover(containerID, lastKnownResourceID, containerAllocator);
       }
 
@@ -380,7 +388,7 @@ public class StandbyContainerManager {
       // If there is no alternative-resource for the standby container we make a new anyhost request
       log.info("Handling expired request, requesting anyHost resource for standby container {}", containerID);
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -389,23 +397,25 @@ public class StandbyContainerManager {
       Optional<SamzaResource> alternativeResource, AbstractContainerAllocator containerAllocator,
       ResourceRequestState resourceRequestState) {
 
+    Optional<FailoverMetadata> failoverMetadata = getFailoverMetadata(request);
+
     // An active container can be started on the alternative-any-host resource rightaway, if it has no prior failure,
-    // that is, it has no recorded failure status
-    if (alternativeResource.isPresent() && !samzaApplicationState.failedContainersStatus.containsKey(containerID)) {
+    // that is, there is no failoverMetadata associated with this resource-request
+    if (alternativeResource.isPresent() && !failoverMetadata.isPresent()) {
 
       log.info("Handling expired request, trying to run active container {} on alternative resource {}", containerID, alternativeResource.get());
 
       checkStandbyConstraintsAndRunStreamProcessor(request, ResourceRequestState.ANY_HOST, alternativeResource.get(),
           containerAllocator, resourceRequestState);
 
-    } else if (!samzaApplicationState.failedContainersStatus.containsKey(containerID) && !alternativeResource.isPresent()) {
+    } else if (!failoverMetadata.isPresent() && !alternativeResource.isPresent()) {
     // An active container has no prior failure, and there is no-alternative-anyhost resource, so we make a new anyhost request
       log.info("Handling expired request, requesting anyHost resource for active container {} because this active container has never failed", containerID);
 
       resourceRequestState.cancelResourceRequest(request);
-      containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerID, ResourceRequestState.ANY_HOST);
 
-    } else if (samzaApplicationState.failedContainersStatus.containsKey(containerID)) {
+    } else if (failoverMetadata.isPresent()) {
       // An active container that had failed, and whose subsequent resource request has expired, needs to be failed over to
       // a new standby-candidate, so we initiate a failover
 
@@ -413,8 +423,8 @@ public class StandbyContainerManager {
 
       resourceRequestState.cancelResourceRequest(request);
 
-      // we use the activeContainer's last known resourceID to initiate the failover
-      String lastKnownResourceID = samzaApplicationState.failedContainersStatus.get(containerID).getResourceID();
+      // we use the activeContainer's resourceID to initiate the failover
+      String lastKnownResourceID = failoverMetadata.get().activeContainerResourceID;
       initiateActiveContainerFailover(containerID, lastKnownResourceID, containerAllocator);
 
     } else {
@@ -424,12 +434,25 @@ public class StandbyContainerManager {
 
 
   /**
-   * Check if this activeContainerResource has failover-metadata associated with it
+   * Check if a activeContainerResource has failover-metadata associated with it
    */
   private Optional<FailoverMetadata> getFailoverMetadata(String activeContainerResourceID) {
     return this.failovers.containsKey(activeContainerResourceID) ? Optional.of(
         this.failovers.get(activeContainerResourceID)) : Optional.empty();
   }
+
+  /**
+   * Check if a SamzaResourceRequest was issued for a failover.
+   */
+  private Optional<FailoverMetadata> getFailoverMetadata(SamzaResourceRequest resourceRequest) {
+    for (FailoverMetadata failoverMetadata : this.failovers.values()) {
+      if (failoverMetadata.containsResourceRequest(resourceRequest)) {
+        return Optional.of(failoverMetadata);
+      }
+    }
+    return Optional.empty();
+  }
+
 
   @Override
   public String toString() {
@@ -444,7 +467,10 @@ public class StandbyContainerManager {
     public final String activeContainerResourceID;
 
     // Map of samza-container-resource ID to host, for each standby container selected for failover of the activeContainer
-    public final Map<String, String> selectedStandbyContainers;
+    private final Map<String, String> selectedStandbyContainers;
+
+    // Resource requests issued during this failover
+    private final Set<SamzaResourceRequest> resourceRequests;
 
     public FailoverMetadata(String activeContainerID, String activeContainerResourceID,
         String selectedStandbyContainerResourceID, String standbyContainerHost) {
@@ -452,6 +478,7 @@ public class StandbyContainerManager {
       this.activeContainerResourceID = activeContainerResourceID;
       this.selectedStandbyContainers = new HashMap<>();
       this.selectedStandbyContainers.put(selectedStandbyContainerResourceID, standbyContainerHost);
+      resourceRequests = new HashSet<>();
     }
 
     // Check if this standbyContainerResourceID was used in this failover
@@ -469,10 +496,21 @@ public class StandbyContainerManager {
       this.selectedStandbyContainers.put(standbyContainerResourceID, standbyContainerHost);
     }
 
+    // Add the samzaResourceRequest to the list of resource requests associated with this failover
+    public synchronized void recordResourceRequest(SamzaResourceRequest samzaResourceRequest) {
+      this.resourceRequests.add(samzaResourceRequest);
+    }
+
+    // Check if this resource request is used for this failover
+    public synchronized boolean containsResourceRequest(SamzaResourceRequest samzaResourceRequest) {
+      return this.resourceRequests.contains(samzaResourceRequest);
+    }
+
     @Override
     public String toString() {
       return "[activeContainerID: " + this.activeContainerID + " activeContainerResourceID: "
-          + this.activeContainerResourceID + " selectedStandbyContainers:" + selectedStandbyContainers + "]";
+          + this.activeContainerResourceID + " selectedStandbyContainers:" + selectedStandbyContainers
+          + " resourceRequests: " + resourceRequests + "]";
     }
   }
 }

@@ -27,7 +27,6 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -304,8 +303,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         // if the AM released the container.
         log.info("Released container {} was assigned task group ID {}. Requesting a new container for the task group.", containerIdStr, containerId);
 
-        state.failedContainersStatus.put(containerId, containerStatus);
-
         state.neededContainers.incrementAndGet();
         state.jobHealthy.set(false);
 
@@ -319,7 +316,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         log.info("Container " + containerIdStr + " failed with exit code . " + exitStatus + " - " + containerStatus.getDiagnostics() + " containerID is " + containerId);
 
         state.failedContainers.incrementAndGet();
-        state.failedContainersStatus.put(containerId, containerStatus);
+        state.failedContainersStatus.put(containerIdStr, containerStatus);
         state.jobHealthy.set(false);
 
         state.neededContainers.incrementAndGet();
@@ -444,7 +441,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       this.standbyContainerManager.get().handleContainerLaunchFail(containerId, resource.getResourceID(), containerAllocator);
     } else if (containerId != null) {
       log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
+      containerAllocator.issueResourceRequest(containerId, ResourceRequestState.ANY_HOST);
     } else {
       log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
           "not issued", resource);
@@ -502,7 +499,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       standbyContainerManager.get().handleContainerStop(containerID, resourceID, preferredHost, exitStatus, containerAllocator);
     } else {
       // If StandbyTasks are not enabled, we simply make a request for the preferredHost
-      containerAllocator.requestResource(containerID, preferredHost);
+      containerAllocator.issueResourceRequest(containerID, preferredHost);
     }
   }
 }

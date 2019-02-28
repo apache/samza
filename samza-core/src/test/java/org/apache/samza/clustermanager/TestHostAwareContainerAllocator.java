@@ -209,7 +209,7 @@ public class TestHostAwareContainerAllocator {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource("0", "abc");
+    containerAllocator.issueResourceRequest("0", "abc");
 
     containerAllocator.addResource(resource0);
     containerAllocator.addResource(resource1);

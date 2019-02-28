@@ -78,8 +78,7 @@ public class SamzaApplicationState {
   public final AtomicInteger releasedContainers = new AtomicInteger(0);
 
   /**
-   * ContainerStatuses of failed containers indexed by samzaContainerId.
-   * Written by the AMRMCallbackThread, read by the ContainerAllocator thread when performing active-standby container failover.
+   * ContainerStatuses of failed containers.
    */
   public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<String, SamzaResourceStatus>();
 
