@@ -57,7 +57,7 @@ public final class SerdeUtils {
   @SuppressWarnings("unchecked")
   public static <T> T deserialize(String name, String strObject) {
     try {
-      byte [] bytes = Base64.getDecoder().decode(strObject);
+      byte[] bytes = Base64.getDecoder().decode(strObject);
       return (T) new ObjectInputStream(new ByteArrayInputStream(bytes)).readObject();
     } catch (Exception e) {
       String errMsg = "Failed to deserialize " + name;

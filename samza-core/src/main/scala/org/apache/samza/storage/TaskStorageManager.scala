@@ -24,6 +24,7 @@ import java.io._
 import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.Partition
 import org.apache.samza.container.TaskName
+import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{FileUtil, Logging}
@@ -90,7 +91,9 @@ class TaskStorageManager(
 
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
-          StorageManagerUtil.writeOffsetFile(loggedStoreBaseDir, storeName, taskName, Map(ssp -> newestOffset).asJava)
+
+          // TaskStorageManagers are only spun-up for active tasks
+          StorageManagerUtil.writeOffsetFile(loggedStoreBaseDir, storeName, taskName, TaskMode.Active, Map(ssp -> newestOffset).asJava)
           debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
         } else {
           //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file

@@ -102,7 +102,7 @@ public class TestRemoteTable {
       if (!retry) {
         doReturn(future).when(readFn).getAsync(anyString());
       } else {
-        final int [] times = new int[] {0};
+        final int[] times = new int[] {0};
         doAnswer(args -> times[0]++ == 0 ? future : CompletableFuture.completedFuture("bar"))
             .when(readFn).getAsync(anyString());
       }
@@ -181,7 +181,7 @@ public class TestRemoteTable {
       }
     } else {
       doReturn(true).when(writeFn).isRetriable(any());
-      final int [] times = new int[] {0};
+      final int[] times = new int[] {0};
       if (isDelete) {
         doAnswer(args -> times[0]++ == 0 ? failureFuture : successFuture).when(writeFn).deleteAsync(any());
       } else {

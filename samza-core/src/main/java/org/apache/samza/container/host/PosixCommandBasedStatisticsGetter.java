@@ -39,7 +39,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
    * @return the first line of the output.
    * @throws IOException
    */
-  private String getCommandOutput(String [] cmdArray) throws IOException {
+  private String getCommandOutput(String[] cmdArray) throws IOException {
     Process executable = Runtime.getRuntime().exec(cmdArray);
     BufferedReader processReader = null;
     String psOutput = null;

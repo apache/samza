@@ -103,8 +103,6 @@ public class TestAsyncRunLoop {
         null,
         null,
         null,
-        new scala.collection.immutable.HashSet<>(),
-        null,
         mock(JobContext.class),
         mock(ContainerContext.class),
         Option.apply(null),
@@ -600,7 +598,7 @@ public class TestAsyncRunLoop {
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
     int maxMessagesInFlight = 1;
-    AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight , windowMs, commitMs,
+    AsyncRunLoop runLoop = new AsyncRunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0).thenReturn(envelope1).thenReturn(null).thenReturn(ssp0EndOfStream).thenReturn(ssp1EndOfStream).thenReturn(null);
 

@@ -33,7 +33,7 @@ allprojects {
 }
 
 apply from: file("gradle/dependency-versions.gradle")
-apply from: file("gradle/dependency-versions-scala-" + scalaVersion + ".gradle")
+apply from: file("gradle/dependency-versions-scala-" + scalaSuffix + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
@@ -155,7 +155,7 @@ project(':samza-api') {
   }
 }
 
-project(":samza-core_$scalaVersion") {
+project(":samza-core_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
 
@@ -185,7 +185,7 @@ project(":samza-core_$scalaVersion") {
     compile "org.apache.commons:commons-lang3:$commonsLang3Version"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.jodah:failsafe:$failsafeVersion"
     testCompile project(":samza-api").sourceSets.test.output
@@ -194,7 +194,7 @@ project(":samza-core_$scalaVersion") {
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
   }
 
@@ -204,7 +204,7 @@ project(":samza-core_$scalaVersion") {
   }
 }
 
-project(":samza-azure_$scalaVersion") {
+project(":samza-azure_$scalaSuffix") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -214,7 +214,7 @@ project(":samza-azure_$scalaVersion") {
     compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
@@ -228,7 +228,7 @@ project(":samza-azure_$scalaVersion") {
   }
 }
 
-project(":samza-aws_$scalaVersion") {
+project(":samza-aws_$scalaSuffix") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -240,7 +240,7 @@ project(":samza-aws_$scalaVersion") {
     compile "org.codehaus.jackson:jackson-core-asl:1.9.7"
     compile "org.codehaus.jackson:jackson-mapper-asl:1.9.7"
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     runtime "org.apache.httpcomponents:httpclient:4.5.2"
     testCompile "junit:junit:$junitVersion"
@@ -260,7 +260,7 @@ project(":samza-aws_$scalaVersion") {
 }
 
 
-project(":samza-autoscaling_$scalaVersion") {
+project(":samza-autoscaling_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
 
@@ -275,8 +275,8 @@ project(":samza-autoscaling_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
@@ -290,7 +290,7 @@ project(":samza-autoscaling_$scalaVersion") {
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 
   checkstyle {
@@ -299,12 +299,12 @@ project(":samza-autoscaling_$scalaVersion") {
   }
 }
 
-project(":samza-elasticsearch_$scalaVersion") {
+project(":samza-elasticsearch_$scalaSuffix") {
   apply plugin: 'java'
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.elasticsearch:elasticsearch:$elasticsearchVersion"
     compile "com.google.guava:guava:$guavaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
@@ -315,7 +315,7 @@ project(":samza-elasticsearch_$scalaVersion") {
   }
 }
 
-project(":samza-sql_$scalaVersion") {
+project(":samza-sql_$scalaSuffix") {
   apply plugin: 'java'
 
   // Disabling assertions while running test because of a calcite bug in {@link RelOptUtil#eq} method
@@ -326,9 +326,9 @@ project(":samza-sql_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-kafka_$scalaVersion")
-    compile project(":samza-kv-inmemory_$scalaVersion")
-    compile project(":samza-kv-rocksdb_$scalaVersion")
+    compile project(":samza-kafka_$scalaSuffix")
+    compile project(":samza-kv-inmemory_$scalaSuffix")
+    compile project(":samza-kv-rocksdb_$scalaSuffix")
     compile "org.apache.avro:avro:$avroVersion"
     compile "org.apache.calcite:calcite-core:$calciteVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
@@ -343,7 +343,7 @@ project(":samza-sql_$scalaVersion") {
   }
 }
 
-project(":samza-sql-shell_$scalaVersion") {
+project(":samza-sql-shell_$scalaSuffix") {
   apply plugin: 'java'
 
   jar {
@@ -353,12 +353,12 @@ project(":samza-sql-shell_$scalaVersion") {
   }
 
   dependencies {
-    compile project(":samza-sql_$scalaVersion")
-    compile project(":samza-tools_$scalaVersion")
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-sql_$scalaSuffix")
+    compile project(":samza-tools_$scalaSuffix")
+    compile project(":samza-core_$scalaSuffix")
     compile project(':samza-api')
-    compile project(":samza-kafka_$scalaVersion")
-    compile project(":samza-azure_$scalaVersion")
+    compile project(":samza-kafka_$scalaSuffix")
+    compile project(":samza-azure_$scalaSuffix")
     compile "net.java.dev.jna:jna:$jnaVersion"
     compile "org.jline:jline:$jlineVersion"
 
@@ -377,13 +377,13 @@ project(":samza-sql-shell_$scalaVersion") {
   }
 }
 
-project(":samza-tools_$scalaVersion") {
+project(":samza-tools_$scalaSuffix") {
   apply plugin: 'java'
 
   dependencies {
-    compile project(":samza-sql_$scalaVersion")
+    compile project(":samza-sql_$scalaSuffix")
     compile project(':samza-api')
-    compile project(":samza-azure_$scalaVersion")
+    compile project(":samza-azure_$scalaSuffix")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "commons-cli:commons-cli:$commonsCliVersion"
     compile "org.apache.avro:avro:$avroVersion"
@@ -403,7 +403,7 @@ project(":samza-tools_$scalaVersion") {
   }
 }
 
-project(":samza-kafka_$scalaVersion") {
+project(":samza-kafka_$scalaSuffix") {
   apply plugin: 'scala'
 
   // Force scala joint compilation
@@ -424,19 +424,19 @@ project(":samza-kafka_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.101tec:zkclient:$zkClientVersion"
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
-    compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    compile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion"
     compile "org.apache.kafka:kafka-clients:$kafkaVersion"
-    testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
+    testCompile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
-    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
+    testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
 
     // Logging in tests is good.
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
@@ -455,7 +455,7 @@ project(":samza-kafka_$scalaVersion") {
   }
 }
 
-project(":samza-log4j_$scalaVersion") {
+project(":samza-log4j_$scalaSuffix") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -463,7 +463,7 @@ project(":samza-log4j_$scalaVersion") {
     compile "log4j:log4j:$log4jVersion"
     compile "org.slf4j:slf4j-log4j12:$slf4jVersion"
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
@@ -474,7 +474,7 @@ project(":samza-log4j_$scalaVersion") {
   }
 }
 
-project(":samza-log4j2_$scalaVersion") {
+project(":samza-log4j2_$scalaSuffix") {
   apply plugin: 'java'
   apply plugin: 'checkstyle'
 
@@ -484,7 +484,7 @@ project(":samza-log4j2_$scalaVersion") {
     compile "org.apache.logging.log4j:log4j-core:$log4j2Version"
     compile "org.apache.logging.log4j:log4j-slf4j-impl:$log4j2Version"
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
@@ -495,7 +495,7 @@ project(":samza-log4j2_$scalaVersion") {
   }
 }
 
-project(":samza-yarn_$scalaVersion") {
+project(":samza-yarn_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
 
@@ -510,9 +510,9 @@ project(":samza-yarn_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
-    compile "org.scala-lang:scala-compiler:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.scala-lang:scala-compiler:$scalaVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
@@ -532,11 +532,11 @@ project(":samza-yarn_$scalaVersion") {
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'servlet-api'
     }
-    compile("org.scalatra:scalatra_$scalaVersion:$scalatraVersion") {
+    compile("org.scalatra:scalatra_$scalaSuffix:$scalatraVersion") {
       exclude module: 'scala-compiler'
       exclude module: 'slf4j-api'
     }
-    compile("org.scalatra:scalatra-scalate_$scalaVersion:$scalatraVersion") {
+    compile("org.scalatra:scalatra-scalate_$scalaSuffix:$scalatraVersion") {
       exclude module: 'scala-compiler'
       exclude module: 'slf4j-api'
     }
@@ -544,8 +544,8 @@ project(":samza-yarn_$scalaVersion") {
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 
   repositories {
@@ -572,10 +572,10 @@ project(":samza-shell") {
   }
 
   dependencies {
-    gradleShell project(":samza-core_$scalaVersion")
-    gradleShell project(":samza-kafka_$scalaVersion")
-    gradleShell project(":samza-test_$scalaVersion")
-    gradleShell project(":samza-yarn_$scalaVersion")
+    gradleShell project(":samza-core_$scalaSuffix")
+    gradleShell project(":samza-kafka_$scalaSuffix")
+    gradleShell project(":samza-test_$scalaSuffix")
+    gradleShell project(":samza-yarn_$scalaSuffix")
   }
 
   task shellTarGz(type: Tar) {
@@ -625,7 +625,7 @@ project(":samza-shell") {
   }
 }
 
-project(":samza-kv_$scalaVersion") {
+project(":samza-kv_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
 
@@ -641,8 +641,8 @@ project(":samza-kv_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
@@ -653,7 +653,7 @@ project(":samza-kv_$scalaVersion") {
   }
 }
 
-project(":samza-kv-inmemory_$scalaVersion") {
+project(":samza-kv-inmemory_$scalaSuffix") {
   apply plugin: 'scala'
 
   // Force scala joint compilation
@@ -667,15 +667,15 @@ project(":samza-kv-inmemory_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile project(":samza-kv_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile project(":samza-kv_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
   }
 }
 
-project(":samza-kv-rocksdb_$scalaVersion") {
+project(":samza-kv-rocksdb_$scalaSuffix") {
   apply plugin: 'scala'
 
   // Force scala joint compilation
@@ -689,16 +689,16 @@ project(":samza-kv-rocksdb_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
-    compile project(":samza-kv_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-core_$scalaSuffix")
+    compile project(":samza-kv_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.rocksdb:rocksdbjni:$rocksdbVersion"
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 }
 
-project(":samza-hdfs_$scalaVersion") {
+project(":samza-hdfs_$scalaSuffix") {
   apply plugin: 'scala'
 
   // Force scala joint compilation
@@ -708,12 +708,12 @@ project(":samza-hdfs_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
     // currently hdfs system producer/consumer do depend on yarn for two things:
     // 1. staging directory 2. security
     // SAMZA-1032 to solve the staging directory dependency
-    compile project(":samza-yarn_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-yarn_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'servlet-api'
     }
@@ -723,17 +723,17 @@ project(":samza-hdfs_$scalaVersion") {
     }
 
     testCompile "junit:junit:$junitVersion"
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.apache.hadoop:hadoop-minicluster:$yarnVersion"
   }
 }
 
-project(":samza-rest_$scalaVersion") {
+project(":samza-rest_$scalaSuffix") {
   apply plugin: 'java'
 
   dependencies {
     compile project(":samza-shell")
-    compile project(":samza-core_$scalaVersion")
+    compile project(":samza-core_$scalaSuffix")
 
     runtime "org.slf4j:slf4j-log4j12:$slf4jVersion"
     compile "com.google.guava:guava:$guavaVersion"
@@ -786,7 +786,7 @@ project(":samza-rest_$scalaVersion") {
   }
 }
 
-project(":samza-test_$scalaVersion") {
+project(":samza-test_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'checkstyle'
 
@@ -814,29 +814,29 @@ project(":samza-test_$scalaVersion") {
 
   dependencies {
     compile project(':samza-api')
-    compile project(":samza-kv-inmemory_$scalaVersion")
-    compile project(":samza-kv-rocksdb_$scalaVersion")
-    compile project(":samza-core_$scalaVersion")
-    compile project(":samza-kafka_$scalaVersion")
-    compile project(":samza-sql_$scalaVersion")
-    runtime project(":samza-log4j_$scalaVersion")
-    runtime project(":samza-log4j2_$scalaVersion")
-    runtime project(":samza-yarn_$scalaVersion")
-    runtime project(":samza-hdfs_$scalaVersion")
-    compile "org.scala-lang:scala-library:$scalaLibVersion"
+    compile project(":samza-kv-inmemory_$scalaSuffix")
+    compile project(":samza-kv-rocksdb_$scalaSuffix")
+    compile project(":samza-core_$scalaSuffix")
+    compile project(":samza-kafka_$scalaSuffix")
+    compile project(":samza-sql_$scalaSuffix")
+    runtime project(":samza-log4j_$scalaSuffix")
+    runtime project(":samza-log4j2_$scalaSuffix")
+    runtime project(":samza-yarn_$scalaSuffix")
+    runtime project(":samza-hdfs_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "javax.mail:mail:1.4"
-    compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
+    compile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion"
     compile "junit:junit:$junitVersion"
     compile "org.hamcrest:hamcrest-all:$hamcrestVersion"
-    testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
+    testCompile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
-    testCompile project(":samza-kafka_$scalaVersion")
-    testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
+    testCompile project(":samza-kafka_$scalaSuffix")
+    testCompile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
-    testCompile project(":samza-core_$scalaVersion").sourceSets.test.output
-    testCompile project(":samza-sql_$scalaVersion").sourceSets.test.output
-    testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
+    testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
+    testCompile project(":samza-sql_$scalaSuffix").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
