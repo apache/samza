@@ -323,8 +323,6 @@ public class StandbyContainerManager {
       // This resource can be used to launch this container
       log.info("Running container {} on {} meets standby constraints, preferredHost = {}", containerID, samzaResource.getHost(), preferredHost);
       containerAllocator.runStreamProcessor(request, preferredHost);
-      samzaApplicationState.successfulStandbyAllocations.incrementAndGet();
-
     } else if (StandbyTaskUtil.isStandbyContainer(containerID)) {
       // This resource cannot be used to launch this standby container, so we make a new anyhost request
       log.info("Running standby container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource, and making a new ANY_HOST request",

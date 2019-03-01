@@ -142,12 +142,6 @@ public class SamzaApplicationState {
   public final AtomicInteger redundantNotifications = new AtomicInteger(0);
 
   /**
-   * Number of container allocations from the RM, that were used to launch containers because launching a container
-   * on the given resource met standby container constraints.
-   */
-  public final AtomicInteger successfulStandbyAllocations = new AtomicInteger(0);
-
-  /**
    * Number of container allocations from the RM, that did not meet standby container constraints, in which case the
    * existing resource was given back to the RM, and a new ANY-HOST request had to be made.
    */

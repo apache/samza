@@ -70,7 +70,6 @@ class ContainerProcessManagerMetrics(
       })
 
      val mFailedStandbyAllocations = newGauge("failed-standby-allocations", () => state.failedStandbyAllocations.get())
-     val mSuccessfulStandbyAllocations = newGauge("successful-standby-allocations", () => state.successfulStandbyAllocations.get())
      val mFailoversToAnyHost = newGauge("failovers-to-any-host", () => state.failoversToAnyHost.get())
      val mFailoversToStandby = newGauge("failovers-to-standby", () => state.failoversToStandby.get())
 
