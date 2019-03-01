@@ -26,7 +26,7 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.{Base64}
+import java.util.Base64
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
@@ -44,7 +44,7 @@ import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
-import org.apache.samza.job.model.{ContainerModel, JobModel}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -174,13 +174,24 @@ object SamzaContainer extends Logging {
       .flatMap(_.getSystemStreamPartitions.asScala)
       .toSet
 
+    val sideInputStoresToSystemStreams = config.getStoreNames
+      .map { storeName => (storeName, config.getSideInputs(storeName)) }
+      .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
+      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(StreamUtil.getSystemStreamFromNameOrId(config, _))) }
+      .toMap
+
+    val sideInputSystemStreams = sideInputStoresToSystemStreams.values.flatMap(sideInputs => sideInputs.toStream).toSet
+
+    info("Got side input store system streams: %s" format sideInputSystemStreams)
+
     val inputSystemStreams = inputSystemStreamPartitions
       .map(_.getSystemStream)
-      .toSet
+      .toSet.diff(sideInputSystemStreams)
 
     val inputSystems = inputSystemStreams
       .map(_.getSystem)
       .toSet
+
 
     val systemNames = config.getSystemNames
 
@@ -358,14 +369,6 @@ object SamzaContainer extends Logging {
 
     info("Got intermediate streams: %s" format intermediateStreams)
 
-    val sideInputStoresToSystemStreams = config.getStoreNames
-      .map { storeName => (storeName, config.getSideInputs(storeName)) }
-      .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
-      .map { case (storeName, sideInputs) => (storeName, sideInputs.map(StreamUtil.getSystemStreamFromNameOrId(config, _))) }
-      .toMap
-
-    info("Got side input store system streams: %s" format sideInputStoresToSystemStreams)
-
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
         val systemStream = config.streamIdToSystemStream(streamId)
@@ -540,18 +543,17 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    val sideInputStorageEngineFactories = storageEngineFactories.filterKeys(storeName => sideInputStoresToSystemStreams.contains(storeName))
-    val nonSideInputStorageEngineFactories = (storageEngineFactories.toSet diff sideInputStorageEngineFactories.toSet).toMap
-
     val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins,
-      changeLogSystemStreams.asJava, nonSideInputStorageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
+      changeLogSystemStreams.asJava, sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
+      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
       taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
-      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, new SystemClock)
+      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, serdeManager, new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
     // Create taskInstances
-    val taskInstances: Map[TaskName, TaskInstance] = taskModels.map(taskModel => {
+    val taskInstances: Map[TaskName, TaskInstance] = taskModels
+      .filter(taskModel => taskModel.getTaskMode.eq(TaskMode.Active)).map(taskModel => {
       debug("Setting up task instance: %s" format taskModel)
 
       val taskName = taskModel.getTaskName
@@ -561,46 +563,6 @@ object SamzaContainer extends Logging {
         case tf: StreamTaskFactory => tf.asInstanceOf[StreamTaskFactory].createInstance()
       }
 
-      val sideInputStores = sideInputStorageEngineFactories.map {
-          case (storeName, storageEngineFactory) =>
-            val changeLogSystemStreamPartition = if (changeLogSystemStreams.contains(storeName)) {
-              new SystemStreamPartition(changeLogSystemStreams(storeName), taskModel.getChangelogPartition)
-            } else {
-              null
-            }
-
-            val keySerde = config.getStorageKeySerde(storeName) match {
-              case Some(keySerde) => serdes.getOrElse(keySerde,
-                throw new SamzaException("StorageKeySerde: No class defined for serde: %s." format keySerde))
-              case _ => null
-            }
-
-            val msgSerde = config.getStorageMsgSerde(storeName) match {
-              case Some(msgSerde) => serdes.getOrElse(msgSerde,
-                throw new SamzaException("StorageMsgSerde: No class defined for serde: %s." format msgSerde))
-              case _ => null
-            }
-
-            // We use the logged storage base directory for side input stores since side input stores
-            // dont have changelog configured.
-            val storeDir = StorageManagerUtil.getStorePartitionDir(loggedStorageBaseDir, storeName, taskName)
-            storeWatchPaths.add(storeDir.toPath)
-
-            val sideInputStorageEngine = storageEngineFactory.getStorageEngine(
-              storeName,
-              storeDir,
-              keySerde,
-              msgSerde,
-              taskCollectors.get(taskName).get,
-              taskInstanceMetrics.get(taskName).get.registry,
-              changeLogSystemStreamPartition,
-              jobContext,
-              containerContext, StoreMode.ReadWrite)
-            (storeName, sideInputStorageEngine)
-        }
-
-      info("Got side input stores: %s" format sideInputStores)
-
       val taskSSPs = taskModel.getSystemStreamPartitions.asScala.toSet
       info("Got task SSPs: %s" format taskSSPs)
 
@@ -608,18 +570,7 @@ object SamzaContainer extends Logging {
         taskSSPs.filter(ssp => sideInputSystemStreams.contains(ssp.getSystemStream)).asJava)
 
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
-
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
-
-      val sideInputStoresToProcessor = sideInputStores.keys.map(storeName => {
-          // serialized instances takes precedence over the factory configuration.
-          config.getSideInputsProcessorSerializedInstance(storeName).map(serializedInstance =>
-              (storeName, SerdeUtils.deserialize("Side Inputs Processor", serializedInstance)))
-            .orElse(config.getSideInputsProcessorFactory(storeName).map(factoryClassName =>
-              (storeName, Util.getObj(factoryClassName, classOf[SideInputsProcessorFactory])
-                .getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).get.registry))))
-            .get
-        }).toMap
 
       val storageManager = new TaskStorageManager(
         taskName = taskName,
@@ -628,20 +579,6 @@ object SamzaContainer extends Logging {
         sspMetadataCache = changelogSSPMetadataCache,
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition)
-
-      var sideInputStorageManager: TaskSideInputStorageManager = null
-      if (sideInputStores.nonEmpty) {
-        sideInputStorageManager = new TaskSideInputStorageManager(
-          taskName,
-          streamMetadataCache,
-          loggedStorageBaseDir.getPath,
-          sideInputStores.asJava,
-          sideInputStoresToProcessor.asJava,
-          sideInputStoresToSSPs.asJava,
-          systemAdmins,
-          config,
-          new SystemClock)
-      }
 
       val tableManager = new TableManager(config)
 
@@ -658,13 +595,11 @@ object SamzaContainer extends Logging {
           storageManager = storageManager,
           tableManager = tableManager,
           reporters = reporters,
-          systemStreamPartitions = taskSSPs,
+          systemStreamPartitions = taskSSPs -- taskSideInputSSPs,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, config),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
-          sideInputSSPs = taskSideInputSSPs,
-          sideInputStorageManager = sideInputStorageManager,
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
@@ -838,7 +773,10 @@ class SamzaContainer(
         containerListener.afterStart()
       }
       metrics.containerStartupTime.update(System.nanoTime() - startTime)
-      runLoop.run
+      if (taskInstances.size > 0)
+        runLoop.run
+      else
+        Thread.sleep(Long.MaxValue)
     } catch {
       case e: Throwable =>
         if (status.equals(SamzaContainerStatus.STARTED)) {
@@ -1014,12 +952,6 @@ class SamzaContainer(
   def startStores {
     info("Starting container storage manager.")
     containerStorageManager.start()
-
-    taskInstances.values.foreach(taskInstance => {
-      val startTime = System.currentTimeMillis()
-      info("Starting side inputs in task instance %s" format taskInstance.taskName)
-      taskInstance.startSideInputs
-    })
   }
 
   def startTableManager: Unit = {
@@ -1056,9 +988,10 @@ class SamzaContainer(
 
     taskInstances.values.foreach(_.registerConsumers)
 
-    info("Starting consumer multiplexer.")
-
-    consumerMultiplexer.start
+    if (taskInstances.size > 0) {
+      info("Starting consumer multiplexer.")
+      consumerMultiplexer.start
+    }
   }
 
   def startSecurityManger {
@@ -1155,9 +1088,6 @@ class SamzaContainer(
   def shutdownStores {
     info("Shutting down container storage manager.")
     containerStorageManager.shutdown()
-
-    info("Shutting down task instance side inputs.")
-    taskInstances.values.foreach(_.shutdownSideInputs)
   }
 
   def shutdownTableManager: Unit = {
