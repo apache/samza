@@ -39,6 +39,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -72,14 +73,16 @@ public class TaskSideInputStorageManager {
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
+  private final TaskMode taskMode;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
   public TaskSideInputStorageManager(
       TaskName taskName,
+      TaskMode taskMode,
       StreamMetadataCache streamMetadataCache,
-      String storeBaseDir,
+      File storeBaseDir,
       Map<String, StorageEngine> sideInputStores,
       Map<String, SideInputsProcessor> storesToProcessor,
       Map<String, Set<SystemStreamPartition>> storesToSSPs,
@@ -88,11 +91,12 @@ public class TaskSideInputStorageManager {
       Clock clock) {
     this.clock = clock;
     this.stores = sideInputStores;
-    this.storeBaseDir = new File(storeBaseDir);
+    this.storeBaseDir = storeBaseDir;
     this.storeToSSps = storesToSSPs;
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
     this.taskName = taskName;
+    this.taskMode = taskMode;
     this.storeToProcessor = storesToProcessor;
 
     validateStoreConfiguration();
@@ -132,8 +136,9 @@ public class TaskSideInputStorageManager {
 
   /**
    * Flushes the contents of the underlying store and writes the offset file to disk.
+   * Synchronized inorder to be exclusive with process()
    */
-  public void flush() {
+  public synchronized void flush() {
     LOG.info("Flushing the side input stores.");
     stores.values().forEach(StorageEngine::flush);
     writeOffsetFiles();
@@ -172,6 +177,11 @@ public class TaskSideInputStorageManager {
     return startingOffsets.get(ssp);
   }
 
+  // Get the taskName associated with this instance.
+  public TaskName getTaskName() {
+    return this.taskName;
+  }
+
   /**
    * Gets the last processed offset for the given side input {@link SystemStreamPartition}.
    *
@@ -192,10 +202,11 @@ public class TaskSideInputStorageManager {
 
   /**
    * Processes the incoming side input message envelope and updates the last processed offset for its SSP.
+   * Synchronized inorder to be exclusive with flush().
    *
    * @param message incoming message to be processed
    */
-  public void process(IncomingMessageEnvelope message) {
+  public synchronized void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
     Set<String> storeNames = sspsToStores.get(ssp);
 
@@ -249,7 +260,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, offsets);
+              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
@@ -287,7 +298,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName);
+    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode);
   }
 
   /**
