@@ -20,21 +20,17 @@ package org.apache.samza.context;
 
 import org.junit.Before;
 import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class TestJobContextMetadata {
 
-
   private JobContextMetadata jobContextMetadata;
-
 
   @Before
   public void setup() {
-    jobContextMetadata = new JobContextMetadata(null, null);
+    jobContextMetadata = new JobContextMetadata(null);
   }
-
 
   /**
    * Given a registered object, fetchObject should get it. If an object is not registered at a key, then fetchObject

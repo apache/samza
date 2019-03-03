@@ -32,7 +32,17 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
-import org.apache.samza.operators.spec.*;
+import org.apache.samza.operators.spec.BroadcastOperatorSpec;
+import org.apache.samza.operators.spec.InputOperatorSpec;
+import org.apache.samza.operators.spec.JoinOperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OutputOperatorSpec;
+import org.apache.samza.operators.spec.PartitionByOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.SinkOperatorSpec;
+import org.apache.samza.operators.spec.StreamOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
+import org.apache.samza.operators.spec.WindowOperatorSpec;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
@@ -40,7 +50,13 @@ import org.apache.samza.util.TimestampedValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -85,7 +101,7 @@ public class OperatorImplGraph {
     this.clock = clock;
     StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
     TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
-    this.jobContextMetadata = new JobContextMetadata(taskContext.getJobModel(), taskContext.getStreamMetadataCache());
+    this.jobContextMetadata = new JobContextMetadata(context);
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)
             ? getProducerTaskCountForIntermediateStreams(
@@ -153,7 +169,7 @@ public class OperatorImplGraph {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, context);
-      operatorImpl.init(context, this.jobContextMetadata);
+      operatorImpl.init(this.jobContextMetadata);
       operatorImpl.registerInputStream(inputStream);
 
       if (operatorSpec.getScheduledFn() != null) {
@@ -210,7 +226,7 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
       String streamId = ((PartitionByOperatorSpec) operatorSpec).getOutputStream().getStreamId();
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream, context,
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream,
               jobContextMetadata);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);

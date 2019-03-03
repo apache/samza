@@ -22,7 +22,10 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.context.*;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.Context;
+import org.apache.samza.context.JobContextMetadata;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -87,9 +90,11 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * @param context the {@link Context} for the task
+   * @param jobContextMetadata the {@link JobContextMetadata} for the task
    */
-  public final void init(Context context, JobContextMetadata jobContextMetadata) {
+  public final void init(JobContextMetadata jobContextMetadata) {
+    final Context context = jobContextMetadata.getContext();
+
     String opId = getOpImplId();
 
     if (initialized) {

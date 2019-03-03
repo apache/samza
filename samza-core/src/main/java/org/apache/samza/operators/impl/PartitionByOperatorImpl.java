@@ -49,12 +49,12 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   private final ControlMessageSender controlMessageSender;
 
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec,
-      SystemStream systemStream, Context context, JobContextMetadata jobContextMetadata) {
+      SystemStream systemStream, JobContextMetadata jobContextMetadata) {
     this.partitionByOpSpec = partitionByOpSpec;
     this.systemStream = systemStream;
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
-    this.taskName = context.getTaskContext().getTaskModel().getTaskName().getTaskName();
+    this.taskName = jobContextMetadata.getContext().getTaskContext().getTaskModel().getTaskName().getTaskName();
     StreamMetadataCache streamMetadataCache = jobContextMetadata.getStreamMetadataCache();
     this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }
