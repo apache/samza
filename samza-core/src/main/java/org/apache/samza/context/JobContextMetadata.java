@@ -47,9 +47,9 @@ public class JobContextMetadata {
   }
 
   public JobModel getJobModel() {
-    return ((TaskContextImpl)this.context.getTaskContext()).getJobModel();
+    return ((TaskContextImpl) this.context.getTaskContext()).getJobModel();
   }
   public StreamMetadataCache getStreamMetadataCache() {
-    return ((TaskContextImpl)this.context.getTaskContext()).getStreamMetadataCache();
+    return ((TaskContextImpl) this.context.getTaskContext()).getStreamMetadataCache();
   }
 }
