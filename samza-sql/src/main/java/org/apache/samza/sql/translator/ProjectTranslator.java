@@ -193,5 +193,4 @@ class ProjectTranslator {
     context.registerMessageStream(project.getId(), outputStream);
     context.registerRelNode(project.getId(), project);
   }
-
 }
