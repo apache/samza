@@ -958,15 +958,17 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Run the application.
     executeRun(appRunner, applicationConfig1);
 
-    // wait for the task to receive at least one dispatched message.
+    // Wait for the task to receive at least one dispatched message.
     processedMessagesLatch1.await();
 
     // Kill the application when none of the dispatched messages is acknowledged as completed by the task.
     appRunner.kill();
     appRunner.waitForFinish();
+
     // Expect the shutdown latch to be triggered.
     shutdownLatch.await();
 
+    // Assert that the shutdown was successful.
     Assert.assertEquals(ApplicationStatus.SuccessfulFinish, appRunner.status());
   }
 
