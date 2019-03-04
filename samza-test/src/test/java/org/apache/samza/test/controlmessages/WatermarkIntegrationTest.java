@@ -198,10 +198,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
     for (Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
-      AsyncStreamTaskAdapter adapter = (AsyncStreamTaskAdapter) entry.getValue().task();
-      Field field = AsyncStreamTaskAdapter.class.getDeclaredField("wrappedTask");
-      field.setAccessible(true);
-      StreamOperatorTask task = (StreamOperatorTask) field.get(adapter);
+      StreamOperatorTask task = (StreamOperatorTask) entry.getValue().task();
       tasks.put(entry.getKey().getTaskName(), task);
     }
     return tasks;

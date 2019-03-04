@@ -21,6 +21,8 @@ package org.apache.samza.operators.impl;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
 import org.apache.samza.job.model.TaskModel;
@@ -78,13 +80,15 @@ public class TestOperatorImpl {
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
     when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
-    when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    when(mockNextOpImpl1.handleAsyncMessage(anyObject(), anyObject(), anyObject()))
+        .thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
     mockNextOpImpl1.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
     when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
-    when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    when(mockNextOpImpl2.handleAsyncMessage(anyObject(), anyObject(), anyObject()))
+        .thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
     mockNextOpImpl2.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl2);
 
@@ -94,8 +98,8 @@ public class TestOperatorImpl {
     opImpl.onMessage(mock(Object.class), mockCollector, mockCoordinator);
 
     // verify that it propagates its handleMessage results to next operators
-    verify(mockNextOpImpl1, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
-    verify(mockNextOpImpl2, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl1, times(1)).handleAsyncMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl2, times(1)).handleAsyncMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
   }
 
   @Test
@@ -130,13 +134,15 @@ public class TestOperatorImpl {
     // register a couple of operators
     OperatorImpl mockNextOpImpl1 = mock(OperatorImpl.class);
     when(mockNextOpImpl1.getOperatorSpec()).thenReturn(new TestOpSpec());
-    when(mockNextOpImpl1.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    when(mockNextOpImpl1.handleAsyncMessage(anyObject(), anyObject(), anyObject()))
+        .thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
     mockNextOpImpl1.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl1);
 
     OperatorImpl mockNextOpImpl2 = mock(OperatorImpl.class);
     when(mockNextOpImpl2.getOperatorSpec()).thenReturn(new TestOpSpec());
-    when(mockNextOpImpl2.handleMessage(anyObject(), anyObject(), anyObject())).thenReturn(Collections.emptyList());
+    when(mockNextOpImpl2.handleAsyncMessage(anyObject(), anyObject(), anyObject()))
+        .thenReturn(CompletableFuture.completedFuture(Collections.emptyList()));
     mockNextOpImpl2.init(this.context);
     opImpl.registerNextOperator(mockNextOpImpl2);
 
@@ -146,8 +152,8 @@ public class TestOperatorImpl {
     opImpl.onTimer(mockCollector, mockCoordinator);
 
     // verify that it propagates its handleTimer results to next operators
-    verify(mockNextOpImpl1, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
-    verify(mockNextOpImpl2, times(1)).handleMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl1, times(1)).handleAsyncMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
+    verify(mockNextOpImpl2, times(1)).handleAsyncMessage(mockTestOpImplOutput, mockCollector, mockCoordinator);
 
     // verify that it propagates the timer tick to next operators
     verify(mockNextOpImpl1, times(1)).handleTimer(mockCollector, mockCoordinator);
@@ -193,6 +199,12 @@ public class TestOperatorImpl {
     public Collection<Object> handleMessage(Object message,
         MessageCollector collector, TaskCoordinator coordinator) {
       return Collections.singletonList(mockOutput);
+    }
+
+    @Override
+    public CompletionStage<Collection<Object>> handleAsyncMessage(Object message, MessageCollector collector,
+        TaskCoordinator coordinator) {
+      return CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
     }
 
     @Override
