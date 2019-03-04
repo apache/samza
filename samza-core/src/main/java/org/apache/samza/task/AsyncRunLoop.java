@@ -193,6 +193,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
   public void shutdown() {
     shutdownNow = true;
+    resume();
   }
 
   /**
@@ -220,15 +221,17 @@ public class AsyncRunLoop implements Runnable, Throttleable {
    * Insert the envelope into the task pending queues and run all the tasks
    */
   private void runTasks(IncomingMessageEnvelope envelope) {
-    if (envelope != null) {
-      PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
-      for (AsyncTaskWorker worker : sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition())) {
-        worker.state.insertEnvelope(pendingEnvelope);
+    if (!shutdownNow) {
+      if (envelope != null) {
+        PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
+        for (AsyncTaskWorker worker : sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition())) {
+          worker.state.insertEnvelope(pendingEnvelope);
+        }
       }
-    }
 
-    for (AsyncTaskWorker worker: taskWorkers) {
-      worker.run();
+      for (AsyncTaskWorker worker: taskWorkers) {
+        worker.run();
+      }
     }
   }
 
