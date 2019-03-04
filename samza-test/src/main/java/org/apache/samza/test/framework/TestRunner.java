@@ -68,6 +68,7 @@ import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescripto
 import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.util.FileUtil;
+import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -269,7 +270,7 @@ public class TestRunner {
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
-    Config config = new MapConfig(configs);
+    Config config = new MapConfig(JobConfigUtil.generateJobIdAndName(configs));
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
     runner.run(buildExternalContext(config).orElse(null));
     if (!runner.waitForFinish(timeout)) {

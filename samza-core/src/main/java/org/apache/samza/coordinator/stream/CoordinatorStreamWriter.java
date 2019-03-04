@@ -117,7 +117,7 @@ public class CoordinatorStreamWriter {
     CoordinatorStreamWriterCommandLine cmdline = new CoordinatorStreamWriterCommandLine();
     OptionSet options = cmdline.parser().parse(args);
     Config userConfig = cmdline.loadConfig(options);
-    Config generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(userConfig));
+    Config generatedConfig = JobConfigUtil.generateJobIdAndName(userConfig);
     String type = cmdline.loadType(options);
     String key = cmdline.loadKey(options);
     String value = cmdline.loadValue(options);

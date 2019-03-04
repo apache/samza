@@ -20,6 +20,7 @@ package org.apache.samza.util;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -38,8 +39,12 @@ public class JobConfigUtil {
    * @param userConfigs configs passed from user
    *
    */
-  public static MapConfig generateJobIdAndName(MapConfig userConfigs) {
-    Map<String, String> generatedConfig = new HashMap<>();
+  public static MapConfig generateJobIdAndName(Map<String, String> userConfigs) {
+    Map<String, String> generatedConfig = new HashMap<>(userConfigs);
+
+    if (!userConfigs.containsKey(JobConfig.JOB_NAME()) && !userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
+      throw new SamzaException("Samza app name should not be null, Please set either app.name (preferred) or job.name (deprecated) in configs");
+    }
 
     if (userConfigs.containsKey(JobConfig.JOB_ID())) {
       LOG.warn("{} is a deprecated configuration, use app.id instead.", JobConfig.JOB_ID());

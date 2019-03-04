@@ -32,7 +32,7 @@ public class TestJobConfigUtil {
     Map<String, String> testConfig = new HashMap<>();
     testConfig.put("app.name", "samza-app");
     testConfig .put("app.id", "id");
-    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(testConfig));
+    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
     Assert.assertEquals(generatedConfig.get("job.id"), "id");
   }
@@ -44,9 +44,19 @@ public class TestJobConfigUtil {
     testConfig .put("app.id", "id");
     testConfig .put("job.id", "should-not-exist-id");
     testConfig .put("job.name", "should-not-exist-name");
-    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(testConfig));
+    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
     Assert.assertEquals(generatedConfig.get("job.id"), "id");
+  }
+
+  @Test
+  public void testJobNameId() {
+    Map<String, String> testConfig = new HashMap<>();
+    testConfig .put("job.id", "should-exist-id");
+    testConfig .put("job.name", "should-exist-name");
+    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
+    Assert.assertEquals(generatedConfig.get("job.name"), "should-exist-name");
+    Assert.assertEquals(generatedConfig.get("job.id"), "should-exist-id");
   }
 
 }

@@ -32,11 +32,9 @@ import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,10 +84,6 @@ public abstract class JobPlanner {
       }
       generatedConfig.putAll(getGeneratedConfig(runId));
     }
-
-    // Generate job.id and job.name configs from app.id and app.name if defined
-    MapConfig generatedJobConfigs = JobConfigUtil.generateJobIdAndName(new MapConfig(allowedUserConfig));
-    allowedUserConfig.putAll(generatedJobConfigs);
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
     Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig);

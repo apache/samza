@@ -43,6 +43,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -50,6 +51,7 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +115,7 @@ public class ExecutionPlanner {
    */
   /* package private */
   JobGraph createJobGraph(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    JobGraph jobGraph = new JobGraph(config, appDesc);
+    JobGraph jobGraph = new JobGraph(new MapConfig(config), appDesc);
     // Source streams contain both input and intermediate streams.
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
     // Sink streams contain both output and intermediate streams.
@@ -125,9 +127,12 @@ public class ExecutionPlanner {
 
     Set<TableDescriptor> tables = appDesc.getTableDescriptors();
 
+    // Generate job.id and job.name configs from app.id and app.name if defined
+    MapConfig generatedJobConfigs = JobConfigUtil.generateJobIdAndName(config);
+    String jobName = generatedJobConfigs.get(JobConfig.JOB_NAME());
+    String jobId = generatedJobConfigs.get(JobConfig.JOB_ID(), "1");
+
     // For this phase, we have a single job node for the whole DAG
-    String jobName = config.get(JobConfig.JOB_NAME());
-    String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
 
     // Add input streams

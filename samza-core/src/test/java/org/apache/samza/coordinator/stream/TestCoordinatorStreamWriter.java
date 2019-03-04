@@ -53,7 +53,7 @@ public class TestCoordinatorStreamWriter {
     userConfigs.put("systems.coordinatorStreamWriter.samza.factory", "org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory");
     userConfigs.put("app.name", "coordinator-stream-writer-test");
     userConfigs.put("job.coordinator.system", "coordinatorStreamWriter");
-    Config generatedConfig = JobConfigUtil.generateJobIdAndName(new MapConfig(userConfigs));
+    Config generatedConfig = JobConfigUtil.generateJobIdAndName(userConfigs);
     MapConfig config = new MapConfig(userConfigs, generatedConfig);
     coordinatorStreamWriter = new CoordinatorStreamWriter(config);
     boolean exceptionHappened = false;
