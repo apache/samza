@@ -93,6 +93,11 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     launchCountSemaphore.release();
   }
 
+  @Override
+  public void stopStreamProcessor(SamzaResource resource) {
+    // no op
+  }
+
   public void registerContainerListener(MockContainerListener listener) {
     mockContainerListeners.add(listener);
   }

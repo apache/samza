@@ -121,6 +121,14 @@ public abstract class ClusterResourceManager {
    */
   public abstract void launchStreamProcessor(SamzaResource resource, CommandBuilder builder);
 
+  /**
+   * Requests the stopping of a StreamProcessor, identified by the given resource.
+   * {@link Callback#onResourcesCompleted(List)} will be invoked to indicate the completion of this operation.
+   *
+   * @param resource the resource being used for the StreamProcessor.
+   */
+  public abstract void stopStreamProcessor(SamzaResource resource);
+
 
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
 
