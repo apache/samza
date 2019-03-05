@@ -39,6 +39,7 @@ import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.DeleteTopicsResult;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -91,8 +92,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
   protected final String systemName;
   protected final Consumer metadataConsumer;
   protected final Config config;
-
-  protected kafka.admin.AdminClient adminClientForDelete = null;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -182,13 +181,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
         metadataConsumer.close();
       } catch (Exception e) {
         LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
-      }
-    }
-    if (adminClientForDelete != null) {
-      try {
-        adminClientForDelete.close();
-      } catch (Exception e) {
-        LOG.warn("AdminClient.close() for system {} failed with exception {}.", systemName, e);
       }
     }
 
@@ -631,10 +623,12 @@ public class KafkaSystemAdmin implements SystemAdmin {
   @Override
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
     if (deleteCommittedMessages) {
-      if (adminClientForDelete == null) {
-        adminClientForDelete = kafka.admin.AdminClient.create(createAdminClientProperties());
-      }
-      KafkaSystemAdminUtilsScala.deleteMessages(adminClientForDelete, offsets);
+      Map<TopicPartition, RecordsToDelete> recordsToDelete = offsets.entrySet()
+          .stream()
+          .collect(Collectors.toMap(entry ->
+              new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
+              entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
+      adminClient.deleteRecords(recordsToDelete);
       deleteMessageCalled = true;
     }
   }

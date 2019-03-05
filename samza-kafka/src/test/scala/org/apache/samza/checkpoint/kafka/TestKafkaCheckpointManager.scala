@@ -236,20 +236,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.stop
   }
 
-  private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    try {
-      AdminUtils.createTopic(
-        zkClient,
-        cpTopic,
-        partNum,
-        1,
-        props)
-    } catch {
-      case e: Exception => println(e.getMessage)
-    } finally {
-      zkClient.close
-    }
+  private def createTopic(cpTopic: String, partNum: Int, props: Properties) : scala.collection.immutable.Map[scala.Int, scala.Int] = {
+    createTopic(cpTopic, partNum, 1, props)
   }
 
 }

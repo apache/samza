@@ -93,11 +93,7 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   }
 
   def createTopic(topicName: String, partitionCount: Int) {
-    AdminUtils.createTopic(
-      zkUtils,
-      topicName,
-      partitionCount,
-      REPLICATION_FACTOR)
+    createTopic(topicName, partitionCount, REPLICATION_FACTOR)
   }
 
   def validateTopic(topic: String, expectedPartitionCount: Int) {

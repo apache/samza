@@ -22,8 +22,8 @@ package org.apache.samza.system.kafka
 import java.util
 import java.util.Properties
 
-import kafka.admin.AdminClient
 import kafka.utils.Logging
+import org.apache.kafka.clients.admin.{AdminClient, RecordsToDelete}
 import org.apache.kafka.common.TopicPartition
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.{ApplicationConfig, Config, KafkaConfig, StreamConfig}
@@ -96,12 +96,5 @@ object KafkaSystemAdminUtilsScala extends Logging {
     } else {
       Map()
     }
-  }
-
-  def deleteMessages(adminClient : AdminClient, offsets: util.Map[SystemStreamPartition, String]) = {
-    val nextOffsets = offsets.asScala.toSeq.map { case (systemStreamPartition, offset) =>
-      (new TopicPartition(systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), offset.toLong + 1)
-    }.toMap
-    adminClient.deleteRecordsBefore(nextOffsets);
   }
 }
