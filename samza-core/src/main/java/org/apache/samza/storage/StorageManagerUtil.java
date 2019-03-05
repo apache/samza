@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import java.util.stream.Collectors;
+import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -204,6 +205,7 @@ public class StorageManagerUtil {
 
   /**
    * Creates and returns a File pointing to the directory for the given store and task, given a particular base directory.
+   * In case of a standby task (TaskMode.Standby), the storeDirectory is the same as it would be for an active task.
    *
    * @param storeBaseDir the base directory to use
    * @param storeName the store name to use
@@ -212,7 +214,10 @@ public class StorageManagerUtil {
    * @return the partition directory for the store
    */
   public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode) {
-    // TODO: use task-Mode to decide the storePartitionDir -- standby's dir should be the same as active
-    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
+    TaskName taskNameForDirName = taskName;
+    if (taskMode.equals(TaskMode.Standby)) {
+      taskNameForDirName =  StandbyTaskUtil.getActiveTaskName(taskName);
+    }
+    return new File(storeBaseDir, (storeName + File.separator + taskNameForDirName.toString()).replace(' ', '_'));
   }
 }

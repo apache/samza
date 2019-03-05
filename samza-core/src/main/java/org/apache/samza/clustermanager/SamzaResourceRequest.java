@@ -109,11 +109,21 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   }
 
   /**
-   * Requests are ordered by the time at which they were created.
+   * Requests are ordered by the container type and the time at which they were created.
+   * Active containers take precedence over standby containers, regardless of timestamp.
    * @param o the other
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
+
+    if (!StandbyTaskUtil.isStandbyContainer(this.containerID) && StandbyTaskUtil.isStandbyContainer(o.containerID)) {
+      return -1;
+    }
+
+    if (StandbyTaskUtil.isStandbyContainer(this.containerID) && !StandbyTaskUtil.isStandbyContainer(o.containerID)) {
+      return 1;
+    }
+
     if (this.requestTimestampMs < o.requestTimestampMs)
       return -1;
     if (this.requestTimestampMs > o.requestTimestampMs)
