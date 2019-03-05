@@ -191,8 +191,13 @@ public class TestLocalJobPlanner {
         planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
   }
 
-  private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    return spy(new LocalJobPlanner(appDesc));
+  private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) throws  Exception {
+    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+    DistributedLockWithState lock = mock(DistributedLockWithState.class);
+    when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
+    when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
+
+    return spy(new LocalJobPlanner(appDesc, coordinationUtils,"FAKE_UID", "FAKE_RUNID"));
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

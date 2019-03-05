@@ -27,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.StringUtils;
@@ -42,7 +44,12 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.context.ExternalContext;
+import org.apache.samza.coordinator.CoordinationSessionListener;
+import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.DistributedDataAccess;
+import org.apache.samza.coordinator.DistributedReadWriteLock;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metrics.MetricsReporter;
@@ -59,6 +66,10 @@ import org.slf4j.LoggerFactory;
 public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
+  private static final String RUNID_PATH = "runId";
+  private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
+  private static final int LOCK_TIMEOUT = 10;
+  private static final TimeUnit LOCK_TIMEOUT_UNIT = TimeUnit.MINUTES;
 
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final LocalJobPlanner planner;
@@ -66,6 +77,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  private final String uid = UUID.randomUUID().toString();
+  private CoordinationUtils coordinationUtils = null;
+  private DistributedReadWriteLock runIdLock = null;
+  private String runId = null;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -77,16 +92,70 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   public LocalApplicationRunner(SamzaApplication app, Config config) {
     this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
-    this.planner = new LocalJobPlanner(appDesc);
+    this.coordinationUtils = getCoordinationUtils(config);
+    getRunId();
+    this.planner = new LocalJobPlanner(appDesc, coordinationUtils, uid, runId);
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
   @VisibleForTesting
-  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, LocalJobPlanner planner) {
+  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, LocalJobPlanner planner, CoordinationUtils coordinationUtils) {
     this.appDesc = appDesc;
     this.planner = planner;
+    this.coordinationUtils = coordinationUtils;
+  }
+
+  private CoordinationUtils getCoordinationUtils(Config config) {
+    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
+    String coordinationId = new ApplicationConfig(config).getGlobalAppId() + APPLICATION_RUNNER_PATH_SUFFIX;
+    return jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, config);
+  }
+
+  private void getRunId(){
+    ApplicationConfig.ApplicationMode appMode = new ApplicationConfig(appDesc.getConfig()).getAppMode();
+    if(coordinationUtils == null || appMode == ApplicationConfig.ApplicationMode.STREAM) {
+      return;
+    }
+
+    runIdLock = coordinationUtils.getReadWriteLock();
+    if(runIdLock == null) {
+      LOG.warn("Processor {} failed to create the lock for run.id generation", uid);
+      return;
+    }
+
+    DistributedDataAccess runIdAccess = coordinationUtils.getDataAccess();
+    if(runIdAccess == null) {
+      LOG.warn("Processor {} failed to create data access utils for run.id generation", uid);
+      return;
+    }
+
+    coordinationUtils.setCoordinationSessionListener(new LocalCoordinationSessionListener());
+
+    try {
+      // acquire lock to write or read run.id
+      DistributedReadWriteLock.AccessType lockAccess = runIdLock.lock(LOCK_TIMEOUT, LOCK_TIMEOUT_UNIT);
+      if(lockAccess == DistributedReadWriteLock.AccessType.WRITE) {
+        LOG.info("write lock acquired for run.id generation by Processor " + uid);
+        runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        LOG.info("The run id for this run is {}", runId);
+        runIdAccess.writeData(RUNID_PATH,runId);
+        runIdLock.unlock();
+        return;
+      } else if(lockAccess == DistributedReadWriteLock.AccessType.READ) {
+        LOG.info("read lock acquired for run.id by Processor " + uid);
+        runId = (String) runIdAccess.readData(RUNID_PATH);
+        runIdLock.unlock();
+        return;
+      } else {
+        String msg = String.format("Processor {} failed to get the lock for run.id", uid);
+        throw new SamzaException(msg);
+      }
+    } catch (TimeoutException e) {
+      String msg = String.format("Processor {} failed to get the lock for run.id generation", uid);
+      throw new SamzaException(msg, e);
+    }
   }
 
   @Override
@@ -94,6 +163,11 @@ public class LocalApplicationRunner implements ApplicationRunner {
     try {
       List<JobConfig> jobConfigs = planner.prepareJobs();
 
+      ApplicationConfig.ApplicationMode appMode = new ApplicationConfig(appDesc.getConfig()).getAppMode();
+      if(coordinationUtils != null && appMode == ApplicationConfig.ApplicationMode.STREAM) {
+        coordinationUtils.close();
+        coordinationUtils = null;
+      }
       // create the StreamProcessors
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -111,6 +185,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     } catch (Throwable throwable) {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
+      cleanup();
       throw new SamzaException(String.format("Failed to start application: %s",
           new ApplicationConfig(appDesc.getConfig()).getGlobalAppId()), throwable);
     }
@@ -119,6 +194,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @Override
   public void kill() {
     processors.forEach(StreamProcessor::stop);
+    cleanup();
   }
 
   @Override
@@ -135,6 +211,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
   public boolean waitForFinish(Duration timeout) {
     long timeoutInMs = timeout.toMillis();
     boolean finished = true;
+
+    cleanup();
 
     try {
       if (timeoutInMs < 1) {
@@ -200,6 +278,15 @@ public class LocalApplicationRunner implements ApplicationRunner {
     }
   }
 
+  private void cleanup() {
+    if(runIdLock != null) {
+      runIdLock.cleanState();
+    }
+    if(coordinationUtils != null) {
+      coordinationUtils.close();
+    }
+  }
+
   /**
    * Defines a specific implementation of {@link ProcessorLifecycleListener} for local {@link StreamProcessor}s.
    */
@@ -250,6 +337,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     }
 
     private void handleProcessorShutdown(Throwable error) {
+      cleanup();
       if (processors.isEmpty()) {
         // all processors are shutdown, setting the application final status
         setApplicationFinalStatus();
@@ -276,6 +364,49 @@ public class LocalApplicationRunner implements ApplicationRunner {
         } else if (appStatus == ApplicationStatus.New) {
           // the processor is shutdown before started
           appStatus = ApplicationStatus.UnsuccessfulFinish;
+        }
+      }
+    }
+  }
+
+
+  /**
+   * Defines a specific implementation of {@link CoordinationSessionListener} for local {@link CoordinationUtils}
+   */
+  private final class LocalCoordinationSessionListener implements CoordinationSessionListener {
+
+    /**
+     * If the coordination utils session has reconnected, check if global runid differs from local runid
+     * if it differs then shut down processor and throw exception
+     * else recreate ephemeral node corresponding to this processor inside the read write lock for runid
+     */
+    @Override
+    public void handleReconnect() {
+      LOG.info("Reconnected to coordination utils");
+      if(coordinationUtils == null) {
+        return;
+      }
+      DistributedDataAccess runIdAccess = coordinationUtils.getDataAccess();
+      String globalRunId = (String) runIdAccess.readData(RUNID_PATH);
+      if( runId != globalRunId){
+        processors.forEach(StreamProcessor::stop);
+        cleanup();
+        appStatus = ApplicationStatus.UnsuccessfulFinish;
+        String msg = String.format("run.id %s on processor %s differs from the global run.id %s", runId, uid, globalRunId);
+        throw new SamzaException(msg);
+      } else if(runIdLock != null) {
+        String msg = String.format("Processor {} failed to get the lock for run.id", uid);
+        try {
+          // acquire lock to recreate active processor ephemeral node
+          DistributedReadWriteLock.AccessType lockAccess = runIdLock.lock(LOCK_TIMEOUT, LOCK_TIMEOUT_UNIT);
+          if(lockAccess == DistributedReadWriteLock.AccessType.WRITE || lockAccess == DistributedReadWriteLock.AccessType.READ) {
+            LOG.info("Processor {} creates its active processor ephemeral node in read write lock again" + uid);
+            runIdLock.unlock();
+          } else {
+            throw new SamzaException(msg);
+          }
+        } catch (TimeoutException e) {
+          throw new SamzaException(msg, e);
         }
       }
     }

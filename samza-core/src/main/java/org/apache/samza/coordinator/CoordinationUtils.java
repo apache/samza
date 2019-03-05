@@ -28,6 +28,9 @@ import org.apache.samza.annotation.InterfaceStability;
  *   - LeaderElection
  *   - Latch
  *   - LockWithState (does not lock if state is set)
+ *   - ReadWriteLock (lock to acquire read or write access)
+ *   - DataAccess (to read or write data)
+ *   - setCoordinationSessionListener to listen to coordination utils session state changes
  */
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
@@ -38,6 +41,12 @@ public interface CoordinationUtils {
   Latch getLatch(int size, String latchId);
 
   DistributedLockWithState getLockWithState(String lockId);
+
+  DistributedReadWriteLock getReadWriteLock();
+
+  DistributedDataAccess getDataAccess();
+
+  void setCoordinationSessionListener(CoordinationSessionListener sessionListener);
 
   /**
    * utilites cleanup

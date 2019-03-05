@@ -43,19 +43,23 @@ import org.slf4j.LoggerFactory;
  */
 public class LocalJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalJobPlanner.class);
-  private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
 
-  private final String uid = UUID.randomUUID().toString();
+  private final String uid;
+  private final CoordinationUtils coordinationUtils;
+  private final String runId;
 
-  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
+  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, CoordinationUtils coordinationUtils, String uid, String runId) {
     super(descriptor);
+    this.coordinationUtils = coordinationUtils;
+    this.uid = uid;
+    this.runId = runId;
   }
 
   @Override
   public List<JobConfig> prepareJobs() {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan();
+    ExecutionPlan plan = getExecutionPlan(runId);
 
     String executionPlanJson = "";
     try {
@@ -107,10 +111,6 @@ public class LocalJobPlanner extends JobPlanner {
     LOG.info("A single processor must create the intermediate streams. Processor {} will attempt to acquire the lock.", uid);
     // Move the scope of coordination utils within stream creation to address long idle connection problem.
     // Refer SAMZA-1385 for more details
-    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(userConfig);
-    String coordinationId = new ApplicationConfig(userConfig).getGlobalAppId() + APPLICATION_RUNNER_PATH_SUFFIX;
-    CoordinationUtils coordinationUtils =
-        jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, userConfig);
     if (coordinationUtils == null) {
       LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
       // each application process will try creating the streams, which
@@ -119,7 +119,12 @@ public class LocalJobPlanner extends JobPlanner {
       return;
     }
 
-    DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(planId);
+    Boolean isAppModeBatch = new ApplicationConfig(userConfig).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
+    String lockId = planId;
+    if(isAppModeBatch && runId != null) {
+      lockId = runId;
+    }
+    DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(lockId);
     try {
       // check if the processor needs to go through leader election and stream creation
       if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
@@ -132,8 +137,6 @@ public class LocalJobPlanner extends JobPlanner {
     } catch (TimeoutException e) {
       String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
       throw new SamzaException(msg, e);
-    } finally {
-      coordinationUtils.close();
     }
   }
 }

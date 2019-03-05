@@ -37,6 +37,10 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ExternalContext;
+import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.DistributedDataAccess;
+import org.apache.samza.coordinator.DistributedLockWithState;
+import org.apache.samza.coordinator.DistributedReadWriteLock;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.execution.LocalJobPlanner;
@@ -51,10 +55,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.*;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.*;
 
 
 public class TestLocalApplicationRunner {
@@ -65,14 +66,14 @@ public class TestLocalApplicationRunner {
   private LocalJobPlanner localPlanner;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     config = new MapConfig();
     mockApp = mock(StreamApplication.class);
     prepareTest();
   }
 
   @Test
-  public void testRunStreamTask() {
+  public void testRunStreamTask() throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
@@ -105,7 +106,7 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunStreamTaskWithoutExternalContext() {
+  public void testRunStreamTaskWithoutExternalContext() throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
@@ -136,7 +137,7 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunComplete() {
+  public void testRunComplete() throws Exception {
     Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config = new MapConfig(cfgs);
@@ -172,7 +173,7 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunFailure() {
+  public void testRunFailure() throws Exception {
     Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.PROCESSOR_ID, "0");
     config = new MapConfig(cfgs);
@@ -247,11 +248,21 @@ public class TestLocalApplicationRunner {
     LocalApplicationRunner.createProcessorId(mockConfig);
   }
 
-  private void prepareTest() {
+  private void prepareTest() throws Exception {
+    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+    DistributedLockWithState lock = mock(DistributedLockWithState.class);
+    when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
+    when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
+    DistributedReadWriteLock rwLock = mock(DistributedReadWriteLock.class);
+    when(rwLock.lock(anyLong(), anyObject())).thenReturn(DistributedReadWriteLock.AccessType.WRITE);
+    when(coordinationUtils.getReadWriteLock()).thenReturn(rwLock);
+    DistributedDataAccess dataAccess = mock(DistributedDataAccess.class);
+    when(coordinationUtils.getDataAccess()).thenReturn(dataAccess);
+
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
-    localPlanner = spy(new LocalJobPlanner(appDesc));
-    runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
+    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils,"FAKE_UID", "FAKE_RUNID"));
+    runner = spy(new LocalApplicationRunner(appDesc, localPlanner, coordinationUtils));
   }
 
 }
