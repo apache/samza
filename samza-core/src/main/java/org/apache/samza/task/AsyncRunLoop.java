@@ -283,7 +283,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   }
 
   /**
-   * Resume the runloop thread. It is triggered once a task becomes ready again or has failure.
+   * Resume the runloop thread. This API is triggered in the following scenarios:
+   * A. A task becomes ready to process a message.
+   * B. A task has failed when processing a message.
+   * C. User thread shuts down the run loop.
    */
   private void resume() {
     log.trace("Resume loop thread");
