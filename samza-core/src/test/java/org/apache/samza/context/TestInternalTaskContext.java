@@ -23,13 +23,13 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class TestJobContextMetadata {
+public class TestInternalTaskContext {
 
-  private JobContextMetadata jobContextMetadata;
+  private InternalTaskContext internalTaskContext;
 
   @Before
   public void setup() {
-    jobContextMetadata = new JobContextMetadata(null);
+    internalTaskContext = new InternalTaskContext(null);
   }
 
   /**
@@ -39,9 +39,9 @@ public class TestJobContextMetadata {
   @Test
   public void testRegisterAndFetchObject() {
     String value = "hello world";
-    jobContextMetadata.registerObject("key", value);
-    assertEquals(value, jobContextMetadata.fetchObject("key"));
-    assertNull(jobContextMetadata.fetchObject("not a key"));
+    internalTaskContext.registerObject("key", value);
+    assertEquals(value, internalTaskContext.fetchObject("key"));
+    assertNull(internalTaskContext.fetchObject("not a key"));
   }
 
 }

@@ -24,7 +24,7 @@ import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.JobContextMetadata;
+import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.context.TaskContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
@@ -90,10 +90,10 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * @param jobContextMetadata the {@link JobContextMetadata} for the task
+   * @param internalTaskContext the {@link InternalTaskContext} for the task
    */
-  public final void init(JobContextMetadata jobContextMetadata) {
-    final Context context = jobContextMetadata.getContext();
+  public final void init(InternalTaskContext internalTaskContext) {
+    final Context context = internalTaskContext.getContext();
 
     String opId = getOpImplId();
 
@@ -118,9 +118,9 @@ public abstract class OperatorImpl<M, RM> {
 
     final TaskContext taskContext =  context.getTaskContext();
     this.taskName = taskContext.getTaskModel().getTaskName();
-    this.eosStates = (EndOfStreamStates) jobContextMetadata.fetchObject(EndOfStreamStates.class.getName());
-    this.watermarkStates = (WatermarkStates) jobContextMetadata.fetchObject(WatermarkStates.class.getName());
-    this.controlMessageSender = new ControlMessageSender(jobContextMetadata.getStreamMetadataCache());
+    this.eosStates = (EndOfStreamStates) internalTaskContext.fetchObject(EndOfStreamStates.class.getName());
+    this.watermarkStates = (WatermarkStates) internalTaskContext.fetchObject(WatermarkStates.class.getName());
+    this.controlMessageSender = new ControlMessageSender(internalTaskContext.getStreamMetadataCache());
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);

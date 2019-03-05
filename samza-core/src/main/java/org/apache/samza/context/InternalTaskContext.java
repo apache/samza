@@ -25,12 +25,12 @@ import org.apache.samza.system.StreamMetadataCache;
 import java.util.HashMap;
 import java.util.Map;
 
-public class JobContextMetadata {
+public class InternalTaskContext {
 
   private final Context context;
   private final Map<String, Object> objectRegistry = new HashMap<>();
 
-  public JobContextMetadata(Context context) {
+  public InternalTaskContext(Context context) {
     this.context = context;
   }
 
@@ -49,6 +49,7 @@ public class JobContextMetadata {
   public JobModel getJobModel() {
     return ((TaskContextImpl) this.context.getTaskContext()).getJobModel();
   }
+
   public StreamMetadataCache getStreamMetadataCache() {
     return ((TaskContextImpl) this.context.getTaskContext()).getStreamMetadataCache();
   }
