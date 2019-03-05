@@ -50,6 +50,7 @@ import org.apache.samza.metrics.SamzaHistogram;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
+import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -293,6 +294,17 @@ public class QueryTranslator {
       GenericOutputDescriptor<KV<Object, Object>> osd = sd.getOutputDescriptor(sinkConfig.getStreamId(), noOpKVSerde);
       OutputStream stm = outputMsgStreams.computeIfAbsent(sinkConfig.getSource(), v -> appDesc.getOutputStream(osd));
       outputStream.sendTo(stm);
+
+      // Process system events only if the output is a stream.
+      if (sqlConfig.isProcessSystemEvents()) {
+        for( MessageStream<SamzaSqlInputMessage> inputStream :  inputMsgStreams.values()) {
+          MessageStream<KV<Object, Object>> systemEventStream =
+              inputStream.filter(message -> message.getMetadata().isSystemMessage())
+                  .map(SamzaSqlInputMessage::getKeyAndMessageKV);
+
+          systemEventStream.sendTo(stm);
+        }
+      }
     } else {
       Table outputTable = appDesc.getTable(tableDescriptor.get());
       if (outputTable == null) {
