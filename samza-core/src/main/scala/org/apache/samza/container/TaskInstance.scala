@@ -323,6 +323,9 @@ class TaskInstance(
     }
   }
 
+  /**
+    * Check each partition assigned to the task is caught to the last offset
+    */
   def initCaughtUpMapping() {
     if (taskContext.getStreamMetadataCache != null) {
       systemStreamPartitions.foreach(ssp => {
@@ -335,6 +338,9 @@ class TaskInstance(
         val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
           .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
 
+        // Mark ssp to be caught up if the starting offset is already the
+        // upcoming offset, meaning the task has consumed all the messages
+        // in this partition before and waiting for the future incoming messages.
         if(Objects.equals(upcomingOffset, startingOffset)) {
           ssp2CaughtupMapping(ssp) = true
         }
