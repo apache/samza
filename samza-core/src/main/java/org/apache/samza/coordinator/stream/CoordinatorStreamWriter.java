@@ -21,7 +21,6 @@ package org.apache.samza.coordinator.stream;
 
 import joptsimple.OptionSet;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -122,7 +121,7 @@ public class CoordinatorStreamWriter {
     String key = cmdline.loadKey(options);
     String value = cmdline.loadValue(options);
 
-    CoordinatorStreamWriter writer = new CoordinatorStreamWriter(new MapConfig(generatedConfig, userConfig));
+    CoordinatorStreamWriter writer = new CoordinatorStreamWriter(generatedConfig);
     writer.start();
     writer.sendMessage(type, key, value);
     writer.stop();

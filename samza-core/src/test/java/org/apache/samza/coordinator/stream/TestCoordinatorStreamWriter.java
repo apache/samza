@@ -21,7 +21,6 @@ package org.apache.samza.coordinator.stream;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -54,8 +53,7 @@ public class TestCoordinatorStreamWriter {
     userConfigs.put("app.name", "coordinator-stream-writer-test");
     userConfigs.put("job.coordinator.system", "coordinatorStreamWriter");
     Config generatedConfig = JobPlanner.generateSingleJobConfig(userConfigs);
-    MapConfig config = new MapConfig(userConfigs, generatedConfig);
-    coordinatorStreamWriter = new CoordinatorStreamWriter(config);
+    coordinatorStreamWriter = new CoordinatorStreamWriter(generatedConfig);
     boolean exceptionHappened = false;
 
     try {

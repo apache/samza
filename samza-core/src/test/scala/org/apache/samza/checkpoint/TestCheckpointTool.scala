@@ -88,8 +88,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
-    val generatedJobConfig = JobPlanner.generateSingleJobConfig(userDefinedConfig)
-    config = new MapConfig(userDefinedConfig, generatedJobConfig)
+    config = JobPlanner.generateSingleJobConfig(userDefinedConfig)
     val metadata = new SystemStreamMetadata("foo", Map[Partition, SystemStreamPartitionMetadata](
       new Partition(0) -> new SystemStreamPartitionMetadata("0", "100", "101"),
       new Partition(1) -> new SystemStreamPartitionMetadata("0", "200", "201")
@@ -156,9 +155,8 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
-    val generatedConfigs = JobPlanner.generateSingleJobConfig(userDefinedConfig)
-    val mergedConfigs = new MapConfig(userDefinedConfig, generatedConfigs)
-    when(coordinatorStreamManager.getConfig).thenReturn(mergedConfigs)
+    val generatedConfigs: MapConfig = JobPlanner.generateSingleJobConfig(userDefinedConfig)
+    when(coordinatorStreamManager.getConfig).thenReturn(generatedConfigs)
 
     val checkpointTool: CheckpointTool = new CheckpointTool(offsetMap, coordinatorStreamManager)
     checkpointTool.run()
@@ -168,6 +166,6 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     verify(TestCheckpointTool.checkpointManager)
       .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
     verify(coordinatorStreamManager).getConfig
-    assert(TestCheckpointTool.coordinatorConfig == mergedConfigs)
+    assert(TestCheckpointTool.coordinatorConfig == generatedConfigs)
   }
 }
