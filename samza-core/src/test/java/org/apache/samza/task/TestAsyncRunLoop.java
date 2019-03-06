@@ -51,7 +51,7 @@ import org.junit.rules.Timeout;
 import scala.Option;
 import scala.collection.JavaConverters;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyObject;
@@ -646,8 +646,8 @@ public class TestAsyncRunLoop {
 
     OffsetManager offsetManager = mock(OffsetManager.class);
 
-    when(offsetManager.getLastProcessedOffset(taskName1, ssp1)).thenReturn(Option.apply("3"));
-    when(offsetManager.getLastProcessedOffset(taskName2, ssp2)).thenReturn(Option.apply("0"));
+    when(offsetManager.getCheckpointOffset(taskName1, ssp1)).thenReturn(Option.apply("3"));
+    when(offsetManager.getCheckpointOffset(taskName2, ssp2)).thenReturn(Option.apply("0"));
     when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(IncomingMessageEnvelope.END_OF_STREAM_OFFSET));
     when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply("1"));
     when(offsetManager.getStartpoint(anyObject(), anyObject())).thenReturn(Option.empty());
@@ -680,9 +680,12 @@ public class TestAsyncRunLoop {
     task0.setCommitRequest(TaskCoordinator.RequestScope.CURRENT_TASK);
     TestTask task1 = new TestTask(true, false, false, null, maxMessagesInFlight);
 
-    IncomingMessageEnvelope firstMsg = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0");
-    IncomingMessageEnvelope secondMsg = new IncomingMessageEnvelope(ssp0, "1", "key1", "value1");
-    IncomingMessageEnvelope thirdMsg = new IncomingMessageEnvelope(ssp0, "2", "key0", "value0");
+    IncomingMessageEnvelope firstMsg =
+        new IncomingMessageEnvelope(ssp0, "0", "checkpointOffset0", "key0", "value0", 0, 0, 0);
+    IncomingMessageEnvelope secondMsg =
+        new IncomingMessageEnvelope(ssp0, "1", "checkpointOffset1", "key1", "value1", 0, 0, 0);
+    IncomingMessageEnvelope thirdMsg =
+        new IncomingMessageEnvelope(ssp0, "2", "checkpointOffset2", "key0", "value0", 0, 0, 0);
 
     final CountDownLatch firstMsgCompletionLatch = new CountDownLatch(1);
     final CountDownLatch secondMsgCompletionLatch = new CountDownLatch(1);
@@ -697,7 +700,8 @@ public class TestAsyncRunLoop {
         } else if (envelope.equals(thirdMsg)) {
           secondMsgCompletionLatch.countDown();
           // OffsetManager.update with firstMsg offset, task.commit has happened when second message callback has not completed.
-          verify(offsetManager).update(eq(taskName0), eq(firstMsg.getSystemStreamPartition()), eq(firstMsg.getOffset()));
+          verify(offsetManager).update(eq(taskName0), eq(firstMsg.getSystemStreamPartition()),
+              eq(firstMsg.getCheckpointOffset()));
         }
       } catch (Exception e) {
         e.printStackTrace();

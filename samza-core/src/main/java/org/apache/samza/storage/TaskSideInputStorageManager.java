@@ -74,7 +74,7 @@ public class TaskSideInputStorageManager {
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
   private final TaskMode taskMode;
-  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
+  private final Map<SystemStreamPartition, String> checkpointOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
@@ -128,8 +128,8 @@ public class TaskSideInputStorageManager {
     startingOffsets = getStartingOffsets(fileOffsets, oldestOffsets);
     LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
 
-    lastProcessedOffsets.putAll(fileOffsets);
-    LOG.info("Last processed offsets for the task {}: {}", taskName, lastProcessedOffsets);
+    checkpointOffsets.putAll(fileOffsets);
+    LOG.info("Last processed offsets for the task {}: {}", taskName, checkpointOffsets);
 
     initializeStoreDirectories();
   }
@@ -188,16 +188,16 @@ public class TaskSideInputStorageManager {
    * @param ssp side input system stream partition to get the last processed offset for
    * @return the last processed offset
    */
-  public String getLastProcessedOffset(SystemStreamPartition ssp) {
-    return lastProcessedOffsets.get(ssp);
+  public String getCheckpointOffset(SystemStreamPartition ssp) {
+    return checkpointOffsets.get(ssp);
   }
 
   /**
    * For unit testing only
    */
   @VisibleForTesting
-  void updateLastProcessedOffset(SystemStreamPartition ssp, String offset) {
-    lastProcessedOffsets.put(ssp, offset);
+  void updateCheckpointOffset(SystemStreamPartition ssp, String checkpointOffset) {
+    checkpointOffsets.put(ssp, checkpointOffset);
   }
 
   /**
@@ -219,7 +219,7 @@ public class TaskSideInputStorageManager {
     }
 
     // update the last processed offset
-    lastProcessedOffsets.put(ssp, message.getOffset());
+    checkpointOffsets.put(ssp, message.getCheckpointOffset());
   }
 
   /**
@@ -256,8 +256,8 @@ public class TaskSideInputStorageManager {
         .forEach((entry) -> {
             String storeName = entry.getKey();
             Map<SystemStreamPartition, String> offsets = entry.getValue().stream()
-              .filter(lastProcessedOffsets::containsKey)
-              .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
+              .filter(checkpointOffsets::containsKey)
+              .collect(Collectors.toMap(Function.identity(), checkpointOffsets::get));
 
             try {
               StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets);

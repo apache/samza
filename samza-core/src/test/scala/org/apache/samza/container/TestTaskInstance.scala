@@ -154,9 +154,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.processes).thenReturn(mock[Counter])
     when(this.metrics.messagesActuallyProcessed).thenReturn(mock[Counter])
     when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("2"))
-    this.taskInstance.process(new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "4", null, null),
+    this.taskInstance.process(new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "4", "checkpoint4", null, null, 0, 0, 0),
       mock[ReadableCoordinator])
-    verify(this.offsetManager).update(TASK_NAME, SYSTEM_STREAM_PARTITION, "4")
+    verify(this.offsetManager).update(TASK_NAME, SYSTEM_STREAM_PARTITION, "checkpoint4")
   }
 
   /**

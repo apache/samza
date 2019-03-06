@@ -661,7 +661,7 @@ public class ContainerStorageManager {
       // register startingOffset with the sysConsumer and register a metric for it
       sideInputSystemConsumers.register(ssp, startingOffset, null);
       taskInstanceMetrics.get(sideInputStorageManagers.get(ssp).getTaskName()).addOffsetGauge(
-          ssp, ScalaJavaUtil.toScalaFunction(() -> sideInputStorageManagers.get(ssp).getLastProcessedOffset(ssp)));
+          ssp, ScalaJavaUtil.toScalaFunction(() -> sideInputStorageManagers.get(ssp).getCheckpointOffset(ssp)));
 
       SystemStreamMetadata systemStreamMetadata = streamMetadataCache.getSystemStreamMetadata(ssp.getSystemStream(), false);
       SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata =

@@ -611,10 +611,12 @@ public class AsyncRunLoop implements Runnable, Throttleable {
             List<TaskCallbackImpl> callbacksToUpdate = callbackManager.updateCallback(callbackImpl);
             for (TaskCallbackImpl callbackToUpdate : callbacksToUpdate) {
               IncomingMessageEnvelope envelope = callbackToUpdate.envelope;
-              log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
+              log.trace("Update offset for ssp {}, checkpoint offset {}", envelope.getSystemStreamPartition(),
+                  envelope.getCheckpointOffset());
 
               // update offset
-              task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              task.offsetManager()
+                  .update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getCheckpointOffset());
 
               // update coordinator
               coordinatorRequests.update(callbackToUpdate.coordinator);

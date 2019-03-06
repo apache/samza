@@ -161,7 +161,7 @@ class OffsetManager(
   /**
    * Last offsets processed for each SystemStreamPartition.
    */
-  val lastProcessedOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
+  val checkpointOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
 
   /**
    * Offsets to start reading from for each SystemStreamPartition. This
@@ -195,25 +195,25 @@ class OffsetManager(
     loadStartpoints
     loadDefaults
 
-    info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
+    info("Successfully loaded last processed offsets: %s" format checkpointOffsets)
     info("Successfully loaded starting offsets: %s" format startingOffsets)
   }
 
   /**
-   * Set the last processed offset for a given SystemStreamPartition.
+   * Set the checkpoint offset for a given SystemStreamPartition.
    */
-  def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
-    lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
-    if (offset != null && !offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
-      lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
+  def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, checkpointOffset: String) {
+    checkpointOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
+    if (checkpointOffset != null && !IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(checkpointOffset)) {
+      checkpointOffsets.get(taskName).put(systemStreamPartition, checkpointOffset)
     }
   }
 
   /**
    * Get the last processed offset for a SystemStreamPartition.
    */
-  def getLastProcessedOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[String] = {
-    Option(lastProcessedOffsets.get(taskName)).map(_.get(systemStreamPartition))
+  def getCheckpointOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[String] = {
+    Option(checkpointOffsets.get(taskName)).map(_.get(systemStreamPartition))
   }
 
   /**
@@ -276,7 +276,7 @@ class OffsetManager(
 
       // filter the offsets in case the task model changed since the last checkpoint was written.
       val taskLastProcessedOffsets =
-        lastProcessedOffsets.getOrDefault(taskName, new ConcurrentHashMap()).asScala
+        checkpointOffsets.getOrDefault(taskName, new ConcurrentHashMap()).asScala
           .filterKeys(taskSSPs.contains)
 
       val modifiedTaskOffsets = getModifiedOffsets(taskStartingOffsets, taskLastProcessedOffsets)
@@ -418,7 +418,7 @@ class OffsetManager(
         .flatMap(restoreOffsetsFromCheckpoint(_))
         .toMap
       result.map { case (taskName, sspToOffset) => {
-          lastProcessedOffsets.put(taskName, new ConcurrentHashMap[SystemStreamPartition, String](sspToOffset.filter {
+          checkpointOffsets.put(taskName, new ConcurrentHashMap[SystemStreamPartition, String](sspToOffset.filter {
             case (systemStreamPartition, offset) =>
               val shouldKeep = offsetSettings.contains(systemStreamPartition.getSystemStream)
               if (!shouldKeep) {
@@ -456,22 +456,22 @@ class OffsetManager(
    * reset using resetOffsets.
    */
   private def stripResetStreams {
-    val systemStreamPartitionsToReset = getSystemStreamPartitionsToReset(lastProcessedOffsets)
+    val systemStreamPartitionsToReset = getSystemStreamPartitionsToReset(checkpointOffsets)
 
     systemStreamPartitionsToReset.foreach {
       case (taskName, systemStreamPartitions) => {
         systemStreamPartitions.foreach {
           systemStreamPartition =>
             {
-              val offset = lastProcessedOffsets.get(taskName).get(systemStreamPartition)
+              val offset = checkpointOffsets.get(taskName).get(systemStreamPartition)
               info("Got offset %s for %s, but ignoring, since stream was configured to reset offsets." format (offset, systemStreamPartition))
             }
         }
       }
     }
 
-    lastProcessedOffsets.keys().asScala.foreach { taskName =>
-      lastProcessedOffsets.get(taskName).keySet().removeAll(systemStreamPartitionsToReset(taskName).asJava)
+    checkpointOffsets.keys().asScala.foreach { taskName =>
+      checkpointOffsets.get(taskName).keySet().removeAll(systemStreamPartitionsToReset(taskName).asJava)
     }
   }
 
@@ -498,7 +498,7 @@ class OffsetManager(
    * SystemStreamPartition, and populate startingOffsets.
    */
   private def loadStartingOffsets {
-    startingOffsets = lastProcessedOffsets.asScala.map {
+    startingOffsets = checkpointOffsets.asScala.map {
       case (taskName, sspToOffsets) => {
         taskName -> {
           sspToOffsets.asScala.groupBy(_._1.getSystem).flatMap {

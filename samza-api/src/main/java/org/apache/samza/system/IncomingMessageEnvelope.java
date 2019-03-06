@@ -33,17 +33,35 @@ public class IncomingMessageEnvelope {
   public static final String END_OF_STREAM_OFFSET = new String(END_OF_STREAM_BYTES, Charset.defaultCharset());
 
   private final SystemStreamPartition systemStreamPartition;
+  /**
+   * The offset in the partition that the message was received from
+   */
   private final String offset;
+  /**
+   * Offset that can be checkpointed when this {@link IncomingMessageEnvelope} is processed.
+   * This might be different from {@link #offset} in a case where the direct offset is not a valid offset from which to
+   * resume consumption.
+   */
+  private final String checkpointOffset;
   private final Object key;
   private final Object message;
+  /**
+   * Size of the message and key in bytes. This may be set to 0 if the event source did not provide a value for it.
+   */
   private final int size;
-  // the timestamp when this event occured, should be set by the event source, 0 means unassigned
-  private long eventTime = 0L;
-  // the timestamp when this event is pickedup by samza, 0 means unassgined
-  private long arrivalTime = 0L;
+  /**
+   * The timestamp when this event occurred, should be set by the event source. This may be set to 0 if the event source
+   * did not provide a value for it.
+   */
+  private final long eventTime;
+  /**
+   * The timestamp when this event is picked up by Samza.
+   */
+  private final long arrivalTime;
 
   /**
-   * Constructs a new IncomingMessageEnvelope from specified components.
+   * Same as {@link #IncomingMessageEnvelope(SystemStreamPartition, String, Object, Object, int)}, except that it sets
+   * size to 0.
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
    * @param offset The offset in the partition that the message was received from.
@@ -55,7 +73,8 @@ public class IncomingMessageEnvelope {
   }
 
   /**
-   * Constructs a new IncomingMessageEnvelope from specified components.
+   * Same as {@link #IncomingMessageEnvelope(SystemStreamPartition, String, Object, Object, int, long, long)},
+   * except that it does not set eventTime and it sets arrivalTime to the current time.
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
    * @param offset The offset in the partition that the message was received from.
@@ -65,16 +84,12 @@ public class IncomingMessageEnvelope {
    */
   public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset,
       Object key, Object message, int size) {
-    this.systemStreamPartition = systemStreamPartition;
-    this.offset = offset;
-    this.key = key;
-    this.message = message;
-    this.size = size;
-    this.arrivalTime = Instant.now().toEpochMilli();
+    this(systemStreamPartition, offset, key, message, size, 0, Instant.now().toEpochMilli());
   }
 
   /**
-   * Constructs a new IncomingMessageEnvelope from specified components
+   * Same as {@link #IncomingMessageEnvelope(SystemStreamPartition, String, String, Object, Object, int, long, long)},
+   * except that it uses the same value for offset and checkpointOffset.
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
    * @param offset The offset in the partition that the message was received from.
@@ -86,7 +101,29 @@ public class IncomingMessageEnvelope {
    */
   public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset,
       Object key, Object message, int size, long eventTime, long arrivalTime) {
-    this(systemStreamPartition, offset, key, message, size);
+    this(systemStreamPartition, offset, offset, key, message, size, eventTime, arrivalTime);
+  }
+
+  /**
+   * Constructs a new IncomingMessageEnvelope from specified components
+   * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
+   * from which the stream came, and the partition of the stream from which the message was received.
+   * @param offset The offset in the partition that the message was received from.
+   * @param checkpointOffset offset that can be checkpointed when this {@link IncomingMessageEnvelope} is processed
+   * @param key A deserialized key received from the partition offset.
+   * @param message A deserialized message received from the partition offset.
+   * @param size size of the message and key in bytes.
+   * @param eventTime the timestamp (in epochMillis) of when this event happened
+   * @param arrivalTime the timestamp (in epochMillis) of when this event arrived to (i.e., was picked-up by) Samza
+   */
+  public IncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, String checkpointOffset,
+      Object key, Object message, int size, long eventTime, long arrivalTime) {
+    this.systemStreamPartition = systemStreamPartition;
+    this.offset = offset;
+    this.checkpointOffset = checkpointOffset;
+    this.key = key;
+    this.message = message;
+    this.size = size;
     this.eventTime = eventTime;
     this.arrivalTime = arrivalTime;
   }
@@ -113,6 +150,10 @@ public class IncomingMessageEnvelope {
 
   public String getOffset() {
     return offset;
+  }
+
+  public String getCheckpointOffset() {
+    return this.checkpointOffset;
   }
 
   public Object getKey() {
@@ -152,6 +193,7 @@ public class IncomingMessageEnvelope {
     result = prime * result + ((key == null) ? 0 : key.hashCode());
     result = prime * result + ((message == null) ? 0 : message.hashCode());
     result = prime * result + ((offset == null) ? 0 : offset.hashCode());
+    result = prime * result + ((this.checkpointOffset == null) ? 0 : this.checkpointOffset.hashCode());
     result = prime * result + ((systemStreamPartition == null) ? 0 : systemStreamPartition.hashCode());
     return result;
   }
@@ -180,6 +222,11 @@ public class IncomingMessageEnvelope {
         return false;
     } else if (!offset.equals(other.offset))
       return false;
+    if (this.checkpointOffset == null) {
+      if (other.checkpointOffset != null)
+        return false;
+    } else if (!this.checkpointOffset.equals(other.checkpointOffset))
+      return false;
     if (systemStreamPartition == null) {
       if (other.systemStreamPartition != null)
         return false;
@@ -191,6 +238,7 @@ public class IncomingMessageEnvelope {
   @Override
   public String toString() {
     return "IncomingMessageEnvelope [systemStreamPartition=" + systemStreamPartition + ", offset=" + offset +
+        ", checkpointOffset=" + this.checkpointOffset +
         ", key=" + key + ", message=" + message + ", eventTime=" + eventTime +
         ", arrivalTime=" + arrivalTime + "]";
   }

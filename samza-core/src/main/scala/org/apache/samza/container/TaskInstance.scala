@@ -153,7 +153,7 @@ class TaskInstance(
       val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
       consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
       metrics.addOffsetGauge(systemStreamPartition, () =>
-          offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
+          offsetManager.getCheckpointOffset(taskName, systemStreamPartition).orNull
         )
     })
   }
@@ -185,10 +185,10 @@ class TaskInstance(
           task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
         }
 
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-          format(taskName, incomingMessageSsp, envelope.getOffset))
+        trace("Updating offset map for taskName, SSP and checkpoint offset: %s, %s, %s"
+          format (taskName, incomingMessageSsp, envelope.getCheckpointOffset))
 
-        offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
+        offsetManager.update(taskName, incomingMessageSsp, envelope.getCheckpointOffset)
       }
 
     }

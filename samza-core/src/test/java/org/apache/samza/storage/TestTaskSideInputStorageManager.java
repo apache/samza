@@ -19,8 +19,10 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +33,9 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
@@ -46,6 +51,64 @@ import static org.mockito.Mockito.*;
 public class TestTaskSideInputStorageManager {
   private static final String LOGGED_STORE_DIR = System.getProperty("java.io.tmpdir") + File.separator + "logged-store";
   private static final String NON_LOGGED_STORE_DIR = System.getProperty("java.io.tmpdir") + File.separator + "non-logged-store";
+  private static final SystemStreamPartition SSP_STREAM0 = new SystemStreamPartition("system", "stream0", new Partition(0));
+  private static final SystemStreamPartition SSP_STREAM1 = new SystemStreamPartition("system", "stream1", new Partition(0));
+
+  @Test
+  public void testProcess() {
+    String storeForSingleStream = "storeSingleStream";
+    String storeForTwoStreams = "storeTwoStreams";
+
+    String checkpointOffset0 = "checkpointOffset0";
+    String checkpointOffset1 = "checkpointOffset1";
+    IncomingMessageEnvelope incomingMessageEnvelope0 = mock(IncomingMessageEnvelope.class);
+    when(incomingMessageEnvelope0.getSystemStreamPartition()).thenReturn(SSP_STREAM0);
+    when(incomingMessageEnvelope0.getCheckpointOffset()).thenReturn(checkpointOffset0);
+    IncomingMessageEnvelope incomingMessageEnvelope1 = mock(IncomingMessageEnvelope.class);
+    when(incomingMessageEnvelope1.getSystemStreamPartition()).thenReturn(SSP_STREAM1);
+    when(incomingMessageEnvelope1.getCheckpointOffset()).thenReturn(checkpointOffset1);
+
+    // set up stores and side input processors
+    KeyValueStore<?, ?> keyValueStoreSingleStream = buildMockKeyValueStore();
+    KeyValueStore<?, ?> keyValueStoreTwoStreams = buildMockKeyValueStore();
+    SideInputsProcessor sideInputsProcessorSingleStream = mock(SideInputsProcessor.class);
+    Entry entryForIncomingMessageEnvelope0StoreSingleStream = mock(Entry.class);
+    when(sideInputsProcessorSingleStream.process(incomingMessageEnvelope0, keyValueStoreSingleStream)).thenReturn(
+        Collections.singletonList(entryForIncomingMessageEnvelope0StoreSingleStream));
+    Entry entryForIncomingMessageEnvelope0StoreTwoStreams = mock(Entry.class);
+    Entry entryForIncomingMessageEnvelope1StoreTwoStreams = mock(Entry.class);
+    SideInputsProcessor sideInputsProcessorTwoStreams = mock(SideInputsProcessor.class);
+    when(sideInputsProcessorTwoStreams.process(incomingMessageEnvelope0, keyValueStoreTwoStreams)).thenReturn(
+        Collections.singletonList(entryForIncomingMessageEnvelope0StoreTwoStreams));
+    when(sideInputsProcessorTwoStreams.process(incomingMessageEnvelope1, keyValueStoreTwoStreams)).thenReturn(
+        Collections.singletonList(entryForIncomingMessageEnvelope1StoreTwoStreams));
+
+    Map<String, SideInputsProcessor> storeToProcessor =
+        ImmutableMap.of(storeForSingleStream, sideInputsProcessorSingleStream, storeForTwoStreams,
+            sideInputsProcessorTwoStreams);
+    Map<String, StorageEngine> stores =
+        ImmutableMap.of(storeForSingleStream, (StorageEngine) keyValueStoreSingleStream, storeForTwoStreams,
+            (StorageEngine) keyValueStoreTwoStreams);
+    // map store0 to one SSP; map store1 to two SSPs
+    Map<String, Set<SystemStreamPartition>> storeToSSPs =
+        ImmutableMap.of(storeForSingleStream, ImmutableSet.of(SSP_STREAM0), storeForTwoStreams,
+            ImmutableSet.of(SSP_STREAM0, SSP_STREAM1));
+    TaskSideInputStorageManager taskSideInputStorageManager =
+        new TaskSideInputStorageManager(new TaskName("task"), TaskMode.Active, mock(StreamMetadataCache.class),
+            new File(NON_LOGGED_STORE_DIR), stores, storeToProcessor, storeToSSPs, mock(SystemAdmins.class),
+            mock(Config.class), mock(Clock.class));
+
+    taskSideInputStorageManager.process(incomingMessageEnvelope0);
+    verify(keyValueStoreSingleStream).putAll(
+        Collections.singletonList(entryForIncomingMessageEnvelope0StoreSingleStream));
+    assertEquals(checkpointOffset0, taskSideInputStorageManager.getCheckpointOffset(SSP_STREAM0));
+    assertNull(taskSideInputStorageManager.getCheckpointOffset(SSP_STREAM1));
+    taskSideInputStorageManager.process(incomingMessageEnvelope1);
+    verify(keyValueStoreTwoStreams).putAll(Collections.singletonList(entryForIncomingMessageEnvelope0StoreTwoStreams));
+    verify(keyValueStoreTwoStreams).putAll(Collections.singletonList(entryForIncomingMessageEnvelope0StoreTwoStreams));
+    assertEquals(checkpointOffset0, taskSideInputStorageManager.getCheckpointOffset(SSP_STREAM0));
+    assertEquals(checkpointOffset1, taskSideInputStorageManager.getCheckpointOffset(SSP_STREAM1));
+  }
 
   @Test
   public void testInit() {
@@ -75,7 +138,7 @@ public class TestTaskSideInputStorageManager {
     Map<String, StorageEngine> stores = new HashMap<>();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
+    testSideInputStorageManager.updateCheckpointOffset(ssp, offset);
     testSideInputStorageManager.flush();
 
     for (StorageEngine storageEngine : stores.values()) {
@@ -140,8 +203,8 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp2, offset);
+    testSideInputStorageManager.updateCheckpointOffset(ssp, offset);
+    testSideInputStorageManager.updateCheckpointOffset(ssp2, offset);
     testSideInputStorageManager.writeOffsetFiles();
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
@@ -171,7 +234,7 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    ssps.forEach(ssp -> testSideInputStorageManager.updateLastProcessedOffset(ssp, offset));
+    ssps.forEach(ssp -> testSideInputStorageManager.updateCheckpointOffset(ssp, offset));
     testSideInputStorageManager.writeOffsetFiles();
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
@@ -292,5 +355,13 @@ public class TestTaskSideInputStorageManager {
       return spy(new TaskSideInputStorageManager(taskName, TaskMode.Active, streamMetadataCache, new File(storeBaseDir), stores,
           storeToProcessor, storeToSSps, systemAdmins, mock(Config.class), clock));
     }
+  }
+
+  private static KeyValueStore<?, ?> buildMockKeyValueStore() {
+    KeyValueStore<?, ?> keyValueStore = mock(KeyValueStore.class, withSettings().extraInterfaces(StorageEngine.class));
+    StoreProperties storeProperties = mock(StoreProperties.class);
+    when(storeProperties.isLoggedStore()).thenReturn(false);
+    when(((StorageEngine) keyValueStore).getStoreProperties()).thenReturn(storeProperties);
+    return keyValueStore;
   }
 }
