@@ -32,13 +32,14 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.{info, warn, _}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{CommandLine, JobConfigUtil, Logging, Util}
+import org.apache.samza.util.{CommandLine, Logging, Util}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
+import org.apache.samza.execution.JobPlanner
 import org.apache.samza.storage.ChangelogStreamManager
 
 import scala.collection.mutable.ListBuffer
@@ -149,7 +150,7 @@ object CheckpointTool {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
     val userConfig = cmdline.loadConfig(options)
-    val jobConfig = JobConfigUtil.generateJobIdAndName(userConfig)
+    val jobConfig = JobPlanner.generateSingleJobConfig(userConfig)
     val mergeConfig = new MapConfig(userConfig, jobConfig)
     val rewrittenConfig = rewriteConfig(new JobConfig(mergeConfig))
     info(s"Using the rewritten config: $rewrittenConfig")

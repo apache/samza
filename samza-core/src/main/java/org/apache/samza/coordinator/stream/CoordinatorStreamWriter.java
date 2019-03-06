@@ -23,8 +23,8 @@ import joptsimple.OptionSet;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,7 +117,7 @@ public class CoordinatorStreamWriter {
     CoordinatorStreamWriterCommandLine cmdline = new CoordinatorStreamWriterCommandLine();
     OptionSet options = cmdline.parser().parse(args);
     Config userConfig = cmdline.loadConfig(options);
-    Config generatedConfig = JobConfigUtil.generateJobIdAndName(userConfig);
+    Config generatedConfig = JobPlanner.generateSingleJobConfig(userConfig);
     String type = cmdline.loadType(options);
     String key = cmdline.loadKey(options);
     String value = cmdline.loadValue(options);

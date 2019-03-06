@@ -51,7 +51,6 @@ import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.util.JobConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +114,7 @@ public class ExecutionPlanner {
    */
   /* package private */
   JobGraph createJobGraph(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    JobGraph jobGraph = new JobGraph(new MapConfig(config), appDesc);
+    JobGraph jobGraph = new JobGraph(config, appDesc);
     // Source streams contain both input and intermediate streams.
     Set<StreamSpec> sourceStreams = getStreamSpecs(appDesc.getInputStreamIds(), streamConfig);
     // Sink streams contain both output and intermediate streams.
@@ -128,7 +127,7 @@ public class ExecutionPlanner {
     Set<TableDescriptor> tables = appDesc.getTableDescriptors();
 
     // Generate job.id and job.name configs from app.id and app.name if defined
-    MapConfig generatedJobConfigs = JobConfigUtil.generateJobIdAndName(config);
+    MapConfig generatedJobConfigs = JobPlanner.generateSingleJobConfig(config);
     String jobName = generatedJobConfigs.get(JobConfig.JOB_NAME());
     String jobId = generatedJobConfigs.get(JobConfig.JOB_ID(), "1");
 

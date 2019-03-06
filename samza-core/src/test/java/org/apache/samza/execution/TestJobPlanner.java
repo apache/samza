@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.util;
+package org.apache.samza.execution;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,14 +25,14 @@ import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class TestJobConfigUtil {
+public class TestJobPlanner {
 
   @Test
   public void testJobNameIdConfigGeneration() {
     Map<String, String> testConfig = new HashMap<>();
     testConfig.put("app.name", "samza-app");
     testConfig .put("app.id", "id");
-    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
+    MapConfig generatedConfig = JobPlanner.generateSingleJobConfig(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
     Assert.assertEquals(generatedConfig.get("job.id"), "id");
   }
@@ -44,7 +44,7 @@ public class TestJobConfigUtil {
     testConfig .put("app.id", "id");
     testConfig .put("job.id", "should-not-exist-id");
     testConfig .put("job.name", "should-not-exist-name");
-    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
+    MapConfig generatedConfig = JobPlanner.generateSingleJobConfig(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "samza-app");
     Assert.assertEquals(generatedConfig.get("job.id"), "id");
   }
@@ -54,7 +54,7 @@ public class TestJobConfigUtil {
     Map<String, String> testConfig = new HashMap<>();
     testConfig .put("job.id", "should-exist-id");
     testConfig .put("job.name", "should-exist-name");
-    MapConfig generatedConfig = JobConfigUtil.generateJobIdAndName(testConfig);
+    MapConfig generatedConfig = JobPlanner.generateSingleJobConfig(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "should-exist-name");
     Assert.assertEquals(generatedConfig.get("job.id"), "should-exist-id");
   }

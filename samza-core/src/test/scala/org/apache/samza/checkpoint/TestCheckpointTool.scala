@@ -46,7 +46,7 @@ import org.scalatest.mockito.MockitoSugar
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
-import org.apache.samza.util.JobConfigUtil
+import org.apache.samza.execution.JobPlanner
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = _
@@ -87,8 +87,8 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getName,
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
-    ).asJava);
-    val generatedJobConfig = JobConfigUtil.generateJobIdAndName(userDefinedConfig);
+    ).asJava)
+    val generatedJobConfig = JobPlanner.generateSingleJobConfig(userDefinedConfig)
     config = new MapConfig(userDefinedConfig, generatedJobConfig)
     val metadata = new SystemStreamMetadata("foo", Map[Partition, SystemStreamPartitionMetadata](
       new Partition(0) -> new SystemStreamPartitionMetadata("0", "100", "101"),
@@ -156,8 +156,8 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
-    val generatedConfigs = JobConfigUtil.generateJobIdAndName(userDefinedConfig);
-    val mergedConfigs = new MapConfig(userDefinedConfig, generatedConfigs);
+    val generatedConfigs = JobPlanner.generateSingleJobConfig(userDefinedConfig)
+    val mergedConfigs = new MapConfig(userDefinedConfig, generatedConfigs)
     when(coordinatorStreamManager.getConfig).thenReturn(mergedConfigs)
 
     val checkpointTool: CheckpointTool = new CheckpointTool(offsetMap, coordinatorStreamManager)
