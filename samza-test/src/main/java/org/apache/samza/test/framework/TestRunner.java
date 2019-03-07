@@ -34,6 +34,7 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -44,6 +45,7 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.context.ExternalContext;
+import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
 import org.apache.samza.operators.KV;
@@ -80,7 +82,7 @@ import org.slf4j.LoggerFactory;
  *  <ol>
  *    <li>"job.coordination.factory" = {@link PassthroughJobCoordinatorFactory}</li>
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
- *    <li>"job.name" = "test-samza"</li>
+ *    <li>"app.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
  *    <li>"job.default.system" = {@code JOB_DEFAULT_SYSTEM}</li>
  *    <li>"job.host-affinity.enabled" = "false"</li>
@@ -91,7 +93,7 @@ import org.slf4j.LoggerFactory;
 public class TestRunner {
   private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
   private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
-  private static final String JOB_NAME = "samza-test";
+  private static final String APP_NAME = "samza-test";
 
   private Map<String, String> configs;
   private SamzaApplication app;
@@ -104,7 +106,7 @@ public class TestRunner {
   private TestRunner() {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
-    configs.put(JobConfig.JOB_NAME(), JOB_NAME);
+    configs.put(ApplicationConfig.APP_NAME, APP_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
@@ -268,7 +270,7 @@ public class TestRunner {
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
-    Config config = new MapConfig(configs);
+    Config config = new MapConfig(JobPlanner.generateSingleJobConfig(configs));
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
     runner.run(buildExternalContext(config).orElse(null));
     if (!runner.waitForFinish(timeout)) {

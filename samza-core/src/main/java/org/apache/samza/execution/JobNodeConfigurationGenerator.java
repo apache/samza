@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -69,7 +71,9 @@ import org.slf4j.LoggerFactory;
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    validateJobConfigs(originalConfig, generatedConfig);
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
+
     originalConfig.forEach((k, v) -> {
         if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
           LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
@@ -78,6 +82,27 @@ import org.slf4j.LoggerFactory;
       });
 
     return Util.rewriteConfig(new MapConfig(mergedConfig));
+  }
+
+  static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID());
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME());
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID());
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME());
+
+    if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
+        userConfiguredJobName)) {
+      throw new SamzaException(String.format(
+          "Generated job.name = %s from app.name = %s does not match user configured job.name = %s, please configure job.name same as app.name",
+          generatedJobName, originalConfig.get(ApplicationConfig.APP_NAME), userConfiguredJobName));
+    }
+
+    if (generatedJobId != null && userConfiguredJobId != null && !StringUtils.equals(generatedJobId,
+        userConfiguredJobId)) {
+      throw new SamzaException(String.format(
+          "Generated job.id = %s from app.id = %s does not match user configured job.id = %s, please configure job.id same as app.id",
+          generatedJobId, originalConfig.get(ApplicationConfig.APP_ID), userConfiguredJobId));
+    }
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
