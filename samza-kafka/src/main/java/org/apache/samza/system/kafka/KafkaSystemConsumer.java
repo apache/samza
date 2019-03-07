@@ -79,14 +79,15 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * Create a KafkaSystemConsumer for the provided {@code systemName}
    * @param kafkaConsumer kafka Consumer object to be used by this system consumer
    * @param systemName system name for which we create the consumer
+   * @param consumerRecordHandler {@link ConsumerRecordHandler} for new Kafka records
    * @param config application config
    * @param clientId clientId from the kafka consumer to be used in the KafkaConsumerProxy
    * @param metrics metrics for this KafkaSystemConsumer
    * @param clock system clock
    */
-  public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
+  public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName,
+      ConsumerRecordHandler consumerRecordHandler, Config config, String clientId,
       KafkaSystemConsumerMetrics metrics, Clock clock) {
-
     super(metrics.registry(), clock, metrics.getClass().getName());
 
     this.kafkaConsumer = kafkaConsumer;
@@ -102,7 +103,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
     // Create the proxy to do the actual message reading.
     String metricName = String.format("%s-%s", systemName, clientId);
-    proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
+    proxy = new KafkaConsumerProxy<>(kafkaConsumer, systemName, clientId, messageSink, consumerRecordHandler, metrics,
+        metricName);
     LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
   }
 

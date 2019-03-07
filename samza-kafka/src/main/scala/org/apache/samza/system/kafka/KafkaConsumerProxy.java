@@ -21,7 +21,6 @@
 
 package org.apache.samza.system.kafka;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +41,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.KafkaUtilJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +59,7 @@ class KafkaConsumerProxy<K, V> {
   final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
+  private final ConsumerRecordHandler consumerRecordHandler;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
   private final String metricName;
   private final String systemName;
@@ -75,12 +76,14 @@ class KafkaConsumerProxy<K, V> {
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
   KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
-      KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
+      KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, ConsumerRecordHandler consumerRecordHandler,
+      KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
     this.kafkaConsumer = kafkaConsumer;
     this.systemName = systemName;
     this.sink = messageSink;
+    this.consumerRecordHandler = consumerRecordHandler;
     this.kafkaConsumerMetrics = samzaConsumerMetrics;
     this.metricName = metricName;
     this.clientId = clientId;
@@ -310,11 +313,7 @@ class KafkaConsumerProxy<K, V> {
         results.put(ssp, messages);
       }
 
-      K key = record.key();
-      Object value = record.value();
-      IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record),
-              record.timestamp(), Instant.now().toEpochMilli());
+      IncomingMessageEnvelope imEnvelope = this.consumerRecordHandler.onNewRecord(record, ssp);
       messages.add(imEnvelope);
     }
     if (LOG.isDebugEnabled()) {
@@ -326,11 +325,6 @@ class KafkaConsumerProxy<K, V> {
     }
 
     return results;
-  }
-
-  private int getRecordSize(ConsumerRecord<K, V> r) {
-    int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
-    return keySize + r.serializedValueSize();
   }
 
   private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
@@ -349,7 +343,7 @@ class KafkaConsumerProxy<K, V> {
     long recordOffset = r.offset();
     long highWatermark = recordOffset + currentSSPLag; // derived value for the highwatermark
 
-    int size = getRecordSize(r);
+    int size = KafkaUtilJava.getRecordSize(r);
     kafkaConsumerMetrics.incReads(tap);
     kafkaConsumerMetrics.incBytesReads(tap, size);
     kafkaConsumerMetrics.setOffsets(tap, recordOffset);

@@ -41,6 +41,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
 
 public class TestKafkaSystemConsumer {
@@ -71,8 +72,9 @@ public class TestKafkaSystemConsumer {
     final KafkaConsumer<byte[], byte[]> kafkaConsumer = new MockKafkaConsumer(consumerConfig);
 
     MockKafkaSystemConsumer newKafkaSystemConsumer =
-        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, config, TEST_PREFIX_ID,
-            new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry()), System::currentTimeMillis);
+        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, mock(ConsumerRecordHandler.class), config,
+            TEST_PREFIX_ID, new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry()),
+            System::currentTimeMillis);
 
     return newKafkaSystemConsumer;
   }
@@ -213,9 +215,10 @@ public class TestKafkaSystemConsumer {
   }
 
   static class MockKafkaSystemConsumer extends KafkaSystemConsumer {
-    public MockKafkaSystemConsumer(Consumer kafkaConsumer, String systemName, Config config, String clientId,
-        KafkaSystemConsumerMetrics metrics, Clock clock) {
-      super(kafkaConsumer, systemName, config, clientId, metrics, clock);
+    public MockKafkaSystemConsumer(Consumer kafkaConsumer, String systemName,
+        ConsumerRecordHandler consumerRecordHandler, Config config, String clientId, KafkaSystemConsumerMetrics metrics,
+        Clock clock) {
+      super(kafkaConsumer, systemName, consumerRecordHandler, config, clientId, metrics, clock);
     }
 
     @Override
