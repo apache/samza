@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -55,6 +56,7 @@ public class TestRemoteApplicationRunner {
   @Before
   public void setUp() {
     Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_NAME, "test-app");
     StreamApplication userApp = appDesc -> { };
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(config)));
   }

@@ -19,7 +19,7 @@
 package org.apache.samza.operators.impl;
 
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContextImpl;
+import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
@@ -49,13 +49,13 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   private final ControlMessageSender controlMessageSender;
 
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec,
-      SystemStream systemStream, Context context) {
+      SystemStream systemStream, InternalTaskContext internalTaskContext) {
     this.partitionByOpSpec = partitionByOpSpec;
     this.systemStream = systemStream;
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
-    this.taskName = context.getTaskContext().getTaskModel().getTaskName().getTaskName();
-    StreamMetadataCache streamMetadataCache = ((TaskContextImpl) context.getTaskContext()).getStreamMetadataCache();
+    this.taskName = internalTaskContext.getContext().getTaskContext().getTaskModel().getTaskName().getTaskName();
+    StreamMetadataCache streamMetadataCache = internalTaskContext.getStreamMetadataCache();
     this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }
 

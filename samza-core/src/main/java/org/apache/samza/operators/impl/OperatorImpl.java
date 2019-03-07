@@ -24,7 +24,8 @@ import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContextImpl;
+import org.apache.samza.context.InternalTaskContext;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -89,9 +90,11 @@ public abstract class OperatorImpl<M, RM> {
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
    *
-   * @param context the {@link Context} for the task
+   * @param internalTaskContext the {@link InternalTaskContext} for the task
    */
-  public final void init(Context context) {
+  public final void init(InternalTaskContext internalTaskContext) {
+    final Context context = internalTaskContext.getContext();
+
     String opId = getOpImplId();
 
     if (initialized) {
@@ -113,12 +116,11 @@ public abstract class OperatorImpl<M, RM> {
     this.handleMessageNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-message-ns");
     this.handleTimerNs = metricsRegistry.newTimer(METRICS_GROUP, opId + "-handle-timer-ns");
 
-    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
-    final TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    final TaskContext taskContext =  context.getTaskContext();
     this.taskName = taskContext.getTaskModel().getTaskName();
-    this.eosStates = (EndOfStreamStates) taskContext.fetchObject(EndOfStreamStates.class.getName());
-    this.watermarkStates = (WatermarkStates) taskContext.fetchObject(WatermarkStates.class.getName());
-    this.controlMessageSender = new ControlMessageSender(taskContext.getStreamMetadataCache());
+    this.eosStates = (EndOfStreamStates) internalTaskContext.fetchObject(EndOfStreamStates.class.getName());
+    this.watermarkStates = (WatermarkStates) internalTaskContext.fetchObject(WatermarkStates.class.getName());
+    this.controlMessageSender = new ControlMessageSender(internalTaskContext.getStreamMetadataCache());
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);

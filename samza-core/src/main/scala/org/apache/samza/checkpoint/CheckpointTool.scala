@@ -20,29 +20,26 @@
 package org.apache.samza.checkpoint
 
 import java.net.URI
+import java.util
 import java.util.regex.Pattern
 
 import joptsimple.ArgumentAcceptingOptionSpec
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.Config
-import org.apache.samza.config.ConfigRewriter
-import org.apache.samza.config.JobConfig
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config._
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.JobRunner._
+import org.apache.samza.job.JobRunner.{info, warn, _}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.CommandLine
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{CommandLine, Logging, Util}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
 import scala.collection.JavaConverters._
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.stream.CoordinatorStreamManager
+import org.apache.samza.execution.JobPlanner
 import org.apache.samza.storage.ChangelogStreamManager
 
 import scala.collection.mutable.ListBuffer
@@ -152,8 +149,9 @@ object CheckpointTool {
   def main(args: Array[String]) {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
-    val config = cmdline.loadConfig(options)
-    val rewrittenConfig = rewriteConfig(new JobConfig(config))
+    val userConfig = cmdline.loadConfig(options)
+    val jobConfig = JobPlanner.generateSingleJobConfig(userConfig)
+    val rewrittenConfig = rewriteConfig(new JobConfig(jobConfig))
     info(s"Using the rewritten config: $rewrittenConfig")
     val tool = CheckpointTool(rewrittenConfig, cmdline.newOffsets)
     tool.run()
