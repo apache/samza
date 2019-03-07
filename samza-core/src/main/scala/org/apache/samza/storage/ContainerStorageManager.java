@@ -115,7 +115,7 @@ public class ContainerStorageManager {
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
   private static final String SIDEINPUTS_METRICS_SOURCE = "samza-container-%s-" + ContainerStorageManager.class.getName();
-  // We populate this class as the source to differentiate the SystemConsumersMetrics in CSM from the one in SamzaContainer
+  // Use class-name as the source to differentiate the SystemConsumersMetrics in CSM from the one in SamzaContainer
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
