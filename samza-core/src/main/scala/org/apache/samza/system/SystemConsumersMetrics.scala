@@ -19,7 +19,10 @@
 
 package org.apache.samza.system
 
-import org.apache.samza.metrics._
+import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.Counter
+import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics.ReadableMetricsRegistry
 
 class SystemConsumersMetrics(val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
   val source: String = "unknown") extends MetricsHelper {
