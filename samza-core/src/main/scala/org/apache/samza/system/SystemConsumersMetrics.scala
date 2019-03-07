@@ -19,12 +19,10 @@
 
 package org.apache.samza.system
 
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.metrics.Counter
-import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics._
 
-class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class SystemConsumersMetrics(val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
+  val source: String = "unknown") extends MetricsHelper {
   val choseNull = newCounter("chose-null")
   val choseObject = newCounter("chose-object")
   val deserializationError = newCounter("deserialization error")

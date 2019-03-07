@@ -882,6 +882,7 @@ class SamzaContainer(
     info("Registering task instances with metrics.")
 
     taskInstances.values.foreach(_.registerMetrics)
+    containerStorageManager.registerMetrics(reporters.asJava)
 
     info("Starting JVM metrics.")
 
