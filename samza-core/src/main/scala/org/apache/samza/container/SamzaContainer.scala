@@ -880,13 +880,9 @@ class SamzaContainer(
   }
 
   def startMetrics {
-    info("Registering taskInstanceMetrics.")
-    reporters.values.foreach(reporter => {
-      taskInstanceMetrics.values.foreach(taskMetrics => {
-        reporter.register(taskMetrics.source, taskMetrics.registry)
-      }
-      )
-    })
+    info("Registering task instance metrics.")
+    reporters.values.foreach(reporter =>
+      taskInstanceMetrics.values.foreach(taskMetrics => reporter.register(taskMetrics.source, taskMetrics.registry)))
 
     info("Starting JVM metrics.")
 
