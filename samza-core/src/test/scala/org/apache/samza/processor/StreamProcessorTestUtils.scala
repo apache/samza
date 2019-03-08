@@ -63,6 +63,7 @@ object StreamProcessorTestUtils {
     val container = new SamzaContainer(
       config = config,
       taskInstances = Map(taskName -> taskInstance),
+      taskInstanceMetrics = Map(taskName -> new TaskInstanceMetrics),
       runLoop = mockRunloop,
       systemAdmins = adminMultiplexer,
       consumerMultiplexer = consumerMultiplexer,

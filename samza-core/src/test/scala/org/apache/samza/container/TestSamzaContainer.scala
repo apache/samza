@@ -280,6 +280,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     this.samzaContainer = new SamzaContainer(
       this.config,
       Map(TASK_NAME -> this.taskInstance),
+      Map(TASK_NAME -> new TaskInstanceMetrics),
       this.runLoop,
       this.systemAdmins,
       this.consumerMultiplexer,
