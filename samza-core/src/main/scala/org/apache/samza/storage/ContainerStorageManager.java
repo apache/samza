@@ -60,7 +60,6 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.kv.Entry;
@@ -114,7 +113,7 @@ public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
-  private static final String SIDEINPUTS_METRICS_SOURCE = "samza-container-%s-" + ContainerStorageManager.class.getName();
+  private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // Use class-name as the source to differentiate the SystemConsumersMetrics in CSM from the one in SamzaContainer
 
   /** Maps containing relevant per-task objects */
@@ -232,7 +231,8 @@ public class ContainerStorageManager {
       scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(JavaConversions.asScalaSet(
           this.sideInputSystemStreams.values().stream().flatMap(Set::stream).collect(Collectors.toSet())).toSet(), false);
 
-      sideInputSystemConsumersMetrics = new SystemConsumersMetrics(new MetricsRegistryMap(), String.format(SIDEINPUTS_METRICS_SOURCE, containerModel.getId()));
+      // we use the same registry as samza-container-metrics
+      sideInputSystemConsumersMetrics = new SystemConsumersMetrics(samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
 
       MessageChooser chooser = DefaultChooser.apply(inputStreamMetadata, new RoundRobinChooserFactory(), config,
           sideInputSystemConsumersMetrics.registry(), systemAdmins);
@@ -574,26 +574,6 @@ public class ContainerStorageManager {
 
   private Set<TaskSideInputStorageManager> getSideInputStorageManagers() {
     return this.sideInputStorageManagers.values().stream().collect(Collectors.toSet());
-  }
-
-  /**
-   * Registers any CSM created metrics such as side-inputs related metrics, and standby-task related metrics.
-   * @param metricsReporters metrics reporters to use
-   */
-  public void registerMetrics(Map<String, MetricsReporter> metricsReporters) {
-    if (sideInputsPresent()) {
-      metricsReporters.values()
-          .forEach(reporter -> reporter.register(sideInputSystemConsumersMetrics.source(),
-              this.sideInputSystemConsumersMetrics.registry()));
-    }
-
-    this.containerModel.getTasks().forEach((taskName, taskModel) -> {
-        if (taskModel.getTaskMode().equals(TaskMode.Standby)) {
-          metricsReporters.values()
-              .forEach(reporter -> reporter.register(this.taskInstanceMetrics.get(taskName).source(),
-                  this.taskInstanceMetrics.get(taskName).registry()));
-        }
-      });
   }
 
   public void start() throws SamzaException {

@@ -97,7 +97,6 @@ public class TestAsyncRunLoop {
         manager,
         null,
         null,
-        null,
         sspSet,
         new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()),
         null,

@@ -46,7 +46,7 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.context._
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metadatastore.MetadataStoreFactory
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics._
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
@@ -526,8 +526,9 @@ object SamzaContainer extends Logging {
 
     var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
+    val taskInstanceMetricsRegistry : ReadableMetricsRegistry = new MetricsRegistryMap()
     val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
-      (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
+      (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName, taskInstanceMetricsRegistry))
     }).toMap
 
     val taskCollectors : Map[TaskName, TaskInstanceCollector] = taskModels.map(taskModel => {
@@ -594,7 +595,6 @@ object SamzaContainer extends Logging {
           offsetManager = offsetManager,
           storageManager = storageManager,
           tableManager = tableManager,
-          reporters = reporters,
           systemStreamPartitions = taskSSPs -- taskSideInputSSPs,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, config),
           jobModel = jobModel,
@@ -663,6 +663,7 @@ object SamzaContainer extends Logging {
     new SamzaContainer(
       config = config,
       taskInstances = taskInstances,
+      taskInstanceMetrics = taskInstanceMetrics,
       runLoop = runLoop,
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
@@ -700,6 +701,7 @@ object SamzaContainer extends Logging {
 class SamzaContainer(
   config: Config,
   taskInstances: Map[TaskName, TaskInstance],
+  taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics],
   runLoop: Runnable,
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
@@ -879,12 +881,13 @@ class SamzaContainer(
   }
 
   def startMetrics {
-    info("Registering task instances with metrics.")
-
-    taskInstances.values.foreach(_.registerMetrics)
-
-    info("Registering container storage manager metrics.")
-    containerStorageManager.registerMetrics(reporters.asJava)
+    info("Registering taskInstanceMetrics.")
+    reporters.values.foreach(reporter => {
+      taskInstanceMetrics.values.foreach(taskMetrics => {
+        reporter.register(taskMetrics.source, taskMetrics.registry)
+      }
+      )
+    })
 
     info("Starting JVM metrics.")
 
