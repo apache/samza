@@ -42,11 +42,9 @@ public interface CoordinationUtils {
 
   DistributedLockWithState getLockWithState(String lockId);
 
-  DistributedReadWriteLock getReadWriteLock();
+  DistributedReadWriteLock getReadWriteLock(String lockId);
 
-  DistributedDataAccess getDataAccess();
-
-  void setCoordinationSessionListener(CoordinationSessionListener sessionListener);
+  DistributedDataAccess getDataAccess(DistributedDataStateListener listener);
 
   /**
    * utilites cleanup

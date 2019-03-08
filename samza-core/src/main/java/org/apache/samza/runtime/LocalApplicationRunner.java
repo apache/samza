@@ -46,9 +46,10 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.context.ExternalContext;
-import org.apache.samza.coordinator.CoordinationSessionListener;
+import org.apache.samza.coordinator.DistributedDataStateListener;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedDataAccess;
+import org.apache.samza.coordinator.DistributedDataWatcher;
 import org.apache.samza.coordinator.DistributedReadWriteLock;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
@@ -68,6 +69,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String RUNID_PATH = "runId";
   private static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
+  private static final String RUNID_LOCK_ID = "runId";
   private static final int LOCK_TIMEOUT = 10;
   private static final TimeUnit LOCK_TIMEOUT_UNIT = TimeUnit.MINUTES;
 
@@ -80,6 +82,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final String uid = UUID.randomUUID().toString();
   private CoordinationUtils coordinationUtils = null;
   private DistributedReadWriteLock runIdLock = null;
+  private DistributedDataAccess runIdAccess = null;
   private String runId = null;
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
@@ -114,24 +117,22 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   private void getRunId(){
-    ApplicationConfig.ApplicationMode appMode = new ApplicationConfig(appDesc.getConfig()).getAppMode();
-    if(coordinationUtils == null || appMode == ApplicationConfig.ApplicationMode.STREAM) {
+    Boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
+    if(coordinationUtils == null ||  !isAppModeBatch) {
       return;
     }
 
-    runIdLock = coordinationUtils.getReadWriteLock();
+    runIdLock = coordinationUtils.getReadWriteLock(RUNID_LOCK_ID);
     if(runIdLock == null) {
       LOG.warn("Processor {} failed to create the lock for run.id generation", uid);
       return;
     }
 
-    DistributedDataAccess runIdAccess = coordinationUtils.getDataAccess();
+    runIdAccess = coordinationUtils.getDataAccess(new LocalDistributedDataStateListener());
     if(runIdAccess == null) {
       LOG.warn("Processor {} failed to create data access utils for run.id generation", uid);
       return;
     }
-
-    coordinationUtils.setCoordinationSessionListener(new LocalCoordinationSessionListener());
 
     try {
       // acquire lock to write or read run.id
@@ -140,12 +141,12 @@ public class LocalApplicationRunner implements ApplicationRunner {
         LOG.info("write lock acquired for run.id generation by Processor " + uid);
         runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
         LOG.info("The run id for this run is {}", runId);
-        runIdAccess.writeData(RUNID_PATH,runId);
+        runIdAccess.writeData(RUNID_PATH,runId, new LocalDistributedDataWatcher());
         runIdLock.unlock();
         return;
       } else if(lockAccess == DistributedReadWriteLock.AccessType.READ) {
         LOG.info("read lock acquired for run.id by Processor " + uid);
-        runId = (String) runIdAccess.readData(RUNID_PATH);
+        runId = (String) runIdAccess.readData(RUNID_PATH, new LocalDistributedDataWatcher());
         runIdLock.unlock();
         return;
       } else {
@@ -287,6 +288,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
     }
   }
 
+  private void stopProcessingAndShutDown() {
+    processors.forEach(StreamProcessor::stop);
+    cleanup();
+    appStatus = ApplicationStatus.UnsuccessfulFinish;
+    shutdownLatch.countDown();
+  }
+
   /**
    * Defines a specific implementation of {@link ProcessorLifecycleListener} for local {@link StreamProcessor}s.
    */
@@ -371,44 +379,65 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
 
   /**
-   * Defines a specific implementation of {@link CoordinationSessionListener} for local {@link CoordinationUtils}
+   * Defines a specific implementation of {@link DistributedDataStateListener} for local {@link DistributedDataAccess}
    */
-  private final class LocalCoordinationSessionListener implements CoordinationSessionListener {
+  private final class LocalDistributedDataStateListener implements DistributedDataStateListener {
 
     /**
-     * If the coordination utils session has reconnected, check if global runid differs from local runid
-     * if it differs then shut down processor and throw exception
-     * else recreate ephemeral node corresponding to this processor inside the read write lock for runid
+     * upon reconnect check if global runid differs from local runid
      */
     @Override
     public void handleReconnect() {
-      LOG.info("Reconnected to coordination utils");
-      if(coordinationUtils == null) {
+      if(coordinationUtils == null || runIdLock == null || runIdAccess == null ) {
+        LOG.warn("Stopping processor {} and shutting down due to failure reading global runid after reconnect", uid);
+        stopProcessingAndShutDown();
         return;
       }
-      DistributedDataAccess runIdAccess = coordinationUtils.getDataAccess();
-      String globalRunId = (String) runIdAccess.readData(RUNID_PATH);
-      if( runId != globalRunId){
-        processors.forEach(StreamProcessor::stop);
-        cleanup();
-        appStatus = ApplicationStatus.UnsuccessfulFinish;
-        String msg = String.format("run.id %s on processor %s differs from the global run.id %s", runId, uid, globalRunId);
-        throw new SamzaException(msg);
-      } else if(runIdLock != null) {
-        String msg = String.format("Processor {} failed to get the lock for run.id", uid);
-        try {
-          // acquire lock to recreate active processor ephemeral node
-          DistributedReadWriteLock.AccessType lockAccess = runIdLock.lock(LOCK_TIMEOUT, LOCK_TIMEOUT_UNIT);
-          if(lockAccess == DistributedReadWriteLock.AccessType.WRITE || lockAccess == DistributedReadWriteLock.AccessType.READ) {
-            LOG.info("Processor {} creates its active processor ephemeral node in read write lock again" + uid);
-            runIdLock.unlock();
-          } else {
-            throw new SamzaException(msg);
+      try {
+        // acquire lock to write or read run.id
+        DistributedReadWriteLock.AccessType lockAccess = runIdLock.lock(LOCK_TIMEOUT, LOCK_TIMEOUT_UNIT);
+        if(lockAccess != DistributedReadWriteLock.AccessType.NONE) {
+          String globalRunId = (String) runIdAccess.readData(RUNID_PATH, new LocalDistributedDataWatcher());
+          runIdLock.unlock();
+          if(runId != globalRunId) {
+            LOG.warn("Stopping processor {} and shutting down as local runid {} differs from global runid {} after session reconnect.", uid, runId,
+                globalRunId);
+            stopProcessingAndShutDown();
           }
-        } catch (TimeoutException e) {
-          throw new SamzaException(msg, e);
+        } else {
+          LOG.warn("Stopping processor {} and shutting down due to failure reading global runid after reconnect", uid);
+          stopProcessingAndShutDown();
         }
+      } catch (TimeoutException e) {
+        LOG.warn("Stopping processor {} and shutting down due to failure reading global runid after reconnect", uid);
+        stopProcessingAndShutDown();
       }
+    }
+
+    @Override
+    public void handleReconnectFailedError() {
+      LOG.warn("Stopping processor {} and shutting down due to failure to reconnect", uid);
+      stopProcessingAndShutDown();
+    }
+  }
+
+  /**
+   * Defines a specific implementation of {@link DistributedDataWatcher} for local {@link DistributedDataAccess}
+   */
+  private final class LocalDistributedDataWatcher implements DistributedDataWatcher {
+    @Override
+    public void handleDataChange(Object newData) {
+      if(runId != (String) newData) {
+        LOG.warn("Stopping processor {} and shutting down as local runid {} differs from global runid {}", uid, runId,
+            (String) newData);
+        stopProcessingAndShutDown();
+      }
+    }
+
+    @Override
+    public void handleDataDeleted() {
+      LOG.warn("Stopping processor {} and shutting down as global runid was deleted", uid);
+      stopProcessingAndShutDown();
     }
   }
 }

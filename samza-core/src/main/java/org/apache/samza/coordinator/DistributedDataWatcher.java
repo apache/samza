@@ -20,11 +20,12 @@
 package org.apache.samza.coordinator;
 
 /**
- * Listen to changes in coordination utils session state
+ * An {@link DistributedDataWatcher} can be registered for listening to data changes for a given path.
  */
-public interface CoordinationSessionListener {
-  /**
-   * Called after the coordination utils session has reconnected after a disconnect.
-   */
-  public void handleReconnect();
+public interface DistributedDataWatcher {
+  // called when the data being watched has changed to newData
+  public void handleDataChange(Object newData);
+
+  // called when data being watched has been deleted
+  public void handleDataDeleted();
 }

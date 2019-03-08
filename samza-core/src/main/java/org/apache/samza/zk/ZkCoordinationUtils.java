@@ -21,7 +21,7 @@ package org.apache.samza.zk;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.coordinator.CoordinationSessionListener;
+import org.apache.samza.coordinator.DistributedDataStateListener;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedDataAccess;
 import org.apache.samza.coordinator.DistributedLockWithState;
@@ -39,7 +39,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   public final ZkConfig zkConfig;
   public final ZkUtils zkUtils;
   public final String processorIdStr;
-  public CoordinationSessionListener listener;
+  public DistributedDataStateListener listener;
 
   public ZkCoordinationUtils(String processorId, ZkConfig zkConfig, ZkUtils zkUtils) {
     this.zkConfig = zkConfig;
@@ -79,21 +79,14 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public DistributedReadWriteLock getReadWriteLock() {
-    return new ZkDistributedReadWriteLock(processorIdStr, zkUtils);
+  public DistributedReadWriteLock getReadWriteLock(String lockId) {
+    return new ZkDistributedReadWriteLock(processorIdStr, zkUtils, lockId);
   }
 
   @Override
-  public DistributedDataAccess getDataAccess() {
+  public DistributedDataAccess getDataAccess(DistributedDataStateListener listener) {
+    this.listener = listener;
     return new ZkDistributedDataAccess(zkUtils);
-  }
-
-  @Override
-  public void setCoordinationSessionListener(CoordinationSessionListener sessionListener) {
-    this.listener = sessionListener;
-    if (zkUtils != null) {
-      zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
-    }
   }
 
   /// listener to handle ZK state change events
@@ -112,8 +105,8 @@ public class ZkCoordinationUtils implements CoordinationUtils {
 
     @Override
     public void handleSessionEstablishmentError(Throwable error) {
-      // TODO: Manasa: nothing much LAR wants to do
       LOG.info("Got handleSessionEstablishmentError for processor=" + processorIdStr, error);
+      listener.handleReconnectFailedError();
     }
   }
 }

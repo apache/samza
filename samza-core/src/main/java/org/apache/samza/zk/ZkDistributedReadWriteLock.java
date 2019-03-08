@@ -22,8 +22,10 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.DistributedReadWriteLock;
+import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,18 +47,24 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
   private final Random random = new Random();
   private String activeParticipantPath = null;
   private String activeProcessorPath = null;
+  private Object mutex;
+  private Boolean isInCriticalSection = false;
+  private Boolean isStateLost = false;
 
-  public ZkDistributedReadWriteLock(String participantId, ZkUtils zkUtils) {
+  public ZkDistributedReadWriteLock(String participantId, ZkUtils zkUtils, String lockId) {
     if (zkUtils == null) {
       throw new RuntimeException("Cannot operate ZkDistributedReadWriteLock without ZkUtils.");
     }
     this.zkUtils = zkUtils;
     this.participantId = participantId;
     this.keyBuilder = zkUtils.getKeyBuilder();
-    lockPath = String.format("%s/readWriteLock", keyBuilder.getRootPath());
+    lockPath = String.format("%s/readWriteLock-%s", keyBuilder.getRootPath(),lockId);
     particpantsPath = String.format("%s/%s", lockPath, PARTICIPANTS_PATH);
     processorsPath = String.format("%s/%s", lockPath, PROCESSORS_PATH);
     zkUtils.validatePaths(new String[] {lockPath, particpantsPath, processorsPath});
+    mutex = new Object();
+    zkUtils.getZkClient().subscribeChildChanges(particpantsPath, new ParticipantChangeHandler(zkUtils));
+    zkUtils.getZkClient().subscribeStateChanges(new ZkSessionStateChangedListener());
   }
 
   /**
@@ -80,34 +88,25 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     long startTime = System.currentTimeMillis();
     long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
 
-    while ((System.currentTimeMillis() - startTime) < lockTimeout) {
-      List<String> participants = zkUtils.getZkClient().getChildren(particpantsPath);
-      int index = participants.indexOf(ZkKeyBuilder.parseIdFromPath(activeParticipantPath));
-
-      if (participants.size() == 0 || index == -1) {
-        throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
-      }
-      // Acquires lock when the node has the lowest sequence number and returns.
-      if (index == 0) {
-        LOG.info("Acquired access to list of active processors for participant id: {}", participantId);
-        activeProcessorPath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
-        LOG.info("created ephemeral sequential node for active processor at {}", activeProcessorPath);
-        List<String> processors = zkUtils.getZkClient().getChildren(processorsPath);
-        if (processors.size() == 0) {
-          throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
-        }
-        if(processors.size() == 1) {
-          return AccessType.WRITE;
+    while((System.currentTimeMillis() - startTime) < lockTimeout) {
+      synchronized (mutex) {
+        AccessType accessType = checkAndAcquireLock();
+        if(accessType != AccessType.NONE) {
+          isInCriticalSection = true;
+          if(isStateLost) {
+            throw new SamzaException("Lock's state lost due to connection expiry");
+          }
+          return accessType;
         } else {
-          return AccessType.READ;
+          if(isStateLost) {
+            throw new SamzaException("Lock's state lost due to connection expiry");
+          }
+          try {
+            mutex.wait(lockTimeout);
+          } catch (InterruptedException e) {
+            throw new SamzaException("Failed to lock", e);
+          }
         }
-      } else {
-        try {
-          Thread.sleep(random.nextInt(1000));
-        } catch (InterruptedException e) {
-          Thread.interrupted();
-        }
-        LOG.info("Trying to acquire lock again...");
       }
     }
     throw new TimeoutException("could not acquire lock for " + timeout + " " + unit.toString());
@@ -125,6 +124,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     } else {
       LOG.warn("Ephemeral active participant node for read write lock you want to delete doesn't exist");
     }
+    isInCriticalSection = false;
   }
 
   /**
@@ -138,6 +138,96 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
       LOG.info("Ephemeral active processor node for read write lock deleted.");
     } else {
       LOG.warn("Ephemeral active processor node for read write lock you want to delete doesn't exist");
+    }
+  }
+
+  private AccessType checkAndAcquireLock() {
+    List<String> participants = zkUtils.getZkClient().getChildren(particpantsPath);
+    int index = participants.indexOf(ZkKeyBuilder.parseIdFromPath(activeParticipantPath));
+
+    if (participants.size() == 0 || index == -1) {
+      throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
+    }
+    // Acquires lock when the node has the lowest sequence number and returns.
+    if (index == 0) {
+      LOG.info("Acquired access to read list of active processors for participant id: {}", participantId);
+      createActiveProcessorNode();
+      List<String> processors = zkUtils.getZkClient().getChildren(processorsPath);
+      if (processors.size() == 0) {
+        throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
+      }
+      if(processors.size() == 1) {
+        return AccessType.WRITE;
+      } else {
+        return AccessType.READ;
+      }
+    }
+    else {
+      return AccessType.NONE;
+    }
+  }
+
+  private void createActiveProcessorNode() {
+    if( activeProcessorPath == null || !zkUtils.exists(activeProcessorPath)) {
+      activeProcessorPath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
+    }
+  }
+
+  class ParticipantChangeHandler extends ZkUtils.GenerationAwareZkChildListener {
+
+    public ParticipantChangeHandler(ZkUtils zkUtils) {
+      super(zkUtils, "ParticipantChangeHandler");
+    }
+
+    /**
+     * Called when the children of the given path changed.
+     *
+     * @param parentPath      The parent path
+     * @param currentChildren The children or null if the root node (parent path) was deleted.
+     * @throws Exception
+     */
+    @Override
+    public void doHandleChildChange(String parentPath, List<String> currentChildren)
+        throws Exception {
+      if (currentChildren == null) {
+        LOG.warn("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+      } else {
+        LOG.info("ParticipantChangeHandler::handleChildChange - Path: {} Current Children: {} ", parentPath, currentChildren);
+        mutex.notify();
+      }
+    }
+  }
+
+  class ZkSessionStateChangedListener implements IZkStateListener {
+    @Override
+    public void handleStateChanged(Watcher.Event.KeeperState state) {
+      switch (state) {
+        case Expired:
+          // if the session has expired it means that all the ephemeral nodes are gone.
+          LOG.warn("Got " + state.toString() + " event for processor=" + participantId + ".");
+          isStateLost = true;
+        default:
+          // received Disconnected, AuthFailed, SyncConnected, ConnectedReadOnly, and SaslAuthenticated. NoOp
+          LOG.info("Got ZK event " + state.toString() + " for processor=" + participantId + ". Continue");
+      }
+    }
+
+    @Override
+    public void handleNewSession() {
+      if(isInCriticalSection) {
+        isStateLost = true;
+      }
+      else {
+        // TODO: Manasa: should I be the first participant to be able to create processor node?
+        createActiveProcessorNode();
+      }
+    }
+
+    @Override
+    public void handleSessionEstablishmentError(Throwable error) {
+      // this means we cannot connect to zookeeper to establish a session
+      LOG.info("handleSessionEstablishmentError received for processor=" + participantId , error);
+      isStateLost = true;
     }
   }
 }

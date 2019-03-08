@@ -20,23 +20,16 @@
 package org.apache.samza.coordinator;
 
 /**
- * Concurrent writes are not allowed but concurrent reads are.
- * Data written for a key persists until overwritten
- * and is immediately available for all subsequent reads of that key.
- * A watcher is registered to listen to data changes at the key.
+ * Listen to changes in state of distributed data connection
  */
-public interface DistributedDataAccess {
+public interface DistributedDataStateListener {
   /**
-   * read data associated with key
-   * @param key
-   * @return data present at key
+   * Called when the connected has reconnected after a disconnect.
    */
-  Object readData(String key, DistributedDataWatcher watcher);
+  public void handleReconnect();
 
   /**
-   * write data for the given key
-   * @param key
-   * @param data
+   * Called when the reconnect fails
    */
-  void writeData(String key, Object data, DistributedDataWatcher watcher);
+  public void handleReconnectFailedError();
 }
