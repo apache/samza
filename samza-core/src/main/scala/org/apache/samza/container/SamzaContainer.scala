@@ -46,7 +46,7 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.context._
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metadatastore.MetadataStoreFactory
-import org.apache.samza.metrics._
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
@@ -526,9 +526,8 @@ object SamzaContainer extends Logging {
 
     var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
-    val taskInstanceMetricsRegistry : ReadableMetricsRegistry = new MetricsRegistryMap()
     val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
-      (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName, taskInstanceMetricsRegistry))
+      (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
     }).toMap
 
     val taskCollectors : Map[TaskName, TaskInstanceCollector] = taskModels.map(taskModel => {
