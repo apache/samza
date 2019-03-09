@@ -35,6 +35,7 @@ import kafka.common.TopicAndPartition;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
@@ -42,6 +43,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.KafkaUtilJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
-class KafkaConsumerProxy<K, V> {
+public class KafkaConsumerProxy<K, V> {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerProxy.class);
 
   private static final int SLEEP_MS_WHILE_NO_TOPIC_PARTITION = 100;
@@ -74,8 +76,8 @@ class KafkaConsumerProxy<K, V> {
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
-      KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
+  public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+      KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
     this.kafkaConsumer = kafkaConsumer;
@@ -310,11 +312,7 @@ class KafkaConsumerProxy<K, V> {
         results.put(ssp, messages);
       }
 
-      K key = record.key();
-      Object value = record.value();
-      IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record),
-              record.timestamp(), Instant.now().toEpochMilli());
+      IncomingMessageEnvelope imEnvelope = handleNewRecord(record, ssp);
       messages.add(imEnvelope);
     }
     if (LOG.isDebugEnabled()) {
@@ -328,9 +326,21 @@ class KafkaConsumerProxy<K, V> {
     return results;
   }
 
-  private int getRecordSize(ConsumerRecord<K, V> r) {
-    int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
-    return keySize + r.serializedValueSize();
+  /**
+   * Convert a {@link ConsumerRecord} to an {@link IncomingMessageEnvelope}.
+   *
+   * This has a protected visibility so that {@link KafkaConsumerProxy} can be extended to add special handling logic
+   * for custom Kafka systems.
+   *
+   * @param consumerRecord {@link ConsumerRecord} from Kafka that was consumed
+   * @param systemStreamPartition {@link SystemStreamPartition} corresponding to the record
+   * @return {@link IncomingMessageEnvelope} corresponding to the {@code consumerRecord}
+   */
+  protected IncomingMessageEnvelope handleNewRecord(ConsumerRecord<K, V> consumerRecord,
+      SystemStreamPartition systemStreamPartition) {
+    return new IncomingMessageEnvelope(systemStreamPartition, String.valueOf(consumerRecord.offset()),
+        consumerRecord.key(), consumerRecord.value(), KafkaUtilJava.getRecordSize(consumerRecord),
+        consumerRecord.timestamp(), Instant.now().toEpochMilli());
   }
 
   private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
@@ -349,7 +359,7 @@ class KafkaConsumerProxy<K, V> {
     long recordOffset = r.offset();
     long highWatermark = recordOffset + currentSSPLag; // derived value for the highwatermark
 
-    int size = getRecordSize(r);
+    int size = KafkaUtilJava.getRecordSize(r);
     kafkaConsumerMetrics.incReads(tap);
     kafkaConsumerMetrics.incBytesReads(tap, size);
     kafkaConsumerMetrics.setOffsets(tap, recordOffset);
@@ -422,6 +432,33 @@ class KafkaConsumerProxy<K, V> {
    @Override
   public String toString() {
     return String.format("consumerProxy-%s-%s", systemName, clientId);
+  }
+
+
+
+  /**
+   * Used to create an instance of {@link KafkaConsumerProxy}. This can be overridden in case an extension of
+   * {@link KafkaConsumerProxy} needs to be used within kafka system components like {@link KafkaSystemConsumer}.
+   */
+  public static class BaseFactory<K, V> implements KafkaConsumerProxyFactory<K, V> {
+    private final KafkaConsumer<K, V> kafkaConsumer;
+    private final String systemName;
+    private final String clientId;
+    private final KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics;
+
+    public BaseFactory(KafkaConsumer<K, V> kafkaConsumer, String systemName, String clientId,
+        KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics) {
+      this.kafkaConsumer = kafkaConsumer;
+      this.systemName = systemName;
+      this.clientId = clientId;
+      this.kafkaSystemConsumerMetrics = kafkaSystemConsumerMetrics;
+    }
+
+    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink) {
+      String metricName = String.format("%s-%s", systemName, clientId);
+      return new KafkaConsumerProxy<>(this.kafkaConsumer, this.systemName, this.clientId, messageSink,
+          this.kafkaSystemConsumerMetrics, metricName);
+    }
   }
 }
 
