@@ -66,7 +66,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   // This proxy contains a separate thread, which reads kafka messages (with consumer.poll()) and populates
   // BlockingEnvelopMap's buffers.
-  final private KafkaConsumerProxy proxy;
+  final private KafkaConsumerProxy<K, V> proxy;
 
   // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
   final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
