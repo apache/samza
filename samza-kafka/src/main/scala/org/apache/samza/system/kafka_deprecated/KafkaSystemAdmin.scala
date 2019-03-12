@@ -429,8 +429,9 @@ class KafkaSystemAdmin(
         coordinatorStreamProperties)
     } else if (intermediateStreamProperties.contains(spec.getId)) {
       val kafkaSpec = KafkaStreamSpec.fromSpec(spec)
-      kafkaSpec.getProperties.putAll(intermediateStreamProperties(spec.getId))
-      kafkaSpec
+      val properties = kafkaSpec.getProperties
+      properties.putAll(intermediateStreamProperties(spec.getId))
+      kafkaSpec.copyWithProperties(properties)
     } else {
       KafkaStreamSpec.fromSpec(spec)
     }

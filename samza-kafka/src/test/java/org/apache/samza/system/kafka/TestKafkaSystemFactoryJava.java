@@ -22,6 +22,7 @@ package org.apache.samza.system.kafka;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 import scala.collection.JavaConversions;
 
@@ -32,7 +33,7 @@ import java.util.Properties;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class TestKafkaSystemFactoryJava {
+public class TestKafkaSystemFactoryJava extends TestKafkaSystemAdmin {
 
   @Test
   public void testGetIntermediateStreamProperties() {
@@ -45,15 +46,13 @@ public class TestKafkaSystemFactoryJava {
     // no properties for stream
     config.put("streams.test.samza.intermediate", "true");
     config.put("streams.test.compression.type", "lz4"); //some random config
-    properties = JavaConversions.mapAsJavaMap(
-        factory.getIntermediateStreamProperties(new MapConfig(config)));
-    assertTrue(properties.isEmpty());
-
     config.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
-    properties = JavaConversions.mapAsJavaMap(
-        factory.getIntermediateStreamProperties(new MapConfig(config)));
-    assertTrue(!properties.isEmpty());
-    Properties prop = properties.get("test");
+
+    KafkaSystemAdmin admin = createSystemAdmin(SYSTEM(), config);
+    StreamSpec spec = new StreamSpec("test", "test", SYSTEM(), config);
+    KafkaStreamSpec kspec = admin.toKafkaSpec(spec);
+
+    Properties prop = kspec.getProperties();
     assertEquals(prop.getProperty("retention.ms"), String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH()));
     assertEquals(prop.getProperty("compression.type"), "lz4");
   }

@@ -50,8 +50,9 @@ public class TestStreamEdge {
     Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
     config.put(ApplicationConfig.APP_RUN_ID, "123");
-    StreamEdge edge = new StreamEdge(spec, true, false, new MapConfig(config));
-    assertEquals(edge.getStreamSpec().getPhysicalName(), spec.getPhysicalName() + "-123");
+    StreamSpec batchSpec = new StreamSpec("stream-1", "stream-1", "system-1");
+    StreamEdge edge = new StreamEdge(batchSpec, true, false, new MapConfig(config));
+    assertEquals(edge.getStreamSpec().getPhysicalName(), batchSpec.getPhysicalName() + "-123");
   }
 
   @Test
