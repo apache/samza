@@ -41,6 +41,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
 
 public class TestKafkaSystemConsumer {
@@ -215,7 +216,8 @@ public class TestKafkaSystemConsumer {
   static class MockKafkaSystemConsumer extends KafkaSystemConsumer {
     public MockKafkaSystemConsumer(Consumer kafkaConsumer, String systemName, Config config, String clientId,
         KafkaSystemConsumerMetrics metrics, Clock clock) {
-      super(kafkaConsumer, systemName, config, clientId, metrics, clock);
+      super(kafkaConsumer, systemName, config, clientId, (messageSink) -> mock(KafkaConsumerProxy.class), metrics,
+          clock);
     }
 
     @Override
