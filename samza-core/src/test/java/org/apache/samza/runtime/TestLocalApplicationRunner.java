@@ -255,7 +255,7 @@ public class TestLocalApplicationRunner {
     when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
     DistributedReadWriteLock rwLock = mock(DistributedReadWriteLock.class);
     when(rwLock.lock(anyLong(), anyObject())).thenReturn(DistributedReadWriteLock.AccessType.WRITE);
-    when(coordinationUtils.getReadWriteLock()).thenReturn(rwLock);
+    when(coordinationUtils.getReadWriteLock(anyString())).thenReturn(rwLock);
     DistributedDataAccess dataAccess = mock(DistributedDataAccess.class);
     when(coordinationUtils.getDataAccess()).thenReturn(dataAccess);
 

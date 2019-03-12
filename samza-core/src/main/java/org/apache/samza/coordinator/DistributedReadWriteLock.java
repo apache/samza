@@ -29,6 +29,16 @@ import java.util.concurrent.TimeoutException;
  * The processor that has acquired the lock, holds it until it does `unlock` explicitly
  * The first processor to acquire the lock should be given a WRITE access
  * All other subsequent requests should acquire only READ access
+ *
+ * `State` is information pertaining to the requesting processor maintained by the lock
+ * to determine how to grant read or write access
+ *
+ *
+ *                                       lock()                     unlock()                   cleanState()
+ * LOCK STATUS:  ──────────▶   NEW ─────────────────▶ LOCKED ──────────────────▶ UNLOCKED ─────────────────────▶ CLEANED
+ * `State`                [No state]            [State created]            [State preserved]               [State Cleaned]
+ *
+ *
  */
 public interface DistributedReadWriteLock {
 
@@ -36,7 +46,7 @@ public interface DistributedReadWriteLock {
    * Try to acquire lock: returns the type of access lock was acquired for
    * @param timeout Duration of lock acquiring timeout.
    * @param unit Time Unit of the timeout defined above.
-   * @return AccessType.READ if lock is acquired for read, AcessType.WRITE if acquired for write and AccessType.NONE if not acquired
+   * @return AccessType.READ if lock is acquired for read, AccessType.WRITE if acquired for write
    * @throws TimeoutException if could not acquire the lock.
    */
   AccessType lock(long timeout, TimeUnit unit) throws TimeoutException;

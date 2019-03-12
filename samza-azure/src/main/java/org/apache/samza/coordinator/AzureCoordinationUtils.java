@@ -58,7 +58,7 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public DistributedDataAccess getDataAccess(DistributedDataStateListener listener) throws UnsupportedOperationException {
+  public DistributedDataAccess getDataAccess() throws UnsupportedOperationException {
     return null;
   }
 

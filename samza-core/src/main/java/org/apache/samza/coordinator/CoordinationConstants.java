@@ -19,17 +19,14 @@
 
 package org.apache.samza.coordinator;
 
-/**
- * Listen to changes in state of distributed data connection
- */
-public interface DistributedDataStateListener {
-  /**
-   * Called when the connected has reconnected after a disconnect.
-   */
-  public void handleReconnect();
+import java.util.concurrent.TimeUnit;
 
-  /**
-   * Called when the reconnect fails
-   */
-  public void handleReconnectFailedError();
+
+public class CoordinationConstants {
+  private CoordinationConstants() {}
+
+  public static final String RUNID_PATH = "runId";
+  public static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
+  public static final String RUNID_LOCK_ID = "runId";
+  public static final int LOCK_TIMEOUT_MS = 6000000;
 }

@@ -44,7 +44,7 @@ public interface CoordinationUtils {
 
   DistributedReadWriteLock getReadWriteLock(String lockId);
 
-  DistributedDataAccess getDataAccess(DistributedDataStateListener listener);
+  DistributedDataAccess getDataAccess();
 
   /**
    * utilites cleanup

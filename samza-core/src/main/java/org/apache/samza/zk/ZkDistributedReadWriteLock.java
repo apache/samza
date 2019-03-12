@@ -47,7 +47,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
   private final Random random = new Random();
   private String activeParticipantPath = null;
   private String activeProcessorPath = null;
-  private Object mutex;
+  private final Object mutex;
   private Boolean isInCriticalSection = false;
   private Boolean isStateLost = false;
 
@@ -189,11 +189,13 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     @Override
     public void doHandleChildChange(String parentPath, List<String> currentChildren)
         throws Exception {
-      if (currentChildren == null) {
-        LOG.warn("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
-      } else {
-        LOG.info("ParticipantChangeHandler::handleChildChange - Path: {} Current Children: {} ", parentPath, currentChildren);
-        mutex.notify();
+      synchronized (mutex) {
+        if (currentChildren == null) {
+          LOG.warn("handleChildChange on path " + parentPath + " was invoked with NULL list of children");
+        } else {
+          LOG.info("ParticipantChangeHandler::handleChildChange - Path: {} Current Children: {} ", parentPath, currentChildren);
+          mutex.notify();
+        }
       }
     }
   }
