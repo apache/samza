@@ -75,7 +75,9 @@ public class StreamEdge {
     StreamSpec spec = (partitions == PARTITIONS_UNKNOWN) ?
         streamSpec : streamSpec.copyWithPartitionCount(partitions);
 
-    if (isIntermediate) {
+    // Append unique id to the batch intermediate streams
+    // Check the physical stream name is already generated first
+    if (isIntermediate && spec.getId().equals(spec.getPhysicalName())) {
       String physicalName = StreamManager.createUniqueNameForBatch(spec.getPhysicalName(), config);
       if (!physicalName.equals(spec.getPhysicalName())) {
         spec = spec.copyWithPhysicalName(physicalName);

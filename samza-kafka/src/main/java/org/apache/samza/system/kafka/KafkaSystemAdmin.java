@@ -581,7 +581,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
               coordinatorStreamProperties);
     } else if (intermediateStreamProperties.containsKey(spec.getId())) {
-      kafkaSpec = KafkaStreamSpec.fromSpec(spec).copyWithProperties(intermediateStreamProperties.get(spec.getId()));
+      kafkaSpec = KafkaStreamSpec.fromSpec(spec);
+      kafkaSpec.getProperties().putAll(intermediateStreamProperties.get(spec.getId()));
     } else {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
     }
