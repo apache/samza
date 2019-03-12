@@ -62,10 +62,11 @@ A _stream application_ processes messages from input streams, transforms them an
 
 ![diagram-medium](/img/{{site.version}}/learn/documentation/core-concepts/stream-application.png)
 
-Samza offers three top-level APIs to help you build your stream applications: <br/>
+Samza offers foure top-level APIs to help you build your stream applications: <br/>
 1. The [High Level Streams API](/learn/documentation/{{site.version}}/api/high-level-api.html),  which offers several built-in operators like map, filter, etc. This is the recommended API for most use-cases. <br/>
 2. The [Low Level Task API](/learn/documentation/{{site.version}}/api/low-level-api.html), which allows greater flexibility to define your processing-logic and offers greater control <br/>
 3. [Samza SQL](/learn/documentation/{{site.version}}/api/samza-sql.html), which offers a declarative SQL interface to create your applications <br/>
+4. [Apache Beam API](/learn/documentation/{{site.version}}/api/beam-api.html), which offers the full Java API from [Apache beam](https://beam.apache.org/) while Python and Go are work-in-progress.
 
 ### State
 Samza supports both stateless and stateful stream processing. _Stateless processing_, as the name implies, does not retain any state associated with the current message after it has been processed. A good example of this is filtering an incoming stream of user-records by a field (eg:userId) and writing the filtered messages to their own stream. 
