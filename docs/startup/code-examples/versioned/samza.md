@@ -56,4 +56,4 @@ using low-level APIs.
 
 #### Samza SQL API examples
 You can easily create a Samza job declaratively using 
-[Samza SQL](https://samza.apache.org/learn/tutorials/0.14/samza-sql.html).
+[Samza SQL](https://samza.apache.org/learn/tutorials/latest/samza-sql.html).

@@ -101,4 +101,4 @@ copy: 1
 ...
 {% endhighlight %}
 
-Feel free to play with other examples in the project or write your own. Please don't hesitate to [reach out](https://samza.apache.org/community/contact-us.html) if you encounter any issues.
+For more examples and how to deploy your job in local, standalone and Yarn cluster, you can look at the [code examples](/startup/code-examples/{{site.version}}/beam.html). Please don't hesitate to [reach out](https://samza.apache.org/community/contact-us.html) if you encounter any issues.

@@ -26,11 +26,11 @@ title: Apache Beam API
 
 ### Introduction
 
-Apache Beam brings an easy-to-use, but powerful API and model for state-of-art stream and batch data processing with portability across a variety of languages. The Beam API and model has the following characteristics:
+Apache Beam brings an easy-to-usen but powerful API and model for state-of-art stream and batch data processing with portability across a variety of languages. The Beam API and model has the following characteristics:
 
 - *Simple constructs, powerful semantics*: the whole beam API can be simply described by a `Pipeline` object, which captures all your data processing steps from input to output. Beam SDK supports over [20 data IOs](https://beam.apache.org/documentation/io/built-in/), and data transformations from simple [Map](https://beam.apache.org/releases/javadoc/2.11.0/org/apache/beam/sdk/transforms/MapElements.html) to complex [Combines and Joins](https://beam.apache.org/releases/javadoc/2.11.0/index.html?org/apache/beam/sdk/transforms/Combine.html).
 
-- *Strong consistency via event-time*: Beam provides advanced [event-time support](https://beam.apache.org/documentation/programming-guide/#watermarks-and-late-data) so you can perform windowing and aggregations based on when the events happen, instead of when they are consumed. The event-time mechanism improves the accuracy of processing results, and has repeatability when reprocessing the same data set.
+- *Strong consistency via event-time*: Beam provides advanced [event-time support](https://beam.apache.org/documentation/programming-guide/#watermarks-and-late-data) so you can perform windowing and aggregations based on when the events happen, instead of when they arrive. The event-time mechanism improves the accuracy of processing results, and guarantees repeatability in results when reprocessing the same data set.
 
 - *Comprehensive stream processing semantics*: Beam supports an up-to-date stream processing model, including [tumbling/sliding/session windows](https://beam.apache.org/documentation/programming-guide/#windowing), joins and aggregations. It provides [triggers](https://beam.apache.org/documentation/programming-guide/#triggers) based on conditions of early and late firings, and late arrival handling with accumulation mode and allowed lateness.
 
@@ -49,6 +49,8 @@ PipelineOptions options = PipelineOptionsFactory.create();
 Pipeline p = Pipeline.create(options);
 
 {% endhighlight %}
+
+The `PipelineOptions` supported by SamzaRunner is documented in detail [here](https://beam.apache.org/documentation/runners/samza/).
 
 Let's apply the first data transform to read from a text file using [TextIO.read()](https://beam.apache.org/releases/javadoc/2.11.0/org/apache/beam/sdk/io/TextIO.html):
 
@@ -102,8 +104,8 @@ pipeline.run();
 
 {% endhighlight %}
 
-To run this Beam program with Samza, you can simply provides "--runner=SamzaRunner" as a program argument. You can follow our [quick start](/startup/quick-start/{{site.version}}/beam.html) to set up your project and run different examples. For more details on writing the Beam program, please refer the comprehensive [Beam programming guide](https://beam.apache.org/documentation/programming-guide/).
+To run this Beam program with Samza, you can simply provide "--runner=SamzaRunner" as a program argument. You can follow our [quick start](/startup/quick-start/{{site.version}}/beam.html) to set up your project and run different examples. For more details on writing the Beam program, please refer the [Beam programming guide](https://beam.apache.org/documentation/programming-guide/).
 
 ### Apache Beam - A Samza’s Perspective
 
-The goal of Samza is to provide large-scale streaming processing capabilities with first-class state support. This does not contradict with Beam. In fact, while Samza lays out a solid foundation for large-scale stateful stream processing, Beam adds the cutting-edge stream processing API and model on top of it. The Beam API and model allows further optimization in the Samza platform, including multi-stage distributed computation and parallel processing on the per-key basis. The performance enhancements from these optimizations will benefit both Samza and its users. Samza can also further improve Beam model by providing various use cases. Adopting Beam provides a solid understanding of the latest data processing technology, and we believe Samza will benefit from it.
+The goal of Samza is to provide large-scale streaming processing capabilities with first-class state support. This does not contradict with Beam. In fact, while Samza lays out a solid foundation for large-scale stateful stream processing, Beam adds the cutting-edge stream processing API and model on top of it. The Beam API and model allows further optimization in the Samza platform, including multi-stage distributed computation and parallel processing on the per-key basis. The performance enhancements from these optimizations will benefit both Samza and its users. Samza can also further improve Beam model by providing various use cases. We firmly believe Samza will benefit from collaborating with Beam.
