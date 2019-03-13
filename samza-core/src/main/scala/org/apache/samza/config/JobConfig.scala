@@ -111,9 +111,8 @@ object JobConfig {
   val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
 
   // Enables standby tasks
-  val STANDBY_TASKS_ENABLED = "job.standbytasks.enabled"
   val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replication.factor"
-  val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 2
+  val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1
 
   // Specify DiagnosticAppender class
   val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
@@ -258,7 +257,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getMetadataStoreFactory = getOption(JobConfig.METADATA_STORE_FACTORY).getOrElse(classOf[CoordinatorStreamMetadataStoreFactory].getCanonicalName)
 
-  def getStartpointMetadataStoreFactory = getOption(JobConfig.STARTPOINT_METADATA_STORE_FACTORY).getOrElse(getMetadataStoreFactory)
+  def getStartpointMetadataStoreFactory = getOption(JobConfig.STARTPOINT_METADATA_STORE_FACTORY).getOrElse(null)
 
   def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
 
@@ -274,7 +273,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
 
-  def getStandbyTasksEnabled = getBoolean(JobConfig.STANDBY_TASKS_ENABLED, false)
+  def getStandbyTasksEnabled = getStandbyTaskReplicationFactor > 1
 
   def getStandbyTaskReplicationFactor = getInt(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, JobConfig.DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR)
 }

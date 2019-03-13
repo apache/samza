@@ -37,6 +37,11 @@ public @interface SamzaSqlUdf {
   String name();
 
   /**
+   * Description of the UDF
+   */
+  String description();
+
+  /**
    * Whether the UDF is enabled or not.
    */
   boolean enabled() default true;

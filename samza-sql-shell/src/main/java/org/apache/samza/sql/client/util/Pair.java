@@ -16,14 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-ext {
-  scalaVersion = "2.10"
-  scalaLibVersion = "2.10.4"
-  // Extra options for the compiler:
-  // -feature: Give detailed warnings about language feature use (rather than just 'there were 4 warnings')
-  // -language:implicitConversions: Allow the use of implicit conversions without warning or library import
-  // -language:reflectiveCalls: Allow the automatic use of reflection to access fields without warning or library import
-  scalaOptions = ["-feature", "-language:implicitConversions", "-language:reflectiveCalls"]
-  scalatraVersion = "2.2.1"
-  jettyVersion = "9.2.7.v20150116"
+
+package org.apache.samza.sql.client.util;
+
+public class Pair<L,R> {
+  private L l;
+  private R r;
+
+  public Pair(L l, R r){
+    this.l = l;
+    this.r = r;
+  }
+
+  public L getL(){
+    return l;
+  }
+
+  public R getR(){
+    return r;
+  }
+
+  public void setL(L l) {
+    this.l = l;
+  }
+
+  public void setR(R r){
+    this.r = r;
+  }
 }

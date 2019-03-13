@@ -21,10 +21,9 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.Util;
+
 
 /**
  * This class contains the main() method used by run-app.sh.
@@ -50,24 +49,7 @@ public class ApplicationRunnerMain {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
-
-    ApplicationRunner appRunner =
-        ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
-
-    switch (op) {
-      case RUN:
-        appRunner.run(null);
-        break;
-      case KILL:
-        appRunner.kill();
-        break;
-      case STATUS:
-        System.out.println(appRunner.status());
-        break;
-      default:
-        throw new IllegalArgumentException("Unrecognized operation: " + op);
-    }
+    ApplicationRunnerUtil.invoke(orgConfig, op);
   }
 }

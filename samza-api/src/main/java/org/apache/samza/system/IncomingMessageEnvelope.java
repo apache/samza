@@ -46,7 +46,7 @@ public class IncomingMessageEnvelope {
    * Constructs a new IncomingMessageEnvelope from specified components.
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
-   * @param offset The offset in the partition that the message was received from.
+   * @param offset offset associated with this message, provided by the system consumer that consumed the message
    * @param key A deserialized key received from the partition offset.
    * @param message A deserialized message received from the partition offset.
    */
@@ -58,7 +58,7 @@ public class IncomingMessageEnvelope {
    * Constructs a new IncomingMessageEnvelope from specified components.
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
-   * @param offset The offset in the partition that the message was received from.
+   * @param offset offset associated with this message, provided by the system consumer that consumed the message
    * @param key A deserialized key received from the partition offset.
    * @param message A deserialized message received from the partition offset.
    * @param size size of the message and key in bytes.
@@ -77,7 +77,7 @@ public class IncomingMessageEnvelope {
    * Constructs a new IncomingMessageEnvelope from specified components
    * @param systemStreamPartition The aggregate object representing the incoming stream name, the name of the cluster
    * from which the stream came, and the partition of the stream from which the message was received.
-   * @param offset The offset in the partition that the message was received from.
+   * @param offset offset associated with this message, provided by the system consumer that consumed the message
    * @param key A deserialized key received from the partition offset.
    * @param message A deserialized message received from the partition offset.
    * @param size size of the message and key in bytes.
@@ -111,6 +111,9 @@ public class IncomingMessageEnvelope {
     return systemStreamPartition;
   }
 
+  /**
+   * Offset associated with this message, provided by the system consumer that consumed the message.
+   */
   public String getOffset() {
     return offset;
   }

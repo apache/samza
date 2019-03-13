@@ -16,8 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Job
-job.name=joiner
+# App
+app.name=joiner
 
 # Task
 task.class=org.apache.samza.test.integration.join.Joiner

@@ -25,17 +25,4 @@ import java.util.Map;
  * Whenever the shell calls the executor to execute a SQL statement, an object of ExecutionContext is passed.
  */
 public class ExecutionContext {
-  private Map<String, String> m_configs;
-
-  public ExecutionContext(Map<String, String> config) {
-    m_configs = config;
-  }
-
-  /**
-  * @return The Map storing all configuration pairs. Note that the set map is the same as the one used by
-  * ExecutionContext, so changes to the map are reflected in ExecutionContext, and vice-versa.
-  */
-  public Map<String, String> getConfigMap() {
-    return m_configs;
-  }
 }

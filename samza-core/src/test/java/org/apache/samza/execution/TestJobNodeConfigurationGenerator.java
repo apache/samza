@@ -19,7 +19,9 @@
 package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -234,6 +236,24 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     Config expectedConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedConfig, jobConfig);
     assertEquals("rewritten-system", jobConfig.get(streamCfgToOverride));
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testJobNameConfigValidation() {
+    ImmutableMap<String, String> userConfigs =
+        ImmutableMap.of("job.name", "samza-job", "job.id", "1", "app.name", "samza-app");
+    ImmutableMap<String, String> generatedConfigs =
+        ImmutableMap.of("job.name", "samza-app", "job.id", "1", "app.name", "samza-app");
+    JobNodeConfigurationGenerator.validateJobConfigs(userConfigs, generatedConfigs);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testJobIdConfigValidation() {
+    ImmutableMap<String, String> userConfigs =
+        ImmutableMap.of("job.id", "1", "app.id", "this-should-take-precedence", "app.name", "samza-app");
+    ImmutableMap<String, String> generatedConfigs =
+        ImmutableMap.of("job.name", "samza-app", "job.id", "this-should-take-precedence", "app.name", "samza-app");
+    JobNodeConfigurationGenerator.validateJobConfigs(userConfigs, generatedConfigs);
   }
 
   private void validateTableConfigure(JobConfig jobConfig, Map<String, Serde> deserializedSerdes,

@@ -214,10 +214,10 @@ public class StorageRecovery extends CommandLine {
 
       ContainerStorageManager containerStorageManager =
           new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
-              storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
+              new HashMap<>(), storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
               JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(),
-              storeBaseDir, storeBaseDir, maxPartitionNumber, new SystemClock());
+              storeBaseDir, storeBaseDir, maxPartitionNumber, null, new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

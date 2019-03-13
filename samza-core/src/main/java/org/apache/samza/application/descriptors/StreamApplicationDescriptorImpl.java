@@ -30,8 +30,8 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.operators.KV;
@@ -166,10 +166,10 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
       throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
 
-    JobConfig jobConfig = new JobConfig(getConfig());
+    ApplicationConfig applicationConfig = new ApplicationConfig(getConfig());
     String nextOpId = String.format("%s-%s-%s-%s",
-        jobConfig.getName().get(),
-        jobConfig.getJobId(),
+        applicationConfig.getAppName(),
+        applicationConfig.getAppId(),
         opCode.name().toLowerCase(),
         StringUtils.isNotBlank(userDefinedId) ? userDefinedId.trim() : String.valueOf(nextOpNum));
     if (!operatorIds.add(nextOpId)) {

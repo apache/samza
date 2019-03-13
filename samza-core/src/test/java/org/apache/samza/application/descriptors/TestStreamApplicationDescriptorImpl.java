@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ApplicationContainerContextFactory;
 import org.apache.samza.context.ApplicationTaskContextFactory;
@@ -428,33 +428,33 @@ public class TestStreamApplicationDescriptorImpl {
   @Test
   public void testGetNextOpIdIncrementsId() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "jobName");
-    configMap.put(JobConfig.JOB_ID(), "1234");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
+    configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
-    assertEquals("jobName-1234-merge-0", streamAppDesc.getNextOpId(OpCode.MERGE, null));
-    assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
-    assertEquals("jobName-1234-map-2", streamAppDesc.getNextOpId(OpCode.MAP, null));
+    assertEquals("appName-1234-merge-0", streamAppDesc.getNextOpId(OpCode.MERGE, null));
+    assertEquals("appName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
+    assertEquals("appName-1234-map-2", streamAppDesc.getNextOpId(OpCode.MAP, null));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetNextOpIdRejectsDuplicates() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "jobName");
-    configMap.put(JobConfig.JOB_ID(), "1234");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
+    configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
-    assertEquals("jobName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
+    assertEquals("appName-1234-join-customName", streamAppDesc.getNextOpId(OpCode.JOIN, "customName"));
     streamAppDesc.getNextOpId(OpCode.JOIN, "customName"); // should throw
   }
 
   @Test
   public void testOpIdValidation() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "jobName");
-    configMap.put(JobConfig.JOB_ID(), "1234");
+    configMap.put(ApplicationConfig.APP_NAME, "appName");
+    configMap.put(ApplicationConfig.APP_ID, "1234");
     Config config = new MapConfig(configMap);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> { }, config);
@@ -575,7 +575,7 @@ public class TestStreamApplicationDescriptorImpl {
 
   private Config getConfig() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-job");
+    configMap.put(ApplicationConfig.APP_NAME, "test-job");
     return new MapConfig(configMap);
   }
 

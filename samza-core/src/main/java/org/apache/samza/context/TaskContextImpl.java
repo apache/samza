@@ -29,8 +29,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.TableManager;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 
 
@@ -43,7 +41,6 @@ public class TaskContextImpl implements TaskContext {
   private final OffsetManager offsetManager;
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
-  private final Map<String, Object> objectRegistry = new HashMap<>();
 
   public TaskContextImpl(TaskModel taskModel,
       MetricsRegistry taskMetricsRegistry,
@@ -95,16 +92,6 @@ public class TaskContextImpl implements TaskContext {
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
     this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
-  }
-
-  // TODO SAMZA-1935: below methods are used by operator code; they should be decoupled from this client API
-
-  public void registerObject(String name, Object value) {
-    this.objectRegistry.put(name, value);
-  }
-
-  public Object fetchObject(String name) {
-    return this.objectRegistry.get(name);
   }
 
   public JobModel getJobModel() {

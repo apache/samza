@@ -153,7 +153,6 @@ public class AvroRelConverter implements SamzaRelConverter {
     GenericRecord record = new GenericData.Record(schema);
     List<String> fieldNames = relRecord.getFieldNames();
     List<Object> values = relRecord.getFieldValues();
-    int nullFieldValueCount = 0;
     for (int index = 0; index < fieldNames.size(); index++) {
       if (!fieldNames.get(index).equalsIgnoreCase(SamzaSqlRelMessage.KEY_NAME)) {
         String fieldName = fieldNames.get(index);
@@ -167,26 +166,19 @@ public class AvroRelConverter implements SamzaRelConverter {
          * We ignore the fields which doesn't have corresponding schema in the output topic.
          */
         if (schema.getField(fieldName) == null) {
-          nullFieldValueCount++;
           LOG.debug("Schema with Name {} and Namespace {} doesn't contain the fieldName {}, Skipping it.",
               schema.getName(), schema.getNamespace(), fieldName);
           continue;
         }
 
         Object relObj = values.get(index);
-        if (relObj == null) {
-          nullFieldValueCount++;
-        }
         Schema fieldSchema = schema.getField(fieldName).schema();
         record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
-      } else {
-        // Count key towards null field values for accounting purposes.
-        nullFieldValueCount++;
       }
     }
 
     // If all field values in the record are null, return a null record.
-    return (nullFieldValueCount == fieldNames.size()) ? null : record;
+    return record;
   }
 
   static public Object convertToAvroObject(Object relObj, Schema schema) {
@@ -207,7 +199,11 @@ public class AvroRelConverter implements SamzaRelConverter {
             .collect(Collectors.toMap(Map.Entry::getKey, e -> convertToAvroObject(e.getValue(),
                 getNonNullUnionSchema(schema).getValueType())));
       case UNION:
-        return convertToAvroObject(relObj, getNonNullUnionSchema(schema));
+        for (Schema unionSchema : schema.getTypes()) {
+          if (isSchemaCompatibleWithRelObj(relObj, unionSchema)) {
+            return convertToAvroObject(relObj, unionSchema);
+          }
+        }
       case ENUM:
         return new GenericData.EnumSymbol(schema, (String) relObj);
       case FIXED:
@@ -217,19 +213,6 @@ public class AvroRelConverter implements SamzaRelConverter {
       default:
         return relObj;
     }
-  }
-
-  // Two non-nullable types in a union is not yet supported.
-  static public Schema getNonNullUnionSchema(Schema schema) {
-    if (schema.getType().equals(Schema.Type.UNION)) {
-      if (schema.getTypes().get(0).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(0);
-      }
-      if (schema.getTypes().get(1).getType() != Schema.Type.NULL) {
-        return schema.getTypes().get(1);
-      }
-    }
-    return schema;
   }
 
   // Not doing any validations of data types with Avro schema considering the resource cost per message.
@@ -267,7 +250,11 @@ public class AvroRelConverter implements SamzaRelConverter {
         return retVal;
       }
       case UNION:
-        return convertToJavaObject(avroObj, getNonNullUnionSchema(schema));
+        for (Schema unionSchema : schema.getTypes()) {
+          if (isSchemaCompatible(avroObj, unionSchema)) {
+            return convertToJavaObject(avroObj, unionSchema);
+          }
+        }
       case ENUM:
         return avroObj.toString();
       case FIXED:
@@ -282,5 +269,67 @@ public class AvroRelConverter implements SamzaRelConverter {
       default:
         return avroObj;
     }
+  }
+
+  private boolean isSchemaCompatible(Object avroObj, Schema unionSchema) {
+    if (unionSchema.getType() == Schema.Type.NULL && avroObj == null) {
+      return true;
+    }
+    switch (unionSchema.getType()) {
+      case RECORD:
+        return avroObj instanceof IndexedRecord;
+      case ARRAY:
+        return avroObj instanceof GenericData.Array || avroObj instanceof List;
+      case MAP:
+        return avroObj instanceof Map;
+      case FIXED:
+        return avroObj instanceof GenericData.Fixed;
+      case BYTES:
+        return avroObj instanceof ByteBuffer;
+      case FLOAT:
+        return avroObj instanceof Float;
+      default:
+        return true;
+    }
+  }
+
+  private static boolean isSchemaCompatibleWithRelObj(Object relObj, Schema unionSchema) {
+    if (unionSchema.getType() == Schema.Type.NULL && relObj == null) {
+      return true;
+    }
+    switch (unionSchema.getType()) {
+      case RECORD:
+        return relObj instanceof SamzaSqlRelRecord;
+      case ARRAY:
+        return relObj instanceof List;
+      case MAP:
+        return relObj instanceof Map;
+      case FIXED:
+        return relObj instanceof ByteString;
+      case BYTES:
+        return relObj instanceof ByteString;
+      case FLOAT:
+        return relObj instanceof Float || relObj instanceof Double;
+      default:
+        return true;
+    }
+  }
+
+  // Two non-nullable types in a union is not yet supported.
+  public static Schema getNonNullUnionSchema(Schema schema) {
+    if (schema.getType().equals(Schema.Type.UNION)) {
+      List<Schema> types = schema.getTypes();
+      // Typically a nullable field's schema is configured as an union of Null and a Type.
+      // This is to check whether the Union is a Nullable field
+      if (types.size() == 2) {
+        if (types.get(0).getType() == Schema.Type.NULL) {
+          return types.get(1);
+        } else if ((types.get(1).getType() == Schema.Type.NULL)) {
+          return types.get(0);
+        }
+      }
+    }
+
+    return schema;
   }
 }

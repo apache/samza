@@ -16,25 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.context;
 
-package org.apache.samza.sql.client.interfaces;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-/**
- * An executor shall throw an ExecutionException when it encounters an unrecoverable error.
- */
-public class ExecutionException extends RuntimeException {
-  public ExecutionException() {
+public class TestInternalTaskContext {
+
+  private InternalTaskContext internalTaskContext;
+
+  @Before
+  public void setup() {
+    internalTaskContext = new InternalTaskContext(null);
   }
 
-  public ExecutionException(String message) {
-    super(message);
+  /**
+   * Given a registered object, fetchObject should get it. If an object is not registered at a key, then fetchObject
+   * should return null.
+   */
+  @Test
+  public void testRegisterAndFetchObject() {
+    String value = "hello world";
+    internalTaskContext.registerObject("key", value);
+    assertEquals(value, internalTaskContext.fetchObject("key"));
+    assertNull(internalTaskContext.fetchObject("not a key"));
   }
 
-  public ExecutionException(String message, Throwable cause) {
-    super(message, cause);
-  }
-
-  public ExecutionException(Throwable cause) {
-    super(cause);
-  }
 }

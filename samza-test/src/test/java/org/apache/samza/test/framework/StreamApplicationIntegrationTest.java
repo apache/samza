@@ -161,7 +161,7 @@ public class StreamApplicationIntegrationTest {
 
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
       appDescriptor.getInputStream(pageViewISD)
-          .partitionBy(pv -> pv.getValue().getMemberId() ,  pv -> pv.getValue(), KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(TestTableData.PageView.class)), "p1")
+          .partitionBy(pv -> pv.getValue().getMemberId(),  pv -> pv.getValue(), KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(TestTableData.PageView.class)), "p1")
           .join(table, new PageViewToProfileJoinFunction())
           .sendTo(outputStream);
     }

@@ -30,6 +30,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
+import org.apache.samza.execution.JobPlanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -159,7 +160,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public static Pair<String, String> getJobNameAndId(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
     Option jobNameOption = jobConfig.getName();
     if (jobNameOption.isEmpty()) {
       throw new ConfigException("Missing job name");

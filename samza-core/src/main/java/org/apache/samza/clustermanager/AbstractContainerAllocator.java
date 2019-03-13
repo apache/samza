@@ -161,22 +161,13 @@ public abstract class AbstractContainerAllocator implements Runnable {
   /**
    * Called during initial request for resources
    *
-   * @param resourceToHostMappings A Map of [containerId, hostName] containerId is the ID of the container process
+   * @param resourceToHostMapping A Map of [containerId, hostName] containerId is the ID of the container process
    *                               to run on the resource. hostName is the host on which the resource must be allocated.
    *                                The hostName value is null, either
-   *                                - when host-affinity is not enabled, or
+   *                                - when host-affinity has never been enabled, or
    *                                - when host-affinity is enabled and job is run for the first time
    */
-  public void requestResources(Map<String, String> resourceToHostMappings) {
-    for (Map.Entry<String, String> entry : resourceToHostMappings.entrySet()) {
-      String containerId = entry.getKey();
-      String preferredHost = entry.getValue();
-      if (preferredHost == null)
-        preferredHost = ResourceRequestState.ANY_HOST;
-
-      requestResource(containerId, preferredHost);
-    }
-  }
+  public abstract void requestResources(Map<String, String> resourceToHostMapping);
 
   /**
    * Checks if this allocator has a pending resource request.
@@ -203,11 +194,19 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * @param preferredHost Name of the host that you prefer to run the container on
    */
   public final void requestResource(String containerID, String preferredHost) {
-    SamzaResourceRequest request = new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
+    SamzaResourceRequest request = getResourceRequest(containerID, preferredHost);
+    issueResourceRequest(request);
+  }
+
+  public final SamzaResourceRequest getResourceRequest(String containerID, String preferredHost) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
         preferredHost, containerID);
+  }
+
+  public final void issueResourceRequest(SamzaResourceRequest request) {
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
-    if (ResourceRequestState.ANY_HOST.equals(preferredHost)) {
+    if (ResourceRequestState.ANY_HOST.equals(request.getPreferredHost())) {
       state.anyHostRequests.incrementAndGet();
     } else {
       state.preferredHostRequests.incrementAndGet();

@@ -89,6 +89,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_METADATA_TOPIC_PREFIX = "samza.sql.metadataTopicPrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+  public static final String CFG_SQL_PROCESS_SYSTEM_EVENTS = "samza.sql.processSystemEvents";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
@@ -115,6 +116,7 @@ public class SamzaSqlApplicationConfig {
 
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
+  private final boolean processSystemEvents;
 
   public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
       List<String> outputSystemStreams) {
@@ -165,6 +167,8 @@ public class SamzaSqlApplicationConfig {
 
     metadataTopicPrefix =
         staticConfig.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
+
+    processSystemEvents = staticConfig.getBoolean(CFG_SQL_PROCESS_SYSTEM_EVENTS, true);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
 
@@ -323,5 +327,9 @@ public class SamzaSqlApplicationConfig {
 
   public long getWindowDurationMs() {
     return windowDurationMs;
+  }
+
+  public boolean isProcessSystemEvents() {
+    return processSystemEvents;
   }
 }

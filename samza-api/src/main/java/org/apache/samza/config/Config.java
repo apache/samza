@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,7 +43,7 @@ public abstract class Config implements Map<String, String>, Serializable {
   }
 
   public Config subset(String prefix, boolean stripPrefix) {
-    Map<String, String> out = new HashMap<String, String>();
+    Map<String, String> out = new HashMap<>();
 
     for (Entry<String, String> entry : entrySet()) {
       String k = entry.getKey();
@@ -59,7 +60,7 @@ public abstract class Config implements Map<String, String>, Serializable {
   }
 
   public Config regexSubset(String regex) {
-    Map<String, String> out = new HashMap<String, String>();
+    Map<String, String> out = new HashMap<>();
     Pattern pattern = Pattern.compile(regex);
 
     for (Entry<String, String> entry : entrySet()) {
@@ -243,6 +244,10 @@ public abstract class Config implements Map<String, String>, Serializable {
   }
 
   public String remove(Object s) {
+    throw new ConfigException("Config is immutable.");
+  }
+
+  public void replaceAll(BiFunction<? super String, ? super String, ? extends String> function) {
     throw new ConfigException("Config is immutable.");
   }
 }

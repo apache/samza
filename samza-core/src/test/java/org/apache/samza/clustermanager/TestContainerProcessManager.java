@@ -418,7 +418,7 @@ public class TestContainerProcessManager {
   public void testAllBufferedResourcesAreUtilized() throws Exception {
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfigWithHostAffinity());
-    config.put("cluster-manager.container.count", "2");
+    config.put("job.container.count", "2");
     Config cfg = new MapConfig(config);
     // 1. Request two containers on hosts - host1 and host2
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
@@ -475,6 +475,7 @@ public class TestContainerProcessManager {
     if (!allocator.awaitContainersStart(2, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
+    taskManager.onStreamProcessorLaunchSuccess(resource2);
     taskManager.onStreamProcessorLaunchSuccess(resource3);
 
     assertTrue(state.jobHealthy.get());
