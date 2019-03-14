@@ -191,11 +191,12 @@ public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v)->1;
     final StreamApplication app = appDesc -> {
       RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
-          .withRateLimiter(readRateLimiter, null, null);
+          .withRateLimiter(readRateLimiter, creditFunction, null);
 
       // dummy reader
       TableReadFunction readFn = new MyReadFunction();
@@ -204,7 +205,7 @@ public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
       outputTableDesc
           .withReadFunction(readFn)
           .withWriteFunction(writer)
-          .withRateLimiter(writeRateLimiter, null, null);
+          .withRateLimiter(writeRateLimiter, creditFunction, creditFunction);
 
       Table<KV<Integer, EnrichedPageView>> outputTable = withCache
           ? getCachingTable(outputTableDesc, defaultCache, "output", appDesc)

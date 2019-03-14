@@ -81,6 +81,12 @@ public class TestRemoteTableDescriptor {
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
+      if (readCredFn == null) {
+        desc.withDisableReadRateLimiter();
+      }
+      if (writeCredFn == null) {
+        desc.withDisableWriteRateLimiter();
+      }
     } else {
       desc.withReadRateLimit(100);
       desc.withWriteRateLimit(200);
@@ -100,7 +106,7 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testSerializeWithLimiter() {
-    doTestSerialize(createMockRateLimiter(), null, null);
+    doTestSerialize(createMockRateLimiter(), new CountingCreditFunction(), new CountingCreditFunction());
   }
 
   @Test
@@ -122,7 +128,8 @@ public class TestRemoteTableDescriptor {
   public void testSerializeNullWriteFunction() {
     String tableId = "1";
     RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
-        .withReadFunction(createMockTableReadFunction());
+        .withReadFunction(createMockTableReadFunction())
+        .withDisableRateLimiter();
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -259,23 +266,33 @@ public class TestRemoteTableDescriptor {
     if (rateOnly) {
       if (rlGets) {
         desc.withReadRateLimit(1000);
+      } else {
+        desc.withDisableReadRateLimiter();
       }
       if (rlPuts) {
         desc.withWriteRateLimit(2000);
+      } else {
+        desc.withDisableWriteRateLimiter();
       }
     } else {
       if (numRateLimitOps > 0) {
         Map<String, Integer> tagCredits = new HashMap<>();
         if (rlGets) {
           tagCredits.put(RemoteTableDescriptor.RL_READ_TAG, 1000);
+        } else {
+          desc.withDisableReadRateLimiter();
         }
         if (rlPuts) {
           tagCredits.put(RemoteTableDescriptor.RL_WRITE_TAG, 2000);
+        } else {
+          desc.withDisableWriteRateLimiter();
         }
 
         // Spy the rate limiter to verify call count
         RateLimiter rateLimiter = spy(new EmbeddedTaggedRateLimiter(tagCredits));
         desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction());
+      } else {
+        desc.withDisableRateLimiter();
       }
     }
 

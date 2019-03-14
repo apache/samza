@@ -83,6 +83,12 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   // Rate limiter for client-side throttling; it is set by withRateLimiter()
   private RateLimiter rateLimiter;
 
+  // Indicate whether read rate limiter is enabled or not
+  private boolean enableReadRateLimiter = true;
+
+  // Indicate whether write rate limiter is enabled or not
+  private boolean enableWriteRateLimiter = true;
+
   // Rates for constructing the default rate limiter when they are non-zero
   private Map<String, Integer> tagCreditsMap = new HashMap<>();
 
@@ -170,6 +176,41 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
     this.writeCreditFn = writeCreditFn;
+    return this;
+  }
+
+  /**
+   * Disable both read and write rate limiter. If the read rate limiter is enabled, the user must provide a rate limiter
+   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled, the user must provide a rate limiter
+   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * or {@link #withWriteRateLimit(int)}. By default, both read and write rate limiters are enabled.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withDisableRateLimiter() {
+    withDisableReadRateLimiter();
+    withDisableWriteRateLimiter();
+    return this;
+  }
+
+  /**
+   * Disable the read rate limiter.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withDisableReadRateLimiter() {
+    this.enableReadRateLimiter = false;
+    return this;
+  }
+
+  /**
+   * Disable the write rate limiter.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withDisableWriteRateLimiter() {
+    this.enableWriteRateLimiter = false;
     return this;
   }
 
@@ -296,6 +337,16 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     // Assume callback executor pool should have no more than 20 threads
     Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
         "too many threads for async callback executor.");
+
+    if (readFn != null && enableReadRateLimiter) {
+      Preconditions.checkArgument(readCreditFn != null || tagCreditsMap.containsKey(RL_READ_TAG),
+          "Read rate limiter is enabled, there is no read rate limiter configured.");
+    }
+
+    if (writeFn != null && enableWriteRateLimiter) {
+      Preconditions.checkArgument(writeCreditFn != null || tagCreditsMap.containsKey(RL_WRITE_TAG),
+          "Write rate limiter is enabled, there is no write rate limiter configured.");
+    }
   }
 
   /**
