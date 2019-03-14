@@ -172,8 +172,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   }
 
   protected void createTopics(String inputTopic, String outputTopic) {
-    TestUtils.createTopic(zkUtils(), inputTopic, 5, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), inputTopic, 5, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), outputTopic, 5, 1, servers(), new Properties());
   }
 
   protected Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic,

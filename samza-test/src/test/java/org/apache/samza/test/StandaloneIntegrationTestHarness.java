@@ -22,8 +22,10 @@ package org.apache.samza.test;
 import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.protocol.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
 import scala.Option$;
@@ -38,7 +40,7 @@ public abstract class StandaloneIntegrationTestHarness extends AbstractIntegrati
   @Override
   public void setUp() {
     super.setUp();
-    producer = TestUtils.createNewProducer(
+    producer = TestUtils.createProducer(
         bootstrapServers(),
         1,
         60 * 1000L,
@@ -53,7 +55,7 @@ public abstract class StandaloneIntegrationTestHarness extends AbstractIntegrati
         new ByteArraySerializer(),
         Option$.MODULE$.<Properties>apply(new Properties()));
 
-    consumer = TestUtils.createNewConsumer(
+    consumer = TestUtils.createConsumer(
         bootstrapServers(),
         "group",
         "earliest",
@@ -63,7 +65,9 @@ public abstract class StandaloneIntegrationTestHarness extends AbstractIntegrati
         SecurityProtocol.PLAINTEXT,
         Option$.MODULE$.<File>empty(),
         Option$.MODULE$.<Properties>empty(),
-        Option$.MODULE$.<Properties>empty());
+        new StringDeserializer(),
+        new ByteArrayDeserializer(),
+        Option$.MODULE$.<Properties>apply(new Properties()));
   }
 
   @Override

@@ -19,19 +19,19 @@
 
 package org.apache.samza.test.integration
 
+import java.time.Duration
 import java.util
 import java.util.Properties
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import javax.security.auth.login.Configuration
 import kafka.admin.AdminUtils
-import kafka.consumer.{Consumer, ConsumerConfig}
-import kafka.message.MessageAndMetadata
 import kafka.server.{KafkaConfig, KafkaServer}
 import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import kafka.zk.EmbeddedZookeeper
+import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.protocol.SecurityProtocol
+import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
@@ -43,10 +43,8 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task._
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 
 import scala.collection.JavaConverters._
@@ -76,8 +74,6 @@ object StreamTaskTestUtil {
   var producer: Producer[Array[Byte], Array[Byte]] = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123").asJava)
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345").asJava)
-
-  var metadataStore: TopicMetadataStore = null
 
   /*
    * This is the default job configuration. Each test class can override the default configuration below.
@@ -138,7 +134,6 @@ object StreamTaskTestUtil {
     val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
 
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
     createTopics
     validateTopics
@@ -159,20 +154,18 @@ object StreamTaskTestUtil {
 
     while (!done && retries < 100) {
       try {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(topics, "kafka", metadataStore.getTopicInfo)
-
         topics.foreach(topic => {
-          val topicMetadata = topicMetadataMap(topic)
-
-          KafkaUtil.maybeThrowException(topicMetadata.error.exception())
+          if (!AdminUtils.topicExists(zkUtils, topic)) {
+            System.err.println("Test topic %s not found. Waiting and retrying." format topic)
+            retries += 1
+            Thread.sleep(500)
+          }
         })
 
         done = true
       } catch {
         case e: Exception =>
-          System.err.println("Got exception while validating test topics. Waiting and retrying.", e)
-          retries += 1
-          Thread.sleep(500)
+          System.err.println("Interrupted during validating test topics", e)
       }
     }
 
@@ -186,9 +179,9 @@ object StreamTaskTestUtil {
     servers.foreach(server => CoreUtils.delete(server.config.logDirs))
 
     if (zkUtils != null)
-      CoreUtils.swallow(zkUtils.close())
+      CoreUtils.swallow(zkUtils.close(), null)
     if (zookeeper != null)
-      CoreUtils.swallow(zookeeper.shutdown())
+      CoreUtils.swallow(zookeeper.shutdown(), null)
     Configuration.setConfiguration(null)
 
   }
@@ -257,23 +250,27 @@ class StreamTaskTestUtil {
     props.put("group.id", group)
     props.put("auto.offset.reset", "smallest")
 
-    val consumerConfig = new ConsumerConfig(props)
-    val consumerConnector = Consumer.create(consumerConfig)
-    val stream = consumerConnector.createMessageStreams(Map(topic -> 1))(topic).head.iterator
-    var message: MessageAndMetadata[Array[Byte], Array[Byte]] = null
+    val consumerConnector = new KafkaConsumer(props)
+    consumerConnector.subscribe(Set(topic).asJava)
+
+    var stream = consumerConnector.poll(Duration.ofMillis(100)).iterator()
+    var message: ConsumerRecord[Nothing, Nothing] = null
     var messages = ArrayBuffer[String]()
 
     while (message == null || message.offset < maxOffsetInclusive) {
-      message = stream.next
-      if (message.message == null) {
-        messages += null
+      if (stream.hasNext) {
+        message = stream.next
+        if (message.value() == null) {
+          messages += null
+        } else {
+          messages += new String(message.value, "UTF-8")
+        }
+        System.err.println("StreamTaskTestUtil.readAll(): offset=%s, message=%s" format (message.offset, messages.last))
       } else {
-        messages += new String(message.message, "UTF-8")
+        stream = consumerConnector.poll(Duration.ofMillis(100)).iterator()
       }
-      System.err.println("StreamTaskTestUtil.readAll(): offset=%s, message=%s" format (message.offset, messages.last))
-    }
 
-    consumerConnector.shutdown
+    }
 
     messages.toList
   }

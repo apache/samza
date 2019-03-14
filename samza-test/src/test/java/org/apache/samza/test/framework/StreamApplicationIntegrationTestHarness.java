@@ -33,7 +33,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.protocol.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
@@ -44,7 +45,6 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import scala.Option;
 import scala.Option$;
 
 /**
@@ -118,7 +118,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     consumerDeserializerProperties.setProperty("key.deserializer", DEFAULT_DESERIALIZER);
     consumerDeserializerProperties.setProperty("value.deserializer", DEFAULT_DESERIALIZER);
 
-    producer = TestUtils.createNewProducer(
+    producer = TestUtils.createProducer(
         bootstrapServers(), // bootstrap-server url
         1, // acks
         60 * 1000L, // maxBlockMs
@@ -128,12 +128,12 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
         5 * 1000L, // requestTimeout
         SecurityProtocol.PLAINTEXT,
         null,
-        Option.apply(new Properties()),
+        Option$.MODULE$.<Properties>apply(new Properties()),
         new StringSerializer(),
         new StringSerializer(),
-        Option.apply(new Properties()));
+        Option$.MODULE$.<Properties>apply(new Properties()));
 
-    consumer = TestUtils.createNewConsumer(
+    consumer = TestUtils.createConsumer(
         bootstrapServers(),
         "group", // groupId
         "earliest", // auto-offset-reset
@@ -143,6 +143,8 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
         SecurityProtocol.PLAINTEXT,
         Option$.MODULE$.<File>empty(),
         Option$.MODULE$.<Properties>empty(),
+        new StringDeserializer(),
+        new StringDeserializer(),
         Option$.MODULE$.<Properties>apply(consumerDeserializerProperties));
 
     systemAdmin = createSystemAdmin("kafka");
@@ -155,7 +157,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param numPartitions the number of partitions in the topic
    */
   public void createTopic(String topicName, int numPartitions) {
-    TestUtils.createTopic(zkUtils(), topicName, numPartitions, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), topicName, numPartitions, 1, servers(), new Properties());
   }
 
   /**

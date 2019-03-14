@@ -21,6 +21,7 @@ package org.apache.samza.sql.fn;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.junit.Assert;
 import org.junit.Test;
@@ -82,7 +83,7 @@ public class TestBuildOutputRecordUdf {
   @Test(expected = NullPointerException.class)
   public void testNullArgs() {
     BuildOutputRecordUdf buildOutputRecordUdf = new BuildOutputRecordUdf();
-    buildOutputRecordUdf.execute(null);
+    buildOutputRecordUdf.execute(Collections.emptySet());
   }
 
   @Test(expected = IllegalArgumentException.class)

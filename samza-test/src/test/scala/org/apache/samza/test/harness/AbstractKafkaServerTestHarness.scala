@@ -24,9 +24,11 @@ import java.util.Properties
 
 import kafka.common.KafkaException
 import kafka.server.{KafkaConfig, KafkaServer}
-import kafka.utils.{TestUtils, CoreUtils}
-import org.apache.kafka.common.protocol.SecurityProtocol
-import org.apache.kafka.common.security.auth.KafkaPrincipal
+import kafka.utils.{CoreUtils, TestUtils}
+import kafka.zk.{AdminZkClient, KafkaZkClient}
+import org.apache.kafka.common.security.JaasUtils
+import org.apache.kafka.common.security.auth.{KafkaPrincipal, SecurityProtocol}
+import org.apache.kafka.common.utils.Time
 import org.junit.{After, Before}
 
 import scala.collection.mutable
@@ -40,9 +42,26 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
   var instanceConfigs: Seq[KafkaConfig] = null
   var servers: mutable.Buffer[KafkaServer] = null
   var brokerList: String = null
+  var kafkaZkClient: KafkaZkClient = null
+  var adminZkClient: AdminZkClient = null
   var alive: Array[Boolean] = null
   val kafkaPrincipalType = KafkaPrincipal.USER_TYPE
   val setClusterAcl: Option[() => Unit] = None
+
+
+  @Before
+  def setup(): Unit = {
+    super.setUp()
+    kafkaZkClient = KafkaZkClient(zkConnect, JaasUtils.isZkSecurityEnabled, zkSessionTimeout, zkConnectionTimeout, 100, Time.SYSTEM)
+    adminZkClient = new AdminZkClient(kafkaZkClient)
+  }
+
+  @After
+  def teardown: Unit = {
+    super.tearDown()
+    if (kafkaZkClient != null)
+      CoreUtils.swallow(kafkaZkClient.close(), null)
+  }
 
   /**
    * Implementations must override this method to return a set of KafkaConfigs. This method will be invoked for every

@@ -26,7 +26,6 @@ import java.util.regex.Pattern
 import java.util.{Properties, UUID}
 
 import com.google.common.collect.ImmutableMap
-import kafka.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException

@@ -110,14 +110,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm1.stop
 
     // check that start actually creates the topic with log compaction enabled
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
 
     assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
     assertEquals("compact", topicConfig.get("cleanup.policy"))
     assertEquals("26214400", topicConfig.get("segment.bytes"))
-
-    zkClient.close
 
     // read before topic exists should result in a null checkpoint
     val readCp = readCheckpoint(checkpointTopic, taskName)

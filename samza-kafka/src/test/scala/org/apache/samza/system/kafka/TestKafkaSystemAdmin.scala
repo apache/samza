@@ -21,22 +21,24 @@
 
 package org.apache.samza.system.kafka
 
+import java.time.Duration
+
 import com.google.common.collect.ImmutableSet
-import kafka.admin.AdminUtils
-import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector}
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
+import org.apache.kafka.clients.admin.{AdminClient}
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
 import org.apache.samza.config._
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.{StreamSpec, SystemStreamMetadata, SystemStreamPartition}
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
 import org.junit._
 
+import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 /**
@@ -57,9 +59,9 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   protected def numBrokers: Int = 3
 
   var producer: KafkaProducer[Array[Byte], Array[Byte]] = null
-  var metadataStore: TopicMetadataStore = null
   var producerConfig: KafkaProducerConfig = null
   var systemAdmin: KafkaSystemAdmin = null
+  var adminClient: AdminClient = null
 
   override def generateConfigs(): Seq[KafkaConfig] = {
     val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, enableDeleteTopic = true)
@@ -79,8 +81,8 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
     producerConfig = new KafkaProducerConfig("kafka", "i001", map)
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
     systemAdmin = createSystemAdmin(SYSTEM, map)
+    adminClient = AdminClient.create(map.asInstanceOf[java.util.Map[String, Object]])
 
     systemAdmin.start()
   }
@@ -99,38 +101,39 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   def validateTopic(topic: String, expectedPartitionCount: Int) {
     var done = false
     var retries = 0
-    val maxRetries = 100
 
-    while (!done && retries < maxRetries) {
+    while (!done && retries < 100) {
       try {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), SYSTEM, metadataStore.getTopicInfo)
-        val topicMetadata = topicMetadataMap(topic)
+          if (!zkClient.topicExists(topic)) {
+            System.err.println("Test topic %s not found. Waiting and retrying." format topic)
+            retries += 1
+            Thread.sleep(500)
+          }
 
-        KafkaUtil.maybeThrowException(topicMetadata.error.exception())
+          val topicDescription =
+            adminClient.describeTopics(JavaConverters.asJavaCollectionConverter(Set(topic)).asJavaCollection)
+              .all().get().get(topic)
 
-        done = expectedPartitionCount == topicMetadata.partitionsMetadata.size
+        done = expectedPartitionCount == topicDescription.partitions().size()
       } catch {
         case e: Exception =>
-          System.err.println("Got exception while validating test topics. Waiting and retrying.", e)
-          retries += 1
-          Thread.sleep(500)
+          System.err.println("Interrupted during validating test topics", e)
       }
     }
 
-    if (retries >= maxRetries) {
+    if (retries >= 100) {
       fail("Unable to successfully create topics. Tried to validate %s times." format retries)
     }
   }
 
-  def getConsumerConnector(): ConsumerConnector = {
+  def getKafkaConsumer(): KafkaConsumer[Any, Any] = {
     val props = new java.util.Properties
 
     props.put("zookeeper.connect", zkConnect)
     props.put("group.id", "test")
     props.put("auto.offset.reset", "smallest")
 
-    val consumerConfig = new ConsumerConfig(props)
-    Consumer.create(consumerConfig)
+    new KafkaConsumer[Any, Any](props)
   }
 
   def createSystemAdmin(system: String, map: java.util.Map[String, String]) = {
@@ -143,17 +146,12 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
     map.put(KAFKA_CONSUMER_PROPERTY_PREFIX + KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect)
 
     val config: Config = new MapConfig(map)
-    val res = KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config)
 
-
-    val clientId = KafkaConsumerConfig.createClientId("clientPrefix", config);
+    val clientId = KafkaConsumerConfig.createClientId("clientPrefix", config)
     // extract kafka client configs
     val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, clientId)
 
-    new KafkaSystemAdmin(
-      system,
-      config,
-      KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig))
+    new KafkaSystemAdmin(system, config, KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig))
   }
 }
 
@@ -164,46 +162,6 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 class TestKafkaSystemAdmin {
 
   import TestKafkaSystemAdmin._
-
-  @Test
-  def testShouldAssembleMetadata {
-    val oldestOffsets = Map(
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "o1",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "o2",
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "o3",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "o4")
-    val newestOffsets = Map(
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "n1",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "n2",
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "n3",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "n4")
-    val upcomingOffsets = Map(
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)) -> "u1",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)) -> "u2",
-      new SystemStreamPartition(SYSTEM, "stream1", new Partition(1)) -> "u3",
-      new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)) -> "u4")
-    val metadata = KafkaSystemAdminUtilsScala.assembleMetadata(oldestOffsets, newestOffsets, upcomingOffsets)
-    assertNotNull(metadata)
-    assertEquals(2, metadata.size)
-    assertTrue(metadata.contains("stream1"))
-    assertTrue(metadata.contains("stream2"))
-    val stream1Metadata = metadata("stream1")
-    val stream2Metadata = metadata("stream2")
-    assertNotNull(stream1Metadata)
-    assertNotNull(stream2Metadata)
-    assertEquals("stream1", stream1Metadata.getStreamName)
-    assertEquals("stream2", stream2Metadata.getStreamName)
-    val expectedSystemStream1Partition0Metadata = new SystemStreamPartitionMetadata("o1", "n1", "u1")
-    val expectedSystemStream1Partition1Metadata = new SystemStreamPartitionMetadata("o3", "n3", "u3")
-    val expectedSystemStream2Partition0Metadata = new SystemStreamPartitionMetadata("o2", "n2", "u2")
-    val expectedSystemStream2Partition1Metadata = new SystemStreamPartitionMetadata("o4", "n4", "u4")
-    val stream1PartitionMetadata = stream1Metadata.getSystemStreamPartitionMetadata
-    val stream2PartitionMetadata = stream2Metadata.getSystemStreamPartitionMetadata
-    assertEquals(expectedSystemStream1Partition0Metadata, stream1PartitionMetadata.get(new Partition(0)))
-    assertEquals(expectedSystemStream1Partition1Metadata, stream1PartitionMetadata.get(new Partition(1)))
-    assertEquals(expectedSystemStream2Partition0Metadata, stream2PartitionMetadata.get(new Partition(0)))
-    assertEquals(expectedSystemStream2Partition1Metadata, stream2PartitionMetadata.get(new Partition(1)))
-  }
 
   @Test
   def testShouldGetOldestNewestAndNextOffsets {
@@ -253,17 +211,22 @@ class TestKafkaSystemAdmin {
     assertEquals("2", sspMetadata.get(new Partition(48)).getUpcomingOffset)
 
     // Validate that a fetch will return the message.
-    val connector = getConsumerConnector
-    var stream = connector.createMessageStreams(Map(TOPIC -> 1))(TOPIC).head.iterator
-    var message = stream.next
-    var text = new String(message.message, "UTF-8")
-    connector.shutdown
+    val consumer = getKafkaConsumer
+    consumer.subscribe(JavaConverters.setAsJavaSetConverter(Set(TOPIC)).asJava)
+    val records = consumer.poll(Duration.ofMillis(1000))
+    consumer.close()
+
+    assertTrue(records.count() > 2)
+    val stream = records.iterator()
+    var message = stream.next()
+
+    var text = new String(message.value().asInstanceOf[Array[Byte]], "UTF-8")
     // First message should match the earliest expected offset.
     assertEquals(sspMetadata.get(new Partition(48)).getOldestOffset, message.offset.toString)
     assertEquals("val1", text)
     // Second message should match the earliest expected offset.
-    message = stream.next
-    text = new String(message.message, "UTF-8")
+    message = stream.next()
+    text = new String(message.value().asInstanceOf[Array[Byte]], "UTF-8")
     assertEquals(sspMetadata.get(new Partition(48)).getNewestOffset, message.offset.toString)
     assertEquals("val2", text)
   }
@@ -297,12 +260,6 @@ class TestKafkaSystemAdmin {
     val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
     systemAdmin.createStream(spec)
     validateTopic(topic, 1)
-    val topicMetadataMap = TopicMetadataCache.getTopicMetadata(Set(topic), "kafka", metadataStore.getTopicInfo)
-    assertTrue(topicMetadataMap.contains(topic))
-    val topicMetadata = topicMetadataMap(topic)
-    val partitionMetadata = topicMetadata.partitionsMetadata.head
-    assertEquals(0, partitionMetadata.partitionId)
-    assertEquals(3, partitionMetadata.replicas.size)
   }
 
   @Test
