@@ -119,7 +119,7 @@ If the VOTE has successfully passed on the release candidate, you can log in to 
 [repository web interface](https://repository.apache.org) (same as above) and "release" 
 the org.apache.samza repository listed under "Staging Repositories".
 
-The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.10 and 2.12:
+The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.12:
 
 * Set the desired `scalaSuffix` in `gradle.properties`.
 * Run `./gradlew clean uploadArchives` to generate and upload the Samza artifacts.

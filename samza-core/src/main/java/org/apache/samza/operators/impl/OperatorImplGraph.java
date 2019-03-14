@@ -24,7 +24,7 @@ import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.context.TaskContextImpl;
+import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.OperatorSpecGraph;
@@ -86,6 +86,8 @@ public class OperatorImplGraph {
 
   private final Clock clock;
 
+  private InternalTaskContext internalTaskContext;
+
   /**
    * Constructs the DAG of {@link OperatorImpl}s corresponding to the the DAG of {@link OperatorSpec}s
    * in the {@code specGraph}.
@@ -97,12 +99,11 @@ public class OperatorImplGraph {
   public OperatorImplGraph(OperatorSpecGraph specGraph, Context context, Clock clock) {
     this.clock = clock;
     StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
-    // TODO SAMZA-1935: the objects that are only accessible through TaskContextImpl should be moved somewhere else
-    TaskContextImpl taskContext = (TaskContextImpl) context.getTaskContext();
+    this.internalTaskContext = new InternalTaskContext(context);
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)
             ? getProducerTaskCountForIntermediateStreams(
-                getStreamToConsumerTasks(taskContext.getJobModel()),
+                getStreamToConsumerTasks(internalTaskContext.getJobModel()),
                 getIntermediateToInputStreamsMap(specGraph, streamConfig))
             : Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
@@ -110,12 +111,16 @@ public class OperatorImplGraph {
       });
 
     // set states for end-of-stream
-    taskContext.registerObject(EndOfStreamStates.class.getName(),
-        new EndOfStreamStates(taskContext.getTaskModel().getSystemStreamPartitions(), producerTaskCounts));
+    internalTaskContext.registerObject(EndOfStreamStates.class.getName(),
+        new EndOfStreamStates(
+                internalTaskContext.getContext().getTaskContext().getTaskModel().getSystemStreamPartitions(),
+                producerTaskCounts));
     // set states for watermark
-    taskContext.registerObject(WatermarkStates.class.getName(),
-        new WatermarkStates(taskContext.getTaskModel().getSystemStreamPartitions(), producerTaskCounts,
-            context.getContainerContext().getContainerMetricsRegistry()));
+    internalTaskContext.registerObject(WatermarkStates.class.getName(),
+        new WatermarkStates(
+                internalTaskContext.getContext().getTaskContext().getTaskModel().getSystemStreamPartitions(),
+                producerTaskCounts,
+                context.getContainerContext().getContainerMetricsRegistry()));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
         SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
@@ -166,7 +171,7 @@ public class OperatorImplGraph {
       // Either this is the first time we've seen this operatorSpec, or this is a join operator spec
       // and we need to create 2 partial join operator impls for it. Initialize and register the sub-DAG.
       OperatorImpl operatorImpl = createOperatorImpl(prevOperatorSpec, operatorSpec, context);
-      operatorImpl.init(context);
+      operatorImpl.init(this.internalTaskContext);
       operatorImpl.registerInputStream(inputStream);
 
       if (operatorSpec.getScheduledFn() != null) {
@@ -223,7 +228,8 @@ public class OperatorImplGraph {
     } else if (operatorSpec instanceof PartitionByOperatorSpec) {
       String streamId = ((PartitionByOperatorSpec) operatorSpec).getOutputStream().getStreamId();
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
-      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream, context);
+      return new PartitionByOperatorImpl((PartitionByOperatorSpec) operatorSpec, systemStream,
+              internalTaskContext);
     } else if (operatorSpec instanceof WindowOperatorSpec) {
       return new WindowOperatorImpl((WindowOperatorSpec) operatorSpec, clock);
     } else if (operatorSpec instanceof JoinOperatorSpec) {

@@ -224,7 +224,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
       Map<String, String> overriddenConfigs) {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-    configMap.put("job.name", appName);
+    configMap.put("app.name", appName);
     configMap.put("app.class", streamApplication.getClass().getCanonicalName());
     configMap.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configMap.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");

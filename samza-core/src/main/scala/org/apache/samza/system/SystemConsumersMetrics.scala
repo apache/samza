@@ -19,12 +19,13 @@
 
 package org.apache.samza.system
 
-import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics.ReadableMetricsRegistry
 
-class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+class SystemConsumersMetrics(val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
+  val prefix: String = "") extends MetricsHelper {
   val choseNull = newCounter("chose-null")
   val choseObject = newCounter("chose-object")
   val deserializationError = newCounter("deserialization error")
@@ -54,6 +55,8 @@ class SystemConsumersMetrics(val registry: MetricsRegistry = new MetricsRegistry
       systemMessagesPerPoll += systemName -> newCounter("%s-messages-per-poll" format systemName)
     }
   }
+
+  override def getPrefix: String = prefix
 
   def registerSystemStreamPartition(systemStreamPartition: SystemStreamPartition) {
     systemStreamMessagesChosen += systemStreamPartition -> newCounter("%s-%s-%d-messages-chosen" format (systemStreamPartition.getSystem, systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId))

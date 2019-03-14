@@ -66,7 +66,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   // This proxy contains a separate thread, which reads kafka messages (with consumer.poll()) and populates
   // BlockingEnvelopMap's buffers.
-  final private KafkaConsumerProxy proxy;
+  final private KafkaConsumerProxy<K, V> proxy;
 
   // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
   final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
@@ -80,13 +80,13 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @param kafkaConsumer kafka Consumer object to be used by this system consumer
    * @param systemName system name for which we create the consumer
    * @param config application config
-   * @param clientId clientId from the kafka consumer to be used in the KafkaConsumerProxy
+   * @param clientId clientId from the kafka consumer
+   * @param kafkaConsumerProxyFactory factory for creating a KafkaConsumerProxy to use in this consumer
    * @param metrics metrics for this KafkaSystemConsumer
    * @param clock system clock
    */
   public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
-      KafkaSystemConsumerMetrics metrics, Clock clock) {
-
+      KafkaConsumerProxyFactory<K, V> kafkaConsumerProxyFactory, KafkaSystemConsumerMetrics metrics, Clock clock) {
     super(metrics.registry(), clock, metrics.getClass().getName());
 
     this.kafkaConsumer = kafkaConsumer;
@@ -102,8 +102,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
     // Create the proxy to do the actual message reading.
     String metricName = String.format("%s-%s", systemName, clientId);
-    proxy = new KafkaConsumerProxy(kafkaConsumer, systemName, clientId, messageSink, metrics, metricName);
-    LOG.info("{}: Created KafkaConsumerProxy {} ", this, proxy);
+    proxy = kafkaConsumerProxyFactory.create(this.messageSink);
+    LOG.info("{}: Created proxy {} ", this, proxy);
   }
 
   /**
