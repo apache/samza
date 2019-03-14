@@ -45,8 +45,16 @@ public class LocalJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalJobPlanner.class);
 
   private final String uid;
-  private CoordinationUtils coordinationUtils = null;
+  private final CoordinationUtils coordinationUtils;
   private final String runId;
+
+  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, String uid) {
+    super(descriptor);
+    this.uid = uid;
+    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(appDesc.getConfig());
+    this.coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, uid, appDesc.getConfig());
+    this.runId = null;
+  }
 
   public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, CoordinationUtils coordinationUtils, String uid, String runId) {
     super(descriptor);
@@ -111,11 +119,6 @@ public class LocalJobPlanner extends JobPlanner {
     LOG.info("A single processor must create the intermediate streams. Processor {} will attempt to acquire the lock.", uid);
     // Move the scope of coordination utils within stream creation to address long idle connection problem.
     // Refer SAMZA-1385 for more details
-    if(coordinationUtils == null) {
-      JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(appDesc.getConfig());
-      String coordinationId = new ApplicationConfig(appDesc.getConfig()).getGlobalAppId() + CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX;
-      coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, appDesc.getConfig());
-    }
     if (coordinationUtils == null) {
       LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
       // each application process will try creating the streams, which
@@ -129,9 +132,9 @@ public class LocalJobPlanner extends JobPlanner {
     // as the lockId to create a new lock with state each run
     // to create new streams each run.
     // If run.id is null, defaults to old behavior of using planId
-    Boolean isAppModeBatch = new ApplicationConfig(userConfig).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
+    boolean isAppModeBatch = new ApplicationConfig(userConfig).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     String lockId = planId;
-    if(isAppModeBatch && runId != null) {
+    if (isAppModeBatch && runId != null) {
       lockId = runId;
     }
     DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(lockId);
@@ -148,9 +151,8 @@ public class LocalJobPlanner extends JobPlanner {
       String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
       throw new SamzaException(msg, e);
     } finally {
-      if(!isAppModeBatch && coordinationUtils != null) {
+      if (!isAppModeBatch && coordinationUtils != null) {
         coordinationUtils.close();
-        coordinationUtils = null;
       }
     }
   }

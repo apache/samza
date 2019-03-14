@@ -29,6 +29,7 @@ public interface DistributedDataAccess {
   /**
    * read data associated with key
    * @param key
+   * @param watcher through which notifications of data changes at key are sent
    * @return data present at key
    */
   Object readData(String key, DistributedDataWatcher watcher);
@@ -37,6 +38,7 @@ public interface DistributedDataAccess {
    * write data for the given key
    * @param key
    * @param data
+   * @param watcher through which notifications of data changes at key are sent
    */
   void writeData(String key, Object data, DistributedDataWatcher watcher);
 }

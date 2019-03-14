@@ -53,13 +53,13 @@ public class AzureCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public DistributedReadWriteLock getReadWriteLock(String lockId) throws UnsupportedOperationException {
-    return null;
+  public DistributedReadWriteLock getReadWriteLock(String lockId) {
+    throw new UnsupportedOperationException("DistributedReadWriteLock is not supported in Azure");
   }
 
   @Override
-  public DistributedDataAccess getDataAccess() throws UnsupportedOperationException {
-    return null;
+  public DistributedDataAccess getDataAccess() {
+    throw new UnsupportedOperationException("DistributedDataAccess is not supported in Azure");
   }
 
   @Override

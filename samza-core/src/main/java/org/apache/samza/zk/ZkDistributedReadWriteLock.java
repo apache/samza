@@ -48,8 +48,8 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
   private String activeParticipantPath = null;
   private String activeProcessorPath = null;
   private final Object mutex;
-  private Boolean isInCriticalSection = false;
-  private Boolean isStateLost = false;
+  private boolean isInCriticalSection = false;
+  private boolean isStateLost = false;
 
   public ZkDistributedReadWriteLock(String participantId, ZkUtils zkUtils, String lockId) {
     if (zkUtils == null) {
@@ -58,7 +58,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     this.zkUtils = zkUtils;
     this.participantId = participantId;
     this.keyBuilder = zkUtils.getKeyBuilder();
-    lockPath = String.format("%s/readWriteLock-%s", keyBuilder.getRootPath(),lockId);
+    lockPath = String.format("%s/readWriteLock-%s", keyBuilder.getRootPath(), lockId);
     particpantsPath = String.format("%s/%s", lockPath, PARTICIPANTS_PATH);
     processorsPath = String.format("%s/%s", lockPath, PROCESSORS_PATH);
     zkUtils.validatePaths(new String[] {lockPath, particpantsPath, processorsPath});
@@ -88,17 +88,17 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     long startTime = System.currentTimeMillis();
     long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
 
-    while((System.currentTimeMillis() - startTime) < lockTimeout) {
+    while ((System.currentTimeMillis() - startTime) < lockTimeout) {
       synchronized (mutex) {
         AccessType accessType = checkAndAcquireLock();
-        if(accessType != AccessType.NONE) {
+        if (accessType != AccessType.NONE) {
           isInCriticalSection = true;
-          if(isStateLost) {
+          if (isStateLost) {
             throw new SamzaException("Lock's state lost due to connection expiry");
           }
           return accessType;
         } else {
-          if(isStateLost) {
+          if (isStateLost) {
             throw new SamzaException("Lock's state lost due to connection expiry");
           }
           try {
@@ -132,7 +132,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
    */
   @Override
   public void cleanState() {
-    if(activeProcessorPath != null && zkUtils.exists(activeProcessorPath)) {
+    if (activeProcessorPath != null && zkUtils.exists(activeProcessorPath)) {
       zkUtils.getZkClient().delete(activeProcessorPath);
       activeProcessorPath = null;
       LOG.info("Ephemeral active processor node for read write lock deleted.");
@@ -156,19 +156,18 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
       if (processors.size() == 0) {
         throw new SamzaException("Looks like we are no longer connected to Zk. Need to reconnect!");
       }
-      if(processors.size() == 1) {
+      if (processors.size() == 1) {
         return AccessType.WRITE;
       } else {
         return AccessType.READ;
       }
-    }
-    else {
+    } else {
       return AccessType.NONE;
     }
   }
 
   private void createActiveProcessorNode() {
-    if( activeProcessorPath == null || !zkUtils.exists(activeProcessorPath)) {
+    if (activeProcessorPath == null || !zkUtils.exists(activeProcessorPath)) {
       activeProcessorPath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
     }
   }
@@ -216,10 +215,9 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
 
     @Override
     public void handleNewSession() {
-      if(isInCriticalSection) {
+      if (isInCriticalSection) {
         isStateLost = true;
-      }
-      else {
+      } else {
         // TODO: Manasa: should I be the first participant to be able to create processor node?
         createActiveProcessorNode();
       }
@@ -228,7 +226,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
     @Override
     public void handleSessionEstablishmentError(Throwable error) {
       // this means we cannot connect to zookeeper to establish a session
-      LOG.info("handleSessionEstablishmentError received for processor=" + participantId , error);
+      LOG.info("handleSessionEstablishmentError received for processor=" + participantId, error);
       isStateLost = true;
     }
   }

@@ -58,6 +58,7 @@ public interface DistributedReadWriteLock {
 
   /**
    * Clean state of the lock
+   * this is expected to be idempotent
    */
   void cleanState();
 

@@ -44,7 +44,7 @@ public class ZkDistributedDataAccess implements DistributedDataAccess {
   public static final Logger LOG = LoggerFactory.getLogger(ZkDistributedDataAccess.class);
   private final ZkUtils zkUtils;
   private final ZkKeyBuilder keyBuilder;
-  private HashMap<String, Pair<DistributedDataWatcher,ZkDistributedDataChangeHandler>> watchers = new HashMap<>();
+  private HashMap<String, Pair<DistributedDataWatcher, ZkDistributedDataChangeHandler>> watchers = new HashMap<>();
 
   public ZkDistributedDataAccess(ZkUtils zkUtils) {
     if (zkUtils == null) {
@@ -60,7 +60,7 @@ public class ZkDistributedDataAccess implements DistributedDataAccess {
     ZkDistributedDataChangeHandler zkHandler = new ZkDistributedDataChangeHandler(zkUtils);
     this.watchers.put(absolutePath, Pair.of(watcher, zkHandler));
     zkUtils.getZkClient().subscribeDataChanges(absolutePath, zkHandler);
-    if(!zkUtils.getZkClient().exists(absolutePath)) {
+    if (!zkUtils.getZkClient().exists(absolutePath)) {
       return null;
     }
     return zkUtils.getZkClient().readData(absolutePath);
@@ -109,7 +109,9 @@ public class ZkDistributedDataAccess implements DistributedDataAccess {
           LOG.info("Got ZK session expiry event.");
           // if the session has expired it means that zookeeper removed all the zk-watches
           // remove them from zkClient also
-          watchers.forEach((path,watchers) -> {zkUtils.getZkClient().unsubscribeDataChanges(path,watchers.getRight());} );
+          watchers.forEach((path, watchers) -> {
+              zkUtils.getZkClient().unsubscribeDataChanges(path, watchers.getRight());
+            });
         default:
           // received Disconnected, AuthFailed, SyncConnected, ConnectedReadOnly, and SaslAuthenticated. NoOp
           LOG.info("Got ZK event {}. Continue", state.toString());
@@ -123,10 +125,10 @@ public class ZkDistributedDataAccess implements DistributedDataAccess {
     @Override
     public void handleNewSession() {
       LOG.info("Got ZK handleNewSession event.");
-      watchers.forEach((path,watchers) -> {
-        zkUtils.getZkClient().subscribeDataChanges(path,watchers.getRight());
-        watchers.getLeft().handleDataChange(zkUtils.getZkClient().readData(path));
-      } );
+      watchers.forEach((path, watchers) -> {
+          zkUtils.getZkClient().subscribeDataChanges(path, watchers.getRight());
+          watchers.getLeft().handleDataChange(zkUtils.getZkClient().readData(path));
+        });
     }
 
     @Override

@@ -19,14 +19,12 @@
 
 package org.apache.samza.coordinator;
 
-import java.util.concurrent.TimeUnit;
-
 
 public class CoordinationConstants {
   private CoordinationConstants() {}
 
   public static final String RUNID_PATH = "runId";
-  public static final String APPLICATION_RUNNER_PATH_SUFFIX = "/ApplicationRunnerData";
+  public static final String APPLICATION_RUNNER_PATH_SUFFIX = "ApplicationRunnerData";
   public static final String RUNID_LOCK_ID = "runId";
   public static final int LOCK_TIMEOUT_MS = 6000000;
 }

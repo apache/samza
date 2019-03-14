@@ -262,7 +262,8 @@ public class TestLocalApplicationRunner {
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils,"FAKE_UID", "FAKE_RUNID"));
-    runner = spy(new LocalApplicationRunner(appDesc, localPlanner, coordinationUtils));
+    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    doReturn(localPlanner).when(runner).getPlanner();
   }
 
 }
