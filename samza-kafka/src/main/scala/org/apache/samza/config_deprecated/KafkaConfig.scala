@@ -32,7 +32,6 @@ import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config._
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.util.{Logging, StreamUtil}
 
 import scala.collection.JavaConverters._
@@ -72,7 +71,7 @@ object KafkaConfig {
     * Defines how low a queue can get for a single system/stream/partition
     * combination before trying to fetch more messages for it.
     */
-  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold"
+  val CONSUMER_FETCH_THRESHOLD = JavaSystemConfig.SYSTEM_ID_PREFIX + "samza.fetch.threshold"
 
   val DEFAULT_CHECKPOINT_SEGMENT_BYTES = 26214400
 
@@ -83,7 +82,7 @@ object KafkaConfig {
     * the bytes limit + size of max message in the partition for a given stream.
     * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
     */
-  val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+  val CONSUMER_FETCH_THRESHOLD_BYTES = JavaSystemConfig.SYSTEM_ID_PREFIX + "samza.fetch.threshold.bytes"
 
   val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
@@ -244,7 +243,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
       storageConfig.getChangelogStream(storeName).foreach(changelogName => {
         val systemStream = StreamUtil.getSystemStreamFromNames(changelogName)
-        val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
         storeToChangelog += storeName -> systemStream.getStream
       })
     }

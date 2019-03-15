@@ -33,7 +33,6 @@ import org.apache.samza.system.SystemFactory
 import org.apache.samza.config.StorageConfig._
 import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemAdmin
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.system.SystemConsumer
 
 object KafkaSystemFactory extends Logging {
@@ -129,7 +128,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       (topicName, changelogInfo)
     }}
 
-    val deleteCommittedMessages = config.deleteCommittedMessages(systemName)
+    val systemConfig = new JavaSystemConfig(config)
+    val deleteCommittedMessages = systemConfig.deleteCommittedMessages(systemName)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(
       systemName,

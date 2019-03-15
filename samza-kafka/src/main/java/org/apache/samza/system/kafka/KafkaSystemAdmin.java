@@ -48,9 +48,9 @@ import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -151,7 +151,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     }
 
     // special flag to allow/enforce deleting of committed messages
-    SystemConfig systemConfig = new SystemConfig(config);
+    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
     this.deleteCommittedMessages = systemConfig.deleteCommittedMessages(systemName);
 
     intermediateStreamProperties =
