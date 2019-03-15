@@ -34,7 +34,7 @@ import org.apache.samza.util.Util;
 /**
  * a java version of the system config
  */
-public class JavaSystemConfig extends MapConfig {
+public class SystemConfig extends MapConfig {
   public static final String SYSTEMS_PREFIX = "systems.";
   public static final String SYSTEM_ID_PREFIX = SYSTEMS_PREFIX + "%s.";
 
@@ -52,7 +52,7 @@ public class JavaSystemConfig extends MapConfig {
   static final String SAMZA_SYSTEM_OFFSET_UPCOMING = "upcoming";
   static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
 
-  public JavaSystemConfig(Config config) {
+  public SystemConfig(Config config) {
     super(config);
   }
 

@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -77,7 +77,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     super.start();
     MessageConsumer consumeFn = new MessageConsumer();
     StreamApplication app = appDesc -> {
-      String systemFactoryName = new JavaSystemConfig(config).getSystemFactory(systemName).get();
+      String systemFactoryName = new SystemConfig(config).getSystemFactory(systemName).get();
       GenericSystemDescriptor sd = new GenericSystemDescriptor(systemName, systemFactoryName);
       GenericInputDescriptor<Object> isd = sd.getInputDescriptor(streamId, new NoOpSerde<>());
       MessageStream<Object> stream = appDesc.getInputStream(isd);

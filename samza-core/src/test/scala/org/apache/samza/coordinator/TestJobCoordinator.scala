@@ -91,8 +91,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
       TaskConfig.INPUT_STREAMS -> "test.stream1",
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
       JobConfig.MONITOR_PARTITION_CHANGE -> "true",
       JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> "100"
@@ -153,8 +153,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
       TaskConfig.INPUT_STREAMS -> "test.stream1",
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
       )
 
@@ -256,8 +256,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.STREAM_JOB_FACTORY_CLASS -> clazz.getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
       JobConfig.SSP_MATCHER_CONFIG_REGEX -> "[1]",
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      JavaSystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName).asJava)
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName).asJava)
     config
   }
 

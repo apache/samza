@@ -128,7 +128,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       (topicName, changelogInfo)
     }}
 
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val deleteCommittedMessages = systemConfig.deleteCommittedMessages(systemName)
     val intermediateStreamProperties: Map[String, Properties] = getIntermediateStreamProperties(config)
     new KafkaSystemAdmin(

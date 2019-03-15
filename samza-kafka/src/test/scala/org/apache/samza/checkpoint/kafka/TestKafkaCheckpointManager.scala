@@ -208,9 +208,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
-      .getOrElse(throw new SamzaException("Missing configuration: " + JavaSystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 

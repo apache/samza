@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
@@ -207,7 +207,7 @@ public class StorageRecovery extends CommandLine {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
 
-    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(jobConfig).getSystemFactories();
+    Map<String, SystemFactory> systemFactories = new SystemConfig(jobConfig).getSystemFactories();
 
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());

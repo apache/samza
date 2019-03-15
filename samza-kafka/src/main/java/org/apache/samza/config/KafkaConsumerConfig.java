@@ -83,7 +83,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
     // check if samza default offset value is defined
-    String systemOffsetDefault = new JavaSystemConfig(config).getSystemOffsetDefault(systemName);
+    String systemOffsetDefault = new SystemConfig(config).getSystemOffsetDefault(systemName);
 
     // Translate samza config value to kafka config value
     String autoOffsetReset = getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), systemOffsetDefault);
@@ -216,10 +216,10 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     String newAutoOffsetReset = KAFKA_OFFSET_LATEST;
     if (!StringUtils.isBlank(samzaOffsetDefault)) {
       switch (samzaOffsetDefault) {
-        case JavaSystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
           newAutoOffsetReset = KAFKA_OFFSET_LATEST;
           break;
-        case JavaSystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
           newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
           break;
         default:

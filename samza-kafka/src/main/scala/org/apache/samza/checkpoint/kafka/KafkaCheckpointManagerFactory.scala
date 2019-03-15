@@ -39,10 +39,10 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val checkpointSystemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val checkpointSystemFactoryName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(checkpointSystemName))
       .toOption
-      .getOrElse(throw new SamzaException("Missing configuration: " + JavaSystemConfig.SYSTEM_FACTORY_FORMAT format checkpointSystemName))
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format checkpointSystemName))
 
     val checkpointSystemFactory = Util.getObj(checkpointSystemFactoryName, classOf[SystemFactory])
     val checkpointTopic = KafkaUtil.getCheckpointTopic(jobName, jobId, config)

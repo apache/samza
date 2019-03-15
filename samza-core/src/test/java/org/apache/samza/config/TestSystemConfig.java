@@ -36,13 +36,13 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 
-public class TestJavaSystemConfig {
+public class TestSystemConfig {
   private static final String MOCK_SYSTEM_NAME1 = "mocksystem1";
   private static final String MOCK_SYSTEM_NAME2 = "mocksystem2";
   private static final String MOCK_SYSTEM_FACTORY_NAME1 =
-      String.format(JavaSystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME1);
+      String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME1);
   private static final String MOCK_SYSTEM_FACTORY_NAME2 =
-      String.format(JavaSystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME2);
+      String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_SYSTEM_NAME2);
   private static final String MOCK_SYSTEM_FACTORY_CLASSNAME1 = "some.factory.Class1";
   private static final String MOCK_SYSTEM_FACTORY_CLASSNAME2 = "some.factory.Class2";
 
@@ -61,7 +61,7 @@ public class TestJavaSystemConfig {
   public void testGetSystemFactory() {
     Map<String, String> map = new HashMap<>();
     map.put(MOCK_SYSTEM_FACTORY_NAME1, MOCK_SYSTEM_FACTORY_CLASSNAME1);
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
 
     assertEquals(MOCK_SYSTEM_FACTORY_CLASSNAME1, systemConfig.getSystemFactory(MOCK_SYSTEM_NAME1).get());
   }
@@ -71,7 +71,7 @@ public class TestJavaSystemConfig {
     Map<String, String> map = new HashMap<>();
     map.put(MOCK_SYSTEM_FACTORY_NAME1, "");
     map.put(MOCK_SYSTEM_FACTORY_NAME2, " ");
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
 
     assertFalse(systemConfig.getSystemFactory(MOCK_SYSTEM_NAME1).isPresent());
     assertFalse(systemConfig.getSystemFactory(MOCK_SYSTEM_NAME2).isPresent());
@@ -82,7 +82,7 @@ public class TestJavaSystemConfig {
     Map<String, String> map = new HashMap<>();
     map.put(MOCK_SYSTEM_FACTORY_NAME1, MOCK_SYSTEM_FACTORY_CLASSNAME1);
     map.put(MOCK_SYSTEM_FACTORY_NAME2, MOCK_SYSTEM_FACTORY_CLASSNAME2);
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
 
     assertEquals(2, systemConfig.getSystemNames().size());
     assertTrue(systemConfig.getSystemNames().contains(MOCK_SYSTEM_NAME1));
@@ -92,7 +92,7 @@ public class TestJavaSystemConfig {
   @Test
   public void testGetSystemAdmins() {
     Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
     Map<String, SystemAdmin> expected = ImmutableMap.of(MOCK_SYSTEM_NAME1, SYSTEM_ADMIN1);
     assertEquals(expected, systemConfig.getSystemAdmins());
   }
@@ -100,7 +100,7 @@ public class TestJavaSystemConfig {
   @Test
   public void testGetSystemAdmin() {
     Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
     assertEquals(SYSTEM_ADMIN1, systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME1));
     assertNull(systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME2));
   }
@@ -108,7 +108,7 @@ public class TestJavaSystemConfig {
   @Test
   public void testGetSystemFactories() {
     Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
-    JavaSystemConfig systemConfig = new JavaSystemConfig(new MapConfig(map));
+    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
     Map<String, SystemFactory> actual = systemConfig.getSystemFactories();
     assertEquals(actual.size(), 1);
     assertTrue(actual.get(MOCK_SYSTEM_NAME1) instanceof MockSystemFactory);
@@ -126,7 +126,7 @@ public class TestJavaSystemConfig {
         defaultStreamPrefix + system2ConfigKey, system2ConfigValue));
     Config expected =
         new MapConfig(ImmutableMap.of(system1ConfigKey, system1ConfigValue, system2ConfigKey, system2ConfigValue));
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(expected, systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME1));
     assertEquals(new MapConfig(), systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME2));
   }
@@ -142,10 +142,10 @@ public class TestJavaSystemConfig {
         String.format("systems.%s.samza.offset.default", MOCK_SYSTEM_NAME1), "wrong-value",
         // only samza.offset.default set
         String.format("systems.%s.samza.offset.default", MOCK_SYSTEM_NAME2), system2OffsetDefault));
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1OffsetDefault, systemConfig.getSystemOffsetDefault(MOCK_SYSTEM_NAME1));
     assertEquals(system2OffsetDefault, systemConfig.getSystemOffsetDefault(MOCK_SYSTEM_NAME2));
-    assertEquals(JavaSystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING, systemConfig.getSystemOffsetDefault("other-system"));
+    assertEquals(SystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING, systemConfig.getSystemOffsetDefault("other-system"));
   }
 
   @Test
@@ -156,13 +156,13 @@ public class TestJavaSystemConfig {
 
     // value specified explicitly
     Config config = new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + samzaKeySerdeSuffix, system1KeySerde));
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config key
     config = new MapConfig(
         ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), system1KeySerde));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is empty string, try fall back config key
@@ -171,17 +171,17 @@ public class TestJavaSystemConfig {
         defaultStreamPrefixSystem1 + samzaKeySerdeSuffix, "",
         // fall back entry
         String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), system1KeySerde));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
     config = new MapConfig(ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), ""));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).isPresent());
 
     // default stream property is unspecified, fall back is also unspecified
     config = new MapConfig();
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).isPresent());
   }
 
@@ -193,13 +193,13 @@ public class TestJavaSystemConfig {
 
     // value specified explicitly
     Config config = new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + samzaMsgSerdeSuffix, system1MsgSerde));
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config msg
     config = new MapConfig(
         ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), system1MsgSerde));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is empty string, try fall back config msg
@@ -208,17 +208,17 @@ public class TestJavaSystemConfig {
         defaultStreamPrefixSystem1 + samzaMsgSerdeSuffix, "",
         // fall back entry
         String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), system1MsgSerde));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
     config = new MapConfig(ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), ""));
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).isPresent());
 
     // default stream property is unspecified, fall back is also unspecified
     config = new MapConfig();
-    systemConfig = new JavaSystemConfig(config);
+    systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).isPresent());
   }
 
@@ -230,7 +230,7 @@ public class TestJavaSystemConfig {
         String.format(deleteCommittedMessagesFormat, MOCK_SYSTEM_NAME1), "true",
         // value is explicitly "false"
         String.format(deleteCommittedMessagesFormat, MOCK_SYSTEM_NAME2), "false"));
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     assertTrue(systemConfig.deleteCommittedMessages(MOCK_SYSTEM_NAME1));
     assertFalse(systemConfig.deleteCommittedMessages(MOCK_SYSTEM_NAME2));
     assertFalse(systemConfig.deleteCommittedMessages("other-system")); // value is not specified

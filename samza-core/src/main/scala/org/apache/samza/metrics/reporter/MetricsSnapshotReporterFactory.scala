@@ -21,7 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config, JavaSystemConfig}
+import org.apache.samza.config.{ApplicationConfig, Config, SystemConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -72,7 +72,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val systemName = systemStream.getSystem
 
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 

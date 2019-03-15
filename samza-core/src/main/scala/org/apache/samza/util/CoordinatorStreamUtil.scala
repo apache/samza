@@ -38,7 +38,7 @@ object CoordinatorStreamUtil {
   def buildCoordinatorStreamConfig(config: Config) = {
     val (jobName, jobId) = getJobNameAndId(config)
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    val map = config.subset(JavaSystemConfig.SYSTEM_ID_PREFIX format config.getCoordinatorSystemName, false).asScala ++
+    val map = config.subset(SystemConfig.SYSTEM_ID_PREFIX format config.getCoordinatorSystemName, false).asScala ++
       Map[String, String](
         JobConfig.JOB_NAME -> jobName,
         JobConfig.JOB_ID -> jobId,
@@ -66,9 +66,9 @@ object CoordinatorStreamUtil {
     */
   def getCoordinatorSystemFactory(config: Config) = {
     val systemName = config.getCoordinatorSystemName
-    val systemConfig = new JavaSystemConfig(config);
+    val systemConfig = new SystemConfig(config);
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
-      .getOrElse(throw new SamzaException("Missing configuration: " + JavaSystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
     Util.getObj(systemFactoryClassName, classOf[SystemFactory])
   }
 

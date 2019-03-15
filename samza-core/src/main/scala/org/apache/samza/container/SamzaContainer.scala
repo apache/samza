@@ -137,7 +137,7 @@ object SamzaContainer extends Logging {
     externalContextOption: Option[ExternalContext],
     localityManager: LocalityManager = null) = {
     val config = jobContext.getConfig
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
