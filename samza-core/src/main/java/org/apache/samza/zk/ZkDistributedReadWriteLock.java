@@ -18,6 +18,7 @@
  */
 package org.apache.samza.zk;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -76,7 +77,7 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
    * else a READ access lock is acquired
    * @param timeout Duration of lock acquiring timeout.
    * @param unit Unit of the timeout defined above.
-   * @return AccessType.READ/WRITE if lock is acquired successfully, AccessType.NONE if it times out.
+   * @return AccessType.READ/WRITE if lock is acquired successfully.
    */
   @Override
   public AccessType lock(long timeout, TimeUnit unit)
@@ -143,6 +144,9 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
 
   private AccessType checkAndAcquireLock() {
     List<String> participants = zkUtils.getZkClient().getChildren(particpantsPath);
+    if (participants.size() > 0) {
+      Collections.sort(participants);
+    }
     int index = participants.indexOf(ZkKeyBuilder.parseIdFromPath(activeParticipantPath));
 
     if (participants.size() == 0 || index == -1) {

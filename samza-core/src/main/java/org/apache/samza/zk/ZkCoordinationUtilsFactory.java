@@ -38,7 +38,7 @@ public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
 
   public CoordinationUtils getCoordinationUtils(String coordinationId, String participantId, Config config) {
     String groupId = new ApplicationConfig(config).getGlobalAppId() + "/" + coordinationId;
-        ZkConfig zkConfig = new ZkConfig(config);
+    ZkConfig zkConfig = new ZkConfig(config);
 
     ZkClient zkClient =
         createZkClient(zkConfig.getZkConnect(), zkConfig.getZkSessionTimeoutMs(), zkConfig.getZkConnectionTimeoutMs());

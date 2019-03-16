@@ -57,23 +57,29 @@ public class ZkDistributedDataAccess implements DistributedDataAccess {
 
   public Object readData(String key, DistributedDataWatcher watcher) {
     String absolutePath = keyBuilder.getRootPath() + "/" + key;
-    ZkDistributedDataChangeHandler zkHandler = new ZkDistributedDataChangeHandler(zkUtils);
-    this.watchers.put(absolutePath, Pair.of(watcher, zkHandler));
-    zkUtils.getZkClient().subscribeDataChanges(absolutePath, zkHandler);
+    boolean pathExists = true;
     if (!zkUtils.getZkClient().exists(absolutePath)) {
-      return null;
+      pathExists = false;
     }
-    return zkUtils.getZkClient().readData(absolutePath);
+    addWatcher(absolutePath, watcher);
+    if (pathExists) {
+      return zkUtils.getZkClient().readData(absolutePath);
+    }
+    return null;
   }
 
   public void writeData(String key, Object data, DistributedDataWatcher watcher) {
     String absolutePath = keyBuilder.getRootPath() + "/" + key;
+    addWatcher(absolutePath, watcher);
+    zkUtils.writeData(absolutePath, data);
+    return;
+  }
+
+  private void addWatcher(String absolutePath, DistributedDataWatcher watcher) {
+    zkUtils.validatePaths(new String[]{absolutePath});
     ZkDistributedDataChangeHandler zkHandler = new ZkDistributedDataChangeHandler(zkUtils);
     this.watchers.put(absolutePath, Pair.of(watcher, zkHandler));
     zkUtils.getZkClient().subscribeDataChanges(absolutePath, zkHandler);
-    zkUtils.validatePaths(new String[]{absolutePath});
-    zkUtils.writeData(absolutePath, data);
-    return;
   }
 
   /**

@@ -261,9 +261,80 @@ public class TestLocalApplicationRunner {
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
-    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils,"FAKE_UID", "FAKE_RUNID"));
+    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
     doReturn(localPlanner).when(runner).getPlanner();
+  }
+
+  /**
+   * For app.mode=BATCH ensure that the run.id generation utils --
+   * DistributedReadWriteLock and DistributedDataAccess are created.
+   * Also ensure that writeData is invoked (to write the run.id)
+   * @throws Exception
+   */
+  @Test
+  public void testRunIdForBatch() throws Exception {
+    final Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_MODE, "BATCH");
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
+    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    config = new MapConfig(cfgs);
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+
+    CoordinationUtils coordinationUtils = prepareTestForRunId();
+    runner.run();
+
+    verify(coordinationUtils, Mockito.times(1)).getReadWriteLock(anyString());
+    verify(coordinationUtils, Mockito.times(1)).getDataAccess();
+    verify(coordinationUtils.getDataAccess(), Mockito.times(1)).writeData(anyString(), anyObject(), anyObject());
+  }
+
+  /**
+   * For app.mode=STREAM ensure that the run.id generation utils --
+   * DistributedReadWriteLock and DistributedDataAccess are NOT created.
+   * Also ensure that writeData is NOT invoked (to write the run.id)
+   * @throws Exception
+   */
+  @Test
+  public void testRunIdForStream() throws Exception {
+    final Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_MODE, "STREAM");
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
+    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    config = new MapConfig(cfgs);
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+
+    CoordinationUtils coordinationUtils = prepareTestForRunId();
+
+    runner.run();
+
+    verify(coordinationUtils, Mockito.times(0)).getReadWriteLock(anyString());
+    verify(coordinationUtils, Mockito.times(0)).getDataAccess();
+    verify(coordinationUtils.getDataAccess(), Mockito.times(0)).writeData(anyString(), anyObject(), anyObject());
+  }
+
+  private CoordinationUtils prepareTestForRunId() throws Exception {
+    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+    DistributedLockWithState lock = mock(DistributedLockWithState.class);
+    when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
+    when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
+    DistributedReadWriteLock rwLock = mock(DistributedReadWriteLock.class);
+    when(rwLock.lock(anyLong(), anyObject())).thenReturn(DistributedReadWriteLock.AccessType.WRITE);
+    when(coordinationUtils.getReadWriteLock(anyString())).thenReturn(rwLock);
+    DistributedDataAccess dataAccess = mock(DistributedDataAccess.class);
+    when(coordinationUtils.getDataAccess()).thenReturn(dataAccess);
+
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
+        ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
+    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
+    doReturn(localPlanner).when(runner).getPlanner();
+    StreamProcessor sp = mock(StreamProcessor.class);
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject());
+
+    return coordinationUtils;
   }
 
 }

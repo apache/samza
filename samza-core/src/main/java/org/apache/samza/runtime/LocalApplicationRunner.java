@@ -77,7 +77,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final Optional<CoordinationUtils> coordinationUtils;
   private DistributedReadWriteLock runIdLock = null;
   private DistributedDataAccess runIdAccess = null;
-  private Optional<String> runId;
+  private Optional<String> runId = Optional.empty();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -103,7 +103,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private Optional<CoordinationUtils> getCoordinationUtils(Config config) {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    if(!isAppModeBatch) {
+    if (!isAppModeBatch) {
       return Optional.empty();
     }
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
@@ -115,17 +115,17 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @return LocalJobPlanner created
    */
   @VisibleForTesting
-  LocalJobPlanner getPlanner(){
+  LocalJobPlanner getPlanner() {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!isAppModeBatch) {
       return new LocalJobPlanner(appDesc, UID);
     }
     CoordinationUtils coordinationUtils = null;
     String runId = null;
-    if(this.coordinationUtils.isPresent()) {
+    if (this.coordinationUtils.isPresent()) {
       coordinationUtils = this.coordinationUtils.get();
     }
-    if(this.runId.isPresent()) {
+    if (this.runId.isPresent()) {
       runId = this.runId.get();
     }
     return new LocalJobPlanner(appDesc, coordinationUtils, UID, runId);
@@ -135,19 +135,17 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private void initializeRunId() {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!coordinationUtils.isPresent() ||  !isAppModeBatch) {
-      runId = Optional.empty();
       return;
     }
 
     try {
       runIdLock = coordinationUtils.get().getReadWriteLock(CoordinationConstants.RUNID_LOCK_ID);
       runIdAccess = coordinationUtils.get().getDataAccess();
-      if(runIdLock == null || runIdAccess == null) {
+      if (runIdLock == null || runIdAccess == null) {
         throw new SamzaException(String.format("Processor {} failed to create utils for run id generation", UID));
       }
-    } catch (Exception e){
+    } catch (Exception e) {
       LOG.warn(e.getMessage());
-      runId = Optional.empty();
       return;
     }
 
@@ -173,6 +171,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
     } finally {
       runIdLock.unlock();
     }
+  }
+
+  public String getRunid() {
+    if (runId.isPresent()) {
+      return runId.get();
+    }
+    return null;
   }
 
   @Override
@@ -297,7 +302,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   private void cleanup() {
-    if(runIdLock != null) {
+    if (runIdLock != null) {
       runIdLock.cleanState();
     }
     if (coordinationUtils.isPresent()) {
@@ -308,7 +313,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private void stopProcessingAndShutDown(Exception e) {
     processors.forEach(StreamProcessor::stop);
     cleanup();
-    if(e != null) {
+    if (e != null) {
       LOG.warn(e.getMessage());
       appStatus = ApplicationStatus.UnsuccessfulFinish;
     } else {
