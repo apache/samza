@@ -22,11 +22,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.annotate.JsonAutoDetect;
+import org.codehaus.jackson.annotate.JsonIgnore;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-class StartpointKey {
+final class StartpointKey {
   private final SystemStreamPartition systemStreamPartition;
   private final TaskName taskName;
 
@@ -41,12 +41,29 @@ class StartpointKey {
     this.taskName = taskName;
   }
 
+  @JsonIgnore
   SystemStreamPartition getSystemStreamPartition() {
     return systemStreamPartition;
   }
 
-  TaskName getTaskName() {
-    return taskName;
+  @JsonProperty("system")
+  String getSystem() {
+    return systemStreamPartition.getSystem();
+  }
+
+  @JsonProperty("stream")
+  String getStream() {
+    return systemStreamPartition.getStream();
+  }
+
+  @JsonProperty("partition")
+  Integer getPartition() {
+    return systemStreamPartition.getPartition().getPartitionId();
+  }
+
+  @JsonProperty("taskName")
+  String getTaskName() {
+    return taskName != null ? taskName.getTaskName() : null;
   }
 
   @Override
