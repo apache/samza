@@ -267,6 +267,27 @@ public class TestKafkaSystemConsumer {
   }
 
   @Test
+  public void testStartpointTimestampVisitorShouldMoveTheConsumerToEndWhenTimestampDoesNotExist() {
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+    KafkaStartpointRegistrationHandler
+        kafkaStartpointRegistrationHandler = new KafkaSystemConsumer.KafkaStartpointRegistrationHandler(consumer);
+
+    final StartpointTimestamp startpointTimestamp = new StartpointTimestamp(0L);
+    final Map<TopicPartition, OffsetAndTimestamp> offsetForTimesResult = new HashMap<>();
+    offsetForTimesResult.put(TEST_TOPIC_PARTITION, null);
+
+    // Mock the consumer interactions.
+    Mockito.when(consumer.offsetsForTimes(Mockito.anyMap())).thenReturn(offsetForTimesResult);
+
+    kafkaStartpointRegistrationHandler.visit(TEST_SYSTEM_STREAM_PARTITION, startpointTimestamp);
+
+    // Mock verifications.
+    Mockito.verify(consumer).seekToEnd(ImmutableList.of(TEST_TOPIC_PARTITION));
+    Mockito.verify(consumer).offsetsForTimes(Mockito.anyMap());
+
+  }
+
+  @Test
   public void testStartpointOldestVisitorShouldUpdateTheFetchOffsetInConsumer() {
     // Define dummy variables for testing.
     final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);

@@ -350,14 +350,24 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       // Look up the offset by timestamp.
       LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.", topicPartition, timestampInStartpoint);
       Map<TopicPartition, OffsetAndTimestamp> topicPartitionToOffsetTimestamps = kafkaConsumer.offsetsForTimes(topicPartitionsToTimeStamps);
-      OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
 
-      // Update the consumer fetch offsets.
-      LOG.info("Updating the consumer fetch offsets of the topic partition: {} to {}.", topicPartition, offsetAndTimeStamp.offset());
+      // If the timestamp does not exist for the partition, then seek the consumer to end.
+      if (topicPartitionToOffsetTimestamps.get(topicPartition) == null) {
+        LOG.info("Timestamp does not exist for partition: {}. Seeking the kafka consumer to the end offset.", topicPartition);
 
-      // KafkaConsumer is not thread-safe.
-      synchronized (kafkaConsumer) {
-        kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
+        // KafkaConsumer is not thread-safe.
+        synchronized (kafkaConsumer) {
+          kafkaConsumer.seekToEnd(ImmutableList.of(topicPartition));
+        }
+      } else {
+        // Update the consumer fetch offsets.
+        OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
+        LOG.info("Updating the consumer fetch offsets of the topic partition: {} to {}.", topicPartition, offsetAndTimeStamp.offset());
+
+        // KafkaConsumer is not thread-safe.
+        synchronized (kafkaConsumer) {
+          kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
+        }
       }
     }
 
