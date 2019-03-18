@@ -80,8 +80,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   // This proxy contains a separate thread, which reads kafka messages (with consumer.poll()) and populates
   // BlockingEnvelopMap's buffers.
-  @VisibleForTesting
-  KafkaConsumerProxy proxy;
+  private final KafkaConsumerProxy proxy;
 
   // Holds mapping from {@code TopicPartition} to registered {@code Startpoint}. This will be used in the start().
   final Map<TopicPartition, Startpoint> topicPartitionToStartpointMap = new HashMap<>();
