@@ -640,9 +640,12 @@ public class TestAsyncRunLoop {
     SystemConsumer mockConsumer = mock(SystemConsumer.class);
     when(mockConsumer.poll(anyObject(), anyLong())).thenReturn(sspMap);
 
+    SystemAdmins systemAdmins = Mockito.mock(SystemAdmins.class);
+    Mockito.when(systemAdmins.getSystemAdmin("system1")).thenReturn(Mockito.mock(SystemAdmin.class));
+    Mockito.when(systemAdmins.getSystemAdmin("testSystem")).thenReturn(Mockito.mock(SystemAdmin.class));
+
     HashMap<String, SystemConsumer> systemConsumerMap = new HashMap<>();
     systemConsumerMap.put("system1", mockConsumer);
-    SystemAdmins systemAdmins = new SystemAdmins(ImmutableMap.of("testSystem", Mockito.mock(SystemAdmin.class), "system1", Mockito.mock(SystemAdmin.class)));
 
     SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap, systemAdmins);
 

@@ -45,9 +45,10 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition0, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0L
-    val systemNameToSystemAdminMap = ImmutableMap.of(system, Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.doReturn(Mockito.mock(classOf[SystemAdmin])).when(systemAdmins.getSystemAdmin(system))
 
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), new SystemAdmins(systemNameToSystemAdminMap),
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), systemAdmins,
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
@@ -109,9 +110,10 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0
-    val systemNameToSystemAdminMap = ImmutableMap.of(system, Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.doReturn(Mockito.mock(classOf[SystemAdmin])).when(systemAdmins.getSystemAdmin(system))
 
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), new SystemAdmins(systemNameToSystemAdminMap),
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), systemAdmins,
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
@@ -172,7 +174,8 @@ class TestSystemConsumers {
       def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]().asJava
     })
 
-    val systemNameToSystemAdminMap = ImmutableMap.of(system, Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
 
     val consumers = new SystemConsumers(new MessageChooser {
       def update(envelope: IncomingMessageEnvelope) = Unit
@@ -180,7 +183,7 @@ class TestSystemConsumers {
       def start = chooserStarted += 1
       def stop = chooserStopped += 1
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = chooserRegistered += systemStreamPartition -> offset
-    }, consumer, new SystemAdmins(systemNameToSystemAdminMap))
+    }, consumer, systemAdmins)
 
     consumers.register(systemStreamPartition, "0", null)
     consumers.start
@@ -240,10 +243,11 @@ class TestSystemConsumers {
     val consumer = Map(system -> new SerializingConsumer)
     val systemMessageSerdes = Map(system -> (new StringSerde("UTF-8")).asInstanceOf[Serde[Object]])
     val serdeManager = new SerdeManager(systemMessageSerdes = systemMessageSerdes)
-    val systemNameToSystemAdminMap = ImmutableMap.of(system, Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
 
     // throw exceptions when the deserialization has error
-    val consumers = new SystemConsumers(msgChooser, consumer, new SystemAdmins(systemNameToSystemAdminMap), serdeManager, dropDeserializationError = false)
+    val consumers = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = false)
     consumers.register(systemStreamPartition, "0", null)
     consumers.start
     consumer(system).putStringMessage
@@ -260,7 +264,7 @@ class TestSystemConsumers {
     consumers.stop
 
     // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
-    val consumers2 = new SystemConsumers(msgChooser, consumer, new SystemAdmins(systemNameToSystemAdminMap), serdeManager, dropDeserializationError = true)
+    val consumers2 = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = true)
     consumers2.register(systemStreamPartition, "0", null)
     consumers2.start
     consumer(system).putBytesMessage
@@ -307,9 +311,10 @@ class TestSystemConsumers {
     val normalEnvelope = new IncomingMessageEnvelope(systemStreamPartition1, "1", "k", "v")
     val endOfStreamEnvelope = IncomingMessageEnvelope.buildEndOfStreamEnvelope(systemStreamPartition2)
     val consumer = new CustomPollResponseSystemConsumer(normalEnvelope)
-    val systemNameToSystemAdminMap = ImmutableMap.of(system, Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
     val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
-      new SystemAdmins(systemNameToSystemAdminMap), new SerdeManager, new SystemConsumersMetrics,
+      systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
@@ -359,10 +364,11 @@ class TestSystemConsumers {
 
     val consumer = Mockito.mock(classOf[SystemConsumer])
     val startpoint = Mockito.mock(classOf[Startpoint])
-    val systemNameToAdminMap = ImmutableMap.of("system", Mockito.mock(classOf[SystemAdmin]))
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
 
     val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
-      new SystemAdmins(systemNameToAdminMap), new SerdeManager, new SystemConsumersMetrics,
+      systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
