@@ -19,7 +19,6 @@
 
 package org.apache.samza.task;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

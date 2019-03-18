@@ -22,7 +22,6 @@ package org.apache.samza.system
 import java.util
 import java.util.Collections
 
-import com.google.common.collect.ImmutableMap
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.Partition
