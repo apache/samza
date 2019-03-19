@@ -152,10 +152,13 @@ public abstract class AbstractContainerAllocator implements Runnable {
             + "timestamp {} to resource {}",
         new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
 
-    //Submit a request to launch a StreamProcessor on the provided resource. To match with the response returned later
-    //in the callback, we should also store state about the container whose launch is pending.
-    clusterResourceManager.launchStreamProcessor(resource, builder);
+    // Update container state as "pending" and then issue a request to launch it. It's important to perform the state-update
+    // prior to issuing the request. Otherwise, there's a race where the response callback may arrive sooner and not see
+    // the container as "pending" (SAMZA-2117)
+
     state.pendingContainers.put(containerID, resource);
+
+    clusterResourceManager.launchStreamProcessor(resource, builder);
   }
 
   /**
