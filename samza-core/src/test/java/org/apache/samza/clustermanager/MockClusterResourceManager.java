@@ -40,11 +40,13 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   private final Semaphore requestCountSemaphore = new Semaphore(0);
   private final Semaphore launchCountSemaphore = new Semaphore(0);
+  private final SamzaApplicationState state;
 
   Throwable nextException = null;
 
-  MockClusterResourceManager(ClusterResourceManager.Callback callback) {
+  MockClusterResourceManager(ClusterResourceManager.Callback callback, SamzaApplicationState state) {
     super(callback);
+    this.state = state;
   }
 
   @Override
