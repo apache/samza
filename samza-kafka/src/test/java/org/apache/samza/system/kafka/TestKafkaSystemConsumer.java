@@ -122,7 +122,6 @@ public class TestKafkaSystemConsumer {
 
   @Test
   public void testConsumerShouldRegisterTheLatestOffsetForSSP() {
-
     KafkaSystemConsumer consumer = createConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
 
     SystemStreamPartition ssp0 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
@@ -144,7 +143,6 @@ public class TestKafkaSystemConsumer {
 
   @Test
   public void testFetchThresholdBytes() {
-
     SystemStreamPartition ssp0 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
     SystemStreamPartition ssp1 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(1));
     int partitionsNum = 2;
