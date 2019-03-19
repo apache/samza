@@ -121,7 +121,7 @@ public class TestKafkaSystemConsumer {
   }
 
   @Test
-  public void testConsumerRegisterOlderOffsetOfTheSamzaSSP() {
+  public void testConsumerShouldRegisterTheLatestOffsetForSSP() {
 
     KafkaSystemConsumer consumer = createConsumer(FETCH_THRESHOLD_MSGS, FETCH_THRESHOLD_BYTES);
 
