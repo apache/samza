@@ -257,10 +257,14 @@ public class StandbyContainerManager {
     for (String standbyContainerID : this.standbyContainerConstraints.get(activeContainerID)) {
       String standbyHost = containerToHostMapping.get(standbyContainerID);
 
-      if (!(failoverMetadata.isPresent() && failoverMetadata.get().isStandbyHostUsed(standbyHost))) {
+      // if there is no last-known host for the standby, continue
+      if (standbyHost == null) {
+        continue;
+
+      } else if (!(failoverMetadata.isPresent() && failoverMetadata.get().isStandbyHostUsed(standbyHost))) {
+
         log.info("Returning standby host {} for active container {}", standbyHost, activeContainerID);
         return standbyHost;
-
       } else {
 
         log.info("Not using standby host {} for active container {} because it had already been selected", standbyHost, activeContainerID);
