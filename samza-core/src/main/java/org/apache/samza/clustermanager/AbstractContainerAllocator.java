@@ -157,6 +157,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     //Submit a request to launch a StreamProcessor on the provided resource. To match with the response returned later
     //in the callback, we should also store state about the container whose launch is pending.
     clusterResourceManager.launchStreamProcessor(resource, builder);
+
   }
 
   /**

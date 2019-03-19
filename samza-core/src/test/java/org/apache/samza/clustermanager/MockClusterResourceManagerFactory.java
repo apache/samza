@@ -27,6 +27,6 @@ public class MockClusterResourceManagerFactory implements ResourceManagerFactory
   @Override
   public ClusterResourceManager getClusterResourceManager(ClusterResourceManager.Callback callback,
       SamzaApplicationState state) {
-    return new MockClusterResourceManager(callback);
+    return new MockClusterResourceManager(callback, state);
   }
 }
