@@ -100,12 +100,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    */
   public KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
       KafkaConsumerProxyFactory<K, V> kafkaConsumerProxyFactory, KafkaSystemConsumerMetrics metrics, Clock clock) {
-    this(kafkaConsumer, systemName, config, clientId, kafkaConsumerProxyFactory, metrics, clock, new KafkaStartpointRegistrationHandler(kafkaConsumer));
-  }
-
-  @VisibleForTesting
-  KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
-      KafkaConsumerProxyFactory<K, V> kafkaConsumerProxyFactory, KafkaSystemConsumerMetrics metrics, Clock clock, KafkaStartpointRegistrationHandler kafkaStartpointRegistrationHandler) {
     super(metrics.registry(), clock, metrics.getClass().getName());
 
     this.kafkaConsumer = kafkaConsumer;
@@ -113,7 +107,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     this.systemName = systemName;
     this.config = config;
     this.metrics = metrics;
-    this.kafkaStartpointRegistrationHandler = kafkaStartpointRegistrationHandler;
+    this.kafkaStartpointRegistrationHandler = new KafkaStartpointRegistrationHandler();
 
     fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
 
@@ -121,9 +115,22 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     this.messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    String metricName = String.format("%s-%s", systemName, clientId);
     proxy = kafkaConsumerProxyFactory.create(this.messageSink);
     LOG.info("{}: Created proxy {} ", this, proxy);
+  }
+
+  @VisibleForTesting
+  KafkaSystemConsumer(Consumer<K, V> kafkaConsumer, String systemName, Config config, String clientId,
+      KafkaConsumerProxy<K, V> kafkaConsumerProxy, KafkaSystemConsumerMetrics metrics, Clock clock, KafkaStartpointRegistrationHandler kafkaStartpointRegistrationHandler) {
+    this.kafkaConsumer = kafkaConsumer;
+    this.clientId = clientId;
+    this.systemName = systemName;
+    this.config = config;
+    this.metrics = metrics;
+    this.proxy = kafkaConsumerProxy;
+    this.kafkaStartpointRegistrationHandler = kafkaStartpointRegistrationHandler;
+    this.messageSink = new KafkaConsumerMessageSink();
+    fetchThresholdBytesEnabled = new KafkaConfig(config).isConsumerFetchThresholdBytesEnabled(systemName);
   }
 
   /**
@@ -187,8 +194,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       Partition partition = new Partition(topicPartition.partition());
       SystemStreamPartition systemStreamPartition = new SystemStreamPartition(systemName, topicPartition.topic(), partition);
       startpoint.apply(systemStreamPartition, kafkaStartpointRegistrationHandler);
-      // add the partition to the proxy
-      proxy.addTopicPartition(systemStreamPartition, kafkaConsumer.position(topicPartition));
     });
 
     // start the proxy thread
@@ -321,13 +326,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   }
 
   @VisibleForTesting
-  static class KafkaStartpointRegistrationHandler implements StartpointVisitor {
-
-    private final Consumer kafkaConsumer;
-
-    KafkaStartpointRegistrationHandler(Consumer kafkaConsumer) {
-      this.kafkaConsumer = kafkaConsumer;
-    }
+  class KafkaStartpointRegistrationHandler implements StartpointVisitor {
 
     @Override
     public void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
@@ -339,6 +338,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       synchronized (kafkaConsumer) {
         kafkaConsumer.seek(topicPartition, offsetInStartpoint);
       }
+
+      // add the partition to the proxy
+      proxy.addTopicPartition(systemStreamPartition, kafkaConsumer.position(topicPartition));
     }
 
     @Override
@@ -369,6 +371,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
           kafkaConsumer.seek(topicPartition, offsetAndTimeStamp.offset());
         }
       }
+
+      // add the partition to the proxy
+      proxy.addTopicPartition(systemStreamPartition, kafkaConsumer.position(topicPartition));
     }
 
     @Override
@@ -381,6 +386,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       synchronized (kafkaConsumer) {
         kafkaConsumer.seekToBeginning(topicPartitions);
       }
+
+      // add the partition to the proxy
+      proxy.addTopicPartition(systemStreamPartition, kafkaConsumer.position(topicPartition));
     }
 
     @Override
@@ -393,6 +401,9 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       synchronized (kafkaConsumer) {
         kafkaConsumer.seekToEnd(topicPartitions);
       }
+
+      // add the partition to the proxy
+      proxy.addTopicPartition(systemStreamPartition, kafkaConsumer.position(topicPartition));
     }
   }
 
