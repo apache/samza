@@ -20,7 +20,7 @@
 package org.apache.samza.config;
 
 import org.apache.samza.SamzaException;
-import com.google.common.base.Optional;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,27 +67,19 @@ public class ElasticsearchConfig extends MapConfig {
 
   // Index Request
   public Optional<String> getIndexRequestFactoryClassName() {
-    if (containsKey(CONFIG_KEY_INDEX_REQUEST_FACTORY)) {
-      return Optional.of(get(CONFIG_KEY_INDEX_REQUEST_FACTORY));
-    } else {
-      return Optional.absent();
-    }
+      return Optional.ofNullable(get(CONFIG_KEY_INDEX_REQUEST_FACTORY));
   }
 
   // Transport client settings
   public Optional<String> getTransportHost() {
-    if (containsKey(CONFIG_KEY_CLIENT_TRANSPORT_HOST)) {
-      return Optional.of(get(CONFIG_KEY_CLIENT_TRANSPORT_HOST));
-    } else {
-      return Optional.absent();
-    }
+      return Optional.ofNullable(get(CONFIG_KEY_CLIENT_TRANSPORT_HOST));
   }
 
   public Optional<Integer> getTransportPort() {
     if (containsKey(CONFIG_KEY_CLIENT_TRANSPORT_PORT)) {
       return Optional.of(getInt(CONFIG_KEY_CLIENT_TRANSPORT_PORT));
     } else {
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 
@@ -96,7 +88,7 @@ public class ElasticsearchConfig extends MapConfig {
     if (containsKey(CONFIG_KEY_BULK_FLUSH_MAX_ACTIONS)) {
       return Optional.of(getInt(CONFIG_KEY_BULK_FLUSH_MAX_ACTIONS));
     } else {
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 
@@ -104,7 +96,7 @@ public class ElasticsearchConfig extends MapConfig {
     if (containsKey(CONFIG_KEY_BULK_FLUSH_MAX_SIZE_MB)) {
       return Optional.of(getInt(CONFIG_KEY_BULK_FLUSH_MAX_SIZE_MB));
     } else {
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 
@@ -112,7 +104,7 @@ public class ElasticsearchConfig extends MapConfig {
     if (containsKey(CONFIG_KEY_BULK_FLUSH_INTERVALS_MS)) {
       return Optional.of(getInt(CONFIG_KEY_BULK_FLUSH_INTERVALS_MS));
     } else {
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 

@@ -20,11 +20,9 @@
 package org.apache.samza.system.hdfs.partitioner;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +31,6 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.Partition;
@@ -63,13 +60,13 @@ public class DirectoryPartitioner {
   private static final Logger LOG = LoggerFactory.getLogger(DirectoryPartitioner.class);
   private static final String GROUP_IDENTIFIER = "\\[id]";
 
-  private String whiteListRegex;
-  private String blackListRegex;
-  private String groupPattern;
-  private FileSystemAdapter fileSystemAdapter;
+  private final String whiteListRegex;
+  private final String blackListRegex;
+  private final String groupPattern;
+  private final FileSystemAdapter fileSystemAdapter;
 
   // stream name => partition => partition descriptor
-  private Map<String, Map<Partition, List<String>>> partitionDescriptorMap = new HashMap<>();
+  private final Map<String, Map<Partition, List<String>>> partitionDescriptorMap = new HashMap<>();
 
   public DirectoryPartitioner(String whiteList, String blackList, String groupPattern,
     FileSystemAdapter fileSystemAdapter) {
@@ -93,7 +90,7 @@ public class DirectoryPartitioner {
     allFiles.stream().filter(file -> file.getPath().matches(whiteListRegex) && !file.getPath().matches(blackListRegex))
       .forEach(filteredFiles::add);
     // sort the files to have a consistent order
-    filteredFiles.sort((f1, f2) -> f1.getPath().compareTo(f2.getPath()));
+    filteredFiles.sort(Comparator.comparing(FileMetadata::getPath));
     LOG.info(String.format("List of filtered files for %s: %s", streamName, filteredFiles));
     return filteredFiles;
   }
@@ -152,7 +149,7 @@ public class DirectoryPartitioner {
     List<List<FileMetadata>> ret = new ArrayList<>();
     // sort the map to guarantee consistent ordering
     List<String> sortedKeys = new ArrayList<>(map.keySet());
-    sortedKeys.sort(Comparator.<String>naturalOrder());
+    sortedKeys.sort(Comparator.naturalOrder());
     sortedKeys.stream().forEach(key -> ret.add(map.get(key)));
     return ret;
   }
@@ -175,13 +172,7 @@ public class DirectoryPartitioner {
       throw new SamzaException("The list of new files is not a super set of the old files. diff = "
         + oldFileSet.removeAll(newFileSet));
     }
-    Iterator<FileMetadata> iterator = newFileList.iterator();
-    while (iterator.hasNext()) {
-      FileMetadata file = iterator.next();
-      if (!oldFileSet.contains(file.getPath())) {
-        iterator.remove();
-      }
-    }
+    newFileList.removeIf(file -> !oldFileSet.contains(file.getPath()));
     return newFileList;
   }
 
