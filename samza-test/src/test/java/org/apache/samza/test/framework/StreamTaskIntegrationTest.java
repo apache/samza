@@ -107,7 +107,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
-        .addExternalContext(new TestContext())
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
@@ -134,7 +134,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
-        .addExternalContext(new TestContext())
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
   }
 
@@ -156,7 +156,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .addConfig("job.container.thread.pool.size", "4")
-        .addExternalContext(new TestContext())
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     StreamAssert.containsInOrder(outputList, imod, Duration.ofMillis(1000));
@@ -180,7 +180,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
-        .addExternalContext(new TestContext())
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -205,7 +205,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .addConfig("job.container.thread.pool.size", "4")
-        .addExternalContext(new TestContext())
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -271,7 +271,13 @@ public class StreamTaskIntegrationTest {
 }
 
 class TestContext implements ExternalContext {
+  private int multiplier;
+
+  public TestContext(int multiplier){
+    this.multiplier = multiplier;
+  }
+
   public int getMultiplier() {
-    return 10;
+    return this.multiplier;
   }
 }
