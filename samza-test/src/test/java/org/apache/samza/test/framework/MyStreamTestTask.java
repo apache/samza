@@ -19,20 +19,30 @@
 
 package org.apache.samza.test.framework;
 
+import org.apache.samza.context.Context;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskCoordinator;
 
 
-public class MyStreamTestTask implements StreamTask {
+public class MyStreamTestTask implements StreamTask, InitableTask {
+  private int multiplier;
+
   @Override
   public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator)
       throws Exception {
     Integer obj = (Integer) envelope.getMessage();
     collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "output"),
-        envelope.getKey(), envelope.getKey(), obj * 10));
+        envelope.getKey(), envelope.getKey(), obj * multiplier));
+  }
+
+  @Override
+  public void init(Context context) throws Exception {
+    TestContext testContext = (TestContext) context.getExternalContext();
+    multiplier = testContext.getMultiplier();
   }
 }
