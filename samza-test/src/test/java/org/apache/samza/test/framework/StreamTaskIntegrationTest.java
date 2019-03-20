@@ -271,7 +271,7 @@ public class StreamTaskIntegrationTest {
 }
 
 class TestContext implements ExternalContext {
-  private int multiplier;
+  final private int multiplier;
 
   public TestContext(int multiplier) {
     this.multiplier = multiplier;
