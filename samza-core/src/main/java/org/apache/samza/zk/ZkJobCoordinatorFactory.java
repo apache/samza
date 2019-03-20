@@ -33,8 +33,9 @@ import org.slf4j.LoggerFactory;
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
-  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
+  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-%s-coordinationData";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
+  private static final String PROTOCOL_VERSION = "1.0";
 
   /**
    * Instantiates an {@link ZkJobCoordinator} using the {@link Config}.
@@ -67,6 +68,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
         : DEFAULT_JOB_NAME;
     String jobId = jobConfig.getJobId();
 
-    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
+    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId, PROTOCOL_VERSION);
   }
 }

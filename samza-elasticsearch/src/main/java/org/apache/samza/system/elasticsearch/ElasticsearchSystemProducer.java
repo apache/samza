@@ -67,7 +67,7 @@ public class ElasticsearchSystemProducer implements SystemProducer {
   private final BulkProcessorFactory bulkProcessorFactory;
   private final ElasticsearchSystemProducerMetrics metrics;
 
-  private Client client;
+  private final Client client;
 
   public ElasticsearchSystemProducer(String system, BulkProcessorFactory bulkProcessorFactory,
                                      Client client, IndexRequestFactory indexRequestFactory,

@@ -91,10 +91,10 @@ import org.slf4j.LoggerFactory;
 public class HdfsSystemAdmin implements SystemAdmin {
   private static final Logger LOG = LoggerFactory.getLogger(HdfsSystemAdmin.class);
 
-  private HdfsConfig hdfsConfig;
-  private DirectoryPartitioner directoryPartitioner;
-  private String stagingDirectory; // directory that contains the partition description
-  private HdfsReaderFactory.ReaderType readerType;
+  private final HdfsConfig hdfsConfig;
+  private final DirectoryPartitioner directoryPartitioner;
+  private final String stagingDirectory; // directory that contains the partition description
+  private final HdfsReaderFactory.ReaderType readerType;
 
   public HdfsSystemAdmin(String systemName, Config config) {
     hdfsConfig = new HdfsConfig(config);

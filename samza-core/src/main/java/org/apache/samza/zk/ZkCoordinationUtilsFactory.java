@@ -20,7 +20,6 @@ package org.apache.samza.zk;
 
 import com.google.common.base.Strings;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.serialize.SerializableSerializer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
@@ -56,7 +55,7 @@ public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
   public static ZkClient createZkClient(String connectString, int sessionTimeoutMS, int connectionTimeoutMs) {
     ZkClient zkClient;
     try {
-      zkClient = new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs, new SerializableSerializer(), connectionTimeoutMs);
+      zkClient = new ZkClient(connectString, sessionTimeoutMS, connectionTimeoutMs, new ZkStringSerializer(), connectionTimeoutMs);
     } catch (Exception e) {
       // ZkClient constructor may throw a variety of different exceptions, not all of them Zk based.
       throw new SamzaException("zkClient failed to connect to ZK at :" + connectString, e);
@@ -88,4 +87,5 @@ public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
       throw new SamzaException("Zookeeper namespace: " + path + " does not exist for zk at " + zkConnect);
     }
   }
+
 }
