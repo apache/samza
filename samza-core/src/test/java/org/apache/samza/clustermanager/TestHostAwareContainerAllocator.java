@@ -49,10 +49,12 @@ import static org.mockito.Mockito.when;
 
 public class TestHostAwareContainerAllocator {
 
-  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
-  private final JobModelManager reader = initializeJobModelManager(config, 1);
+  private final JobModelManager jobModelManager = initializeJobModelManager(config, 1);
+  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+  private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
+
+  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
   private JobModelManager initializeJobModelManager(Config config, int containerCount) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
@@ -66,7 +68,6 @@ public class TestHostAwareContainerAllocator {
         new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
   }
 
-  private final SamzaApplicationState state = new SamzaApplicationState(reader);
   private HostAwareContainerAllocator containerAllocator;
   private final int timeoutMillis = 1000;
   private MockContainerRequestState requestState;
@@ -414,7 +415,7 @@ public class TestHostAwareContainerAllocator {
 
   @After
   public void teardown() throws Exception {
-    reader.stop();
+    jobModelManager.stop();
     containerAllocator.stop();
   }
 

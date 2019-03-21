@@ -29,7 +29,7 @@ import static org.junit.Assert.assertTrue;
 public class TestContainerRequestState {
 
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
+  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, new SamzaApplicationState(null));
 
   private static final String ANY_HOST = ResourceRequestState.ANY_HOST;
 

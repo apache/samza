@@ -16,17 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.zk;
 
-package org.apache.samza.clustermanager;
+import org.junit.Assert;
+import org.junit.Test;
 
-/**
- * Mock {@link ResourceManagerFactory} used in unit tests
- */
-public class MockClusterResourceManagerFactory implements ResourceManagerFactory {
 
-  @Override
-  public ClusterResourceManager getClusterResourceManager(ClusterResourceManager.Callback callback,
-      SamzaApplicationState state) {
-    return new MockClusterResourceManager(callback, state);
+public class TestZkStringSerializer {
+
+  @Test
+  public void testStringSerialization() throws Exception {
+    ZkStringSerializer serde = new ZkStringSerializer();
+    Assert.assertEquals(null, serde.serialize(null));
+    Assert.assertEquals(null, serde.deserialize(null));
+
+    String fooBar = "37";
+    byte[] fooBarBytes = serde.serialize(fooBar);
+    Assert.assertArrayEquals(fooBar.getBytes("UTF-8"), fooBarBytes);
+    Assert.assertEquals(fooBar, serde.deserialize(fooBarBytes));
   }
 }

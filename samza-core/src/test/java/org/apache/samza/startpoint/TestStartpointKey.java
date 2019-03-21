@@ -18,15 +18,19 @@
  */
 package org.apache.samza.startpoint;
 
+import java.io.IOException;
+import java.util.LinkedHashMap;
 import org.apache.samza.Partition;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
 
 public class TestStartpointKey {
+
   @Test
   public void testStartpointKey() {
     SystemStreamPartition ssp1 = new SystemStreamPartition("system", "stream", new Partition(2));
@@ -60,5 +64,20 @@ public class TestStartpointKey {
     Assert.assertNotEquals(startpointKeyWithTask1, startpointKeyWithDifferentTask);
     Assert.assertNotEquals(new String(new JsonSerdeV2<>().toBytes(startpointKeyWithTask1)),
         new String(new JsonSerdeV2<>().toBytes(startpointKeyWithDifferentTask)));
+  }
+
+  @Test
+  public void testStartpointKeyFormat() throws IOException {
+    SystemStreamPartition ssp = new SystemStreamPartition("system1", "stream1", new Partition(2));
+    StartpointKey startpointKeyWithTask = new StartpointKey(ssp, new TaskName("t1"));
+    ObjectMapper objectMapper = new ObjectMapper();
+    byte[] jsonBytes = new JsonSerdeV2<>().toBytes(startpointKeyWithTask);
+    LinkedHashMap<String, String> deserialized = objectMapper.readValue(jsonBytes, LinkedHashMap.class);
+
+    Assert.assertEquals(4, deserialized.size());
+    Assert.assertEquals("system1", deserialized.get("system"));
+    Assert.assertEquals("stream1", deserialized.get("stream"));
+    Assert.assertEquals(2, deserialized.get("partition"));
+    Assert.assertEquals("t1", deserialized.get("taskName"));
   }
 }

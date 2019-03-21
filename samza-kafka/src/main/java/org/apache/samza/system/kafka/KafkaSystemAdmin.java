@@ -235,9 +235,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
               List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
               LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
 
-              partitionInfos.forEach(partitionInfo -> {
-                partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm);
-              });
+              partitionInfos.forEach(partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
 
               allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
             });
@@ -361,9 +359,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
           }
         };
 
-    Map<String, SystemStreamMetadata> result =
-        retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
-    return result;
+    return retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
   }
 
   /**
@@ -392,9 +388,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<TopicPartition, Long> upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
     LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
 
-    oldestOffsetsWithLong.forEach((topicPartition, offset) -> {
-      oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
-    });
+    oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
 
     upcomingOffsetsWithLong.forEach((topicPartition, offset) -> {
       upcomingOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
@@ -472,7 +466,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
 
     // specify the configs
-    Map<String, String> streamConfig = new HashMap(streamSpec.getConfig());
+    Map<String, String> streamConfig = new HashMap<>(streamSpec.getConfig());
     // HACK - replication.factor is invalid config for AdminClient.createTopics
     if (streamConfig.containsKey(REPL_FACTOR)) {
       String repl = streamConfig.get(REPL_FACTOR);
@@ -522,7 +516,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
   }
 
   /**
-   * Converts a StreamSpec into a KafakStreamSpec. Special handling for coordinator and changelog stream.
+   * Converts a StreamSpec into a KafkaStreamSpec. Special handling for coordinator and changelog stream.
    * @param spec a StreamSpec object
    * @return KafkaStreamSpec object
    */
@@ -576,7 +570,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   // get partition info for topic
   Map<String, List<PartitionInfo>> getTopicMetadata(Set<String> topics) {
-    Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap();
+    Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap<>();
     List<PartitionInfo> partitionInfoList;
     for (String topic : topics) {
       partitionInfoList = metadataConsumer.partitionsFor(topic);

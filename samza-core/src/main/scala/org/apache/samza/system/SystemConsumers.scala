@@ -63,6 +63,11 @@ class SystemConsumers (
   consumers: Map[String, SystemConsumer],
 
   /**
+   * Provides a mapping from system name to a {@see SystemAdmin}.
+   */
+  systemAdmins: SystemAdmins,
+
+  /**
    * The class that handles deserialization of incoming messages.
    */
   serdeManager: SerdeManager = new SerdeManager,
@@ -111,6 +116,11 @@ class SystemConsumers (
   val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtil {
 
   /**
+   * Mapping from the {@see SystemStreamPartition} to the registered offsets.
+   */
+  private val sspToRegisteredOffsets = new HashMap[SystemStreamPartition, String]()
+
+  /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
    * messages are handed out to the MessageChooser as it needs them.
    */
@@ -154,6 +164,11 @@ class SystemConsumers (
   metrics.setUnprocessedMessages(() => totalUnprocessedMessages)
 
   def start {
+    for ((systemStreamPartition, offset) <- sspToRegisteredOffsets.asScala) {
+      val consumer = consumers(systemStreamPartition.getSystem)
+      consumer.register(systemStreamPartition, offset)
+    }
+
     debug("Starting consumers.")
     emptySystemStreamPartitionsBySystem.asScala ++= unprocessedMessagesBySSP
       .keySet
@@ -208,7 +223,11 @@ class SystemConsumers (
       if (startpoint != null) {
         consumer.register(systemStreamPartition, startpoint)
       } else {
-        consumer.register(systemStreamPartition, offset)
+        val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
+        val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+        if (existingOffset == null || systemAdmin.offsetComparator(existingOffset, offset) > 0) {
+          sspToRegisteredOffsets.put(systemStreamPartition, offset)
+        }
       }
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)
