@@ -22,7 +22,6 @@
 package org.apache.samza.util
 
 import java.util
-import java.util.function.Predicate
 import java.util.{Optional, function}
 
 import scala.collection.JavaConverters
@@ -62,12 +61,6 @@ object ScalaJavaUtil {
   def toJavaFunction[T, R](scalaFunction: Function1[T, R]): java.util.function.Function[T, R] = {
     new function.Function[T, R] {
       override def apply(t: T): R = scalaFunction.apply(t)
-    }
-  }
-
-  def toJavaPredicate[T](scalaFunction: Function[T, Boolean]): java.util.function.Predicate[T] = {
-    new function.Predicate[T] {
-      override def test(t: T): Boolean = scalaFunction.apply(t)
     }
   }
 
