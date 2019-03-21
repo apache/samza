@@ -18,7 +18,6 @@
  */
 package org.apache.samza.test.framework;
 
-import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,15 +26,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import kafka.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.security.auth.SecurityProtocol;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
@@ -43,9 +38,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
-import org.apache.samza.system.kafka.KafkaSystemAdmin;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
-import scala.Option$;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 
 /**
  * Harness for writing integration tests for {@link SamzaApplication}s.
@@ -96,60 +89,10 @@ import scala.Option$;
  *   }
  * }}</pre>
  */
-public class StreamApplicationIntegrationTestHarness extends AbstractIntegrationTestHarness {
-  private KafkaProducer producer;
-  private KafkaConsumer consumer;
-  protected KafkaSystemAdmin systemAdmin;
-
-  private int numEmptyPolls = 3;
+public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarness {
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
-  private static final String DEFAULT_DESERIALIZER = "org.apache.kafka.common.serialization.StringDeserializer";
-
-  /**
-   * Starts a single kafka broker, and a single embedded zookeeper server in their own threads.
-   * Sub-classes should invoke {@link #zkConnect()} and {@link #bootstrapUrl()}s to
-   * obtain the urls (and ports) of the started zookeeper and kafka broker.
-   */
-  @Override
-  public void setUp() {
-    super.setUp();
-
-    Properties consumerDeserializerProperties = new Properties();
-    consumerDeserializerProperties.setProperty("key.deserializer", DEFAULT_DESERIALIZER);
-    consumerDeserializerProperties.setProperty("value.deserializer", DEFAULT_DESERIALIZER);
-
-    producer = TestUtils.createProducer(
-        bootstrapServers(), // bootstrap-server url
-        1, // acks
-        60 * 1000L, // maxBlockMs
-        1024L * 1024L, // buffer size
-        0, // numRetries
-        0L, // lingerMs
-        5 * 1000L, // requestTimeout
-        SecurityProtocol.PLAINTEXT,
-        null,
-        Option$.MODULE$.<Properties>apply(new Properties()),
-        new StringSerializer(),
-        new StringSerializer(),
-        Option$.MODULE$.<Properties>apply(new Properties()));
-
-    consumer = TestUtils.createConsumer(
-        bootstrapServers(),
-        "group", // groupId
-        "earliest", // auto-offset-reset
-        4096L, // per-partition fetch size
-        "org.apache.kafka.clients.consumer.RangeAssignor", // partition Assigner
-        30000,
-        SecurityProtocol.PLAINTEXT,
-        Option$.MODULE$.<File>empty(),
-        Option$.MODULE$.<Properties>empty(),
-        new StringDeserializer(),
-        new StringDeserializer(),
-        Option$.MODULE$.<Properties>apply(consumerDeserializerProperties));
-
-    systemAdmin = createSystemAdmin("kafka");
-    systemAdmin.start();
-  }
+  private static final int DEFAULT_REPLICATION_FACTOR = 1;
+  private int numEmptyPolls = 3;
 
   /**
    * Creates a kafka topic with the provided name and the number of partitions
@@ -157,7 +100,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param numPartitions the number of partitions in the topic
    */
   public void createTopic(String topicName, int numPartitions) {
-    TestUtils.createTopic(kafkaZkClient(), topicName, numPartitions, 1, servers(), new Properties());
+    createTopic(topicName, numPartitions, DEFAULT_REPLICATION_FACTOR);
   }
 
   /**
@@ -168,7 +111,7 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
    * @param val the value in the message
    */
   public void produceMessage(String topicName, int partitionId, String key, String val) {
-    producer.send(new ProducerRecord(topicName, partitionId, key, val));
+    producer.send(new ProducerRecord<>(topicName, partitionId, key, val));
     producer.flush();
   }
 
@@ -264,17 +207,6 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
   }
 
   /**
-   * Shutdown and clear Zookeeper and Kafka broker state.
-   */
-  @Override
-  public void tearDown() {
-    systemAdmin.stop();
-    producer.close();
-    consumer.close();
-    super.tearDown();
-  }
-
-  /**
    * Container for any necessary context created during runApplication. Allows tests to access objects created within
    * runApplication in order to do verification.
    */
@@ -294,5 +226,21 @@ public class StreamApplicationIntegrationTestHarness extends AbstractIntegration
     public Config getConfig() {
       return this.config;
     }
+  }
+
+  @Override
+  protected KafkaProducer createProducer() {
+    Properties kafkaConfig = new Properties();
+    kafkaConfig.setProperty("bootstrap.servers", bootstrapServers());
+    return new KafkaProducer<>(kafkaConfig, STRING_SERIALIZER, STRING_SERIALIZER);
+  }
+
+  @Override
+  protected KafkaConsumer createConsumer() {
+    Properties consumerProps = new Properties();
+    consumerProps.setProperty("bootstrap.servers", bootstrapServers());
+    consumerProps.setProperty("group.id", "group");
+    consumerProps.setProperty("auto.offset.reset", "earliest");
+    return new KafkaConsumer<>(consumerProps, STRING_DESERIALIZER, STRING_DESERIALIZER);
   }
 }

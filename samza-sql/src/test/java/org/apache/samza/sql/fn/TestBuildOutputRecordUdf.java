@@ -83,7 +83,7 @@ public class TestBuildOutputRecordUdf {
   @Test(expected = NullPointerException.class)
   public void testNullArgs() {
     BuildOutputRecordUdf buildOutputRecordUdf = new BuildOutputRecordUdf();
-    buildOutputRecordUdf.execute(Collections.emptySet());
+    buildOutputRecordUdf.execute(null);
   }
 
   @Test(expected = IllegalArgumentException.class)

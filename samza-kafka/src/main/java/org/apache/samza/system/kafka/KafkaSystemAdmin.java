@@ -536,7 +536,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       }
 
       kafkaSpec = new KafkaStreamSpec(spec.getId(), topicName, systemName, spec.getPartitionCount(),
-          topicMeta.replicationFactor, topicMeta.kafkaProperties);
+          topicMeta.getReplicationFactor(), topicMeta.getKafkaProperties());
     } else if (spec.isCoordinatorStream()) {
       kafkaSpec =
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
@@ -749,8 +749,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
    * A helper class for represent changelog related information.
    */
   private static class ChangelogInfo {
-    int replicationFactor;
-    Properties kafkaProperties;
+    final int replicationFactor;
+    final Properties kafkaProperties;
 
     /**
      * @param replicationFactor The number of replicas for the changelog stream
@@ -759,6 +759,14 @@ public class KafkaSystemAdmin implements SystemAdmin {
     ChangelogInfo(int replicationFactor, Properties kafkaProperties) {
       this.replicationFactor = replicationFactor;
       this.kafkaProperties = kafkaProperties;
+    }
+
+    public int getReplicationFactor() {
+      return replicationFactor;
+    }
+
+    public Properties getKafkaProperties() {
+      return kafkaProperties;
     }
   }
 }

@@ -295,7 +295,6 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
         .put(new SystemStreamPartition(SYSTEM, "stream2", new Partition(1)), "o4")
         .build();
 
-
     Map<SystemStreamPartition, String> newestOffsets = new ImmutableMap.Builder<SystemStreamPartition, String>()
         .put(new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)), "n1")
         .put(new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)), "n2")

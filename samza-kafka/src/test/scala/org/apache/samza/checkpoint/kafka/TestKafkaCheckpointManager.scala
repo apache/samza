@@ -21,14 +21,9 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
-import kafka.admin.AdminUtils
 import kafka.integration.KafkaServerTestHarness
-import kafka.server.ConfigType
 import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import com.google.common.collect.ImmutableMap
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.security.JaasUtils
-import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
@@ -92,6 +87,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     checkPointManager.register(taskName)
     checkPointManager.start
     checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    checkPointManager.stop()
 
     // Verifications after the test
 
@@ -128,7 +124,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
-  @Test(expected = classOf[SamzaException])
+  @Test
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -146,9 +142,16 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
     checkPointManager.MaxRetryDurationInMillis = 1
 
-    checkPointManager.register(taskName)
-    checkPointManager.start
-    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    try {
+      checkPointManager.register(taskName)
+      checkPointManager.start
+      checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    } catch {
+      case _: SamzaException => info("Got SamzaException as expected.")
+      case unexpectedException: Throwable => fail("Expected SamzaException but got %s" format unexpectedException)
+    } finally {
+      checkPointManager.stop()
+    }
   }
 
   @Test
@@ -233,8 +236,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.stop
   }
 
-  private def createTopic(cpTopic: String, partNum: Int, props: Properties) : scala.collection.immutable.Map[scala.Int, scala.Int] = {
-    createTopic(cpTopic, partNum, 1, props)
+  private def createTopic(cpTopic: String, partNum: Int, props: Properties) {
+    adminZkClient.createTopic(cpTopic, partNum, 1, props)
   }
 
 }

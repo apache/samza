@@ -22,13 +22,15 @@
 package org.apache.samza.system.kafka
 
 import java.time.Duration
+import java.util.Collections
+import java.util.concurrent.TimeUnit
 
 import com.google.common.collect.ImmutableSet
 import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
-import org.apache.kafka.clients.admin.{AdminClient}
-import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
+import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
@@ -89,39 +91,37 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
   @AfterClass
   override def tearDown() {
+    adminClient.close()
     systemAdmin.stop()
     producer.close()
     super.tearDown()
   }
 
   def createTopic(topicName: String, partitionCount: Int) {
-    createTopic(topicName, partitionCount, REPLICATION_FACTOR)
+    val topicCreationFutures = adminClient.createTopics(Collections.singletonList(new NewTopic(topicName, partitionCount, REPLICATION_FACTOR.shortValue())))
+    topicCreationFutures.all().get() // wait on the future to make sure create topic call finishes
   }
 
   def validateTopic(topic: String, expectedPartitionCount: Int) {
     var done = false
     var retries = 0
 
-    while (!done && retries < 100) {
+    while (!done && retries < 10) {
       try {
-          if (!zkClient.topicExists(topic)) {
-            System.err.println("Test topic %s not found. Waiting and retrying." format topic)
-            retries += 1
-            Thread.sleep(500)
-          }
-
-          val topicDescription =
-            adminClient.describeTopics(JavaConverters.asJavaCollectionConverter(Set(topic)).asJavaCollection)
-              .all().get().get(topic)
+        val topicDescriptionFutures = adminClient.describeTopics(
+            JavaConverters.asJavaCollectionConverter(Set(topic)).asJavaCollection).all()
+        val topicDescription = topicDescriptionFutures.get(500, TimeUnit.MILLISECONDS)
+            .get(topic)
 
         done = expectedPartitionCount == topicDescription.partitions().size()
+        retries += 1
       } catch {
         case e: Exception =>
           System.err.println("Interrupted during validating test topics", e)
       }
     }
 
-    if (retries >= 100) {
+    if (retries >= 10) {
       fail("Unable to successfully create topics. Tried to validate %s times." format retries)
     }
   }
@@ -129,9 +129,11 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
   def getKafkaConsumer(): KafkaConsumer[Any, Any] = {
     val props = new java.util.Properties
 
-    props.put("zookeeper.connect", zkConnect)
+    props.put("bootstrap.servers", brokerList)
     props.put("group.id", "test")
-    props.put("auto.offset.reset", "smallest")
+    props.put("auto.offset.reset", "earliest")
+    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
 
     new KafkaConsumer[Any, Any](props)
   }
@@ -165,9 +167,11 @@ class TestKafkaSystemAdmin {
 
   @Test
   def testShouldGetOldestNewestAndNextOffsets {
-    // Create an empty topic with 50 partitions, but with no offsets.
-    createTopic(TOPIC, 50)
-    validateTopic(TOPIC, 50)
+    // Reduced the partition count to 25 instead of 50 to prevent tests from failing. In the current setup,
+    // embedded Kafka brings up 3 brokers for test and replication fetcher runs into issue with higher number partition.
+    // Create an empty topic with 25 partitions, but with no offsets.
+    createTopic(TOPIC, 25)
+    validateTopic(TOPIC, 25)
 
     // Verify the empty topic behaves as expected.
     var metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC).asJava)
@@ -175,7 +179,7 @@ class TestKafkaSystemAdmin {
     assertNotNull(metadata.get(TOPIC))
     // Verify partition count.
     var sspMetadata = metadata.get(TOPIC).getSystemStreamPartitionMetadata
-    assertEquals(50, sspMetadata.size)
+    assertEquals(25, sspMetadata.size)
     // Empty topics should have null for latest offset and 0 for earliest offset
     assertEquals("0", sspMetadata.get(new Partition(0)).getOldestOffset)
     assertNull(sspMetadata.get(new Partition(0)).getNewestOffset)
@@ -184,50 +188,50 @@ class TestKafkaSystemAdmin {
 
     // Add a new message to one of the partitions, and verify that it works as
     // expected.
-    producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val1".getBytes)).get()
+    producer.send(new ProducerRecord(TOPIC, 24, "key1".getBytes, "val1".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC).asJava)
     assertEquals(1, metadata.size)
     val streamName = metadata.keySet.asScala.head
     assertEquals(TOPIC, streamName)
     sspMetadata = metadata.get(streamName).getSystemStreamPartitionMetadata
     // key1 gets hash-mod'd to partition 48.
-    assertEquals("0", sspMetadata.get(new Partition(48)).getOldestOffset)
-    assertEquals("0", sspMetadata.get(new Partition(48)).getNewestOffset)
-    assertEquals("1", sspMetadata.get(new Partition(48)).getUpcomingOffset)
+    assertEquals("0", sspMetadata.get(new Partition(24)).getOldestOffset)
+    assertEquals("0", sspMetadata.get(new Partition(24)).getNewestOffset)
+    assertEquals("1", sspMetadata.get(new Partition(24)).getUpcomingOffset)
     // Some other partition should be empty.
     assertEquals("0", sspMetadata.get(new Partition(3)).getOldestOffset)
     assertNull(sspMetadata.get(new Partition(3)).getNewestOffset)
     assertEquals("0", sspMetadata.get(new Partition(3)).getUpcomingOffset)
 
     // Add a second message to one of the same partition.
-    producer.send(new ProducerRecord(TOPIC, 48, "key1".getBytes, "val2".getBytes)).get()
+    producer.send(new ProducerRecord(TOPIC, 24, "key1".getBytes, "val2".getBytes)).get()
     metadata = systemAdmin.getSystemStreamMetadata(Set(TOPIC).asJava)
     assertEquals(1, metadata.size)
     assertEquals(TOPIC, streamName)
     sspMetadata = metadata.get(streamName).getSystemStreamPartitionMetadata
     // key1 gets hash-mod'd to partition 48.
-    assertEquals("0", sspMetadata.get(new Partition(48)).getOldestOffset)
-    assertEquals("1", sspMetadata.get(new Partition(48)).getNewestOffset)
-    assertEquals("2", sspMetadata.get(new Partition(48)).getUpcomingOffset)
+    assertEquals("0", sspMetadata.get(new Partition(24)).getOldestOffset)
+    assertEquals("1", sspMetadata.get(new Partition(24)).getNewestOffset)
+    assertEquals("2", sspMetadata.get(new Partition(24)).getUpcomingOffset)
 
     // Validate that a fetch will return the message.
     val consumer = getKafkaConsumer
     consumer.subscribe(JavaConverters.setAsJavaSetConverter(Set(TOPIC)).asJava)
-    val records = consumer.poll(Duration.ofMillis(1000))
+    val records = consumer.poll(Duration.ofMillis(10000))
     consumer.close()
 
-    assertTrue(records.count() > 2)
+    assertTrue(records.count() == 2)
     val stream = records.iterator()
     var message = stream.next()
 
     var text = new String(message.value().asInstanceOf[Array[Byte]], "UTF-8")
     // First message should match the earliest expected offset.
-    assertEquals(sspMetadata.get(new Partition(48)).getOldestOffset, message.offset.toString)
+    assertEquals(sspMetadata.get(new Partition(24)).getOldestOffset, message.offset.toString)
     assertEquals("val1", text)
     // Second message should match the earliest expected offset.
     message = stream.next()
     text = new String(message.value().asInstanceOf[Array[Byte]], "UTF-8")
-    assertEquals(sspMetadata.get(new Partition(48)).getNewestOffset, message.offset.toString)
+    assertEquals(sspMetadata.get(new Partition(24)).getNewestOffset, message.offset.toString)
     assertEquals("val2", text)
   }
 
@@ -289,6 +293,5 @@ class TestKafkaSystemAdmin {
     assertEquals("0", producer.send(new ProducerRecord(TOPIC2, 13, "key4".getBytes, "val4".getBytes)).get().offset().toString)
     assertEquals("2", systemAdmin.getSSPMetadata(ImmutableSet.of(sspUnderTest)).get(sspUnderTest).getNewestOffset)
     assertEquals("0", systemAdmin.getSSPMetadata(ImmutableSet.of(otherSsp)).get(otherSsp).getNewestOffset)
-
   }
 }

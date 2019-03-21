@@ -49,8 +49,8 @@ import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.junit.Assert;
 import org.junit.Test;
 import scala.Option$;
@@ -61,7 +61,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 
 
-public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
+public class TestStreamProcessor extends IntegrationTestHarness {
 
   public static final String PROCESSOR_ID = "1";
 
