@@ -232,7 +232,7 @@ object JobModelManager extends Logging {
 
     for (container <- jobModel.getContainers.values()) {
       for ((taskName, taskModel) <- container.getTasks) {
-        info ("Storing ssp: %s and task: %s into metadata store" format(taskName.getTaskName, container.getId))
+        info ("Storing task: %s and container ID: %s into metadata store" format(taskName.getTaskName, container.getId))
         taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, container.getTasks.get(taskName).getTaskMode)
         for (partition <- taskModel.getSystemStreamPartitions) {
           if (!sspToTaskNameMap.containsKey(partition)) {
