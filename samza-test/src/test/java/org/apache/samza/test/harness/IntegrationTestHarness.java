@@ -54,17 +54,16 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
 
 
 public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
+  private static final ByteArraySerializer BYTE_ARRAY_SERIALIZER = new ByteArraySerializer();
+  private static final ByteArrayDeserializer BYTE_ARRAY_DESERIALIZER = new ByteArrayDeserializer();
+
   protected static final Serializer<String> STRING_SERIALIZER = new StringSerializer();
   protected static final Deserializer<String> STRING_DESERIALIZER = new StringDeserializer();
-  protected static final ByteArraySerializer BYTE_ARRAY_SERIALIZER = new ByteArraySerializer();
-  protected static final ByteArrayDeserializer BYTE_ARRAY_DESERIALIZER = new ByteArrayDeserializer();
 
-
-  protected AdminClient adminClient;
+  private AdminClient adminClient;
   protected KafkaConsumer consumer;
   protected KafkaProducer producer;
   protected KafkaSystemAdmin systemAdmin;
-
 
   /**
    * Starts a single kafka broker, and a single embedded zookeeper server in their own threads.
@@ -91,9 +90,13 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
   @Override
   public void tearDown() {
     systemAdmin.stop();
-    // Close joins on AdminClientRunnable thread and at times takes longer than the configured test timeouts resulting
-    // in test failures. Forcefully closing the adminClient should notify AdminClientRunnable thread which in turn
-    // closes the underlying client quietly
+
+   /*
+    * Close joins on AdminClientRunnable thread and at times, it takes longer than the test timeouts, resulting
+    * in test failures. Using a bounded close ensures tests passes successfully. Note, in the event of timeout,
+    * close notifies AdminClientRunnable thread which in turn closes the underlying client quietly and
+    * it shouldn't impact the tests nor have any side effects.
+    */
     adminClient.close(10000, TimeUnit.MILLISECONDS);
     consumer.close();
     producer.close();
@@ -105,23 +108,8 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
    *
    * @return bootstrap servers string.
    */
-  public String bootstrapServers() {
+  protected String bootstrapServers() {
     return bootstrapUrl();
-  }
-
-  public KafkaSystemAdmin createSystemAdmin(String system) {
-    String kafkaConsumerPropertyPrefix = "systems." + system + ".consumer.";
-
-    Map<String, String> map = new HashMap<>();
-    map.put(kafkaConsumerPropertyPrefix + BOOTSTRAP_SERVERS_CONFIG, brokerList());
-    map.put(JobConfig.JOB_NAME(), "test.job");
-    map.put(kafkaConsumerPropertyPrefix + KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect());
-
-    Config config = new MapConfig(map);
-    HashMap<String, Object> consumerConfig =
-        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, KafkaConsumerConfig.createClientId("kafka-admin-consumer", config));
-
-    return new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig));
   }
 
   protected KafkaProducer createProducer() {
@@ -185,5 +173,20 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
      * like the application descriptor may not be available.
      */
     return Optional.empty();
+  }
+
+  private KafkaSystemAdmin createSystemAdmin(String system) {
+    String kafkaConsumerPropertyPrefix = "systems." + system + ".consumer.";
+
+    Map<String, String> map = new HashMap<>();
+    map.put(kafkaConsumerPropertyPrefix + BOOTSTRAP_SERVERS_CONFIG, brokerList());
+    map.put(JobConfig.JOB_NAME(), "test.job");
+    map.put(kafkaConsumerPropertyPrefix + KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect());
+
+    Config config = new MapConfig(map);
+    HashMap<String, Object> consumerConfig =
+        KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, system, KafkaConsumerConfig.createClientId("kafka-admin-consumer", config));
+
+    return new KafkaSystemAdmin(system, new MapConfig(map), KafkaSystemConsumer.createKafkaConsumerImpl(system, consumerConfig));
   }
 }
