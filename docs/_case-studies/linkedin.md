@@ -31,7 +31,7 @@ How LinkedIn built Air Traffic Controller, a stateful stream processing system t
 
 LinkedIn is a professional networking company that offers various services and platform for job seekers, employers and sales professionals. With a growing user base and multiple product offerings, it becomes imperative to streamline communications to members. To ensure member experience comes first, LinkedIn developed a new email and notifications platform called *Air Traffic Controller (ATC)*.
 
-ATC is designed to be an intelligent platform that tracks all outgoing communications and delivers the communication through the right channe to the right member at the right time.
+ATC is designed to be an intelligent platform that tracks all outgoing communications and delivers the communication through the right channel to the right member at the right time.
 
 <img src="/img/{{site.version}}/case-studies/linkedin-atc-samza-pipeline.png" alt="architecture" style="max-width: 80%; height: auto;" onclick="window.open(this.src)"/>
 
