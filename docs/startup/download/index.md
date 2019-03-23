@@ -31,6 +31,7 @@ Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this 
  
  Samza tools package contains command line tools that user can run to use Samza and it's input/output systems. 
  
+ * [samza-tools_2.11-1.1.0.tgz](http://www-us.apache.org/dist/samza/1.1.0/samza-tools_2.11-1.1.0.tgz)
  * [samza-tools-1.0.0.tgz](http://www-us.apache.org/dist/samza/1.0.0/samza-tools-1.0.0.tgz)
  * [samza-tools-0.14.1.tgz](http://www-us.apache.org/dist/samza/0.14.1/samza-tools-0.14.1.tgz)
 
