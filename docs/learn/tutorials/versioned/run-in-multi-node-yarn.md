@@ -153,7 +153,7 @@ yarn.package.path=http://yourHostname:8000/target/hello-samza-1.0.0-dist.tar.gz
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.0.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.1.0-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 4\. Deploy Samza job package to Http server..
