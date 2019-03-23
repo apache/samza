@@ -54,9 +54,10 @@ Today Samza forms the backbone of hundreds of real-time production applications 
 
 ###  **New Features, Upgrades and Bug Fixes:**
 This release brings the following features, upgrades, and capabilities:
-  * We have created a new Samza Stream 
-  Processing [video series](https://www.youtube.com/playlist?list=PLZDyxA22zzGyNgtBMUIXAgIaO5Ok3PR-x) 
+
+  * We have created a new Samza Stream Processing [video series](https://www.youtube.com/playlist?list=PLZDyxA22zzGyNgtBMUIXAgIaO5Ok3PR-x) 
    on Youtube
+
   * New and improved documentation, 
     code snippets, and examples for using the latest version of 
     Samza with Apache Beam (Code samples are here: [https://github.com/apache/samza-beam-examples](https://github.com/apache/samza-beam-examples))
