@@ -51,7 +51,7 @@ Today Samza forms the backbone of hundreds of real-time production applications 
 
 * Features like canaries, upgrades and rollbacks that support extremely large deployments with minimal downtime.
 
-###  **New Features, Upgrades and Bug Fixes:**
+###  **New Features, Upgrades and Bug Fixes**
 This release brings the following features, upgrades, and capabilities:
 
   * We have created a new Samza Stream Processing [video series](https://www.youtube.com/playlist?list=PLZDyxA22zzGyNgtBMUIXAgIaO5Ok3PR-x) 
@@ -61,7 +61,7 @@ This release brings the following features, upgrades, and capabilities:
     code snippets, and examples for using the latest version of 
     Samza with Apache Beam (Code samples are here: [https://github.com/apache/samza-beam-examples](https://github.com/apache/samza-beam-examples))
 
-### **API enhancements and simplifications:**
+### **API enhancements and simplifications**
 
 [SAMZA-1981](https://issues.apache.org/jira/browse/SAMZA-1981): Consolidate table descriptors to samza-api.
 
@@ -81,17 +81,17 @@ This release brings the following features, upgrades, and capabilities:
 
 [SAMZA-2106](https://issues.apache.org/jira/browse/SAMZA-2106): Samza App & Job Config Refactor.
 
-### **State Store Restoration:**
+### **State Store Restoration**
 
 [SAMZA-2018](https://issues.apache.org/jira/browse/SAMZA-2018): State restore improvements using RocksDB writebatch API.
 
-### **Standalone Improvements:**
+### **Standalone Improvements**
 
 [SAMZA-1973](https://issues.apache.org/jira/browse/SAMZA-1973): Unify the TaskNameGrouper interface for yarn and standalone.
 
 [SAMZA-1952](https://issues.apache.org/jira/browse/SAMZA-1952): StreamPartitionCountMonitor for standalone.
 
-### **Other Upgrades and Bug-fixes:**
+### **Other Upgrades and Bug-fixes**
 
 [SAMZA-1638](https://issues.apache.org/jira/browse/SAMZA-1638): Recreate SystemProducer on KafkaCheckpointManager.writeCheckpoint failure.
 
