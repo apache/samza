@@ -27,6 +27,7 @@ import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
+import org.apache.samza.startpoint.{StartpointManager, StartpointSpecific}
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
@@ -259,42 +260,24 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testInitCaughtUpMapping() {
-    val offsetManagerMock = mock[OffsetManager]
-    when(offsetManagerMock.getStartingOffset(anyObject(), anyObject())).thenReturn(Option("42"))
-    val cacheMock = mock[StreamMetadataCache]
-    val systemStreamMetadata = mock[SystemStreamMetadata]
-    when(cacheMock.getSystemStreamMetadata(anyObject(), anyBoolean()))
-      .thenReturn(systemStreamMetadata)
-    val sspMetadata = mock[SystemStreamMetadata.SystemStreamPartitionMetadata]
-    when(sspMetadata.getUpcomingOffset).thenReturn("42")
-    when(systemStreamMetadata.getSystemStreamPartitionMetadata)
-      .thenReturn(Collections.singletonMap(new Partition(0), sspMetadata))
-
     val ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
-
-    val taskInstance = new TaskInstance(this.task,
-      this.taskModel,
-      this.metrics,
-      this.systemAdmins,
-      this.consumerMultiplexer,
-      this.collector,
-      offsetManager = offsetManagerMock,
-      storageManager = this.taskStorageManager,
-      tableManager = this.taskTableManager,
-      systemStreamPartitions = Set(ssp),
-      exceptionHandler = this.taskInstanceExceptionHandler,
-      streamMetadataCache = cacheMock,
-      jobContext = this.jobContext,
-      containerContext = this.containerContext,
-      applicationContainerContextOption = Some(this.applicationContainerContext),
-      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory),
-      externalContextOption = Some(this.externalContext))
+    val taskInstance = setupTaskInstanceForCaughtUpMappingTests(ssp, "42", "42")
 
     taskInstance.initCaughtUpMapping()
 
     assertTrue(taskInstance.ssp2CaughtupMapping(ssp))
   }
 
+  @Test
+  def testInitCaughtUpMappingForStartpoints() {
+    val ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val taskInstance = setupTaskInstanceForCaughtUpMappingTests(ssp, "1", "42")
+    when(taskInstance.offsetManager.getStartpoint(anyObject(), anyObject())).thenReturn(Option(new StartpointSpecific("22")))
+
+    taskInstance.initCaughtUpMapping()
+
+    assertTrue(taskInstance.ssp2CaughtupMapping(ssp))
+  }
 
   private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {
@@ -314,6 +297,39 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       applicationContainerContextOption = Some(this.applicationContainerContext),
       applicationTaskContextFactoryOption = applicationTaskContextFactory,
       externalContextOption = Some(this.externalContext))
+  }
+
+  private def setupTaskInstanceForCaughtUpMappingTests(ssp: SystemStreamPartition, startingOffset: String, upcomingOffset: String): TaskInstance = {
+    val offsetManagerMock = mock[OffsetManager]
+    when(offsetManagerMock.getStartingOffset(anyObject(), anyObject())).thenReturn(Option(startingOffset))
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamMetadata = mock[SystemStreamMetadata]
+    when(cacheMock.getSystemStreamMetadata(anyObject(), anyBoolean()))
+      .thenReturn(systemStreamMetadata)
+    val sspMetadata = mock[SystemStreamMetadata.SystemStreamPartitionMetadata]
+    when(sspMetadata.getUpcomingOffset).thenReturn(upcomingOffset)
+    when(systemStreamMetadata.getSystemStreamPartitionMetadata)
+      .thenReturn(Collections.singletonMap(new Partition(0), sspMetadata))
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel,
+      this.metrics,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.collector,
+      offsetManager = offsetManagerMock,
+      storageManager = this.taskStorageManager,
+      tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(ssp),
+      exceptionHandler = this.taskInstanceExceptionHandler,
+      streamMetadataCache = cacheMock,
+      jobContext = this.jobContext,
+      containerContext = this.containerContext,
+      applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory),
+      externalContextOption = Some(this.externalContext))
+
+    taskInstance
   }
 
   /**

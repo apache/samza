@@ -334,7 +334,8 @@ class TaskInstance(
         // Mark ssp to be caught up if the starting offset is already the
         // upcoming offset, meaning the task has consumed all the messages
         // in this partition before and waiting for the future incoming messages.
-        if(Objects.equals(upcomingOffset, startingOffset)) {
+        // Also mark ssp as caught up if starting offset is defined by a startpoint.
+        if (Objects.equals(upcomingOffset, startingOffset) || offsetManager.getStartpoint(taskName, ssp).isDefined) {
           ssp2CaughtupMapping(ssp) = true
         }
       })
