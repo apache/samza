@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -37,6 +38,10 @@ import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.test.harness.IntegrationTestHarness;
+
+import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
+import static org.apache.kafka.clients.producer.ProducerConfig.*;
+
 
 /**
  * Harness for writing integration tests for {@link SamzaApplication}s.
@@ -229,30 +234,30 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
   @Override
   protected Properties createProducerConfigs() {
     Properties producerProps = new Properties();
-    producerProps.setProperty("bootstrap.servers", bootstrapServers());
+    producerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
     /*
      * Stream application tests uses string serde for both key and value.
      * The default serde for the test producer in IntegrationTestHarness uses
      * byte serde for value and string for key.
      */
-    producerProps.setProperty("key.serializer", STRING_SERIALIZER);
-    producerProps.setProperty("value.serializer", STRING_SERIALIZER);
+    producerProps.setProperty(KEY_SERIALIZER_CLASS_CONFIG, STRING_SERIALIZER);
+    producerProps.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, STRING_SERIALIZER);
     return producerProps;
   }
 
   @Override
   protected Properties createConsumerConfigs() {
     Properties consumerProps = new Properties();
-    consumerProps.setProperty("bootstrap.servers", bootstrapServers());
+    consumerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
     /*
      * Stream application tests uses string serde for both key and value.
      * The default serde for the test producer in IntegrationTestHarness uses
      * byte serde for value and string for key.
      */
-    consumerProps.setProperty("key.deserializer", STRING_DESERIALIZER);
-    consumerProps.setProperty("value.deserializer", STRING_DESERIALIZER);
-    consumerProps.setProperty("group.id", "group");
-    consumerProps.setProperty("auto.offset.reset", "earliest");
+    consumerProps.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
+    consumerProps.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
+    consumerProps.setProperty(GROUP_ID_CONFIG, "group");
+    consumerProps.setProperty(AUTO_OFFSET_RESET_CONFIG, "earliest");
     return consumerProps;
   }
 }

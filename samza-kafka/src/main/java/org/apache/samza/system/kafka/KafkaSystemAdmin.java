@@ -45,6 +45,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -71,8 +72,6 @@ import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
-
-import static org.apache.samza.config.KafkaConsumerConfig.*;
 
 
 public class KafkaSystemAdmin implements SystemAdmin {
@@ -594,7 +593,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
           .collect(Collectors.toMap(entry ->
               new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
               entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
-      adminClient.deleteRecords(recordsToDelete);
+
+      adminClient.deleteRecords(recordsToDelete).all().whenComplete((ignored, exception) -> {
+        if (exception != null) {
+          LOG.error("Delete message failed for SSPs {} due to {}", offsets.keySet(), exception);
+        }
+      });
+
       deleteMessageCalled = true;
     }
   }
@@ -618,15 +623,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
           ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG + " is required for systemAdmin for system " + systemName);
     }
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
-
-    // kafka.admin.AdminUtils requires zkConnect
-    // this will change after we move to the new org.apache..AdminClient
-    String zkConnect =
-        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
-    if (StringUtils.isBlank(zkConnect)) {
-      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
-    }
-    props.put(ZOOKEEPER_CONNECT, zkConnect);
 
     return props;
   }
@@ -695,7 +691,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
           .collect(Collectors.toMap(Function.identity(), streamId -> {
             Properties properties = new Properties();
             properties.putAll(streamConfig.getStreamProperties(streamId));
-            properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH()));
+            properties.putIfAbsent(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH()));
             return properties;
           }));
     }
@@ -705,8 +701,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   private Properties getCoordinatorStreamProperties(KafkaConfig config) {
     Properties coordinatorStreamProperties = new Properties();
-    coordinatorStreamProperties.put("cleanup.policy", "compact");
-    coordinatorStreamProperties.put("segment.bytes", config.getCoordinatorSegmentBytes());
+    coordinatorStreamProperties.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_COMPACT);
+    coordinatorStreamProperties.put(TopicConfig.SEGMENT_BYTES_CONFIG, config.getCoordinatorSegmentBytes());
 
     return coordinatorStreamProperties;
   }

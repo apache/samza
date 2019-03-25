@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreatePartitionsResult;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -49,8 +50,13 @@ import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.system.kafka.KafkaSystemConsumer;
 
 import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
+import static org.apache.kafka.clients.producer.ProducerConfig.*;
 
 
+/**
+ * An integration test harness on top of {@link AbstractKafkaServerTestHarness}.
+ * It provides additional helper functions to consume, produce and manage topics in Kafka.
+ */
 public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
   private static final String BYTE_ARRAY_SERIALIZER = ByteArraySerializer.class.getName();
   private static final String BYTE_ARRAY_DESERIALIZER = ByteArrayDeserializer.class.getName();
@@ -75,7 +81,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     consumer = new KafkaConsumer<>(createConsumerConfigs());
 
     Properties kafkaConfig = new Properties();
-    kafkaConfig.setProperty("bootstrap.servers", bootstrapServers());
+    kafkaConfig.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
     adminClient = AdminClient.create(kafkaConfig);
 
     systemAdmin = createSystemAdmin("kafka");
@@ -120,9 +126,9 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
    */
   protected Properties createProducerConfigs() {
     Properties producerProps = new Properties();
-    producerProps.setProperty("bootstrap.servers", bootstrapServers());
-    producerProps.setProperty("key.serializer", STRING_SERIALIZER);
-    producerProps.setProperty("value.serializer", BYTE_ARRAY_SERIALIZER);
+    producerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    producerProps.setProperty(KEY_SERIALIZER_CLASS_CONFIG, STRING_SERIALIZER);
+    producerProps.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, BYTE_ARRAY_SERIALIZER);
     return producerProps;
   }
 
@@ -138,11 +144,11 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
    */
   protected Properties createConsumerConfigs() {
     Properties consumerProps = new Properties();
-    consumerProps.setProperty("bootstrap.servers", bootstrapServers());
-    consumerProps.setProperty("group.id", "group");
-    consumerProps.setProperty("auto.offset.reset", "earliest");
-    consumerProps.setProperty("key.deserializer", STRING_DESERIALIZER);
-    consumerProps.setProperty("value.deserializer", BYTE_ARRAY_DESERIALIZER);
+    consumerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    consumerProps.setProperty(GROUP_ID_CONFIG, "group");
+    consumerProps.setProperty(AUTO_OFFSET_RESET_CONFIG, "earliest");
+    consumerProps.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
+    consumerProps.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, BYTE_ARRAY_DESERIALIZER);
     return consumerProps;
   }
 
@@ -199,9 +205,8 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     String kafkaConsumerPropertyPrefix = "systems." + system + ".consumer.";
 
     Map<String, String> map = new HashMap<>();
-    map.put(kafkaConsumerPropertyPrefix + BOOTSTRAP_SERVERS_CONFIG, brokerList());
+    map.put(kafkaConsumerPropertyPrefix + CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerList());
     map.put(JobConfig.JOB_NAME(), "test.job");
-    map.put(kafkaConsumerPropertyPrefix + KafkaConsumerConfig.ZOOKEEPER_CONNECT, zkConnect());
 
     Config config = new MapConfig(map);
     HashMap<String, Object> consumerConfig =
