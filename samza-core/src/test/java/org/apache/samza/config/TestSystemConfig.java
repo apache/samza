@@ -19,8 +19,6 @@
 
 package org.apache.samza.config;
 
-import java.util.HashMap;
-import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
@@ -28,13 +26,14 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.junit.Test;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
-
 
 public class TestSystemConfig {
   private static final String MOCK_SYSTEM_NAME1 = "mocksystem1";

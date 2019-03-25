@@ -154,18 +154,34 @@ public class SystemConfig extends MapConfig {
     return systemOffsetDefault;
   }
 
+  /**
+   * @param systemName name of the system
+   * @return the key serde for the {@code systemName}, or empty if it was not found
+   */
   public Optional<String> getSystemKeySerde(String systemName) {
     return getSystemDefaultStreamProperty(systemName, StreamConfig.KEY_SERDE());
   }
 
+  /**
+   * @param systemName name of the system
+   * @return the message serde for the {@code systemName}, or empty if it was not found
+   */
   public Optional<String> getSystemMsgSerde(String systemName) {
     return getSystemDefaultStreamProperty(systemName, StreamConfig.MSG_SERDE());
   }
 
+  /**
+   * @param systemName name of the system
+   * @return if messages committed to this system should automatically be deleted
+   */
   public boolean deleteCommittedMessages(String systemName) {
     return getBoolean(String.format(DELETE_COMMITTED_MESSAGES, systemName), false);
   }
 
+  /**
+   * Gets the system-wide default for the {@code propertyName} for the {@code systemName}.
+   * This will check in a couple of different config locations for the value.
+   */
   private Optional<String> getSystemDefaultStreamProperty(String systemName, String propertyName) {
     Map<String, String> defaultStreamProperties = getDefaultStreamProperties(systemName);
     String defaultStreamProperty = defaultStreamProperties.get(propertyName);

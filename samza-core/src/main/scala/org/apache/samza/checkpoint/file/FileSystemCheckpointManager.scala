@@ -22,7 +22,6 @@ package org.apache.samza.checkpoint.file
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
-
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.checkpoint.CheckpointManager
@@ -33,7 +32,6 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-
 import scala.io.Source
 
 class FileSystemCheckpointManager(

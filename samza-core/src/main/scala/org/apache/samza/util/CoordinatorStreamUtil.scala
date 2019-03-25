@@ -66,7 +66,7 @@ object CoordinatorStreamUtil {
     */
   def getCoordinatorSystemFactory(config: Config) = {
     val systemName = config.getCoordinatorSystemName
-    val systemConfig = new SystemConfig(config);
+    val systemConfig = new SystemConfig(config)
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
     Util.getObj(systemFactoryClassName, classOf[SystemFactory])
