@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
@@ -138,7 +136,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
     consumer.subscribe(topics);
 
     while (emptyPollCount < numEmptyPolls && recordList.size() < threshold) {
-      ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS.toMillis());
+      ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS);
       if (!records.isEmpty()) {
         Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
         while (iterator.hasNext() && recordList.size() < threshold) {
@@ -229,18 +227,32 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
   }
 
   @Override
-  protected KafkaProducer createProducer() {
-    Properties kafkaConfig = new Properties();
-    kafkaConfig.setProperty("bootstrap.servers", bootstrapServers());
-    return new KafkaProducer<>(kafkaConfig, STRING_SERIALIZER, STRING_SERIALIZER);
+  protected Properties createProducerConfigs() {
+    Properties producerProps = new Properties();
+    producerProps.setProperty("bootstrap.servers", bootstrapServers());
+    /*
+     * Stream application tests uses string serde for both key and value.
+     * The default serde for the test producer in IntegrationTestHarness uses
+     * byte serde for value and string for key.
+     */
+    producerProps.setProperty("key.serializer", STRING_SERIALIZER);
+    producerProps.setProperty("value.serializer", STRING_SERIALIZER);
+    return producerProps;
   }
 
   @Override
-  protected KafkaConsumer createConsumer() {
+  protected Properties createConsumerConfigs() {
     Properties consumerProps = new Properties();
     consumerProps.setProperty("bootstrap.servers", bootstrapServers());
+    /*
+     * Stream application tests uses string serde for both key and value.
+     * The default serde for the test producer in IntegrationTestHarness uses
+     * byte serde for value and string for key.
+     */
+    consumerProps.setProperty("key.deserializer", STRING_DESERIALIZER);
+    consumerProps.setProperty("value.deserializer", STRING_DESERIALIZER);
     consumerProps.setProperty("group.id", "group");
     consumerProps.setProperty("auto.offset.reset", "earliest");
-    return new KafkaConsumer<>(consumerProps, STRING_DESERIALIZER, STRING_DESERIALIZER);
+    return consumerProps;
   }
 }

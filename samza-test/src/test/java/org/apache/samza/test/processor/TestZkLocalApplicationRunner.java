@@ -81,8 +81,8 @@ import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
+
 
 /**
  * Integration tests for {@link org.apache.samza.runtime.LocalApplicationRunner} with {@link ZkJobCoordinatorFactory}.
@@ -158,7 +158,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
             .map(topic -> new NewTopic(topic, 5, (short) 1))
             .collect(Collectors.toList());
 
-    createTopics(newTopics);
+    assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
   }
 
   @Override

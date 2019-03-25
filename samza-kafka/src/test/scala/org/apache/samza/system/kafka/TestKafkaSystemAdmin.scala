@@ -30,7 +30,7 @@ import kafka.integration.KafkaServerTestHarness
 import kafka.server.KafkaConfig
 import kafka.utils.TestUtils
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
-import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
+import org.apache.kafka.clients.consumer.{KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.security.JaasUtils
 import org.apache.samza.Partition
@@ -104,25 +104,25 @@ object TestKafkaSystemAdmin extends KafkaServerTestHarness {
 
   def validateTopic(topic: String, expectedPartitionCount: Int) {
     var done = false
-    var retries = 0
+    var attempts = 0
 
-    while (!done && retries < 10) {
+    while (!done && attempts < 10) {
       try {
+        attempts += 1
         val topicDescriptionFutures = adminClient.describeTopics(
             JavaConverters.asJavaCollectionConverter(Set(topic)).asJavaCollection).all()
         val topicDescription = topicDescriptionFutures.get(500, TimeUnit.MILLISECONDS)
             .get(topic)
 
         done = expectedPartitionCount == topicDescription.partitions().size()
-        retries += 1
       } catch {
         case e: Exception =>
           System.err.println("Interrupted during validating test topics", e)
       }
     }
 
-    if (retries >= 10) {
-      fail("Unable to successfully create topics. Tried to validate %s times." format retries)
+    if (!done) {
+      fail("Unable to successfully create topics. Tried to validate %s times." format attempts)
     }
   }
 
@@ -257,11 +257,16 @@ class TestKafkaSystemAdmin {
   @Test
   def testShouldCreateCoordinatorStream {
     val topic = "test-coordinator-stream"
+    val expectedReplicationFactor = 3
     val map = new java.util.HashMap[String, String]()
-    map.put(org.apache.samza.config.KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "3")
+    map.put(org.apache.samza.config.KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, expectedReplicationFactor.toString)
     val systemAdmin = createSystemAdmin(SYSTEM, map)
 
     val spec = StreamSpec.createCoordinatorStreamSpec(topic, "kafka")
+    val actualReplicationFactor = systemAdmin.toKafkaSpec(spec).getReplicationFactor
+    // Ensure we respect the replication factor passed to system admin
+    assertEquals(expectedReplicationFactor, actualReplicationFactor)
+
     systemAdmin.createStream(spec)
     validateTopic(topic, 1)
   }

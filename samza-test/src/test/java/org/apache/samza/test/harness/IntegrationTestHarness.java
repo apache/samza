@@ -37,8 +37,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.config.Config;
@@ -54,11 +52,11 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
 
 
 public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
-  private static final ByteArraySerializer BYTE_ARRAY_SERIALIZER = new ByteArraySerializer();
-  private static final ByteArrayDeserializer BYTE_ARRAY_DESERIALIZER = new ByteArrayDeserializer();
+  private static final String BYTE_ARRAY_SERIALIZER = ByteArraySerializer.class.getName();
+  private static final String BYTE_ARRAY_DESERIALIZER = ByteArrayDeserializer.class.getName();
 
-  protected static final Serializer<String> STRING_SERIALIZER = new StringSerializer();
-  protected static final Deserializer<String> STRING_DESERIALIZER = new StringDeserializer();
+  protected static final String STRING_SERIALIZER = StringSerializer.class.getName();
+  protected static final String STRING_DESERIALIZER = StringDeserializer.class.getName();
 
   private AdminClient adminClient;
   protected KafkaConsumer consumer;
@@ -73,8 +71,8 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
   @Override
   public void setUp() {
     super.setUp();
-    producer = createProducer();
-    consumer = createConsumer();
+    producer = new KafkaProducer<>(createProducerConfigs());
+    consumer = new KafkaConsumer<>(createConsumerConfigs());
 
     Properties kafkaConfig = new Properties();
     kafkaConfig.setProperty("bootstrap.servers", bootstrapServers());
@@ -112,18 +110,40 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     return bootstrapUrl();
   }
 
-  protected KafkaProducer createProducer() {
-    Properties kafkaConfig = new Properties();
-    kafkaConfig.setProperty("bootstrap.servers", bootstrapServers());
-    return new KafkaProducer<>(kafkaConfig, STRING_SERIALIZER, BYTE_ARRAY_SERIALIZER);
+  /**
+   * Overrides of the method should provide the following configurations
+   *  1. boostrap.servers
+   *  2. key.serializer
+   *  3. value.serializer
+   *
+   * @return {@link Properties} for the test kafka producer
+   */
+  protected Properties createProducerConfigs() {
+    Properties producerProps = new Properties();
+    producerProps.setProperty("bootstrap.servers", bootstrapServers());
+    producerProps.setProperty("key.serializer", STRING_SERIALIZER);
+    producerProps.setProperty("value.serializer", BYTE_ARRAY_SERIALIZER);
+    return producerProps;
   }
 
-  protected KafkaConsumer createConsumer() {
+  /**
+   * Overrides of method should provide the following mandatory configurations
+   *  1. bootstrap.servers
+   *  2. key.deserializer
+   *  3. value.deserializer
+   *  4. auto.offset.reset
+   *  5. group.id
+   *
+   * @return {@link Properties} for the test kafka consumer
+   */
+  protected Properties createConsumerConfigs() {
     Properties consumerProps = new Properties();
     consumerProps.setProperty("bootstrap.servers", bootstrapServers());
     consumerProps.setProperty("group.id", "group");
     consumerProps.setProperty("auto.offset.reset", "earliest");
-    return new KafkaConsumer<>(consumerProps, STRING_DESERIALIZER, BYTE_ARRAY_DESERIALIZER);
+    consumerProps.setProperty("key.deserializer", STRING_DESERIALIZER);
+    consumerProps.setProperty("value.deserializer", BYTE_ARRAY_DESERIALIZER);
+    return consumerProps;
   }
 
   protected void executeRun(ApplicationRunner applicationRunner, Config config) {
