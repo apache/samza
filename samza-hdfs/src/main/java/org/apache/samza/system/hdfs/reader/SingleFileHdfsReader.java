@@ -28,35 +28,35 @@ public interface SingleFileHdfsReader {
    * @param path path of the file to be read
    * @param offset offset the reader should start from
    */
-  public void open(String path, String offset);
+  void open(String path, String offset);
 
   /**
    * Seek to a specific offset
    * @param offset offset the reader should seek to
    */
-  public void seek(String offset);
+  void seek(String offset);
 
   /**
    * Construct and return the next message envelope
    * @return constructed IncomeMessageEnvelope
    */
-  public IncomingMessageEnvelope readNext();
+  IncomingMessageEnvelope readNext();
 
   /**
    * Get the next offset, which is the offset for the next message
    * that will be returned by readNext
    * @return next offset
    */
-  public String nextOffset();
+  String nextOffset();
 
   /**
    * Whether there are still records to be read
    * @return true of false based on whether the reader has hit end of file
    */
-  public boolean hasNext();
+  boolean hasNext();
 
   /**
    * Close the reader.
    */
-  public void close();
+  void close();
 }

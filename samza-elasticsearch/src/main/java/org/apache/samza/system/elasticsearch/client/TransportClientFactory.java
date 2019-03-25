@@ -47,20 +47,11 @@ public class TransportClientFactory implements ClientFactory {
 
   public TransportClientFactory(ElasticsearchConfig config) {
     clientSettings = config.getElasticseachSettings();
+    transportHost = config.getTransportHost().orElseThrow(() ->
+      new SamzaException("You must specify the transport host for TransportClientFactory with the Elasticsearch system."));
 
-    if (config.getTransportHost().isPresent()) {
-      transportHost = config.getTransportHost().get();
-    } else {
-      throw new SamzaException("You must specify the transport host for TransportClientFactory"
-                               + "with the Elasticsearch system.");
-    }
-
-    if (config.getTransportPort().isPresent()) {
-      transportPort = config.getTransportPort().get();
-    } else {
-      throw new SamzaException("You must specify the transport port for TransportClientFactory"
-                               + "with the Elasticsearch system.");
-    }
+    transportPort = config.getTransportPort().orElseThrow(() ->
+      new SamzaException("You must specify the transport port for TransportClientFactory with the Elasticsearch system."));
   }
 
   @Override

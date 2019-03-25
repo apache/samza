@@ -135,7 +135,7 @@ a.side-navigation__group-title:hover::after {
 
 .button {
   background: #eb1c23;
-  padding: 20px 40px;
+  padding: 15px 15px;
   color: #fff;
   font-weight: bold;
   text-transform: uppercase;
