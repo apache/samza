@@ -31,6 +31,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -180,8 +181,6 @@ public class AvroRelConverter implements SamzaRelConverter {
           continue;
         }
         Object relObj = values.get(index);
-        if (relObj == null) {
-        }
         Schema fieldSchema = schema.getField(fieldName).schema();
         record.put(fieldName, convertToAvroObject(relObj, getNonNullUnionSchema(fieldSchema)));
       }
@@ -190,7 +189,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     return record;
   }
 
-  static Object convertToAvroObject(Object relObj, Schema schema) {
+  public static Object convertToAvroObject(Object relObj, Schema schema) {
     if (relObj == null) {
       return null;
     }
@@ -260,7 +259,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       }
       case UNION:
         for (Schema unionSchema : schema.getTypes()) {
-          if (isSchemaCompatible(avroObj, unionSchema)) {
+          if (isSchemaCompatibleWithAvroObj(avroObj, unionSchema)) {
             return convertToJavaObject(avroObj, unionSchema);
           }
         }
@@ -282,6 +281,7 @@ public class AvroRelConverter implements SamzaRelConverter {
   }
 
   private static boolean isSchemaCompatibleWithRelObj(Object relObj, Schema unionSchema) {
+    Validate.notNull(unionSchema, "Schema cannot be null");
     if (unionSchema.getType() == Schema.Type.NULL) {
       return relObj == null;
     }
@@ -304,9 +304,10 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
   }
 
-  private static boolean isSchemaCompatible(Object avroObj, Schema unionSchema) {
-    if (unionSchema.getType() == Schema.Type.NULL && avroObj == null) {
-      return true;
+  private static boolean isSchemaCompatibleWithAvroObj(Object avroObj, Schema unionSchema) {
+    Validate.notNull(unionSchema, "Schema cannot be null");
+    if (unionSchema.getType() == Schema.Type.NULL) {
+      return avroObj == null;
     }
     switch (unionSchema.getType()) {
       case RECORD:
