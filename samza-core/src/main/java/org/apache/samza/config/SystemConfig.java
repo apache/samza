@@ -24,28 +24,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.util.Util;
 
-
 /**
- * a java version of the system config
+ * Config helper methods related to systems.
  */
 public class SystemConfig extends MapConfig {
-  public static final String SYSTEMS_PREFIX = "systems.";
+  private static final String SYSTEMS_PREFIX = "systems.";
   public static final String SYSTEM_ID_PREFIX = SYSTEMS_PREFIX + "%s.";
 
   private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
   public static final String SYSTEM_FACTORY_FORMAT = SYSTEMS_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
-  private static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_ID_PREFIX + "default.stream.";
+  @VisibleForTesting
+  static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_ID_PREFIX + "default.stream.";
 
   // If true, automatically delete committed messages from streams whose committed messages can be deleted.
   // A stream's committed messages can be deleted if it is a intermediate stream, or if user has manually
   // set streams.{streamId}.samza.delete.committed.messages to true in the configuration.
-  private static final String DELETE_COMMITTED_MESSAGES = SYSTEM_ID_PREFIX + "samza.delete.committed.messages";
+  @VisibleForTesting
+  static final String DELETE_COMMITTED_MESSAGES = SYSTEM_ID_PREFIX + "samza.delete.committed.messages";
 
   private static final String EMPTY = "";
 
@@ -188,7 +190,7 @@ public class SystemConfig extends MapConfig {
     if (StringUtils.isNotEmpty(defaultStreamProperty)) {
       return Optional.of(defaultStreamProperty);
     } else {
-      String fallbackStreamProperty = get(String.format(SYSTEMS_PREFIX + "%s.%s", systemName, propertyName));
+      String fallbackStreamProperty = get(String.format(SYSTEM_ID_PREFIX, systemName) + propertyName);
       if (StringUtils.isNotEmpty(fallbackStreamProperty)) {
         return Optional.of(fallbackStreamProperty);
       } else {

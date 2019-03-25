@@ -45,6 +45,8 @@ public class TestSystemConfig {
   private static final String MOCK_SYSTEM_FACTORY_CLASSNAME1 = "some.factory.Class1";
   private static final String MOCK_SYSTEM_FACTORY_CLASSNAME2 = "some.factory.Class2";
 
+  private static final String SAMZA_OFFSET_DEFAULT = "samza.offset.default";
+
   /**
    * Placeholder to help make sure the correct {@link SystemAdmin} is returned by {@link MockSystemFactory}. Do not mock
    * any methods of this mock.
@@ -136,11 +138,12 @@ public class TestSystemConfig {
     String system2OffsetDefault = "offset-system-2";
     Config config = new MapConfig(ImmutableMap.of(
         // default.stream.samza.offset.default set
-        String.format("systems.%s.default.stream.samza.offset.default", MOCK_SYSTEM_NAME1), system1OffsetDefault,
+        String.format(SystemConfig.SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT, MOCK_SYSTEM_NAME1) + SAMZA_OFFSET_DEFAULT,
+        system1OffsetDefault,
         // should not use this value since default.stream.samza.offset.default is set
-        String.format("systems.%s.samza.offset.default", MOCK_SYSTEM_NAME1), "wrong-value",
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + SAMZA_OFFSET_DEFAULT, "wrong-value",
         // only samza.offset.default set
-        String.format("systems.%s.samza.offset.default", MOCK_SYSTEM_NAME2), system2OffsetDefault));
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME2) + SAMZA_OFFSET_DEFAULT, system2OffsetDefault));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1OffsetDefault, systemConfig.getSystemOffsetDefault(MOCK_SYSTEM_NAME1));
     assertEquals(system2OffsetDefault, systemConfig.getSystemOffsetDefault(MOCK_SYSTEM_NAME2));
@@ -151,30 +154,33 @@ public class TestSystemConfig {
   public void testGetSystemKeySerde() {
     String system1KeySerde = "system1-key-serde";
     String defaultStreamPrefixSystem1 = buildDefaultStreamPropertiesPrefix(MOCK_SYSTEM_NAME1);
-    String samzaKeySerdeSuffix = "samza.key.serde";
 
     // value specified explicitly
-    Config config = new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + samzaKeySerdeSuffix, system1KeySerde));
+    Config config =
+        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfig.KEY_SERDE(), system1KeySerde));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config key
     config = new MapConfig(
-        ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), system1KeySerde));
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.KEY_SERDE(),
+            system1KeySerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is empty string, try fall back config key
     config = new MapConfig(ImmutableMap.of(
         // default stream property is empty
-        defaultStreamPrefixSystem1 + samzaKeySerdeSuffix, "",
+        defaultStreamPrefixSystem1 + StreamConfig.KEY_SERDE(), "",
         // fall back entry
-        String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), system1KeySerde));
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.KEY_SERDE(), system1KeySerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
-    config = new MapConfig(ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaKeySerdeSuffix), ""));
+    config = new MapConfig(
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.KEY_SERDE(),
+            ""));
     systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).isPresent());
 
@@ -188,30 +194,33 @@ public class TestSystemConfig {
   public void testGetSystemMsgSerde() {
     String system1MsgSerde = "system1-msg-serde";
     String defaultStreamPrefixSystem1 = buildDefaultStreamPropertiesPrefix(MOCK_SYSTEM_NAME1);
-    String samzaMsgSerdeSuffix = "samza.msg.serde";
 
     // value specified explicitly
-    Config config = new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + samzaMsgSerdeSuffix, system1MsgSerde));
+    Config config =
+        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfig.MSG_SERDE(), system1MsgSerde));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config msg
     config = new MapConfig(
-        ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), system1MsgSerde));
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.MSG_SERDE(),
+            system1MsgSerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is empty string, try fall back config msg
     config = new MapConfig(ImmutableMap.of(
         // default stream property is empty
-        defaultStreamPrefixSystem1 + samzaMsgSerdeSuffix, "",
+        defaultStreamPrefixSystem1 + StreamConfig.MSG_SERDE(), "",
         // fall back entry
-        String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), system1MsgSerde));
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.MSG_SERDE(), system1MsgSerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
-    config = new MapConfig(ImmutableMap.of(String.format("systems.%s.%s", MOCK_SYSTEM_NAME1, samzaMsgSerdeSuffix), ""));
+    config = new MapConfig(
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig.MSG_SERDE(),
+            ""));
     systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).isPresent());
 
@@ -223,12 +232,11 @@ public class TestSystemConfig {
 
   @Test
   public void testDeleteCommittedMessages() {
-    String deleteCommittedMessagesFormat = "systems.%s.samza.delete.committed.messages";
     Config config = new MapConfig(ImmutableMap.of(
         // value is "true"
-        String.format(deleteCommittedMessagesFormat, MOCK_SYSTEM_NAME1), "true",
+        String.format(SystemConfig.DELETE_COMMITTED_MESSAGES, MOCK_SYSTEM_NAME1), "true",
         // value is explicitly "false"
-        String.format(deleteCommittedMessagesFormat, MOCK_SYSTEM_NAME2), "false"));
+        String.format(SystemConfig.DELETE_COMMITTED_MESSAGES, MOCK_SYSTEM_NAME2), "false"));
     SystemConfig systemConfig = new SystemConfig(config);
     assertTrue(systemConfig.deleteCommittedMessages(MOCK_SYSTEM_NAME1));
     assertFalse(systemConfig.deleteCommittedMessages(MOCK_SYSTEM_NAME2));
@@ -260,6 +268,6 @@ public class TestSystemConfig {
   }
 
   private static String buildDefaultStreamPropertiesPrefix(String systemName) {
-    return String.format("systems.%s.default.stream.", systemName);
+    return String.format(SystemConfig.SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT, systemName);
   }
 }
