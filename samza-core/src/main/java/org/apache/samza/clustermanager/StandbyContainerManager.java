@@ -273,7 +273,7 @@ public class StandbyContainerManager {
       String standbyHost = this.samzaApplicationState.jobModelManager.jobModel().
           getContainerToHostValue(standbyContainerID, SetContainerHostMapping.HOST_KEY);
 
-      if (standbyHost == null) {
+      if (standbyHost == null || standbyHost.isEmpty()) {
         log.info("No last known standbyHost for container {}", standbyContainerID);
 
       } else if (failoverMetadata.isPresent() && failoverMetadata.get().isStandbyHostUsed(standbyHost)) {
