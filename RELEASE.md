@@ -148,7 +148,7 @@ The instructions above publish the Samza artifacts for scala 2.11. To publish fo
 # After the VOTE has passed
 
 If the VOTE has successfully passed on the release candidate, you can log in to the  [repository web interface](https://repository.apache.org) (same as above) and "release"  the org.apache.samza repository listed under "Staging Repositories". This may take a minute or so.
-This will publish the samza release artifacts to the open source [maven repository](https://repo1.maven.org/maven2)
+This will publish the samza release artifacts to the open source [maven repository](https://repo1.maven.org/maven2).
 
 ## Steps to Upload Source Tarball to Apache SVN
 
