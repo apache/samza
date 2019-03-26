@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.{Config, JavaSystemConfig}
+import org.apache.samza.config.{Config, SystemConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
@@ -84,7 +84,7 @@ object OffsetManager extends Logging {
         case (systemStream, systemStreamMetadata) =>
           // Get default offset.
           val streamDefaultOffset = config.getDefaultStreamOffset(systemStream)
-          val systemDefaultOffset = new JavaSystemConfig(config).getSystemOffsetDefault(systemStream.getSystem)
+          val systemDefaultOffset = new SystemConfig(config).getSystemOffsetDefault(systemStream.getSystem)
           val defaultOffsetType = if (streamDefaultOffset.isDefined) {
             OffsetType.valueOf(streamDefaultOffset.get.toUpperCase)
           } else if (systemDefaultOffset != null) {

@@ -286,7 +286,6 @@ public class StreamAppender extends AppenderSkeleton {
 
   protected void setupSystem() {
     config = getConfig();
-    SystemFactory systemFactory = null;
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
 
     if (streamName == null) {
@@ -298,12 +297,10 @@ public class StreamAppender extends AppenderSkeleton {
     metrics = new StreamAppenderMetrics("stream-appender", metricsRegistry);
 
     String systemName = log4jSystemConfig.getSystemName();
-    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
-    if (systemFactoryName != null) {
-      systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
-    } else {
-      throw new SamzaException("Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use");
-    }
+    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
+        .orElseThrow(() -> new SamzaException(
+            "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
+    SystemFactory systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
