@@ -16,16 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.config;
 
-package org.apache.samza.config
+import java.util.Optional;
 
-object FileSystemCheckpointManagerConfig {
-  // file system checkpoint manager config constants
-  val CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path" // system name to use when sending offset checkpoints
 
-  implicit def Config2FSCP(config: Config) = new FileSystemCheckpointManagerConfig(config)
-}
+public class FileSystemCheckpointManagerConfig extends MapConfig {
+  /**
+   * Path on local file system where checkpoints should be stored.
+   */
+  private static final String CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path";
 
-class FileSystemCheckpointManagerConfig(config: Config) extends ScalaMapConfig(config) {
-  def getFileSystemCheckpointRoot = getOption(FileSystemCheckpointManagerConfig.CHECKPOINT_MANAGER_ROOT)
+  public FileSystemCheckpointManagerConfig(Config config) {
+    super(config);
+  }
+
+  public Optional<String> getFileSystemCheckpointRoot() {
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_ROOT));
+  }
 }

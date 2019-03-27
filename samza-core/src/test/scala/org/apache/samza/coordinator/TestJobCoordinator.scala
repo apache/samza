@@ -23,7 +23,7 @@ import java.util
 
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
-import org.apache.samza.config.{JobConfig, MapConfig, SystemConfig, TaskConfig}
+import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainer, TaskName}
 import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
 import org.apache.samza.job.MockJobFactory
@@ -91,8 +91,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
       TaskConfig.INPUT_STREAMS -> "test.stream1",
-      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
       JobConfig.MONITOR_PARTITION_CHANGE -> "true",
       JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> "100"
@@ -153,8 +153,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
       TaskConfig.INPUT_STREAMS -> "test.stream1",
-      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
       )
 
@@ -230,7 +230,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     */
   @Test
   def testWithPartitionAssignmentWithMockJobFactory {
-    val config = new SystemConfig(getTestConfig(classOf[MockJobFactory]))
+    val config = getTestConfig(classOf[MockJobFactory])
     val systemStream = new SystemStream("test", "stream1")
     val streamMetadataCache = mock(classOf[StreamMetadataCache])
     when(streamMetadataCache.getStreamMetadata(Set(systemStream), true)).thenReturn(
@@ -256,8 +256,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.STREAM_JOB_FACTORY_CLASS -> clazz.getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
       JobConfig.SSP_MATCHER_CONFIG_REGEX -> "[1]",
-      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getCanonicalName,
-      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName).asJava)
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName).asJava)
     config
   }
 
