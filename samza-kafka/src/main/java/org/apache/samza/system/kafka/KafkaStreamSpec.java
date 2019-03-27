@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * Extends StreamSpec with the ability to easily get the topic replication factor.
  */
 public class KafkaStreamSpec extends StreamSpec {
-  private static Logger LOG = LoggerFactory.getLogger(KafkaStreamSpec.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaStreamSpec.class);
 
   private static final int DEFAULT_REPLICATION_FACTOR = 2;
 
@@ -59,10 +59,8 @@ public class KafkaStreamSpec extends StreamSpec {
    * @return            The Map instance.
    */
   private static Map<String, String> propertiesToMap(Properties properties) {
-    Map<String, String> map = new HashMap<String, String>();
-    for (final String name: properties.stringPropertyNames()) {
-      map.put(name, properties.getProperty(name));
-    }
+    Map<String, String> map = new HashMap<>();
+    properties.stringPropertyNames().forEach(name -> map.put(name, properties.getProperty(name)));
     return map;
   }
 

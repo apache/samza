@@ -16,17 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.config;
 
-package org.apache.samza.clustermanager;
+import java.util.Optional;
 
-/**
- * Mock {@link ResourceManagerFactory} used in unit tests
- */
-public class MockClusterResourceManagerFactory implements ResourceManagerFactory {
 
-  @Override
-  public ClusterResourceManager getClusterResourceManager(ClusterResourceManager.Callback callback,
-      SamzaApplicationState state) {
-    return new MockClusterResourceManager(callback, state);
+public class FileSystemCheckpointManagerConfig extends MapConfig {
+  /**
+   * Path on local file system where checkpoints should be stored.
+   */
+  private static final String CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path";
+
+  public FileSystemCheckpointManagerConfig(Config config) {
+    super(config);
+  }
+
+  public Optional<String> getFileSystemCheckpointRoot() {
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_ROOT));
   }
 }

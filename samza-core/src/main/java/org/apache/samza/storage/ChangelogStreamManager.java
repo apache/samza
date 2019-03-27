@@ -26,7 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
@@ -116,7 +116,7 @@ public class ChangelogStreamManager {
             name -> StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
         // Load system admin for this system.
         SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());

@@ -48,8 +48,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestContainerProcessManager {
-  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback);
 
   private static volatile boolean isRunning = false;
 
@@ -85,7 +83,6 @@ public class TestContainerProcessManager {
 
   private HttpServer server = null;
 
-  private SamzaApplicationState state = null;
 
   private JobModelManager getJobModelManagerWithHostAffinity(Map<String, String> containerIdToHost) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
@@ -122,7 +119,10 @@ public class TestContainerProcessManager {
     conf.put("cluster-manager.container.memory.mb", "500");
     conf.put("cluster-manager.container.cpu.cores", "5");
 
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -143,6 +143,8 @@ public class TestContainerProcessManager {
     conf.put("cluster-manager.container.cpu.cores", "5");
 
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1")));
+    callback = new MockClusterResourceManagerCallback();
+    clusterResourceManager = new MockClusterResourceManager(callback, state);
     taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -161,8 +163,9 @@ public class TestContainerProcessManager {
   @Test
   public void testOnInit() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
-
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    ClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
@@ -203,7 +206,9 @@ public class TestContainerProcessManager {
   @Test
   public void testOnShutdown() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -227,7 +232,9 @@ public class TestContainerProcessManager {
   @Test
   public void testTaskManagerShouldStopWhenContainersFinish() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -275,7 +282,9 @@ public class TestContainerProcessManager {
   @Test
   public void testNewContainerRequestedOnFailureWithUnknownCode() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -352,7 +361,9 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -393,9 +404,11 @@ public class TestContainerProcessManager {
 
   @Test
   public void testRerequestOnAnyHostIfContainerStartFails() throws Exception {
-    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("1", "host1")));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("1", "host1")));
     Map<String, String> configMap = new HashMap<>();
     configMap.putAll(getConfig());
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -421,8 +434,10 @@ public class TestContainerProcessManager {
     config.put("job.container.count", "2");
     Config cfg = new MapConfig(config);
     // 1. Request two containers on hosts - host1 and host2
-    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
         "1", "host2")));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         cfg,
@@ -487,7 +502,9 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -561,7 +578,9 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
@@ -648,7 +667,9 @@ public class TestContainerProcessManager {
   @Test
   public void testAppMasterWithFwk() {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),

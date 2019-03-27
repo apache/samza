@@ -21,6 +21,7 @@ package org.apache.samza.clustermanager;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.samza.job.CommandBuilder;
+import org.junit.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,11 +41,13 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   private final Semaphore requestCountSemaphore = new Semaphore(0);
   private final Semaphore launchCountSemaphore = new Semaphore(0);
+  private final SamzaApplicationState state;
 
   Throwable nextException = null;
 
-  MockClusterResourceManager(ClusterResourceManager.Callback callback) {
+  MockClusterResourceManager(ClusterResourceManager.Callback callback, SamzaApplicationState state) {
     super(callback);
+    this.state = state;
   }
 
   @Override
@@ -81,12 +84,16 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
+    // assert that the resource is in "pending" state prior to invoking this method
+    Assert.assertTrue(state.pendingContainers.values().contains(resource));
+
     if (nextException != null) {
       clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(nextException));
     } else {
       launchedResources.add(resource);
       clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
     }
+
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }

@@ -26,9 +26,7 @@ import kafka.integration.KafkaServerTestHarness
 import kafka.server.ConfigType
 import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
 import com.google.common.collect.ImmutableMap
-import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.security.JaasUtils
-import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
@@ -37,6 +35,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
@@ -209,9 +208,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemFactoryClassName = new SystemConfig(config)
-      .getSystemFactory(systemName)
-      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 

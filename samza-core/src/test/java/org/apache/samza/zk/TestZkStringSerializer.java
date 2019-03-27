@@ -16,16 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.zk;
 
-package org.apache.samza.config
+import org.junit.Assert;
+import org.junit.Test;
 
-object FileSystemCheckpointManagerConfig {
-  // file system checkpoint manager config constants
-  val CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path" // system name to use when sending offset checkpoints
 
-  implicit def Config2FSCP(config: Config) = new FileSystemCheckpointManagerConfig(config)
-}
+public class TestZkStringSerializer {
 
-class FileSystemCheckpointManagerConfig(config: Config) extends ScalaMapConfig(config) {
-  def getFileSystemCheckpointRoot = getOption(FileSystemCheckpointManagerConfig.CHECKPOINT_MANAGER_ROOT)
+  @Test
+  public void testStringSerialization() throws Exception {
+    ZkStringSerializer serde = new ZkStringSerializer();
+    Assert.assertEquals(null, serde.serialize(null));
+    Assert.assertEquals(null, serde.deserialize(null));
+
+    String fooBar = "37";
+    byte[] fooBarBytes = serde.serialize(fooBar);
+    Assert.assertArrayEquals(fooBar.getBytes("UTF-8"), fooBarBytes);
+    Assert.assertEquals(fooBar, serde.deserialize(fooBarBytes));
+  }
 }

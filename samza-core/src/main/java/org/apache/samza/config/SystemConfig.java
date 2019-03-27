@@ -22,38 +22,49 @@ package org.apache.samza.config;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.util.Util;
 
-
 /**
- * a java version of the system config
+ * Config helper methods related to systems.
  */
-public class JavaSystemConfig extends MapConfig {
-  public static final String SYSTEM_PREFIX = "systems.";
-  public static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
-  public static final String SYSTEM_FACTORY_FORMAT = SYSTEM_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
-  private static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_PREFIX + "%s" + ".default.stream.";
+public class SystemConfig extends MapConfig {
+  private static final String SYSTEMS_PREFIX = "systems.";
+  public static final String SYSTEM_ID_PREFIX = SYSTEMS_PREFIX + "%s.";
+
+  private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
+  public static final String SYSTEM_FACTORY_FORMAT = SYSTEMS_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
+  @VisibleForTesting
+  static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_ID_PREFIX + "default.stream.";
+
+  // If true, automatically delete committed messages from streams whose committed messages can be deleted.
+  // A stream's committed messages can be deleted if it is a intermediate stream, or if user has manually
+  // set streams.{streamId}.samza.delete.committed.messages to true in the configuration.
+  @VisibleForTesting
+  static final String DELETE_COMMITTED_MESSAGES = SYSTEM_ID_PREFIX + "samza.delete.committed.messages";
+
   private static final String EMPTY = "";
 
-  public static final String SAMZA_SYSTEM_OFFSET_UPCOMING = "upcoming";
-  public static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
+  static final String SAMZA_SYSTEM_OFFSET_UPCOMING = "upcoming";
+  static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
 
-  public JavaSystemConfig(Config config) {
+  public SystemConfig(Config config) {
     super(config);
   }
 
-  public String getSystemFactory(String name) {
-    if (name == null) {
-      return null;
+  public Optional<String> getSystemFactory(String systemName) {
+    if (systemName == null) {
+      return Optional.empty();
     }
-    String systemFactory = String.format(SYSTEM_FACTORY_FORMAT, name);
+    String systemFactory = String.format(SYSTEM_FACTORY_FORMAT, systemName);
     String value = get(systemFactory, null);
-    return (StringUtils.isBlank(value)) ? null : value;
+    return (StringUtils.isBlank(value)) ? Optional.empty() : Optional.of(value);
   }
 
   /**
@@ -62,8 +73,8 @@ public class JavaSystemConfig extends MapConfig {
    * @return A list system names
    */
   public List<String> getSystemNames() {
-    Config subConf = subset(SYSTEM_PREFIX, true);
-    ArrayList<String> systemNames = new ArrayList<String>();
+    Config subConf = subset(SYSTEMS_PREFIX, true);
+    ArrayList<String> systemNames = new ArrayList<>();
     for (Map.Entry<String, String> entry : subConf.entrySet()) {
       String key = entry.getKey();
       if (key.endsWith(SYSTEM_FACTORY_SUFFIX)) {
@@ -81,7 +92,7 @@ public class JavaSystemConfig extends MapConfig {
   public Map<String, SystemAdmin> getSystemAdmins() {
     return getSystemFactories().entrySet()
         .stream()
-        .collect(Collectors.toMap(systemNameToFactoryEntry -> systemNameToFactoryEntry.getKey(),
+        .collect(Collectors.toMap(Entry::getKey,
             systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
                 .getAdmin(systemNameToFactoryEntry.getKey(), this)));
   }
@@ -105,11 +116,8 @@ public class JavaSystemConfig extends MapConfig {
     Map<String, SystemFactory> systemFactories = getSystemNames().stream().collect(Collectors.toMap(
       systemName -> systemName,
       systemName -> {
-        String systemFactoryClassName = getSystemFactory(systemName);
-        if (systemFactoryClassName == null) {
-          throw new SamzaException(
-              String.format("A stream uses system %s, which is missing from the configuration.", systemName));
-        }
+        String systemFactoryClassName = getSystemFactory(systemName).orElseThrow(() -> new SamzaException(
+            String.format("A stream uses system %s, which is missing from the configuration.", systemName)));
         return Util.getObj(systemFactoryClassName, SystemFactory.class);
       }));
 
@@ -146,5 +154,48 @@ public class JavaSystemConfig extends MapConfig {
     }
 
     return systemOffsetDefault;
+  }
+
+  /**
+   * @param systemName name of the system
+   * @return the key serde for the {@code systemName}, or empty if it was not found
+   */
+  public Optional<String> getSystemKeySerde(String systemName) {
+    return getSystemDefaultStreamProperty(systemName, StreamConfig.KEY_SERDE());
+  }
+
+  /**
+   * @param systemName name of the system
+   * @return the message serde for the {@code systemName}, or empty if it was not found
+   */
+  public Optional<String> getSystemMsgSerde(String systemName) {
+    return getSystemDefaultStreamProperty(systemName, StreamConfig.MSG_SERDE());
+  }
+
+  /**
+   * @param systemName name of the system
+   * @return if messages committed to this system should automatically be deleted
+   */
+  public boolean deleteCommittedMessages(String systemName) {
+    return getBoolean(String.format(DELETE_COMMITTED_MESSAGES, systemName), false);
+  }
+
+  /**
+   * Gets the system-wide default for the {@code propertyName} for the {@code systemName}.
+   * This will check in a couple of different config locations for the value.
+   */
+  private Optional<String> getSystemDefaultStreamProperty(String systemName, String propertyName) {
+    Map<String, String> defaultStreamProperties = getDefaultStreamProperties(systemName);
+    String defaultStreamProperty = defaultStreamProperties.get(propertyName);
+    if (StringUtils.isNotEmpty(defaultStreamProperty)) {
+      return Optional.of(defaultStreamProperty);
+    } else {
+      String fallbackStreamProperty = get(String.format(SYSTEM_ID_PREFIX, systemName) + propertyName);
+      if (StringUtils.isNotEmpty(fallbackStreamProperty)) {
+        return Optional.of(fallbackStreamProperty);
+      } else {
+        return Optional.empty();
+      }
+    }
   }
 }

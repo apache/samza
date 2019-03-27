@@ -71,7 +71,7 @@ public class KafkaInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KafkaInputDescriptor<StreamMessageType> withConsumerAutoOffsetReset(String consumerAutoOffsetReset) {
-    this.consumerAutoOffsetResetOptional = Optional.of(StringUtils.stripToNull(consumerAutoOffsetReset));
+    this.consumerAutoOffsetResetOptional = Optional.ofNullable(StringUtils.stripToNull(consumerAutoOffsetReset));
     return this;
   }
 
@@ -94,7 +94,7 @@ public class KafkaInputDescriptor<StreamMessageType>
 
   @Override
   public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>(super.toConfig());
+    Map<String, String> configs = new HashMap<>(super.toConfig());
     // Note: Kafka configuration needs the topic's physical name, not the stream-id.
     // We won't have that here if user only specified it in configs, or if it got rewritten
     // by the planner to something different than what's in this descriptor.

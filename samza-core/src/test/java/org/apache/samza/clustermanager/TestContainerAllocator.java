@@ -41,11 +41,13 @@ import static org.junit.Assert.assertTrue;
 
 public class TestContainerAllocator {
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
   private final JobModelManager jobModelManager = JobModelManagerTestUtil.getJobModelManager(config, 1,
       new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
+
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
+  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
+
   private ContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;

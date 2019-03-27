@@ -86,7 +86,7 @@ public abstract class StreamDescriptor<StreamMessageType, SubClass extends Strea
    * @param physicalName physical name for this stream.
    * @return this stream descriptor.
    */
-  protected SubClass withPhysicalName(String physicalName) {
+  public SubClass withPhysicalName(String physicalName) {
     this.physicalNameOptional = Optional.ofNullable(physicalName);
     return (SubClass) this;
   }

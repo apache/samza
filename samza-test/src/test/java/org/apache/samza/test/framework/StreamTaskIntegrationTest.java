@@ -30,6 +30,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.context.Context;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -59,7 +60,6 @@ import org.junit.Test;
 import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import static org.apache.samza.test.table.TestTableData.PageView;
 import static org.apache.samza.test.table.TestTableData.Profile;
-
 
 public class StreamTaskIntegrationTest {
 
@@ -107,6 +107,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
@@ -133,6 +134,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
   }
 
@@ -154,6 +156,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .addConfig("job.container.thread.pool.size", "4")
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     StreamAssert.containsInOrder(outputList, imod, Duration.ofMillis(1000));
@@ -177,6 +180,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -201,6 +205,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .addConfig("job.container.thread.pool.size", "4")
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -263,4 +268,16 @@ public class StreamTaskIntegrationTest {
     }
   }
 
+}
+
+class TestContext implements ExternalContext {
+  final private int multiplier;
+
+  public TestContext(int multiplier) {
+    this.multiplier = multiplier;
+  }
+
+  public int getMultiplier() {
+    return this.multiplier;
+  }
 }
