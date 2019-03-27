@@ -48,9 +48,9 @@ import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -244,9 +244,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
               List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
               LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
 
-              partitionInfos.forEach(partitionInfo -> {
-                partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm);
-              });
+              partitionInfos.forEach(partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
 
               allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
             });
@@ -370,9 +368,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
           }
         };
 
-    Map<String, SystemStreamMetadata> result =
-        retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
-    return result;
+    return retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
   }
 
   /**
@@ -401,9 +397,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<TopicPartition, Long> upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
     LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
 
-    oldestOffsetsWithLong.forEach((topicPartition, offset) -> {
-      oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
-    });
+    oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
 
     upcomingOffsetsWithLong.forEach((topicPartition, offset) -> {
       upcomingOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
@@ -511,7 +505,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
 
     // specify the configs
-    Map<String, String> streamConfig = new HashMap(streamSpec.getConfig());
+    Map<String, String> streamConfig = new HashMap<>(streamSpec.getConfig());
     // HACK - replication.factor is invalid config for AdminClient.createTopics
     if (streamConfig.containsKey(REPL_FACTOR)) {
       String repl = streamConfig.get(REPL_FACTOR);
@@ -561,7 +555,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
   }
 
   /**
-   * Converts a StreamSpec into a KafakStreamSpec. Special handling for coordinator and changelog stream.
+   * Converts a StreamSpec into a KafkaStreamSpec. Special handling for coordinator and changelog stream.
    * @param spec a StreamSpec object
    * @return KafkaStreamSpec object
    */
@@ -581,7 +575,10 @@ public class KafkaSystemAdmin implements SystemAdmin {
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
               coordinatorStreamProperties);
     } else if (intermediateStreamProperties.containsKey(spec.getId())) {
-      kafkaSpec = KafkaStreamSpec.fromSpec(spec).copyWithProperties(intermediateStreamProperties.get(spec.getId()));
+      kafkaSpec = KafkaStreamSpec.fromSpec(spec);
+      Properties properties = kafkaSpec.getProperties();
+      properties.putAll(intermediateStreamProperties.get(spec.getId()));
+      kafkaSpec = kafkaSpec.copyWithProperties(properties);
     } else {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
     }
@@ -612,7 +609,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   // get partition info for topic
   Map<String, List<PartitionInfo>> getTopicMetadata(Set<String> topics) {
-    Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap();
+    Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap<>();
     List<PartitionInfo> partitionInfoList;
     for (String topic : topics) {
       partitionInfoList = metadataConsumer.partitionsFor(topic);

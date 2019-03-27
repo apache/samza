@@ -22,7 +22,6 @@ package org.apache.samza.system.hdfs;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -103,9 +102,9 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
    * (stream2) -> (P0) -> "hdfs://user/samzauser/2/datafile01.avro"
    * ...
    */
-  private LoadingCache<String, Map<Partition, List<String>>> cachedPartitionDescriptorMap;
-  private Map<SystemStreamPartition, MultiFileHdfsReader> readers;
-  private Map<SystemStreamPartition, Future> readerRunnableStatus;
+  private final LoadingCache<String, Map<Partition, List<String>>> cachedPartitionDescriptorMap;
+  private final Map<SystemStreamPartition, MultiFileHdfsReader> readers;
+  private final Map<SystemStreamPartition, Future> readerRunnableStatus;
 
   /**
    * Whether the {@link org.apache.samza.system.hdfs.HdfsSystemConsumer} is notified
@@ -130,8 +129,7 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
     this.consumerMetrics = consumerMetrics;
     cachedPartitionDescriptorMap = CacheBuilder.newBuilder().build(new CacheLoader<String, Map<Partition, List<String>>>() {
         @Override
-        public Map<Partition, List<String>> load(String streamName)
-          throws Exception {
+        public Map<Partition, List<String>> load(String streamName) {
           Validate.notEmpty(streamName);
           if (StringUtils.isBlank(stagingDirectory)) {
             throw new SamzaException("Staging directory can't be empty. "
@@ -151,8 +149,7 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
   public void start() {
     LOG.info(String.format("HdfsSystemConsumer started with %d readers", readers.size()));
     executorService = Executors.newCachedThreadPool();
-    readers.entrySet().forEach(
-      entry -> readerRunnableStatus.put(entry.getKey(), executorService.submit(new ReaderRunnable(entry.getValue()))));
+    readers.forEach((key, value) -> readerRunnableStatus.put(key, executorService.submit(new ReaderRunnable(value))));
   }
 
   /**
@@ -275,7 +272,7 @@ public class HdfsSystemConsumer extends BlockingEnvelopeMap {
   }
 
   private class ReaderRunnable implements Runnable {
-    public MultiFileHdfsReader reader;
+    public final MultiFileHdfsReader reader;
 
     public ReaderRunnable(MultiFileHdfsReader reader) {
       this.reader = reader;

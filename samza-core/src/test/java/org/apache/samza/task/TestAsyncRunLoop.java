@@ -41,6 +41,8 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
@@ -48,6 +50,7 @@ import org.apache.samza.system.TestSystemConsumers;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
+import org.mockito.Mockito;
 import scala.Option;
 import scala.collection.JavaConverters;
 
@@ -97,13 +100,10 @@ public class TestAsyncRunLoop {
         manager,
         null,
         null,
-        null,
         sspSet,
         new TaskInstanceExceptionHandler(taskInstanceMetrics, new scala.collection.immutable.HashSet<String>()),
         null,
         null,
-        null,
-        new scala.collection.immutable.HashSet<>(),
         null,
         mock(JobContext.class),
         mock(ContainerContext.class),
@@ -639,9 +639,14 @@ public class TestAsyncRunLoop {
     SystemConsumer mockConsumer = mock(SystemConsumer.class);
     when(mockConsumer.poll(anyObject(), anyLong())).thenReturn(sspMap);
 
+    SystemAdmins systemAdmins = Mockito.mock(SystemAdmins.class);
+    Mockito.when(systemAdmins.getSystemAdmin("system1")).thenReturn(Mockito.mock(SystemAdmin.class));
+    Mockito.when(systemAdmins.getSystemAdmin("testSystem")).thenReturn(Mockito.mock(SystemAdmin.class));
+
     HashMap<String, SystemConsumer> systemConsumerMap = new HashMap<>();
     systemConsumerMap.put("system1", mockConsumer);
-    SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap);
+
+    SystemConsumers consumers = TestSystemConsumers.getSystemConsumers(systemConsumerMap, systemAdmins);
 
     TaskName taskName1 = new TaskName("task1");
     TaskName taskName2 = new TaskName("task2");

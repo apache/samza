@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
@@ -207,17 +207,17 @@ public class StorageRecovery extends CommandLine {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
 
-    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(jobConfig).getSystemFactories();
+    Map<String, SystemFactory> systemFactories = new SystemConfig(jobConfig).getSystemFactories();
 
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
       ContainerStorageManager containerStorageManager =
           new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
-              storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
+              new HashMap<>(), storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
               JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(),
-              storeBaseDir, storeBaseDir, maxPartitionNumber, new SystemClock());
+              storeBaseDir, storeBaseDir, maxPartitionNumber, null, new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

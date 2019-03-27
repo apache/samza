@@ -34,7 +34,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -97,15 +96,5 @@ public class TestTaskContextImpl {
     verify(offsetManager).setStartingOffset(TASK_NAME, ssp, "123");
   }
 
-  /**
-   * Given a registered object, fetchObject should get it. If an object is not registered at a key, then fetchObject
-   * should return null.
-   */
-  @Test
-  public void testRegisterAndFetchObject() {
-    String value = "hello world";
-    taskContext.registerObject("key", value);
-    assertEquals(value, taskContext.fetchObject("key"));
-    assertNull(taskContext.fetchObject("not a key"));
-  }
+
 }

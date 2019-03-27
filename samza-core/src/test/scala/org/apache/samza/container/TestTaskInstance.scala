@@ -20,13 +20,15 @@
 package org.apache.samza.container
 
 
+import java.util.Collections
+
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
 import org.apache.samza.storage.TaskStorageManager
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmin, SystemConsumers, SystemStream, _}
+import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.junit.Assert._
@@ -254,6 +256,45 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       verify(offsetManager, never()).writeCheckpoint(any(), any())
     }
   }
+
+  @Test
+  def testInitCaughtUpMapping() {
+    val offsetManagerMock = mock[OffsetManager]
+    when(offsetManagerMock.getStartingOffset(anyObject(), anyObject())).thenReturn(Option("42"))
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamMetadata = mock[SystemStreamMetadata]
+    when(cacheMock.getSystemStreamMetadata(anyObject(), anyBoolean()))
+      .thenReturn(systemStreamMetadata)
+    val sspMetadata = mock[SystemStreamMetadata.SystemStreamPartitionMetadata]
+    when(sspMetadata.getUpcomingOffset).thenReturn("42")
+    when(systemStreamMetadata.getSystemStreamPartitionMetadata)
+      .thenReturn(Collections.singletonMap(new Partition(0), sspMetadata))
+
+    val ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel,
+      this.metrics,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.collector,
+      offsetManager = offsetManagerMock,
+      storageManager = this.taskStorageManager,
+      tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(ssp),
+      exceptionHandler = this.taskInstanceExceptionHandler,
+      streamMetadataCache = cacheMock,
+      jobContext = this.jobContext,
+      containerContext = this.containerContext,
+      applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory),
+      externalContextOption = Some(this.externalContext))
+
+    taskInstance.initCaughtUpMapping()
+
+    assertTrue(taskInstance.ssp2CaughtupMapping(ssp))
+  }
+
 
   private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {

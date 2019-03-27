@@ -16,16 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.context;
 
-package org.apache.samza.config
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-object FileSystemCheckpointManagerConfig {
-  // file system checkpoint manager config constants
-  val CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path" // system name to use when sending offset checkpoints
+public class TestInternalTaskContext {
 
-  implicit def Config2FSCP(config: Config) = new FileSystemCheckpointManagerConfig(config)
-}
+  private InternalTaskContext internalTaskContext;
 
-class FileSystemCheckpointManagerConfig(config: Config) extends ScalaMapConfig(config) {
-  def getFileSystemCheckpointRoot = getOption(FileSystemCheckpointManagerConfig.CHECKPOINT_MANAGER_ROOT)
+  @Before
+  public void setup() {
+    internalTaskContext = new InternalTaskContext(null);
+  }
+
+  /**
+   * Given a registered object, fetchObject should get it. If an object is not registered at a key, then fetchObject
+   * should return null.
+   */
+  @Test
+  public void testRegisterAndFetchObject() {
+    String value = "hello world";
+    internalTaskContext.registerObject("key", value);
+    assertEquals(value, internalTaskContext.fetchObject("key"));
+    assertNull(internalTaskContext.fetchObject("not a key"));
+  }
+
 }

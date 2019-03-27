@@ -152,8 +152,8 @@ public class ResourceRequestState {
                * assigned to ANY_HOST
                */
               log.info("The number of containers already allocated on {} is greater than what was " +
-                              "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
-                      new Object[]{hostName, requestCountOnThisHost, samzaResource.getResourceID()});
+                      "requested, which is {}. Hence, saving the samzaResource {} in the buffer for ANY_HOST",
+                  new Object[]{hostName, requestCountOnThisHost, samzaResource.getResourceID()});
               addToAllocatedResourceList(ANY_HOST, samzaResource);
             }
           }
@@ -238,9 +238,21 @@ public class ResourceRequestState {
    *
    * @param resource the {@link SamzaResource} to release.
    */
-  public void releaseUnstartableContainer(SamzaResource resource) {
-    log.info("Releasing unstartable container {}", resource.getResourceID());
-    manager.releaseResources(resource);
+  public void releaseUnstartableContainer(SamzaResource resource, String preferredHost) {
+    synchronized (lock) {
+      log.info("Releasing unstartable container {} on host {}", resource.getResourceID(), resource.getHost());
+      manager.releaseResources(resource);
+
+      // A reference for the resource could either be held in the preferred host buffer or in the ANY_HOST buffer.
+      if (allocatedResources.get(preferredHost) != null) {
+        allocatedResources.get(preferredHost).remove(resource);
+        log.info("Resource {} removed from allocated resource buffer for host {}", resource.getResourceID(), preferredHost);
+      }
+      if (allocatedResources.get(ANY_HOST) != null) {
+        allocatedResources.get(ANY_HOST).remove(resource);
+        log.info("Resource {} removed from allocated resource buffer for host {}", resource.getResourceID(), ANY_HOST);
+      }
+    }
   }
 
 

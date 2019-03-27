@@ -227,7 +227,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    log.info("Requesting resources on  " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
+    log.info("Requesting resources on " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
 
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
@@ -311,6 +311,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         log.error("Error in launching stream processor:", t);
         clusterManagerCallback.onStreamProcessorLaunchFailure(resource, t);
       }
+    }
+  }
+
+  public void stopStreamProcessor(SamzaResource resource) {
+    synchronized (lock) {
+      log.info("Stopping resource {}", resource);
+      this.nmClientAsync.stopContainerAsync(allocatedResources.get(resource).getId(),
+          allocatedResources.get(resource).getNodeId());
     }
   }
 
@@ -520,7 +528,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   @Override
   public void onContainerStopped(ContainerId containerId) {
-    log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {}", containerId);
+    log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {} samzaContainerId {}",
+        containerId, getIDForContainer(containerId.toString()));
   }
 
   @Override
@@ -549,6 +558,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   @Override
   public void onStopContainerError(ContainerId containerId, Throwable t) {
     log.info("Got an error when stopping container from the NodeManager. ContainerId: {}. Error: {}", containerId, t);
+    String samzaContainerId = getIDForContainer(containerId.toString());
+
+    if (samzaContainerId != null) {
+      YarnContainer container = state.runningYarnContainers.get(samzaContainerId);
+      log.info("Failed Stop on Yarn Container: {} had Samza ContainerId: {} ", containerId.toString(), samzaContainerId);
+    } else {
+      log.info("Got an invalid notification for container: {}", containerId.toString());
+    }
   }
 
   /**

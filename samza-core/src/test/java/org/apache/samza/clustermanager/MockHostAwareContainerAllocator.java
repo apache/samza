@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Optional;
 import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
@@ -31,7 +32,7 @@ public class MockHostAwareContainerAllocator extends HostAwareContainerAllocator
 
   public MockHostAwareContainerAllocator(ClusterResourceManager manager,
       Config config, SamzaApplicationState state) {
-    super(manager, ALLOCATOR_TIMEOUT_MS, config, state);
+    super(manager, ALLOCATOR_TIMEOUT_MS, config, Optional.empty(), state);
   }
 
   /**

@@ -27,7 +27,9 @@ import java.util.Map;
 import java.util.Set;
 
 import java.util.stream.Collectors;
+import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
@@ -139,9 +141,9 @@ public class StorageManagerUtil {
    * @param offsets The SSP-offset to write
    * @throws IOException because of deserializing to json
    */
-  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName,
+  public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode,
       Map<SystemStreamPartition, String> offsets) throws IOException {
-    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode), OFFSET_FILE_NAME);
     String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil.writeWithChecksum(offsetFile, fileContents);
   }
@@ -153,7 +155,7 @@ public class StorageManagerUtil {
    * @param taskName the task name which is referencing the store
    */
   public static void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
-    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName), OFFSET_FILE_NAME);
+    File offsetFile = new File(getStorePartitionDir(storeBaseDir, storeName, taskName, TaskMode.Active), OFFSET_FILE_NAME);
     if (offsetFile.exists()) {
       FileUtil.rm(offsetFile);
     }
@@ -203,13 +205,19 @@ public class StorageManagerUtil {
 
   /**
    * Creates and returns a File pointing to the directory for the given store and task, given a particular base directory.
+   * In case of a standby task (TaskMode.Standby), the storeDirectory is the same as it would be for an active task.
    *
    * @param storeBaseDir the base directory to use
    * @param storeName the store name to use
    * @param taskName the task name which is referencing the store
+   * @param taskMode the mode of the given task
    * @return the partition directory for the store
    */
-  public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName) {
-    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
+  public static File getStorePartitionDir(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode) {
+    TaskName taskNameForDirName = taskName;
+    if (taskMode.equals(TaskMode.Standby)) {
+      taskNameForDirName =  StandbyTaskUtil.getActiveTaskName(taskName);
+    }
+    return new File(storeBaseDir, (storeName + File.separator + taskNameForDirName.toString()).replace(' ', '_'));
   }
 }

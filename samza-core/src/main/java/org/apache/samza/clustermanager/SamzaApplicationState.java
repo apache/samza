@@ -78,7 +78,7 @@ public class SamzaApplicationState {
   public final AtomicInteger releasedContainers = new AtomicInteger(0);
 
   /**
-   * ContainerStatus of failed containers.
+   * ContainerStatuses of failed containers.
    */
   public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<String, SamzaResourceStatus>();
 
@@ -110,7 +110,7 @@ public class SamzaApplicationState {
    */
   public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
 
-  /**
+   /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */
   public volatile SamzaAppStatus status = SamzaAppStatus.UNDEFINED;
@@ -140,6 +140,25 @@ public class SamzaApplicationState {
    * {@link ContainerProcessManager}
    */
   public final AtomicInteger redundantNotifications = new AtomicInteger(0);
+
+  /**
+   * Number of container allocations from the RM, that did not meet standby container constraints, in which case the
+   * existing resource was given back to the RM, and a new ANY-HOST request had to be made.
+   */
+  public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
+
+  /**
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which a
+   * running standby container was available for the failover.
+   * If two standby containers were used for one failing active, it counts as two.
+   */
+  public final AtomicInteger failoversToStandby = new AtomicInteger(0);
+
+  /**
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which no
+   * running standby container was available for the failover.
+  */
+  public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;

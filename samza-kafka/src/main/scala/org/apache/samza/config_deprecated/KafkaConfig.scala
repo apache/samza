@@ -32,7 +32,6 @@ import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config._
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.util.{Logging, StreamUtil}
 
 import scala.collection.JavaConverters._
@@ -72,7 +71,7 @@ object KafkaConfig {
     * Defines how low a queue can get for a single system/stream/partition
     * combination before trying to fetch more messages for it.
     */
-  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold"
+  val CONSUMER_FETCH_THRESHOLD = SystemConfig.SYSTEM_ID_PREFIX + "samza.fetch.threshold"
 
   val DEFAULT_CHECKPOINT_SEGMENT_BYTES = 26214400
 
@@ -83,7 +82,7 @@ object KafkaConfig {
     * the bytes limit + size of max message in the partition for a given stream.
     * If the value of this property is > 0 then this takes precedence over CONSUMER_FETCH_THRESHOLD config.
     */
-  val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_PREFIX + "samza.fetch.threshold.bytes"
+  val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_ID_PREFIX + "samza.fetch.threshold.bytes"
 
   val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
@@ -117,7 +116,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   private def getSystemDefaultReplicationFactor(systemName: String, defaultValue: String) = {
-    val defaultReplicationFactor = new JavaSystemConfig(config).getDefaultStreamProperties(systemName).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR, defaultValue)
+    val defaultReplicationFactor = new SystemConfig(config).getDefaultStreamProperties(systemName).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR, defaultValue)
     defaultReplicationFactor
   }
 
@@ -131,7 +130,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     * Note that the checkpoint-system has a similar precedence. See [[getCheckpointSystem]]
     */
   def getCheckpointSegmentBytes() = {
-    val defaultsegBytes = new JavaSystemConfig(config).getDefaultStreamProperties(getCheckpointSystem.orNull).getInt(KafkaConfig.SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
+    val defaultsegBytes = new SystemConfig(config).getDefaultStreamProperties(getCheckpointSystem.orNull).getInt(KafkaConfig.SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
     getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, defaultsegBytes)
   }
 
@@ -148,7 +147,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     case Some(rplFactor) => rplFactor
     case _ =>
       val coordinatorSystem = new JobConfig(config).getCoordinatorSystemNameOrNull
-      val systemReplicationFactor = new JavaSystemConfig(config).getDefaultStreamProperties(coordinatorSystem).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR, "3")
+      val systemReplicationFactor = new SystemConfig(config).getDefaultStreamProperties(coordinatorSystem).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR, "3")
       systemReplicationFactor
   }
 
@@ -165,7 +164,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     case Some(segBytes) => segBytes
     case _ =>
       val coordinatorSystem = new JobConfig(config).getCoordinatorSystemNameOrNull
-      val segBytes = new JavaSystemConfig(config).getDefaultStreamProperties(coordinatorSystem).getOrDefault(KafkaConfig.SEGMENT_BYTES, "26214400")
+      val segBytes = new SystemConfig(config).getDefaultStreamProperties(coordinatorSystem).getOrDefault(KafkaConfig.SEGMENT_BYTES, "26214400")
       segBytes
   }
 
@@ -244,7 +243,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
 
       storageConfig.getChangelogStream(storeName).foreach(changelogName => {
         val systemStream = StreamUtil.getSystemStreamFromNames(changelogName)
-        val factoryName = config.getSystemFactory(systemStream.getSystem).getOrElse(new SamzaException("Unable to determine factory for system: " + systemStream.getSystem))
         storeToChangelog += storeName -> systemStream.getStream
       })
     }

@@ -22,10 +22,10 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.annotate.JsonAutoDetect;
+import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
+@JsonSerialize(using = StartpointKeySerializer.class)
 class StartpointKey {
   private final SystemStreamPartition systemStreamPartition;
   private final TaskName taskName;

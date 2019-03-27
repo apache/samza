@@ -193,6 +193,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
   public void shutdown() {
     shutdownNow = true;
+    resume();
   }
 
   /**
@@ -220,15 +221,17 @@ public class AsyncRunLoop implements Runnable, Throttleable {
    * Insert the envelope into the task pending queues and run all the tasks
    */
   private void runTasks(IncomingMessageEnvelope envelope) {
-    if (envelope != null) {
-      PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
-      for (AsyncTaskWorker worker : sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition())) {
-        worker.state.insertEnvelope(pendingEnvelope);
+    if (!shutdownNow) {
+      if (envelope != null) {
+        PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
+        for (AsyncTaskWorker worker : sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition())) {
+          worker.state.insertEnvelope(pendingEnvelope);
+        }
       }
-    }
 
-    for (AsyncTaskWorker worker: taskWorkers) {
-      worker.run();
+      for (AsyncTaskWorker worker: taskWorkers) {
+        worker.run();
+      }
     }
   }
 
@@ -280,7 +283,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   }
 
   /**
-   * Resume the runloop thread. It is triggered once a task becomes ready again or has failure.
+   * Resume the runloop thread. This API is triggered in the following scenarios:
+   * A. A task becomes ready to process a message.
+   * B. A task has failed when processing a message.
+   * C. User thread shuts down the run loop.
    */
   private void resume() {
     log.trace("Resume loop thread");
