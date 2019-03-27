@@ -28,10 +28,11 @@ import java.util.HashMap
 import java.util.HashSet
 import java.util.Queue
 import java.util.Set
+
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
-import org.apache.samza.startpoint.Startpoint
+import org.apache.samza.startpoint.{Startpoint, StartpointSpecific}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 
@@ -210,19 +211,23 @@ class SystemConsumers (
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
 
-    // Note regarding Startpoints and MessageChooser:
-    // Even if there is a startpoint for this SSP, passing in the checkpoint offset should not have any side-effects.
-    // Basically, the offset in the chooser is used in the special scenario where an SSP is both a broadcast and bootstrap stream
-    // and needs to decide what's the lowest starting offset for an SSP that spans across multiple tasks so it knows
-    // to keep the highest priority on the SSP starting from the lowest starting offset until the SSP is fully
-    // bootstrapped to the UPCOMING offset. The offset here is ignored otherwise.
-    chooser.register(systemStreamPartition, offset)
-
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
       if (startpoint != null) {
+        val startpointOffset = startpoint match {
+          case s: StartpointSpecific => s.getSpecificOffset
+          case _ => null
+        }
+        // Note regarding Startpoints and MessageChooser:
+        // Even if there is a startpoint for this SSP, passing in the checkpoint offset should not have any side-effects.
+        // Basically, the offset in the chooser is used in the special scenario where an SSP is both a broadcast and bootstrap stream
+        // and needs to decide what's the lowest starting offset for an SSP that spans across multiple tasks so it knows
+        // to keep the highest priority on the SSP starting from the lowest starting offset until the SSP is fully
+        // bootstrapped to the UPCOMING offset. The offset here is ignored otherwise.
+        chooser.register(systemStreamPartition, startpointOffset)
         consumer.register(systemStreamPartition, startpoint)
       } else {
+        chooser.register(systemStreamPartition, offset)
         val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
         val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
         if (existingOffset == null || systemAdmin.offsetComparator(existingOffset, offset) > 0) {
