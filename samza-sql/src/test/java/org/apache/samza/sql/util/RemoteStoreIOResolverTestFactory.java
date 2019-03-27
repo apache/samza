@@ -113,11 +113,11 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
             tableDescriptor = new RemoteTableDescriptor<>(TEST_TABLE_ID + "-" + ioName.replace(".", "-").replace("$", "-"))
                 .withReadFunction(new InMemoryReadFunction())
                 .withWriteFunction(new InMemoryWriteFunction())
-                .withDisableRateLimiter();
+                .withRateLimiterDisabled();
           } else if (sourceComponents[systemIdx].equals(TEST_REMOTE_STORE_SYSTEM)) {
             tableDescriptor = new RemoteTableDescriptor<>(TEST_TABLE_ID + "-" + ioName.replace(".", "-").replace("$", "-"))
                 .withReadFunction(new InMemoryReadFunction())
-                .withDisableRateLimiter();
+                .withRateLimiterDisabled();
           } else {
             // A local table
             String tableId = changeLogStorePrefix + "InputTable-" + ioName.replace(".", "-").replace("$", "-");

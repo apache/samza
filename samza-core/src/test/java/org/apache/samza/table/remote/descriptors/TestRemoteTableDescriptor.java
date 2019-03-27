@@ -82,10 +82,10 @@ public class TestRemoteTableDescriptor {
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
       if (readCredFn == null) {
-        desc.withDisableReadRateLimiter();
+        desc.withReadRateLimiterDisabled();
       }
       if (writeCredFn == null) {
-        desc.withDisableWriteRateLimiter();
+        desc.withWriteRateLimiterDisabled();
       }
     } else {
       desc.withReadRateLimit(100);
@@ -129,7 +129,7 @@ public class TestRemoteTableDescriptor {
     String tableId = "1";
     RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
         .withReadFunction(createMockTableReadFunction())
-        .withDisableRateLimiter();
+        .withRateLimiterDisabled();
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -267,12 +267,12 @@ public class TestRemoteTableDescriptor {
       if (rlGets) {
         desc.withReadRateLimit(1000);
       } else {
-        desc.withDisableReadRateLimiter();
+        desc.withReadRateLimiterDisabled();
       }
       if (rlPuts) {
         desc.withWriteRateLimit(2000);
       } else {
-        desc.withDisableWriteRateLimiter();
+        desc.withWriteRateLimiterDisabled();
       }
     } else {
       if (numRateLimitOps > 0) {
@@ -280,19 +280,19 @@ public class TestRemoteTableDescriptor {
         if (rlGets) {
           tagCredits.put(RemoteTableDescriptor.RL_READ_TAG, 1000);
         } else {
-          desc.withDisableReadRateLimiter();
+          desc.withReadRateLimiterDisabled();
         }
         if (rlPuts) {
           tagCredits.put(RemoteTableDescriptor.RL_WRITE_TAG, 2000);
         } else {
-          desc.withDisableWriteRateLimiter();
+          desc.withWriteRateLimiterDisabled();
         }
 
         // Spy the rate limiter to verify call count
         RateLimiter rateLimiter = spy(new EmbeddedTaggedRateLimiter(tagCredits));
         desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction());
       } else {
-        desc.withDisableRateLimiter();
+        desc.withRateLimiterDisabled();
       }
     }
 

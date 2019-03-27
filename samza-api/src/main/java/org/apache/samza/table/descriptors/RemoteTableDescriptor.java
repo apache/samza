@@ -188,9 +188,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withDisableRateLimiter() {
-    withDisableReadRateLimiter();
-    withDisableWriteRateLimiter();
+  public RemoteTableDescriptor<K, V> withRateLimiterDisabled() {
+    withReadRateLimiterDisabled();
+    withWriteRateLimiterDisabled();
     return this;
   }
 
@@ -199,7 +199,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withDisableReadRateLimiter() {
+  public RemoteTableDescriptor<K, V> withReadRateLimiterDisabled() {
     this.enableReadRateLimiter = false;
     return this;
   }
@@ -209,7 +209,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withDisableWriteRateLimiter() {
+  public RemoteTableDescriptor<K, V> withWriteRateLimiterDisabled() {
     this.enableWriteRateLimiter = false;
     return this;
   }
