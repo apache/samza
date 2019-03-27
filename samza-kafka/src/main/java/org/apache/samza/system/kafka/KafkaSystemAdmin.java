@@ -596,7 +596,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
       adminClient.deleteRecords(recordsToDelete).all().whenComplete((ignored, exception) -> {
         if (exception != null) {
-          LOG.error("Delete message failed for SSPs {} due to {}", offsets.keySet(), exception);
+          LOG.error("Delete message failed for SSPs " + offsets.keySet() + " due to", exception);
         }
       });
 

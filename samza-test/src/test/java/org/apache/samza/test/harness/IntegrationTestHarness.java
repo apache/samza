@@ -58,6 +58,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.*;
  * It provides additional helper functions to consume, produce and manage topics in Kafka.
  */
 public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
+  private static final long ADMIN_OPERATION_WAIT_DURATION_MS = 5000;
   private static final String BYTE_ARRAY_SERIALIZER = ByteArraySerializer.class.getName();
   private static final String BYTE_ARRAY_DESERIALIZER = ByteArrayDeserializer.class.getName();
 
@@ -101,7 +102,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     * close notifies AdminClientRunnable thread which in turn closes the underlying client quietly and
     * it shouldn't impact the tests nor have any side effects.
     */
-    adminClient.close(10000, TimeUnit.MILLISECONDS);
+    adminClient.close(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
     consumer.close();
     producer.close();
     super.tearDown();
@@ -166,8 +167,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     try {
       CreateTopicsResult resultFuture =
           adminClient.createTopics(newTopics);
-      // wait for 10 seconds to make sure the topic is created if not
-      resultFuture.all().get(10000, TimeUnit.MILLISECONDS);
+      resultFuture.all().get(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
       createStatus = false;
     }
@@ -180,7 +180,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
 
     try {
       DeleteTopicsResult resultFutures = adminClient.deleteTopics(topics);
-      resultFutures.all().get(10000, TimeUnit.MILLISECONDS);
+      resultFutures.all().get(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
       deleteStatus = false;
     }

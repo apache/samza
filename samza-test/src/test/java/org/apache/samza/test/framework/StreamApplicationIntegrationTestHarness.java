@@ -26,7 +26,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -233,8 +232,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
 
   @Override
   protected Properties createProducerConfigs() {
-    Properties producerProps = new Properties();
-    producerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    Properties producerProps = super.createProducerConfigs();
     /*
      * Stream application tests uses string serde for both key and value.
      * The default serde for the test producer in IntegrationTestHarness uses
@@ -247,8 +245,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
 
   @Override
   protected Properties createConsumerConfigs() {
-    Properties consumerProps = new Properties();
-    consumerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    Properties consumerProps = super.createConsumerConfigs();
     /*
      * Stream application tests uses string serde for both key and value.
      * The default serde for the test producer in IntegrationTestHarness uses
@@ -256,8 +253,6 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
      */
     consumerProps.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
     consumerProps.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
-    consumerProps.setProperty(GROUP_ID_CONFIG, "group");
-    consumerProps.setProperty(AUTO_OFFSET_RESET_CONFIG, "earliest");
     return consumerProps;
   }
 }
