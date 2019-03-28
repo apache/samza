@@ -84,6 +84,10 @@ public class SqlSchema {
         .collect(Collectors.toList());
   }
 
+  public boolean containsField(String keyName) {
+    return fields.stream().anyMatch(x -> x.getFieldName().equals(keyName));
+  }
+
   public List<SqlField> getFields() {
     return fields;
   }

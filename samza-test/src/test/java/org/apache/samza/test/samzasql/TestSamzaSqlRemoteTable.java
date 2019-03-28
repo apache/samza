@@ -32,7 +32,6 @@ import org.apache.samza.sql.util.JsonUtil;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.sql.util.RemoteStoreIOResolverTestFactory;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 
@@ -53,8 +52,6 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
-  // SAMZA-2110 We need to enable this when we have a true support for Null records
-  @Ignore
   @Test
   public void testSinkEndToEndWithKeyWithNullRecords() {
     int numMessages = 20;
@@ -65,8 +62,10 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Map<String, String> staticConfigs =
         SamzaSqlTestConfig.fetchStaticConfigsWithFactories(props, numMessages, false, true);
 
-    String sql = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
-    List<String> sqlStmts = Arrays.asList(sql);
+    String sql1 = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
+    String sql2 = "Insert into testRemoteStore.testTable.`$table` select __key__, 'DELETE' as __op__ from testavro.SIMPLE1 WHERE name IS NULL";
+
+    List<String> sqlStmts = Arrays.asList(sql1, sql2);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     runApplication(new MapConfig(staticConfigs));
 
@@ -215,8 +214,6 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
-  // SAMZA-2110 We need to enable this when we have a true support for null records.
-  @Ignore
   @Test
   public void testSameJoinTargetSinkEndToEndRightOuterJoin() {
     int numMessages = 21;
@@ -233,7 +230,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     // redundant here, keeping it just for testing purpose.
     String sql =
         "Insert into testRemoteStore.Profile.`$table` "
-            + "select p.__key__ as __key__ "
+            + "select p.__key__ as __key__, 'DELETE' as __op__ "
             + "from testRemoteStore.Profile.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
             + " on p.__key__ = pv.profileId ";
