@@ -70,7 +70,7 @@ import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TestStreamOperatorTask;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
@@ -78,7 +78,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 
-public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
+public class WatermarkIntegrationTest extends IntegrationTestHarness {
 
   private static int offset = 1;
   private static final String TEST_SYSTEM = "test";

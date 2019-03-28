@@ -391,12 +391,16 @@ public class KafkaConsumerProxy<K, V> {
 
     // populate the MetricNames first time
     if (perPartitionMetrics.isEmpty()) {
-      Map<String, String> tags = new HashMap<>();
-      tags.put("client-id", clientId); // this is required by the KafkaConsumer to get the metrics
-
       for (SystemStreamPartition ssp : ssps) {
         TopicPartition tp = KafkaSystemConsumer.toTopicPartition(ssp);
-        perPartitionMetrics.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
+
+        // These are required by the KafkaConsumer to get the metrics
+        HashMap<String, String> tags = new HashMap<>();
+        tags.put("client-id", clientId);
+        tags.put("topic", tp.topic());
+        tags.put("partition", Integer.toString(tp.partition()));
+
+        perPartitionMetrics.put(ssp, new MetricName("records-lag", "consumer-fetch-manager-metrics", "", tags));
       }
     }
 
