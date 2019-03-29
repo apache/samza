@@ -254,7 +254,10 @@ public class TestOperatorSpec {
 
   @Test
   public void testSinkOperatorSpec() {
-    SinkFunction<TestMessageEnvelope> sinkFn = (m, c, tc) -> System.out.print(m.toString());
+    SinkFunction<TestMessageEnvelope> sinkFn = (m, c, tc) -> {
+      System.out.print(m.toString());
+      return m;
+    };
     SinkOperatorSpec<TestMessageEnvelope> sinkOpSpec = new SinkOperatorSpec<>(sinkFn, "op0");
     SinkOperatorSpec<TestMessageEnvelope> sinkOpCopy = (SinkOperatorSpec<TestMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(sinkOpSpec);
     assertNotEquals("Expected deserialized copy of operator spec should not be the same as the original operator spec", sinkOpSpec, sinkOpCopy);

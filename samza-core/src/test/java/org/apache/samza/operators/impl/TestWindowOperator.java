@@ -537,6 +537,7 @@ public class TestWindowOperator {
           .sink((message, messageCollector, taskCoordinator) -> {
               SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+              return message;
             });
     };
 
@@ -555,6 +556,7 @@ public class TestWindowOperator {
           .sink((message, messageCollector, taskCoordinator) -> {
               SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+              return message;
             });
     };
 
@@ -572,6 +574,7 @@ public class TestWindowOperator {
           .sink((message, messageCollector, taskCoordinator) -> {
               SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+              return message;
             });
     };
 
@@ -594,6 +597,7 @@ public class TestWindowOperator {
           .sink((message, messageCollector, taskCoordinator) -> {
               SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
               messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+              return message;
             });
     };
 

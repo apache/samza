@@ -30,8 +30,6 @@ import static com.google.common.base.Preconditions.checkArgument;
  * The spec for an operator that re-partitions a {@link org.apache.samza.operators.MessageStream} to a
  * {@link org.apache.samza.system.SystemStream}. This is usually paired with a corresponding
  * {@link InputOperatorSpec} that consumes the {@link org.apache.samza.system.SystemStream} again.
- * <p>
- * This is a terminal operator and does not allow further operator chaining.
  *
  * @param <M> the type of message
  * @param <K> the type of key in the message

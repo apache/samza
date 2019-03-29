@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -27,15 +29,13 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
-
 import java.util.Collection;
-import java.util.Collections;
 
 
 /**
  * An operator that sends incoming messages to an output {@link SystemStream}.
  */
-class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
+class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
 
   private final OutputOperatorSpec<M> outputOpSpec;
   private final OutputStreamImpl<M> outputStream;
@@ -52,7 +52,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  public Collection<Void> handleMessage(M message, MessageCollector collector,
+  public Collection<M> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     Object key, value;
     if (outputStream.isKeyed()) {
@@ -64,7 +64,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
     }
 
     collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
-    return Collections.emptyList();
+    return new ArrayList<M>(Arrays.asList(message));
   }
 
   @Override
@@ -72,7 +72,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected OperatorSpec<M, Void> getOperatorSpec() {
+  protected OperatorSpec<M, M> getOperatorSpec() {
     return outputOpSpec;
   }
 }

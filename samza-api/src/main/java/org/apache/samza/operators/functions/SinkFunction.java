@@ -42,6 +42,6 @@ public interface SinkFunction<M>  extends InitableFunction, ClosableFunction, Se
    * @param messageCollector  the {@link MessageCollector} to send the message
    * @param taskCoordinator  the {@link TaskCoordinator} to request commits or shutdown
    */
-  void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator);
+  M apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator);
 
 }

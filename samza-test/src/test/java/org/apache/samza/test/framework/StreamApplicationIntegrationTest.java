@@ -50,15 +50,18 @@ import org.apache.samza.test.table.PageViewToProfileJoinFunction;
 import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTest.class);
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
   @Test
-  public void testStatefulJoinWithLocalTable() {
+  public void testStatefulJoinWithLocalTable() throws InterruptedException {
     Random random = new Random();
     List<KV<String, TestTableData.PageView>> pageViews = Arrays.asList(TestTableData.generatePageViews(10))
         .stream()
@@ -81,14 +84,20 @@ public class StreamApplicationIntegrationTest {
     InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
         .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
 
+    InMemoryOutputDescriptor<String> joinKeysDescriptor = isd
+        .getOutputDescriptor("JoinPageKeys", new NoOpSerde<>());
+
     TestRunner
         .of(new PageViewProfileViewJoinApplication())
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
+        .addOutputStream(joinKeysDescriptor, 1)
         .run(Duration.ofSeconds(2));
 
+
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
+    Assert.assertEquals(10, TestRunner.consumeStream(joinKeysDescriptor, Duration.ofSeconds(1)).get(0).size());
   }
 
   @Test
@@ -103,16 +112,19 @@ public class StreamApplicationIntegrationTest {
     }
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
-    InMemoryInputDescriptor<PageView> imid = isd.getInputDescriptor("PageView", new NoOpSerde<PageView>());
-    InMemoryOutputDescriptor<PageView> imod = isd.getOutputDescriptor("Output", new NoOpSerde<PageView>());
+    InMemoryInputDescriptor<PageView> pageViewInput = isd.getInputDescriptor("PageView", new NoOpSerde<PageView>());
+    InMemoryOutputDescriptor<PageView> repartitionPageViewOutput = isd.getOutputDescriptor("Repartitioned-PageView", new NoOpSerde<PageView>());
+    InMemoryOutputDescriptor<String> pageKeysOnly = isd.getOutputDescriptor("PageKeysOnly", new NoOpSerde<String>());
 
     TestRunner
         .of(new PageViewRepartitionApplication())
-        .addInputStream(imid, pageViews)
-        .addOutputStream(imod, 10)
+        .addInputStream(pageViewInput, pageViews)
+        .addOutputStream(repartitionPageViewOutput, 10)
+        .addOutputStream(pageKeysOnly, 1)
         .run(Duration.ofMillis(1500));
 
-    Assert.assertEquals(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(repartitionPageViewOutput, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
+    Assert.assertEquals(TestRunner.consumeStream(pageKeysOnly, Duration.ofMillis(1000)).get(0).size(), 10);
   }
 
   /**
@@ -149,21 +161,30 @@ public class StreamApplicationIntegrationTest {
       KafkaInputDescriptor<KV<String, TestTableData.Profile>> profileISD =
           ksd.getInputDescriptor("Profile", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
 
-      appDescriptor
-          .getInputStream(profileISD)
-          .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
-          .sendTo(table);
-
       KafkaInputDescriptor<KV<String, TestTableData.PageView>> pageViewISD =
           ksd.getInputDescriptor("PageView", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
       KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new JsonSerdeV2<>());
 
+      appDescriptor.getInputStream(profileISD)
+          .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
+          .sendTo(table)
+          .sink((kv, collector, coordinator) -> {
+              LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
+              return kv;
+            });
+
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
       appDescriptor.getInputStream(pageViewISD)
           .partitionBy(pv -> pv.getValue().getMemberId(),  pv -> pv.getValue(), KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(TestTableData.PageView.class)), "p1")
           .join(table, new PageViewToProfileJoinFunction())
-          .sendTo(outputStream);
+          .sendTo(outputStream)
+          .map(TestTableData.EnrichedPageView::getPageKey)
+          .sink((joinPageKey, collector, coordinator) -> {
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
+              return joinPageKey;
+            });
+
     }
   }
 
@@ -182,14 +203,23 @@ public class StreamApplicationIntegrationTest {
     @Override
     public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
+
       KafkaInputDescriptor<KV<String, PageView>> isd =
           ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+
       MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
-      inputStream
-          .map(KV::getValue)
-          .partitionBy(PageView::getMemberId, pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
-          .sink((m, collector, coordinator) ->
-              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Output"), m.getKey(), m.getKey(), m)));
+      inputStream.map(KV::getValue)
+          .partitionBy(PageView::getMemberId, pv -> pv,
+              KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
+          .sink((m, collector, coordinator) -> {
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Repartitioned-PageView"), m.getKey(), m.getKey(), m));
+              return m;
+            })
+          .map(pv -> pv.getValue().getPageKey())
+          .sink((pageKey, collector, coordinator) -> {
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "PageKeysOnly"), null, null, pageKey));
+              return null;
+            });
     }
   }
 }

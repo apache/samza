@@ -83,7 +83,9 @@ public class TestOperatorSpecGraph {
     String streamId2 = "test-input-2";
     InputOperatorSpec testInput2 = new InputOperatorSpec(streamId2, new NoOpSerde(), new NoOpSerde(), null, true, "test-input-4");
     StreamOperatorSpec testMap = OperatorSpecs.createMapOperatorSpec(m -> m, "test-map-5");
-    SinkOperatorSpec testSink = OperatorSpecs.createSinkOperatorSpec((m, mc, tc) -> { }, "test-sink-6");
+    SinkOperatorSpec testSink = OperatorSpecs.createSinkOperatorSpec((m, mc, tc) -> {
+        return m;
+      }, "test-sink-6");
     testInput2.registerNextOperatorSpec(testMap);
     testMap.registerNextOperatorSpec(testSink);
 
