@@ -159,13 +159,14 @@ class MessageStreamAssert<M> {
     }
 
     @Override
-    public void apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
+    public M apply(M message, MessageCollector messageCollector, TaskCoordinator taskCoordinator) {
       actual.add(message);
 
       if (actual.size() >= expected.size()) {
         timerTask.cancel();
         check();
       }
+      return message;
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {

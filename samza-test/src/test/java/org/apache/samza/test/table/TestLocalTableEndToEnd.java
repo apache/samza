@@ -131,7 +131,10 @@ public class TestLocalTableEndToEnd extends IntegrationTestHarness {
             })
           .partitionBy(PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
           .join(table, new PageViewToProfileJoinFunction())
-          .sink((m, collector, coordinator) -> joined.add(m));
+          .sink((m, collector, coordinator) -> {
+              joined.add(m);
+              return m;
+            });
     }
   }
 
@@ -204,15 +207,19 @@ public class TestLocalTableEndToEnd extends IntegrationTestHarness {
       MessageStream<PageView> pageViewStream1 = appDesc.getInputStream(pageViewISD1);
       MessageStream<PageView> pageViewStream2 = appDesc.getInputStream(pageViewISD2);
 
-      pageViewStream1
-          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
+      pageViewStream1.partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p1")
           .join(profileTable, joinFn1)
-          .sink((m, collector, coordinator) -> joinedPageViews1.add(m));
+          .sink((m, collector, coordinator) -> {
+              joinedPageViews1.add(m);
+              return m;
+            });
 
-      pageViewStream2
-          .partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p2")
+      pageViewStream2.partitionBy(PageView::getMemberId, v -> v, pageViewKVSerde, "p2")
           .join(profileTable, joinFn2)
-          .sink((m, collector, coordinator) -> joinedPageViews2.add(m));
+          .sink((m, collector, coordinator) -> {
+              joinedPageViews2.add(m);
+              return m;
+            });
     }
   }
 

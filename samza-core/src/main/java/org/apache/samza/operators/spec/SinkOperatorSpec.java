@@ -25,12 +25,10 @@ import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
  * The spec for an operator that outputs a stream to an arbitrary external system.
- * <p>
- * This is a terminal operator and does not allow further operator chaining.
  *
  * @param <M>  the type of input message
  */
-public class SinkOperatorSpec<M> extends OperatorSpec<M, Void> {
+public class SinkOperatorSpec<M> extends OperatorSpec<M, M> {
 
   private final SinkFunction<M> sinkFn;
 

@@ -18,21 +18,21 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
-
 import java.util.Collection;
-import java.util.Collections;
 
 
 /**
  * An operator that sends incoming messages to an arbitrary output system using the provided {@link SinkFunction}.
  */
-class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
+class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
 
   private final SinkOperatorSpec<M> sinkOpSpec;
   private final SinkFunction<M> sinkFn;
@@ -48,11 +48,10 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  public Collection<Void> handleMessage(M message, MessageCollector collector,
+  public Collection<M> handleMessage(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
-    // there should be no further chained operators since this is a terminal operator.
-    return Collections.emptyList();
+    return new ArrayList<M>(Arrays.asList(message));
   }
 
   @Override
@@ -60,7 +59,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
     this.sinkFn.close();
   }
 
-  protected OperatorSpec<M, Void> getOperatorSpec() {
+  protected OperatorSpec<M, M> getOperatorSpec() {
     return sinkOpSpec;
   }
 }
