@@ -19,11 +19,24 @@
 
 package org.apache.samza.system.eventhub.admin;
 
+import com.microsoft.azure.eventhubs.EventData;
+import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.eventhubs.EventHubException;
+import com.microsoft.azure.eventhubs.PartitionReceiver;
+import java.util.Arrays;
 import org.apache.samza.Partition;
+import org.apache.samza.startpoint.StartpointOldest;
+import org.apache.samza.startpoint.StartpointSpecific;
+import org.apache.samza.startpoint.StartpointTimestamp;
+import org.apache.samza.startpoint.StartpointUpcoming;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.eventhub.EventHubClientManager;
+import org.apache.samza.system.eventhub.EventHubConfig;
 import org.apache.samza.system.eventhub.EventHubSystemFactory;
 import org.apache.samza.system.eventhub.MockEventHubConfigFactory;
+import org.apache.samza.system.eventhub.admin.EventHubSystemAdmin.EventHubSamzaOffsetResolver;
 import org.apache.samza.system.eventhub.consumer.EventHubSystemConsumer;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.junit.Assert;
@@ -33,6 +46,7 @@ import org.junit.Test;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.Mockito;
 
 import static org.apache.samza.system.eventhub.MockEventHubConfigFactory.*;
 
@@ -80,4 +94,65 @@ public class TestEventHubSystemAdmin {
     }
   }
 
+  @Test
+  public void testStartpointResolverShouldResolveTheStartpointOldestToCorrectOffset() {
+    EventHubSystemAdmin mockEventHubSystemAdmin = Mockito.mock(EventHubSystemAdmin.class);
+    EventHubConfig eventHubConfig = Mockito.mock(EventHubConfig.class);
+    SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
+
+    EventHubSamzaOffsetResolver resolver = new EventHubSamzaOffsetResolver(mockEventHubSystemAdmin, eventHubConfig);
+
+    Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM, resolver.visit(systemStreamPartition, new StartpointOldest()));
+  }
+
+  @Test
+  public void testStartpointResolverShouldResolveTheStartpointUpcomingToCorrectOffset() {
+    EventHubSystemAdmin mockEventHubSystemAdmin = Mockito.mock(EventHubSystemAdmin.class);
+    EventHubConfig eventHubConfig = Mockito.mock(EventHubConfig.class);
+    SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
+
+    EventHubSamzaOffsetResolver resolver = new EventHubSamzaOffsetResolver(mockEventHubSystemAdmin, eventHubConfig);
+
+    Assert.assertEquals(EventHubSystemConsumer.END_OF_STREAM, resolver.visit(systemStreamPartition, new StartpointUpcoming()));
+  }
+
+  @Test
+  public void testStartpointResolverShouldResolveTheStartpointSpecificToCorrectOffset() {
+    EventHubSystemAdmin mockEventHubSystemAdmin = Mockito.mock(EventHubSystemAdmin.class);
+    EventHubConfig eventHubConfig = Mockito.mock(EventHubConfig.class);
+    SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
+
+    EventHubSamzaOffsetResolver resolver = new EventHubSamzaOffsetResolver(mockEventHubSystemAdmin, eventHubConfig);
+
+    Assert.assertEquals("100", resolver.visit(systemStreamPartition, new StartpointSpecific("100")));
+  }
+
+  @Test
+  public void testStartpointResolverShouldResolveTheStartpointTimestampToCorrectOffset() throws EventHubException {
+    // Initialize variables required for testing.
+    EventHubSystemAdmin mockEventHubSystemAdmin = Mockito.mock(EventHubSystemAdmin.class);
+    EventHubConfig eventHubConfig = Mockito.mock(EventHubConfig.class);
+    SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
+    String mocketOffsetToReturn = "100";
+
+    // Setup the mock variables.
+    EventHubClientManager mockEventHubClientManager = Mockito.mock(EventHubClientManager.class);
+    EventHubClient mockEventHubClient = Mockito.mock(EventHubClient.class);
+    PartitionReceiver mockPartitionReceiver = Mockito.mock(PartitionReceiver.class);
+    EventData mockEventData = Mockito.mock(EventData.class);
+    EventData.SystemProperties mockSystemProperties = Mockito.mock(EventData.SystemProperties.class);
+
+    // Configure the mock variables to return the appropriate values.
+    Mockito.when(mockEventHubSystemAdmin.getOrCreateStreamEventHubClient("test-stream")).thenReturn(mockEventHubClientManager);
+    Mockito.when(mockEventHubClientManager.getEventHubClient()).thenReturn(mockEventHubClient);
+    Mockito.when(mockEventHubClient.createReceiverSync(Mockito.anyString(), Mockito.anyString(), Mockito.any())).thenReturn(mockPartitionReceiver);
+    Mockito.when(mockPartitionReceiver.receiveSync(1)).thenReturn(Arrays.asList(mockEventData));
+    Mockito.when(mockEventData.getSystemProperties()).thenReturn(mockSystemProperties);
+    Mockito.when(mockSystemProperties.getOffset()).thenReturn(mocketOffsetToReturn);
+
+    // Test the Offset resolver.
+    EventHubSamzaOffsetResolver resolver = new EventHubSamzaOffsetResolver(mockEventHubSystemAdmin, eventHubConfig);
+    String resolvedOffset = resolver.visit(systemStreamPartition, new StartpointTimestamp(100L));
+    Assert.assertEquals(mocketOffsetToReturn, resolvedOffset);
+  }
 }
