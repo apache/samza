@@ -715,10 +715,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    * @return the id of the Samza container corresponding to the {@link ContainerId} that is pending launch
    */
   private String getPendingProcessorId(ContainerId containerId) {
-    for (String samzaContainerId: state.pendingProcessors.keySet()) {
-      YarnContainer yarnContainer = state.pendingProcessors.get(samzaContainerId);
+    for (String pendingProcessorId: state.pendingProcessors.keySet()) {
+      YarnContainer yarnContainer = state.pendingProcessors.get(pendingProcessorId);
       if (yarnContainer != null && yarnContainer.id().equals(containerId)) {
-        return samzaContainerId;
+        return pendingProcessorId;
       }
     }
     return null;

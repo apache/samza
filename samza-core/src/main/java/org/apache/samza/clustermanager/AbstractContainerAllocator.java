@@ -164,6 +164,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *                               The hostName value is null, either
    *                                - when host-affinity has never been enabled, or
    *                                - when host-affinity is enabled and job is run for the first time
+   *                                - when the number of containers has been increased.
    */
   public abstract void requestResources(Map<String, String> processorToHostMapping);
 

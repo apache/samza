@@ -119,7 +119,7 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    * @param processorToHostMapping A Map of [processorId, hostName] where processorId is the ID of the Samza processor
    *                               to run on the resource. hostName is the host on which the resource must be allocated.
    *                               The hostName value is null when host-affinity is enabled and job is run for the
-   *                               first time
+   *                               first time, or when the number of containers has been increased.
    */
   @Override
   public void requestResources(Map<String, String> processorToHostMapping) {
