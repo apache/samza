@@ -51,37 +51,37 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * A request is identified by an unique identifier.
    */
-  private final String requestID;
+  private final String requestId;
   /**
-   * The ID of the StreamProcessor which this request is for.
+   * The ID of the Samza Processor which this request is for.
    */
-  private final String containerID;
+  private final String processorId;
 
   /**
    * The timestamp in millis when the request was created.
    */
   private final long requestTimestampMs;
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String expectedContainerID) {
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
-    this.requestID = UUID.randomUUID().toString();
-    this.containerID = expectedContainerID;
+    this.requestId = UUID.randomUUID().toString();
+    this.processorId = processorId;
     this.requestTimestampMs = System.currentTimeMillis();
-    log.info("Resource Request created for {} on {} at {}", new Object[] {this.containerID, this.preferredHost, this.requestTimestampMs});
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestampMs, this.requestId);
   }
 
-  public String getContainerID() {
-    return containerID;
+  public String getProcessorId() {
+    return processorId;
   }
 
   public long getRequestTimestampMs() {
     return requestTimestampMs;
   }
 
-  public String getRequestID() {
-    return requestID;
+  public String getRequestId() {
+    return requestId;
   }
 
   public int getNumCores() {
@@ -102,25 +102,24 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             "numCores=" + numCores +
             ", memoryMB=" + memoryMB +
             ", preferredHost='" + preferredHost + '\'' +
-            ", requestID='" + requestID + '\'' +
-            ", containerID=" + containerID +
+            ", requestId='" + requestId + '\'' +
+            ", processorId=" + processorId +
             ", requestTimestampMs=" + requestTimestampMs +
             '}';
   }
 
   /**
-   * Requests are ordered by the container type and the time at which they were created.
-   * Active containers take precedence over standby containers, regardless of timestamp.
+   * Requests are ordered by the processor type and the time at which they were created.
+   * Active processors take precedence over standby processors, regardless of timestamp.
    * @param o the other
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
-
-    if (!StandbyTaskUtil.isStandbyContainer(this.containerID) && StandbyTaskUtil.isStandbyContainer(o.containerID)) {
+    if (!StandbyTaskUtil.isStandbyContainer(this.processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return -1;
     }
 
-    if (StandbyTaskUtil.isStandbyContainer(this.containerID) && !StandbyTaskUtil.isStandbyContainer(o.containerID)) {
+    if (StandbyTaskUtil.isStandbyContainer(this.processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return 1;
     }
 

@@ -46,12 +46,12 @@ class ContainerProcessManagerMetrics(
   reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))
 
    def start() {
-    val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
-    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers.get())
-    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers.get())
+    val mRunningContainers = newGauge("running-containers", () => state.runningProcessors.size)
+    val mNeededContainers = newGauge("needed-containers", () => state.neededProcessors.get())
+    val mCompletedContainers = newGauge("completed-containers", () => state.completedProcessors.get())
     val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
-    val mContainers = newGauge("container-count", () => state.containerCount)
+    val mContainers = newGauge("container-count", () => state.processorCount)
     val mRedundantNotifications = newGauge("redundant-notifications", () => state.redundantNotifications.get())
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
     val mPreferredHostRequests = newGauge("preferred-host-requests", () => state.preferredHostRequests.get())

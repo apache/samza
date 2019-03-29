@@ -48,9 +48,9 @@ public class TestContainerRequestState {
 
     assertNotNull(state.numPendingRequests() == 1);
 
-    assertNotNull(state.getRequestsToCountMap());
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(1, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -66,8 +66,8 @@ public class TestContainerRequestState {
 
     assertTrue(state1.numPendingRequests() == 1);
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNull(state1.getRequestsToCountMap().get(ANY_HOST));
+    assertNotNull(state1.getHostRequestCounts());
+    assertNull(state1.getHostRequestCounts().get(ANY_HOST));
 
   }
 
@@ -82,7 +82,7 @@ public class TestContainerRequestState {
 
     state.addResource(resource);
 
-    assertNotNull(state.getRequestsToCountMap());
+    assertNotNull(state.getHostRequestCounts());
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
 
     assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
@@ -105,9 +105,9 @@ public class TestContainerRequestState {
 
     assertEquals(1, state1.numPendingRequests());
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNotNull(state1.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state1.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state1.getHostRequestCounts());
+    assertNotNull(state1.getHostRequestCounts().get("abc"));
+    assertEquals(1, state1.getHostRequestCounts().get("abc").get());
 
     state1.addResource(resource);
 
@@ -156,7 +156,7 @@ public class TestContainerRequestState {
     state.addResource(container1);
 
     assertEquals(2, state.numPendingRequests());
-    assertEquals(2, state.getRequestsToCountMap().size());
+    assertEquals(2, state.getHostRequestCounts().size());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(1, state.getResourcesOnAHost("abc").size());
@@ -174,8 +174,8 @@ public class TestContainerRequestState {
 
     assertEquals(request1, state.peekPendingRequest());
 
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(0, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(0, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -185,8 +185,8 @@ public class TestContainerRequestState {
 
     assertEquals(0, state.numPendingRequests());
 
-    assertNotNull(state.getRequestsToCountMap().get("def"));
-    assertEquals(0, state.getRequestsToCountMap().get("def").get());
+    assertNotNull(state.getHostRequestCounts().get("def"));
+    assertEquals(0, state.getHostRequestCounts().get("def").get());
 
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());

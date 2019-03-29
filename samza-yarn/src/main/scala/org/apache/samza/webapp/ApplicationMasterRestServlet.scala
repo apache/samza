@@ -79,7 +79,7 @@ object ApplicationMasterRestServlet {
   def getAmState(jsonMapper: ObjectMapper, samzaAppState: SamzaApplicationState, state: YarnAppState) = {
     val containers = new HashMap[String, util.HashMap[String, Object]]
 
-    state.runningYarnContainers.asScala.foreach {
+    state.runningProcessors.asScala.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]

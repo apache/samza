@@ -26,11 +26,11 @@ import org.slf4j.LoggerFactory;
 /**
  * This is the default allocator that will be used by ContainerProcessManager.
  *
- * When host-affinity is not enabled, this periodically wakes up to assign a container to *ANY* allocated resource.
- * If there aren't enough containers, it waits by sleeping for {@code allocatorSleepIntervalMs} milliseconds.
+ * When host-affinity is not enabled, this periodically wakes up to assign a processor to *ANY* allocated resource.
+ * If there aren't enough resources, it waits by sleeping for {@code allocatorSleepIntervalMs} milliseconds.
+ *
+ * This class is used in the refactored code path as called by run-jc.sh
  */
-//This class is used in the refactored code path as called by run-jc.sh
-
 public class ContainerAllocator extends AbstractContainerAllocator {
   private static final Logger log = LoggerFactory.getLogger(ContainerAllocator.class);
 
@@ -55,18 +55,17 @@ public class ContainerAllocator extends AbstractContainerAllocator {
   }
 
   /**
-   * Since host-affinity is not enabled, the container id to host mappings will be ignored and all resources will be
+   * Since host-affinity is not enabled, the processor id to host mappings will be ignored and all resources will be
    * matched to any available host.
    *
-   * @param resourceToHostMapping A Map of [containerId, hostName] containerId is the ID of the container process
-   *                               to run on the resource. The hostName will be ignored and each container process will
-   *                               be matched to any available host.
+   * @param processorToHostMapping A Map of [processorId, hostName] ID of the processor to run on the resource.
+   *                               The hostName will be ignored and each processor will be matched to any available host.
    */
   @Override
-  public void requestResources(Map<String, String> resourceToHostMapping)  {
-    for (Map.Entry<String, String> entry : resourceToHostMapping.entrySet()) {
-      String containerId = entry.getKey();
-      requestResource(containerId, ResourceRequestState.ANY_HOST);
+  public void requestResources(Map<String, String> processorToHostMapping)  {
+    for (Map.Entry<String, String> entry : processorToHostMapping.entrySet()) {
+      String processorId = entry.getKey();
+      requestResource(processorId, ResourceRequestState.ANY_HOST);
     }
   }
 
