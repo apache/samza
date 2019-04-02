@@ -202,13 +202,11 @@ public class CoordinatorStreamSystemConsumer {
     }
   }
 
-  public Set<CoordinatorStreamMessage> getBoostrappedStream() {
-    log.info("Returning the bootstrapped data from the stream");
-    if (!isBootstrapped)
-      bootstrap();
-    return bootstrappedStreamSet;
-  }
-
+  /**
+   * Returns the set of bootstrapped {@link CoordinatorStreamMessage}s
+   * @param type The type of {@link CoordinatorStreamMessage}s to return.
+   * @return The bootstrapped {@link CoordinatorStreamMessage}s
+   */
   public Set<CoordinatorStreamMessage> getBootstrappedStream(String type) {
     log.debug("Bootstrapping coordinator stream for messages of type {}", type);
     bootstrap();

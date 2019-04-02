@@ -59,7 +59,7 @@ import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 
@@ -79,7 +79,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.withSettings;
 
 
-public class TestRemoteTableEndToEnd extends AbstractIntegrationTestHarness {
+public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
 
   static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
 
