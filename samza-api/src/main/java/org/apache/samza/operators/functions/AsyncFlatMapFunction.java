@@ -30,18 +30,18 @@ import org.apache.samza.annotation.InterfaceStability;
  * to transform a collection of 0 or more messages.
  * <p>
  * Typically, {@link AsyncFlatMapFunction} is used for describing complex transformations that involve IO operations or remote calls.
- * The following pseudo code demonstrates a sample implementation of {@link AsyncFlatMapFunction} which transforms the
- * the message to decorated message which involves talking to a remote service.
+ * The following pseudo code demonstrates a sample implementation of {@link AsyncFlatMapFunction} that sends out an email
+ * and returns the status asynchronously.
  * <pre> {@code
- *    AsyncFlatMapFunction<M, OM> asyncRestDecoratorFunction = (M message) -> {
+ *    AsyncFlatMapFunction<Email, Status> asyncEmailSender = (Email message) -> {
  *        ...
  *
- *        Request<DecoratedData> decoratorRequest = buildDecoratorRequest(message);
- *        Future<DecoratorDataResponse> decorateResponseFuture = restServiceClient.sendRequest(decoratorRequest); // remote call to the rest service;
+ *        Request<Email> emailRequest = buildEmailRequest(message);
+ *        Future<EmailResponse> emailResponseFuture = emailClient.sendRequest(emailRequest); // send email asynchronously
  *        ...
  *
- *        return new CompletableFuture<>(decorateResponseFuture)
- *             .thenApply(decoratedDataResponse -> massageDecoratorResponse(decoratedDataResponse);
+ *        return new CompletableFuture<>(emailResponseFuture)
+ *             .thenApply(response -> fetchStatus(response);
  *    }
  * }
  * </pre>

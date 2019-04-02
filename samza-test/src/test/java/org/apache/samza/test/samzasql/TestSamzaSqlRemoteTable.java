@@ -54,7 +54,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  @Ignore
+  @Ignore("Disabled due to flakiness related to data generation; Refer Pull Request #905 for details")
   public void testSinkEndToEndWithKeyWithNullRecords() {
     int numMessages = 20;
 

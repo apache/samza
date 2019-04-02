@@ -74,15 +74,16 @@ public interface MessageStream<M> {
    * is specified through {@link AsyncFlatMapFunction}. The results are emitted to the downstream operators upon the
    * completion of the {@link CompletionStage} returned from the {@link AsyncFlatMapFunction}.
    * <p>
-   * The operator can operate in two modes which is determined using <i>task.max.concurrency.</i>.
+   * The operator can operate in two modes depending on <i>task.max.concurrency.</i>.
    * <ul>
    *   <li>
-   *     Serialized (task.max.concurrency=1) - In this mode, each delivery to the operator is guaranteed to happens-before next delivery.
+   *     Serialized (task.max.concurrency=1) - In this mode, each invocation of the {@link AsyncFlatMapFunction} is guaranteed
+   *     to happen-before next invocation.
    *   </li>
    *   <li>
-   *     Parallel (task.max.concurrency&gt;1) - In this mode, there is no happens-before guarantee between message delivery to the operator
-   *     and the {@link AsyncFlatMapFunction} is required coordinate any shared state. The operator doesn't provide any ordering guarantees.
-   *     i.e The results emitted by this operator might not be in the same order as they were when it was delivered to the operator.
+   *     Parallel (task.max.concurrency&gt;1) - In this mode, multiple invocations can happen in parallel without happens-before guarantee
+   *     and the {@link AsyncFlatMapFunction} is required synchronize any shared state. The operator doesn't provide any ordering guarantees.
+   *     i.e The results corresponding to each invocation of this operator might not be emitted in the same order as invocations.
    *     By extension, the operator chain that follows it also doesn't have any ordering guarantees.
    *   </li>
    * </ul>
