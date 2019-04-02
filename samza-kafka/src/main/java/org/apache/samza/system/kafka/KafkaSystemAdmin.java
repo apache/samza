@@ -90,7 +90,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
   public static volatile boolean deleteMessageCalled = false;
 
   protected final String systemName;
-  protected final Consumer metadataConsumer;
+  private final Consumer metadataConsumer; // Need to synchronize all accesses, since KafkaConsumer is not thread-safe
   protected final Config config;
 
   // Custom properties to create a new coordinator stream.
@@ -231,13 +231,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
             streamNames.forEach(streamName -> {
               Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
+              List<PartitionInfo> partitionInfos;
               synchronized (metadataConsumer) {
-                List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
-                LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
-
-                partitionInfos.forEach(
-                    partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
+                partitionInfos = metadataConsumer.partitionsFor(streamName);
               }
+              LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
+              partitionInfos.forEach(
+                  partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
               allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
             });
 
