@@ -46,14 +46,14 @@ import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.operator.data.PageView;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 
-public class TestAsyncFlatMap extends AbstractIntegrationTestHarness {
+public class TestAsyncFlatMap extends IntegrationTestHarness {
   private static final String TEST_SYSTEM = "test";
   private static final String PAGE_VIEW_STREAM = "test-async-page-view-stream";
   private static final String NON_GUEST_PAGE_VIEW_STREAM = "test-async-non-guest-page-view-stream";
