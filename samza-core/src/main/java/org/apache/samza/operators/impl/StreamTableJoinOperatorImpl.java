@@ -69,7 +69,7 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
     return Optional.ofNullable(key)
         .map(joinKey -> table.getAsync(joinKey)
             .thenApply(val -> getJoinOutput(joinKey, val, message)))
-        .orElse(CompletableFuture.completedFuture(Collections.emptyList()));
+        .orElse(CompletableFuture.completedFuture(getJoinOutput(key, null, message)));
   }
 
   private Collection<JM> getJoinOutput(K key, Object value, M message) {
