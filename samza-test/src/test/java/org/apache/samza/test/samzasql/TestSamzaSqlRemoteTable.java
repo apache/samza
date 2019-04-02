@@ -32,6 +32,7 @@ import org.apache.samza.sql.util.JsonUtil;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.sql.util.RemoteStoreIOResolverTestFactory;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 
@@ -53,6 +54,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
+  @Ignore
   public void testSinkEndToEndWithKeyWithNullRecords() {
     int numMessages = 20;
 
