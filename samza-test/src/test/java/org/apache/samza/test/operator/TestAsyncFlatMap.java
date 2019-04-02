@@ -19,6 +19,7 @@
 package org.apache.samza.test.operator;
 
 import com.google.common.collect.ImmutableList;
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -130,19 +131,17 @@ public class TestAsyncFlatMap extends AbstractIntegrationTestHarness {
   }
 
   static class AsyncFlatMapExample implements StreamApplication {
-    private transient Config config;
-
     @Override
     public void describe(StreamApplicationDescriptor appDescriptor) {
-      config = appDescriptor.getConfig();
+      Config config = appDescriptor.getConfig();
       KafkaSystemDescriptor kafkaSystemDescriptor = new KafkaSystemDescriptor(TEST_SYSTEM);
       KafkaOutputDescriptor<PageView>
           outputDescriptor = kafkaSystemDescriptor.getOutputDescriptor(NON_GUEST_PAGE_VIEW_STREAM, new NoOpSerde<>());
       OutputStream<PageView> nonGuestPageViewStream = appDescriptor.getOutputStream(outputDescriptor);
 
-      Predicate<PageView> failProcess = (ignored) -> config.getBoolean(FAIL_PROCESS, false);
-      Predicate<PageView> failDownstreamOperator = (ignored) -> config.getBoolean(FAIL_DOWNSTREAM_OPERATOR, false);
-      Supplier<Long> processJitter = () -> config.getLong(PROCESS_JITTER, 100);
+      Predicate<PageView> failProcess = (Predicate<PageView> & Serializable) (ignored) -> config.getBoolean(FAIL_PROCESS, false);
+      Predicate<PageView> failDownstreamOperator = (Predicate<PageView> & Serializable) (ignored) -> config.getBoolean(FAIL_DOWNSTREAM_OPERATOR, false);
+      Supplier<Long> processJitter = (Supplier<Long> & Serializable) () -> config.getLong(PROCESS_JITTER, 100);
 
       appDescriptor.getInputStream(kafkaSystemDescriptor.getInputDescriptor(PAGE_VIEW_STREAM, new NoOpSerde<PageView>()))
           .flatMapAsync(pageView -> filterGuestPageViews(pageView, failProcess, processJitter))
@@ -174,7 +173,7 @@ public class TestAsyncFlatMap extends AbstractIntegrationTestHarness {
         throw new RuntimeException("Filtering login page views ran into an exception");
       }
 
-      return LOGIN_PAGE.equals(pageView.getPageId());
+      return !LOGIN_PAGE.equals(pageView.getPageId());
     }
 
   }
