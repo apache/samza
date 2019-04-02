@@ -340,7 +340,7 @@ public class ClusterBasedJobCoordinator {
 
     // if no rewriter is defined, there is nothing to monitor
     if (!rewritersList.isDefined()) {
-      log.warn("No config rewriters are defined. No StreamRegexMonitor created.");
+      log.info("No config rewriters are defined. No StreamRegexMonitor created.");
       return Optional.empty();
     }
 
@@ -348,6 +348,12 @@ public class ClusterBasedJobCoordinator {
     Map<String, Pattern> inputRegexesToMonitor =
         JavaConverters.mapAsJavaMapConverter(new JobConfig(config).getMonitorRegexPatternMap(rewritersList.get()))
             .asJava();
+
+    // if there are no regexes to monitor
+    if (inputRegexesToMonitor.isEmpty()) {
+      log.info("No input regexes are defined. No StreamRegexMonitor created.");
+      return Optional.empty();
+    }
 
     return Optional.of(new StreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
         new JobConfig(config).getMonitorRegexFrequency(), new StreamRegexMonitor.Callback() {

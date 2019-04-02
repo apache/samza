@@ -241,11 +241,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
             streamNames.forEach(streamName -> {
               Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
-              List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
-              LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
+              synchronized (metadataConsumer) {
+                List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
+                LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
 
-              partitionInfos.forEach(partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
-
+                partitionInfos.forEach(
+                    partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
+              }
               allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
             });
 
@@ -391,11 +393,15 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> upcomingOffsets = new HashMap<>();
+    Map<TopicPartition, Long> oldestOffsetsWithLong;
+    Map<TopicPartition, Long> upcomingOffsetsWithLong;
 
-    Map<TopicPartition, Long> oldestOffsetsWithLong = metadataConsumer.beginningOffsets(topicPartitions);
-    LOG.debug("Kafka-fetched beginningOffsets: {}", oldestOffsetsWithLong);
-    Map<TopicPartition, Long> upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
-    LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
+    synchronized (metadataConsumer) {
+      oldestOffsetsWithLong = metadataConsumer.beginningOffsets(topicPartitions);
+      LOG.debug("Kafka-fetched beginningOffsets: {}", oldestOffsetsWithLong);
+      upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
+      LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
+    }
 
     oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
 
@@ -434,21 +440,23 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
 
     topics.forEach(topic -> {
-      List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
+      synchronized (metadataConsumer) {
+        List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
 
-      if (partitionInfos == null) {
-        String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
-        throw new SamzaException(msg);
+        if (partitionInfos == null) {
+          String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
+          throw new SamzaException(msg);
+        }
+
+        List<TopicPartition> topicPartitions = partitionInfos.stream()
+            .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
+            .collect(Collectors.toList());
+
+        OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
+        allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
+        allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
+        allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
       }
-
-      List<TopicPartition> topicPartitions = partitionInfos.stream()
-          .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
-          .collect(Collectors.toList());
-
-      OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
-      allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
-      allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
-      allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
     });
 
     scala.collection.immutable.Map<String, SystemStreamMetadata> result =
@@ -462,12 +470,14 @@ public class KafkaSystemAdmin implements SystemAdmin {
   private String fetchNewestOffset(SystemStreamPartition ssp) {
     LOG.debug("Fetching newest offset for {}", ssp);
     String newestOffset;
+    Long upcomingOffset;
 
     TopicPartition topicPartition = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
 
     // the offsets returned from the consumer is the Long type
-    Long upcomingOffset =
-        (Long) metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+    synchronized (metadataConsumer) {
+      upcomingOffset = (Long) metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
+    }
 
     // Kafka's "latest" offset is always last message in stream's offset + 1,
     // so get newest message in stream by subtracting one. This is safe
@@ -612,7 +622,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap<>();
     List<PartitionInfo> partitionInfoList;
     for (String topic : topics) {
-      partitionInfoList = metadataConsumer.partitionsFor(topic);
+      synchronized (metadataConsumer) {
+        partitionInfoList = metadataConsumer.partitionsFor(topic);
+      }
       streamToPartitionsInfo.put(topic, partitionInfoList);
     }
 
@@ -679,9 +691,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   @Override
   public Set<SystemStream> getAllSystemStreams() {
-    return ((Set<String>) this.metadataConsumer.listTopics().keySet()).stream()
-        .map(x -> new SystemStream(systemName, x))
-        .collect(Collectors.toSet());
+    synchronized (metadataConsumer) {
+      return ((Set<String>) this.metadataConsumer.listTopics().keySet()).stream()
+          .map(x -> new SystemStream(systemName, x))
+          .collect(Collectors.toSet());
+    }
   }
 
   /**

@@ -118,8 +118,7 @@ public class StreamRegexMonitor {
     }
     gauges = Collections.unmodifiableMap(mutableGauges);
 
-    log.info("Created {} with inputRegexMonitorPeriodMs: {} and systemRegexesToMonitor: {}", this.getClass().getName(),
-        this.inputRegexMonitorPeriodMs, this.systemRegexesToMonitor);
+    log.info("Created with inputRegexMonitorPeriodMs: {} and systemRegexesToMonitor: {}", this.inputRegexMonitorPeriodMs, this.systemRegexesToMonitor);
   }
 
   /**
