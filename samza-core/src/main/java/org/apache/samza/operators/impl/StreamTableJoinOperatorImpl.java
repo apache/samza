@@ -58,29 +58,7 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   }
 
   @Override
-  public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    if (message == null) {
-      return Collections.emptyList();
-    }
-
-    K key = joinOpSpec.getJoinFn().getMessageKey(message);
-    Object recordValue = null;
-
-    if (key != null) {
-      recordValue = table.get(key);
-    }
-
-    R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
-    JM output = joinOpSpec.getJoinFn().apply(message, record);
-
-    // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
-    // return null, when the corresponding record is absent in the table.
-    return output != null ?
-        Collections.singletonList(output)
-      : Collections.emptyList();
-  }
-
-  protected CompletionStage<Collection<JM>> handleAsyncMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<JM>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     if (message == null) {
       return CompletableFuture.completedFuture(Collections.emptyList());
@@ -89,8 +67,8 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
     K key = joinOpSpec.getJoinFn().getMessageKey(message);
 
     return Optional.ofNullable(key)
-        .map(k -> table.getAsync(key)
-            .thenApply(val -> getJoinOutput(key, val, message)))
+        .map(joinKey -> table.getAsync(joinKey)
+            .thenApply(val -> getJoinOutput(joinKey, val, message)))
         .orElse(CompletableFuture.completedFuture(Collections.emptyList()));
   }
 

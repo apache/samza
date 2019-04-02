@@ -19,25 +19,22 @@
 package org.apache.samza.operators.impl;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.AsyncFlatMapFunction;
-import org.apache.samza.operators.spec.AsyncOperatorSpec;
+import org.apache.samza.operators.spec.AsyncFlatMapOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
 
-public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
-  private final AsyncOperatorSpec<M, RM> asyncOperatorSpec;
+public class AsyncFlatmapOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
+  private final AsyncFlatMapOperatorSpec<M, RM> opSpec;
   private final AsyncFlatMapFunction<M, RM> transformFn;
 
-  AsyncStreamOperatorImpl(AsyncOperatorSpec<M, RM> asyncOperatorSpec) {
-    this.asyncOperatorSpec = asyncOperatorSpec;
-    this.transformFn = asyncOperatorSpec.getTransformFn();
+  AsyncFlatmapOperatorImpl(AsyncFlatMapOperatorSpec<M, RM> opSpec) {
+    this.opSpec = opSpec;
+    this.transformFn = opSpec.getTransformFn();
   }
   @Override
   protected void handleInit(Context context) {
@@ -45,17 +42,7 @@ public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  protected Collection<RM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    try {
-      handleAsyncMessage(message, collector, coordinator).toCompletableFuture().get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new SamzaException(e);
-    }
-
-    return Collections.emptyList();
-  }
-
-  protected CompletionStage<Collection<RM>> handleAsyncMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<RM>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     return transformFn.apply(message);
   }
@@ -66,6 +53,6 @@ public class AsyncStreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
 
   @Override
   protected OperatorSpec<M, RM> getOperatorSpec() {
-    return asyncOperatorSpec;
+    return opSpec;
   }
 }

@@ -106,7 +106,7 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
       MessageType messageType = MessageType.of(ime.getMessage());
       switch (messageType) {
         case USER_MESSAGE:
-          processFuture = inputOpImpl.onAsyncMessage(ime, collector, coordinator);
+          processFuture = inputOpImpl.onMessageAsync(ime, collector, coordinator);
           break;
 
         case END_OF_STREAM:
@@ -153,16 +153,16 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
     }
   }
 
-  CompletableFuture<Void> failedFuture(Throwable ex) {
+  /* package private for testing */
+  OperatorImplGraph getOperatorImplGraph() {
+    return this.operatorImplGraph;
+  }
+
+  private static CompletableFuture<Void> failedFuture(Throwable ex) {
     Preconditions.checkNotNull(ex);
     CompletableFuture<Void> failedFuture = new CompletableFuture<>();
     failedFuture.completeExceptionally(ex);
 
     return failedFuture;
-  }
-
-  /* package private for testing */
-  OperatorImplGraph getOperatorImplGraph() {
-    return this.operatorImplGraph;
   }
 }

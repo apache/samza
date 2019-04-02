@@ -32,7 +32,7 @@ import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
-import org.apache.samza.operators.spec.AsyncOperatorSpec;
+import org.apache.samza.operators.spec.AsyncFlatMapOperatorSpec;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -105,9 +105,9 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <OM> MessageStream<OM> asyncFlatMap(AsyncFlatMapFunction<? super M, ? extends OM> flatMapFn) {
+  public <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> flatMapFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.ASYNC_FLAT_MAP);
-    AsyncOperatorSpec<M, OM> op = OperatorSpecs.createAsyncOperatorSpec(flatMapFn, opId);
+    AsyncFlatMapOperatorSpec<M, OM> op = OperatorSpecs.createAsyncOperatorSpec(flatMapFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.streamAppDesc, op);
   }

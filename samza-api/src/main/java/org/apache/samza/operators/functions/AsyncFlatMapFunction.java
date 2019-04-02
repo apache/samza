@@ -21,23 +21,53 @@ package org.apache.samza.operators.functions;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * Transforms an input message into a collection of 0 or more messages, possibly of a different type.
+ * Asynchronous variant of the {@link FlatMapFunction} used in tandem with {@link org.apache.samza.operators.MessageStream#flatMapAsync(AsyncFlatMapFunction)}
+ * to transform a collection of 0 or more messages.
+ * <p>
+ * Typically, {@link AsyncFlatMapFunction} is used for describing complex transformations that involve IO operations or remote calls.
+ * The following pseudo code demonstrates a sample implementation of {@link AsyncFlatMapFunction} which transforms the
+ * the message to decorated message which involves talking to a remote service.
+ * <pre> {@code
+ *    AsyncFlatMapFunction<M, OM> asyncRestDecoratorFunction = (M message) -> {
+ *        ...
+ *
+ *        Request<DecoratedData> decoratorRequest = buildDecoratorRequest(message);
+ *        Future<DecoratorDataResponse> decorateResponseFuture = restServiceClient.sendRequest(decoratorRequest); // remote call to the rest service;
+ *        ...
+ *
+ *        return new CompletableFuture<>(decorateResponseFuture)
+ *             .thenApply(decoratedDataResponse -> massageDecoratorResponse(decoratedDataResponse);
+ *    }
+ * }
+ * </pre>
+ *
+ * <p>
+ *   The function needs to be thread safe in case of task.max.concurrency&gt;1. It also needs to coordinate any
+ *   shared state since happens-before is not guaranteed between the messages delivered to the function. Refer to
+ *   {@link org.apache.samza.operators.MessageStream#flatMapAsync(AsyncFlatMapFunction)} docs for more details on the modes
+ *   and guarantees.
+ *
+ * <p>
+ *   For each invocation, the {@link CompletionStage} returned by the function should be completed successfully/exceptionally
+ *   within task.callback.timeout.ms; failure to do so will result in {@link SamzaException} bringing down the application.
  *
  * @param <M>  type of the input message
  * @param <OM>  type of the transformed messages
  */
 @InterfaceStability.Unstable
+@FunctionalInterface
 public interface AsyncFlatMapFunction<M, OM> extends InitableFunction, ClosableFunction, Serializable {
 
   /**
    * Transforms the provided message into a collection of 0 or more messages.
    *
    * @param message  the input message to be transformed
-   * @return  a collection of 0 or more transformed messages
+   * @return  a {@link CompletionStage} of a {@link Collection} of transformed messages
    */
   CompletionStage<Collection<OM>> apply(M message);
 }

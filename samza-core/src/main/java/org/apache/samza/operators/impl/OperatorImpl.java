@@ -164,19 +164,13 @@ public abstract class OperatorImpl<M, RM> {
         || taskModel.getSystemStreamPartitions().stream().anyMatch(ssp -> ssp.getSystemStream().equals(input));
   }
 
-  @VisibleForTesting
-  final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
-    onAsyncMessage(message, collector, coordinator)
-        .toCompletableFuture().join();
-  }
-
-  public final CompletionStage<Void> onAsyncMessage(M message, MessageCollector collector,
+  public final CompletionStage<Void> onMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.numMessage.inc();
     long startNs = this.highResClock.nanoTime();
     CompletionStage<Collection<RM>> completableResultsFuture;
     try {
-      completableResultsFuture = handleAsyncMessage(message, collector, coordinator);
+      completableResultsFuture = handleMessageAsync(message, collector, coordinator);
     } catch (ClassCastException e) {
       String actualType = e.getMessage().replaceFirst(" cannot be cast to .*", "");
       String expectedType = e.getMessage().replaceFirst(".* cannot be cast to ", "");
@@ -193,7 +187,7 @@ public abstract class OperatorImpl<M, RM> {
 
         return CompletableFuture.allOf(results.stream()
             .flatMap(r -> this.registeredOperators.stream()
-              .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+              .map(op -> op.onMessageAsync(r, collector, coordinator)))
             .toArray(CompletableFuture[]::new));
       });
 
@@ -219,20 +213,7 @@ public abstract class OperatorImpl<M, RM> {
    *
    * @return a {@code CompletionStage} of the results of the transformation
    */
-  protected CompletionStage<Collection<RM>> handleAsyncMessage(M message, MessageCollector collector,
-      TaskCoordinator coordinator) {
-    return CompletableFuture.completedFuture(handleMessage(message, collector, coordinator));
-  }
-
-  /**
-   * Handle the incoming {@code message} and return the results to be propagated to registered operators.
-   *
-   * @param message  the input message
-   * @param collector  the {@link MessageCollector} in the context
-   * @param coordinator  the {@link TaskCoordinator} in the context
-   * @return  results of the transformation
-   */
-  protected abstract Collection<RM> handleMessage(M message, MessageCollector collector,
+  protected abstract CompletionStage<Collection<RM>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator);
 
   /**
@@ -252,7 +233,7 @@ public abstract class OperatorImpl<M, RM> {
     CompletionStage<Void> resultFuture = CompletableFuture.allOf(
         results.stream()
             .flatMap(r -> this.registeredOperators.stream()
-                .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+                .map(op -> op.onMessageAsync(r, collector, coordinator)))
             .toArray(CompletableFuture[]::new));
 
     return resultFuture.thenCompose(x ->
@@ -329,7 +310,7 @@ public abstract class OperatorImpl<M, RM> {
       CompletionStage<Void> resultFuture = CompletableFuture.allOf(
           results.stream()
               .flatMap(r -> this.registeredOperators.stream()
-                  .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+                  .map(op -> op.onMessageAsync(r, collector, coordinator)))
               .toArray(CompletableFuture[]::new));
 
       endOfStreamFuture = resultFuture.thenCompose(x ->
@@ -430,7 +411,7 @@ public abstract class OperatorImpl<M, RM> {
         watermarkFuture = CompletableFuture.allOf(
             output.stream()
                 .flatMap(rm -> this.registeredOperators.stream()
-                    .map(op -> op.onAsyncMessage(rm, collector, coordinator)))
+                    .map(op -> op.onMessageAsync(rm, collector, coordinator)))
                 .toArray(CompletableFuture[]::new));
       }
 
@@ -513,7 +494,7 @@ public abstract class OperatorImpl<M, RM> {
               if (!output.isEmpty()) {
                 CompletableFuture<Void> timerFuture = CompletableFuture.allOf(output.stream()
                     .flatMap(r -> registeredOperators.stream()
-                        .map(op -> op.onAsyncMessage(r, collector, coordinator)))
+                        .map(op -> op.onMessageAsync(r, collector, coordinator)))
                     .toArray(CompletableFuture[]::new));
 
                 timerFuture.join();
@@ -562,6 +543,24 @@ public abstract class OperatorImpl<M, RM> {
    */
   protected String getOpImplId() {
     return getOperatorSpec().getOpId();
+  }
+
+  /* Package Private helper method for tests to perform onMessage synchronously
+   * Note: It is only intended for test use
+   */
+  @VisibleForTesting
+  final void onMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    onMessageAsync(message, collector, coordinator)
+        .toCompletableFuture().join();
+  }
+
+  /* Package Private helper method for tests to perform handleMessage synchronously
+   * Note: It is only intended for test use
+   */
+  @VisibleForTesting
+  final Collection<RM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+    return handleMessageAsync(message, collector, coordinator)
+        .toCompletableFuture().join();
   }
 
   private HighResolutionClock createHighResClock(Config config) {

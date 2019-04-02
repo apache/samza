@@ -97,17 +97,17 @@ public class OperatorSpecs {
   }
 
   /**
-   * Creates a {@link AsyncOperatorSpec} for {@link AsyncFlatMapFunction}.
+   * Creates a {@link AsyncFlatMapOperatorSpec} for {@link AsyncFlatMapFunction}.
    *
    * @param asyncFlatMapFn  the transformation function
    * @param opId  the unique ID of the operator
    * @param <M>  type of input message
    * @param <OM>  type of output message
-   * @return  the {@link AsyncOperatorSpec}
+   * @return  the {@link AsyncFlatMapOperatorSpec}
    */
-  public static <M, OM> AsyncOperatorSpec<M, OM> createAsyncOperatorSpec(
+  public static <M, OM> AsyncFlatMapOperatorSpec<M, OM> createAsyncOperatorSpec(
       AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn, String opId) {
-    return new AsyncOperatorSpec<>((AsyncFlatMapFunction<M, OM>) asyncFlatMapFn, opId);
+    return new AsyncFlatMapOperatorSpec<>((AsyncFlatMapFunction<M, OM>) asyncFlatMapFn, opId);
   }
 
 

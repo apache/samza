@@ -29,16 +29,16 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  * @param <M> type of input message
  * @param <OM> type of output messages
  */
-public class AsyncOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
+public class AsyncFlatMapOperatorSpec<M, OM> extends OperatorSpec<M, OM> {
   protected final AsyncFlatMapFunction<M, OM> transformFn;
 
   /**
-   * Constructor for a {@link AsyncOperatorSpec}.
+   * Constructor for a {@link AsyncFlatMapOperatorSpec}.
    *
    * @param transformFn  the transformation function
    * @param opId  the unique ID for this {@link OperatorSpec}
    */
-  AsyncOperatorSpec(AsyncFlatMapFunction<M, OM> transformFn, String opId) {
+  AsyncFlatMapOperatorSpec(AsyncFlatMapFunction<M, OM> transformFn, String opId) {
     super(OpCode.FLAT_MAP, opId);
     this.transformFn = transformFn;
   }
