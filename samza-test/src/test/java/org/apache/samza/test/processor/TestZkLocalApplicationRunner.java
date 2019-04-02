@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.UUID;
 import java.util.Objects;
 import java.util.Set;
@@ -38,11 +37,8 @@ import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
-import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.Partition;
 import org.apache.samza.application.TaskApplication;
@@ -69,8 +65,8 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkStringSerializer;
@@ -85,8 +81,8 @@ import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
+
 
 /**
  * Integration tests for {@link org.apache.samza.runtime.LocalApplicationRunner} with {@link ZkJobCoordinatorFactory}.
@@ -95,7 +91,7 @@ import static org.junit.Assert.assertTrue;
  * through {@link org.apache.samza.runtime.LocalApplicationRunner} to verify the guarantees made in stand alone execution
  * environment.
  */
-public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarness {
+public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TestZkLocalApplicationRunner.class);
 
@@ -156,42 +152,25 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 5, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 1, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
+    List<NewTopic> newTopics =
+        ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
+            .stream()
+            .map(topic -> new NewTopic(topic, 5, (short) 1))
+            .collect(Collectors.toList());
+
+    assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
   }
 
+  @Override
   public void tearDown() {
+    deleteTopics(ImmutableList.of(
+        inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic));
     SharedContextFactories.clearAll();
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
     zkUtils.close();
     super.tearDown();
   }
 
   private void publishKafkaEvents(String topic, int startIndex, int endIndex, String streamProcessorId) {
-    KafkaProducer producer = getKafkaProducer();
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
@@ -704,7 +683,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(5, ssps.size());
 
     // Increase the partition count of input kafka topic to 100.
-    AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(inputKafkaTopic, 100);
 
     long jobModelWaitTimeInMillis = 10;
     while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
@@ -756,7 +735,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   public void testStatefulSamzaApplicationShouldRedistributeInputPartitionsToCorrectTasksWhenAInputStreamIsExpanded() throws Exception {
     // Setup input topics.
     String statefulInputKafkaTopic = String.format("test-input-topic-%s", UUID.randomUUID().toString());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic, 32, 1, servers(), new Properties());
+    createTopic(statefulInputKafkaTopic, 32, 1);
 
     // Generate configuration for the test.
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic), testStreamAppName, testStreamAppId);
@@ -797,7 +776,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
 
     // Increase the partition count of the input kafka topic to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic, 64);
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;
@@ -855,8 +834,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Setup the two input kafka topics.
     String statefulInputKafkaTopic1 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
     String statefulInputKafkaTopic2 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic1, 32, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic2, 32, 1, servers(), new Properties());
+    createTopic(statefulInputKafkaTopic1, 32, 1);
+    createTopic(statefulInputKafkaTopic2, 32, 1);
 
     // Generate configuration for the test.
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic1, statefulInputKafkaTopic2),
@@ -902,10 +881,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
 
     // Increase the partition count of the input kafka topic1 to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic1, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic1, 64);
 
     // Increase the partition count of the input kafka topic2 to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic2, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic2, 64);
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;

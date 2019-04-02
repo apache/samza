@@ -20,10 +20,10 @@ package org.apache.samza.test.samzasql;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 
 
-public class SamzaSqlIntegrationTestHarness extends AbstractIntegrationTestHarness {
+public class SamzaSqlIntegrationTestHarness extends IntegrationTestHarness {
   protected void runApplication(Config config) {
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, config);
     executeRun(runner, config);

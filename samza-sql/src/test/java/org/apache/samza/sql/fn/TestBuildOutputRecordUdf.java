@@ -21,6 +21,7 @@ package org.apache.samza.sql.fn;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.junit.Assert;
 import org.junit.Test;

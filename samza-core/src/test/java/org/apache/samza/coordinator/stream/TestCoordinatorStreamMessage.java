@@ -25,6 +25,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
+import java.util.HashMap;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.Delete;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
@@ -79,5 +80,19 @@ public class TestCoordinatorStreamMessage {
     assertEquals(message.hashCode(), message1.hashCode());
     assertEquals(message, message1);
     assertTrue(!message.equals(message2));
+  }
+
+  @Test
+  public void testEqualsNPEonNullValues() {
+    String[] testKeys = {"key1", "key2"};
+    HashMap<String, Object> messageMap = new HashMap<>();
+    messageMap.put("values", new HashMap<String, String>());
+    HashMap<String, Object> messageMapWithNullValues = new HashMap<>();
+    messageMapWithNullValues.put("values", null);
+    CoordinatorStreamMessage message = new CoordinatorStreamMessage(testKeys, messageMap);
+    CoordinatorStreamMessage messageWithNullValue = new CoordinatorStreamMessage(testKeys, messageMapWithNullValues);
+
+    assertFalse("Should not throw NPE and should not be equal to each other.",
+        messageWithNullValue.equals(message));
   }
 }
