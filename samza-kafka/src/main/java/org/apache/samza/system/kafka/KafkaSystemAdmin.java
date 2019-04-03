@@ -23,15 +23,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import kafka.utils.ZkUtils;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -39,17 +39,21 @@ import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.DeleteTopicsResult;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
@@ -58,7 +62,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ExponentialSleepStrategy;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Function0;
@@ -69,8 +72,6 @@ import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
-
-import static org.apache.samza.config.KafkaConsumerConfig.*;
 
 
 public class KafkaSystemAdmin implements SystemAdmin {
@@ -89,10 +90,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
   public static volatile boolean deleteMessageCalled = false;
 
   protected final String systemName;
-  protected final Consumer metadataConsumer;
+  private final Consumer metadataConsumer; // Need to synchronize all accesses, since KafkaConsumer is not thread-safe
   protected final Config config;
-
-  protected kafka.admin.AdminClient adminClientForDelete = null;
 
   // Custom properties to create a new coordinator stream.
   private final Properties coordinatorStreamProperties;
@@ -130,7 +129,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
-    coordinatorStreamProperties = KafkaSystemAdminUtilsScala.getCoordinatorTopicProperties(kafkaConfig);
+    coordinatorStreamProperties = getCoordinatorStreamProperties(kafkaConfig);
 
     Map<String, String> storeToChangelog =
         JavaConverters.mapAsJavaMapConverter(kafkaConfig.getKafkaChangelogEnabledStores()).asJava();
@@ -154,9 +153,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     SystemConfig systemConfig = new SystemConfig(config);
     this.deleteCommittedMessages = systemConfig.deleteCommittedMessages(systemName);
 
-    intermediateStreamProperties =
-        JavaConverters.mapAsJavaMapConverter(KafkaSystemAdminUtilsScala.getIntermediateStreamProperties(config))
-            .asJava();
+    intermediateStreamProperties = getIntermediateStreamProperties(config);
 
     LOG.info(String.format("Created KafkaSystemAdmin for system %s", systemName));
   }
@@ -182,13 +179,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
         metadataConsumer.close();
       } catch (Exception e) {
         LOG.warn("metadataConsumer.close for system " + systemName + " failed with exception.", e);
-      }
-    }
-    if (adminClientForDelete != null) {
-      try {
-        adminClientForDelete.close();
-      } catch (Exception e) {
-        LOG.warn("AdminClient.close() for system {} failed with exception {}.", systemName, e);
       }
     }
 
@@ -241,11 +231,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
             streamNames.forEach(streamName -> {
               Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
-              List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(streamName);
+              List<PartitionInfo> partitionInfos;
+              synchronized (metadataConsumer) {
+                partitionInfos = metadataConsumer.partitionsFor(streamName);
+              }
               LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
-
-              partitionInfos.forEach(partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
-
+              partitionInfos.forEach(
+                  partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
               allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
             });
 
@@ -391,11 +383,15 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> upcomingOffsets = new HashMap<>();
+    Map<TopicPartition, Long> oldestOffsetsWithLong;
+    Map<TopicPartition, Long> upcomingOffsetsWithLong;
 
-    Map<TopicPartition, Long> oldestOffsetsWithLong = metadataConsumer.beginningOffsets(topicPartitions);
-    LOG.debug("Kafka-fetched beginningOffsets: {}", oldestOffsetsWithLong);
-    Map<TopicPartition, Long> upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
-    LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
+    synchronized (metadataConsumer) {
+      oldestOffsetsWithLong = metadataConsumer.beginningOffsets(topicPartitions);
+      LOG.debug("Kafka-fetched beginningOffsets: {}", oldestOffsetsWithLong);
+      upcomingOffsetsWithLong = metadataConsumer.endOffsets(topicPartitions);
+      LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
+    }
 
     oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
 
@@ -434,54 +430,26 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
 
     topics.forEach(topic -> {
-      List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
+      synchronized (metadataConsumer) {
+        List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
 
-      if (partitionInfos == null) {
-        String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
-        throw new SamzaException(msg);
+        if (partitionInfos == null) {
+          String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
+          throw new SamzaException(msg);
+        }
+
+        List<TopicPartition> topicPartitions = partitionInfos.stream()
+            .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
+            .collect(Collectors.toList());
+
+        OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
+        allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
+        allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
+        allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
       }
-
-      List<TopicPartition> topicPartitions = partitionInfos.stream()
-          .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
-          .collect(Collectors.toList());
-
-      OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
-      allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
-      allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
-      allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
     });
 
-    scala.collection.immutable.Map<String, SystemStreamMetadata> result =
-        KafkaSystemAdminUtilsScala.assembleMetadata(ScalaJavaUtil.toScalaMap(allOldestOffsets),
-            ScalaJavaUtil.toScalaMap(allNewestOffsets), ScalaJavaUtil.toScalaMap(allUpcomingOffsets));
-
-    LOG.debug("assembled SystemStreamMetadata is: {}", result);
-    return JavaConverters.mapAsJavaMapConverter(result).asJava();
-  }
-
-  private String fetchNewestOffset(SystemStreamPartition ssp) {
-    LOG.debug("Fetching newest offset for {}", ssp);
-    String newestOffset;
-
-    TopicPartition topicPartition = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
-
-    // the offsets returned from the consumer is the Long type
-    Long upcomingOffset =
-        (Long) metadataConsumer.endOffsets(Collections.singletonList(topicPartition)).get(topicPartition);
-
-    // Kafka's "latest" offset is always last message in stream's offset + 1,
-    // so get newest message in stream by subtracting one. This is safe
-    // even for key-deduplicated streams, since the last message will
-    // never be deduplicated.
-    if (upcomingOffset <= 0) {
-      LOG.debug("Stripping newest offsets for {} because the topic appears empty.", topicPartition);
-      newestOffset = null;
-    } else {
-      newestOffset = String.valueOf(upcomingOffset - 1);
-    }
-
-    LOG.info("Newest offset for ssp {} is: {}", ssp, newestOffset);
-    return newestOffset;
+    return assembleMetadata(allOldestOffsets, allNewestOffsets, allUpcomingOffsets);
   }
 
   @Override
@@ -569,7 +537,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       }
 
       kafkaSpec = new KafkaStreamSpec(spec.getId(), topicName, systemName, spec.getPartitionCount(),
-          topicMeta.replicationFactor(), topicMeta.kafkaProps());
+          topicMeta.getReplicationFactor(), topicMeta.getKafkaProperties());
     } else if (spec.isCoordinatorStream()) {
       kafkaSpec =
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
@@ -612,7 +580,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<String, List<PartitionInfo>> streamToPartitionsInfo = new HashMap<>();
     List<PartitionInfo> partitionInfoList;
     for (String topic : topics) {
-      partitionInfoList = metadataConsumer.partitionsFor(topic);
+      synchronized (metadataConsumer) {
+        partitionInfoList = metadataConsumer.partitionsFor(topic);
+      }
       streamToPartitionsInfo.put(topic, partitionInfoList);
     }
 
@@ -628,10 +598,18 @@ public class KafkaSystemAdmin implements SystemAdmin {
   @Override
   public void deleteMessages(Map<SystemStreamPartition, String> offsets) {
     if (deleteCommittedMessages) {
-      if (adminClientForDelete == null) {
-        adminClientForDelete = kafka.admin.AdminClient.create(createAdminClientProperties());
-      }
-      KafkaSystemAdminUtilsScala.deleteMessages(adminClientForDelete, offsets);
+      Map<TopicPartition, RecordsToDelete> recordsToDelete = offsets.entrySet()
+          .stream()
+          .collect(Collectors.toMap(entry ->
+              new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
+              entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
+
+      adminClient.deleteRecords(recordsToDelete).all().whenComplete((ignored, exception) -> {
+        if (exception != null) {
+          LOG.error("Delete message failed for SSPs " + offsets.keySet() + " due to", exception);
+        }
+      });
+
       deleteMessageCalled = true;
     }
   }
@@ -656,32 +634,89 @@ public class KafkaSystemAdmin implements SystemAdmin {
     }
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList);
 
-    // kafka.admin.AdminUtils requires zkConnect
-    // this will change after we move to the new org.apache..AdminClient
-    String zkConnect =
-        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
-    if (StringUtils.isBlank(zkConnect)) {
-      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
-    }
-    props.put(ZOOKEEPER_CONNECT, zkConnect);
-
     return props;
-  }
-
-  private Supplier<ZkUtils> getZkConnection() {
-    String zkConnect =
-        config.get(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), systemName, ZOOKEEPER_CONNECT));
-    if (StringUtils.isBlank(zkConnect)) {
-      throw new SamzaException("Missing zookeeper.connect config for admin for system " + systemName);
-    }
-    return () -> ZkUtils.apply(zkConnect, 6000, 6000, false);
   }
 
   @Override
   public Set<SystemStream> getAllSystemStreams() {
-    return ((Set<String>) this.metadataConsumer.listTopics().keySet()).stream()
-        .map(x -> new SystemStream(systemName, x))
-        .collect(Collectors.toSet());
+    synchronized (metadataConsumer) {
+      return ((Set<String>) this.metadataConsumer.listTopics().keySet()).stream()
+          .map(x -> new SystemStream(systemName, x))
+          .collect(Collectors.toSet());
+    }
+  }
+
+  /**
+   * A helper method that takes oldest, newest, and upcoming offsets for each
+   * system stream partition, and creates a single map from stream name to
+   * SystemStreamMetadata.
+   *
+   * @param newestOffsets map of SSP to newest offset
+   * @param oldestOffsets map of SSP to oldest offset
+   * @param upcomingOffsets map of SSP to upcoming offset
+   * @return a {@link Map} from {@code system} to {@link SystemStreamMetadata}
+   */
+  @VisibleForTesting
+  static Map<String, SystemStreamMetadata> assembleMetadata(Map<SystemStreamPartition, String> oldestOffsets,
+      Map<SystemStreamPartition, String> newestOffsets, Map<SystemStreamPartition, String> upcomingOffsets) {
+    HashSet<SystemStreamPartition> allSSPs = new HashSet<>();
+    allSSPs.addAll(oldestOffsets.keySet());
+    allSSPs.addAll(newestOffsets.keySet());
+    allSSPs.addAll(upcomingOffsets.keySet());
+
+    Map<String, SystemStreamMetadata> assembledMetadata = allSSPs.stream()
+        .collect(Collectors.groupingBy(SystemStreamPartition::getStream))
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
+              entry.getValue()
+                  .stream()
+                  .collect(Collectors.toMap(SystemStreamPartition::getPartition, ssp ->
+                      new SystemStreamMetadata.SystemStreamPartitionMetadata(
+                          oldestOffsets.getOrDefault(ssp, null),
+                          newestOffsets.getOrDefault(ssp, null),
+                          upcomingOffsets.get(ssp))));
+          return new SystemStreamMetadata(entry.getKey(), partitionMetadata);
+        }));
+
+    return assembledMetadata;
+  }
+
+  /**
+   * Fetch stream properties for all intermediate streams.
+   *
+   * @param config kafka system config
+   * @return a {@link Map} from {@code streamId} to stream {@link Properties}
+   */
+  @VisibleForTesting
+  static Map<String, Properties> getIntermediateStreamProperties(Config config) {
+    Map<String, Properties> intermedidateStreamProperties = Collections.emptyMap();
+    ApplicationConfig appConfig = new ApplicationConfig(config);
+
+    if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
+      StreamConfig streamConfig = new StreamConfig(config);
+      intermedidateStreamProperties = JavaConverters.asJavaCollectionConverter(streamConfig.getStreamIds())
+          .asJavaCollection()
+          .stream()
+          .filter(streamConfig::getIsIntermediateStream)
+          .collect(Collectors.toMap(Function.identity(), streamId -> {
+            Properties properties = new Properties();
+            properties.putAll(streamConfig.getStreamProperties(streamId));
+            properties.putIfAbsent(TopicConfig.RETENTION_MS_CONFIG, String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH()));
+            return properties;
+          }));
+    }
+
+    return intermedidateStreamProperties;
+  }
+
+  private Properties getCoordinatorStreamProperties(KafkaConfig config) {
+    Properties coordinatorStreamProperties = new Properties();
+    coordinatorStreamProperties.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_COMPACT);
+    coordinatorStreamProperties.put(TopicConfig.SEGMENT_BYTES_CONFIG, config.getCoordinatorSegmentBytes());
+
+    return coordinatorStreamProperties;
   }
 
   /**
@@ -709,6 +744,31 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     private Map<SystemStreamPartition, String> getUpcomingOffsets() {
       return upcomingOffsets;
+    }
+  }
+
+  /**
+   * A helper class for represent changelog related information.
+   */
+  private static class ChangelogInfo {
+    final int replicationFactor;
+    final Properties kafkaProperties;
+
+    /**
+     * @param replicationFactor The number of replicas for the changelog stream
+     * @param kafkaProperties The kafka specific properties that need to be used for changelog stream creation
+     */
+    ChangelogInfo(int replicationFactor, Properties kafkaProperties) {
+      this.replicationFactor = replicationFactor;
+      this.kafkaProperties = kafkaProperties;
+    }
+
+    public int getReplicationFactor() {
+      return replicationFactor;
+    }
+
+    public Properties getKafkaProperties() {
+      return kafkaProperties;
     }
   }
 }

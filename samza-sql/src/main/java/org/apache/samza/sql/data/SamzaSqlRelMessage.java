@@ -38,6 +38,10 @@ public class SamzaSqlRelMessage implements Serializable {
 
   public static final String KEY_NAME = "__key__";
 
+  public static final String OP_NAME = "__op__";
+
+  public static final String DELETE_OP = "DELETE";
+
   // key could be a record in itself.
   private final Object key;
 

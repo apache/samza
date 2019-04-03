@@ -340,7 +340,7 @@ public class ClusterBasedJobCoordinator {
 
     // if no rewriter is defined, there is nothing to monitor
     if (!rewritersList.isDefined()) {
-      log.warn("No config rewriters are defined. No StreamRegexMonitor created.");
+      log.info("No config rewriters are defined. No StreamRegexMonitor created.");
       return Optional.empty();
     }
 
@@ -349,14 +349,22 @@ public class ClusterBasedJobCoordinator {
         JavaConverters.mapAsJavaMapConverter(new JobConfig(config).getMonitorRegexPatternMap(rewritersList.get()))
             .asJava();
 
+    // if there are no regexes to monitor
+    if (inputRegexesToMonitor.isEmpty()) {
+      log.info("No input regexes are defined. No StreamRegexMonitor created.");
+      return Optional.empty();
+    }
+
     return Optional.of(new StreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
         new JobConfig(config).getMonitorRegexFrequency(), new StreamRegexMonitor.Callback() {
           @Override
           public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
               Map<String, Pattern> regexesMonitored) {
-            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
-                " Existing input streams:", inputStreamsToMonitor);
-            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+            if (hasDurableStores) {
+              log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
+                  " Existing input streams:", inputStreamsToMonitor);
+              state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+            }
             coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newInputStreams);
           }
         }));

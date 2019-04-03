@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * </p>
  *
  * <pre>
- * key =&gt; [1, "set-config", "job.name"] 
+ * key =&gt; [1, "set-config", "job.name"]
  *
  * message =&gt; {
  *   "host": "192.168.0.1",
@@ -312,6 +312,8 @@ public class CoordinatorStreamMessage {
     if (messageMap == null) {
       if (other.messageMap != null)
         return false;
+    } else if (getMessageValues() == null) {
+      return other.getMessageValues() == null;
     } else if (!getMessageValues().equals(other.getMessageValues()))
       return false;
     return true;

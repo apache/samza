@@ -39,9 +39,4 @@ public class InMemoryInputDescriptor<StreamMessageType>
   InMemoryInputDescriptor(String streamId, InMemorySystemDescriptor systemDescriptor) {
     super(streamId, new NoOpSerde<>(), systemDescriptor, null);
   }
-
-  public InMemoryInputDescriptor withPhysicalName(String physicalName) {
-    super.withPhysicalName(physicalName);
-    return this;
-  }
 }

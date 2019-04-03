@@ -39,7 +39,7 @@ import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 
 import org.junit.Test;
@@ -48,7 +48,7 @@ import static org.apache.samza.test.table.TestLocalTableEndToEnd.getBaseJobConfi
 import static org.apache.samza.test.table.TestLocalTableWithLowLevelApiEndToEnd.MyStreamTask;
 
 
-public class TestLocalTableWithConfigRewriterEndToEnd extends AbstractIntegrationTestHarness {
+public class TestLocalTableWithConfigRewriterEndToEnd extends IntegrationTestHarness {
 
   @Test
   public void testWithConfigRewriter() throws Exception {

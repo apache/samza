@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,13 +15,23 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
+package org.apache.samza.config;
 
-package org.apache.samza.system.kafka_deprecated
+import java.util.Optional;
 
-import org.apache.samza.SamzaException
 
-private[kafka_deprecated] trait Toss {
-  def toss(s:String) = throw new SamzaException(s)
+public class FileSystemCheckpointManagerConfig extends MapConfig {
+  /**
+   * Path on local file system where checkpoints should be stored.
+   */
+  private static final String CHECKPOINT_MANAGER_ROOT = "task.checkpoint.path";
+
+  public FileSystemCheckpointManagerConfig(Config config) {
+    super(config);
+  }
+
+  public Optional<String> getFileSystemCheckpointRoot() {
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_ROOT));
+  }
 }

@@ -21,10 +21,9 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config}
+import org.apache.samza.config.{ApplicationConfig, Config, SystemConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SerializerConfig.Config2Serializer
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -33,6 +32,7 @@ import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.{MetricsSnapshotSerdeV2, SerdeFactory}
 import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
   def getMetricsReporter(name: String, containerName: String, config: Config): MetricsReporter = {
@@ -45,10 +45,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val jobId = config
       .getJobId
 
-    val taskClass = config
-      .getTaskClass
-      .orElse(Option(new ApplicationConfig(config).getAppClass()))
-      .getOrElse(throw new SamzaException("No task or app class defined for config."))
+    val taskClass = Option(new ApplicationConfig(config).getAppClass())
+      .getOrElse(config.getTaskClass.getOrElse(throw new SamzaException("No task or app class defined for config.")))
 
     val version = Option(Class.forName(taskClass).getPackage.getImplementationVersion)
       .getOrElse({
@@ -72,8 +70,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val systemName = systemStream.getSystem
 
-    val systemFactoryClassName = config
-      .getSystemFactory(systemName)
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
@@ -87,7 +85,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     info("Got producer %s." format producer)
 
     val streamSerdeName = config.getStreamMsgSerde(systemStream)
-    val systemSerdeName = config.getSystemMsgSerde(systemName)
+    val systemSerdeName = JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption
     val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
     val serde = if (serdeName != null) {
       config.getSerdeClass(serdeName) match {

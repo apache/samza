@@ -563,11 +563,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     if (samzaContainerId != null) {
       YarnContainer container = state.runningYarnContainers.get(samzaContainerId);
       log.info("Failed Stop on Yarn Container: {} had Samza ContainerId: {} ", containerId.toString(), samzaContainerId);
-      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-
-      log.info("Re-invoking stop stream processor for container: {}", containerId);
-      this.stopStreamProcessor(resource);// For now, we retry the stopping of the container
     } else {
       log.info("Got an invalid notification for container: {}", containerId.toString());
     }
