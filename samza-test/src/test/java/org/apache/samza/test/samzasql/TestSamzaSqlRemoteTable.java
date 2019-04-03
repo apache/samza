@@ -65,14 +65,12 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
         SamzaSqlTestConfig.fetchStaticConfigsWithFactories(props, numMessages, false, true);
 
     String sql1 = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
-    String sql2 = "Insert into testRemoteStore.testTable.`$table` select __key__, 'DELETE' as __op__ from testavro.SIMPLE1 WHERE name IS NULL";
 
-    List<String> sqlStmts = Arrays.asList(sql1, sql2);
+    List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     runApplication(new MapConfig(staticConfigs));
 
-    Assert.assertEquals(numMessages - ((numMessages - 1) / TestAvroSystemFactory.NULL_RECORD_FREQUENCY + 1),
-        RemoteStoreIOResolverTestFactory.records.size());
+    Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
   @Test (expected = AssertionError.class)
