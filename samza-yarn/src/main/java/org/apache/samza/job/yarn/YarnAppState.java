@@ -22,8 +22,6 @@ package org.apache.samza.job.yarn;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.samza.clustermanager.SamzaApplicationState;
-import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.yarn.YarnContainer;
 
 import java.net.URL;
@@ -49,11 +47,11 @@ public class YarnAppState {
   * Modified by both the AMRMCallbackThread and the ContainerAllocator thread
   */
 
-  public Map<String, YarnContainer> runningYarnContainers = new ConcurrentHashMap<String, YarnContainer>();
+  public Map<String, YarnContainer> runningProcessors = new ConcurrentHashMap<>();
 
-  public Map<String, YarnContainer> pendingYarnContainers = new ConcurrentHashMap<String, YarnContainer>();
+  public Map<String, YarnContainer> pendingProcessors = new ConcurrentHashMap<>();
 
-  public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<String, ContainerStatus>();
+  public ConcurrentMap<String, ContainerStatus> failedContainersStatus = new ConcurrentHashMap<>();
 
   public YarnAppState(int taskId,
                       ContainerId amContainerId,
@@ -82,7 +80,7 @@ public class YarnAppState {
         ", coordinatorUrl=" + coordinatorUrl +
         ", rpcUrl=" + rpcUrl +
         ", trackingUrl=" + trackingUrl +
-        ", runningYarnContainers=" + runningYarnContainers +
+        ", runningProcessors=" + runningProcessors +
         ", failedContainersStatus=" + failedContainersStatus +
         '}';
   }

@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * This servlet validates the container Id against the list
  * of running containers maintained in the {@link YarnAppState}.
  * The returned {@link ContainerHeartbeatResponse#isAlive()} is
- * <code> true </code> iff. the container Id exists in {@link YarnAppState#runningYarnContainers}.
+ * <code> true </code> iff. the container Id exists in {@link YarnAppState#runningProcessors}.
  */
 public class YarnContainerHeartbeatServlet extends HttpServlet {
 
@@ -73,7 +73,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
     boolean alive = false;
     try {
       yarnContainerId = ContainerId.fromString(containerIdParam);
-      for (YarnContainer yarnContainer : yarnAppState.runningYarnContainers.values()) {
+      for (YarnContainer yarnContainer : yarnAppState.runningProcessors.values()) {
         if (yarnContainer.id().compareTo(yarnContainerId) == 0) {
           alive = true;
           break;

@@ -20,21 +20,20 @@
 package org.apache.samza.clustermanager;
 
 /**
- * A ResourceFailure instance encapsulates information related to a resource failure.
+ * A ProcessorFailure instance encapsulates information related to a Samza processor failure.
  * It keeps track of the time of the last failure, the number of failures.
- * */
-public class ResourceFailure {
+ */
+public class ProcessorFailure {
   /**
-   * Number of times a container has failed
-   * */
+   * Number of times a processor has failed
+   */
   private final int count;
   /**
-   * Latest failure time of the container
-   * */
+   * Latest failure time of the processor
+   */
   private final Long lastFailure;
 
-  public ResourceFailure(int count,
-                         Long lastFailure) {
+  public ProcessorFailure(int count, Long lastFailure) {
     this.count = count;
     this.lastFailure = lastFailure;
   }
