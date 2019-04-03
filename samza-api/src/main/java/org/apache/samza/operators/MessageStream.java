@@ -22,7 +22,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -66,6 +68,31 @@ public interface MessageStream<M> {
    * @return the transformed {@link MessageStream}
    */
   <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
+
+  /**
+   * Applies the provided 1:n transformation asynchronously to this {@link MessageStream}. The asynchronous transformation
+   * is specified through {@link AsyncFlatMapFunction}. The results are emitted to the downstream operators upon the
+   * completion of the {@link CompletionStage} returned from the {@link AsyncFlatMapFunction}.
+   * <p>
+   * The operator can operate in two modes depending on <i>task.max.concurrency.</i>.
+   * <ul>
+   *   <li>
+   *     Serialized (task.max.concurrency=1) - In this mode, each invocation of the {@link AsyncFlatMapFunction} is guaranteed
+   *     to happen-before next invocation.
+   *   </li>
+   *   <li>
+   *     Parallel (task.max.concurrency&gt;1) - In this mode, multiple invocations can happen in parallel without happens-before guarantee
+   *     and the {@link AsyncFlatMapFunction} is required synchronize any shared state. The operator doesn't provide any ordering guarantees.
+   *     i.e The results corresponding to each invocation of this operator might not be emitted in the same order as invocations.
+   *     By extension, the operator chain that follows it also doesn't have any ordering guarantees.
+   *   </li>
+   * </ul>
+   *
+   * @param asyncFlatMapFn the async function to transform a message to zero or more messages
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the

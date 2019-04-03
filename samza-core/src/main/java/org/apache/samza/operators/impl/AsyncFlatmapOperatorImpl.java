@@ -18,51 +18,41 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.Collection;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.functions.SinkFunction;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
+import org.apache.samza.operators.spec.AsyncFlatMapOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 
-import java.util.Collection;
-import java.util.Collections;
 
+public class AsyncFlatmapOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
+  private final AsyncFlatMapOperatorSpec<M, RM> opSpec;
+  private final AsyncFlatMapFunction<M, RM> transformFn;
 
-/**
- * An operator that sends incoming messages to an arbitrary output system using the provided {@link SinkFunction}.
- */
-class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
-
-  private final SinkOperatorSpec<M> sinkOpSpec;
-  private final SinkFunction<M> sinkFn;
-
-  SinkOperatorImpl(SinkOperatorSpec<M> sinkOpSpec) {
-    this.sinkOpSpec = sinkOpSpec;
-    this.sinkFn = sinkOpSpec.getSinkFn();
+  AsyncFlatmapOperatorImpl(AsyncFlatMapOperatorSpec<M, RM> opSpec) {
+    this.opSpec = opSpec;
+    this.transformFn = opSpec.getTransformFn();
   }
-
   @Override
   protected void handleInit(Context context) {
-    this.sinkFn.init(context);
+    this.transformFn.init(context);
   }
 
   @Override
-  protected CompletionStage<Collection<Void>> handleMessageAsync(M message, MessageCollector collector,
+  protected CompletionStage<Collection<RM>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    this.sinkFn.apply(message, collector, coordinator);
-    // there should be no further chained operators since this is a terminal operator.
-    return CompletableFuture.completedFuture(Collections.emptyList());
+    return transformFn.apply(message);
   }
 
   @Override
   protected void handleClose() {
-    this.sinkFn.close();
   }
 
-  protected OperatorSpec<M, Void> getOperatorSpec() {
-    return sinkOpSpec;
+  @Override
+  protected OperatorSpec<M, RM> getOperatorSpec() {
+    return opSpec;
   }
 }
