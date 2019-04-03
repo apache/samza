@@ -76,8 +76,7 @@ public class TestRemoteTableDescriptor {
 
   private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn) {
     String tableId = "1";
-    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
-        .withReadFunction(createMockTableReadFunction())
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId).withReadFunction(createMockTableReadFunction())
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
@@ -121,8 +120,7 @@ public class TestRemoteTableDescriptor {
   @Test
   public void testSerializeNullWriteFunction() {
     String tableId = "1";
-    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
-        .withReadFunction(createMockTableReadFunction());
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId).withReadFunction(createMockTableReadFunction());
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -148,10 +146,8 @@ public class TestRemoteTableDescriptor {
   public void testTablePartToConfigDefault() {
     TableReadFunction readFn = createMockTableReadFunction();
     when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(1));
-    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
-        .withReadFunction(readFn)
-        .withReadRateLimit(100)
-        .toConfig(new MapConfig());
+    Map<String, String> tableConfig =
+        new RemoteTableDescriptor("1").withReadFunction(readFn).withReadRateLimit(100).toConfig(new MapConfig());
     verify(readFn, times(1)).toConfig(any(), any());
     Assert.assertEquals("v1", tableConfig.get("k1"));
   }
@@ -182,8 +178,7 @@ public class TestRemoteTableDescriptor {
     TableRetryPolicy writeRetryPolicy = createMockTableRetryPolicy();
     when(writeRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
 
-    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
-        .withReadFunction(readFn)
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(readFn)
         .withWriteFunction(writeFn)
         .withRateLimiter(rateLimiter, readCredFn, writeCredFn)
         .withReadRetryPolicy(readRetryPolicy)
@@ -198,9 +193,19 @@ public class TestRemoteTableDescriptor {
     verify(readRetryPolicy, times(1)).toConfig(any(), any());
     verify(writeRetryPolicy, times(1)).toConfig(any(), any());
 
+    System.out.println(tableConfig);
     for (int n = 0; n < keys; n++) {
       Assert.assertEquals("v" + n, tableConfig.get("k" + n));
     }
+  }
+
+  @Test
+  public void testTableRetryPolicyToConfig() {
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy())
+        .toConfig(new MapConfig());
+    Assert.assertEquals(tableConfig.get("1.io.read.retry.policy.org.apache.samza.table.retry.TableRetryPolicy"),
+        "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"tableId\":\"1.io.read.retry.policy\",\"retryPredicate\":{}}");
   }
 
   private Context createMockContext(TableDescriptor tableDescriptor) {
@@ -241,6 +246,7 @@ public class TestRemoteTableDescriptor {
 
   static class CountingCreditFunction<K, V> implements CreditFunction<K, V> {
     int numCalls = 0;
+
     @Override
     public int getCredits(K key, V value) {
       numCalls++;
@@ -303,7 +309,6 @@ public class TestRemoteTableDescriptor {
 
     ThreadPoolExecutor callbackExecutor = TestUtils.getFieldValue(rwTable, "callbackExecutor");
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
-
   }
 
   @Test

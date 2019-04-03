@@ -112,6 +112,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public RemoteTableDescriptor<K, V> withReadFunction(TableReadFunction<K, V> readFn) {
     Preconditions.checkNotNull(readFn, "null read function");
     this.readFn = readFn;
+    this.readFn.setTableId(String.format("%s.%s", tableId, READ_FN));
     return this;
   }
 
@@ -123,6 +124,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public RemoteTableDescriptor<K, V> withWriteFunction(TableWriteFunction<K, V> writeFn) {
     Preconditions.checkNotNull(writeFn, "null write function");
     this.writeFn = writeFn;
+    this.writeFn.setTableId(String.format("%s.%s", tableId, WRITE_FN));
     return this;
   }
 
@@ -135,6 +137,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.readRetryPolicy = retryPolicy;
+    this.readRetryPolicy.setTableId(String.format("%s.%s", tableId, READ_RETRY_POLICY));
     return this;
   }
 
@@ -147,6 +150,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.writeRetryPolicy = retryPolicy;
+    this.writeRetryPolicy.setTableId(String.format("%s.%s", tableId, WRITE_RETRY_POLICY));
     return this;
   }
 
@@ -170,6 +174,12 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
     this.writeCreditFn = writeCreditFn;
+    if (this.readCreditFn != null) {
+      this.readCreditFn.setTableId(String.format("%s.%s", tableId, READ_CREDIT_FN));
+    }
+    if (this.writeCreditFn != null) {
+      this.writeCreditFn.setTableId(String.format("%s.%s", tableId, WRITE_CREDIT_FN));
+    }
     return this;
   }
 

@@ -19,11 +19,17 @@
 
 package org.apache.samza.table.retry;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.io.Serializable;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.config.Config;
 import org.apache.samza.table.remote.TablePart;
 
 
@@ -74,6 +80,9 @@ public class TableRetryPolicy implements TablePart, Serializable {
 
   // By default no backoff during retries
   private BackoffType backoffType = BackoffType.NONE;
+
+  // The tableId of this table part
+  private String tableId;
 
   /**
    * Serializable adapter interface for {@link java.util.function.Predicate}.
@@ -255,5 +264,31 @@ public class TableRetryPolicy implements TablePart, Serializable {
    */
   public RetryPredicate getRetryPredicate() {
     return retryPredicate;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
+    final Gson gson = new GsonBuilder().excludeFieldsWithModifiers(Modifier.TRANSIENT, Modifier.STATIC).create();
+    return Collections.singletonMap(String.format("%s.%s", getTableId(), this.getClass().getCanonicalName()),
+        gson.toJson(this));
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void setTableId(String tableId) {
+    this.tableId = tableId;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String getTableId() {
+    return tableId;
   }
 }
