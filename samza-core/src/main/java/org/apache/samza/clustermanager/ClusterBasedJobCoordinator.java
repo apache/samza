@@ -360,9 +360,11 @@ public class ClusterBasedJobCoordinator {
           @Override
           public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
               Map<String, Pattern> regexesMonitored) {
-            log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
-                " Existing input streams:", inputStreamsToMonitor);
-            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+            if (hasDurableStores) {
+              log.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
+                  " Existing input streams:", inputStreamsToMonitor);
+              state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+            }
             coordinatorException = new InputStreamsDiscoveredException("New input streams added: " + newInputStreams);
           }
         }));
