@@ -33,6 +33,7 @@ def scalaModules = [
         'samza-kv',
         'samza-kv-inmemory',
         'samza-kv-rocksdb',
+        'samza-kv-remote',
         'samza-log4j',
         'samza-log4j2',
         'samza-rest',
