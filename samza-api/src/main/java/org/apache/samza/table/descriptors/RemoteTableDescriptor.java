@@ -37,6 +37,7 @@ import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
 
+
 /**
  * Table descriptor for remote store backed tables
  *
@@ -73,6 +74,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
   public static final String READ_RETRY_POLICY = "io.read.retry.policy";
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
+  public static final String READ_AND_WRITE_RETRY_POLICY = "io.read.and.write.retry.policy";
 
   // Input support for a specific remote store (required)
   private TableReadFunction<K, V> readFn;
@@ -137,7 +139,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.readRetryPolicy = retryPolicy;
-    this.readRetryPolicy.setTableId(String.format("%s.%s", tableId, READ_RETRY_POLICY));
+    this.readRetryPolicy.setTableId(String.format("%s.%s", tableId,
+        readRetryPolicy != writeRetryPolicy ? READ_RETRY_POLICY : READ_AND_WRITE_RETRY_POLICY));
     return this;
   }
 
@@ -150,7 +153,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.writeRetryPolicy = retryPolicy;
-    this.writeRetryPolicy.setTableId(String.format("%s.%s", tableId, WRITE_RETRY_POLICY));
+    this.writeRetryPolicy.setTableId(String.format("%s.%s", tableId,
+        readRetryPolicy != writeRetryPolicy ? WRITE_RETRY_POLICY : READ_AND_WRITE_RETRY_POLICY));
     return this;
   }
 
@@ -168,8 +172,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withRateLimiter(RateLimiter rateLimiter,
-      TableRateLimiter.CreditFunction<K, V> readCreditFn,
-      TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
+      TableRateLimiter.CreditFunction<K, V> readCreditFn, TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
     Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
@@ -242,7 +245,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       RateLimiter defaultRateLimiter;
       try {
         @SuppressWarnings("unchecked")
-        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Class<? extends RateLimiter> clazz =
+            (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
         Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
         defaultRateLimiter = ctor.newInstance(tagCreditsMap);
       } catch (Exception ex) {
@@ -304,8 +308,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");
     // Assume callback executor pool should have no more than 20 threads
-    Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
-        "too many threads for async callback executor.");
+    Preconditions.checkArgument(asyncCallbackPoolSize <= 20, "too many threads for async callback executor.");
   }
 
   /**
@@ -317,5 +320,4 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   protected void addTablePartConfig(TablePart tablePart, Config jobConfig, Map<String, String> tableConfig) {
     tableConfig.putAll(tablePart.toConfig(jobConfig, new MapConfig(tableConfig)));
   }
-
 }

@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.remote.TablePart;
 
 
@@ -272,7 +273,7 @@ public class TableRetryPolicy implements TablePart, Serializable {
   @Override
   public Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
     final Gson gson = new GsonBuilder().excludeFieldsWithModifiers(Modifier.TRANSIENT, Modifier.STATIC).create();
-    return Collections.singletonMap(String.format("%s.%s", getTableId(), this.getClass().getCanonicalName()),
+    return Collections.singletonMap(JavaTableConfig.buildKey(tableId, this.getClass().getCanonicalName()),
         gson.toJson(this));
   }
 

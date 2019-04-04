@@ -204,8 +204,21 @@ public class TestRemoteTableDescriptor {
     Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy())
         .toConfig(new MapConfig());
-    Assert.assertEquals(tableConfig.get("1.io.read.retry.policy.org.apache.samza.table.retry.TableRetryPolicy"),
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.retry.policy.org.apache.samza.table.retry.TableRetryPolicy"),
         "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"tableId\":\"1.io.read.retry.policy\",\"retryPredicate\":{}}");
+  }
+
+  @Test
+  public void testTableRetryPolicySameInstanceToConfig() {
+    TableRetryPolicy retryPolicy = new TableRetryPolicy();
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
+        .withReadFunction(createMockTableReadFunction())
+        .withWriteFunction(createMockTableWriteFunction())
+        .withReadRetryPolicy(retryPolicy)
+        .withWriteRetryPolicy(retryPolicy)
+        .toConfig(new MapConfig());
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.and.write.retry.policy.org.apache.samza.table.retry.TableRetryPolicy"),
+        "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"tableId\":\"1.io.read.and.write.retry.policy\",\"retryPredicate\":{}}");
   }
 
   private Context createMockContext(TableDescriptor tableDescriptor) {
