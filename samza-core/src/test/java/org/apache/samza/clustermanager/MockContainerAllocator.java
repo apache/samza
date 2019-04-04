@@ -51,9 +51,9 @@ public class MockContainerAllocator extends ContainerAllocator {
   }
 
   @Override
-  public void requestResources(Map<String, String> containerToHostMappings) {
-    requestedContainers += containerToHostMappings.size();
-    super.requestResources(containerToHostMappings);
+  public void requestResources(Map<String, String> processorToHostMapping) {
+    requestedContainers += processorToHostMapping.size();
+    super.requestResources(processorToHostMapping);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {

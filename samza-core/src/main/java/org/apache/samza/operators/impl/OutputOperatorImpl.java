@@ -18,8 +18,13 @@
  */
 package org.apache.samza.operators.impl;
 
+<<<<<<< HEAD
 import java.util.ArrayList;
 import java.util.Arrays;
+=======
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+>>>>>>> master
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -52,7 +57,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
   }
 
   @Override
-  public Collection<M> handleMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<M>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     Object key, value;
     if (outputStream.isKeyed()) {
@@ -64,7 +69,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
     }
 
     collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
-    return new ArrayList<M>(Arrays.asList(message));
+    return CompletableFuture.completedFuture(new ArrayList<M>(Arrays.asList(message)));
   }
 
   @Override

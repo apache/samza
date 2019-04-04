@@ -120,4 +120,8 @@ public class SamzaSqlRelRecord implements Serializable {
     String valueStr = Joiner.on(",").useForNull("null").join(fieldValues);
     return "[Names:{" + nameStr + "} Values:{" + valueStr + "}]";
   }
+
+  public boolean containsField(String name) {
+    return fieldNames.indexOf(name) != -1;
+  }
 }

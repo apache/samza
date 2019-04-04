@@ -21,6 +21,9 @@
 package org.apache.samza.operators.impl;
 
 import com.google.common.base.Preconditions;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.FoldLeftFunction;
 import org.apache.samza.operators.functions.MapFunction;
@@ -53,7 +56,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +98,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   private final MapFunction<M, K> keyFn;
 
   private final TriggerScheduler<K> triggerScheduler;
-  private final Map<TriggerKey<K>, TriggerImplHandler> triggers = new HashMap<>();
+  private final Map<TriggerKey<K>, TriggerImplHandler> triggers = new ConcurrentHashMap<>();
   private TimeSeriesStore<K, Object> timeSeriesStore;
 
   public WindowOperatorImpl(WindowOperatorSpec<M, K, Object> windowOpSpec, Clock clock) {
@@ -134,8 +136,8 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
   }
 
   @Override
-  public Collection<WindowPane<K, Object>> handleMessage(
-      M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<WindowPane<K, Object>>> handleMessageAsync(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     LOG.trace("Processing message envelope: {}", message);
     List<WindowPane<K, Object>> results = new ArrayList<>();
 
@@ -177,7 +179,7 @@ public class WindowOperatorImpl<M, K> extends OperatorImpl<M, WindowPane<K, Obje
       maybeTriggeredPane.ifPresent(results::add);
     }
 
-    return results;
+    return CompletableFuture.completedFuture(results);
   }
 
   @Override

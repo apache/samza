@@ -21,7 +21,6 @@ package org.apache.samza.test.controlmessages;
 
 import scala.collection.JavaConverters;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +64,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TestStreamOperatorTask;
 import org.apache.samza.test.controlmessages.TestData.PageView;
@@ -199,10 +197,7 @@ public class WatermarkIntegrationTest extends IntegrationTestHarness {
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
     for (Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
-      AsyncStreamTaskAdapter adapter = (AsyncStreamTaskAdapter) entry.getValue().task();
-      Field field = AsyncStreamTaskAdapter.class.getDeclaredField("wrappedTask");
-      field.setAccessible(true);
-      StreamOperatorTask task = (StreamOperatorTask) field.get(adapter);
+      StreamOperatorTask task = (StreamOperatorTask) entry.getValue().task();
       tasks.put(entry.getKey().getTaskName(), task);
     }
     return tasks;

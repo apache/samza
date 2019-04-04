@@ -18,8 +18,13 @@
  */
 package org.apache.samza.operators.impl;
 
+<<<<<<< HEAD
 import java.util.ArrayList;
 import java.util.Arrays;
+=======
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+>>>>>>> master
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -52,9 +57,10 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   }
 
   @Override
-  protected Collection<KV<K, V>> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     table.put(message.getKey(), message.getValue());
-    return new ArrayList<KV<K, V>>(Arrays.asList(message));
+    return CompletableFuture.completedFuture(new ArrayList<KV<K, V>>(Arrays.asList(message)));
   }
 
   @Override
