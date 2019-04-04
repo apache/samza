@@ -18,7 +18,7 @@
 
 # Job
 job.factory.class=samza.job.local.ThreadJobFactory
-job.name=hello-stateful-world
+app.name=hello-stateful-world
 
 # Task
 task.class=samza.test.integration.SimpleStatefulTask

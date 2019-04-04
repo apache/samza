@@ -819,8 +819,6 @@ project(":samza-test_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-sql_$scalaSuffix")
-    runtime project(":samza-log4j_$scalaSuffix")
-    runtime project(":samza-log4j2_$scalaSuffix")
     runtime project(":samza-yarn_$scalaSuffix")
     runtime project(":samza-hdfs_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
