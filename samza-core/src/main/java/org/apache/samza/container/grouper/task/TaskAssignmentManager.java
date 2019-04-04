@@ -18,22 +18,19 @@
  */
 package org.apache.samza.container.grouper.task;
 
+import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +42,6 @@ public class TaskAssignmentManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskAssignmentManager.class);
 
   private final Map<String, String> taskNameToContainerId = new HashMap<>();
-  private final Serde<String> keySerde;
   private final Serde<String> containerIdSerde;
   private final Serde<String> taskModeSerde;
 
@@ -53,42 +49,21 @@ public class TaskAssignmentManager {
   private MetadataStore taskModeMappingMetadataStore;
 
   /**
-   * Builds the TaskAssignmentManager based upon {@link Config} and {@link MetricsRegistry}.
+   * Builds the TaskAssignmentManager based upon the provided {@link CoordinatorStreamStore}.
    * Uses {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing
    * into the metadata store.
    *
-   * @param config the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics.
+   * @param coordinatorStreamMetadataStore the coordinator metadata store which will be used
+   *                                        to read/write the task related information into
+   *                                        coordinator stream.
    */
-  public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry) {
-    this(config, metricsRegistry, new CoordinatorStreamKeySerde(SetTaskContainerMapping.TYPE),
-         new CoordinatorStreamValueSerde(SetTaskContainerMapping.TYPE), new CoordinatorStreamValueSerde(SetTaskModeMapping.TYPE));
-  }
+  public TaskAssignmentManager(CoordinatorStreamStore coordinatorStreamMetadataStore) {
+    Preconditions.checkNotNull(coordinatorStreamMetadataStore, "Metadata store cannot be null");
 
-  /**
-   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
-   *
-   * Uses keySerde, containerIdSerde to serialize/deserialize (key, value) pairs before reading/writing
-   * into {@link MetadataStore}.
-   *
-   * Key and value serializer are different for yarn(uses CoordinatorStreamMessage) and standalone(uses native
-   * ObjectOutputStream for serialization) modes.
-   * @param config the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics.
-   * @param keySerde the key serializer.
-   * @param containerIdSerde the value serializer.
-   * @param taskModeSerde the task-mode serializer.
-   */
-  public TaskAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> keySerde, Serde<String> containerIdSerde, Serde<String> taskModeSerde) {
-    this.keySerde = keySerde;
-    this.containerIdSerde = containerIdSerde;
-    this.taskModeSerde = taskModeSerde;
-
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-    this.taskModeMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskModeMapping.TYPE, config, metricsRegistry);
-    this.taskContainerMappingMetadataStore = metadataStoreFactory.getMetadataStore(SetTaskContainerMapping.TYPE, config, metricsRegistry);
-    this.taskModeMappingMetadataStore.init();
-    this.taskContainerMappingMetadataStore.init();
+    this.taskModeMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamMetadataStore, SetTaskModeMapping.TYPE);
+    this.taskContainerMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamMetadataStore, SetTaskContainerMapping.TYPE);
+    this.containerIdSerde = new CoordinatorStreamValueSerde(SetTaskContainerMapping.TYPE);
+    this.taskModeSerde = new CoordinatorStreamValueSerde(SetTaskModeMapping.TYPE);
   }
 
   /**

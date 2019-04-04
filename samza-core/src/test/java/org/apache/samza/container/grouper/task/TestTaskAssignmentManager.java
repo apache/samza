@@ -19,46 +19,34 @@
 
 package org.apache.samza.container.grouper.task;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.job.model.TaskMode;
-import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.system.*;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.when;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestTaskAssignmentManager {
 
-  private MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory;
+  private static final Config CONFIG = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
 
-  private final Config config = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private TaskAssignmentManager taskAssignmentManager;
 
   @Before
   public void setup() {
-    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
-    mockCoordinatorStreamSystemFactory = new MockCoordinatorStreamSystemFactory();
-    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
-    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(mockCoordinatorStreamSystemFactory);
-    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
-    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
+    coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamStore);
   }
 
   @After
@@ -68,8 +56,6 @@ public class TestTaskAssignmentManager {
 
   @Test
   public void testTaskAssignmentManager() {
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1", "Task2", "2", "Task3", "0", "Task4", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
@@ -85,8 +71,6 @@ public class TestTaskAssignmentManager {
 
   @Test
   public void testDeleteMappings() {
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1");
 
     for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
@@ -106,8 +90,6 @@ public class TestTaskAssignmentManager {
 
   @Test
   public void testTaskAssignmentManagerEmptyCoordinatorStream() {
-    TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(config, new MetricsRegistryMap());
-
     Map<String, String> expectedMap = new HashMap<>();
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
 

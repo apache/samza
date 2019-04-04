@@ -24,47 +24,32 @@ import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.Partition;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.when;
-
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestTaskPartitionAssignmentManager {
 
   private static final String TEST_SYSTEM = "system";
   private static final String TEST_STREAM = "stream";
   private static final Partition PARTITION = new Partition(0);
+  private static final Config CONFIG = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
 
-  private final Config config = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
   private final SystemStreamPartition testSystemStreamPartition = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, PARTITION);
 
-  private MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory;
   private TaskPartitionAssignmentManager taskPartitionAssignmentManager;
 
   @Before
   public void setup() {
-    mockCoordinatorStreamSystemFactory = new MockCoordinatorStreamSystemFactory();
-    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
-    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
-    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(mockCoordinatorStreamSystemFactory);
-    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
-    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
-    taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(config, new MetricsRegistryMap());
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
+    CoordinatorStreamStore coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(coordinatorStreamStore);
   }
 
   @After

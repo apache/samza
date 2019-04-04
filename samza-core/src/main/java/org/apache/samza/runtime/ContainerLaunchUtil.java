@@ -23,6 +23,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
@@ -32,9 +33,11 @@ import org.apache.samza.container.SamzaContainer$;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.ScalaJavaUtil;
@@ -75,7 +78,14 @@ public class ContainerLaunchUtil {
       Config config,
       Optional<ExternalContext> externalContextOptional) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
-    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
+    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap());
+    coordinatorStreamStore.init();
+    LocalityManager localityManager = new LocalityManager(coordinatorStreamStore);
+    Optional<StartpointManager> startpointManager = Optional.empty();
+    if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
+      startpointManager = Optional.of(new StartpointManager(coordinatorStreamStore));
+    }
+
     SamzaContainer container = SamzaContainer$.MODULE$.apply(
         containerId,
         jobModel,
@@ -84,7 +94,7 @@ public class ContainerLaunchUtil {
         JobContextImpl.fromConfigWithDefaults(config),
         Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
         Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-        Option.apply(externalContextOptional.orElse(null)), localityManager);
+        Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null));
 
     ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
         .createInstance(new ProcessorContext() { }, config);

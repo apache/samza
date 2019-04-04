@@ -18,18 +18,16 @@
  */
 package org.apache.samza.container.grouper.task;
 
+import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
 import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Util;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
@@ -54,20 +52,16 @@ public class TaskPartitionAssignmentManager {
   private final MetadataStore metadataStore;
 
   /**
-   * Instantiates the task partition assignment manager with the provided metricsRegistry
-   * and config.
-   * @param config the configuration required for connecting with the metadata store.
-   * @param metricsRegistry the registry to create and report custom metrics.
+   * Instantiates the task partition assignment manager based upon the provided metadata store.
+   *
+   * @param metadataStore the coordinator metadata store which will be used
+   *                       to read/write the task related information into coordinator stream.
    */
-  public TaskPartitionAssignmentManager(Config config, MetricsRegistry metricsRegistry) {
-    this(config, metricsRegistry, new CoordinatorStreamValueSerde(SetTaskPartitionMapping.TYPE));
-  }
+  public TaskPartitionAssignmentManager(CoordinatorStreamStore metadataStore) {
+    Preconditions.checkNotNull(metadataStore, "Metdatastore cannot be null.");
 
-  TaskPartitionAssignmentManager(Config config, MetricsRegistry metricsRegistry, Serde<String> valueSerde) {
-    this.valueSerde = valueSerde;
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-    this.metadataStore = metadataStoreFactory.getMetadataStore(SetTaskPartitionMapping.TYPE, config, metricsRegistry);
-    this.metadataStore.init();
+    this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE);
+    this.valueSerde = new CoordinatorStreamValueSerde(SetTaskPartitionMapping.TYPE);
   }
 
   /**

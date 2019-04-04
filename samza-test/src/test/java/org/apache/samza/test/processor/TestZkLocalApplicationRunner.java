@@ -53,6 +53,7 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
@@ -717,8 +718,9 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     Map<String, String> configMap = new HashMap<>();
     CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
     metadataStore.all().forEach((key, value) -> {
+        CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
         String deserializedValue = jsonSerde.fromBytes(value);
-        configMap.put(key, deserializedValue);
+        configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
       });
     return new MapConfig(configMap);
   }

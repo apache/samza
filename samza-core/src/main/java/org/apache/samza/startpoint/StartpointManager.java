@@ -29,6 +29,8 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -64,10 +66,7 @@ public class StartpointManager {
   private boolean started = false;
 
   /**
-   * Constructs a {@link StartpointManager} instance with the provided {@link MetadataStoreFactory}
-   * @param metadataStoreFactory {@link MetadataStoreFactory} used to construct the underlying store.
-   * @param config {@link Config} required for the underlying store.
-   * @param metricsRegistry {@link MetricsRegistry} to hook into the underlying store.
+   * Constructs a {@link StartpointManager} instance.
    */
   public StartpointManager(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
     Preconditions.checkNotNull(metadataStoreFactory, "MetadataStoreFactory cannot be null");
@@ -76,6 +75,14 @@ public class StartpointManager {
 
     this.metadataStore = metadataStoreFactory.getMetadataStore(NAMESPACE, config, metricsRegistry);
     LOG.info("StartpointManager created with metadata store: {}", metadataStore.getClass().getCanonicalName());
+  }
+
+  /**
+   * Constructs a {@link StartpointManager} instance.
+   */
+  public StartpointManager(CoordinatorStreamStore metadataStore) {
+    Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
+    this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE);
   }
 
   /**
