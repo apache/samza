@@ -18,13 +18,10 @@
  */
 package org.apache.samza.operators.impl;
 
-<<<<<<< HEAD
 import java.util.ArrayList;
 import java.util.Arrays;
-=======
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
->>>>>>> master
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;

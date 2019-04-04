@@ -105,6 +105,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
+<<<<<<< HEAD
   public <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> flatMapFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.ASYNC_FLAT_MAP);
     AsyncFlatMapOperatorSpec<M, OM> op = OperatorSpecs.createAsyncOperatorSpec(flatMapFn, opId);
@@ -113,6 +114,8 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
+=======
+>>>>>>> b22baf9a6b35e5cb0b190be52f8a93cbc9c086cf
   public MessageStream<M> sink(SinkFunction<? super M> sinkFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SINK);
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, opId);

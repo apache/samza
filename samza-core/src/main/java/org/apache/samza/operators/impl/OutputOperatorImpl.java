@@ -19,12 +19,17 @@
 package org.apache.samza.operators.impl;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import java.util.ArrayList;
 import java.util.Arrays;
 =======
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 >>>>>>> master
+=======
+import java.util.ArrayList;
+import java.util.Arrays;
+>>>>>>> b22baf9a6b35e5cb0b190be52f8a93cbc9c086cf
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
