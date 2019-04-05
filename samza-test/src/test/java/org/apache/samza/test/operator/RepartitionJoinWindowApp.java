@@ -98,7 +98,6 @@ public class RepartitionJoinWindowApp implements StreamApplication {
             messageCollector.send(
                 new OutgoingMessageEnvelope(
                     new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
-            return message;
           });
 
 

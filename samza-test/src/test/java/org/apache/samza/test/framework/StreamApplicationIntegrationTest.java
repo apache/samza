@@ -61,7 +61,7 @@ public class StreamApplicationIntegrationTest {
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
   @Test
-  public void testStatefulJoinWithLocalTable() throws InterruptedException {
+  public void testStatefulJoinWithLocalTable() {
     Random random = new Random();
     List<KV<String, TestTableData.PageView>> pageViews = Arrays.asList(TestTableData.generatePageViews(10))
         .stream()
@@ -171,7 +171,6 @@ public class StreamApplicationIntegrationTest {
           .sendTo(table)
           .sink((kv, collector, coordinator) -> {
               LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
-              return kv;
             });
 
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
@@ -182,7 +181,6 @@ public class StreamApplicationIntegrationTest {
           .map(TestTableData.EnrichedPageView::getPageKey)
           .sink((joinPageKey, collector, coordinator) -> {
               collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
-              return joinPageKey;
             });
 
     }
@@ -213,12 +211,10 @@ public class StreamApplicationIntegrationTest {
               KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
           .sink((m, collector, coordinator) -> {
               collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Repartitioned-PageView"), m.getKey(), m.getKey(), m));
-              return m;
             })
           .map(pv -> pv.getValue().getPageKey())
           .sink((pageKey, collector, coordinator) -> {
               collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "PageKeysOnly"), null, null, pageKey));
-              return null;
             });
     }
   }

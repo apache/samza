@@ -256,7 +256,6 @@ public class TestOperatorSpec {
   public void testSinkOperatorSpec() {
     SinkFunction<TestMessageEnvelope> sinkFn = (m, c, tc) -> {
       System.out.print(m.toString());
-      return m;
     };
     SinkOperatorSpec<TestMessageEnvelope> sinkOpSpec = new SinkOperatorSpec<>(sinkFn, "op0");
     SinkOperatorSpec<TestMessageEnvelope> sinkOpCopy = (SinkOperatorSpec<TestMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(sinkOpSpec);

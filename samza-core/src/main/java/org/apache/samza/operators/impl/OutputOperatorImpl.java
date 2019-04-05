@@ -18,8 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
@@ -66,7 +65,7 @@ class OutputOperatorImpl<M> extends OperatorImpl<M, M> {
     }
 
     collector.send(new OutgoingMessageEnvelope(systemStream, null, key, value));
-    return CompletableFuture.completedFuture(new ArrayList<M>(Arrays.asList(message)));
+    return CompletableFuture.completedFuture(Collections.singleton(message));
   }
 
   @Override

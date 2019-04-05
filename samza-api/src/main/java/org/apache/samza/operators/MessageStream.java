@@ -117,7 +117,7 @@ public interface MessageStream<M> {
    * Samza SystemProducer implementation.
    *
    * @param sinkFn the function to send messages in this stream to an external system
-   * @return the input {@link MessageStream}
+   * @return this {@link MessageStream}
    */
   MessageStream<M> sink(SinkFunction<? super M> sinkFn);
 
@@ -128,7 +128,7 @@ public interface MessageStream<M> {
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    *
    * @param outputStream the output stream to send messages to
-   * @return the input {@link MessageStream}
+   * @return this {@link MessageStream}
    */
   MessageStream<M> sendTo(OutputStream<M> outputStream);
 
@@ -283,6 +283,7 @@ public interface MessageStream<M> {
    * @param table the table to write messages to
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
+   * @return this {@link MessageStream}
    */
   <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table);
 

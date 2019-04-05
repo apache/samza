@@ -204,9 +204,7 @@ public class TestJobGraphJsonGenerator {
                 (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
                 mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
             .sendTo(outputStream1);
-        messageStream2.sink((message, collector, coordinator) -> {
-            return message;
-          });
+        messageStream2.sink((message, collector, coordinator) -> { });
         messageStream3
             .join(messageStream2,
                 (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),

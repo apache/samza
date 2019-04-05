@@ -18,8 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
@@ -53,7 +52,7 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, M> {
   protected CompletionStage<Collection<M>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
-    return CompletableFuture.completedFuture(new ArrayList<M>(Arrays.asList(message)));
+    return CompletableFuture.completedFuture(Collections.singleton(message));
   }
 
   @Override
