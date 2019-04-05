@@ -49,6 +49,8 @@ import scala.collection.JavaConverters._
  */
 object JobModelManager extends Logging {
 
+  val SOURCE = "JobModelManager"
+
   /**
    * a volatile value to store the current instantiated <code>JobModelManager</code>
    */
@@ -68,7 +70,7 @@ object JobModelManager extends Logging {
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
     val coordinatorStreamStoreFactory: MetadataStoreFactory = new CoordinatorStreamMetadataStoreFactory()
-    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamStoreFactory.getMetadataStore("", config, metricsRegistry).asInstanceOf[CoordinatorStreamStore]
+    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamStoreFactory.getMetadataStore(SOURCE, config, metricsRegistry).asInstanceOf[CoordinatorStreamStore]
     coordinatorStreamStore.init()
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
