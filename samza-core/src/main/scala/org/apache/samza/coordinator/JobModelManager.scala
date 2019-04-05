@@ -32,10 +32,14 @@ import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFac
 import org.apache.samza.container.grouper.task._
 import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamMetadataStoreFactory, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskMode
