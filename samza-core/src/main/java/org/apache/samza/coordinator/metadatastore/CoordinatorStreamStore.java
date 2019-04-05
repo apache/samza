@@ -58,11 +58,15 @@ import org.slf4j.LoggerFactory;
  * An implementation of the {@link MetadataStore} interface where the metadata of the samza job is stored in coordinator stream.
  *
  * This class is thread safe.
+ *
+ * It is recommended to use {@link NamespaceAwareCoordinatorStreamStore}. This will enable the single CoordinatorStreamStore connection
+ * to be shared by the multiple {@link NamespaceAwareCoordinatorStreamStore} instances.
  */
 public class CoordinatorStreamStore implements MetadataStore {
 
   private static final Logger LOG = LoggerFactory.getLogger(CoordinatorStreamStore.class);
   private static final String SOURCE = "SamzaContainer";
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final Config config;
   private final SystemStream coordinatorSystemStream;
@@ -76,7 +80,6 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   private final Object bootstrapLock = new Object();
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private SystemStreamPartitionIterator iterator;
 

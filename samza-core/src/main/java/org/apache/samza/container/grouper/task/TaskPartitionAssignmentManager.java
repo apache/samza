@@ -20,7 +20,6 @@ package org.apache.samza.container.grouper.task;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
@@ -52,12 +51,24 @@ public class TaskPartitionAssignmentManager {
   private final MetadataStore metadataStore;
 
   /**
-   * Instantiates the task partition assignment manager based upon the provided metadata store.
+   * <ul>
+   * <li>
+   *   <p>
+   *     Builds the TaskPartitionAssignmentManager based upon the provided {@link MetadataStore} that is instantiated.
+   *     Setting up a metadata store instance is expensive which requires opening multiple connections
+   *     and reading a lot of information. Fully instantiated metadata store is taken as a constructor argument
+   *     to reuse it across different utility classes.
+   *   </p>
+   * </li>
    *
-   * @param metadataStore the coordinator metadata store which will be used
-   *                       to read/write the task related information into coordinator stream.
+   * <li>
+   *   Uses the {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing into metadata store.
+   * </li>
+   * </ul>
+   *
+   * @param metadataStore an instance of {@link MetadataStore} used to read/write the task to partition assignments.
    */
-  public TaskPartitionAssignmentManager(CoordinatorStreamStore metadataStore) {
+  public TaskPartitionAssignmentManager(MetadataStore metadataStore) {
     Preconditions.checkNotNull(metadataStore, "Metdatastore cannot be null.");
 
     this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE);

@@ -31,24 +31,24 @@ import org.apache.samza.metadatastore.MetadataStore;
  */
 public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
 
-  private final CoordinatorStreamStore coordinatorStreamStore;
+  private final MetadataStore metadataStore;
   private final String namespace;
 
   /**
    * Instantiates the {@link NamespaceAwareCoordinatorStreamStore} based upon the provided
-   * CoordinatorStreamStore and namespace.
+   * MetadataStore that is instantiated and the namespace.
    *
-   * @param coordinatorStreamStore the coordinator stream store.
-   * @param namespace the namespace to use for keys for storing them in coordinator store.
+   * @param metadataStore the instantiated {@link MetadataStore}.
+   * @param namespace the namespace to use for storing the keys in the metadata store.
    */
-  public NamespaceAwareCoordinatorStreamStore(CoordinatorStreamStore coordinatorStreamStore, String namespace) {
-    this.coordinatorStreamStore = coordinatorStreamStore;
+  public NamespaceAwareCoordinatorStreamStore(MetadataStore metadataStore, String namespace) {
+    this.metadataStore = metadataStore;
     this.namespace = namespace;
   }
 
   @Override
   public void init() {
-    coordinatorStreamStore.init();
+    // Metadata store lifecycle is managed outside of this class, so not starting it.
   }
 
   @Override
@@ -60,13 +60,13 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
   @Override
   public void put(String key, byte[] value) {
     String coordinatorMessageKeyAsJson = getCoordinatorMessageKey(key);
-    coordinatorStreamStore.put(coordinatorMessageKeyAsJson, value);
+    metadataStore.put(coordinatorMessageKeyAsJson, value);
   }
 
   @Override
   public void delete(String key) {
     String coordinatorMessageKeyAsJson = getCoordinatorMessageKey(key);
-    coordinatorStreamStore.delete(coordinatorMessageKeyAsJson);
+    metadataStore.delete(coordinatorMessageKeyAsJson);
   }
 
   @Override
@@ -77,12 +77,12 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
 
   @Override
   public void flush() {
-    coordinatorStreamStore.flush();
+    metadataStore.flush();
   }
 
   @Override
   public void close() {
-    coordinatorStreamStore.close();
+    // Metadata store lifecycle is managed outside of this class, so not stopping it.
   }
 
   @VisibleForTesting
@@ -95,7 +95,7 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
    */
   private Map<String, byte[]> readMessagesFromCoordinatorStore() {
     Map<String, byte[]> bootstrappedMessages = new HashMap<>();
-    Map<String, byte[]> coordinatorStreamMessages = coordinatorStreamStore.all();
+    Map<String, byte[]> coordinatorStreamMessages = metadataStore.all();
     coordinatorStreamMessages.forEach((coordinatorMessageKeyAsJson, value) -> {
         CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(coordinatorMessageKeyAsJson);
         if (Objects.equals(namespace, coordinatorMessageKey.getNamespace())) {

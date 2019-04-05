@@ -22,7 +22,6 @@ package org.apache.samza.container;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -41,14 +40,24 @@ public class LocalityManager {
   private final MetadataStore metadataStore;
 
   /**
-   * Builds the LocalityManager based upon the provided coordinator metadata store.
-   * Uses the {@link CoordinatorStreamValueSerde} to serialize messages before
-   * reading/writing into metadata store.
+   * <ul>
+   * <li>
+   *   <p>
+   *     Builds the LocalityManager based upon the provided {@link MetadataStore} that is instantiated.
+   *     Setting up a metadata store instance is expensive which requires opening multiple connections
+   *     and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   *     to reuse it across different utility classes.
+   *   </p>
+   * </li>
    *
-   * @param metadataStore an instance of {@link CoordinatorStreamStore} which will be used to
-   *                       read and write the container locality.
+   * <li>
+   *   Uses the {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing into metadata store.
+   * </li>
+   * </ul>
+   *
+   * @param metadataStore an instance of {@link MetadataStore} to read/write the container locality.
    */
-  public LocalityManager(CoordinatorStreamStore metadataStore) {
+  public LocalityManager(MetadataStore metadataStore) {
     this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE);
     this.valueSerde = new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE);
   }

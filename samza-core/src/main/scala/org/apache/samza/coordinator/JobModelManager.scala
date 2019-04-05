@@ -27,18 +27,27 @@ import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
-import org.apache.samza.container.grouper.stream.{SSPGrouperProxy, SystemStreamPartitionGrouperFactory}
+import org.apache.samza.container.grouper.stream.SSPGrouperProxy
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.{LocalityManager, TaskName}
-import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamMetadataStoreFactory, CoordinatorStreamStore}
-import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
+import org.apache.samza.container.LocalityManager
+import org.apache.samza.container.TaskName
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.TaskMode
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metadatastore.MetadataStoreFactory
-import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.Logging
+import org.apache.samza.util.Util
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -70,7 +79,7 @@ object JobModelManager extends Logging {
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
     val coordinatorStreamStoreFactory: MetadataStoreFactory = new CoordinatorStreamMetadataStoreFactory()
-    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamStoreFactory.getMetadataStore(SOURCE, config, metricsRegistry).asInstanceOf[CoordinatorStreamStore]
+    val coordinatorStreamStore: MetadataStore = coordinatorStreamStoreFactory.getMetadataStore(SOURCE, config, metricsRegistry)
     coordinatorStreamStore.init()
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.

@@ -29,7 +29,6 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -63,38 +62,42 @@ public class StartpointManager {
   private final MetadataStore metadataStore;
   private final StartpointSerde startpointSerde = new StartpointSerde();
 
-  private boolean started = false;
+  private boolean stopped = false;
 
   /**
-   * Constructs a {@link StartpointManager} instance.
+   * <ul>
+   *   <li> Constructs a {@link StartpointManager} instance by instantiating a new metadata store connection. </li>
+   *   <li> This is primarily used for testing. </li>
+   * </ul>
    */
-  public StartpointManager(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
+  @VisibleForTesting
+  StartpointManager(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
     Preconditions.checkNotNull(metadataStoreFactory, "MetadataStoreFactory cannot be null");
     Preconditions.checkNotNull(config, "Config cannot be null");
     Preconditions.checkNotNull(metricsRegistry, "MetricsRegistry cannot be null");
 
     this.metadataStore = metadataStoreFactory.getMetadataStore(NAMESPACE, config, metricsRegistry);
     LOG.info("StartpointManager created with metadata store: {}", metadataStore.getClass().getCanonicalName());
+    this.metadataStore.init();
   }
 
   /**
-   * Constructs a {@link StartpointManager} instance.
+   * <p>
+   *   Builds the StartpointManager based upon the provided {@link MetadataStore} that is instantiated.
+   *   Setting up a metadata store instance is expensive which requires opening multiple connections
+   *   and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   *   to reuse it across different utility classes.
+   * </p>
+   *
+   * @param metadataStore an instance of {@link MetadataStore} used to read/write the start-points.
    */
-  public StartpointManager(CoordinatorStreamStore metadataStore) {
+  public StartpointManager(MetadataStore metadataStore) {
     Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
     this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE);
   }
 
-  /**
-   * Starts the underlying {@link MetadataStore}
-   */
   public void start() {
-    if (!started) {
-      metadataStore.init();
-      started = true;
-    } else {
-      LOG.warn("StartpointManager already started");
-    }
+    // Metadata store lifecycle is managed outside of the StartpointManager, so not starting it.
   }
 
   /**
@@ -113,7 +116,7 @@ public class StartpointManager {
    * @param startpoint Reference to a Startpoint object.
    */
   public void writeStartpoint(SystemStreamPartition ssp, TaskName taskName, Startpoint startpoint) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
     Preconditions.checkNotNull(startpoint, "Startpoint cannot be null");
 
@@ -141,7 +144,7 @@ public class StartpointManager {
    * @return {@link Startpoint} for the {@link SystemStreamPartition}, or null if it does not exist or if it is too stale.
    */
   public Startpoint readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
     byte[] startpointBytes = metadataStore.get(toStoreKey(ssp, taskName));
@@ -171,7 +174,7 @@ public class StartpointManager {
    * @param taskName ssp The {@link TaskName} to delete the {@link Startpoint} for.
    */
   public void deleteStartpoint(SystemStreamPartition ssp, TaskName taskName) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
     metadataStore.delete(toStoreKey(ssp, taskName));
@@ -186,7 +189,7 @@ public class StartpointManager {
    * @return The list of {@link SystemStreamPartition}s that were fanned out to SystemStreamPartition+TaskName.
    */
   public Set<SystemStreamPartition> fanOutStartpointsToTasks(JobModel jobModel) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(jobModel, "JobModel cannot be null");
 
     HashSet<SystemStreamPartition> sspsToDelete = new HashSet<>();
@@ -229,12 +232,8 @@ public class StartpointManager {
    * Relinquish resources held by the underlying {@link MetadataStore}
    */
   public void stop() {
-    if (started) {
-      metadataStore.close();
-      started = false;
-    } else {
-      LOG.warn("StartpointManager already stopped.");
-    }
+    stopped = true;
+    // Metadata store lifecycle is managed outside of the StartpointManager, so not closing it.
   }
 
   @VisibleForTesting

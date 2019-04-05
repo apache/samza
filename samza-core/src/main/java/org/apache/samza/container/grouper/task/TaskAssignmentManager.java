@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -49,19 +48,28 @@ public class TaskAssignmentManager {
   private MetadataStore taskModeMappingMetadataStore;
 
   /**
-   * Builds the TaskAssignmentManager based upon the provided {@link CoordinatorStreamStore}.
-   * Uses {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing
-   * into the metadata store.
+   * <ul>
+   * <li>
+   *   <p>
+   *     Builds the TaskAssignmentManager based upon the provided {@link MetadataStore} that is instantiated.
+   *     Setting up a metadata store instance is expensive which requires opening multiple connections
+   *     and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   *     to reuse it across different utility classes.
+   *   </p>
+   * </li>
    *
-   * @param coordinatorStreamMetadataStore the coordinator metadata store which will be used
-   *                                        to read/write the task related information into
-   *                                        coordinator stream.
+   * <li>
+   *   Uses the {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing into metadata store.
+   * </li>
+   * </ul>
+   *
+   * @param metadataStore an instance of {@link MetadataStore} used to read/write the task to container and task to mode assignments.
    */
-  public TaskAssignmentManager(CoordinatorStreamStore coordinatorStreamMetadataStore) {
-    Preconditions.checkNotNull(coordinatorStreamMetadataStore, "Metadata store cannot be null");
+  public TaskAssignmentManager(MetadataStore metadataStore) {
+    Preconditions.checkNotNull(metadataStore, "Metadata store cannot be null");
 
-    this.taskModeMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamMetadataStore, SetTaskModeMapping.TYPE);
-    this.taskContainerMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamMetadataStore, SetTaskContainerMapping.TYPE);
+    this.taskModeMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskModeMapping.TYPE);
+    this.taskContainerMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskContainerMapping.TYPE);
     this.containerIdSerde = new CoordinatorStreamValueSerde(SetTaskContainerMapping.TYPE);
     this.taskModeSerde = new CoordinatorStreamValueSerde(SetTaskModeMapping.TYPE);
   }

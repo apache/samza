@@ -137,6 +137,8 @@ public class ContainerLaunchUtil {
       heartbeatMonitor.stop();
     }
 
+    coordinatorStreamStore.close();
+
     if (containerRunnerException != null) {
       log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
       System.exit(1);
