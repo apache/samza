@@ -79,71 +79,74 @@ public class ContainerLaunchUtil {
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
-    TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap());
     coordinatorStreamStore.init();
-    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
-    Optional<StartpointManager> startpointManager = Optional.empty();
-    if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
-      startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
-    }
 
-    SamzaContainer container = SamzaContainer$.MODULE$.apply(
-        containerId,
-        jobModel,
-        ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
-        taskFactory,
-        JobContextImpl.fromConfigWithDefaults(config),
-        Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
-        Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-        Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null));
+    try {
+      TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
+      LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
+      Optional<StartpointManager> startpointManager = Optional.empty();
+      if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
+        startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
+      }
 
-    ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
-        .createInstance(new ProcessorContext() { }, config);
+      SamzaContainer container = SamzaContainer$.MODULE$.apply(
+          containerId,
+          jobModel,
+          ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
+          taskFactory,
+          JobContextImpl.fromConfigWithDefaults(config),
+          Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
+          Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
+          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null));
 
-    container.setContainerListener(
-        new SamzaContainerListener() {
-          @Override
-          public void beforeStart() {
-            log.info("Before starting the container.");
-            listener.beforeStart();
-          }
+      ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
+          .createInstance(new ProcessorContext() { }, config);
 
-          @Override
-          public void afterStart() {
-            log.info("Container Started");
-            listener.afterStart();
-          }
+      container.setContainerListener(
+          new SamzaContainerListener() {
+            @Override
+            public void beforeStart() {
+              log.info("Before starting the container.");
+              listener.beforeStart();
+            }
 
-          @Override
-          public void afterStop() {
-            log.info("Container Stopped");
-            listener.afterStop();
-          }
+            @Override
+            public void afterStart() {
+              log.info("Container Started");
+              listener.afterStart();
+            }
 
-          @Override
-          public void afterFailure(Throwable t) {
-            log.info("Container Failed");
-            containerRunnerException = t;
-            listener.afterFailure(t);
-          }
-        });
+            @Override
+            public void afterStop() {
+              log.info("Container Stopped");
+              listener.afterStop();
+            }
 
-    ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
-    if (heartbeatMonitor != null) {
-      heartbeatMonitor.start();
-    }
+            @Override
+            public void afterFailure(Throwable t) {
+              log.info("Container Failed");
+              containerRunnerException = t;
+              listener.afterFailure(t);
+            }
+          });
 
-    container.run();
-    if (heartbeatMonitor != null) {
-      heartbeatMonitor.stop();
-    }
+      ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
+      if (heartbeatMonitor != null) {
+        heartbeatMonitor.start();
+      }
 
-    coordinatorStreamStore.close();
+      container.run();
+      if (heartbeatMonitor != null) {
+        heartbeatMonitor.stop();
+      }
 
-    if (containerRunnerException != null) {
-      log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
-      System.exit(1);
+      if (containerRunnerException != null) {
+        log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
+        System.exit(1);
+      }
+    } finally {
+      coordinatorStreamStore.close();
     }
   }
 
