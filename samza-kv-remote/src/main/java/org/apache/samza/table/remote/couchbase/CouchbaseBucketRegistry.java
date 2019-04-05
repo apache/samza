@@ -31,7 +31,7 @@ import java.util.List;
 
 /**
  * The CouchbaseBucketRegistry is intended to reuse the same {@link Cluster} instance given same clusterNodes and reuse
- * the same {@link Bucket] given same bucketName}. Instantiating a Bucket is expensive. Different tasks within a
+ * the same {@link Bucket} given same bucketName. Instantiating a Bucket is expensive. Different tasks within a
  * container that is using the same bucket should use this registry to avoid creating multiple Buckets.
  */
 public class CouchbaseBucketRegistry {
@@ -56,6 +56,7 @@ public class CouchbaseBucketRegistry {
    * bucket name. Each time this method is called, the counter of usage of the bucket is increased by one.
    * @param bucketName name of the bucket to be opened
    * @param clusterNodes list of cluster nodes
+   * @param configs couchbase environment configs
    * @return A Bucket instance associated with the bucket name and cluster nodes
    */
   public synchronized Bucket getBucket(String bucketName, List<String> clusterNodes,
@@ -79,6 +80,7 @@ public class CouchbaseBucketRegistry {
    * Same for cluster, only when all buckets within a cluster have been closed will the cluster be closed.
    * @param bucketName name of the bucket to be opened
    * @param clusterNodes list of cluster nodes
+   * @return true if bucket is closed successfully, otherwise false.
    */
   public synchronized Boolean closeBucket(String bucketName, List<String> clusterNodes) {
     String bucketId = getBucketId(bucketName, clusterNodes);

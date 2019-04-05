@@ -94,6 +94,8 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   /**
    * Check whether the exception is caused by one of the temporary failure exceptions, which are
    * likely to be retriable.
+   * @param exception exception thrown by the table provider
+   * @return a boolean
    */
   public boolean isRetriable(Throwable exception) {
     while (exception != null && !(exception instanceof TemporaryFailureException)
@@ -105,8 +107,9 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
 
   /**
    * Set the timeout limit on the read / write operations.
-   * See <a href="https://docs.couchbase.com/java-sdk/2.7/client-settings.html#timeout-options"/>.
+   * See <a href="https://docs.couchbase.com/java-sdk/2.7/client-settings.html#timeout-options"></a>.
    * @param timeout Timeout duration
+   * @param <T> type of this instance
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withTimeout(Duration timeout) {
@@ -116,8 +119,9 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
 
   /**
    * Set the TTL for the data writen to Couchbase.
-   * See <a href="https://docs.couchbase.com/java-sdk/2.7/core-operations.html#expiry"/>.
+   * See <a href="https://docs.couchbase.com/java-sdk/2.7/core-operations.html#expiry"></a>.
    * @param ttl TTL duration
+   * @param <T> type of this instance
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withTtl(Duration ttl) {
@@ -129,6 +133,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * Serde is used to serialize and deserialize values to/from byte array. If value type is not
    * {@link com.couchbase.client.java.document.json.JsonObject}, a Serde must be provided.
    * @param valueSerde value serde
+   * @param <T> type of this instance
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSerde(Serde<V> valueSerde) {
@@ -141,6 +146,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * authentications can not be used together.
    * @param username username
    * @param password password
+   * @param <T> type of this instance
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withUsernameAndPassword(String username, String password) {
@@ -158,7 +164,8 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * accordingly.
    * @param sslEnabled allows to enable certificate-based authentication
    * @param certAuthEnabled allows to enable X.509 client certificate authentication
-   * @return
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSslEnabledAndCertAuthEnabled(boolean sslEnabled,
       boolean certAuthEnabled) {
@@ -184,6 +191,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * needs to be the case for backwards compatibility, but if you do not need
    * X.509 client cert authentication you might as well just use {@link #withSslTruststoreFileAndPassword}
    * alone.
+   * @param sslKeystoreFile  path of ssl keystore file
+   * @param sslKeystorePassword password of ssl keystore
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSslKeystoreFileAndPassword(String sslKeystoreFile,
       String sslKeystorePassword) {
@@ -200,6 +211,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * both the key factory as well as the trust factory with java SSL. Prefer
    * this method over the {@link #withSslKeystoreFileAndPassword} if you do not need
    * X.509 client auth and just need server side certificate checking.
+   * @param sslTruststoreFile path of truststore file
+   * @param sslTruststorePassword password of truststore
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSslTruststoreFileAndPassword(String sslTruststoreFile,
       String sslTruststorePassword) {
@@ -211,7 +226,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   /**
    * If carrier publication bootstrap is enabled and not SSL, sets the port to use.
    * Default value see
-   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"/>.
+   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"></a>.
+   * @param bootstrapCarrierDirectPort bootstrap carrier direct port
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withBootstrapCarrierDirectPort(int bootstrapCarrierDirectPort) {
     environmentConfigs.bootstrapCarrierDirectPort = bootstrapCarrierDirectPort;
@@ -221,7 +239,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   /**
    * If carrier publication bootstrap and SSL are enabled, sets the port to use.
    * Default value see
-   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"/>.
+   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"></a>.
+   * @param bootstrapCarrierSslPort bootstrap carrier ssl port
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withBootstrapCarrierSslPort(int bootstrapCarrierSslPort) {
     environmentConfigs.bootstrapCarrierSslPort = bootstrapCarrierSslPort;
@@ -231,7 +252,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   /**
    * If Http bootstrap is enabled and not SSL, sets the port to use.
    * Default value see
-   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"/>.
+   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"></a>.
+   * @param bootstrapHttpDirectPort bootstrap http direct port
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withBootstrapHttpDirectPort(int bootstrapHttpDirectPort) {
     environmentConfigs.bootstrapHttpDirectPort = bootstrapHttpDirectPort;
@@ -241,7 +265,10 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   /**
    * If Http bootstrap and SSL are enabled, sets the port to use.
    * Default value see
-   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"/>.
+   * <a href="https://docs.couchbase.com/server/6.0/learn/clusters-and-availability/connectivity.html#section-client-2-cluster-comm"></a>.
+   * @param bootstrapHttpSslPort bootstrap http ssl port
+   * @param <T> type of this instance
+   * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withBootstrapHttpSslPort(int bootstrapHttpSslPort) {
     environmentConfigs.bootstrapHttpSslPort = bootstrapHttpSslPort;
