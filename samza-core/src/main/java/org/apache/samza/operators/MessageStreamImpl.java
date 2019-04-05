@@ -113,11 +113,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public MessageStream<M> sink(SinkFunction<? super M> sinkFn) {
+  public void sink(SinkFunction<? super M> sinkFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SINK);
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
-    return new MessageStreamImpl<>(this.streamAppDesc, op);
   }
 
   @Override

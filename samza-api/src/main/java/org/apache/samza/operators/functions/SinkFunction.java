@@ -31,7 +31,7 @@ import org.apache.samza.task.TaskCoordinator;
  */
 @InterfaceStability.Unstable
 @FunctionalInterface
-public interface SinkFunction<M> extends InitableFunction, ClosableFunction, Serializable {
+public interface SinkFunction<M>  extends InitableFunction, ClosableFunction, Serializable {
 
   /**
    * Allows sending the provided message to an output {@link org.apache.samza.system.SystemStream} using

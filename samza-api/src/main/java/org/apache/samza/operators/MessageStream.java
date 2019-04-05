@@ -117,9 +117,8 @@ public interface MessageStream<M> {
    * Samza SystemProducer implementation.
    *
    * @param sinkFn the function to send messages in this stream to an external system
-   * @return this {@link MessageStream}
    */
-  MessageStream<M> sink(SinkFunction<? super M> sinkFn);
+  void sink(SinkFunction<? super M> sinkFn);
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.

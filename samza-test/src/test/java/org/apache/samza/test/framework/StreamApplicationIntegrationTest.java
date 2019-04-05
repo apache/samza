@@ -112,19 +112,16 @@ public class StreamApplicationIntegrationTest {
     }
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
-    InMemoryInputDescriptor<PageView> pageViewInput = isd.getInputDescriptor("PageView", new NoOpSerde<PageView>());
-    InMemoryOutputDescriptor<PageView> repartitionPageViewOutput = isd.getOutputDescriptor("Repartitioned-PageView", new NoOpSerde<PageView>());
-    InMemoryOutputDescriptor<String> pageKeysOnly = isd.getOutputDescriptor("PageKeysOnly", new NoOpSerde<String>());
+    InMemoryInputDescriptor<PageView> imid = isd.getInputDescriptor("PageView", new NoOpSerde<PageView>());
+    InMemoryOutputDescriptor<PageView> imod = isd.getOutputDescriptor("Output", new NoOpSerde<PageView>());
 
     TestRunner
         .of(new PageViewRepartitionApplication())
-        .addInputStream(pageViewInput, pageViews)
-        .addOutputStream(repartitionPageViewOutput, 10)
-        .addOutputStream(pageKeysOnly, 1)
+        .addInputStream(imid, pageViews)
+        .addOutputStream(imod, 10)
         .run(Duration.ofMillis(1500));
 
-    Assert.assertEquals(TestRunner.consumeStream(repartitionPageViewOutput, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
-    Assert.assertEquals(TestRunner.consumeStream(pageKeysOnly, Duration.ofMillis(1000)).get(0).size(), 10);
+    Assert.assertEquals(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(random.nextInt(count)).size(), 1);
   }
 
   /**
@@ -201,21 +198,14 @@ public class StreamApplicationIntegrationTest {
     @Override
     public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
-
       KafkaInputDescriptor<KV<String, PageView>> isd =
           ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-
       MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
-      inputStream.map(KV::getValue)
-          .partitionBy(PageView::getMemberId, pv -> pv,
-              KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
-          .sink((m, collector, coordinator) -> {
-              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Repartitioned-PageView"), m.getKey(), m.getKey(), m));
-            })
-          .map(pv -> pv.getValue().getPageKey())
-          .sink((pageKey, collector, coordinator) -> {
-              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "PageKeysOnly"), null, null, pageKey));
-            });
+      inputStream
+          .map(KV::getValue)
+          .partitionBy(PageView::getMemberId, pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")
+          .sink((m, collector, coordinator) ->
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "Output"), m.getKey(), m.getKey(), m)));
     }
   }
 }
