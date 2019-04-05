@@ -58,7 +58,8 @@ public class SetChangelogMapping extends CoordinatorStreamMessage {
     return getKey();
   }
 
-  public int getPartition() {
-    return Integer.parseInt(getMessageValue(CHANGELOG_VALUE_KEY));
+  public Integer getPartition() {
+    String changelogPartition = getMessageValue(CHANGELOG_VALUE_KEY);
+    return (changelogPartition != null) ? Integer.parseInt(changelogPartition) : null;
   }
 }
