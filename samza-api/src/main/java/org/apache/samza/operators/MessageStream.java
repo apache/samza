@@ -35,6 +35,7 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.table.Table;
 
 
@@ -121,11 +122,17 @@ public interface MessageStream<M> {
   void sink(SinkFunction<? super M> sinkFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propogates the this
+   * {@link MessageStream} to the next chained operator
    * <p>
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
-   *
+   * <p>
+   *  Note: There is no guarantee that message is first written to your configured output system and then only it is
+   *  propagated to next chained operator since that control for sending messages is decided by the
+   *  {@link org.apache.samza.system.SystemProducer#send(String, OutgoingMessageEnvelope)} implementation, for instance
+   *  in case of Kafka no such guarantee holds
+   * <p>
    * @param outputStream the output stream to send messages to
    * @return this {@link MessageStream}
    */
@@ -277,8 +284,12 @@ public interface MessageStream<M> {
 
   /**
    * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
-   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
-   *
+   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown. After doing a put to table this operator
+   * propagates the message in this {@link MessageStream} to the next chained operator.
+   * <p>
+   *  Note: Since put is synchronous, it is a guarantee that message is first written to table and then only it is
+   *  propagated to next operator
+   * <p>
    * @param table the table to write messages to
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
