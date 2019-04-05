@@ -20,7 +20,6 @@ package org.apache.samza.container.grouper.task;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -71,7 +70,7 @@ public class TaskPartitionAssignmentManager {
   public TaskPartitionAssignmentManager(MetadataStore metadataStore) {
     Preconditions.checkNotNull(metadataStore, "Metdatastore cannot be null.");
 
-    this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE);
+    this.metadataStore = metadataStore;
     this.valueSerde = new CoordinatorStreamValueSerde(SetTaskPartitionMapping.TYPE);
   }
 

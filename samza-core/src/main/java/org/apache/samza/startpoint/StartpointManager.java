@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  */
 public class StartpointManager {
   private static final Logger LOG = LoggerFactory.getLogger(StartpointManager.class);
-  private static final String NAMESPACE = "samza-startpoint-v1";
+  public static final String NAMESPACE = "samza-startpoint-v1";
 
   static final Duration DEFAULT_EXPIRATION_DURATION = Duration.ofHours(12);
 

@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
@@ -63,13 +62,15 @@ public class TaskAssignmentManager {
    * </li>
    * </ul>
    *
-   * @param metadataStore an instance of {@link MetadataStore} used to read/write the task to container and task to mode assignments.
+   * @param taskContainerMappingMetadataStore an instance of {@link MetadataStore} used to read/write the task to container assignments.
+   * @param taskModeMappingMetadataStore an instance of {@link MetadataStore} used to read/write the task to mode  assignments.
    */
-  public TaskAssignmentManager(MetadataStore metadataStore) {
-    Preconditions.checkNotNull(metadataStore, "Metadata store cannot be null");
+  public TaskAssignmentManager(MetadataStore taskContainerMappingMetadataStore, MetadataStore taskModeMappingMetadataStore) {
+    Preconditions.checkNotNull(taskContainerMappingMetadataStore, "Metadata store cannot be null");
+    Preconditions.checkNotNull(taskModeMappingMetadataStore, "Metadata store cannot be null");
 
-    this.taskModeMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskModeMapping.TYPE);
-    this.taskContainerMappingMetadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskContainerMapping.TYPE);
+    this.taskModeMappingMetadataStore = taskModeMappingMetadataStore;
+    this.taskContainerMappingMetadataStore = taskContainerMappingMetadataStore;
     this.containerIdSerde = new CoordinatorStreamValueSerde(SetTaskContainerMapping.TYPE);
     this.taskModeSerde = new CoordinatorStreamValueSerde(SetTaskModeMapping.TYPE);
   }

@@ -22,7 +22,6 @@ package org.apache.samza.container;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -58,7 +57,7 @@ public class LocalityManager {
    * @param metadataStore an instance of {@link MetadataStore} to read/write the container locality.
    */
   public LocalityManager(MetadataStore metadataStore) {
-    this.metadataStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE);
+    this.metadataStore = metadataStore;
     this.valueSerde = new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE);
   }
 

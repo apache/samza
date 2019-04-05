@@ -34,6 +34,8 @@ import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
@@ -80,10 +82,10 @@ public class ContainerLaunchUtil {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap());
     coordinatorStreamStore.init();
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamStore);
+    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
     Optional<StartpointManager> startpointManager = Optional.empty();
     if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
-      startpointManager = Optional.of(new StartpointManager(coordinatorStreamStore));
+      startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
     }
 
     SamzaContainer container = SamzaContainer$.MODULE$.apply(

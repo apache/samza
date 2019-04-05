@@ -26,6 +26,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
@@ -55,7 +56,7 @@ public class TestLocalityManager {
 
   @Test
   public void testLocalityManager() {
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamStore);
+    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
     localityManager.writeContainerToHostMapping("0", "localhost");
     Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
@@ -82,7 +83,7 @@ public class TestLocalityManager {
 
   @Test
   public void testWriteOnlyLocalityManager() {
-    LocalityManager localityManager = new LocalityManager(coordinatorStreamStore);
+    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
     localityManager.writeContainerToHostMapping("1", "localhost");
 

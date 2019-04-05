@@ -26,8 +26,10 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.Partition;
+import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.After;
 import org.junit.Assert;
@@ -49,7 +51,7 @@ public class TestTaskPartitionAssignmentManager {
   public void setup() {
     CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
     CoordinatorStreamStore coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
-    taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(coordinatorStreamStore);
+    taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE));
   }
 
   @After

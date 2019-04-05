@@ -32,10 +32,10 @@ import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFac
 import org.apache.samza.container.grouper.task._
 import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamMetadataStoreFactory, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
+import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskMode
@@ -83,9 +83,9 @@ object JobModelManager extends Logging {
     coordinatorStreamStore.init()
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
-    val localityManager = new LocalityManager(coordinatorStreamStore)
-    val taskAssignmentManager = new TaskAssignmentManager(coordinatorStreamStore)
-    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(coordinatorStreamStore)
+    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
+    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE))
+    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE))
 
     val systemAdmins = new SystemAdmins(config)
     try {
