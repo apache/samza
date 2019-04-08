@@ -64,7 +64,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
   @Override
   public void init(Context context) {
     super.init(context);
-    LOGGER.info(String.format("Write function for bucket %s initialized successfully", bucketName));
+    LOGGER.info("Write function for bucket {} initialized successfully", bucketName);
   }
 
   /**

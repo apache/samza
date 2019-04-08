@@ -88,7 +88,7 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
   @Override
   public void init(Context context) {
     super.init(context);
-    LOGGER.info(String.format("Read function for bucket %s initialized successfully", bucketName));
+    LOGGER.info("Read function for bucket {} initialized successfully", bucketName);
   }
 
   /**
