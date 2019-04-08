@@ -76,7 +76,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   private final SystemAdmin systemAdmin;
 
   // Namespaced key to the message byte array.
-  private final Map<String, byte[]> bootstrappedMessages = new ConcurrentHashMap<>();
+  private final Map<String, byte[]> messagesReadFromCoordinatorStream = new ConcurrentHashMap<>();
 
   private final Object bootstrapLock = new Object();
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
@@ -112,7 +112,7 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemProducer.register(SOURCE);
       systemProducer.start();
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
-      bootstrapMessagesFromStream();
+      readMessagesFromCoordinatorStream();
     } else {
       LOG.info("Store had already been initialized. Skipping.", coordinatorSystemStreamPartition);
     }
@@ -120,8 +120,8 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public byte[] get(String namespacedKey) {
-    bootstrapMessagesFromStream();
-    return bootstrappedMessages.get(namespacedKey);
+    readMessagesFromCoordinatorStream();
+    return messagesReadFromCoordinatorStream.get(namespacedKey);
   }
 
   @Override
@@ -145,14 +145,11 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public Map<String, byte[]> all() {
-    bootstrapMessagesFromStream();
-    return Collections.unmodifiableMap(bootstrappedMessages);
+    readMessagesFromCoordinatorStream();
+    return Collections.unmodifiableMap(messagesReadFromCoordinatorStream);
   }
 
-  /**
-   * Returns all the messages from the earliest offset all the way to the latest.
-   */
-  private void bootstrapMessagesFromStream() {
+  private void readMessagesFromCoordinatorStream() {
     synchronized (bootstrapLock) {
       while (iterator.hasNext()) {
         IncomingMessageEnvelope envelope = iterator.next();
@@ -162,9 +159,9 @@ public class CoordinatorStreamStore implements MetadataStore {
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, new HashMap<>());
         String namespacedKey = serializeCoordinatorMessageKeyToJson(coordinatorStreamMessage.getType(), coordinatorStreamMessage.getKey());
         if (envelope.getMessage() != null) {
-          bootstrappedMessages.put(namespacedKey, (byte[]) envelope.getMessage());
+          messagesReadFromCoordinatorStream.put(namespacedKey, (byte[]) envelope.getMessage());
         } else {
-          bootstrappedMessages.remove(namespacedKey);
+          messagesReadFromCoordinatorStream.remove(namespacedKey);
         }
       }
     }
