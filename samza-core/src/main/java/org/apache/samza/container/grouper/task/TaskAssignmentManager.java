@@ -47,20 +47,13 @@ public class TaskAssignmentManager {
   private MetadataStore taskModeMappingMetadataStore;
 
   /**
-   * <ul>
-   * <li>
-   *   <p>
-   *     Builds the TaskAssignmentManager based upon the provided {@link MetadataStore} that is instantiated.
-   *     Setting up a metadata store instance is expensive which requires opening multiple connections
-   *     and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
-   *     to reuse it across different utility classes.
-   *   </p>
-   * </li>
-   *
-   * <li>
-   *   Uses the {@link CoordinatorStreamValueSerde} to serialize messages before reading/writing into metadata store.
-   * </li>
-   * </ul>
+   * <p>
+   *   Builds the TaskAssignmentManager based upon the provided {@link MetadataStore} that is instantiated.
+   *   Setting up a metadata store instance is expensive which requires opening multiple connections
+   *   and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   *   to reuse it across different utility classes. Uses the {@link CoordinatorStreamValueSerde} to serialize
+   *   messages before reading/writing into metadata store.
+   * </p>
    *
    * @param taskContainerMappingMetadataStore an instance of {@link MetadataStore} used to read/write the task to container assignments.
    * @param taskModeMappingMetadataStore an instance of {@link MetadataStore} used to read/write the task to mode  assignments.

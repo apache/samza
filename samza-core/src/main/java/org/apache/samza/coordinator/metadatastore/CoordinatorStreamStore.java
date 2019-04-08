@@ -192,12 +192,10 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   /**
-   * Performs the following operations in order to setup the system consumer for reading from the coordinator stream.
-   *
-   * <ul>
-   *   <li> Fetches the metadata of the coordinator topic partition. </li>
-   *   <li> Registers the oldest offset from the coordinator topic partition with the coordinator system consumer. </li>
-   * </ul>
+   * <p>
+   *   Fetches the metadata of the topic partition of coordinator stream. Registers the oldest offset
+   *   for the topic partition of coordinator stream with the coordinator system consumer.
+   * </p>
    */
   private void registerConsumer() {
     LOG.debug("Attempting to register system stream partition: {}", coordinatorSystemStreamPartition);
