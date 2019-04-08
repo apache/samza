@@ -65,10 +65,8 @@ public class StartpointManager {
   private boolean stopped = false;
 
   /**
-   * <ul>
-   *   <li> Constructs a {@link StartpointManager} instance by instantiating a new metadata store connection. </li>
-   *   <li> This is primarily used for testing. </li>
-   * </ul>
+   *  Constructs a {@link StartpointManager} instance by instantiating a new metadata store connection.
+   *  This is primarily used for testing.
    */
   @VisibleForTesting
   StartpointManager(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
@@ -82,12 +80,10 @@ public class StartpointManager {
   }
 
   /**
-   * <p>
-   *   Builds the StartpointManager based upon the provided {@link MetadataStore} that is instantiated.
-   *   Setting up a metadata store instance is expensive which requires opening multiple connections
-   *   and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
-   *   to reuse it across different utility classes.
-   * </p>
+   *  Builds the StartpointManager based upon the provided {@link MetadataStore} that is instantiated.
+   *  Setting up a metadata store instance is expensive which requires opening multiple connections
+   *  and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   *  to reuse it across different utility classes.
    *
    * @param metadataStore an instance of {@link MetadataStore} used to read/write the start-points.
    */

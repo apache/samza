@@ -39,13 +39,11 @@ public class LocalityManager {
   private final MetadataStore metadataStore;
 
   /**
-   * <p>
-   *   Builds the LocalityManager based upon the provided {@link MetadataStore} that is instantiated.
-   *   Setting up a metadata store instance is expensive which requires opening multiple connections
-   *   and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
-   *   to reuse it across different utility classes. Uses the {@link CoordinatorStreamValueSerde} to serialize
-   *   messages before reading/writing into metadata store.
-   * </p>
+   * Builds the LocalityManager based upon the provided {@link MetadataStore} that is instantiated.
+   * Setting up a metadata store instance is expensive which requires opening multiple connections
+   * and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   * to reuse it across different utility classes. Uses the {@link CoordinatorStreamValueSerde} to serialize
+   * messages before reading/writing into metadata store.
    *
    * @param metadataStore an instance of {@link MetadataStore} to read/write the container locality.
    */
