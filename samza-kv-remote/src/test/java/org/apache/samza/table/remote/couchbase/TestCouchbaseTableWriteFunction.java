@@ -44,7 +44,9 @@ import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.powermock.api.mockito.PowerMockito.*;
 
-
+/**
+ * This class performs unit tests for CouchbaseTableWriteFunction.
+ */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(CouchbaseBucketRegistry.class)
 public class TestCouchbaseTableWriteFunction {

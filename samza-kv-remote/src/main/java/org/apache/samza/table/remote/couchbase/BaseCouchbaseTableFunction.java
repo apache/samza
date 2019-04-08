@@ -106,7 +106,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   }
 
   /**
-   * Set the timeout limit on the read / write operations.
+   * Set the timeout limit on the read / write operations. Default value is Duration.ZERO, which means no timeout.
    * See <a href="https://docs.couchbase.com/java-sdk/2.7/client-settings.html#timeout-options"></a>.
    * @param timeout Timeout duration
    * @param <T> type of this instance
@@ -118,7 +118,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   }
 
   /**
-   * Set the TTL for the data writen to Couchbase.
+   * Set the TTL for the data writen to Couchbase. Default value Duration.ZERO means no TTL, data will be stored forever.
    * See <a href="https://docs.couchbase.com/java-sdk/2.7/core-operations.html#expiry"></a>.
    * @param ttl TTL duration
    * @param <T> type of this instance
@@ -150,7 +150,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withUsernameAndPassword(String username, String password) {
-    if (environmentConfigs.sslEnabled) {
+    if (environmentConfigs.sslEnabled != null && environmentConfigs.sslEnabled) {
       throw new IllegalArgumentException(
           "Role-Based Access Control and Certificate-Based Authentication cannot be used together.");
     }

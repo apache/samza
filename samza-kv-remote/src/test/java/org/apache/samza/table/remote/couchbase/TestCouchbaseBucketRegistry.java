@@ -34,11 +34,18 @@ import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.powermock.api.mockito.PowerMockito.*;
 
-
+/**
+ * This class performs unit tests for CouchbaseBucketRegistry
+ */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(CouchbaseCluster.class)
 public class TestCouchbaseBucketRegistry {
 
+  /**
+   * This unit test uses CouchbaseBucketRegistry to register two mocked buckets. It tests:
+   * 1. Calling registry.getBucket with same bucketName and clusterNodes should return same Bucket instance
+   * 2. Calling registry.getBucket with different bucketNames should return different Bucket instances
+   */
   @Test
   public void testOpenBuckets() {
     String bucketName1 = "bucket1";
@@ -58,6 +65,10 @@ public class TestCouchbaseBucketRegistry {
     assertNotEquals(bucket1, bucket2);
   }
 
+  /**
+   * This unit test uses CouchbaseBucketRegistry to register two mocked buckets with same name but in different clusters.
+   * Calling registry.getBucket with same bucketName but different clusterNodes should return different Bucket instances.
+   */
   @Test
   public void testOpenSameBucketNameFromDifferentClusters() {
     String bucketName = "bucket";
@@ -77,6 +88,11 @@ public class TestCouchbaseBucketRegistry {
     assertNotEquals(bucketInCluster1, bucketInCluster2);
   }
 
+  /**
+   * This unit test simulates 10 tasks using the same bucket. Each task will call registry.getBucket once. Then
+   * each task will also call registry.closeBucket once. After that, registry.closeBucket should return false if we
+   * close the bucket one more time. And the bucket should have already been closed.
+   */
   @Test
   public void testCloseBucket() {
     String bucketName = "bucket";
@@ -103,6 +119,10 @@ public class TestCouchbaseBucketRegistry {
     assertFalse(bucket.close());
   }
 
+  /**
+   * This unit test simulates closing two buckets within one cluster. The cluster should only be disconnected when all
+   * buckets has been closed.
+   */
   @Test
   public void testCloseTwoBucketsInSameCluster() {
     String bucketName1 = "bucket1";

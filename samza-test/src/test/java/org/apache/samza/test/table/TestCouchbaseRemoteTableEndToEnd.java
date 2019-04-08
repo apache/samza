@@ -57,7 +57,7 @@ import org.junit.Test;
 
 
 /**
- * This class does a end to end testing for Couchbase table functions. It puts some data to an in-memory stream and a
+ * This class does an end to end testing for Couchbase table functions. It puts some data to an in-memory stream and a
  * mocked Couchbase bucket. Then it does a join between the stream and the Couchbase table. Finally it writes the
  * result to another mocked Couchbase bucket and assert the result to be what we expect. Due to the problem of
  * CouchbaseMock library, closing a mocked bucket would throw exceptions like: java.lang.ArithmeticException: / by zero.
