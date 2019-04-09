@@ -20,7 +20,7 @@
 package org.apache.samza.metrics
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.Config
+import org.apache.samza.config.{ClusterManagerConfig, Config}
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.util.Logging
 import org.apache.samza.util.MetricsReporterLoader
@@ -43,6 +43,8 @@ class ContainerProcessManagerMetrics(
 
   val jvm = new JvmMetrics(registry)
   val reporters = MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName).asScala
+  val clusterManagerConfig = new ClusterManagerConfig(config)
+
   reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))
 
    def start() {
@@ -72,6 +74,9 @@ class ContainerProcessManagerMetrics(
      val mFailedStandbyAllocations = newGauge("failed-standby-allocations", () => state.failedStandbyAllocations.get())
      val mFailoversToAnyHost = newGauge("failovers-to-any-host", () => state.failoversToAnyHost.get())
      val mFailoversToStandby = newGauge("failovers-to-standby", () => state.failoversToStandby.get())
+
+     val mContainerMemoryMb = newGauge("container-memory-mb", () => clusterManagerConfig.getContainerMemoryMb)
+     val mContainerCpuCores = newGauge("container-cpu-cores", () => clusterManagerConfig.getNumCores)
 
     jvm.start
     reporters.values.foreach(_.start)
