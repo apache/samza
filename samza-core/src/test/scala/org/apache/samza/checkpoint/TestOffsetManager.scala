@@ -25,11 +25,9 @@ import java.util.function.BiConsumer
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
-import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory
-import org.apache.samza.startpoint.{StartpointManager, StartpointOldest, StartpointUpcoming}
+import org.apache.samza.startpoint.{StartpointManagerTestUtil, StartpointOldest, StartpointUpcoming}
 import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPartitionMetadata}
 import org.apache.samza.system._
-import org.apache.samza.util.NoOpMetricsRegistry
 import org.junit.Assert._
 import org.junit.Test
 import org.mockito.Matchers._
@@ -526,7 +524,7 @@ class TestOffsetManager {
   }
 
   private def getStartpointManager() = {
-    val startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory, new MapConfig, new NoOpMetricsRegistry)
+    val startpointManager = StartpointManagerTestUtil.getStartpointManager()
     startpointManager.start
     startpointManager
   }
