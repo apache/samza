@@ -34,12 +34,18 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
-import org.apache.samza.container.{LocalityManager, TaskName}
+import org.apache.samza.container.LocalityManager
+import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
-import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
-import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.TaskMode
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
