@@ -217,7 +217,7 @@ public class ClusterBasedJobCoordinator {
 
     try {
       //initialize JobCoordinator state
-      LOG.info("Starting Cluster Based Job Coordinator");
+      LOG.info("Starting cluster based job coordinator");
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
@@ -252,12 +252,12 @@ public class ClusterBasedJobCoordinator {
           Thread.sleep(jobCoordinatorSleepInterval);
         } catch (InterruptedException e) {
           isInterrupted = true;
-          LOG.error("Interrupted in job coordinator loop {} ", e);
+          LOG.error("Interrupted in job coordinator loop", e);
           Thread.currentThread().interrupt();
         }
       }
     } catch (Throwable e) {
-      LOG.error("Exception thrown in the JobCoordinator loop {} ", e);
+      LOG.error("Exception thrown in the JobCoordinator loop", e);
       throw new SamzaException(e);
     } finally {
       onShutDown();
@@ -283,16 +283,16 @@ public class ClusterBasedJobCoordinator {
       containerProcessManager.stop();
       coordinatorStreamStore.close();
     } catch (Throwable e) {
-      LOG.error("Exception while stopping task manager {}", e);
+      LOG.error("Exception while stopping cluster based job coordinator", e);
     }
-    LOG.info("Stopped task manager");
+    LOG.info("Stopped cluster based job coordinator");
 
     if (jmxServer != null) {
       try {
         jmxServer.stop();
         LOG.info("Stopped Jmx Server");
       } catch (Throwable e) {
-        LOG.error("Exception while stopping jmx server {}", e);
+        LOG.error("Exception while stopping jmx server", e);
       }
     }
   }
@@ -356,8 +356,8 @@ public class ClusterBasedJobCoordinator {
           public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
               Map<String, Pattern> regexesMonitored) {
             if (hasDurableStores) {
-              LOG.error("New input system-streams discovered. Failing the job. New input streams: {}", newInputStreams,
-                  " Existing input streams:", inputStreamsToMonitor);
+              LOG.error("New input system-streams discovered. Failing the job. New input streams: {}" +
+                  " Existing input streams: {}", newInputStreams, inputStreamsToMonitor);
               state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
             }
             coordinatorException = new InputStreamsDiscoveredException("New input streams discovered: " + newInputStreams);
@@ -392,7 +392,7 @@ public class ClusterBasedJobCoordinator {
           new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(coordinatorSystemEnv, Config.class));
       LOG.info("Using the coordinator system config: {}.", coordinatorSystemConfig);
     } catch (IOException e) {
-      LOG.error("Exception while reading coordinator stream config {}", e);
+      LOG.error("Exception while reading coordinator stream config", e);
       throw new SamzaException(e);
     }
     ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);

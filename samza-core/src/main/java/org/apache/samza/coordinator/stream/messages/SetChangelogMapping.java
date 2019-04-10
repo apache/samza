@@ -19,6 +19,8 @@
 
 package org.apache.samza.coordinator.stream.messages;
 
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * The {@link SetChangelogMapping} message is used to store the changelog partition information for a particular task.
  * The structure looks like:
@@ -60,6 +62,6 @@ public class SetChangelogMapping extends CoordinatorStreamMessage {
 
   public Integer getPartition() {
     String changelogPartition = getMessageValue(CHANGELOG_VALUE_KEY);
-    return (changelogPartition != null) ? Integer.parseInt(changelogPartition) : null;
+    return StringUtils.isNotBlank(changelogPartition) ? Integer.parseInt(changelogPartition) : null;
   }
 }

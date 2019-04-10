@@ -75,7 +75,7 @@ public class ChangelogStreamManager {
     metadataStore.all().forEach((taskName, partitionIdAsBytes) -> {
         String partitionId = valueSerde.fromBytes(partitionIdAsBytes);
         LOG.debug("TaskName: {} is mapped to {}", taskName, partitionId);
-        if (partitionId != null) {
+        if (StringUtils.isNotBlank(partitionId)) {
           changelogMapping.put(new TaskName(taskName), Integer.valueOf(partitionId));
         }
       });
