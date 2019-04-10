@@ -20,6 +20,7 @@
 package org.apache.samza.table.caching;
 
 import com.google.common.base.Preconditions;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
@@ -109,14 +110,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public V get(K key) {
     try {
-      return getAsync(key).get();
+      return getAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key) {
     incCounter(metrics.numGets);
     V value = cache.get(key);
     if (value != null) {
@@ -143,14 +144,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public Map<K, V> getAll(List<K> keys) {
     try {
-      return getAllAsync(keys).get();
+      return getAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
     incCounter(metrics.numGetAlls);
     // Make a copy of entries which might be immutable
     Map<K, V> getAllResult = new HashMap<>();
@@ -180,14 +181,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void put(K key, V value) {
     try {
-      putAsync(key, value).get();
+      putAsync(key, value).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value) {
     incCounter(metrics.numPuts);
     Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
 
@@ -210,14 +211,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void putAll(List<Entry<K, V>> records) {
     try {
-      putAllAsync(records).get();
+      putAllAsync(records).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> records) {
     incCounter(metrics.numPutAlls);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
@@ -236,14 +237,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void delete(K key) {
     try {
-      deleteAsync(key).get();
+      deleteAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key) {
     incCounter(metrics.numDeletes);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
@@ -261,14 +262,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void deleteAll(List<K> keys) {
     try {
-      deleteAllAsync(keys).get();
+      deleteAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
     incCounter(metrics.numDeleteAlls);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);

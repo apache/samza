@@ -20,6 +20,7 @@
 package org.apache.samza.table.caching.guava;
 
 import com.google.common.cache.Cache;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
@@ -61,14 +62,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public V get(K key) {
     try {
-      return getAsync(key).get();
+      return getAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("GET failed for " + key, e);
     }
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key) {
     CompletableFuture<V> future = new CompletableFuture<>();
     try {
       future.complete(cache.getIfPresent(key));
@@ -81,14 +82,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public Map<K, V> getAll(List<K> keys) {
     try {
-      return getAllAsync(keys).get();
+      return getAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("GET_ALL failed for " + keys, e);
     }
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
     CompletableFuture<Map<K, V>> future = new CompletableFuture<>();
     try {
       future.complete(cache.getAllPresent(keys));
@@ -101,14 +102,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void put(K key, V value) {
     try {
-      putAsync(key, value).get();
+      putAsync(key, value).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("PUT failed for " + key, e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value) {
     if (key == null) {
       return deleteAsync(key);
     }
@@ -126,14 +127,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void putAll(List<Entry<K, V>> entries) {
     try {
-      putAllAsync(entries).get();
+      putAllAsync(entries).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("PUT_ALL failed", e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       // Separate out put vs delete records
@@ -159,14 +160,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void delete(K key) {
     try {
-      deleteAsync(key).get();
+      deleteAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("DELETE failed", e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       cache.invalidate(key);
@@ -180,14 +181,14 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void deleteAll(List<K> keys) {
     try {
-      deleteAllAsync(keys).get();
+      deleteAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException("DELETE_ALL failed", e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       cache.invalidateAll(keys);

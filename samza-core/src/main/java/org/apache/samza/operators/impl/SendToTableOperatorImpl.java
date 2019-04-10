@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.impl;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
@@ -56,9 +55,9 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
   @Override
   protected CompletionStage<Collection<Void>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    table.put(message.getKey(), message.getValue());
     // there should be no further chained operators since this is a terminal operator.
-    return CompletableFuture.completedFuture(Collections.emptyList());
+    return table.putAsync(message.getKey(), message.getValue())
+        .thenApply(ignored -> Collections.emptyList());
   }
 
   @Override

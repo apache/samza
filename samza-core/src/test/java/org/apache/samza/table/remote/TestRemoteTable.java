@@ -19,6 +19,7 @@
 
 package org.apache.samza.table.remote;
 
+import java.util.concurrent.CompletionException;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
 import org.apache.samza.metrics.Counter;
@@ -38,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,8 +54,6 @@ import static org.mockito.Mockito.verify;
 
 
 public class TestRemoteTable {
-
-  private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
 
   public static Context getMockContext() {
     Context context = new MockContext();
@@ -84,7 +82,7 @@ public class TestRemoteTable {
     ExecutorService rateLimitingExecutor = Executors.newSingleThreadExecutor();
     ScheduledExecutorService retryExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    RemoteTable<K, V> table = new RemoteTable(tableId, readFn, writeFn,
+    RemoteTable<K, V> table = new RemoteTable<>(tableId, readFn, writeFn,
         readRateLimiter, writeRateLimiter, rateLimitingExecutor,
         readPolicy, writePolicy, retryExecutor, cbExecutor);
     table.init(getMockContext());
@@ -97,7 +95,7 @@ public class TestRemoteTable {
     // Sync is backed by async so needs to mock the async method
     CompletableFuture<String> future;
     if (error) {
-      future = new CompletableFuture();
+      future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("Test exception"));
       if (!retry) {
         doReturn(future).when(readFn).getAsync(anyString());
@@ -114,7 +112,7 @@ public class TestRemoteTable {
       doReturn(true).when(readFn).isRetriable(any());
     }
     RemoteTable<String, String> table = getTable(tableId, readFn, null, retry);
-    Assert.assertEquals("bar", sync ? table.get("foo") : table.getAsync("foo").get());
+    Assert.assertEquals("bar", sync ? table.get("foo") : table.getAsync("foo").toCompletableFuture().join());
     verify(table.readRateLimiter, times(error && retry ? 2 : 1)).throttle(anyString());
   }
 
@@ -128,7 +126,7 @@ public class TestRemoteTable {
     doTestGet(false, false, false);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testGetAsyncError() throws Exception {
     doTestGet(false, true, false);
   }
@@ -150,8 +148,8 @@ public class TestRemoteTable {
     RemoteTable<String, String> table1 = getTable("testGetMultipleTables-1", readFn1, null, false);
     RemoteTable<String, String> table2 = getTable("testGetMultipleTables-2", readFn2, null, false);
 
-    CompletableFuture<String> future1 = table1.getAsync("foo1");
-    CompletableFuture<String> future2 = table2.getAsync("foo2");
+    CompletableFuture<String> future1 = table1.getAsync("foo1").toCompletableFuture();
+    CompletableFuture<String> future2 = table2.getAsync("foo2").toCompletableFuture();
 
     CompletableFuture.allOf(future1, future2)
         .thenAccept(u -> {
@@ -165,7 +163,7 @@ public class TestRemoteTable {
     TableWriteFunction<String, String> mockWriteFn = mock(TableWriteFunction.class);
     TableWriteFunction<String, String> writeFn = mockWriteFn;
     CompletableFuture<Void> successFuture = CompletableFuture.completedFuture(null);
-    CompletableFuture<Void> failureFuture = new CompletableFuture();
+    CompletableFuture<Void> failureFuture = new CompletableFuture<>();
     failureFuture.completeExceptionally(new RuntimeException("Test exception"));
     if (!error) {
       if (isDelete) {
@@ -192,7 +190,7 @@ public class TestRemoteTable {
     if (sync) {
       table.put("foo", isDelete ? null : "bar");
     } else {
-      table.putAsync("foo", isDelete ? null : "bar").get();
+      table.putAsync("foo", isDelete ? null : "bar").toCompletableFuture().join();
     }
     ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> valCaptor = ArgumentCaptor.forClass(String.class);
@@ -230,7 +228,7 @@ public class TestRemoteTable {
     doTestPut(false, false, true, false);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testPutAsyncError() throws Exception {
     doTestPut(false, true, false, false);
   }
@@ -246,7 +244,7 @@ public class TestRemoteTable {
         mock(TableReadFunction.class), writeFn, false);
     CompletableFuture<Void> future;
     if (error) {
-      future = new CompletableFuture();
+      future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("Test exception"));
     } else {
       future = CompletableFuture.completedFuture(null);
@@ -257,7 +255,7 @@ public class TestRemoteTable {
     if (sync) {
       table.delete("foo");
     } else {
-      table.deleteAsync("foo").get();
+      table.deleteAsync("foo").toCompletableFuture().join();
     }
     verify(writeFn, times(1)).deleteAsync(argCaptor.capture());
     Assert.assertEquals("foo", argCaptor.getValue());
@@ -274,7 +272,7 @@ public class TestRemoteTable {
     doTestDelete(false, false);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testDeleteAsyncError() throws Exception {
     doTestDelete(false, true);
   }
@@ -288,7 +286,7 @@ public class TestRemoteTable {
     }
     CompletableFuture<Map<String, String>> future;
     if (error) {
-      future = new CompletableFuture();
+      future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("Test exception"));
     } else {
       future = CompletableFuture.completedFuture(res);
@@ -297,7 +295,7 @@ public class TestRemoteTable {
     doReturn(future).when(readFn).getAllAsync(any());
     RemoteTable<String, String> table = getTable("testGetAll-" + sync + error + partial, readFn, null, false);
     Assert.assertEquals(res, sync ? table.getAll(Arrays.asList("foo1", "foo2"))
-        : table.getAllAsync(Arrays.asList("foo1", "foo2")).get());
+        : table.getAllAsync(Arrays.asList("foo1", "foo2")).toCompletableFuture().join());
     verify(table.readRateLimiter, times(1)).throttle(anyCollection());
   }
 
@@ -311,7 +309,7 @@ public class TestRemoteTable {
     doTestGetAll(false, false, false);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testGetAllAsyncError() throws Exception {
     doTestGetAll(false, true, false);
   }
@@ -328,7 +326,7 @@ public class TestRemoteTable {
         mock(TableReadFunction.class), writeFn, false);
     CompletableFuture<Void> future;
     if (error) {
-      future = new CompletableFuture();
+      future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("Test exception"));
     } else {
       future = CompletableFuture.completedFuture(null);
@@ -344,7 +342,7 @@ public class TestRemoteTable {
     if (sync) {
       table.putAll(entries);
     } else {
-      table.putAllAsync(entries).get();
+      table.putAllAsync(entries).toCompletableFuture().join();
     }
     verify(writeFn, times(1)).putAllAsync(argCaptor.capture());
     if (hasDelete) {
@@ -380,7 +378,7 @@ public class TestRemoteTable {
     doTestPutAll(false, false, true);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testPutAllAsyncError() throws Exception {
     doTestPutAll(false, true, false);
   }
@@ -391,7 +389,7 @@ public class TestRemoteTable {
         mock(TableReadFunction.class), writeFn, false);
     CompletableFuture<Void> future;
     if (error) {
-      future = new CompletableFuture();
+      future = new CompletableFuture<>();
       future.completeExceptionally(new RuntimeException("Test exception"));
     } else {
       future = CompletableFuture.completedFuture(null);
@@ -403,7 +401,7 @@ public class TestRemoteTable {
     if (sync) {
       table.deleteAll(keys);
     } else {
-      table.deleteAllAsync(keys).get();
+      table.deleteAllAsync(keys).toCompletableFuture().join();
     }
     verify(writeFn, times(1)).deleteAllAsync(argCaptor.capture());
     Assert.assertEquals(keys, argCaptor.getValue());
@@ -420,7 +418,7 @@ public class TestRemoteTable {
     doTestDeleteAll(false, false);
   }
 
-  @Test(expected = ExecutionException.class)
+  @Test(expected = CompletionException.class)
   public void testDeleteAllAsyncError() throws Exception {
     doTestDeleteAll(false, true);
   }

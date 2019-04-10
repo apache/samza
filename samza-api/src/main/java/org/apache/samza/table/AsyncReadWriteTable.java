@@ -20,7 +20,7 @@ package org.apache.samza.table;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 
@@ -39,7 +39,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @return completableFuture for the requested value
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  CompletableFuture<V> getAsync(K key);
+  CompletionStage<V> getAsync(K key);
 
   /**
    * Asynchronously gets the values with which the specified {@code keys} are associated.
@@ -48,7 +48,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @return completableFuture for the requested entries
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  CompletableFuture<Map<K, V>> getAllAsync(List<K> keys);
+  CompletionStage<Map<K, V>> getAllAsync(List<K> keys);
 
   /**
    * Asynchronously updates the mapping of the specified key-value pair;
@@ -60,7 +60,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    * @return CompletableFuture for the operation
    */
-  CompletableFuture<Void> putAsync(K key, V value);
+  CompletionStage<Void> putAsync(K key, V value);
 
   /**
    * Asynchronously updates the mappings of the specified key-value {@code entries}.
@@ -70,7 +70,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    * @return CompletableFuture for the operation
    */
-  CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries);
+  CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries);
 
   /**
    * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).
@@ -78,7 +78,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    * @return CompletableFuture for the operation
    */
-  CompletableFuture<Void> deleteAsync(K key);
+  CompletionStage<Void> deleteAsync(K key);
 
   /**
    * Asynchronously deletes the mappings for the specified {@code keys} from this table.
@@ -86,7 +86,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    * @return CompletableFuture for the operation
    */
-  CompletableFuture<Void> deleteAllAsync(List<K> keys);
+  CompletionStage<Void> deleteAllAsync(List<K> keys);
 
   /**
    * Initializes the table during container initialization.

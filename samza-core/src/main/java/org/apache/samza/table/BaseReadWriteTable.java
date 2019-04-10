@@ -19,7 +19,7 @@
 package org.apache.samza.table;
 
 import com.google.common.base.Preconditions;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.utils.TableMetrics;
@@ -73,6 +73,6 @@ abstract public class BaseReadWriteTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   public interface Func1<T> {
-    CompletableFuture<T> apply();
+    CompletionStage<T> apply();
   }
 }

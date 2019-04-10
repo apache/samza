@@ -23,7 +23,7 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 
 import java.util.function.Predicate;
@@ -93,32 +93,32 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key) {
     return doRead(() -> table.getAsync(key));
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
     return doRead(() -> table.getAllAsync(keys));
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value) {
     return doWrite(() -> table.putAsync(key, value));
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries) {
     return doWrite(() -> table.putAllAsync(entries));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key) {
     return doWrite(() -> table.deleteAsync(key));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
     return doWrite(() -> table.deleteAllAsync(keys));
   }
 
@@ -144,13 +144,13 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
     table.close();
   }
 
-  private <T> CompletableFuture<T> doRead(Func1<T> func) {
+  private <T> CompletionStage<T> doRead(Func1<T> func) {
     return readRetryPolicy != null
         ? failsafe(readRetryPolicy, readRetryMetrics, retryExecutor).future(() -> func.apply())
         : func.apply();
   }
 
-  private <T> CompletableFuture<T> doWrite(Func1<T> func) {
+  private <T> CompletionStage<T> doWrite(Func1<T> func) {
     return writeRetryPolicy != null
         ? failsafe(writeRetryPolicy, writeRetryMetrics, retryExecutor).future(() -> func.apply())
         : func.apply();

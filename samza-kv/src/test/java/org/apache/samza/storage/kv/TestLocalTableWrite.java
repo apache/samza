@@ -100,8 +100,8 @@ public class TestLocalTableWrite {
   public void testPut() throws Exception {
     ReadWriteTable table = createTable(false);
     table.put("k1", "v1");
-    table.putAsync("k2", "v2").get();
-    table.putAsync("k3", null).get();
+    table.putAsync("k2", "v2").toCompletableFuture().join();
+    table.putAsync("k3", null).toCompletableFuture().join();
     verify(kvStore, times(2)).put(any(), any());
     verify(kvStore, times(1)).delete(any());
     Assert.assertEquals(2, numPuts.getCount());
@@ -123,7 +123,7 @@ public class TestLocalTableWrite {
     ReadWriteTable table = createTable(false);
     List<Entry> entries = Arrays.asList(new Entry("k1", "v1"), new Entry("k2", null));
     table.putAll(entries);
-    table.putAllAsync(entries).get();
+    table.putAllAsync(entries).toCompletableFuture().join();
     verify(kvStore, times(2)).putAll(any());
     verify(kvStore, times(2)).deleteAll(any());
     Assert.assertEquals(2, numPutAlls.getCount());
@@ -144,7 +144,7 @@ public class TestLocalTableWrite {
   public void testDelete() throws Exception {
     ReadWriteTable table = createTable(false);
     table.delete("");
-    table.deleteAsync("").get();
+    table.deleteAsync("").toCompletableFuture().join();
     verify(kvStore, times(2)).delete(any());
     Assert.assertEquals(2, numDeletes.getCount());
     Assert.assertTrue(deleteNs.getSnapshot().getAverage() > 0);
@@ -164,7 +164,7 @@ public class TestLocalTableWrite {
   public void testDeleteAll() throws Exception {
     ReadWriteTable table = createTable(false);
     table.deleteAll(Collections.emptyList());
-    table.deleteAllAsync(Collections.emptyList()).get();
+    table.deleteAllAsync(Collections.emptyList()).toCompletableFuture().join();
     verify(kvStore, times(2)).deleteAll(any());
     Assert.assertEquals(2, numDeleteAlls.getCount());
     Assert.assertTrue(deleteAllNs.getSnapshot().getAverage() > 0);
@@ -205,13 +205,13 @@ public class TestLocalTableWrite {
   public void testTimerDisabled() throws Exception {
     ReadWriteTable table = createTable(true);
     table.put("", "");
-    table.putAsync("", "").get();
+    table.putAsync("", "").toCompletableFuture().join();
     table.putAll(Collections.emptyList());
-    table.putAllAsync(Collections.emptyList()).get();
+    table.putAllAsync(Collections.emptyList()).toCompletableFuture().join();
     table.delete("");
-    table.deleteAsync("").get();
+    table.deleteAsync("").toCompletableFuture().join();
     table.deleteAll(Collections.emptyList());
-    table.deleteAllAsync(Collections.emptyList()).get();
+    table.deleteAllAsync(Collections.emptyList()).toCompletableFuture().join();
     table.flush();
     Assert.assertEquals(1, numFlushes.getCount());
     Assert.assertEquals(2, numPuts.getCount());

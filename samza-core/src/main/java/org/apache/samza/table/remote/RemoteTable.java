@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.samza.SamzaException;
@@ -146,14 +147,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public V get(K key) {
     try {
-      return getAsync(key).get();
+      return getAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key) {
     Preconditions.checkNotNull(key, "null key");
     return instrument(() -> asyncTable.getAsync(key), metrics.numGets, metrics.getNs)
         .handle((result, e) -> {
@@ -170,17 +171,17 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public Map<K, V> getAll(List<K> keys) {
     try {
-      return getAllAsync(keys).get();
+      return getAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
     Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
-      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
+      return CompletableFuture.completedFuture(Collections.emptyMap());
     }
     return instrument(() -> asyncTable.getAllAsync(keys), metrics.numGetAlls, metrics.getAllNs)
         .handle((result, e) -> {
@@ -195,14 +196,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void put(K key, V value) {
     try {
-      putAsync(key, value).get();
+      putAsync(key, value).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
     if (value == null) {
@@ -218,14 +219,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void putAll(List<Entry<K, V>> entries) {
     try {
-      putAllAsync(entries).get();
+      putAllAsync(entries).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> records) {
 
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(records, "null records");
@@ -241,12 +242,15 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
     CompletableFuture<Void> deleteFuture = deleteKeys.isEmpty()
         ? CompletableFuture.completedFuture(null)
-        : deleteAllAsync(deleteKeys);
+        : deleteAllAsync(deleteKeys).toCompletableFuture();
+
+    CompletableFuture<Void> putFuture = instrument(
+        () -> asyncTable.putAllAsync(putRecords), metrics.numPutAlls, metrics.putAllNs).toCompletableFuture();
 
     // Return the combined future
     return CompletableFuture.allOf(
         deleteFuture,
-        instrument(() -> asyncTable.putAllAsync(putRecords), metrics.numPutAlls, metrics.putAllNs))
+        putFuture)
         .exceptionally(e -> {
             String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
             throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
@@ -256,14 +260,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void delete(K key) {
     try {
-      deleteAsync(key).get();
+      deleteAsync(key).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
     return instrument(() -> asyncTable.deleteAsync(key), metrics.numDeletes, metrics.deleteNs)
@@ -275,14 +279,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void deleteAll(List<K> keys) {
     try {
-      deleteAllAsync(keys).get();
+      deleteAllAsync(keys).toCompletableFuture().join();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
@@ -320,10 +324,10 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     asyncTable.close();
   }
 
-  protected <T> CompletableFuture<T> instrument(Func1<T> func, Counter counter, Timer timer) {
+  private <T> CompletionStage<T> instrument(Func1<T> func, Counter counter, Timer timer) {
     incCounter(counter);
     final long startNs = clock.nanoTime();
-    CompletableFuture<T> ioFuture = func.apply();
+    CompletionStage<T> ioFuture = func.apply();
     if (callbackExecutor != null) {
       ioFuture.thenApplyAsync(r -> {
           updateTimer(timer, clock.nanoTime() - startNs);

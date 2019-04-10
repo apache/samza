@@ -309,19 +309,19 @@ public class TestCachingTable {
 
     // GET
     doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any());
-    Assert.assertEquals(cachingTable.getAsync("foo").get(), "bar");
+    Assert.assertEquals(cachingTable.getAsync("foo").toCompletableFuture().join(), "bar");
     // Ensure cache is updated
     Assert.assertEquals(guavaCache.getIfPresent("foo"), "bar");
 
     // PUT
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
-    cachingTable.putAsync("foo", "baz").get();
+    cachingTable.putAsync("foo", "baz").toCompletableFuture().join();
     // Ensure cache is updated
     Assert.assertEquals(guavaCache.getIfPresent("foo"), "baz");
 
     // DELETE
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
-    cachingTable.deleteAsync("foo").get();
+    cachingTable.deleteAsync("foo").toCompletableFuture().join();
     // Ensure cache is updated
     Assert.assertNull(guavaCache.getIfPresent("foo"));
 
@@ -330,14 +330,14 @@ public class TestCachingTable {
     records.put("foo1", "bar1");
     records.put("foo2", "bar2");
     doReturn(CompletableFuture.completedFuture(records)).when(readFn).getAllAsync(any());
-    Assert.assertEquals(cachingTable.getAllAsync(Arrays.asList("foo1", "foo2")).get(), records);
+    Assert.assertEquals(cachingTable.getAllAsync(Arrays.asList("foo1", "foo2")).toCompletableFuture().join(), records);
     // Ensure cache is updated
     Assert.assertEquals(guavaCache.getIfPresent("foo1"), "bar1");
     Assert.assertEquals(guavaCache.getIfPresent("foo2"), "bar2");
 
     // GET-ALL with partial miss
     doReturn(CompletableFuture.completedFuture(Collections.singletonMap("foo3", "bar3"))).when(readFn).getAllAsync(any());
-    records = cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo3")).get();
+    records = cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo3")).toCompletableFuture().join();
     Assert.assertEquals(records.get("foo3"), "bar3");
     // Ensure cache is updated
     Assert.assertEquals(guavaCache.getIfPresent("foo3"), "bar3");
@@ -346,11 +346,11 @@ public class TestCachingTable {
     CompletableFuture<String> exFuture = new CompletableFuture<>();
     exFuture.completeExceptionally(new RuntimeException("Test exception"));
     doReturn(exFuture).when(readFn).getAllAsync(any());
-    cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo3")).get();
+    cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo3")).toCompletableFuture().join();
 
     // Partial results should throw
     try {
-      cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo5")).get();
+      cachingTable.getAllAsync(Arrays.asList("foo1", "foo2", "foo5")).toCompletableFuture().get();
       Assert.fail();
     } catch (Exception e) {
     }
@@ -360,7 +360,7 @@ public class TestCachingTable {
     List<Entry<String, String>> entries = new ArrayList<>();
     entries.add(new Entry<>("foo1", "bar111"));
     entries.add(new Entry<>("foo2", "bar222"));
-    cachingTable.putAllAsync(entries).get();
+    cachingTable.putAllAsync(entries).toCompletableFuture().join();
     // Ensure cache is updated
     Assert.assertEquals(guavaCache.getIfPresent("foo1"), "bar111");
     Assert.assertEquals(guavaCache.getIfPresent("foo2"), "bar222");
@@ -371,7 +371,7 @@ public class TestCachingTable {
     entries = new ArrayList<>();
     entries.add(new Entry<>("foo1", "bar111"));
     entries.add(new Entry<>("foo2", null));
-    cachingTable.putAllAsync(entries).get();
+    cachingTable.putAllAsync(entries).toCompletableFuture().join();
     // Ensure cache is updated
     Assert.assertNull(guavaCache.getIfPresent("foo2"));
 
@@ -381,7 +381,7 @@ public class TestCachingTable {
 
     // DELETE-ALL
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(any());
-    cachingTable.deleteAllAsync(Arrays.asList("foo1", "foo3")).get();
+    cachingTable.deleteAllAsync(Arrays.asList("foo1", "foo3")).toCompletableFuture().join();
     // Ensure foo1 and foo3 are gone
     Assert.assertNull(guavaCache.getIfPresent("foo1"));
     Assert.assertNull(guavaCache.getIfPresent("foo3"));
@@ -415,7 +415,7 @@ public class TestCachingTable {
     initTables(true, cachingTable, guavaTable, remoteTable);
 
     cachingTable.get("");
-    cachingTable.getAsync("").get();
+    cachingTable.getAsync("").toCompletableFuture().join();
     cachingTable.getAll(Collections.emptyList());
     cachingTable.getAllAsync(Collections.emptyList());
     cachingTable.flush();

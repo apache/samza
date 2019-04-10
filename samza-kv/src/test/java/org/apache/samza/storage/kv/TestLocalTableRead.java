@@ -93,7 +93,7 @@ public class TestLocalTableRead {
   public void testGet() throws Exception {
     ReadWriteTable table = createTable(false);
     Assert.assertEquals("v1", table.get("k1"));
-    Assert.assertEquals("v2", table.getAsync("k2").get());
+    Assert.assertEquals("v2", table.getAsync("k2").toCompletableFuture().join());
     Assert.assertNull(table.get("k3"));
     verify(kvStore, times(3)).get(any());
     Assert.assertEquals(3, numGets.getCount());
@@ -108,7 +108,7 @@ public class TestLocalTableRead {
   public void testGetAll() throws Exception {
     ReadWriteTable table = createTable(false);
     Assert.assertEquals(values, table.getAll(keys));
-    Assert.assertEquals(values, table.getAllAsync(keys).get());
+    Assert.assertEquals(values, table.getAllAsync(keys).toCompletableFuture().join());
     verify(kvStore, times(2)).getAll(any());
     Assert.assertEquals(Collections.emptyMap(), table.getAll(Collections.emptyList()));
     Assert.assertEquals(2, numMissedLookups.getCount());
@@ -123,9 +123,9 @@ public class TestLocalTableRead {
   public void testTimerDisabled() throws Exception {
     ReadWriteTable table = createTable(true);
     table.get("");
-    table.getAsync("").get();
+    table.getAsync("").toCompletableFuture().join();
     table.getAll(keys);
-    table.getAllAsync(keys).get();
+    table.getAllAsync(keys).toCompletableFuture().join();
     Assert.assertEquals(2, numGets.getCount());
     Assert.assertEquals(4, numMissedLookups.getCount());
     Assert.assertEquals(2, numGetAlls.getCount());

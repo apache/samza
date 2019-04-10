@@ -21,7 +21,7 @@ package org.apache.samza.table.remote;
 import com.google.common.base.Preconditions;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -46,35 +46,35 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key) {
     return readFn.getAsync(key);
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
     return readFn.getAllAsync(keys);
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return writeFn.putAsync(key, value);
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return writeFn.putAllAsync(entries);
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return writeFn.deleteAsync(key);
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return writeFn.deleteAllAsync(keys);
   }
