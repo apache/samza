@@ -45,14 +45,17 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val jobId = config
       .getJobId
 
-    val taskClass = Option(new ApplicationConfig(config).getAppClass())
-      .getOrElse(config.getTaskClass.getOrElse(throw new SamzaException("No task or app class defined for config.")))
-
-    val version = Option(Class.forName(taskClass).getPackage.getImplementationVersion)
-      .getOrElse({
-        warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
-      })
+    val version =
+      try {
+        val taskClass = Option(new ApplicationConfig(config).getAppClass())
+          .orElse(config.getTaskClass).get
+        Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
+      } catch {
+        case e: Exception => {
+          warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
+          "0.0.1"
+        }
+      }
 
     val samzaVersion = Option(classOf[MetricsSnapshotReporterFactory].getPackage.getImplementationVersion)
       .getOrElse({
