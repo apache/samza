@@ -185,6 +185,7 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemProducer.flush(SOURCE);
     } catch (Exception e) {
       LOG.error("Exception occurred when flushing the metadata store:", e);
+      throw new SamzaException("Exception occurred when flushing the metadata store:", e);
     }
   }
 
