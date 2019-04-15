@@ -54,6 +54,7 @@ import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 import org.apache.samza.util.Logging
 import java.io.IOException
+import java.net.ConnectException
 import java.nio.ByteBuffer
 
 import org.apache.http.impl.client.HttpClientBuilder
@@ -348,6 +349,11 @@ class ClientHelper(conf: Configuration) extends Logging {
       if (neededContainers == 0) {
         true
       } else {
+        false
+      }
+    } catch {
+      case e: ConnectException => {
+        warn("Exception when querying AM metrics. Likely because YARN was re-starting a new AM attempt", e)
         false
       }
     } finally {
