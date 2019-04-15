@@ -24,11 +24,12 @@ import java.util.concurrent.TimeoutException;
 
 
 /**
- * Lock to acquire read access or write access
- * At any point in time, only one processor can hold the lock
- * The processor that has acquired the lock, holds it until it does `unlock` explicitly
- * The first processor to acquire the lock should be given a WRITE access
- * All other subsequent requests should acquire only READ access
+ * Lock to acquire read access or write access.
+ * At any point in time, only one processor can hold the lock.
+ * The processor that has acquired the lock, holds it until it does `unlock` explicitly.
+ * If there is only the one processor in the quorum and it is trying to acquire the lock
+ * then it should be given a WRITE access.
+ * All other requests should acquire only READ access
  *
  * `State` is information pertaining to the requesting processor maintained by the lock
  * to determine how to grant read or write access

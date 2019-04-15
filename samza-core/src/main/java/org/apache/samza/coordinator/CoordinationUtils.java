@@ -30,7 +30,6 @@ import org.apache.samza.annotation.InterfaceStability;
  *   - LockWithState (does not lock if state is set)
  *   - ReadWriteLock (lock to acquire read or write access)
  *   - DataAccess (to read or write data)
- *   - setCoordinationSessionListener to listen to coordination utils session state changes
  */
 @InterfaceStability.Evolving
 public interface CoordinationUtils {

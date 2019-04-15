@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Distributed lock primitive for Zookeeper.
+ * Distributed lock primitive for Zookeeper to acquire write or read access.
  */
 public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
 
@@ -137,8 +137,6 @@ public class ZkDistributedReadWriteLock implements DistributedReadWriteLock {
       zkUtils.getZkClient().delete(activeProcessorPath);
       activeProcessorPath = null;
       LOG.info("Ephemeral active processor node for read write lock deleted.");
-    } else {
-      LOG.warn("Ephemeral active processor node for read write lock you want to delete doesn't exist");
     }
   }
 

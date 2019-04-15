@@ -26,5 +26,5 @@ public class CoordinationConstants {
   public static final String RUNID_PATH = "runId";
   public static final String APPLICATION_RUNNER_PATH_SUFFIX = "ApplicationRunnerData";
   public static final String RUNID_LOCK_ID = "runId";
-  public static final int LOCK_TIMEOUT_MS = 6000000;
+  public static final int LOCK_TIMEOUT_MS = 300000;
 }

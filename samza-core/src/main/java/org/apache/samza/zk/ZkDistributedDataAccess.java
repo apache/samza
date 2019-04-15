@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  * For each path in ZooKeeper that is accessed, the provided DistributedDataWatcher
  * and a ZkDistributedDataChangeHandler are registered to watch for data changes at the path.
  * When data at a path in ZK changes, ZkDistributedDataChangeHandler is notified and it in turn notifies the
- * assoicated DistributedDataWatcher.
+ * associated DistributedDataWatcher.
  *
  * ZkDistributedDataAccess also listens to the of the ZooKeeper connection and
  * notifies of session changes through the provided DistributedDataWatcher.

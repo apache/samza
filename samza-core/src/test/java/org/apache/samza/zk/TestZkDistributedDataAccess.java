@@ -19,6 +19,8 @@
 
 package org.apache.samza.zk;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.DistributedDataWatcher;
@@ -30,7 +32,8 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static junit.framework.Assert.*;
 import static org.mockito.Mockito.*;
@@ -118,5 +121,36 @@ public class TestZkDistributedDataAccess {
 
     String newlyReadData = (String) dataAccess1.readData(key, mockDataWatcher);
     assertEquals("Data read by second processor after overwrite is not the same as the overwritten data.", newData, newlyReadData);
+  }
+
+  @Test
+  public void testZkDistributedDataAccessWatchers() throws InterruptedException {
+    final CountDownLatch watcherInvoked = new CountDownLatch(1);
+    String key = "FAKE_KEY3";
+    String newData = "NEW_FAKE_DATA";
+    ZkDistributedDataAccess dataAccess = new ZkDistributedDataAccess(zkUtils);
+    ZkDistributedDataAccess dataAccess1 = new ZkDistributedDataAccess(zkUtils1);
+    DistributedDataWatcher watcher = mock(DistributedDataWatcher.class);
+    doAnswer(new Answer() {
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        watcherInvoked.countDown();
+        return null;
+      }
+    }).when(watcher).handleDataChange(newData);
+    DistributedDataWatcher watcher1 = mock(DistributedDataWatcher.class);
+
+    dataAccess.readData(key, watcher);
+    dataAccess1.writeData(key, newData, watcher1);
+    //ensure watcher.handleDataChange called before verfying
+    try {
+      if (!watcherInvoked.await(30000, TimeUnit.MILLISECONDS)) {
+        fail("Timed out while waiting for the handleDataChange callbakc to be invoked.");
+      }
+    } catch (InterruptedException e) {
+      fail("Got interrupted while waiting for the handleDataChange callbakc to be invoked.");
+    }
+    // watcher of the reader notified of the write
+    verify(watcher, times(1)).handleDataChange(newData);
   }
 }

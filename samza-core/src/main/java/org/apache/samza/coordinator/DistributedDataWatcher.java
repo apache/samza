@@ -20,7 +20,7 @@
 package org.apache.samza.coordinator;
 
 /**
- * An {@link DistributedDataWatcher} can be registered for listening to data changes for a given path.
+ * An {@link DistributedDataWatcher} can be registered for listening to data changes.
  */
 public interface DistributedDataWatcher {
   // called when the data being watched has changed to newData

@@ -107,7 +107,11 @@ public class LocalApplicationRunner implements ApplicationRunner {
       return Optional.empty();
     }
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
-    return Optional.of(jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, UID, config));
+    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, UID, config);
+    if (coordinationUtils != null) {
+      return Optional.of(coordinationUtils);
+    }
+    return Optional.empty();
   }
 
   /**

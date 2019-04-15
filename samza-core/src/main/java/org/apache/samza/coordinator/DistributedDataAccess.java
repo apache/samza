@@ -20,14 +20,16 @@
 package org.apache.samza.coordinator;
 
 /**
- * Concurrent writes are not allowed but concurrent reads are.
- * Data written for a key persists until overwritten
- * and is immediately available for all subsequent reads of that key.
- * A watcher is registered to listen to data changes at the key.
+ * DistributedDataAccess is an interface for accessing data
+ * shared between several processors in the quorum.
+ * 1. Not thread safe
+ * 2. No internal synchronization
+ * 3. A watcher is registered to listen to data changes at the key.
  */
 public interface DistributedDataAccess {
   /**
-   * read data associated with key
+   * Read data associated with key.
+   * Does not modify the value at key.
    * @param key
    * @param watcher through which notifications of data changes at key are sent
    * @return data present at key
@@ -35,7 +37,8 @@ public interface DistributedDataAccess {
   Object readData(String key, DistributedDataWatcher watcher);
 
   /**
-   * write data for the given key
+   * Write data for the given key.
+   * Data written is persisted until next write.
    * @param key
    * @param data
    * @param watcher through which notifications of data changes at key are sent

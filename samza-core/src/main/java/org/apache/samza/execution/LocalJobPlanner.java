@@ -51,8 +51,8 @@ public class LocalJobPlanner extends JobPlanner {
   public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, String uid) {
     super(descriptor);
     this.uid = uid;
-    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(appDesc.getConfig());
-    this.coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, uid, appDesc.getConfig());
+    JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(userConfig);
+    this.coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, uid, userConfig);
     this.runId = null;
   }
 
