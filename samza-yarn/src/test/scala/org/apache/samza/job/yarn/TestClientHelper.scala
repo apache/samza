@@ -18,6 +18,8 @@
  */
 package org.apache.samza.job.yarn
 
+import java.net.ConnectException
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -46,6 +48,22 @@ class TestClientHelper extends FunSuite {
     override def createAmClient(applicationReport: ApplicationReport) = {
       mockAmClient
     }
+  }
+
+  test("test allContainersRunning is false when there are ConnectExceptions") {
+    val exceptionThrowingClientHelper = new ClientHelper(hadoopConfig) {
+      override def createYarnClient() = {
+        mock[YarnClient]
+      }
+      override def createAmClient(applicationReport: ApplicationReport) = {
+        val amClient = mock[ApplicationMasterRestClient]
+        when(amClient.getMetrics).thenThrow(new ConnectException())
+        amClient
+      }
+    }
+
+    val returnVal = exceptionThrowingClientHelper.allContainersRunning(null)
+    assertEquals(false, returnVal)
   }
 
   test("test validateJobConfig") {
