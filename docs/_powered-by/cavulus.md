@@ -1,7 +1,7 @@
 ---
-name: LinkedIn
-domain: linkedin.com
-priority: 0
+name: Cavulus
+domain: cavulus.com
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,4 +20,4 @@ priority: 0
    limitations under the License.
 -->
 
-Samza was originally developed at <a class="external-link" href="https://linkedin.com/" rel="nofollow">LinkedIn</a>. It's currently used to process tracking data, logs from various services, and for streaming data pipelines.
+<a class="external-link" href="https://www.cavulus.com" rel="nofollow">Cavulus</a> specializes in Medicare Advantage workflow automation. We uses Samza + JRuby alongside Kafka as an RPC buffer, all on Amazon's Elastic Container Service. These technologies give us high throughput and durability guarantees, and together form our processing engine's "central nervous system".
