@@ -62,8 +62,8 @@ class TestClientHelper extends FunSuite {
       }
     }
 
-    val returnVal = exceptionThrowingClientHelper.allContainersRunning(null)
-    assertEquals(false, returnVal)
+    val allContainersRunning = exceptionThrowingClientHelper.allContainersRunning(null)
+    assertEquals(false, allContainersRunning)
   }
 
   test("test validateJobConfig") {
