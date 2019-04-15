@@ -188,7 +188,7 @@ public class StandbyContainerManager {
       List<String> standbySamzaContainerIds = this.standbyContainerConstraints.get(activeContainerID);
 
       Map<String, SamzaResource> runningStandbyContainersOnHost = new HashMap<>();
-      this.samzaApplicationState.runningContainers.forEach((samzaContainerId, samzaResource) -> {
+      this.samzaApplicationState.runningProcessors.forEach((samzaContainerId, samzaResource) -> {
           if (standbySamzaContainerIds.contains(samzaContainerId) && samzaResource.getHost().equals(standbyHost)) {
             runningStandbyContainersOnHost.put(samzaContainerId, samzaResource);
           }
@@ -215,7 +215,7 @@ public class StandbyContainerManager {
             log.info("Initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
                     + "for active container {}", runningStandbyContainersOnHost.keySet(),
                 runningStandbyContainersOnHost.values(), activeContainerID);
-            failoverMetadata.updateStandbyContainer(standbyResource.getResourceID(), standbyResource.getHost());
+            failoverMetadata.updateStandbyContainer(standbyResource.getContainerId(), standbyResource.getHost());
             samzaApplicationState.failoversToStandby.incrementAndGet();
             this.clusterResourceManager.stopStreamProcessor(standbyResource);
           });
@@ -252,12 +252,12 @@ public class StandbyContainerManager {
     // used for a failover for this active resoruce
     for (String standbyContainerID : this.standbyContainerConstraints.get(activeContainerID)) {
 
-      if (samzaApplicationState.runningContainers.containsKey(standbyContainerID)) {
-        SamzaResource standbyContainerResource = samzaApplicationState.runningContainers.get(standbyContainerID);
+      if (samzaApplicationState.runningProcessors.containsKey(standbyContainerID)) {
+        SamzaResource standbyContainerResource = samzaApplicationState.runningProcessors.get(standbyContainerID);
 
         // use this standby if there was no previous failover for which this standbyResource was used
         if (!(failoverMetadata.isPresent() && failoverMetadata.get()
-            .isStandbyResourceUsed(standbyContainerResource.getResourceID()))) {
+            .isStandbyResourceUsed(standbyContainerResource.getContainerId()))) {
 
           log.info("Returning standby container {} in running state on host {} for active container {}",
               standbyContainerID, standbyContainerResource.getHost(), activeContainerID);
@@ -335,13 +335,13 @@ public class StandbyContainerManager {
    * @return
    */
   private boolean checkStandbyConstraints(SamzaResourceRequest request, SamzaResource samzaResource) {
-    String containerIDToStart = request.getContainerID();
+    String containerIDToStart = request.getProcessorId();
     String host = samzaResource.getHost();
     List<String> containerIDsForStandbyConstraints = this.standbyContainerConstraints.get(containerIDToStart);
 
     // Check if any of these conflicting containers are running/launching on host
     for (String containerID : containerIDsForStandbyConstraints) {
-      SamzaResource resource = samzaApplicationState.pendingContainers.get(containerID);
+      SamzaResource resource = samzaApplicationState.pendingProcessors.get(containerID);
 
       // return false if a conflicting container is pending for launch on the host
       if (resource != null && resource.getHost().equals(host)) {
@@ -351,7 +351,7 @@ public class StandbyContainerManager {
       }
 
       // return false if a conflicting container is running on the host
-      resource = samzaApplicationState.runningContainers.get(containerID);
+      resource = samzaApplicationState.runningProcessors.get(containerID);
       if (resource != null && resource.getHost().equals(host)) {
         log.info("Container {} cannot be started on host {} because container {} is already running on this host",
             containerIDToStart, samzaResource.getHost(), containerID);
@@ -371,7 +371,7 @@ public class StandbyContainerManager {
   public void checkStandbyConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost,
       SamzaResource samzaResource, AbstractContainerAllocator containerAllocator,
       ResourceRequestState resourceRequestState) {
-    String containerID = request.getContainerID();
+    String containerID = request.getProcessorId();
 
     if (checkStandbyConstraints(request, samzaResource)) {
       // This resource can be used to launch this container

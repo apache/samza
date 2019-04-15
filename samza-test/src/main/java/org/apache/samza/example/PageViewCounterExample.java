@@ -22,6 +22,8 @@ import java.time.Duration;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.example.models.PageViewCount;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -74,34 +76,18 @@ public class PageViewCounterExample implements StreamApplication {
     SupplierFunction<Integer> initialValue = () -> 0;
     FoldLeftFunction<PageViewEvent, Integer> foldLeftFn = (m, c) -> c + 1;
     pageViewEvents
-        .window(Windows.keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
+        .window(Windows.keyedTumblingWindow(PageViewEvent::getMemberId, Duration.ofSeconds(10), initialValue, foldLeftFn, null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING), "tumblingWindow")
-        .map(windowPane -> KV.of(windowPane.getKey().getKey(), new PageViewCount(windowPane)))
+        .map(windowPane -> KV.of(windowPane.getKey().getKey(), buildPageViewCount(windowPane)))
         .sendTo(pageViewEventPerMemberStream);
   }
 
-  class PageViewEvent {
-    String pageId;
-    String memberId;
-    long timestamp;
+  static PageViewCount buildPageViewCount(WindowPane<String, Integer> windowPane) {
+    String memberId = windowPane.getKey().getKey();
+    long timestamp = Long.valueOf(windowPane.getKey().getPaneId());
+    int count = windowPane.getMessage();
 
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
-      this.timestamp = timestamp;
-    }
-  }
-
-  static class PageViewCount {
-    String memberId;
-    long timestamp;
-    int count;
-
-    PageViewCount(WindowPane<String, Integer> m) {
-      this.memberId = m.getKey().getKey();
-      this.timestamp = Long.valueOf(m.getKey().getPaneId());
-      this.count = m.getMessage();
-    }
+    return new PageViewCount(memberId, timestamp, count);
   }
 }

@@ -23,6 +23,8 @@ import java.util.HashMap;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
+import org.apache.samza.example.models.PageViewCount;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.triggers.Triggers;
 import org.apache.samza.operators.windows.AccumulationMode;
@@ -66,37 +68,21 @@ public class AppWithGlobalConfigExample implements StreamApplication {
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewCount.class)));
 
     appDescriptor.getInputStream(inputStreamDescriptor)
-        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(m -> m.memberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1,
+        .window(Windows.<PageViewEvent, String, Integer>keyedTumblingWindow(PageViewEvent::getMemberId, Duration.ofSeconds(10), () -> 0, (m, c) -> c + 1,
             null, null)
             .setEarlyTrigger(Triggers.repeat(Triggers.count(5)))
             .setAccumulationMode(AccumulationMode.DISCARDING), "window1")
-        .map(m -> KV.of(m.getKey().getKey(), new PageViewCount(m)))
+        .map(m -> KV.of(m.getKey().getKey(), buildPageViewCount(m)))
         .sendTo(appDescriptor.getOutputStream(outputStreamDescriptor));
 
     appDescriptor.withMetricsReporterFactories(new HashMap<>());
   }
 
-  class PageViewEvent {
-    String pageId;
-    String memberId;
-    long timestamp;
+  static PageViewCount buildPageViewCount(WindowPane<String, Integer> windowPane) {
+    String memberId = windowPane.getKey().getKey();
+    long timestamp = Long.valueOf(windowPane.getKey().getPaneId());
+    int count = windowPane.getMessage();
 
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
-      this.timestamp = timestamp;
-    }
-  }
-
-  static class PageViewCount {
-    String memberId;
-    long timestamp;
-    int count;
-
-    PageViewCount(WindowPane<String, Integer> m) {
-      this.memberId = m.getKey().getKey();
-      this.timestamp = Long.valueOf(m.getKey().getPaneId());
-      this.count = m.getMessage();
-    }
+    return new PageViewCount(memberId, timestamp, count);
   }
 }

@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.operators.functions.MapFunction;
@@ -66,13 +68,13 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  public Collection<Void> handleMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<Void>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     K key = keyFunction.apply(message);
     V value = valueFunction.apply(message);
     Long partitionKey = key == null ? 0L : null;
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionKey, key, value));
-    return Collections.emptyList();
+    return CompletableFuture.completedFuture(Collections.emptyList());
   }
 
   @Override

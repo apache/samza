@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -48,11 +50,11 @@ class SinkOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  public Collection<Void> handleMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<Void>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
     this.sinkFn.apply(message, collector, coordinator);
     // there should be no further chained operators since this is a terminal operator.
-    return Collections.emptyList();
+    return CompletableFuture.completedFuture(Collections.emptyList());
   }
 
   @Override

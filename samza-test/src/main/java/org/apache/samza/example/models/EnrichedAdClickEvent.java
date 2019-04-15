@@ -16,34 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.example.models;
 
-package org.apache.samza.clustermanager;
+public class EnrichedAdClickEvent {
+  private int id;
+  private String gender;
+  private String country;
 
-/**
- * A ResourceFailure instance encapsulates information related to a resource failure.
- * It keeps track of the time of the last failure, the number of failures.
- * */
-public class ResourceFailure {
-  /**
-   * Number of times a container has failed
-   * */
-  private final int count;
-  /**
-   * Latest failure time of the container
-   * */
-  private final Long lastFailure;
-
-  public ResourceFailure(int count,
-                         Long lastFailure) {
-    this.count = count;
-    this.lastFailure = lastFailure;
+  public EnrichedAdClickEvent(int id, String gender, String country) {
+    this.id = id;
+    this.gender = gender;
+    this.country = country;
   }
 
-  public int getCount() {
-    return count;
+  public int getId() {
+    return id;
   }
 
-  public Long getLastFailure() {
-    return lastFailure;
+  public String getGender() {
+    return gender;
+  }
+
+  public String getCountry() {
+    return country;
   }
 }

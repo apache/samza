@@ -21,20 +21,19 @@ package org.apache.samza.clustermanager;
 
 /**
  * <p><code>SamzaResourceStatus</code> represents the current status of a
- * <code>StreamProcessor</code> and the resource it is on.</p>
+ * processor and the resource it is on.</p>
  *
  * <p>It provides details such as:
  *   <ul>
- *     <li><code>resourceID</code> of the resource.</li>
- *     <li><em>Exit status</em> of the StreamProcessor.</li>
- *     <li><em>Diagnostic</em> message for a failed/pre-empted StreamProcessor.</li>
+ *     <li><code>containerId</code> of the resource.</li>
+ *     <li><em>Exit status</em> of the processor.</li>
+ *     <li><em>Diagnostic</em> message for a failed/pre-empted processor.</li>
  *   </ul>
  *
  *
  * The exact semantics of various exit codes and failure modes are evolving.
  * Currently the following failures are handled -  termination of a process running in the resource,
  * resource preemption, disk failures on host.
- *
  */
 public final class SamzaResourceStatus {
   /**
@@ -57,13 +56,13 @@ public final class SamzaResourceStatus {
    */
   public static final int DISK_FAIL = -101;
 
-  private final String resourceID;
+  private final String containerId;
   private final String diagnostics;
   private final int exitCode;
 
 
-  public SamzaResourceStatus(String resourceID, String diagnostics, int exitCode) {
-    this.resourceID = resourceID;
+  public SamzaResourceStatus(String containerId, String diagnostics, int exitCode) {
+    this.containerId = containerId;
     this.diagnostics = diagnostics;
     this.exitCode = exitCode;
   }
@@ -76,14 +75,14 @@ public final class SamzaResourceStatus {
     return diagnostics;
   }
 
-  public String getResourceID() {
-    return resourceID;
+  public String getContainerId() {
+    return containerId;
   }
 
   @Override
   public String toString() {
     return "SamzaResourceStatus{" +
-            "resourceID='" + resourceID + '\'' +
+            "containerId='" + containerId + '\'' +
             ", diagnostics='" + diagnostics + '\'' +
             ", exitCode=" + exitCode +
             '}';

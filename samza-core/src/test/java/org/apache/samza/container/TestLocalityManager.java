@@ -24,42 +24,29 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory.MockCoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.runner.RunWith;
 import org.junit.Test;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link LocalityManager}
- */
-
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinatorStreamUtil.class)
 public class TestLocalityManager {
 
-  private MockCoordinatorStreamSystemFactory mockCoordinatorStreamSystemFactory;
-  private final Config config = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
+  private static final Config CONFIG = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
+
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil;
 
   @Before
   public void setup() {
-    mockCoordinatorStreamSystemFactory = new MockCoordinatorStreamSystemFactory();
-    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
-    PowerMockito.mockStatic(CoordinatorStreamUtil.class);
-    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(mockCoordinatorStreamSystemFactory);
-    when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("test-kafka", "test"));
-    when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
+    coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
+    coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
   }
 
   @After
@@ -67,8 +54,9 @@ public class TestLocalityManager {
     MockCoordinatorStreamSystemFactory.disableMockConsumerCache();
   }
 
-  @Test public void testLocalityManager() {
-    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
+  @Test
+  public void testLocalityManager() {
+    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
     localityManager.writeContainerToHostMapping("0", "localhost");
     Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
@@ -87,14 +75,15 @@ public class TestLocalityManager {
 
     localityManager.close();
 
-    MockCoordinatorStreamSystemProducer producer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    MockCoordinatorStreamSystemProducer producer = coordinatorStreamStoreTestUtil.getMockCoordinatorStreamSystemProducer();
+    MockCoordinatorStreamSystemConsumer consumer = coordinatorStreamStoreTestUtil.getMockCoordinatorStreamSystemConsumer();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }
 
-  @Test public void testWriteOnlyLocalityManager() {
-    LocalityManager localityManager = new LocalityManager(config, new MetricsRegistryMap());
+  @Test
+  public void testWriteOnlyLocalityManager() {
+    LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
     localityManager.writeContainerToHostMapping("1", "localhost");
 
@@ -104,8 +93,8 @@ public class TestLocalityManager {
 
     localityManager.close();
 
-    MockCoordinatorStreamSystemProducer producer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemProducer(config, null);
-    MockCoordinatorStreamSystemConsumer consumer = mockCoordinatorStreamSystemFactory.getCoordinatorStreamSystemConsumer(config, null);
+    MockCoordinatorStreamSystemProducer producer = coordinatorStreamStoreTestUtil.getMockCoordinatorStreamSystemProducer();
+    MockCoordinatorStreamSystemConsumer consumer = coordinatorStreamStoreTestUtil.getMockCoordinatorStreamSystemConsumer();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
   }

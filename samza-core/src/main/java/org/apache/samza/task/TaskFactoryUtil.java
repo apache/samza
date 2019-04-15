@@ -48,7 +48,7 @@ public class TaskFactoryUtil {
     if (appDesc instanceof TaskApplicationDescriptorImpl) {
       return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
     } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
-      return (StreamTaskFactory) () -> new StreamOperatorTask(
+      return (AsyncStreamTaskFactory) () -> new StreamOperatorTask(
           ((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph());
     }
     throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "

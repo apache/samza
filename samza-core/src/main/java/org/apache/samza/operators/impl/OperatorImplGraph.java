@@ -31,6 +31,7 @@ import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.Scheduler;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.PartialJoinFunction;
+import org.apache.samza.operators.spec.AsyncFlatMapOperatorSpec;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
@@ -218,7 +219,7 @@ public class OperatorImplGraph {
     if (operatorSpec instanceof InputOperatorSpec) {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
-      return new StreamOperatorImpl((StreamOperatorSpec) operatorSpec);
+      return new FlatmapOperatorImpl((StreamOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof SinkOperatorSpec) {
       return new SinkOperatorImpl((SinkOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof OutputOperatorSpec) {
@@ -243,6 +244,8 @@ public class OperatorImplGraph {
       String streamId = ((BroadcastOperatorSpec) operatorSpec).getOutputStream().getStreamId();
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
       return new BroadcastOperatorImpl((BroadcastOperatorSpec) operatorSpec, systemStream, context);
+    } else if (operatorSpec instanceof AsyncFlatMapOperatorSpec) {
+      return new AsyncFlatmapOperatorImpl((AsyncFlatMapOperatorSpec) operatorSpec);
     }
     throw new IllegalArgumentException(
         String.format("Unsupported OperatorSpec: %s", operatorSpec.getClass().getName()));
