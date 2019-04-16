@@ -40,12 +40,16 @@ public class CoordinatorStreamStoreTestUtil {
   private final Config config;
 
   public CoordinatorStreamStoreTestUtil(Config config) {
+    this(config, "test-kafka");
+  }
+
+  public CoordinatorStreamStoreTestUtil(Config config, String systemName) {
     this.config = config;
     this.systemFactory = new MockCoordinatorStreamSystemFactory();
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
-    SystemConsumer systemConsumer = systemFactory.getConsumer("test-kafka", config, new NoOpMetricsRegistry());
-    SystemProducer systemProducer = systemFactory.getProducer("test-kafka", config, new NoOpMetricsRegistry());
-    SystemAdmin systemAdmin = systemFactory.getAdmin("test-kafka", config);
+    SystemConsumer systemConsumer = systemFactory.getConsumer(systemName, config, new NoOpMetricsRegistry());
+    SystemProducer systemProducer = systemFactory.getProducer(systemName, config, new NoOpMetricsRegistry());
+    SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
     this.coordinatorStreamStore = new CoordinatorStreamStore(config, systemProducer, systemConsumer, systemAdmin);
     this.coordinatorStreamStore.init();
   }
