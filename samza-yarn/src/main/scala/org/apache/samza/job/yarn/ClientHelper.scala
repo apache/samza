@@ -352,7 +352,8 @@ class ClientHelper(conf: Configuration) extends Logging {
       }
     } catch {
       case e: IOException => {
-        warn("Exception when querying AM metrics. Likely because YARN was re-starting a new AM attempt", e)
+        // ignore any exceptions when querying the AM - likely due to YARN restarting the AM process
+        warn("Exception when querying AM metrics", e)
         false
       }
     } finally {
