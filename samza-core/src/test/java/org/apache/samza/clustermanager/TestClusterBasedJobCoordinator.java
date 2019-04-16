@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
@@ -55,7 +56,7 @@ public class TestClusterBasedJobCoordinator {
   Map<String, String> configMap;
 
   @Before
-  public void setUp() throws NoSuchFieldException, NoSuchMethodException {
+  public void setUp() {
     configMap = new HashMap<>();
     configMap.put("job.name", "test-job");
     configMap.put("job.coordinator.system", "kafka");
@@ -81,6 +82,8 @@ public class TestClusterBasedJobCoordinator {
   @Test
   public void testPartitionCountMonitorWithDurableStates() {
     configMap.put("stores.mystore.changelog", "mychangelog");
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
     Config config = new MapConfig(configMap);
 
     // mimic job runner code to write the config to coordinator stream
@@ -99,6 +102,8 @@ public class TestClusterBasedJobCoordinator {
 
   @Test
   public void testPartitionCountMonitorWithoutDurableStates() {
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
     Config config = new MapConfig(configMap);
 
     // mimic job runner code to write the config to coordinator stream

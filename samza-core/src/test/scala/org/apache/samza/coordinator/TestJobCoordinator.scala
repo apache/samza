@@ -25,7 +25,9 @@ import org.apache.samza.Partition
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
 import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainer, TaskName}
-import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, CoordinatorStreamStoreTestUtil, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.coordinator.stream.{MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
 import org.apache.samza.job.MockJobFactory
 import org.apache.samza.job.local.{ProcessJobFactory, ThreadJobFactory}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
@@ -106,16 +108,20 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
 
     // Verify that the atomicReference is initialized
     assertNotNull(JobModelManager.jobModelRef.get())
-    assertEquals(expectedJobModel, JobModelManager.jobModelRef.get())
+    val expectedContainerModels = new util.TreeMap[String, ContainerModel](expectedJobModel.getContainers)
+    val actualContainerModels = new util.TreeMap[String, ContainerModel](JobModelManager.jobModelRef.get().getContainers)
+    assertEquals(expectedContainerModels, actualContainerModels)
 
     coordinator.start
-    assertEquals(new MapConfig(config.asJava), coordinator.jobModel.getConfig)
-    assertEquals(expectedJobModel, coordinator.jobModel)
+    val expectedConfig: Config = coordinator.jobModel.getConfig
+    val actualConfig: Config = new MapConfig(config.asJava)
+    assertTrue(expectedConfig.entrySet().containsAll(actualConfig.entrySet()))
+    assertEquals(expectedJobModel.getContainers, coordinator.jobModel.getContainers)
 
     val response = HttpUtil.read(coordinator.server.getUrl)
     // Verify that the JobServlet is serving the correct jobModel
     val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(response, classOf[JobModel])
-    assertEquals(expectedJobModel, jobModelFromCoordinatorUrl)
+    assertEquals(expectedJobModel.getContainers, jobModelFromCoordinatorUrl.getContainers)
 
     coordinator.stop
   }
@@ -270,22 +276,24 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
   }
 
   def getTestJobModelManager(config: MapConfig) = {
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
-    coordinatorStreamManager.register("TestJobCoordinator")
-    coordinatorStreamManager.start
-    coordinatorStreamManager.bootstrap
-    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
-    val jobModelManager = JobModelManager(coordinatorStreamManager.getConfig, changelogPartitionManager.readPartitionMapping())
-    coordinatorStreamManager.stop()
-    jobModelManager
+    val coordinatorStreamTestUtil: CoordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config, "coordinator")
+    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamTestUtil.getCoordinatorStreamStore
+    val namespaceAwareCoordinatorStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE)
+    try {
+      val changelogPartitionManager = new ChangelogStreamManager(namespaceAwareCoordinatorStore)
+      val jobModelManager = JobModelManager(config, changelogPartitionManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+      jobModelManager
+    } finally {
+      coordinatorStreamStore.close()
+    }
   }
 
   @Before
   def setUp() {
     // setup the test stream metadata
-    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(0)), new util.ArrayList[IncomingMessageEnvelope]());
-    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(1)), new util.ArrayList[IncomingMessageEnvelope]());
-    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(2)), new util.ArrayList[IncomingMessageEnvelope]());
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(0)), new util.ArrayList[IncomingMessageEnvelope]())
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(1)), new util.ArrayList[IncomingMessageEnvelope]())
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("test", "stream1", new Partition(2)), new util.ArrayList[IncomingMessageEnvelope]())
   }
 
   @After

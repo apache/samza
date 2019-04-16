@@ -1,20 +1,7 @@
 ---
-date: Oct 2018
-display_date: Oct 2018
-meetups:
-    - name: 'Operating Samza at LinkedIn'
-      host: LinkedIn
-      image: 
-      presenters:
-        - name: Abhishek Shivanna and Stephan Soilleau
-          website: 
-          image:
-          affiliation: LinkedIn
-      abstract: Operating a streaming platform that processes over a trillion messages daily, with thousands of applications is a daunting task. This talk shares the best practices around operating Samza as a managed service.  
-      video:
-          url: https://www.youtube.com/watch?v=AnNwkfJO4Us&feature=youtu.be
-          image: https://img.youtube.com/vi/AnNwkfJO4Us/maxresdefault.jpg
-
+name: Cavulus
+domain: cavulus.com
+priority: 3
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -32,3 +19,5 @@ meetups:
    See the License for the specific language governing permissions and
    limitations under the License.
 -->
+
+<a class="external-link" href="https://www.cavulus.com" rel="nofollow">Cavulus</a> specializes in Medicare Advantage workflow automation. We uses Samza + JRuby alongside Kafka as an RPC buffer, all on Amazon's Elastic Container Service. These technologies give us high throughput and durability guarantees, and together form our processing engine's "central nervous system".

@@ -16,21 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator.metadatastore;
+package org.apache.samza.startpoint;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
+import org.apache.samza.util.NoOpMetricsRegistry;
 
-/**
- * Builds the {@link CoordinatorStreamStore} based upon the provided {@link Config}
- * and {@link MetricsRegistry}.
- */
-public class CoordinatorStreamMetadataStoreFactory implements MetadataStoreFactory {
 
-  @Override
-  public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new CoordinatorStreamStore(config, metricsRegistry);
+public class StartpointManagerTestUtil {
+
+  private StartpointManagerTestUtil() {
+  }
+
+  public static StartpointManager getStartpointManager() {
+    return new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
   }
 }
