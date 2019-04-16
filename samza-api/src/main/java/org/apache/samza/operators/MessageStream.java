@@ -35,7 +35,6 @@ import org.apache.samza.operators.windows.Window;
 import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.table.Table;
 
 
@@ -129,9 +128,8 @@ public interface MessageStream<M> {
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    * <p>
    *  Note: There is no guarantee that message is first written to your configured output system and then only it is
-   *  propagated to next chained operator since that control for sending messages is decided by the
-   *  {@link org.apache.samza.system.SystemProducer#send(String, OutgoingMessageEnvelope)} implementation, for instance
-   *  in case of Kafka no such guarantee holds
+   *  propagated to next chained operator since that control for sending messages is decided by the underlying output
+   *  system
    * <p>
    * @param outputStream the output stream to send messages to
    * @return this {@link MessageStream}
@@ -287,8 +285,9 @@ public interface MessageStream<M> {
    * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown. After doing a put to table this operator
    * propagates the message in this {@link MessageStream} to the next chained operator.
    * <p>
-   *  Note: Since put is synchronous, it is a guarantee that message is first written to table and then only it is
-   *  propagated to next operator
+   *  Note: It is a guarantee that message is first written to table and then only it is propagated to next operator
+   *  But if you are reading the same table in next operator, reading guarantee will be determined by your underlying
+   *  table read consistency
    * <p>
    * @param table the table to write messages to
    * @param <K> the type of key in the table
