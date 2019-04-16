@@ -22,8 +22,8 @@ package org.apache.samza.storage.kv
 import java.io.File
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.JavaStorageConfig
 import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
@@ -84,7 +84,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode : StoreMode): StorageEngine = {
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
-    val storageConfig = new JavaStorageConfig(jobContext.getConfig)
+    val storageConfig = new StorageConfig(jobContext.getConfig)
     val storeFactory = JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getAccessLogEnabled(storeName)

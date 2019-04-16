@@ -26,9 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
@@ -141,7 +141,7 @@ public class StorageRecovery extends CommandLine {
    * and put them into the maps
    */
   private void getChangeLogSystemStreamsAndStorageFactories() {
-    JavaStorageConfig config = new JavaStorageConfig(jobConfig);
+    StorageConfig config = new StorageConfig(jobConfig);
     List<String> storeNames = config.getStoreNames();
 
     log.info("Got store names: " + storeNames.toString());

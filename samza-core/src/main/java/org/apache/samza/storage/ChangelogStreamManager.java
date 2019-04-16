@@ -26,7 +26,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
@@ -109,7 +109,7 @@ public class ChangelogStreamManager {
    */
   public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions) {
     // Get changelog store config
-    JavaStorageConfig storageConfig = new JavaStorageConfig(config);
+    StorageConfig storageConfig = new StorageConfig(config);
     ImmutableMap.Builder<String, SystemStream> storeNameSystemStreamMapBuilder = new ImmutableMap.Builder<>();
     storageConfig.getStoreNames().forEach(storeName -> {
         Optional<String> changelogStream = storageConfig.getChangelogStream(storeName);

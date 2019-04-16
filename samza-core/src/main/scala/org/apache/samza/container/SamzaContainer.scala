@@ -174,7 +174,7 @@ object SamzaContainer extends Logging {
       .flatMap(_.getSystemStreamPartitions.asScala)
       .toSet
 
-    val storageConfig = new JavaStorageConfig(config)
+    val storageConfig = new StorageConfig(config)
     val sideInputStoresToSystemStreams = storageConfig.getStoreNames.asScala
       .map { storeName => (storeName, storageConfig.getSideInputs(storeName).asScala) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }

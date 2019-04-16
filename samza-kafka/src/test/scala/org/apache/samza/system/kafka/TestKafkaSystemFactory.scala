@@ -20,7 +20,7 @@
 package org.apache.samza.system.kafka
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{JavaStorageConfig, MapConfig}
+import org.apache.samza.config.{StorageConfig, MapConfig}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.junit.Assert._
 import org.junit.Test
@@ -86,9 +86,9 @@ class TestKafkaSystemFactory {
   @Test
   def testInjectedProducerProps {
     val configMap = Map[String, String](
-      JavaStorageConfig.FACTORY.format("system1") -> "some.factory.Class",
-      JavaStorageConfig.CHANGELOG_STREAM.format("system1") -> "system1.stream1",
-      JavaStorageConfig.FACTORY.format("system2") -> "some.factory.Class")
+      StorageConfig.FACTORY.format("system1") -> "some.factory.Class",
+      StorageConfig.CHANGELOG_STREAM.format("system1") -> "system1.stream1",
+      StorageConfig.FACTORY.format("system2") -> "some.factory.Class")
     val config = new MapConfig(configMap.asJava)
     assertEquals(Map[String, String](), KafkaSystemFactory.getInjectedProducerProperties("system3", config))
     assertEquals(Map[String, String](), KafkaSystemFactory.getInjectedProducerProperties("system2", config))

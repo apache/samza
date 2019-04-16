@@ -29,7 +29,7 @@ import com.google.common.base.Stopwatch
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
 import org.apache.commons.lang.RandomStringUtils
-import org.apache.samza.config.{Config, JavaStorageConfig, JobConfig, MapConfig}
+import org.apache.samza.config.{Config, JobConfig, MapConfig, StorageConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.context.ContainerContextImpl
 import org.apache.samza.context.JobContextImpl
@@ -119,7 +119,7 @@ object TestKeyValuePerformance extends Logging {
       Map[String, SystemProducer](),
       new SerdeManager
     )
-    val storageConfig = new JavaStorageConfig(config)
+    val storageConfig = new StorageConfig(config)
     // Build a Map[String, StorageEngineFactory]. The key is the store name.
     val storageEngineMappings = storageConfig
       .getStoreNames.asScala

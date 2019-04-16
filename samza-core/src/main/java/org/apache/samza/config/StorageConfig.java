@@ -35,7 +35,7 @@ import org.apache.samza.util.StreamUtil;
 /**
  * Config helper methods related to storage.
  */
-public class JavaStorageConfig extends MapConfig {
+public class StorageConfig extends MapConfig {
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String CHANGELOG_SUFFIX = ".changelog";
   private static final String STORE_PREFIX = "stores.";
@@ -58,7 +58,7 @@ public class JavaStorageConfig extends MapConfig {
 
   public static final String CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor";
 
-  public JavaStorageConfig(Config config) {
+  public StorageConfig(Config config) {
     super(config);
   }
 

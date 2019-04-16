@@ -215,12 +215,12 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     * 2. If systems.changelog-system.default.stream.replication.factor is configured, that value is used.
     * 3. 2
     *
-    * Note that the changelog-system has a similar precedence. See [[JavaStorageConfig]]
+    * Note that the changelog-system has a similar precedence. See [[StorageConfig]]
     */
   def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor)
 
   def getDefaultChangelogStreamReplicationFactor() = {
-    val changelogSystem = new JavaStorageConfig(config).getChangelogSystem.orElse(null)
+    val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
     getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
   }
 
@@ -228,7 +228,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getKafkaChangelogEnabledStores() = {
     val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
     var storeToChangelog = Map[String, String]()
-    val storageConfig = new JavaStorageConfig(config)
+    val storageConfig = new StorageConfig(config)
     val pattern = Pattern.compile(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX)
 
     for ((changelogConfig, cn) <- changelogConfigs) {
@@ -270,7 +270,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     }
 
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
-    kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new JavaStorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
+    kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
     kafkaChangeLogProperties
   }

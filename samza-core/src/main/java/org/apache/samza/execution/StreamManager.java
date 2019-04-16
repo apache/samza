@@ -137,7 +137,7 @@ public class StreamManager {
       }
 
       //Find changelog streams and remove them
-      JavaStorageConfig storageConfig = new JavaStorageConfig(prevConfig);
+      StorageConfig storageConfig = new StorageConfig(prevConfig);
       for (String store : storageConfig.getStoreNames()) {
         String changelog = storageConfig.getChangelogStream(store).orElse(null);
         if (changelog != null) {

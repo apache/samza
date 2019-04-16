@@ -22,7 +22,7 @@ package org.apache.samza.storage.kv
 
 import java.util
 
-import org.apache.samza.config.JavaStorageConfig
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Logging
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream, SystemStreamPartition}
@@ -32,7 +32,7 @@ class AccessLoggedStore[K, V](
     val store: KeyValueStore[K, V],
     val collector: MessageCollector,
     val changelogSystemStreamPartition: SystemStreamPartition,
-    val storageConfig: JavaStorageConfig,
+    val storageConfig: StorageConfig,
     val storeName: String,
     val keySerde: Serde[K]) extends KeyValueStore[K, V] with Logging {
 

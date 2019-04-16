@@ -30,9 +30,9 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigFactory;
-import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
@@ -50,7 +50,7 @@ import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
+
 
 /**
  * {@link TaskProxy} interface implementation for samza jobs running in yarn execution environment.
@@ -139,7 +139,7 @@ public class SamzaTaskProxy implements TaskProxy {
     Map<String, Map<String, String>> containerIdToHostMapping = localityManager.readContainerLocality();
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE));
     Map<String, String> taskNameToContainerIdMapping = taskAssignmentManager.readTaskAssignment();
-    JavaStorageConfig storageConfig = new JavaStorageConfig(consumer.getConfig());
+    StorageConfig storageConfig = new StorageConfig(consumer.getConfig());
     List<String> storeNames = storageConfig.getStoreNames();
     return taskNameToContainerIdMapping.entrySet()
                                        .stream()

@@ -33,7 +33,7 @@ import org.apache.samza.util._
 
 object KafkaSystemFactory extends Logging {
   @VisibleForTesting
-  def getInjectedProducerProperties(systemName: String, config: Config) = if (new JavaStorageConfig(config).isChangelogSystem(systemName)) {
+  def getInjectedProducerProperties(systemName: String, config: Config) = if (new StorageConfig(config).isChangelogSystem(systemName)) {
     warn("System name '%s' is being used as a changelog. Disabling compression since Kafka does not support compression for log compacted topics." format systemName)
     Map[String, String]("compression.type" -> "none")
   } else {

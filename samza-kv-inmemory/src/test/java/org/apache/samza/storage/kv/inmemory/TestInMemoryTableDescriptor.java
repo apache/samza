@@ -21,7 +21,7 @@ package org.apache.samza.storage.kv.inmemory;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.serializers.KVSerde;
@@ -53,7 +53,7 @@ public class TestInMemoryTableDescriptor {
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(InMemoryKeyValueStorageEngineFactory.class.getName(),
-        tableConfig.get(String.format(JavaStorageConfig.FACTORY, TABLE_ID)));
+        tableConfig.get(String.format(StorageConfig.FACTORY, TABLE_ID)));
   }
 
   private Config createJobConfig() {

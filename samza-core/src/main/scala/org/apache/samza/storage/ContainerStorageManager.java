@@ -47,7 +47,7 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
@@ -436,7 +436,7 @@ public class ContainerStorageManager {
       Map<String, Serde<Object>> serdes, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, StorageEngineFactory.StoreMode storeMode) {
 
-    JavaStorageConfig storageConfig = new JavaStorageConfig(config);
+    StorageConfig storageConfig = new StorageConfig(config);
 
     SystemStreamPartition changeLogSystemStreamPartition =
         (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
@@ -486,7 +486,7 @@ public class ContainerStorageManager {
 
 
   // Create side input store processors, one per store per task
-  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(JavaStorageConfig config,
+  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
       ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
@@ -534,7 +534,7 @@ public class ContainerStorageManager {
 
     // creating side input store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
-        createSideInputProcessors(new JavaStorageConfig(config), this.containerModel, this.sideInputSystemStreams,
+        createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
             this.taskInstanceMetrics);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
@@ -961,7 +961,7 @@ public class ContainerStorageManager {
      * @return true if the logged store is valid, false otherwise.
      */
     private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-      long changeLogDeleteRetentionInMs = new JavaStorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
+      long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
 
       if (changelogSystemStreams.containsKey(storeName)) {
         SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());

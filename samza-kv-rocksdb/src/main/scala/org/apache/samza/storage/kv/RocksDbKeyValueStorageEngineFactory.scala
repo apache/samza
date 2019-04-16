@@ -21,7 +21,7 @@ package org.apache.samza.storage.kv
 
 import java.io.File
 
-import org.apache.samza.config.JavaStorageConfig
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.storage.StorageEngineFactory.StoreMode
@@ -45,7 +45,7 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
-    val isLoggedStore = new JavaStorageConfig(jobContext.getConfig).getChangelogStream(storeName).isPresent
+    val isLoggedStore = new StorageConfig(jobContext.getConfig).getChangelogStream(storeName).isPresent
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
     val numTasksForContainer = containerContext.getContainerModel.getTasks.keySet().size()
     rocksDbMetrics.newGauge("rocksdb.block-cache-size",
