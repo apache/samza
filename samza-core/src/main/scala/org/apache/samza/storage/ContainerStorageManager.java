@@ -453,24 +453,26 @@ public class ContainerStorageManager {
 
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    if (!storageConfig.getStorageKeySerde(storeName).isPresent()) {
+    Optional<String> storageKeySerde = storageConfig.getStorageKeySerde(storeName);
+    if (!storageKeySerde.isPresent()) {
       throw new SamzaException("No key serde defined for store: " + storeName);
     }
 
-    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).get());
+    Serde keySerde = serdes.get(storageKeySerde.get());
     if (keySerde == null) {
       throw new SamzaException(
-          "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
+          "StorageKeySerde: No class defined for serde: " + storageKeySerde.get());
     }
 
-    if (!storageConfig.getStorageMsgSerde(storeName).isPresent()) {
+    Optional<String> storageMsgSerde = storageConfig.getStorageMsgSerde(storeName);
+    if (!storageMsgSerde.isPresent()) {
       throw new SamzaException("No msg serde defined for store: " + storeName);
     }
 
-    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).get());
+    Serde messageSerde = serdes.get(storageMsgSerde.get());
     if (messageSerde == null) {
       throw new SamzaException(
-          "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
+          "StorageMsgSerde: No class defined for serde: " + storageMsgSerde.get());
     }
 
     // if taskInstanceMetrics are specified use those for store metrics,
