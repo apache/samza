@@ -31,10 +31,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfigJava;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
@@ -410,7 +410,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader");
       metrics.isLeader.set(true);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
-      if (!new StorageConfig(config).hasDurableStores()) {
+      if (!new JavaStorageConfig(config).hasDurableStores()) {
         // 1. Stop if there's a existing StreamPartitionCountMonitor running.
         if (streamPartitionCountMonitor != null) {
           streamPartitionCountMonitor.stop();

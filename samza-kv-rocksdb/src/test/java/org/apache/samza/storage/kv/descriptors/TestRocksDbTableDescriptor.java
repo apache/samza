@@ -21,9 +21,9 @@ package org.apache.samza.storage.kv.descriptors;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -54,7 +54,7 @@ public class TestRocksDbTableDescriptor {
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(RocksDbKeyValueStorageEngineFactory.class.getName(),
-        tableConfig.get(String.format(StorageConfig.FACTORY(), TABLE_ID)));
+        tableConfig.get(String.format(JavaStorageConfig.FACTORY, TABLE_ID)));
   }
 
   @Test
@@ -88,8 +88,8 @@ public class TestRocksDbTableDescriptor {
     assertEquals("9", RocksDbTableDescriptor.CONTAINER_WRITE_BUFFER_SIZE_BYTES, tableConfig);
     assertEquals("snappy", RocksDbTableDescriptor.ROCKSDB_COMPRESSION, tableConfig);
     assertEquals("fifo", RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE, tableConfig);
-    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID)));
-    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(JavaStorageConfig.CHANGELOG_STREAM, TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(JavaStorageConfig.CHANGELOG_REPLICATION_FACTOR, TABLE_ID)));
     Assert.assertEquals("xyz", tableConfig.get("abc"));
   }
 

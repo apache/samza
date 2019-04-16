@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.storage.kv.LocalTableProviderFactory;
 import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
@@ -284,7 +284,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     // Store factory configuration
-    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+    tableConfig.put(String.format(JavaStorageConfig.FACTORY, tableId),
         RocksDbKeyValueStorageEngineFactory.class.getName());
 
     if (writeBatchSize != null) {

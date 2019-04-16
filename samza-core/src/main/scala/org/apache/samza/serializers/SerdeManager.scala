@@ -24,7 +24,7 @@ import org.apache.samza.system.ControlMessage
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.config.StorageConfig
+import org.apache.samza.config.JavaStorageConfig
 
 class SerdeManager(
   serdes: Map[String, Serde[Object]] = Map(),
@@ -42,7 +42,7 @@ class SerdeManager(
 
   def toBytes(envelope: OutgoingMessageEnvelope): OutgoingMessageEnvelope = {
     val key = if (changeLogSystemStreams.contains(envelope.getSystemStream)
-      || envelope.getSystemStream.getStream.endsWith(StorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
+      || envelope.getSystemStream.getStream.endsWith(JavaStorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (envelope.getMessage.isInstanceOf[ControlMessage]
@@ -64,7 +64,7 @@ class SerdeManager(
     }
 
     val message = if (changeLogSystemStreams.contains(envelope.getSystemStream)
-      || envelope.getSystemStream.getStream.endsWith(StorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
+      || envelope.getSystemStream.getStream.endsWith(JavaStorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (intermediateMessageSerdes.contains(envelope.getSystemStream)) {
@@ -105,7 +105,7 @@ class SerdeManager(
     val systemStream = envelope.getSystemStreamPartition.getSystemStream
 
     val message = if (changeLogSystemStreams.contains(systemStream)
-      || systemStream.getStream.endsWith(StorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
+      || systemStream.getStream.endsWith(JavaStorageConfig.ACCESSLOG_STREAM_SUFFIX)) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getMessage
     } else if (intermediateMessageSerdes.contains(systemStream)) {
@@ -123,7 +123,7 @@ class SerdeManager(
     }
 
     val key = if (changeLogSystemStreams.contains(systemStream)
-      || systemStream.getStream.endsWith(StorageConfig.ACCESSLOG_STREAM_SUFFIX) ) {
+      || systemStream.getStream.endsWith(JavaStorageConfig.ACCESSLOG_STREAM_SUFFIX) ) {
       // If the stream is a change log stream, don't do any serde. It is up to storage engines to handle serde.
       envelope.getKey
     } else if (message.isInstanceOf[ControlMessage]

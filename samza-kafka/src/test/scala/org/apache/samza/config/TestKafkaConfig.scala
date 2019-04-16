@@ -235,7 +235,7 @@ class TestKafkaConfig {
 
   @Test
   def testChangeLogReplicationFactorWithSystemOverriddenDefault() {
-    props.setProperty(StorageConfig.CHANGELOG_SYSTEM, "kafka-system")
+    props.setProperty(JavaStorageConfig.CHANGELOG_SYSTEM, "kafka-system")
     props.setProperty("systems.kafka-system.default.stream.replication.factor", "8")
     props.setProperty("stores.store-with-override.changelog.replication.factor", "4")
 

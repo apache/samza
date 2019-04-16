@@ -58,8 +58,8 @@ public class RocksDbKeyValueReader {
     JavaStorageConfig storageConfig = new JavaStorageConfig(config);
     JavaSerializerConfig serializerConfig = new JavaSerializerConfig(config);
 
-    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName), serializerConfig);
-    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName), serializerConfig);
+    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig);
+    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig);
 
     // get db options
     Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);

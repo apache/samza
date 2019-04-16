@@ -23,33 +23,40 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.util.StreamUtil;
 
 
 /**
- * a java version of the storage config
+ * Config helper methods related to storage.
  */
 public class JavaStorageConfig extends MapConfig {
-
   private static final String FACTORY_SUFFIX = ".factory";
+  private static final String CHANGELOG_SUFFIX = ".changelog";
   private static final String STORE_PREFIX = "stores.";
-  private static final String FACTORY = "stores.%s.factory";
-  private static final String KEY_SERDE = "stores.%s.key.serde";
-  private static final String MSG_SERDE = "stores.%s.msg.serde";
-  private static final String CHANGELOG_STREAM = "stores.%s.changelog";
-  private static final String CHANGELOG_SYSTEM = "job.changelog.system";
-  private static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
-  private static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
-  private static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
-  private static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
 
-  public static final String SIDE_INPUTS = "stores.%s.side.inputs";
-  public static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
-  public static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE = "stores.%s.side.inputs.processor.serialized.instance";
+  public static final String FACTORY = "stores.%s" + FACTORY_SUFFIX;
+  public static final String KEY_SERDE = "stores.%s.key.serde";
+  public static final String MSG_SERDE = "stores.%s.msg.serde";
+  public static final String CHANGELOG_STREAM = "stores.%s" + CHANGELOG_SUFFIX;
+  static final String CHANGELOG_SYSTEM = "job.changelog.system";
+  static final String CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms";
+  static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
+  public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
+  static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
+  static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
+  static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
+  static final String SIDE_INPUTS = "stores.%s.side.inputs";
+  static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
+  static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
+      "stores.%s.side.inputs.processor.serialized.instance";
+
+  public static final String CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor";
 
   public JavaStorageConfig(Config config) {
     super(config);
@@ -57,7 +64,7 @@ public class JavaStorageConfig extends MapConfig {
 
   public List<String> getStoreNames() {
     Config subConfig = subset(STORE_PREFIX, true);
-    List<String> storeNames = new ArrayList<String>();
+    List<String> storeNames = new ArrayList<>();
     for (String key : subConfig.keySet()) {
       if (key.endsWith(FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
@@ -66,19 +73,21 @@ public class JavaStorageConfig extends MapConfig {
     return storeNames;
   }
 
-  public String getChangelogStream(String storeName) {
-
-    // If the config specifies 'stores.<storename>.changelog' as '<system>.<stream>' combination - it will take precedence.
-    // If this config only specifies <astream> and there is a value in job.changelog.system=<asystem> -
-    // these values will be combined into <asystem>.<astream>
+  /**
+   * If the config specifies 'stores.&lt;storename&gt;.changelog' as '&lt;system&gt;.&lt;stream&gt;' combination - it will take
+   * precedence.
+   * If this config only specifies &lt;astream&gt; and there is a value in job.changelog.system=&lt;asystem&gt; - these values will
+   * be combined into &lt;asystem&gt;.&lt;astream&gt;
+   */
+  public Optional<String> getChangelogStream(String storeName) {
     String systemStream = StringUtils.trimToNull(get(String.format(CHANGELOG_STREAM, storeName), null));
 
     String systemStreamRes;
-    if (systemStream != null  && !systemStream.contains(".")) {
-      String changelogSystem = getChangelogSystem();
+    if (systemStream != null && !systemStream.contains(".")) {
+      Optional<String> changelogSystem = getChangelogSystem();
       // contains only stream name
-      if (changelogSystem != null) {
-        systemStreamRes = changelogSystem + "." + systemStream;
+      if (changelogSystem.isPresent()) {
+        systemStreamRes = changelogSystem.get() + "." + systemStream;
       } else {
         throw new SamzaException("changelog system is not defined:" + systemStream);
       }
@@ -89,7 +98,7 @@ public class JavaStorageConfig extends MapConfig {
     if (systemStreamRes != null) {
       systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
     }
-    return systemStreamRes;
+    return Optional.ofNullable(systemStreamRes);
   }
 
   public boolean getAccessLogEnabled(String storeName) {
@@ -104,16 +113,16 @@ public class JavaStorageConfig extends MapConfig {
     return getInt(String.format(ACCESSLOG_SAMPLING_RATIO, storeName), DEFAULT_ACCESSLOG_SAMPLING_RATIO);
   }
 
-  public String getStorageFactoryClassName(String storeName) {
-    return get(String.format(FACTORY, storeName), null);
+  public Optional<String> getStorageFactoryClassName(String storeName) {
+    return Optional.ofNullable(get(String.format(FACTORY, storeName)));
   }
 
-  public String getStorageKeySerde(String storeName) {
-    return get(String.format(KEY_SERDE, storeName), null);
+  public Optional<String> getStorageKeySerde(String storeName) {
+    return Optional.ofNullable(get(String.format(KEY_SERDE, storeName)));
   }
 
-  public String getStorageMsgSerde(String storeName) {
-    return get(String.format(MSG_SERDE, storeName), null);
+  public Optional<String> getStorageMsgSerde(String storeName) {
+    return Optional.ofNullable(get(String.format(MSG_SERDE, storeName)));
   }
 
   /**
@@ -131,8 +140,8 @@ public class JavaStorageConfig extends MapConfig {
    *
    * @return the name of the system to use by default for all changelogs, if defined.
    */
-  public String getChangelogSystem() {
-    return get(CHANGELOG_SYSTEM,  get(JobConfig.JOB_DEFAULT_SYSTEM(), null));
+  public Optional<String> getChangelogSystem() {
+    return Optional.ofNullable(get(CHANGELOG_SYSTEM, get(JobConfig.JOB_DEFAULT_SYSTEM())));
   }
 
   /**
@@ -160,8 +169,8 @@ public class JavaStorageConfig extends MapConfig {
    * @param storeName name of the store
    * @return the class name of SideInputsProcessorFactory if present, null otherwise
    */
-  public String getSideInputsProcessorFactory(String storeName) {
-    return get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName), null);
+  public Optional<String> getSideInputsProcessorFactory(String storeName) {
+    return Optional.ofNullable(get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName)));
   }
 
   /**
@@ -170,7 +179,30 @@ public class JavaStorageConfig extends MapConfig {
    * @param storeName name of the store
    * @return the serialized instance of SideInputsProcessor if present, null otherwise
    */
-  public String getSideInputsProcessorSerializedInstance(String storeName) {
-    return get(String.format(SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, storeName), null);
+  public Optional<String> getSideInputsProcessorSerializedInstance(String storeName) {
+    return Optional.ofNullable(get(String.format(SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, storeName)));
+  }
+
+  public long getChangeLogDeleteRetentionInMs(String storeName) {
+    return getLong(String.format(CHANGELOG_DELETE_RETENTION_MS, storeName), DEFAULT_CHANGELOG_DELETE_RETENTION_MS);
+  }
+
+  /**
+   * Helper method to check if a system has a changelog attached to it.
+   */
+  public boolean isChangelogSystem(String systemName) {
+    return getStoreNames().stream()
+        .map(this::getChangelogStream)
+        .filter(Optional::isPresent)
+        .map(systemStreamName -> StreamUtil.getSystemStreamFromNames(systemStreamName.get()).getSystem())
+        .anyMatch(system -> system.equals(systemName));
+  }
+
+  /**
+   * Helper method to check if there is any stores configured w/ a changelog
+   */
+  public boolean hasDurableStores() {
+    Config subConfig = subset(STORE_PREFIX, true);
+    return subConfig.keySet().stream().anyMatch(key -> key.endsWith(CHANGELOG_SUFFIX));
   }
 }

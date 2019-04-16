@@ -23,6 +23,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
@@ -146,17 +147,17 @@ public class StorageRecovery extends CommandLine {
     log.info("Got store names: " + storeNames.toString());
 
     for (String storeName : storeNames) {
-      String streamName = config.getChangelogStream(storeName);
+      Optional<String> streamName = config.getChangelogStream(storeName);
 
-      log.info("stream name for " + storeName + " is " + streamName);
+      log.info("stream name for " + storeName + " is " + streamName.orElse(null));
 
-      if (streamName != null) {
-        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName));
+      if (streamName.isPresent()) {
+        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName.get()));
       }
 
-      String factoryClass = config.getStorageFactoryClassName(storeName);
-      if (factoryClass != null) {
-        storageEngineFactories.put(storeName, Util.getObj(factoryClass, StorageEngineFactory.class));
+      Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
+      if (factoryClass.isPresent()) {
+        storageEngineFactories.put(storeName, Util.getObj(factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }

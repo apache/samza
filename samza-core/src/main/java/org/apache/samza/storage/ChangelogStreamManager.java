@@ -19,9 +19,10 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -109,11 +110,14 @@ public class ChangelogStreamManager {
   public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions) {
     // Get changelog store config
     JavaStorageConfig storageConfig = new JavaStorageConfig(config);
-    Map<String, SystemStream> storeNameSystemStreamMapping = storageConfig.getStoreNames()
-        .stream()
-        .filter(name -> StringUtils.isNotBlank(storageConfig.getChangelogStream(name)))
-        .collect(Collectors.toMap(name -> name,
-            name -> StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
+    ImmutableMap.Builder<String, SystemStream> storeNameSystemStreamMapBuilder = new ImmutableMap.Builder<>();
+    storageConfig.getStoreNames().forEach(storeName -> {
+        Optional<String> changelogStream = storageConfig.getChangelogStream(storeName);
+        if (changelogStream.isPresent() && StringUtils.isNotBlank(changelogStream.get())) {
+          storeNameSystemStreamMapBuilder.put(storeName, StreamUtil.getSystemStreamFromNames(changelogStream.get()));
+        }
+      });
+    Map<String, SystemStream> storeNameSystemStreamMapping = storeNameSystemStreamMapBuilder.build();
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
     SystemConfig systemConfig = new SystemConfig(config);
