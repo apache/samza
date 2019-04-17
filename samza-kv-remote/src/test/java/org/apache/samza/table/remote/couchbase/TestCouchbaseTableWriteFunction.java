@@ -86,7 +86,7 @@ public class TestCouchbaseTableWriteFunction {
         new RuntimeException(new SamzaException(new RuntimeException(new TemporaryFailureException())))));
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testPutAsyncNullKey() {
     CouchbaseTableWriteFunction<JsonObject> writeFunction = createAndInit();
     writeFunction.putAsync(null, JsonObject.create());
@@ -139,7 +139,7 @@ public class TestCouchbaseTableWriteFunction {
     assertNull(writeFunction.putAsync(key, value).get());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testDeleteAsyncNullKey() {
     CouchbaseTableWriteFunction<JsonObject> writeFunction = createAndInit();
     writeFunction.deleteAsync(null);

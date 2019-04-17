@@ -41,10 +41,10 @@ import org.slf4j.LoggerFactory;
  */
 public class CouchbaseBucketRegistry {
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseBucketRegistry.class);
-  private Map<String, Bucket> openedBuckets;
-  private Map<String, Cluster> openedClusters;
-  private Map<String, Integer> bucketUsageCounts;
-  private Map<String, Integer> clusterUsageCounts;
+  private final Map<String, Bucket> openedBuckets;
+  private final Map<String, Cluster> openedClusters;
+  private final Map<String, Integer> bucketUsageCounts;
+  private final Map<String, Integer> clusterUsageCounts;
 
   /**
    * Constructor of the CouchbaseTableRegistry.

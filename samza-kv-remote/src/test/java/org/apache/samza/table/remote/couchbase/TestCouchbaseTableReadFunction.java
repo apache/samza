@@ -88,7 +88,7 @@ public class TestCouchbaseTableReadFunction {
         new RuntimeException(new SamzaException(new RuntimeException(new TemporaryFailureException())))));
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testGetAsyncNullKey() {
     CouchbaseTableReadFunction readFunction = createAndInit();
     readFunction.getAsync(null);

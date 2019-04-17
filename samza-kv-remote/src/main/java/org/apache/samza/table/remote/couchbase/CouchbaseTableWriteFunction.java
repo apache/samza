@@ -27,6 +27,7 @@ import com.couchbase.client.java.document.json.JsonObject;
 import com.google.common.base.Preconditions;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -65,21 +66,21 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
 
   @Override
   public CompletableFuture<Void> putAsync(String key, V record) {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkArgument(!key.contains(" "), "key must not contain spaces.");
+    Preconditions.checkArgument(StringUtils.isNotBlank(key), "key must not be null, empty or blank");
+    Preconditions.checkArgument(!key.contains(" "), String.format("key should not contain spaces: %s", key));
     Preconditions.checkNotNull(record);
     Document<?> document =
         record instanceof JsonObject ? JsonDocument.create(key, (int) ttl.getSeconds(), (JsonObject) record)
             : BinaryDocument.create(key, (int) ttl.getSeconds(), Unpooled.copiedBuffer(valueSerde.toBytes(record)));
     return asyncWriteHelper(bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
-        String.format("Failed to insert key %s, value %s", key, record));
-  }
-  
+        String.format("Failed to insert key %s into bucket %s", key, bucketName));
+}
+
   @Override
   public CompletableFuture<Void> deleteAsync(String key) {
-    Preconditions.checkNotNull(key);
+    Preconditions.checkArgument(StringUtils.isNotBlank(key), "key must not be null, empty or blank");
     return asyncWriteHelper(bucket.async().remove(key, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
-        String.format("Failed to delete key %s", key));
+        String.format("Failed to delete key %s from bucket %s.", key, bucketName));
   }
 
   /**

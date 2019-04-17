@@ -47,6 +47,7 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -89,7 +90,7 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
 
   @Override
   public CompletableFuture<V> getAsync(String key) {
-    Preconditions.checkNotNull(key);
+    Preconditions.checkArgument(StringUtils.isNotBlank(key), "key must not be null, empty or blank");
     CompletableFuture<V> future = new CompletableFuture<>();
     Single<? extends Document<?>> singleObservable =
         bucket.async().get(key, documentType, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle();
