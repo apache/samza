@@ -27,12 +27,13 @@ import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.List;
-import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.remote.couchbase.CouchbaseBucketRegistry.CouchbaseEnvironmentConfigs;
 
 
 /**
@@ -61,15 +62,15 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * Constructor for BaseCouchbaseTableFunction. This constructor abstracts the shareable logic of the read and write
    * functions. It is not intended to be called directly.
    * @param bucketName Name of the Couchbase bucket
+   * @param valueClass type of values
    * @param clusterNodes Some Hosts of the Couchbase cluster. Recommended to provide more than one nodes so that if
    *                     the first node could not be connected, other nodes can be tried.
-   * @param valueClass type of values
    */
-  public BaseCouchbaseTableFunction(String bucketName, List<String> clusterNodes, Class<V> valueClass) {
+  public BaseCouchbaseTableFunction(String bucketName, Class<V> valueClass, String... clusterNodes) {
     Preconditions.checkArgument(StringUtils.isNotEmpty(bucketName), "Bucket name is not allowed to be null or empty.");
-    Preconditions.checkArgument(CollectionUtils.isNotEmpty(clusterNodes),
-        "Cluster nodes is not allowed to be null or empty.");
     Preconditions.checkArgument(valueClass != null, "Value class is not allowed to be null.");
+    Preconditions.checkArgument(ArrayUtils.isNotEmpty(clusterNodes),
+        "Cluster nodes is not allowed to be null or empty.");
     this.bucketName = bucketName;
     this.clusterNodes = ImmutableList.copyOf(clusterNodes);
     this.environmentConfigs = new CouchbaseEnvironmentConfigs();
@@ -83,9 +84,6 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
     bucket = COUCHBASE_BUCKET_REGISTRY.getBucket(bucketName, clusterNodes, environmentConfigs);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() {
     COUCHBASE_BUCKET_REGISTRY.closeBucket(bucketName, clusterNodes);
@@ -150,6 +148,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withUsernameAndPassword(String username, String password) {
+    Preconditions.checkArgument(StringUtils.isNotEmpty(username), "username should not allowed be null or empty.");
     if (environmentConfigs.sslEnabled != null && environmentConfigs.sslEnabled) {
       throw new IllegalArgumentException(
           "Role-Based Access Control and Certificate-Based Authentication cannot be used together.");
@@ -161,7 +160,11 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
 
   /**
    * Enable certificate-based authentication. If ssl is enabled sslKeystore or sslTrustStore should also be provided
-   * accordingly.
+   * accordingly. There are four combinations of settings:
+   * Both are true: enable certificate-based authentication.
+   * Both are false: disable certificate-based authentication.
+   * Only sslEnabled is true but certAuthEnabled is false: only server side certificate checking is needed.
+   * sslEnabled is false but certAuthEnabled is true: not valid and exception will be thrown.
    * @param sslEnabled allows to enable certificate-based authentication
    * @param certAuthEnabled allows to enable X.509 client certificate authentication
    * @param <T> type of this instance
@@ -173,7 +176,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
       throw new IllegalArgumentException(
           "Role-Based Access Control and Certificate-Based Authentication cannot be used together.");
     }
-    if (certAuthEnabled && !sslEnabled) {
+    if (!sslEnabled && certAuthEnabled) {
       throw new IllegalStateException(
           "Client Certificate Authentication enabled, but SSL is not - " + "please configure encryption properly.");
     }
@@ -198,6 +201,8 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSslKeystoreFileAndPassword(String sslKeystoreFile,
       String sslKeystorePassword) {
+    Preconditions.checkArgument(StringUtils.isNotEmpty(sslKeystoreFile), "Null or empty sslKeystoreFile");
+    Preconditions.checkArgument(StringUtils.isNotEmpty(sslKeystorePassword), "Null or empty sslKeystorePassword");
     environmentConfigs.sslKeystoreFile = sslKeystoreFile;
     environmentConfigs.sslKeystorePassword = sslKeystorePassword;
     return (T) this;
@@ -218,6 +223,8 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withSslTruststoreFileAndPassword(String sslTruststoreFile,
       String sslTruststorePassword) {
+    Preconditions.checkArgument(StringUtils.isNotEmpty(sslTruststoreFile), "Null or empty sslTruststoreFile");
+    Preconditions.checkArgument(StringUtils.isNotEmpty(sslTruststorePassword), "Null or empty sslTruststorePassword");
     environmentConfigs.sslTruststoreFile = sslTruststoreFile;
     environmentConfigs.sslTruststorePassword = sslTruststorePassword;
     return (T) this;

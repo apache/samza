@@ -44,7 +44,6 @@ import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.google.common.base.Preconditions;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -77,23 +76,17 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
    *                     the first node could not be connected, other nodes can be tried.
    * @param valueClass Type of values
    */
-  public CouchbaseTableReadFunction(String bucketName, List<String> clusterNodes, Class<V> valueClass) {
-    super(bucketName, clusterNodes, valueClass);
+  public CouchbaseTableReadFunction(String bucketName, Class<V> valueClass, String... clusterNodes) {
+    super(bucketName, valueClass, clusterNodes);
     documentType = JsonObject.class.isAssignableFrom(valueClass) ? JsonDocument.class : BinaryDocument.class;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     super.init(context);
     LOGGER.info("Read function for bucket {} initialized successfully", bucketName);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public CompletableFuture<V> getAsync(String key) {
     Preconditions.checkNotNull(key);

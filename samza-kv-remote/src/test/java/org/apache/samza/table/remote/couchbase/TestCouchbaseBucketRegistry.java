@@ -25,6 +25,7 @@ import com.couchbase.client.java.env.CouchbaseEnvironment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.samza.table.remote.couchbase.CouchbaseBucketRegistry.CouchbaseEnvironmentConfigs;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -33,6 +34,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.powermock.api.mockito.PowerMockito.*;
+
 
 /**
  * This class performs unit tests for CouchbaseBucketRegistry

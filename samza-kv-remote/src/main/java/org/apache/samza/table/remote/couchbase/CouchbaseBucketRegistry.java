@@ -26,8 +26,13 @@ import com.couchbase.client.java.CouchbaseCluster;
 import com.couchbase.client.java.auth.CertAuthenticator;
 import com.couchbase.client.java.env.CouchbaseEnvironment;
 import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * The CouchbaseBucketRegistry is intended to reuse the same {@link Cluster} instance given same clusterNodes and reuse
@@ -35,10 +40,11 @@ import java.util.List;
  * container that is using the same bucket should use this registry to avoid creating multiple Buckets.
  */
 public class CouchbaseBucketRegistry {
-  private HashMap<String, Bucket> openedBuckets;
-  private HashMap<String, Cluster> openedClusters;
-  private HashMap<String, Integer> bucketUsageCounts;
-  private HashMap<String, Integer> clusterUsageCounts;
+  private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseBucketRegistry.class);
+  private Map<String, Bucket> openedBuckets;
+  private Map<String, Cluster> openedClusters;
+  private Map<String, Integer> bucketUsageCounts;
+  private Map<String, Integer> clusterUsageCounts;
 
   /**
    * Constructor of the CouchbaseTableRegistry.
@@ -82,7 +88,7 @@ public class CouchbaseBucketRegistry {
    * @param clusterNodes list of cluster nodes
    * @return true if bucket is closed successfully, otherwise false.
    */
-  public synchronized Boolean closeBucket(String bucketName, List<String> clusterNodes) {
+  public synchronized boolean closeBucket(String bucketName, List<String> clusterNodes) {
     String bucketId = getBucketId(bucketName, clusterNodes);
     String clusterId = getClusterId(clusterNodes);
     if (!openedBuckets.containsKey(bucketId) || !openedClusters.containsKey(clusterId)) {
@@ -144,8 +150,11 @@ public class CouchbaseBucketRegistry {
     Cluster cluster = CouchbaseCluster.create(env, clusterNodes);
     if (configs.sslEnabled != null && configs.sslEnabled) {
       cluster.authenticate(CertAuthenticator.INSTANCE);
-    } else if (configs.username != null && configs.password != null) {
+    } else if (configs.username != null) {
       cluster.authenticate(configs.username, configs.password);
+    } else {
+      LOGGER.warn("No authentication is enabled for cluster: {}. This is not recommended except for test cases.",
+          clusterNodes);
     }
     return cluster;
   }
@@ -169,5 +178,21 @@ public class CouchbaseBucketRegistry {
    */
   private String getClusterId(List<String> clusterNodes) {
     return clusterNodes.toString();
+  }
+
+  static class CouchbaseEnvironmentConfigs implements Serializable {
+
+    Boolean sslEnabled;
+    Boolean certAuthEnabled;
+    String sslKeystoreFile;
+    String sslKeystorePassword;
+    String sslTruststoreFile;
+    String sslTruststorePassword;
+    Integer bootstrapCarrierDirectPort;
+    Integer bootstrapCarrierSslPort;
+    Integer bootstrapHttpDirectPort;
+    Integer bootstrapHttpSslPort;
+    String username;
+    String password;
   }
 }

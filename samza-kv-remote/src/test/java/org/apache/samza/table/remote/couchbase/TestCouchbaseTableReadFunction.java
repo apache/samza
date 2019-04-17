@@ -28,8 +28,6 @@ import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.TemporaryFailureException;
 import com.couchbase.client.java.error.TemporaryLockFailureException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
@@ -54,21 +52,21 @@ import static org.powermock.api.mockito.PowerMockito.*;
 @PrepareForTest(CouchbaseBucketRegistry.class)
 public class TestCouchbaseTableReadFunction {
   private static final String DEFAULT_BUCKET_NAME = "default-bucket-name";
-  private static final List<String> DEFAULT_CLUSTER_NODES = Collections.singletonList("localhost");
+  private static final String DEFAULT_CLUSTER_NODE = "localhost";
 
   @Test(expected = IllegalArgumentException.class)
   public void testConstructorInvalidBucketName() {
-    new CouchbaseTableReadFunction<>("", DEFAULT_CLUSTER_NODES, String.class);
+    new CouchbaseTableReadFunction<>("", String.class, DEFAULT_CLUSTER_NODE);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testConstructorInvalidClusterNodes() {
-    new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, new ArrayList<>(), String.class);
+    new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, String.class);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testConstructorInvalidValueClass() {
-    new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, DEFAULT_CLUSTER_NODES, null);
+    new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, null, DEFAULT_CLUSTER_NODE);
   }
 
   @Test
@@ -175,9 +173,9 @@ public class TestCouchbaseTableReadFunction {
       AsyncBucket asyncBucket) {
     when(bucket.async()).thenReturn(asyncBucket);
     PowerMockito.stub(PowerMockito.method(CouchbaseBucketRegistry.class, "getBucket", String.class, List.class,
-        CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
+        CouchbaseBucketRegistry.CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
     CouchbaseTableReadFunction<V> readFunction =
-        new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, DEFAULT_CLUSTER_NODES, valueClass).withSerde(serde);
+        new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, valueClass, DEFAULT_CLUSTER_NODE).withSerde(serde);
     readFunction.init(null);
     return readFunction;
   }

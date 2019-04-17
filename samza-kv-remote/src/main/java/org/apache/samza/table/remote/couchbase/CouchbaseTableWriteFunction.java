@@ -25,7 +25,6 @@ import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.google.common.base.Preconditions;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
@@ -54,22 +53,16 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
    *                     the first node could not be connected, other nodes can be tried.
    * @param valueClass Type of values
    */
-  public CouchbaseTableWriteFunction(String bucketName, List<String> clusterNodes, Class<V> valueClass) {
-    super(bucketName, clusterNodes, valueClass);
+  public CouchbaseTableWriteFunction(String bucketName, Class<V> valueClass, String... clusterNodes) {
+    super(bucketName, valueClass, clusterNodes);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
     super.init(context);
     LOGGER.info("Write function for bucket {} initialized successfully", bucketName);
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public CompletableFuture<Void> putAsync(String key, V record) {
     Preconditions.checkNotNull(key);
@@ -81,10 +74,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
     return asyncWriteHelper(bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
         String.format("Failed to insert key %s, value %s", key, record));
   }
-
-  /**
-   * {@inheritDoc}
-   */
+  
   @Override
   public CompletableFuture<Void> deleteAsync(String key) {
     Preconditions.checkNotNull(key);
