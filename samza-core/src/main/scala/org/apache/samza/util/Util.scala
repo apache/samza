@@ -28,6 +28,8 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
 
+import org.apache.samza.container.SamzaContainerMetrics
+
 import scala.collection.JavaConverters._
 
 
@@ -59,6 +61,21 @@ object Util extends Logging {
         error("Unable to create an instance for class %s." format className, e)
         throw e
       }
+    }
+  }
+
+  /**
+    * Instantiate an object from given className, and given constructor parameters.
+    */
+  def getObj(className: String, constructorParameterTypes: (Class[_], Object)*) = {
+    try {
+      Class.forName(className).getDeclaredConstructor(constructorParameterTypes.map(x => x._1): _*)
+        .newInstance(constructorParameterTypes.map(x => x._2): _*)
+    } catch {
+      case e: Throwable => {
+        warn("Could not instantiate an instance for class %s." format className, e)
+      }
+        None
     }
   }
 
