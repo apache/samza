@@ -67,8 +67,8 @@ object Util extends Logging {
     */
   def getObj(className: String, constructorParams: (Class[_], Object)*) : Any = {
     try {
-      Class.forName(className).getDeclaredConstructor(constructorParameterTypes.map(x => x._1): _*)
-        .newInstance(constructorParameterTypes.map(x => x._2): _*)
+      Class.forName(className).getDeclaredConstructor(constructorParams.map(x => x._1): _*)
+        .newInstance(constructorParams.map(x => x._2): _*)
     } catch {
       case e: Throwable => {
         warn("Could not instantiate an instance for class %s." format className, e)
