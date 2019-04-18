@@ -153,10 +153,16 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
+    ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.of(
+        inputSinglePartitionKafkaTopic, 1,
+        outputSinglePartitionKafkaTopic, 1,
+        inputKafkaTopic, 5,
+        outputKafkaTopic, 5);
+
     List<NewTopic> newTopics =
         ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
             .stream()
-            .map(topic -> new NewTopic(topic, 5, (short) 1))
+            .map(topic -> new NewTopic(topic, topicToPartitionCount.get(topic), (short) 1))
             .collect(Collectors.toList());
 
     assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
