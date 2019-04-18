@@ -65,7 +65,7 @@ object Util extends Logging {
   /**
     * Instantiate an object from given className, and given constructor parameters.
     */
-  def getObj(className: String, constructorParameterTypes: (Class[_], Object)*) : Any = {
+  def getObj(className: String, constructorParams: (Class[_], Object)*) : Any = {
     try {
       Class.forName(className).getDeclaredConstructor(constructorParameterTypes.map(x => x._1): _*)
         .newInstance(constructorParameterTypes.map(x => x._2): _*)
