@@ -269,7 +269,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
 
       // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions, systemAdmins);
       storeConfigInCoordinatorStream();
       hasCreatedStreams = true;
     }

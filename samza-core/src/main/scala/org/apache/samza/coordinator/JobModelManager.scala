@@ -81,33 +81,26 @@ object JobModelManager extends Logging {
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
             coordinatorStreamStore: CoordinatorStreamStore,
-            metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
-
+            metricsRegistry: MetricsRegistry = new MetricsRegistryMap(),
+            systemAdmins: SystemAdmins): JobModelManager = {
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
     val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
     val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE))
     val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE))
 
-    val systemAdmins = new SystemAdmins(config)
-    try {
-      systemAdmins.start()
-      val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
-      val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
+    val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
 
-      val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
+    val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
+    jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
 
-      updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
+    updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
 
-      val server = new HttpServer
-      server.addServlet("/", new JobServlet(jobModelRef))
+    val server = new HttpServer
+    server.addServlet("/", new JobServlet(jobModelRef))
 
-      currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
-      currentJobModelManager
-    } finally {
-      systemAdmins.stop()
-      // Not closing coordinatorStreamStore, since {@code ClusterBasedJobCoordinator} uses it to read container locality through {@code JobModel}.
-    }
+    currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
+    currentJobModelManager
   }
 
   /**

@@ -99,14 +99,6 @@ public class TestSystemConfig {
   }
 
   @Test
-  public void testGetSystemAdmin() {
-    Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
-    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
-    assertEquals(SYSTEM_ADMIN1, systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME1));
-    assertNull(systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME2));
-  }
-
-  @Test
   public void testGetSystemFactories() {
     Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
     SystemConfig systemConfig = new SystemConfig(new MapConfig(map));

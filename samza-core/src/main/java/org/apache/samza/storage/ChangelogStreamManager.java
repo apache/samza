@@ -27,13 +27,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.StreamUtil;
 import org.slf4j.Logger;
@@ -122,7 +122,7 @@ public class ChangelogStreamManager {
    * @param config the configuration with changelog info.
    * @param maxChangeLogStreamPartitions the maximum number of changelog stream partitions to create.
    */
-  public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions) {
+  public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions, SystemAdmins systemAdmins) {
     // Get changelog store config
     JavaStorageConfig storageConfig = new JavaStorageConfig(config);
     Map<String, SystemStream> storeNameSystemStreamMapping = storageConfig.getStoreNames()
@@ -131,11 +131,9 @@ public class ChangelogStreamManager {
         .collect(Collectors.toMap(name -> name,
             name -> StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
 
-    // Get SystemAdmin for changelog store's system and attempt to create the stream
-    SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
         // Load system admin for this system.
-        SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
+        SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
 
         if (systemAdmin == null) {
           throw new SamzaException(String.format(
@@ -143,11 +141,7 @@ public class ChangelogStreamManager {
               storeName, systemStream.getSystem()));
         }
 
-        StreamSpec changelogSpec =
-            StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(),
-                maxChangeLogStreamPartitions);
-
-        systemAdmin.start();
+        StreamSpec changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), maxChangeLogStreamPartitions);
 
         if (systemAdmin.createStream(changelogSpec)) {
           LOG.info(String.format("created changelog stream %s.", systemStream.getStream()));
@@ -163,8 +157,6 @@ public class ChangelogStreamManager {
           systemAdmin.createStream(accesslogSpec);
           systemAdmin.validateStream(accesslogSpec);
         }
-
-        systemAdmin.stop();
       });
   }
 }

@@ -177,15 +177,17 @@ public class ClusterBasedJobCoordinator {
     coordinatorStreamStore.init();
     config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
 
+    // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
+    systemAdmins = new SystemAdmins(config);
+    systemAdmins.start();
+
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
     jobModelManager = JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(),
-                                            coordinatorStreamStore, metrics);
+                                            coordinatorStreamStore, metrics, systemAdmins);
 
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
-    // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
-    systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
     inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins);
     clusterManagerConfig = new ClusterManagerConfig(config);
@@ -225,7 +227,7 @@ public class ClusterBasedJobCoordinator {
       if (checkpointManager != null) {
         checkpointManager.createResources();
       }
-      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions, systemAdmins);
 
       // Remap changelog partitions to tasks
       Map<TaskName, Integer> prevPartitionMappings = changelogStreamManager.readPartitionMapping();
@@ -241,7 +243,6 @@ public class ClusterBasedJobCoordinator {
       changelogStreamManager.updatePartitionMapping(prevPartitionMappings, taskPartitionMappings);
 
       containerProcessManager.start();
-      systemAdmins.start();
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::start);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::start);
 

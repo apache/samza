@@ -69,6 +69,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   private final String processorId;
   private final Config config;
   private final LocationId locationId;
+  private final SystemAdmins systemAdmins;
   private JobCoordinatorListener coordinatorListener = null;
 
   public PassthroughJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
@@ -77,6 +78,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
+    this.systemAdmins = new SystemAdmins(config);
   }
 
   @Override
@@ -84,13 +86,14 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     // No-op
     JobModel jobModel = null;
     try {
+      systemAdmins.start();
       jobModel = getJobModel();
       CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(null);
       if (checkpointManager != null) {
         checkpointManager.createResources();
       }
 
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions, systemAdmins);
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {
@@ -111,9 +114,13 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   @Override
   public void stop() {
     // No-op
-    if (coordinatorListener != null) {
-      coordinatorListener.onJobModelExpired();
-      coordinatorListener.onCoordinatorStop();
+    try {
+      if (coordinatorListener != null) {
+        coordinatorListener.onJobModelExpired();
+        coordinatorListener.onCoordinatorStop();
+      }
+    } finally {
+      systemAdmins.stop();
     }
   }
 

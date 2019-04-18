@@ -34,6 +34,7 @@ import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.system.SystemAdmins
 import org.apache.samza.task.{TaskFactory, TaskFactoryUtil}
 import org.apache.samza.util.{CoordinatorStreamUtil, Logging}
 
@@ -55,7 +56,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val systemAdmins = new SystemAdmins(configFromCoordinatorStream)
+    systemAdmins.start()
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry, systemAdmins)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -73,7 +76,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       checkpointManager.createResources()
       checkpointManager.stop()
     }
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions, systemAdmins)
 
     val containerId = "0"
     var jmxServer: JmxServer = null
@@ -136,6 +139,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         jmxServer.stop
       }
       coordinatorStreamStore.close()
+      systemAdmins.stop()
     }
   }
 
