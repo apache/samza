@@ -904,16 +904,21 @@ class SamzaContainer(
 
       try {
         var diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
-        if (diagnosticsAppender.equals(None)) {
-          diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
-          info("Attached log4j2 diagnostics appender.")
-        } else {
-          info("Attached log4j diagnostics appender.")
-        }
+        info("Attached log4j diagnostics appender.")
       }
       catch {
+        case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+          try {
+            val diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
+            info("Attached log4j2 diagnostics appender.")
+          } catch {
+            case e : Throwable => {
+              warn("Failed to instantiate neither diagnostic appender for sending error information to diagnostics stream", e)
+            }
+          }
+        }
         case e : Throwable => {
-          warn("Failed to instantiate diagnostic appender for sending error information to diagnostics stream", e)
+          warn("Failed to instantiate log4j diagnostic appender for sending error information to diagnostics stream", e)
         }
       }
     }
