@@ -28,8 +28,6 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
 
-import org.apache.samza.container.SamzaContainerMetrics
-
 import scala.collection.JavaConverters._
 
 
