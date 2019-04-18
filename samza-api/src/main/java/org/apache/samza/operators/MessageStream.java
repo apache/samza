@@ -121,15 +121,14 @@ public interface MessageStream<M> {
   void sink(SinkFunction<? super M> sinkFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propogates the this
+   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propagates this
    * {@link MessageStream} to the next chained operator
    * <p>
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    * <p>
-   *  Note: There is no guarantee that message is first written to your configured output system and then only it is
-   *  propagated to next chained operator since that control for sending messages is decided by the underlying output
-   *  system
+   *  Note: The message will be written but not flushed to the underlying output system before its propagated to the
+   *  chained operators. Messages retain the original partitioning scheme when propogated to next operator.
    * <p>
    * @param outputStream the output stream to send messages to
    * @return this {@link MessageStream}
@@ -281,13 +280,14 @@ public interface MessageStream<M> {
       MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
   /**
-   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
-   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown. After doing a put to table this operator
-   * propagates the message in this {@link MessageStream} to the next chained operator.
+   * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
+   * otherwise a {@link ClassCastException} will be thrown.
    * <p>
-   *  Note: It is a guarantee that message is first written to table and then only it is propagated to next operator
-   *  But if you are reading the same table in next operator, reading guarantee will be determined by your underlying
-   *  table read consistency
+   *  Note: The message will be written but may not be flushed to the underlying table before its propagated to the
+   *  chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   *  it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   *  scheme when propogated to next operator.
    * <p>
    * @param table the table to write messages to
    * @param <K> the type of key in the table
