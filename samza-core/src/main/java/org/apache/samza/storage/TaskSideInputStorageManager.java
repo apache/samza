@@ -260,7 +260,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets);
+              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets, true);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
