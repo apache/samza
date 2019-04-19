@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
-  public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v1.1";
+  public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v2";
   public static final String OFFSET_FILE_NAME_LEGACY = "OFFSET";
   public static final String SIDE_INPUT_OFFSET_FILE_NAME_LEGACY = "SIDE-INPUT-OFFSETS";
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
@@ -94,24 +94,29 @@ public class StorageManagerUtil {
    * @param storeDir the base directory of the store
    * @param storeDeleteRetentionInMs store delete retention in millis
    * @param currentTimeMs current time in ms
+   * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the store is stale, false otherwise
    */
-  public static boolean isStaleStore(File storeDir, long storeDeleteRetentionInMs, long currentTimeMs) {
+  public static boolean isStaleStore(File storeDir, long storeDeleteRetentionInMs, long currentTimeMs, boolean isSideInput) {
     long offsetFileLastModifiedTime;
     boolean isStaleStore = false;
     String storePath = storeDir.toPath().toString();
 
     if (storeDir.exists()) {
 
-      // We check if the new offset-file exists, if so we use its last-modified time, if it doesn't we use the legacy file,
+      // We check if the new offset-file exists, if so we use its last-modified time, if it doesn't we use the legacy file
+      // depending on if it is a side-input or not,
       // if neither exists, we use 0L (the defauilt return value of lastModified() when file does not exist
       File offsetFileRefNew = new File(storeDir, OFFSET_FILE_NAME_NEW);
       File offsetFileRefLegacy = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
+      File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
 
       if (offsetFileRefNew.exists()) {
         offsetFileLastModifiedTime = offsetFileRefNew.lastModified();
-      } else if(offsetFileRefLegacy.exists()) {
+      } else if (!isSideInput && offsetFileRefLegacy.exists()) {
         offsetFileLastModifiedTime = offsetFileRefLegacy.lastModified();
+      } else if (isSideInput && sideInputOffsetFileRefLegacy.exists()) {
+        offsetFileLastModifiedTime = sideInputOffsetFileRefLegacy.lastModified();
       } else {
         offsetFileLastModifiedTime = 0L;
       }
@@ -133,12 +138,13 @@ public class StorageManagerUtil {
    *
    * @param storeDir the base directory of the store
    * @param storeSSPs storeSSPs (if any) associated with the store
+   * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the offset file is valid. false otherwise.
    */
-  public static boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs) {
+  public static boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs, boolean isSideInput) {
     boolean hasValidOffsetFile = false;
     if (storeDir.exists()) {
-      Map<SystemStreamPartition, String> offsetContents = readOffsetFile(storeDir, storeSSPs);
+      Map<SystemStreamPartition, String> offsetContents = readOffsetFile(storeDir, storeSSPs, isSideInput);
       if (offsetContents != null && !offsetContents.isEmpty() && offsetContents.keySet().equals(storeSSPs)) {
         hasValidOffsetFile = true;
       } else {
@@ -155,7 +161,7 @@ public class StorageManagerUtil {
    * @param storeName the store name to use
    * @param taskName the task name which is referencing the store
    * @param offsets The SSP-offset to write
-   * @param isSideInput true if store is a side-input, false if it is a regular store
+   * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @throws IOException because of deserializing to json
    */
   public static void writeOffsetFile(File storeBaseDir, String storeName, TaskName taskName, TaskMode taskMode,
@@ -208,18 +214,30 @@ public class StorageManagerUtil {
     return storeDir.exists() && storeDir.list().length > 0;
   }
 
-
-  public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs) {
+  /**
+   * Read and return the offset from the directory's offset file
+   *
+   * @param storagePartitionDir the base directory of the store
+   * @param storeSSPs SSPs associated with the store (if any)
+   * @param isSideInput, true if the store is a side-input store, false otherwise
+   * @return the content of the offset file if it exists for the store, null otherwise.
+   */
+  public static Map<SystemStreamPartition, String> readOffsetFile(File storagePartitionDir, Set<SystemStreamPartition> storeSSPs, boolean isSideInput) {
 
     File offsetFileRefNew = new File(storagePartitionDir, OFFSET_FILE_NAME_NEW);
     File offsetFileRefLegacy = new File(storagePartitionDir, OFFSET_FILE_NAME_LEGACY);
+    File sideInputOffsetFileRefLegacy = new File(storagePartitionDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
 
     // First we check if the new offset file exists, if it does we read offsets from it regardless of old or new format,
-    // if it doesn't exist, we check if the legacy-offset file exists, if so we read offsets from the old file (regardless of the offset format)
+    // if it doesn't exist, we check if the store is non-sideInput and legacy-offset file exists, if so we read offsets
+    // from the old non-side-input offset file (regardless of the offset format),
+    // last, we check if the store is a sideInput and the old side-input-offset file exists
     if (offsetFileRefNew.exists()) {
       return readOffsetFile(storagePartitionDir, offsetFileRefNew.getName(), storeSSPs);
-    } else if (offsetFileRefLegacy.exists()) {
+    } else if (!isSideInput && offsetFileRefLegacy.exists()) {
       return readOffsetFile(storagePartitionDir, offsetFileRefLegacy.getName(), storeSSPs);
+    } else if (isSideInput && sideInputOffsetFileRefLegacy.exists()) {
+      return readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
     } else {
       return new HashMap<>();
     }
