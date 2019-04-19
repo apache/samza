@@ -113,11 +113,6 @@ object JobConfig {
   // Enables standby tasks
   val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replication.factor"
   val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1
-
-  // Specify DiagnosticAppender class
-  val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
-  val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
-
   val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
@@ -260,10 +255,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStartpointMetadataStoreFactory = getOption(JobConfig.STARTPOINT_METADATA_STORE_FACTORY).getOrElse(null)
 
   def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
-
-  def getDiagnosticsAppenderClass = {
-    getOrDefault(JobConfig.DIAGNOSTICS_APPENDER_CLASS, JobConfig.DEFAULT_DIAGNOSTICS_APPENDER_CLASS)
-  }
 
   def getJMXEnabled = {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
