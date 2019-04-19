@@ -50,7 +50,7 @@ public class LocalStoreMonitor implements Monitor {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalStoreMonitor.class);
 
-  private static final String OFFSET_FILE_NAME = StorageManagerUtil.OFFSET_FILE_NAME;
+  private static final String OFFSET_FILE_NAME = StorageManagerUtil.OFFSET_FILE_NAME_NEW;
 
   private final JobsClient jobsClient;
 

@@ -936,7 +936,7 @@ public class ContainerStorageManager {
 
             SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
             Map<SystemStreamPartition, String> offset =
-                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
+                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
             LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
 
             if (offset.containsKey(changelogSSP)) {
@@ -965,8 +965,8 @@ public class ContainerStorageManager {
 
       if (changelogSystemStreams.containsKey(storeName)) {
         SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-        return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP))
-            && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
+        return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP), false)
+            && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis(), false);
       }
 
       return false;
