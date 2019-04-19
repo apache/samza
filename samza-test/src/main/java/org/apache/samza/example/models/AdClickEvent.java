@@ -16,29 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.clustermanager;
+package org.apache.samza.example.models;
 
-/**
- * {@code SamzaContainerLaunchException} indicates an {@link Exception} during container launch.
- * It can wrap another type of {@link Throwable} or {@link Exception}. Ultimately, any exception thrown
- * during container launch should be of this type so it can be handled explicitly.
- */
-public class SamzaContainerLaunchException extends Exception {
-  private static final long serialVersionUID = -3957939806997013992L;
+public class AdClickEvent {
+  private int id;
+  private int memberId;
 
-  public SamzaContainerLaunchException() {
-    super();
+  public AdClickEvent(int id, int memberId) {
+    this.id = id;
+    this.memberId = memberId;
   }
 
-  public SamzaContainerLaunchException(String s, Throwable t) {
-    super(s, t);
+  public int getId() {
+    return id;
   }
 
-  public SamzaContainerLaunchException(String s) {
-    super(s);
-  }
-
-  public SamzaContainerLaunchException(Throwable t) {
-    super(t);
+  public int getMemberId() {
+    return memberId;
   }
 }

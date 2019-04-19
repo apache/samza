@@ -27,16 +27,29 @@ import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
-import org.apache.samza.container.grouper.stream.{SSPGrouperProxy, SystemStreamPartitionGrouperFactory}
+import org.apache.samza.container.grouper.stream.SSPGrouperProxy
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.{LocalityManager, TaskName}
-import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
+import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
+import org.apache.samza.container.LocalityManager
+import org.apache.samza.container.TaskName
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
-import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.TaskMode
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.Logging
+import org.apache.samza.util.Util
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -46,6 +59,8 @@ import scala.collection.JavaConverters._
  * given a Config object.
  */
 object JobModelManager extends Logging {
+
+  val SOURCE = "JobModelManager"
 
   /**
    * a volatile value to store the current instantiated <code>JobModelManager</code>
@@ -64,10 +79,15 @@ object JobModelManager extends Logging {
    * @param metricsRegistry the registry for reporting metrics.
    * @return the instantiated {@see JobModelManager}.
    */
-  def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
-    val localityManager = new LocalityManager(config, metricsRegistry)
-    val taskAssignmentManager = new TaskAssignmentManager(config, metricsRegistry)
-    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(config, metricsRegistry)
+  def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
+            coordinatorStreamStore: CoordinatorStreamStore,
+            metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
+
+    // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
+    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
+    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE))
+    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE))
+
     val systemAdmins = new SystemAdmins(config)
     try {
       systemAdmins.start()
@@ -85,10 +105,8 @@ object JobModelManager extends Logging {
       currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
       currentJobModelManager
     } finally {
-      taskPartitionAssignmentManager.close()
-      taskAssignmentManager.close()
       systemAdmins.stop()
-      // Not closing localityManager, since {@code ClusterBasedJobCoordinator} uses it to read container locality through {@code JobModel}.
+      // Not closing coordinatorStreamStore, since {@code ClusterBasedJobCoordinator} uses it to read container locality through {@code JobModel}.
     }
   }
 

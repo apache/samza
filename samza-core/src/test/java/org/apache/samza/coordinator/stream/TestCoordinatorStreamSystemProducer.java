@@ -41,6 +41,7 @@ import org.junit.Test;
 public class TestCoordinatorStreamSystemProducer {
   @Test
   public void testCoordinatorStreamSystemProducer() {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
     String source = "source";
     SystemStream systemStream = new SystemStream("system", "stream");
     MockCoordinatorSystemProducer systemProducer = new MockCoordinatorSystemProducer(source);

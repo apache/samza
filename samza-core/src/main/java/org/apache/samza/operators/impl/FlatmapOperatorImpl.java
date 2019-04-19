@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -34,12 +36,12 @@ import java.util.Collection;
  * @param <M>  the type of input message
  * @param <RM>  the type of result
  */
-class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
+class FlatmapOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
 
   private final StreamOperatorSpec<M, RM> streamOpSpec;
   private final FlatMapFunction<M, RM> transformFn;
 
-  StreamOperatorImpl(StreamOperatorSpec<M, RM> streamOpSpec) {
+  FlatmapOperatorImpl(StreamOperatorSpec<M, RM> streamOpSpec) {
     this.streamOpSpec = streamOpSpec;
     this.transformFn = streamOpSpec.getTransformFn();
   }
@@ -50,9 +52,9 @@ class StreamOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
   }
 
   @Override
-  public Collection<RM> handleMessage(M message, MessageCollector collector,
+  protected CompletionStage<Collection<RM>> handleMessageAsync(M message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    return this.transformFn.apply(message);
+    return CompletableFuture.completedFuture(this.transformFn.apply(message));
   }
 
   @Override

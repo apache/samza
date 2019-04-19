@@ -197,7 +197,7 @@ public class TestContainerProcessManager {
     assertTrue(isRunning);
 
     // Verify the remaining state
-    assertEquals(1, state.neededContainers.get());
+    assertEquals(1, state.neededProcessors.get());
     assertEquals(1, allocator.requestedContainers);
 
     taskManager.stop();
@@ -319,7 +319,7 @@ public class TestContainerProcessManager {
     }
     taskManager.onStreamProcessorLaunchSuccess(container);
     // Create first container failure
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -341,7 +341,7 @@ public class TestContainerProcessManager {
     assertTrue(state.jobHealthy.get());
 
     // Create a second failure
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
 
 
     // The above failure should trigger a job shutdown because our retry count is set to 1
@@ -420,7 +420,7 @@ public class TestContainerProcessManager {
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
-    state.pendingContainers.put("1", resource);
+    state.pendingProcessors.put("1", resource);
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 1);
     manager.onStreamProcessorLaunchFailure(resource, new Exception("cannot launch container!"));
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 2);
@@ -474,7 +474,7 @@ public class TestContainerProcessManager {
     assertEquals("host2", allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
-    taskManager.onResourceCompleted(new SamzaResourceStatus(resource1.getResourceID(), "App Error", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(resource1.getContainerId(), "App Error", 1));
     assertEquals(2, allocator.getContainerRequestState().numPendingRequests());
 
     assertFalse(taskManager.shouldShutdown());
@@ -538,7 +538,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -560,7 +560,7 @@ public class TestContainerProcessManager {
     assertTrue(state.jobHealthy.get());
 
     // Simulate a duplicate notification for container 1 with a different exit code
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.PREEMPTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "Disk failure", SamzaResourceStatus.PREEMPTED));
     // assert that a duplicate notification does not change metrics (including job health)
     assertEquals(state.redundantNotifications.get(), 1);
     assertEquals(2, clusterResourceManager.resourceRequests.size());
@@ -613,7 +613,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     taskManager.onStreamProcessorLaunchSuccess(container1);
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "App error", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "App error", 1));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -633,7 +633,7 @@ public class TestContainerProcessManager {
     taskManager.onStreamProcessorLaunchSuccess(container2);
 
     // Create container failure - with ContainerExitStatus.PREEMPTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getResourceID(), "Preemption", SamzaResourceStatus.PREEMPTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getContainerId(), "Preemption", SamzaResourceStatus.PREEMPTED));
     assertEquals(3, clusterResourceManager.resourceRequests.size());
 
     // The above failure should trigger a container request
@@ -651,7 +651,7 @@ public class TestContainerProcessManager {
     taskManager.onStreamProcessorLaunchSuccess(container3);
 
     // Create container failure - with ContainerExitStatus.ABORTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getContainerId(), "Aborted", SamzaResourceStatus.ABORTED));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());

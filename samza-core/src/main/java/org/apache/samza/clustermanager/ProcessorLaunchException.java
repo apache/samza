@@ -16,30 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.job.yarn;
+package org.apache.samza.clustermanager;
 
 /**
- * {@code SamzaContainerLaunchException} indicates an {@link Exception} during container launch.
+ * {@code ProcessorLaunchException} indicates an {@link Exception} during processor launch.
  * It can wrap another type of {@link Throwable} or {@link Exception}. Ultimately, any exception thrown
- * during container launch should be of this type so it can be handled explicitly.
+ * during processor launch should be of this type so it can be handled explicitly.
  */
-public class SamzaContainerLaunchException extends Exception {
-
+public class ProcessorLaunchException extends Exception {
   private static final long serialVersionUID = -3957939806997013992L;
 
-  public SamzaContainerLaunchException() {
+  public ProcessorLaunchException() {
     super();
   }
 
-  public SamzaContainerLaunchException(String s, Throwable t) {
+  public ProcessorLaunchException(String s, Throwable t) {
     super(s, t);
   }
 
-  public SamzaContainerLaunchException(String s) {
+  public ProcessorLaunchException(String s) {
     super(s);
   }
 
-  public SamzaContainerLaunchException(Throwable t) {
+  public ProcessorLaunchException(Throwable t) {
     super(t);
   }
 }

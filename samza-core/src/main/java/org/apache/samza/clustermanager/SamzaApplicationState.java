@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * SamzaAppState encapsulates state like - completedContainers, runningContainers. This
+ * SamzaAppState encapsulates state like - completedProcessors, runningProcessors. This
  * class is also used to display information in the Samza UI. Changing any variable name/
  * data structure type in this class WILL break the UI.
  *
@@ -63,9 +63,9 @@ public class SamzaApplicationState {
    */
 
   /**
-   * Number of containers that have completed their execution and exited successfully
+   * Number of Samza processors that have completed their execution and exited successfully
    */
-  public final AtomicInteger completedContainers = new AtomicInteger(0);
+  public final AtomicInteger completedProcessors = new AtomicInteger(0);
 
   /**
    * Number of failed containers
@@ -80,35 +80,35 @@ public class SamzaApplicationState {
   /**
    * ContainerStatuses of failed containers.
    */
-  public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<String, SamzaResourceStatus>();
+  public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<>();
 
   /**
-   * Number of containers configured for the job
+   * Number of processors configured for the job
    */
-  public final AtomicInteger containerCount = new AtomicInteger(0);
+  public final AtomicInteger processorCount = new AtomicInteger(0);
 
   /**
    * Set of finished containers
    */
-  public final AtomicInteger finishedContainers = new AtomicInteger(0);
+  public final AtomicInteger finishedProcessors = new AtomicInteger(0);
 
   /**
-   *  Number of containers needed for the job to be declared healthy
+   *  Number of processors needed for the job to be declared healthy
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final AtomicInteger neededContainers = new AtomicInteger(0);
+  public final AtomicInteger neededProcessors = new AtomicInteger(0);
 
   /**
-   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is submitted for launch.
+   *  Map of the Samza processor ID to the {@link SamzaResource} on which it is submitted for launch.
    *  Modified by both the NMCallback and the ContainerAllocator thread.
    */
-  public final ConcurrentMap<String, SamzaResource> pendingContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+  public final ConcurrentMap<String, SamzaResource> pendingProcessors = new ConcurrentHashMap<>(0);
 
   /**
-   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running.
+   *  Map of the Samza processor ID to the {@link SamzaResource} on which it is running.
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+  public final ConcurrentMap<String, SamzaResource> runningProcessors = new ConcurrentHashMap<>(0);
 
    /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.

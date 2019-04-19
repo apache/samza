@@ -53,6 +53,7 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
@@ -152,10 +153,16 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
+    ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.of(
+        inputSinglePartitionKafkaTopic, 1,
+        outputSinglePartitionKafkaTopic, 1,
+        inputKafkaTopic, 5,
+        outputKafkaTopic, 5);
+
     List<NewTopic> newTopics =
         ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
             .stream()
-            .map(topic -> new NewTopic(topic, 5, (short) 1))
+            .map(topic -> new NewTopic(topic, topicToPartitionCount.get(topic), (short) 1))
             .collect(Collectors.toList());
 
     assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
@@ -717,8 +724,9 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     Map<String, String> configMap = new HashMap<>();
     CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
     metadataStore.all().forEach((key, value) -> {
+        CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
         String deserializedValue = jsonSerde.fromBytes(value);
-        configMap.put(key, deserializedValue);
+        configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
       });
     return new MapConfig(configMap);
   }

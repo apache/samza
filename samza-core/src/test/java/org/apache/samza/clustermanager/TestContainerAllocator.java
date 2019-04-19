@@ -136,8 +136,8 @@ public class TestContainerAllocator {
     assertEquals(requestState.numPendingRequests(), 4);
 
     // If host-affinty is not enabled, it doesn't update the requestMap
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertEquals(requestState.getRequestsToCountMap().keySet().size(), 0);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
   }
 
   /**
@@ -165,8 +165,8 @@ public class TestContainerAllocator {
     assertEquals(requestState.numPendingRequests(), 4);
 
     // If host-affinty is not enabled, it doesn't update the requestMap
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertEquals(requestState.getRequestsToCountMap().keySet().size(), 0);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
 
     assertNotNull(state);
     assertEquals(state.anyHostRequests.get(), 4);
@@ -192,8 +192,8 @@ public class TestContainerAllocator {
     assertTrue(requestState.numPendingRequests() == 4);
 
     // If host-affinty is not enabled, it doesn't update the requestMap
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertTrue(requestState.getRequestsToCountMap().keySet().size() == 0);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertTrue(requestState.getHostRequestCounts().keySet().size() == 0);
   }
 
   /**
@@ -218,7 +218,7 @@ public class TestContainerAllocator {
 
         // Test that state is cleaned up
         assertEquals(0, requestState.numPendingRequests());
-        assertEquals(0, requestState.getRequestsToCountMap().size());
+        assertEquals(0, requestState.getHostRequestCounts().size());
         assertNull(requestState.getResourcesOnAHost("abc"));
         assertNull(requestState.getResourcesOnAHost("def"));
       }

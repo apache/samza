@@ -19,29 +19,29 @@
 
 package org.apache.samza.job.yarn
 
-import org.apache.hadoop.yarn.api.records.Container
+import org.apache.hadoop.yarn.api.records.{Container, ContainerId, NodeId, Priority, Resource, Token}
 import org.joda.time.Period
-import org.joda.time.format.{ DateTimeFormatter, ISODateTimeFormat, ISOPeriodFormat, PeriodFormatter }
+import org.joda.time.format.{DateTimeFormatter, ISODateTimeFormat, ISOPeriodFormat, PeriodFormatter}
 
 object YarnContainerUtils {
-  val dateFormater = ISODateTimeFormat.dateTime
-  val periodFormater = ISOPeriodFormat.standard
+  val dateFormater: DateTimeFormatter = ISODateTimeFormat.dateTime
+  val periodFormater: PeriodFormatter = ISOPeriodFormat.standard
 }
 
 /**
  * YARN container information plus start time and up time
  */
 class YarnContainer(container: Container) {
-  val id = container.getId()
-  val nodeId = container.getNodeId();
-  val nodeHttpAddress = container.getNodeHttpAddress();
-  val resource = container.getResource();
-  val priority = container.getPriority();
-  val containerToken = container.getContainerToken();
-  val startTime = System.currentTimeMillis()
-  def startTimeStr(dtFormatter: Option[DateTimeFormatter] = None) =
+  val id: ContainerId = container.getId
+  val nodeId: NodeId = container.getNodeId
+  val nodeHttpAddress: String = container.getNodeHttpAddress
+  val resource: Resource = container.getResource
+  val priority: Priority = container.getPriority
+  val containerToken: Token = container.getContainerToken
+  val startTime: Long = System.currentTimeMillis()
+  def startTimeStr(dtFormatter: Option[DateTimeFormatter] = None): String =
     dtFormatter.getOrElse(YarnContainerUtils.dateFormater).print(startTime)
-  val upTime = System.currentTimeMillis()
-  def upTimeStr(periodFormatter: Option[PeriodFormatter] = None) =
+  val upTime: Long = System.currentTimeMillis()
+  def upTimeStr(periodFormatter: Option[PeriodFormatter] = None): String =
     periodFormatter.getOrElse(YarnContainerUtils.periodFormater).print(new Period(startTime, upTime))
 }
