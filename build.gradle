@@ -810,6 +810,9 @@ project(":samza-test_$scalaSuffix") {
     compile.exclude group: 'javax.jms', module: 'jms'
     compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
     compile.exclude group: 'com.sun.jmx', module: 'jmxri'
+    // Exclude Slf4j bindings for log4j1 and log4j2 since samza-test just logs to console using slf4j-simple
+    compile.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    compile.exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
   }
 
   dependencies {
@@ -819,8 +822,6 @@ project(":samza-test_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-sql_$scalaSuffix")
-    runtime project(":samza-log4j_$scalaSuffix")
-    runtime project(":samza-log4j2_$scalaSuffix")
     runtime project(":samza-yarn_$scalaSuffix")
     runtime project(":samza-hdfs_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"

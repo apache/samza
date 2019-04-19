@@ -18,6 +18,10 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.InputOperatorImpl;
@@ -37,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * A {@link StreamTask} implementation that brings all the operator API implementation components together and
  * feeds the input messages into the user-defined transformation chains in {@link OperatorSpecGraph}.
  */
-public class StreamOperatorTask implements StreamTask, InitableTask, WindowableTask, ClosableTask {
+public class StreamOperatorTask implements AsyncStreamTask, InitableTask, WindowableTask, ClosableTask {
   private static final Logger LOG = LoggerFactory.getLogger(StreamOperatorTask.class);
 
   private final OperatorSpecGraph specGraph;
@@ -90,34 +94,56 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
    * @param ime incoming message envelope to process
    * @param collector the collector to send messages with
    * @param coordinator the coordinator to request commits or shutdown
+   * @param callback the task callback handle
    */
   @Override
-  public final void process(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
+  public final void processAsync(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator,
+      TaskCallback callback) {
     SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
     InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
     if (inputOpImpl != null) {
-      switch (MessageType.of(ime.getMessage())) {
+      CompletionStage<Void> processFuture;
+      MessageType messageType = MessageType.of(ime.getMessage());
+      switch (messageType) {
         case USER_MESSAGE:
-          inputOpImpl.onMessage(ime, collector, coordinator);
+          processFuture = inputOpImpl.onMessageAsync(ime, collector, coordinator);
           break;
 
         case END_OF_STREAM:
           EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
-          inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
+          processFuture =
+              inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
           break;
 
         case WATERMARK:
           WatermarkMessage watermarkMessage = (WatermarkMessage) ime.getMessage();
-          inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector, coordinator);
+          processFuture =
+              inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector, coordinator);
+          break;
+
+        default:
+          processFuture = failedFuture(new SamzaException("Unknown message type " + messageType + " encountered."));
           break;
       }
+
+      processFuture.whenComplete((val, ex) -> {
+          if (ex != null) {
+            callback.failure(ex);
+          } else {
+            callback.complete();
+          }
+        });
     }
   }
 
   @Override
   public final void window(MessageCollector collector, TaskCoordinator coordinator)  {
-    operatorImplGraph.getAllInputOperators()
-        .forEach(inputOperator -> inputOperator.onTimer(collector, coordinator));
+    CompletableFuture<Void> windowFuture = CompletableFuture.allOf(operatorImplGraph.getAllInputOperators()
+        .stream()
+        .map(inputOperator -> inputOperator.onTimer(collector, coordinator))
+        .toArray(CompletableFuture[]::new));
+
+    windowFuture.join();
   }
 
   @Override
@@ -130,5 +156,13 @@ public class StreamOperatorTask implements StreamTask, InitableTask, WindowableT
   /* package private for testing */
   OperatorImplGraph getOperatorImplGraph() {
     return this.operatorImplGraph;
+  }
+
+  private static CompletableFuture<Void> failedFuture(Throwable ex) {
+    Preconditions.checkNotNull(ex);
+    CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+    failedFuture.completeExceptionally(ex);
+
+    return failedFuture;
   }
 }

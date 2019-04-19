@@ -23,11 +23,12 @@ import java.io.{BufferedReader, InputStreamReader}
 import java.net.URL
 
 import org.apache.hadoop.yarn.util.ConverterUtils
-import org.apache.samza.clustermanager.SamzaApplicationState
+import org.apache.samza.clustermanager.{ClusterBasedJobCoordinator, SamzaApplicationState}
 import org.apache.samza.config.{Config, MapConfig}
-import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.{CoordinatorStreamManager, MockCoordinatorStreamSystemFactory}
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, CoordinatorStreamStoreTestUtil, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 import org.apache.samza.metrics._
 import org.apache.samza.storage.ChangelogStreamManager
 import org.junit.Assert._
@@ -39,14 +40,14 @@ class TestSamzaYarnAppMasterService {
 
   @Test
   def testAppMasterDashboardShouldStart {
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
     val config = getDummyConfig
     val jobModelManager = getTestJobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
     val registry = new MetricsRegistryMap()
 
-    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
+    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1)
     val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
-    val taskName = new TaskName("test")
 
     // start the dashboard
     service.onInit
@@ -56,15 +57,15 @@ class TestSamzaYarnAppMasterService {
 
     // check to see if it's running
     val url = new URL(state.rpcUrl.toString + "am")
-    val is = url.openConnection().getInputStream();
-    val reader = new BufferedReader(new InputStreamReader(is));
-    var line: String = null;
+    val is = url.openConnection().getInputStream()
+    val reader = new BufferedReader(new InputStreamReader(is))
+    var line: String = null
 
     do {
       line = reader.readLine()
     } while (line != null)
 
-    reader.close();
+    reader.close()
   }
 
   /**
@@ -77,7 +78,7 @@ class TestSamzaYarnAppMasterService {
     val config = getDummyConfig
     val jobModelManager = getTestJobModelManager(config)
     val samzaState = new SamzaApplicationState(jobModelManager)
-    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1);
+    val state = new YarnAppState(-1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000002"), "testHost", 1, 1)
     val registry = new MetricsRegistryMap()
 
     val service = new SamzaYarnAppMasterService(config, samzaState, state, registry, null)
@@ -101,14 +102,16 @@ class TestSamzaYarnAppMasterService {
   }
 
   private def getTestJobModelManager(config: Config) = {
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, new MetricsRegistryMap)
-    coordinatorStreamManager.register("TestJobCoordinator")
-    coordinatorStreamManager.start
-    coordinatorStreamManager.bootstrap
-    val changelogPartitionManager = new ChangelogStreamManager(coordinatorStreamManager)
-    val jobModelManager = JobModelManager(coordinatorStreamManager.getConfig, changelogPartitionManager.readPartitionMapping())
-    coordinatorStreamManager.stop()
-    jobModelManager
+    val coordinatorStreamTestUtil: CoordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config)
+    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamTestUtil.getCoordinatorStreamStore
+    val namespaceAwareCoordinatorStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE)
+    try {
+      val changelogPartitionManager = new ChangelogStreamManager(namespaceAwareCoordinatorStore)
+      val jobModelManager = JobModelManager(getDummyConfig, changelogPartitionManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+      jobModelManager
+    } finally {
+      coordinatorStreamStore.close()
+    }
   }
 
   private def getDummyConfig: Config = new MapConfig(Map[String, String](
@@ -125,7 +128,3 @@ class TestSamzaYarnAppMasterService {
     "job.coordinator.system" -> "coordinator",
     "systems.coordinator.samza.factory" -> classOf[MockCoordinatorStreamSystemFactory].getCanonicalName).asJava)
 }
-
-
-
-

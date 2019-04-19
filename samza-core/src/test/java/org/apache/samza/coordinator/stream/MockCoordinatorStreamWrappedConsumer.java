@@ -65,10 +65,6 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
     convertConfigToCoordinatorMessage(config);
   }
 
-  public void addMoreMessages(Config config) {
-    convertConfigToCoordinatorMessage(config);
-  }
-
   public void addMessageEnvelope(IncomingMessageEnvelope envelope) throws IOException, InterruptedException {
     put(systemStreamPartition, envelope);
     setIsAtHead(systemStreamPartition, true);
@@ -77,8 +73,8 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
   private void convertConfigToCoordinatorMessage(Config config) {
     try {
       for (Map.Entry<String, String> configPair : config.entrySet()) {
-        byte[] keyBytes = null;
-        byte[] messgeBytes = null;
+        byte[] keyBytes;
+        byte[] messgeBytes;
         if (configPair.getKey().startsWith(CHANGELOGPREFIX)) {
           String[] changelogInfo = configPair.getKey().split(":");
           String changeLogPartition = configPair.getValue();
@@ -110,12 +106,6 @@ public class MockCoordinatorStreamWrappedConsumer extends BlockingEnvelopeMap {
 
     return super.poll(systemStreamPartitions, timeout);
   }
-
-  public CountDownLatch blockPool() {
-    blockpollFlag = true;
-    return blockConsumerPoll;
-  }
-
 
   public void stop() {}
 }

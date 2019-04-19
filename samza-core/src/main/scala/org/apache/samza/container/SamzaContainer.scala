@@ -135,7 +135,8 @@ object SamzaContainer extends Logging {
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
-    localityManager: LocalityManager = null) = {
+    localityManager: LocalityManager = null,
+    startpointManager: StartpointManager = null) = {
     val config = jobContext.getConfig
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
@@ -428,28 +429,12 @@ object SamzaContainer extends Logging {
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val startpointMetadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
-      .map(Util.getObj(_, classOf[MetadataStoreFactory]))
-      .orNull
-    val startpointManager = if (startpointMetadataStoreFactory != null) {
-      try {
-        Option(new StartpointManager(startpointMetadataStoreFactory, config, samzaContainerMetrics.registry))
-      } catch {
-        case e: Exception => {
-          error("Unable to get an instance of the StartpointManager. Continuing without one.", e)
-          None
-        }
-      }
-    } else {
-      None
-    }
-
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager.getOrElse(null), systemAdmins, checkpointListeners, offsetManagerMetrics)
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserializationErrors
@@ -938,11 +923,11 @@ class SamzaContainer(
         localityManager.writeContainerToHostMapping(containerId, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>
-          warn("Received UnknownHostException when persisting locality info for container %s: " +
-            "%s" format (containerId, uhe.getMessage))  //No-op
+          warn("Received UnknownHostException when persisting locality info for container: " +
+            "%s" format (containerId), uhe)  //No-op
         case unknownException: Throwable =>
           warn("Received an exception when persisting locality info for container %s: " +
-            "%s" format (containerId, unknownException.getMessage))
+            "%s" format (containerId), unknownException)
       } finally {
         info("Shutting down locality manager.")
         localityManager.close()

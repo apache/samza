@@ -28,33 +28,44 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.metadatastore.InMemoryMetadataStore;
-import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
-
 
 public class TestStartpointManager {
 
+  private static final Config CONFIG = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
+
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private StartpointManager startpointManager;
+
+  @Before
+  public void setup() {
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
+    coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    startpointManager = new StartpointManager(coordinatorStreamStore);
+  }
+
   @Test
   public void testDefaultMetadataStore() {
-    MapConfig config = new MapConfig();
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
     Assert.assertNotNull(startpointManager);
-    Assert.assertEquals(InMemoryMetadataStore.class, startpointManager.getMetadataStore().getClass());
+    Assert.assertEquals(NamespaceAwareCoordinatorStreamStore.class, startpointManager.getMetadataStore().getClass());
   }
 
   @Test
   public void testNoLongerUsableAfterStop() {
-    MapConfig config = new MapConfig();
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), config, new NoOpMetricsRegistry());
+    StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
     startpointManager.start();
     SystemStreamPartition ssp =
         new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
@@ -101,7 +112,6 @@ public class TestStartpointManager {
 
   @Test
   public void testBasics() {
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
     startpointManager.start();
     SystemStreamPartition ssp =
         new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
@@ -161,10 +171,8 @@ public class TestStartpointManager {
   }
 
   @Test
-  public void testStaleStartpoints() throws InterruptedException {
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
-    SystemStreamPartition ssp =
-        new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
+  public void testStaleStartpoints() {
+    SystemStreamPartition ssp = new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
     TaskName taskName = new TaskName("MockTask");
 
     startpointManager.start();
@@ -180,7 +188,6 @@ public class TestStartpointManager {
   @Test
   public void testGroupStartpointsPerTask() {
     MapConfig config = new MapConfig();
-    StartpointManager startpointManager = new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
     startpointManager.start();
     SystemStreamPartition sspBroadcast =
         new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));

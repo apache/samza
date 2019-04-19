@@ -21,10 +21,14 @@
 
 package org.apache.samza.util
 
+import java.util
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
 import org.apache.samza.system.{SystemFactory, SystemStream}
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde
+import org.apache.samza.coordinator.stream.messages.SetConfig
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.immutable.Map
@@ -90,5 +94,22 @@ object CoordinatorStreamUtil {
   private def getJobNameAndId(config: Config) = {
     (config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
       config.getJobId)
+  }
+
+  /**
+    * Reads and returns the complete configuration stored in the coordinator stream.
+    * @param coordinatorStreamStore an instance of the instantiated {@link CoordinatorStreamStore}.
+    * @return the configuration read from the coordinator stream.
+    */
+  def readConfigFromCoordinatorStream(coordinatorStreamStore: CoordinatorStreamStore): Config = {
+    val namespaceAwareCoordinatorStreamStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE)
+    val configFromCoordinatorStream: util.Map[String, Array[Byte]] = namespaceAwareCoordinatorStreamStore.all
+    val configMap: util.Map[String, String] = new util.HashMap[String, String]
+    for ((key: String, valueAsBytes: Array[Byte]) <- configFromCoordinatorStream.asScala) {
+      val valueSerde: CoordinatorStreamValueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
+      val valueAsString: String = valueSerde.fromBytes(valueAsBytes)
+      configMap.put(key, valueAsString)
+    }
+    new MapConfig(configMap)
   }
 }

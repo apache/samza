@@ -85,10 +85,10 @@ public class MockClusterResourceManager extends ClusterResourceManager {
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
     // assert that the resource is in "pending" state prior to invoking this method
-    Assert.assertTrue(state.pendingContainers.values().contains(resource));
+    Assert.assertTrue(state.pendingProcessors.values().contains(resource));
 
     if (nextException != null) {
-      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(nextException));
+      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new ProcessorLaunchException(nextException));
     } else {
       launchedResources.add(resource);
       clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
