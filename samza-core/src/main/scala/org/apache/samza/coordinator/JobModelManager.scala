@@ -122,9 +122,9 @@ object JobModelManager extends Logging {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
     val taskModes: util.Map[TaskName, TaskMode] = taskAssignmentManager.readTaskModes()
 
-    // We read the taskAssignment only for ActiveTasks
+    // We read the taskAssignment only for ActiveTasks, i.e., tasks that have no task-mode or have an active task mode
     val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment().
-      filterKeys(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
+      filterKeys(taskName => !taskModes.containsKey(new TaskName(taskName)) || taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
 
 
     val taskNameToProcessorId: util.Map[TaskName, String] = new util.HashMap[TaskName, String]()
@@ -149,11 +149,9 @@ object JobModelManager extends Logging {
       for (task <- taskNames) {
         val taskName: TaskName = new TaskName(task)
 
-        // We read the partition assignments only for active-tasks
-        if (taskModes.get(taskName).eq(TaskMode.Active)) {
-          if (!taskPartitionAssignments.containsKey(taskName)) {
-            taskPartitionAssignments.put(taskName, new util.ArrayList[SystemStreamPartition]())
-          }
+        // We read the partition assignments only for active-tasks, i.e., tasks that have no task-mode or have an active task mode
+        if (!taskModes.containsKey(taskName) || taskModes.get(taskName).eq(TaskMode.Active)) {
+          taskPartitionAssignments.putIfAbsent(taskName, new util.ArrayList[SystemStreamPartition]())
           taskPartitionAssignments.get(taskName).add(systemStreamPartition)
         }
       }
