@@ -27,7 +27,7 @@ import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
 import org.apache.samza.context.{ExternalContext, JobContextImpl}
-import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.{JobModelManager, MetadataResourceLoader}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
@@ -68,12 +68,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
-    if (checkpointManager != null) {
-      checkpointManager.createResources()
-      checkpointManager.stop()
-    }
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    val metadataResourceLoader = new MetadataResourceLoader(coordinatorStreamStore, jobModel, metricsRegistry)
+    metadataResourceLoader.createResources()
 
     val containerId = "0"
     var jmxServer: JmxServer = null
