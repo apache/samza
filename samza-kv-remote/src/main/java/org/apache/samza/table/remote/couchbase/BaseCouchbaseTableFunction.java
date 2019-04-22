@@ -111,6 +111,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withTimeout(Duration timeout) {
+    Preconditions.checkArgument(timeout != null && !timeout.isNegative(), "Timeout should not be null or negative");
     this.timeout = timeout;
     return (T) this;
   }
@@ -123,6 +124,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withTtl(Duration ttl) {
+    Preconditions.checkArgument(ttl != null && !ttl.isNegative(), "TTL should not be null or negative");
     this.ttl = ttl;
     return (T) this;
   }
@@ -148,7 +150,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
    * @return Self
    */
   public <T extends BaseCouchbaseTableFunction<V>> T withUsernameAndPassword(String username, String password) {
-    Preconditions.checkArgument(StringUtils.isNotEmpty(username), "username should not allowed be null or empty.");
+    Preconditions.checkArgument(StringUtils.isNotEmpty(username), "username should not be null or empty.");
     if (environmentConfigs.sslEnabled != null && environmentConfigs.sslEnabled) {
       throw new IllegalArgumentException(
           "Role-Based Access Control and Certificate-Based Authentication cannot be used together.");
@@ -159,28 +161,20 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   }
 
   /**
-   * Enable certificate-based authentication. If ssl is enabled sslKeystore or sslTrustStore should also be provided
-   * accordingly. There are four combinations of settings:
-   * Both are true: enable certificate-based authentication.
-   * Both are false: disable certificate-based authentication.
-   * Only sslEnabled is true but certAuthEnabled is false: only server side certificate checking is needed.
-   * sslEnabled is false but certAuthEnabled is true: not valid and exception will be thrown.
-   * @param sslEnabled allows to enable certificate-based authentication
+   * Enable certificate-based authentication and set sslEnabled to be true. If certAuthEnabled is false, only server
+   * side certificate checking is enabled. If certAuthEnabled is true, both client and server certificate checking are
+   * enabled.
+   * SslKeystore or sslTrustStore should also be provided accordingly.
    * @param certAuthEnabled allows to enable X.509 client certificate authentication
    * @param <T> type of this instance
    * @return Self
    */
-  public <T extends BaseCouchbaseTableFunction<V>> T withSslEnabledAndCertAuthEnabled(boolean sslEnabled,
-      boolean certAuthEnabled) {
-    if (environmentConfigs.username != null && sslEnabled) {
+  public <T extends BaseCouchbaseTableFunction<V>> T withSslEnabledAndCertAuthEnabled(boolean certAuthEnabled) {
+    if (environmentConfigs.username != null) {
       throw new IllegalArgumentException(
           "Role-Based Access Control and Certificate-Based Authentication cannot be used together.");
     }
-    if (!sslEnabled && certAuthEnabled) {
-      throw new IllegalStateException(
-          "Client Certificate Authentication enabled, but SSL is not - " + "please configure encryption properly.");
-    }
-    environmentConfigs.sslEnabled = sslEnabled;
+    environmentConfigs.sslEnabled = true;
     environmentConfigs.certAuthEnabled = certAuthEnabled;
     return (T) this;
   }
