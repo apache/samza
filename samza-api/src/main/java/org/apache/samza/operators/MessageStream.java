@@ -112,7 +112,7 @@ public interface MessageStream<M> {
    * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
    * the {@link SinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
    * {@link org.apache.samza.task.TaskCoordinator}.
-   * <p>
+   *
    * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
    * Samza SystemProducer implementation.
    *
@@ -127,9 +127,9 @@ public interface MessageStream<M> {
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
    * <p>
-   *  Note: The message will be written but not flushed to the underlying output system before its propagated to the
-   *  chained operators. Messages retain the original partitioning scheme when propogated to next operator.
-   * <p>
+   * Note: The message will be written but not flushed to the underlying output system before its propagated to the
+   * chained operators. Messages retain the original partitioning scheme when propogated to next operator.
+   *
    * @param outputStream the output stream to send messages to
    * @return this {@link MessageStream}
    */
