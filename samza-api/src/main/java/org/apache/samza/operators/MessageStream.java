@@ -284,11 +284,11 @@ public interface MessageStream<M> {
    * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
    * otherwise a {@link ClassCastException} will be thrown.
    * <p>
-   *  Note: The message will be written but may not be flushed to the underlying table before its propagated to the
-   *  chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
-   *  it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
-   *  scheme when propogated to next operator.
-   * <p>
+   * Note: The message will be written but may not be flushed to the underlying table before its propagated to the
+   * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   * scheme when propogated to next operator.
+   *
    * @param table the table to write messages to
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
