@@ -33,7 +33,6 @@ import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.remote.couchbase.CouchbaseBucketRegistry.CouchbaseEnvironmentConfigs;
 
 
 /**

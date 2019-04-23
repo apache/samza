@@ -173,7 +173,7 @@ public class TestCouchbaseTableReadFunction {
       AsyncBucket asyncBucket) {
     when(bucket.async()).thenReturn(asyncBucket);
     PowerMockito.stub(PowerMockito.method(CouchbaseBucketRegistry.class, "getBucket", String.class, List.class,
-        CouchbaseBucketRegistry.CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
+        CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
     CouchbaseTableReadFunction<V> readFunction =
         new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, valueClass, DEFAULT_CLUSTER_NODE).withSerde(serde);
     readFunction.init(null);

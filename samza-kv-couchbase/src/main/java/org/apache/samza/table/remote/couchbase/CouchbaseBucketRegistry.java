@@ -26,7 +26,6 @@ import com.couchbase.client.java.CouchbaseCluster;
 import com.couchbase.client.java.auth.CertAuthenticator;
 import com.couchbase.client.java.env.CouchbaseEnvironment;
 import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -178,21 +177,5 @@ public class CouchbaseBucketRegistry {
    */
   private String getClusterId(List<String> clusterNodes) {
     return clusterNodes.toString();
-  }
-
-  static class CouchbaseEnvironmentConfigs implements Serializable {
-
-    Boolean sslEnabled;
-    Boolean certAuthEnabled;
-    String sslKeystoreFile;
-    String sslKeystorePassword;
-    String sslTruststoreFile;
-    String sslTruststorePassword;
-    Integer bootstrapCarrierDirectPort;
-    Integer bootstrapCarrierSslPort;
-    Integer bootstrapHttpDirectPort;
-    Integer bootstrapHttpSslPort;
-    String username;
-    String password;
   }
 }
