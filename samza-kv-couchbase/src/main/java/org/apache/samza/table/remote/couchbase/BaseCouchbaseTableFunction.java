@@ -55,7 +55,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
   protected final String bucketName;
 
   // Environment Settings
-  protected CouchbaseEnvironmentConfigs environmentConfigs;
+  protected final CouchbaseEnvironmentConfigs environmentConfigs;
 
   /**
    * Constructor for BaseCouchbaseTableFunction. This constructor abstracts the shareable logic of the read and write
@@ -72,7 +72,7 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
         "Cluster nodes is not allowed to be null or empty.");
     this.bucketName = bucketName;
     this.clusterNodes = ImmutableList.copyOf(clusterNodes);
-    this.environmentConfigs = new CouchbaseEnvironmentConfigs();
+    environmentConfigs = new CouchbaseEnvironmentConfigs();
   }
 
   /**

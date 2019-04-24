@@ -122,7 +122,7 @@ public class TestCouchbaseTableReadFunction {
     Bucket bucket = mock(Bucket.class);
     AsyncBucket asyncBucket = mock(AsyncBucket.class);
     CouchbaseTableReadFunction readFunction = createAndInit(String.class, new StringSerde(), bucket, asyncBucket);
-    when(asyncBucket.get(eq(key), anyObject(), anyLong(), any(TimeUnit.class))).thenReturn(Observable.just(null));
+    when(asyncBucket.get(eq(key), anyObject(), anyLong(), any(TimeUnit.class))).thenReturn(Observable.empty());
     assertNull(readFunction.getAsync(key).get());
   }
 

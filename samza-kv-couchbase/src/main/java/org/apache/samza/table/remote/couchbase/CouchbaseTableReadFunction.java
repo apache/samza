@@ -105,7 +105,8 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
             future.complete((V) document.content());
           }
         } else {
-          future.complete(null);
+          // The Couchbase async client should not return null
+          future.completeExceptionally(new SamzaException(String.format("Got unexpected null value from key %s", key)));
         }
       }
 
