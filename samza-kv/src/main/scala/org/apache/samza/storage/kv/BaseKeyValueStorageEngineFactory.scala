@@ -118,7 +118,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     } else {
       val loggedStoreMetrics = new LoggedStoreMetrics(storeName, registry)
       storePropertiesBuilder = storePropertiesBuilder.setLoggedStore(true)
-      new LoggedStore(rawStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
+      new LoggedStore(rawStore, storeName, storageConfig, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
     }
 
     // wrap with serialization
