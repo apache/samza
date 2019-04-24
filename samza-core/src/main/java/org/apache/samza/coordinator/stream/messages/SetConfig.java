@@ -54,13 +54,6 @@ public class SetConfig extends CoordinatorStreamMessage {
    * @return the configuration as a string
    */
   public String getConfigValue() {
-    // Unlike other CoordinatorStreamMessage, SetConfig message(configurations) are deleted with a seperate DELETE CoordinatorStreamMessage.
-    // For deleted configuration messages, the message value map in DELETE message is null. This isDelete check saves us
-    // from dereferencing a null map.
-    if (isDelete()) {
-      return null;
-    } else {
-      return getMessageValue(CONFIG_VALUE_KEY);
-    }
+    return getMessageValue(CONFIG_VALUE_KEY);
   }
 }
