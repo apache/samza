@@ -25,7 +25,7 @@ import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.MetadataResourceLoader;
+import org.apache.samza.coordinator.MetadataResourceManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.LocationId;
@@ -83,8 +83,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      MetadataResourceLoader metadataResourceLoader = new MetadataResourceLoader(null, jobModel, null);
-      metadataResourceLoader.createResources();
+      MetadataResourceManager metadataResourceManager = new MetadataResourceManager(null, jobModel, null);
+      metadataResourceManager.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {

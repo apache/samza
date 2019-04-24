@@ -42,7 +42,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElectorListener;
-import org.apache.samza.coordinator.MetadataResourceLoader;
+import org.apache.samza.coordinator.MetadataResourceManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
@@ -297,9 +297,9 @@ public class ZkJobCoordinator implements JobCoordinator {
       metadataStore = metadataStoreFactory.getMetadataStore(SetConfig.TYPE, config, metrics.getMetricsRegistry());
       metadataStore.init();
 
-      MetadataResourceLoader metadataResourceLoader =
-          new MetadataResourceLoader(metadataStore, jobModel, metrics.getMetricsRegistry());
-      metadataResourceLoader.createResources();
+      MetadataResourceManager metadataResourceManager =
+          new MetadataResourceManager(metadataStore, jobModel, metrics.getMetricsRegistry());
+      metadataResourceManager.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
       for (Map.Entry<String, String> entry : config.entrySet()) {

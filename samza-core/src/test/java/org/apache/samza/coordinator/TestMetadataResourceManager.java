@@ -25,19 +25,19 @@ import org.mockito.Mockito;
 
 
 
-public class TestMetadataResourceLoader {
+public class TestMetadataResourceManager {
 
   @Test
   public void testLoad() {
     CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
-    MetadataResourceLoader metadataResourceLoader = Mockito.mock(MetadataResourceLoader.class);
-    Mockito.doCallRealMethod().when(metadataResourceLoader).createResources();
-    Mockito.doReturn(checkpointManager).when(metadataResourceLoader).getCheckpointManager();
-    Mockito.doNothing().when(metadataResourceLoader).createChangelogStreams();
+    MetadataResourceManager metadataResourceManager = Mockito.mock(MetadataResourceManager.class);
+    Mockito.doCallRealMethod().when(metadataResourceManager).createResources();
+    Mockito.doReturn(checkpointManager).when(metadataResourceManager).getCheckpointManager();
+    Mockito.doNothing().when(metadataResourceManager).createChangelogStreams();
 
-    metadataResourceLoader.createResources();
-    Mockito.verify(metadataResourceLoader).getCheckpointManager();
+    metadataResourceManager.createResources();
+    Mockito.verify(metadataResourceManager).getCheckpointManager();
     Mockito.verify(checkpointManager).createResources();
-    Mockito.verify(metadataResourceLoader).createChangelogStreams();
+    Mockito.verify(metadataResourceManager).createChangelogStreams();
   }
 }

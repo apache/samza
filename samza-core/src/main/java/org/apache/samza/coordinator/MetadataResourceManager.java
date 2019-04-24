@@ -32,9 +32,10 @@ import org.apache.samza.storage.ChangelogStreamManager;
 
 
 /**
- * Loads the managers responsible for the creation and loading of metadata related resources
+ * Loads the managers responsible for the creation and loading of metadata related resources.
+ * TODO: Replace with a metadata admin interface when the {@link MetadataStore} is fully augmented to handle all metadata sources.
  */
-public class MetadataResourceLoader {
+public class MetadataResourceManager {
   private final Config config;
   private final CheckpointManager checkpointManager;
   private final ChangelogStreamManager changelogStreamManager;
@@ -48,7 +49,7 @@ public class MetadataResourceLoader {
    * @param metricsRegistry the registry for reporting metrics.
    * @param configOverride the config override to use instead of the one in the jobModel.
    */
-  public MetadataResourceLoader(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry, Config configOverride) {
+  public MetadataResourceManager(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry, Config configOverride) {
     this.config = configOverride;
     this.jobModel = jobModel;
     this.checkpointManager = new TaskConfigJava(config).getCheckpointManager(metricsRegistry);
@@ -65,7 +66,7 @@ public class MetadataResourceLoader {
    * @param jobModel the loaded {@link JobModel}
    * @param metricsRegistry the registry for reporting metrics.
    */
-  public MetadataResourceLoader(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry) {
+  public MetadataResourceManager(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry) {
     this(metadataStore, jobModel, metricsRegistry, jobModel.getConfig());
   }
 
