@@ -43,19 +43,4 @@ public interface TablePart {
   default Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
     return Collections.emptyMap();
   }
-
-  /**
-   * Set tableId for this table part. This method can be called by sub-classes of
-   * {@link org.apache.samza.table.descriptors.BaseTableDescriptor}, where tableId is available.
-   * @param tableId table id
-   */
-  default void setTableId(String tableId) {
-  }
-
-  /**
-   * Return the tableId that has been set. Return empty string by default.
-   */
-  default String getTableId() {
-    return "";
-  }
 }

@@ -74,7 +74,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
   public static final String READ_RETRY_POLICY = "io.read.retry.policy";
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
-  public static final String READ_AND_WRITE_RETRY_POLICY = "io.read.and.write.retry.policy";
 
   // Input support for a specific remote store (required)
   private TableReadFunction<K, V> readFn;
@@ -114,7 +113,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public RemoteTableDescriptor<K, V> withReadFunction(TableReadFunction<K, V> readFn) {
     Preconditions.checkNotNull(readFn, "null read function");
     this.readFn = readFn;
-    this.readFn.setTableId(String.format("%s.%s", tableId, READ_FN));
     return this;
   }
 
@@ -126,7 +124,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public RemoteTableDescriptor<K, V> withWriteFunction(TableWriteFunction<K, V> writeFn) {
     Preconditions.checkNotNull(writeFn, "null write function");
     this.writeFn = writeFn;
-    this.writeFn.setTableId(String.format("%s.%s", tableId, WRITE_FN));
     return this;
   }
 
@@ -139,8 +136,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.readRetryPolicy = retryPolicy;
-    this.readRetryPolicy.setTableId(String.format("%s.%s", tableId,
-        readRetryPolicy != writeRetryPolicy ? READ_RETRY_POLICY : READ_AND_WRITE_RETRY_POLICY));
     return this;
   }
 
@@ -153,8 +148,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.writeRetryPolicy = retryPolicy;
-    this.writeRetryPolicy.setTableId(String.format("%s.%s", tableId,
-        readRetryPolicy != writeRetryPolicy ? WRITE_RETRY_POLICY : READ_AND_WRITE_RETRY_POLICY));
     return this;
   }
 
@@ -177,12 +170,6 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
     this.writeCreditFn = writeCreditFn;
-    if (this.readCreditFn != null) {
-      this.readCreditFn.setTableId(String.format("%s.%s", tableId, READ_CREDIT_FN));
-    }
-    if (this.writeCreditFn != null) {
-      this.writeCreditFn.setTableId(String.format("%s.%s", tableId, WRITE_CREDIT_FN));
-    }
     return this;
   }
 
@@ -254,49 +241,49 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       }
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
       if (defaultRateLimiter instanceof TablePart) {
-        addTablePartConfig((TablePart) defaultRateLimiter, jobConfig, tableConfig);
+        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
       }
     } else if (rateLimiter != null) {
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
       if (rateLimiter instanceof TablePart) {
-        addTablePartConfig((TablePart) rateLimiter, jobConfig, tableConfig);
+        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
       }
     }
 
     // Handle readCredit functions
     if (readCreditFn != null) {
       addTableConfig(READ_CREDIT_FN, SerdeUtils.serialize("read credit function", readCreditFn), tableConfig);
-      addTablePartConfig(readCreditFn, jobConfig, tableConfig);
+      addTablePartConfig(READ_CREDIT_FN, readCreditFn, jobConfig, tableConfig);
     }
 
     // Handle writeCredit functions
     if (writeCreditFn != null) {
       addTableConfig(WRITE_CREDIT_FN, SerdeUtils.serialize("write credit function", writeCreditFn), tableConfig);
-      addTablePartConfig(writeCreditFn, jobConfig, tableConfig);
+      addTablePartConfig(WRITE_CREDIT_FN, writeCreditFn, jobConfig, tableConfig);
     }
 
     // Handle read retry policy
     if (readRetryPolicy != null) {
       addTableConfig(READ_RETRY_POLICY, SerdeUtils.serialize("read retry policy", readRetryPolicy), tableConfig);
-      addTablePartConfig(readRetryPolicy, jobConfig, tableConfig);
+      addTablePartConfig(READ_RETRY_POLICY, readRetryPolicy, jobConfig, tableConfig);
     }
 
     // Handle write retry policy
     if (writeRetryPolicy != null) {
       addTableConfig(WRITE_RETRY_POLICY, SerdeUtils.serialize("write retry policy", writeRetryPolicy), tableConfig);
-      addTablePartConfig(writeRetryPolicy, jobConfig, tableConfig);
+      addTablePartConfig(WRITE_RETRY_POLICY, writeRetryPolicy, jobConfig, tableConfig);
     }
 
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
 
     // Handle table reader function
     addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
-    addTablePartConfig(readFn, jobConfig, tableConfig);
+    addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
 
     // Handle table write function
     if (writeFn != null) {
       addTableConfig(WRITE_FN, SerdeUtils.serialize("write function", writeFn), tableConfig);
-      addTablePartConfig(writeFn, jobConfig, tableConfig);
+      addTablePartConfig(WRITE_FN, writeFn, jobConfig, tableConfig);
     }
 
     return Collections.unmodifiableMap(tableConfig);
@@ -317,7 +304,11 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param jobConfig job configuration
    * @param tableConfig table configuration
    */
-  protected void addTablePartConfig(TablePart tablePart, Config jobConfig, Map<String, String> tableConfig) {
-    tableConfig.putAll(tablePart.toConfig(jobConfig, new MapConfig(tableConfig)));
+  protected void addTablePartConfig(String tablePartKey, TablePart tablePart, Config jobConfig,
+      Map<String, String> tableConfig) {
+    Map<String, String> tablePartConfig = tablePart.toConfig(jobConfig, new MapConfig(tableConfig));
+    for (String configKey : tablePartConfig.keySet()) {
+      addTableConfig(String.format("%s.%s", tablePartKey, configKey), tablePartConfig.get(configKey), tableConfig);
+    }
   }
 }

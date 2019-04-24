@@ -30,7 +30,6 @@ import java.util.function.Predicate;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.remote.TablePart;
 
 
@@ -81,9 +80,6 @@ public class TableRetryPolicy implements TablePart, Serializable {
 
   // By default no backoff during retries
   private BackoffType backoffType = BackoffType.NONE;
-
-  // The tableId of this table part
-  private String tableId;
 
   /**
    * Serializable adapter interface for {@link java.util.function.Predicate}.
@@ -273,23 +269,6 @@ public class TableRetryPolicy implements TablePart, Serializable {
   @Override
   public Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
     final Gson gson = new GsonBuilder().excludeFieldsWithModifiers(Modifier.TRANSIENT, Modifier.STATIC).create();
-    return Collections.singletonMap(JavaTableConfig.buildKey(tableId, this.getClass().getCanonicalName()),
-        gson.toJson(this));
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void setTableId(String tableId) {
-    this.tableId = tableId;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public String getTableId() {
-    return tableId;
+    return Collections.singletonMap(this.getClass().getSimpleName(), gson.toJson(this));
   }
 }
