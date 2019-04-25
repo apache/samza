@@ -76,7 +76,8 @@ public class TestRemoteTableDescriptor {
 
   private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn) {
     String tableId = "1";
-    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId).withReadFunction(createMockTableReadFunction())
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
+        .withReadFunction(createMockTableReadFunction())
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
@@ -120,7 +121,8 @@ public class TestRemoteTableDescriptor {
   @Test
   public void testSerializeNullWriteFunction() {
     String tableId = "1";
-    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId).withReadFunction(createMockTableReadFunction());
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
+        .withReadFunction(createMockTableReadFunction());
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -146,8 +148,10 @@ public class TestRemoteTableDescriptor {
   public void testTablePartToConfigDefault() {
     TableReadFunction readFn = createMockTableReadFunction();
     when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(1));
-    Map<String, String> tableConfig =
-        new RemoteTableDescriptor("1").withReadFunction(readFn).withReadRateLimit(100).toConfig(new MapConfig());
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
+        .withReadFunction(readFn)
+        .withReadRateLimit(100)
+        .toConfig(new MapConfig());
     verify(readFn, times(1)).toConfig(any(), any());
     Assert.assertEquals("v1", tableConfig.get("tables.1.io.read.func.k1"));
   }
@@ -259,11 +263,11 @@ public class TestRemoteTableDescriptor {
 
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
-    RemoteTableDescriptor<String, String> desc =
-        new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
-            .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
-            .withWriteFunction(createMockTableWriteFunction())
-            .withAsyncCallbackExecutorPoolSize(10);
+    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1")
+        .withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
+        .withWriteFunction(createMockTableWriteFunction())
+        .withAsyncCallbackExecutorPoolSize(10);
 
     if (rateOnly) {
       if (rlGets) {

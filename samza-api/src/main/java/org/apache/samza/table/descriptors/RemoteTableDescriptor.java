@@ -165,7 +165,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withRateLimiter(RateLimiter rateLimiter,
-      TableRateLimiter.CreditFunction<K, V> readCreditFn, TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
+      TableRateLimiter.CreditFunction<K, V> readCreditFn,
+      TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
     Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
@@ -232,8 +233,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       RateLimiter defaultRateLimiter;
       try {
         @SuppressWarnings("unchecked")
-        Class<? extends RateLimiter> clazz =
-            (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
         Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
         defaultRateLimiter = ctor.newInstance(tagCreditsMap);
       } catch (Exception ex) {
@@ -295,20 +295,20 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");
     // Assume callback executor pool should have no more than 20 threads
-    Preconditions.checkArgument(asyncCallbackPoolSize <= 20, "too many threads for async callback executor.");
+    Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
+        "too many threads for async callback executor.");
   }
 
   /**
    * Helper method to add table part config items to table configuration
+   * @param tablePartKey key of the table part
    * @param tablePart table part
    * @param jobConfig job configuration
    * @param tableConfig table configuration
    */
   protected void addTablePartConfig(String tablePartKey, TablePart tablePart, Config jobConfig,
       Map<String, String> tableConfig) {
-    Map<String, String> tablePartConfig = tablePart.toConfig(jobConfig, new MapConfig(tableConfig));
-    for (String configKey : tablePartConfig.keySet()) {
-      addTableConfig(String.format("%s.%s", tablePartKey, configKey), tablePartConfig.get(configKey), tableConfig);
-    }
+    tablePart.toConfig(jobConfig, new MapConfig(tableConfig))
+        .forEach((k, v) -> addTableConfig(String.format("%s.%s", tablePartKey, k), v, tableConfig));
   }
 }
