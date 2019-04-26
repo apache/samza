@@ -61,7 +61,7 @@ public class TestTaskApplication implements TaskApplication {
     @Override
     public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
       processedMessageLatch.countDown();
-      // Implementation does not invokes callback.complete to block the AsyncRunLoop.process() after it exhausts the
+      // Implementation does not invokes callback.complete to block the RunLoop.process() after it exhausts the
       // `task.max.concurrency` defined per task.
     }
 

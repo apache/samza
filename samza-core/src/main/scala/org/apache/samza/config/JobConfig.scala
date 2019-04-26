@@ -51,7 +51,6 @@ object JobConfig {
   val JOB_JMX_ENABLED = "job.jmx.enabled"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
-  val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
   val JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms"
   val DEFAULT_DEBOUNCE_TIME_MS = 20000
@@ -237,11 +236,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getThreadPoolSize = getOption(JobConfig.JOB_CONTAINER_THREAD_POOL_SIZE) match {
     case Some(size) => size.toInt
     case _ => 0
-  }
-
-  def getSingleThreadMode = getOption(JobConfig.JOB_CONTAINER_SINGLE_THREAD_MODE) match {
-    case Some(mode) => mode.toBoolean
-    case _ => false
   }
 
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)

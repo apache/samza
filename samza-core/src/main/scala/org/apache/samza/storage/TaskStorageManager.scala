@@ -93,7 +93,7 @@ class TaskStorageManager(
           debug("Storing offset for store in OFFSET file ")
 
           // TaskStorageManagers are only spun-up for active tasks
-          StorageManagerUtil.writeOffsetFile(loggedStoreBaseDir, storeName, taskName, TaskMode.Active, Map(ssp -> newestOffset).asJava)
+          StorageManagerUtil.writeOffsetFile(loggedStoreBaseDir, storeName, taskName, TaskMode.Active, Map(ssp -> newestOffset).asJava, false)
           debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
         } else {
           //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file

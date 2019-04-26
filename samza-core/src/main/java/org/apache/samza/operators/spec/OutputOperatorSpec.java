@@ -25,12 +25,10 @@ import org.apache.samza.operators.functions.WatermarkFunction;
 /**
  * The spec for an operator that outputs a {@link org.apache.samza.operators.MessageStream} to a
  * {@link org.apache.samza.system.SystemStream}.
- * <p>
- * This is a terminal operator and does not allow further operator chaining.
  *
  * @param <M>  the type of input message
  */
-public class OutputOperatorSpec<M> extends OperatorSpec<M, Void> {
+public class OutputOperatorSpec<M> extends OperatorSpec<M, M> {
 
   private final OutputStreamImpl<M> outputStream;
 
