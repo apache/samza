@@ -55,7 +55,13 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   @Override
   protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    table.put(message.getKey(), message.getValue());
+    K key = message.getKey();
+    V val = message.getValue();
+    if (val == null) {
+      table.delete(key);
+    } else {
+      table.put(key, val);
+    }
     return CompletableFuture.completedFuture(Collections.singleton(message));
   }
 
