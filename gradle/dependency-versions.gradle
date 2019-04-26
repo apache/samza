@@ -50,4 +50,7 @@
   failsafeVersion = "1.1.0"
   jlineVersion = "3.8.2"
   jnaVersion = "4.5.1"
+  couchbaseClientVersion = "2.7.2"
+  couchbaseMockVersion = "1.5.22"
+  couchbaseEncryptionVersion = "1.0.0"
 }
