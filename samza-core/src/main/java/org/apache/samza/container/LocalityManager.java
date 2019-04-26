@@ -19,19 +19,13 @@
 
 package org.apache.samza.container;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,32 +39,17 @@ public class LocalityManager {
   private final MetadataStore metadataStore;
 
   /**
-   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
-   * Uses the {@link CoordinatorStreamValueSerde} to serialize messages before
-   * reading/writing into metadata store.
+   * Builds the LocalityManager based upon the provided {@link MetadataStore} that is instantiated.
+   * Setting up a metadata store instance is expensive which requires opening multiple connections
+   * and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   * to reuse it across different utility classes. Uses the {@link CoordinatorStreamValueSerde} to serialize
+   * messages before reading/writing into metadata store.
    *
-   * @param config the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics.
+   * @param metadataStore an instance of {@link MetadataStore} to read/write the container locality.
    */
-  public LocalityManager(Config config, MetricsRegistry metricsRegistry) {
-    this(config, metricsRegistry, new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE));
-  }
-
-  /**
-   * Builds the LocalityManager based upon {@link Config} and {@link MetricsRegistry}.
-   * Uses keySerde, valueSerde to serialize/deserialize (key, value) pairs before reading/writing
-   * into {@link MetadataStore}.
-   *
-   * Key and value serializer are different for yarn (uses CoordinatorStreamMessage) and standalone (native ObjectOutputStream for serialization) modes.
-   * @param config the configuration required for setting up metadata store.
-   * @param metricsRegistry the registry for reporting metrics.
-   * @param valueSerde the value serializer.
-   */
-  LocalityManager(Config config, MetricsRegistry metricsRegistry, Serde<String> valueSerde) {
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-    this.metadataStore = metadataStoreFactory.getMetadataStore(SetContainerHostMapping.TYPE, config, metricsRegistry);
-    this.metadataStore.init();
-    this.valueSerde = valueSerde;
+  public LocalityManager(MetadataStore metadataStore) {
+    this.metadataStore = metadataStore;
+    this.valueSerde = new CoordinatorStreamValueSerde(SetContainerHostMapping.TYPE);
   }
 
   /**
@@ -84,7 +63,9 @@ public class LocalityManager {
     metadataStore.all().forEach((containerId, valueBytes) -> {
         if (valueBytes != null) {
           String locationId = valueSerde.fromBytes(valueBytes);
-          allMappings.put(containerId, ImmutableMap.of(SetContainerHostMapping.HOST_KEY, locationId));
+          Map<String, String> values = new HashMap<>();
+          values.put(SetContainerHostMapping.HOST_KEY, locationId);
+          allMappings.put(containerId, values);
         }
       });
     if (LOG.isDebugEnabled()) {

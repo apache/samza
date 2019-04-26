@@ -46,7 +46,7 @@ public class MultiFileHdfsReader {
 
   private final HdfsReaderFactory.ReaderType readerType;
   private final SystemStreamPartition systemStreamPartition;
-  private List<String> filePaths;
+  private final List<String> filePaths;
   private SingleFileHdfsReader curReader;
   private int curFileIndex = 0;
   private String curSingleFileOffset;
@@ -127,7 +127,7 @@ public class MultiFileHdfsReader {
     this.filePaths = partitionDescriptors;
     this.numMaxRetries = numMaxRetries;
     this.numRetries = 0;
-    if (partitionDescriptors.size() <= 0) {
+    if (partitionDescriptors.isEmpty()) {
       throw new SamzaException(
         "Invalid number of files based on partition descriptors: " + partitionDescriptors.size());
     }

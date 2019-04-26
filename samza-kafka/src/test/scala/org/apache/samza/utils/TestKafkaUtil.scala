@@ -22,7 +22,6 @@ package org.apache.samza.utils
 import org.junit.Test
 import org.scalatest.{Matchers => ScalaTestMatchers}
 import org.apache.samza.util.KafkaUtil
-import kafka.common.ErrorMapping
 import org.apache.kafka.common.protocol.Errors
 
 class TestKafkaUtil extends ScalaTestMatchers {

@@ -50,8 +50,8 @@ public class MockHostAwareContainerAllocator extends HostAwareContainerAllocator
   }
 
   @Override
-  public void requestResources(Map<String, String> containerToHostMappings) {
-    super.requestResources(containerToHostMappings);
+  public void requestResources(Map<String, String> processorToHostMapping) {
+    super.requestResources(processorToHostMapping);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {

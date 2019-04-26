@@ -24,9 +24,11 @@ import java.util.Properties
 
 import kafka.common.KafkaException
 import kafka.server.{KafkaConfig, KafkaServer}
-import kafka.utils.{TestUtils, CoreUtils}
-import org.apache.kafka.common.protocol.SecurityProtocol
-import org.apache.kafka.common.security.auth.KafkaPrincipal
+import kafka.utils.{CoreUtils, TestUtils}
+import kafka.zk.{AdminZkClient, KafkaZkClient}
+import org.apache.kafka.common.security.JaasUtils
+import org.apache.kafka.common.security.auth.{KafkaPrincipal, SecurityProtocol}
+import org.apache.kafka.common.utils.Time
 import org.junit.{After, Before}
 
 import scala.collection.mutable
@@ -40,6 +42,8 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
   var instanceConfigs: Seq[KafkaConfig] = null
   var servers: mutable.Buffer[KafkaServer] = null
   var brokerList: String = null
+  var kafkaZkClient: KafkaZkClient = null
+  var adminZkClient: AdminZkClient = null
   var alive: Array[Boolean] = null
   val kafkaPrincipalType = KafkaPrincipal.USER_TYPE
   val setClusterAcl: Option[() => Unit] = None
@@ -48,7 +52,30 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
    * Implementations must override this method to return a set of KafkaConfigs. This method will be invoked for every
    * test and should not reuse previous configurations unless they select their ports randomly when servers are started.
    */
-  def generateConfigs(): Seq[KafkaConfig]
+  def generateConfigs(): Seq[KafkaConfig] = {
+    TestUtils.createBrokerConfigs(clusterSize, zkConnect, false).map(KafkaConfig.fromProps(_, overridingProps))
+  }
+
+  /**
+    * User can override this method to return the number of brokers they want.
+    * By default only one broker will be launched.
+    *
+    * @return the number of brokers needed in the Kafka cluster for the test.
+    */
+  def clusterSize = 1
+
+  /**
+    * User can override this method to apply customized configurations to the brokers.
+    * By default the only configuration is number of partitions when topics get automatically created. The default value
+    * is 1.
+    *
+    * @return The configurations to be used by brokers.
+    */
+  def overridingProps: Properties = {
+    val props = new Properties
+    props.setProperty(KafkaConfig.NumPartitionsProp, 1.toString)
+    props
+  }
 
   def configs: Seq[KafkaConfig] = {
     if (instanceConfigs == null)
@@ -95,6 +122,8 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
     // if the test case requires setting up a cluster ACL,
     // then it needs to be implemented.
     setClusterAcl.foreach(_.apply())
+    kafkaZkClient = KafkaZkClient(zkConnect, JaasUtils.isZkSecurityEnabled, zkSessionTimeout, zkConnectionTimeout, 100, Time.SYSTEM)
+    adminZkClient = new AdminZkClient(kafkaZkClient)
   }
 
   @After
@@ -103,6 +132,9 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
       servers.foreach(_.shutdown())
       servers.foreach(server => CoreUtils.delete(server.config.logDirs))
     }
+
+    if (kafkaZkClient != null)
+      CoreUtils.swallow(kafkaZkClient.close(), null)
     super.tearDown()
   }
 

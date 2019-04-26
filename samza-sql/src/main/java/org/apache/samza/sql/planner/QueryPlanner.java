@@ -55,6 +55,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.slf4j.Logger;
@@ -105,7 +107,21 @@ public class QueryPlanner {
           } else {
             // If the source part is the last one, then fetch the schema corresponding to the stream and register.
             SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
-            RelDataType relationalSchema = relSchemaConverter.convertToRelSchema(sqlSchema);
+
+            List<String> fieldNames = new ArrayList<>();
+            List<SqlFieldSchema> fieldTypes = new ArrayList<>();
+            if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
+              fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
+              fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY));
+            }
+
+            fieldNames.addAll(
+                sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldName).collect(Collectors.toList()));
+            fieldTypes.addAll(
+                sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldSchema).collect(Collectors.toList()));
+
+            SqlSchema newSchema = new SqlSchema(fieldNames, fieldTypes);
+            RelDataType relationalSchema = relSchemaConverter.convertToRelSchema(newSchema);
             previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
             break;
           }
@@ -149,11 +165,7 @@ public class QueryPlanner {
   private Table createTableFromRelSchema(RelDataType relationalSchema) {
     return new AbstractTable() {
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        List<RelDataTypeField> fieldsList = new ArrayList<>();
-        fieldsList.add(new RelDataTypeFieldImpl(SamzaSqlRelMessage.KEY_NAME, 0,
-            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)));
-        fieldsList.addAll(relationalSchema.getFieldList());
-        return new RelRecordType(fieldsList);
+        return relationalSchema;
       }
     };
   }

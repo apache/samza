@@ -103,10 +103,10 @@
         %tr
           %tr
             %td.key Completed
-            %td= samzaAppState.completedContainers.toString
+            %td= samzaAppState.completedProcessors.toString
           %tr
             %td.key Needed
-            %td= samzaAppState.neededContainers.toString
+            %td= samzaAppState.neededProcessors.toString
           %tr
             %td.key Failed
             %td= samzaAppState.failedContainers.toString
@@ -125,9 +125,9 @@
             %th Up Time
             %th JMX access
         %tbody
-          - for((containerId, container) <- state.runningYarnContainers)
+          - for((processorId, container) <- state.runningProcessors)
             %tr
-              %td #{containerId.toString}
+              %td #{processorId.toString}
               %td
                 %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
               %td
@@ -137,8 +137,8 @@
               %td
                 Up time: #{container.upTimeStr()}
               %td
-                Ordinary: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
-                Tunneling: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(containerId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+                Ordinary: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(processorId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
+                Tunneling: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(processorId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
 
       %h2 Failed Containers
       %table.table.table-striped.table-bordered.tablesorter#containers-table
@@ -163,10 +163,10 @@
         %tbody
           %tr
             %td.key Total
-            %td= samzaAppState.containerCount.toString
+            %td= samzaAppState.processorCount.toString
           %tr
             %td.key Finished
-            %td= samzaAppState.finishedContainers.toString
+            %td= samzaAppState.finishedProcessors.toString
 
       %h3 TaskName Assignment
       %table.table.table-striped.table-bordered.tablesorter#taskids-table
@@ -177,11 +177,11 @@
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((containerId, container) <- state.runningYarnContainers)
-            - val containerModel = samzaAppState.jobModelManager.jobModel.getContainers.get(containerId)
+          - for((processorId, container) <- state.runningProcessors)
+            - val containerModel = samzaAppState.jobModelManager.jobModel.getContainers.get(processorId)
             - for((taskName, taskModel) <- containerModel.getTasks)
               %tr
-                %td= containerId
+                %td= processorId
                 %td= taskName
                 %td= taskModel.getSystemStreamPartitions.map(_.toString).toList.sorted.mkString(", ")
                 %td

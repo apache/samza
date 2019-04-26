@@ -21,14 +21,9 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
-import kafka.admin.AdminUtils
 import kafka.integration.KafkaServerTestHarness
-import kafka.server.ConfigType
-import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import kafka.utils.{CoreUtils, TestUtils}
 import com.google.common.collect.ImmutableMap
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.security.JaasUtils
-import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
@@ -37,6 +32,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
@@ -92,6 +88,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     checkPointManager.register(taskName)
     checkPointManager.start
     checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    checkPointManager.stop()
 
     // Verifications after the test
 
@@ -110,14 +107,11 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm1.stop
 
     // check that start actually creates the topic with log compaction enabled
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
 
     assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
     assertEquals("compact", topicConfig.get("cleanup.policy"))
     assertEquals("26214400", topicConfig.get("segment.bytes"))
-
-    zkClient.close
 
     // read before topic exists should result in a null checkpoint
     val readCp = readCheckpoint(checkpointTopic, taskName)
@@ -131,7 +125,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
-  @Test(expected = classOf[SamzaException])
+  @Test
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -149,9 +143,16 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
     checkPointManager.MaxRetryDurationInMillis = 1
 
-    checkPointManager.register(taskName)
-    checkPointManager.start
-    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    try {
+      checkPointManager.register(taskName)
+      checkPointManager.start
+      checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    } catch {
+      case _: SamzaException => info("Got SamzaException as expected.")
+      case unexpectedException: Throwable => fail("Expected SamzaException but got %s" format unexpectedException)
+    } finally {
+      checkPointManager.stop()
+    }
   }
 
   @Test
@@ -209,9 +210,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemFactoryClassName = new SystemConfig(config)
-      .getSystemFactory(systemName)
-      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
@@ -236,20 +237,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.stop
   }
 
-  private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    try {
-      AdminUtils.createTopic(
-        zkClient,
-        cpTopic,
-        partNum,
-        1,
-        props)
-    } catch {
-      case e: Exception => println(e.getMessage)
-    } finally {
-      zkClient.close
-    }
+  private def createTopic(cpTopic: String, partNum: Int, props: Properties) {
+    adminZkClient.createTopic(cpTopic, partNum, 1, props)
   }
 
 }

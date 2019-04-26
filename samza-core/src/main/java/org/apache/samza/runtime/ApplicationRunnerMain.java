@@ -32,7 +32,7 @@ import org.apache.samza.util.CommandLine;
 public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
-    public OptionSpec operationOpt =
+    public OptionSpec<String> operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
@@ -40,7 +40,7 @@ public class ApplicationRunnerMain {
             .defaultsTo("run");
 
     public ApplicationRunnerOperation getOperation(OptionSet options) {
-      String rawOp = options.valueOf(operationOpt).toString();
+      String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
   }

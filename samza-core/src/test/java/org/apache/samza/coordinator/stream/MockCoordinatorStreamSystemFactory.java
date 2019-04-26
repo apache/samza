@@ -95,6 +95,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
     String streamName = CoordinatorStreamUtil.getCoordinatorStreamName(jobName, jobId);
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition(systemName, streamName, new Partition(0));
     mockConsumer = new MockCoordinatorStreamWrappedConsumer(systemStreamPartition, config);
+    mockConsumer.register(systemStreamPartition, "0");
     return mockConsumer;
   }
 

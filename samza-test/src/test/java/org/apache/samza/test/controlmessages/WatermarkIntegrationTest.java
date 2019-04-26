@@ -21,7 +21,6 @@ package org.apache.samza.test.controlmessages;
 
 import scala.collection.JavaConverters;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,12 +64,11 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TestStreamOperatorTask;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
@@ -78,7 +76,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 
-public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
+public class WatermarkIntegrationTest extends IntegrationTestHarness {
 
   private static int offset = 1;
   private static final String TEST_SYSTEM = "test";
@@ -198,10 +196,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
     for (Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
-      AsyncStreamTaskAdapter adapter = (AsyncStreamTaskAdapter) entry.getValue().task();
-      Field field = AsyncStreamTaskAdapter.class.getDeclaredField("wrappedTask");
-      field.setAccessible(true);
-      StreamOperatorTask task = (StreamOperatorTask) field.get(adapter);
+      StreamOperatorTask task = (StreamOperatorTask) entry.getValue().task();
       tasks.put(entry.getKey().getTaskName(), task);
     }
     return tasks;

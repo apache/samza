@@ -144,6 +144,7 @@ project(':samza-api') {
     compile "org.apache.commons:commons-lang3:$commonsLang3Version"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "com.google.guava:guava:$guavaVersion"
+    compile "com.google.code.gson:gson:$gsonVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
     testCompile "junit:junit:$junitVersion"
@@ -306,7 +307,6 @@ project(":samza-elasticsearch_$scalaSuffix") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile "org.elasticsearch:elasticsearch:$elasticsearchVersion"
-    compile "com.google.guava:guava:$guavaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
@@ -698,6 +698,34 @@ project(":samza-kv-rocksdb_$scalaSuffix") {
   }
 }
 
+project(":samza-kv-couchbase_$scalaSuffix") {
+  apply plugin: 'scala'
+
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+
+  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
+  // tasks.compileTestJava.enabled = false
+  sourceSets.main.java.srcDirs = []
+  sourceSets.test.java.srcDirs = []
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaSuffix")
+    compile project(":samza-kv_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "com.couchbase.client:java-client:$couchbaseClientVersion"
+    compile "com.couchbase.client:encryption:$couchbaseEncryptionVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
+    testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
+    testCompile "org.powermock:powermock-core:$powerMockVersion"
+    testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
+  }
+}
+
 project(":samza-hdfs_$scalaSuffix") {
   apply plugin: 'scala'
 
@@ -811,17 +839,19 @@ project(":samza-test_$scalaSuffix") {
     compile.exclude group: 'javax.jms', module: 'jms'
     compile.exclude group: 'com.sun.jdmk', module: 'jmxtools'
     compile.exclude group: 'com.sun.jmx', module: 'jmxri'
+    // Exclude Slf4j bindings for log4j1 and log4j2 since samza-test just logs to console using slf4j-simple
+    compile.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    compile.exclude group: 'org.apache.logging.log4j', module: 'log4j-slf4j-impl'
   }
 
   dependencies {
     compile project(':samza-api')
     compile project(":samza-kv-inmemory_$scalaSuffix")
+    compile project(":samza-kv-couchbase_$scalaSuffix")
     compile project(":samza-kv-rocksdb_$scalaSuffix")
     compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-sql_$scalaSuffix")
-    runtime project(":samza-log4j_$scalaSuffix")
-    runtime project(":samza-log4j2_$scalaSuffix")
     runtime project(":samza-yarn_$scalaSuffix")
     runtime project(":samza-hdfs_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
@@ -839,6 +869,7 @@ project(":samza-test_$scalaSuffix") {
     testCompile project(":samza-sql_$scalaSuffix").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
+    testCompile "com.couchbase.mock:CouchbaseMock:$couchbaseMockVersion"
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 

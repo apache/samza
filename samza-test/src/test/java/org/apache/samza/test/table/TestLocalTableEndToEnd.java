@@ -47,7 +47,7 @@ import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.Table;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 
@@ -68,7 +68,7 @@ import static org.junit.Assert.assertTrue;
 /**
  * This test class tests sendTo() and join() for local tables
  */
-public class TestLocalTableEndToEnd extends AbstractIntegrationTestHarness {
+public class TestLocalTableEndToEnd extends IntegrationTestHarness {
 
   @Test
   public void testSendTo() throws Exception {

@@ -63,6 +63,11 @@ class SystemConsumers (
   consumers: Map[String, SystemConsumer],
 
   /**
+   * Provides a mapping from system name to a {@see SystemAdmin}.
+   */
+  systemAdmins: SystemAdmins,
+
+  /**
    * The class that handles deserialization of incoming messages.
    */
   serdeManager: SerdeManager = new SerdeManager,
@@ -111,6 +116,11 @@ class SystemConsumers (
   val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtil {
 
   /**
+   * Mapping from the {@see SystemStreamPartition} to the registered offsets.
+   */
+  private val sspToRegisteredOffsets = new HashMap[SystemStreamPartition, String]()
+
+  /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
    * messages are handed out to the MessageChooser as it needs them.
    */
@@ -154,6 +164,11 @@ class SystemConsumers (
   metrics.setUnprocessedMessages(() => totalUnprocessedMessages)
 
   def start {
+    for ((systemStreamPartition, offset) <- sspToRegisteredOffsets.asScala) {
+      val consumer = consumers(systemStreamPartition.getSystem)
+      consumer.register(systemStreamPartition, offset)
+    }
+
     debug("Starting consumers.")
     emptySystemStreamPartitionsBySystem.asScala ++= unprocessedMessagesBySSP
       .keySet
@@ -208,7 +223,11 @@ class SystemConsumers (
       if (startpoint != null) {
         consumer.register(systemStreamPartition, startpoint)
       } else {
-        consumer.register(systemStreamPartition, offset)
+        val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
+        val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+        if (existingOffset == null || systemAdmin.offsetComparator(existingOffset, offset) > 0) {
+          sspToRegisteredOffsets.put(systemStreamPartition, offset)
+        }
       }
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)
@@ -229,9 +248,9 @@ class SystemConsumers (
 
         metrics.choseNull.inc
 
-        // Sleep for a while so we don't poll in a tight loop, but, don't do this when called from the AsyncRunLoop
+        // Sleep for a while so we don't poll in a tight loop, but, don't do this when called from the RunLoop
         // code because in that case the chooser will not get updated with a new message for an SSP until after a
-        // message is processed, See how updateChooser variable is used below. The AsyncRunLoop has its own way to
+        // message is processed, See how updateChooser variable is used below. The RunLoop has its own way to
         // block when there is no work to process.
         timeout = if (updateChooser) noNewMessagesTimeout else 0
       } else {

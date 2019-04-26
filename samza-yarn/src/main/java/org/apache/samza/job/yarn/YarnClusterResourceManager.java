@@ -39,7 +39,7 @@ import org.apache.hadoop.yarn.util.Records;
 import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.*;
 import org.apache.samza.clustermanager.SamzaApplicationState;
-import org.apache.samza.clustermanager.SamzaContainerLaunchException;
+import org.apache.samza.clustermanager.ProcessorLaunchException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -55,6 +55,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -80,10 +81,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private static final int PREFERRED_HOST_PRIORITY = 0;
   private static final int ANY_HOST_PRIORITY = 1;
 
-  private final String INVALID_YARN_CONTAINER_ID = "-1";
+  private final String INVALID_PROCESSOR_ID = "-1";
 
   /**
-   * The containerProcessManager instance to request resources from yarn.
+   * The AMClient instance to request resources from yarn.
    */
   private final AMRMClientAsync<AMRMClient.ContainerRequest> amClient;
 
@@ -138,7 +139,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   /**
    * Creates an YarnClusterResourceManager from config, a jobModelReader and a callback.
-   * @param config to instantiate the container manager with
+   * @param config to instantiate the cluster manager with
    * @param jobModelManager the jobModel manager to get the job model (mostly for the UI)
    * @param callback the callback to receive events from Yarn.
    * @param samzaAppState samza app state for display in the UI
@@ -183,7 +184,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     log.info("Initialized YarnAppState: {}", state.toString());
     this.service = new SamzaYarnAppMasterService(config, samzaAppState, this.state, registry, yarnConfiguration);
 
-    log.info("ContainerID str {}, Nodehost  {} , Nodeport  {} , NodeHttpport {}", new Object [] {containerIdStr, nodeHostString, nodePort, nodeHttpPort});
+    log.info("Container ID: {}, Nodehost:  {} , Nodeport : {} , NodeHttpport: {}", containerIdStr, nodeHostString, nodePort, nodeHttpPort);
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.lifecycle = new SamzaYarnAppMasterLifecycle(
         clusterManagerConfig.getContainerMemoryMb(),
@@ -197,18 +198,18 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   }
 
   /**
-   * Starts the YarnContainerManager and initialize all its sub-systems.
-   * Attempting to start an already started container manager will return immediately.
+   * Starts the YarnClusterResourceManager and initialize all its sub-systems.
+   * Attempting to start an already started cluster manager will return immediately.
    */
   @Override
   public void start() {
     if(!started.compareAndSet(false, true)) {
-      log.info("Attempting to start an already started ContainerManager");
+      log.info("Attempting to start an already started YarnClusterResourceManager");
       return;
     }
     metrics.start();
     service.onInit();
-    log.info("Starting YarnContainerManager.");
+    log.info("Starting YarnClusterResourceManager.");
     amClient.init(yarnConfiguration);
     amClient.start();
     nmClientAsync.init(yarnConfiguration);
@@ -219,7 +220,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       clusterManagerCallback.onError(new SamzaException("Invalid resource request."));
     }
 
-    log.info("Finished starting YarnContainerManager");
+    log.info("Finished starting YarnClusterResourceManager");
   }
 
   /**
@@ -227,13 +228,13 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    log.info("Requesting resources on " + resourceRequest.getPreferredHost() + " for container " + resourceRequest.getContainerID());
-
+    String processorId = resourceRequest.getProcessorId();
+    String requestId = resourceRequest.getRequestId();
+    String preferredHost = resourceRequest.getPreferredHost();
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
-    String containerLabel = yarnConfig.getContainerLabel();
-    String preferredHost = resourceRequest.getPreferredHost();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);
+    String nodeLabelsExpression = yarnConfig.getContainerLabel();
 
     AMRMClient.ContainerRequest issuedRequest;
 
@@ -247,16 +248,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
      * any-host requests since data-locality is critical.
      */
     if (preferredHost.equals("ANY_HOST")) {
-      log.info("Making a request for ANY_HOST ");
-      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null,
-          Priority.newInstance(ANY_HOST_PRIORITY), true, containerLabel);
+      Priority priority = Priority.newInstance(ANY_HOST_PRIORITY);
+      boolean relaxLocality = true;
+      log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
+          processorId, null, null, capability, priority, relaxLocality, nodeLabelsExpression);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority, relaxLocality, nodeLabelsExpression);
+    } else {
+      String[] nodes = {preferredHost};
+      Priority priority = Priority.newInstance(PREFERRED_HOST_PRIORITY);
+      boolean relaxLocality = false;
+      log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
+          processorId, Arrays.toString(nodes), null, capability, priority, relaxLocality, nodeLabelsExpression);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, nodes, null, priority, relaxLocality, nodeLabelsExpression);
     }
-    else {
-      log.info("Making a preferred host request on " + preferredHost);
-      issuedRequest = new AMRMClient.ContainerRequest(capability, new String[]{preferredHost}, null,
-          Priority.newInstance(PREFERRED_HOST_PRIORITY), false, containerLabel);
-    }
-    //ensure that updating the state and making the request are done atomically.
+    // ensure that updating the state and making the request are done atomically.
     synchronized (lock) {
       requestsMap.put(resourceRequest, issuedRequest);
       amClient.addContainerRequest(issuedRequest);
@@ -269,15 +274,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    *
    * @param resource to be released
    */
-
   @Override
   public void releaseResources(SamzaResource resource) {
-    log.info("Release resource invoked {} ", resource);
-    //ensure that updating state and removing the request are done atomically
+    log.info("Releasing Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
+    // ensure that updating state and removing the request are done atomically
     synchronized (lock) {
       Container container = allocatedResources.get(resource);
       if (container == null) {
-        log.info("Resource {} already released. ", resource);
+        log.info("Container ID: {} on host: {} was already released.", resource.getContainerId(), resource.getHost());
         return;
       }
       amClient.releaseAssignedContainer(container.getId());
@@ -293,22 +297,23 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    *
    * TODO: Support non-builder methods to launch resources. Maybe, refactor into a ContainerLaunchStrategy interface
    */
-
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) {
-    String containerIDStr = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID());
-    log.info("Received launch request for {} on hostname {}", containerIDStr, resource.getHost());
+    String processorId = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID());
+    String containerId = resource.getContainerId();
+    String host = resource.getHost();
+    log.info("Starting Processor ID: {} on Container ID: {} on host: {}", processorId, containerId, host);
     synchronized (lock) {
       try {
         Container container = allocatedResources.get(resource);
         if (container == null) {
-          log.info("Resource {} already released. ", resource);
+          log.info("Container ID: {} on host: {} was already allocated / released.", containerId, host);
           return;
         }
 
-        runContainer(containerIDStr, container, builder);
+        runProcessor(processorId, container, builder);
       } catch (Throwable t) {
-        log.error("Error in launching stream processor:", t);
+        log.info("Error starting Processor ID: {} on Container ID: {} on host: {}", processorId, containerId, host, t);
         clusterManagerCallback.onStreamProcessorLaunchFailure(resource, t);
       }
     }
@@ -316,34 +321,31 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   public void stopStreamProcessor(SamzaResource resource) {
     synchronized (lock) {
-      log.info("Stopping resource {}", resource);
+      log.info("Stopping Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
       this.nmClientAsync.stopContainerAsync(allocatedResources.get(resource).getId(),
           allocatedResources.get(resource).getNodeId());
     }
   }
 
   /**
-   * Given a lookupContainerId from Yarn (for example: containerId_app_12345, this method returns the SamzaContainer ID
+   * Given a containerId from Yarn (for example: containerId_app_12345, this method returns the processor ID
    * in the range [0,N-1] that maps to it.
-   * @param lookupContainerId  the Yarn container ID.
-   * @return  the samza container ID.
+   * @param containerId  the Yarn container ID.
+   * @return  the Samza processor ID.
    */
-
-  //TODO: Get rid of the YarnContainer object and just use Container in state.runningYarnContainers hashmap.
+  //TODO: Get rid of the YarnContainer object and just use Container in state.runningProcessors hashmap.
   //In that case, this scan will turn into a lookup. This change will require changes/testing in the UI files because
   //those UI stub templates operate on the YarnContainer object.
-
-  private String getIDForContainer(String lookupContainerId) {
-    String samzaContainerID = INVALID_YARN_CONTAINER_ID;
-    for(Map.Entry<String, YarnContainer> entry : state.runningYarnContainers.entrySet()) {
+  private String getRunningProcessorId(String containerId) {
+    for(Map.Entry<String, YarnContainer> entry : state.runningProcessors.entrySet()) {
       String key = entry.getKey();
       YarnContainer yarnContainer = entry.getValue();
       String yarnContainerId = yarnContainer.id().toString();
-      if(yarnContainerId.equals(lookupContainerId)) {
+      if(yarnContainerId.equals(containerId)) {
         return key;
       }
     }
-    return samzaContainerID;
+    return INVALID_PROCESSOR_ID;
   }
 
 
@@ -357,12 +359,17 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void cancelResourceRequest(SamzaResourceRequest request) {
-    log.info("Cancelling request {} ", request);
+    String processorId = request.getProcessorId();
+    String preferredHost = request.getPreferredHost();
+    String requestId = request.getRequestId();
+    log.info("Cancelling resource request for Processor ID: {} on host: {} with Request ID: {}",
+        processorId, preferredHost, requestId);
     //ensure that removal and cancellation are done atomically.
     synchronized (lock) {
       AMRMClient.ContainerRequest containerRequest = requestsMap.get(request);
       if (containerRequest == null) {
-        log.info("Cancellation of {} already done. ", request);
+        log.info("Resource request for Processor ID: {} on host: {} with Request ID: {} already cancelled.",
+            processorId, preferredHost, requestId);
         return;
       }
       requestsMap.remove(request);
@@ -378,12 +385,12 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void stop(SamzaApplicationState.SamzaAppStatus status) {
-    log.info("Stopping AM client " );
+    log.info("Stopping AM client.");
     lifecycle.onShutdown(status);
     amClient.stop();
-    log.info("Stopping the AM service " );
+    log.info("Stopping the AM service.");
     nmClientAsync.stop();
-    log.info("Stopping the NM service " );
+    log.info("Stopping the NM service.");
     service.onShutdown();
     metrics.stop();
 
@@ -406,7 +413,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       try {
         fs = FileSystem.get(yarnConfiguration);
       } catch (IOException e) {
-        log.error("Unable to clean up file system: {}", e);
+        log.error("Unable to clean up file system.", e);
         return;
       }
       if(fs != null) {
@@ -423,30 +430,31 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void onContainersCompleted(List<ContainerStatus> statuses) {
-    List<SamzaResourceStatus> samzaResrcStatuses = new ArrayList<>();
+    List<SamzaResourceStatus> samzaResourceStatuses = new ArrayList<>();
 
     for(ContainerStatus status: statuses) {
-      log.info("Container completed from RM " + status);
+      log.info("Got completion notification for Container ID: {} with status: {} and state: {}. Diagnostics information: {}.",
+          status.getContainerId(), status.getExitStatus(), status.getState(), status.getDiagnostics());
 
-      SamzaResourceStatus samzaResrcStatus = new SamzaResourceStatus(status.getContainerId().toString(), status.getDiagnostics(), status.getExitStatus());
-      samzaResrcStatuses.add(samzaResrcStatus);
+      SamzaResourceStatus samzaResourceStatus = new SamzaResourceStatus(status.getContainerId().toString(), status.getDiagnostics(), status.getExitStatus());
+      samzaResourceStatuses.add(samzaResourceStatus);
 
-      String completedContainerID = getIDForContainer(status.getContainerId().toString());
-      log.info("Completed container had ID: {}", completedContainerID);
+      String completedProcessorID = getRunningProcessorId(status.getContainerId().toString());
+      log.info("Completed Container ID: {} had Processor ID: {}", status.getContainerId(), completedProcessorID);
 
       //remove the container from the list of running containers, if failed with a non-zero exit code, add it to the list of
       //failed containers.
-      if(!completedContainerID.equals(INVALID_YARN_CONTAINER_ID)){
-        if(state.runningYarnContainers.containsKey(completedContainerID)) {
-          log.info("Removing container ID {} from completed containers", completedContainerID);
-          state.runningYarnContainers.remove(completedContainerID);
+      if(!completedProcessorID.equals(INVALID_PROCESSOR_ID)){
+        if(state.runningProcessors.containsKey(completedProcessorID)) {
+          log.info("Removing Processor ID: {} from YarnClusterResourceManager running processors.", completedProcessorID);
+          state.runningProcessors.remove(completedProcessorID);
 
           if(status.getExitStatus() != ContainerExitStatus.SUCCESS)
             state.failedContainersStatus.put(status.getContainerId().toString(), status);
         }
       }
     }
-    clusterManagerCallback.onResourcesCompleted(samzaResrcStatuses);
+    clusterManagerCallback.onResourcesCompleted(samzaResourceStatuses);
   }
 
   /**
@@ -458,13 +466,13 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   public void onContainersAllocated(List<Container> containers) {
       List<SamzaResource> resources = new ArrayList<SamzaResource>();
       for(Container container : containers) {
-          log.info("Container allocated from RM on " + container.getNodeId().getHost());
-          final String id = container.getId().toString();
+          log.info("Got allocation notification for Container ID: {} on host: {}", container.getId(), container.getNodeId().getHost());
+          String containerId = container.getId().toString();
           String host = container.getNodeId().getHost();
           int memory = container.getResource().getMemory();
           int numCores = container.getResource().getVirtualCores();
 
-          SamzaResource resource = new SamzaResource(numCores, memory, host, id);
+          SamzaResource resource = new SamzaResource(numCores, memory, host, containerId);
           allocatedResources.put(resource, container);
           resources.add(resource);
       }
@@ -496,94 +504,86 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void onError(Throwable e) {
-    log.error("Exception in the Yarn callback {}", e);
+    log.error("Exception in the Yarn callback", e);
     clusterManagerCallback.onError(e);
   }
 
   @Override
   public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
-    log.info("Received a containerStart notification from the NodeManager for container: {} ", containerId);
-    String samzaContainerId = getPendingSamzaContainerId(containerId);
+    String processorId = getPendingProcessorId(containerId);
+    if (processorId != null) {
+    log.info("Got start notification for Container ID: {} for Processor ID: {}", containerId, processorId);
+      // 1. Move the processor from pending to running state
+      final YarnContainer container = state.pendingProcessors.remove(processorId);
 
-    if (samzaContainerId != null) {
-      // 1. Move the container from pending to running state
-      final YarnContainer container = state.pendingYarnContainers.remove(samzaContainerId);
-      log.info("Samza containerId:{} has started", samzaContainerId);
-
-      state.runningYarnContainers.put(samzaContainerId, container);
+      state.runningProcessors.put(processorId, container);
 
       // 2. Invoke the success callback.
       SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
           container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
       clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
     } else {
-      log.info("Got an invalid notification from YARN for container: {}", containerId);
+      log.warn("Did not find the Processor ID for the start notification for Container ID: {}. " +
+          "Ignoring notification.", containerId);
     }
   }
 
   @Override
   public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
-    log.info("Got a status from the NodeManager. Container: {} Status: {}", containerId, containerStatus.getState());
+    log.info("Got status notification for Container ID: {} for Processor ID: {}. Status: {}",
+        containerId, getRunningProcessorId(containerId.toString()), containerStatus.getState());
   }
 
   @Override
   public void onContainerStopped(ContainerId containerId) {
-    log.info("Got a notification from the NodeManager for a stopped container. ContainerId: {} samzaContainerId {}",
-        containerId, getIDForContainer(containerId.toString()));
+    log.info("Got stop notification for Container ID: {} for Processor ID: {}",
+        containerId, getRunningProcessorId(containerId.toString()));
   }
 
   @Override
-  public void onStartContainerError(ContainerId yarnContainerId, Throwable t) {
-    log.error(String.format("Yarn Container: %s could not start.", yarnContainerId), t);
+  public void onStartContainerError(ContainerId containerId, Throwable t) {
+    String processorId = getPendingProcessorId(containerId);
 
-    String samzaContainerId = getPendingSamzaContainerId(yarnContainerId);
-
-    if (samzaContainerId != null) {
-      YarnContainer container = state.pendingYarnContainers.remove(samzaContainerId);
-      log.info("Failed Yarn Container: {} had Samza ContainerId: {} ", yarnContainerId, samzaContainerId);
+    if (processorId != null) {
+      log.info("Got start error notification for Container ID: {} for Processor ID: {} ", containerId, processorId, t);
+      YarnContainer container = state.pendingProcessors.remove(processorId);
       SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-          container.resource().getMemory(), container.nodeId().getHost(), yarnContainerId.toString());
-      log.info("Invoking failure callback for container: {}", yarnContainerId);
-      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(t));
+          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new ProcessorLaunchException(t));
     } else {
-      log.info("Got an invalid notification for container: {}", yarnContainerId);
+      log.warn("Did not find the pending Processor ID for the start error notification for Container ID: {}. " +
+          "Ignoring notification", containerId);
     }
   }
 
   @Override
   public void onGetContainerStatusError(ContainerId containerId, Throwable t) {
-    log.info("Got an error on getContainerStatus from the NodeManager. ContainerId: {}. Error: {}", containerId, t);
+    log.info("Got status error notification for Container ID: {} for Processor ID: {}",
+        containerId, getRunningProcessorId(containerId.toString()), t);
   }
 
   @Override
   public void onStopContainerError(ContainerId containerId, Throwable t) {
-    log.info("Got an error when stopping container from the NodeManager. ContainerId: {}. Error: {}", containerId, t);
-    String samzaContainerId = getIDForContainer(containerId.toString());
+    String processorId = getRunningProcessorId(containerId.toString());
 
-    if (samzaContainerId != null) {
-      YarnContainer container = state.runningYarnContainers.get(samzaContainerId);
-      log.info("Failed Stop on Yarn Container: {} had Samza ContainerId: {} ", containerId.toString(), samzaContainerId);
-      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-
-      log.info("Re-invoking stop stream processor for container: {}", containerId);
-      this.stopStreamProcessor(resource);// For now, we retry the stopping of the container
+    if (processorId != null) {
+      log.info("Got stop error notification for Container ID: {} for Processor ID: {}", containerId, processorId, t);
+      YarnContainer container = state.runningProcessors.get(processorId);
     } else {
-      log.info("Got an invalid notification for container: {}", containerId.toString());
+      log.warn("Did not find the running Processor ID for the stop error notification for Container ID: {}. " +
+          "Ignoring notification", containerId);
     }
   }
 
   /**
    * Runs a process as specified by the command builder on the container.
-   * @param samzaContainerId id of the samza Container to run (passed as a command line parameter to the process)
-   * @param container the samza container to run.
+   * @param processorId id of the samza processor to run (passed as a command line parameter to the process)
+   * @param container the yarn container to run the processor on.
    * @param cmdBuilder the command builder that encapsulates the command, and the context
    * @throws IOException on IO exceptions running the container
    */
-  public void runContainer(String samzaContainerId, Container container, CommandBuilder cmdBuilder) throws IOException {
+  public void runProcessor(String processorId, Container container, CommandBuilder cmdBuilder) throws IOException {
     String containerIdStr = ConverterUtils.toString(container.getId());
-    log.info("Got available container ID ({}) for container: {}", samzaContainerId, container);
-
     // check if we have framework path specified. If yes - use it, if not use default ./__package/
     String jobLib = ""; // in case of separate framework, this directory will point at the job's libraries
     String cmdPath = "./__package/";
@@ -593,65 +593,40 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       cmdPath = fwkPath;
       jobLib = "export JOB_LIB_DIR=./__package/lib";
     }
-    log.info("In runContainer in util: fwkPath= " + fwkPath + ";cmdPath=" + cmdPath + ";jobLib=" + jobLib);
     cmdBuilder.setCommandPath(cmdPath);
-
-
     String command = cmdBuilder.buildCommand();
-    log.info("Container ID {} using command {}", samzaContainerId, command);
 
     Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
     env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
-    printContainerEnvironmentVariables(samzaContainerId, env);
-
-    log.info("Samza FWK path: " + command + "; env=" + env);
 
     Path packagePath = new Path(yarnConfig.getPackagePath());
-    log.info("Starting container ID {} using package path {}", samzaContainerId, packagePath);
-    state.pendingYarnContainers.put(samzaContainerId, new YarnContainer(container));
+    String formattedCommand = getFormattedCommand(ApplicationConstants.LOG_DIR_EXPANSION_VAR, jobLib, command,
+        ApplicationConstants.STDOUT, ApplicationConstants.STDERR);
 
-    startContainer(
-        packagePath,
-        container,
-        env,
-        getFormattedCommand(
-            ApplicationConstants.LOG_DIR_EXPANSION_VAR,
-            jobLib,
-            command,
-            ApplicationConstants.STDOUT,
-            ApplicationConstants.STDERR)
-    );
+    log.info("Running Processor ID: {} on Container ID: {} on host: {} using command: {} and env: {} and package path: {}",
+        processorId, containerIdStr, container.getNodeHttpAddress(), formattedCommand, env, packagePath);
+    state.pendingProcessors.put(processorId, new YarnContainer(container));
 
+    startContainer(packagePath, container, env, formattedCommand);
 
-    log.info("Claimed container ID {} for container {} on node {} (http://{}/node/containerlogs/{}).",
-        new Object[]{
-            samzaContainerId,
-            containerIdStr,
-            container.getNodeId().getHost(),
-            container.getNodeHttpAddress(),
-            containerIdStr}
-    );
-
-    log.info("Started container ID {}", samzaContainerId);
+    log.info("Made start request for Processor ID: {} on Container ID: {} on host: {} (http://{}/node/containerlogs/{}).",
+        processorId, containerIdStr, container.getNodeId().getHost(), container.getNodeHttpAddress(), containerIdStr);
   }
 
   /**
-   *    Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
-   *    specified by packagePath.
+   * Runs a command as a process on the container. All binaries needed by the physical process are packaged in the URL
+   * specified by packagePath.
    */
   private void startContainer(Path packagePath,
                               Container container,
                               Map<String, String> env,
                               final String cmd) throws IOException {
-    log.info("Starting container {} {} {} {}",
-        new Object[]{packagePath, container, env, cmd});
-
     LocalResource packageResource = Records.newRecord(LocalResource.class);
     URL packageUrl = ConverterUtils.getYarnUrlFromPath(packagePath);
     FileStatus fileStatus;
     fileStatus = packagePath.getFileSystem(yarnConfiguration).getFileStatus(packagePath);
     packageResource.setResource(packageUrl);
-    log.info("Set package resource in YarnContainerRunner for {}", packageUrl);
+    log.debug("Set package resource in YarnContainerRunner for {}", packageUrl);
     packageResource.setSize(fileStatus.getLen());
     packageResource.setTimestamp(fileStatus.getModificationTime());
     packageResource.setType(LocalResourceType.ARCHIVE);
@@ -699,20 +674,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     StartContainerRequest startContainerRequest = Records.newRecord(StartContainerRequest.class);
     startContainerRequest.setContainerLaunchContext(context);
 
-    log.info("Making an async start request for container {}", container);
+    log.info("Making an async start request for Container ID: {} on host: {} with local resource map: {} and context: {}",
+        container.getId(), container.getNodeHttpAddress(), localResourceMap.toString(), context);
     nmClientAsync.startContainerAsync(container, context);
-  }
-
-  /**
-   * @param samzaContainerId  the Samza container Id for logging purposes.
-   * @param env               the Map of environment variables to their respective values.
-   */
-  private void printContainerEnvironmentVariables(String samzaContainerId, Map<String, String> env) {
-    StringBuilder sb = new StringBuilder();
-    for (Map.Entry<String, String> entry : env.entrySet()) {
-      sb.append(String.format("\n%s=%s", entry.getKey(), entry.getValue()));
-    }
-    log.info("Container ID {} using environment variables: {}", samzaContainerId, sb.toString());
   }
 
   /**
@@ -750,14 +714,13 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    * @param containerId the Yarn ContainerId
    * @return the id of the Samza container corresponding to the {@link ContainerId} that is pending launch
    */
-  private String getPendingSamzaContainerId(ContainerId containerId) {
-    for (String samzaContainerId: state.pendingYarnContainers.keySet()) {
-      YarnContainer yarnContainer = state.pendingYarnContainers.get(samzaContainerId);
+  private String getPendingProcessorId(ContainerId containerId) {
+    for (String pendingProcessorId: state.pendingProcessors.keySet()) {
+      YarnContainer yarnContainer = state.pendingProcessors.get(pendingProcessorId);
       if (yarnContainer != null && yarnContainer.id().equals(containerId)) {
-        return samzaContainerId;
+        return pendingProcessorId;
       }
     }
     return null;
   }
-
 }

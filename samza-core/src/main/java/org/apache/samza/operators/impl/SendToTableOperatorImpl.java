@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -25,9 +28,7 @@ import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
-
 import java.util.Collection;
-import java.util.Collections;
 
 
 /**
@@ -37,7 +38,7 @@ import java.util.Collections;
  * @param <K> the type of the record key
  * @param <V> the type of the record value
  */
-public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> {
+public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, V>> {
 
   private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
   private final ReadWriteTable<K, V> table;
@@ -52,10 +53,10 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
   }
 
   @Override
-  protected Collection<Void> handleMessage(KV<K, V> message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     table.put(message.getKey(), message.getValue());
-    // there should be no further chained operators since this is a terminal operator.
-    return Collections.emptyList();
+    return CompletableFuture.completedFuture(Collections.singleton(message));
   }
 
   @Override
@@ -64,7 +65,7 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, Void> 
   }
 
   @Override
-  protected OperatorSpec<KV<K, V>, Void> getOperatorSpec() {
+  protected OperatorSpec<KV<K, V>, KV<K, V>> getOperatorSpec() {
     return sendToTableOpSpec;
   }
 }

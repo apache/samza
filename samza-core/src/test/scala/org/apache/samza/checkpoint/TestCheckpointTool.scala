@@ -28,6 +28,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
 import org.apache.samza.checkpoint.TestCheckpointTool.MockSystemFactory
 import org.apache.samza.config._
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, CoordinatorStreamStoreTestUtil}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system.SystemAdmin
@@ -44,9 +45,9 @@ import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 import org.apache.samza.execution.JobPlanner
+import org.mockito.Mockito
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = _
@@ -84,8 +85,8 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       TaskConfig.INPUT_STREAMS -> "test.foo",
       TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getName,
-      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getName,
-      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
     config = JobPlanner.generateSingleJobConfig(userDefinedConfig)
@@ -145,27 +146,30 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
   def testShouldInstantiateCheckpointManagerWithConfigurationFromCoordinatorStream(): Unit = {
     val offsetMap: TaskNameToCheckpointMap = Map(tn0 -> Map(new SystemStreamPartition("test", "foo", p0) -> "42"),
       tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"))
-    val coordinatorStreamManager = mock[CoordinatorStreamManager]
     val userDefinedConfig: MapConfig = new MapConfig(Map(
       ApplicationConfig.APP_NAME -> "test",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       TaskConfig.INPUT_STREAMS -> "test.foo",
       TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getName,
-      SystemConfig.SYSTEM_FACTORY.format("test") -> classOf[MockSystemFactory].getName,
-      SystemConfig.SYSTEM_FACTORY.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getName,
+      SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
       TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
     ).asJava)
     val generatedConfigs: MapConfig = JobPlanner.generateSingleJobConfig(userDefinedConfig)
-    when(coordinatorStreamManager.getConfig).thenReturn(generatedConfigs)
+    val coordinatorStreamStoreTestUtil: CoordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config)
 
-    val checkpointTool: CheckpointTool = new CheckpointTool(offsetMap, coordinatorStreamManager)
+
+    val coordinatorStreamStore: CoordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore
+    val checkpointTool: CheckpointTool = Mockito.spy(new CheckpointTool(offsetMap, coordinatorStreamStore, generatedConfigs))
+    Mockito.when(checkpointTool.getConfigFromCoordinatorStream(coordinatorStreamStore)).thenReturn(userDefinedConfig)
     checkpointTool.run()
 
     verify(TestCheckpointTool.checkpointManager)
       .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
       .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
-    verify(coordinatorStreamManager).getConfig
-    assert(TestCheckpointTool.coordinatorConfig == generatedConfigs)
+
+    // Two configurations job.id, job.name are populated in the coordinator config by SamzaRuntime and it is not present in generated config.
+    assert(generatedConfigs.entrySet().containsAll(TestCheckpointTool.coordinatorConfig.entrySet()))
   }
 }

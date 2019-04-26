@@ -49,10 +49,12 @@ import static org.mockito.Mockito.when;
 
 public class TestHostAwareContainerAllocator {
 
-  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
-  private final JobModelManager reader = initializeJobModelManager(config, 1);
+  private final JobModelManager jobModelManager = initializeJobModelManager(config, 1);
+  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+  private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
+
+  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
   private JobModelManager initializeJobModelManager(Config config, int containerCount) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
@@ -66,7 +68,6 @@ public class TestHostAwareContainerAllocator {
         new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
   }
 
-  private final SamzaApplicationState state = new SamzaApplicationState(reader);
   private HostAwareContainerAllocator containerAllocator;
   private final int timeoutMillis = 1000;
   private MockContainerRequestState requestState;
@@ -101,9 +102,9 @@ public class TestHostAwareContainerAllocator {
 
     assertEquals(4, requestState.numPendingRequests());
 
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertEquals(1, requestState.getRequestsToCountMap().keySet().size());
-    assertTrue(requestState.getRequestsToCountMap().keySet().contains(ResourceRequestState.ANY_HOST));
+    assertNotNull(requestState.getHostRequestCounts());
+    assertEquals(1, requestState.getHostRequestCounts().keySet().size());
+    assertTrue(requestState.getHostRequestCounts().keySet().contains(ResourceRequestState.ANY_HOST));
   }
 
   /**
@@ -139,7 +140,7 @@ public class TestHostAwareContainerAllocator {
 
     assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
     assertTrue(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size() == 1);
-    assertEquals("ID2", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getResourceID());
+    assertEquals("ID2", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getContainerId());
   }
 
   /**
@@ -179,7 +180,7 @@ public class TestHostAwareContainerAllocator {
     assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
     // assert that the surplus resources goto the ANY_HOST buffer
     assertTrue(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).size() == 4);
-    assertEquals("ID3", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getResourceID());
+    assertEquals("ID3", requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST).get(0).getContainerId());
   }
 
   @Test
@@ -197,7 +198,7 @@ public class TestHostAwareContainerAllocator {
 
         // Test that state is cleaned up
         assertEquals(0, requestState.numPendingRequests());
-        assertEquals(0, requestState.getRequestsToCountMap().size());
+        assertEquals(0, requestState.getHostRequestCounts().size());
         assertNull(requestState.getResourcesOnAHost("abc"));
         assertNull(requestState.getResourcesOnAHost("def"));
       }
@@ -235,7 +236,7 @@ public class TestHostAwareContainerAllocator {
     assertEquals(clusterResourceManager.resourceRequests.size(), 4);
     assertEquals(requestState.numPendingRequests(), 4);
 
-    Map<String, AtomicInteger> requestsMap = requestState.getRequestsToCountMap();
+    Map<String, AtomicInteger> requestsMap = requestState.getHostRequestCounts();
     assertNotNull(requestsMap.get("abc"));
     assertEquals(2, requestsMap.get("abc").get());
 
@@ -263,12 +264,12 @@ public class TestHostAwareContainerAllocator {
     };
     containerAllocator.requestResources(containersToHostMapping);
     assertEquals(requestState.numPendingRequests(), 2);
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertNotNull(requestState.getRequestsToCountMap().get("abc"));
-    assertTrue(requestState.getRequestsToCountMap().get("abc").get() == 1);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertNotNull(requestState.getHostRequestCounts().get("abc"));
+    assertTrue(requestState.getHostRequestCounts().get("abc").get() == 1);
 
-    assertNotNull(requestState.getRequestsToCountMap().get("def"));
-    assertTrue(requestState.getRequestsToCountMap().get("def").get() == 1);
+    assertNotNull(requestState.getHostRequestCounts().get("def"));
+    assertTrue(requestState.getHostRequestCounts().get("def").get() == 1);
 
     Runnable addContainerAssertions = new Runnable() {
       @Override
@@ -284,9 +285,9 @@ public class TestHostAwareContainerAllocator {
       @Override
       public void run() {
         assertEquals(requestState.numPendingRequests(), 0);
-        assertNotNull(requestState.getRequestsToCountMap());
-        assertNotNull(requestState.getRequestsToCountMap().get("abc"));
-        assertNotNull(requestState.getRequestsToCountMap().get("def"));
+        assertNotNull(requestState.getHostRequestCounts());
+        assertNotNull(requestState.getHostRequestCounts().get("abc"));
+        assertNotNull(requestState.getHostRequestCounts().get("def"));
       }
     };
 
@@ -325,7 +326,7 @@ public class TestHostAwareContainerAllocator {
     }
     Assert.assertEquals(1, clusterResourceManager.launchedResources.size());
     Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getHost(), "host-3");
-    Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getResourceID(), "id1");
+    Assert.assertEquals(clusterResourceManager.launchedResources.get(0).getContainerId(), "id1");
 
     // Now, there are no more resources left to run the 2nd container. Verify that we eventually issue another request
     if (!clusterResourceManager.awaitResourceRequests(4, 20, TimeUnit.SECONDS)) {
@@ -378,11 +379,11 @@ public class TestHostAwareContainerAllocator {
     // request for resources - one each on host-1 and host-2
     containerAllocator.requestResources(containersToHostMapping);
     assertEquals(requestState.numPendingRequests(), 2);
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertNotNull(requestState.getRequestsToCountMap().get("host-1"));
-    assertTrue(requestState.getRequestsToCountMap().get("host-1").get() == 1);
-    assertNotNull(requestState.getRequestsToCountMap().get("host-2"));
-    assertTrue(requestState.getRequestsToCountMap().get("host-2").get() == 1);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertNotNull(requestState.getHostRequestCounts().get("host-1"));
+    assertTrue(requestState.getHostRequestCounts().get("host-1").get() == 1);
+    assertNotNull(requestState.getHostRequestCounts().get("host-2"));
+    assertTrue(requestState.getHostRequestCounts().get("host-2").get() == 1);
 
     // verify that no containers have been launched yet (since, YARN has not provided any resources)
     assertEquals(0, clusterResourceManager.launchedResources.size());
@@ -414,7 +415,7 @@ public class TestHostAwareContainerAllocator {
 
   @After
   public void teardown() throws Exception {
-    reader.stop();
+    jobModelManager.stop();
     containerAllocator.stop();
   }
 

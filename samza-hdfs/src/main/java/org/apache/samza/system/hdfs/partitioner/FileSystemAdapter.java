@@ -33,11 +33,11 @@ public interface FileSystemAdapter {
    * @param streamName name of the stream
    * @return list of <code>FileMetadata</code> for all files associated to the given stream
    */
-  public List<FileMetadata> getAllFiles(String streamName);
+  List<FileMetadata> getAllFiles(String streamName);
 
-  public class FileMetadata {
-    private String path;
-    private long length;
+  class FileMetadata {
+    private final String path;
+    private final long length;
 
     public FileMetadata(String path, long length) {
       this.path = path;
