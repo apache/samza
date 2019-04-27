@@ -31,7 +31,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.info
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.system.SystemStreamPartition
+import org.apache.samza.system.{SystemAdmins, SystemStreamPartition}
 import org.apache.samza.util.{CommandLine, CoordinatorStreamUtil, Logging, Util}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
@@ -168,6 +168,9 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     println("Configuration read from the coordinator stream")
     println(configFromCoordinatorStream)
 
+    val systemAdmins = new SystemAdmins(configFromCoordinatorStream)
+    systemAdmins.start()
+
     val combinedConfigMap: util.Map[String, String] = new util.HashMap[String, String]()
     combinedConfigMap.putAll(configFromCoordinatorStream)
     combinedConfigMap.putAll(userDefinedConfig)
@@ -184,7 +187,8 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     try {
       // Find all the TaskNames that would be generated for this job config
       val changelogManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
-      val jobModelManager = JobModelManager(combinedConfig, changelogManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+
+      val jobModelManager = JobModelManager(combinedConfig, changelogManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap(), systemAdmins)
       val taskNames = jobModelManager
         .jobModel
         .getContainers
@@ -219,6 +223,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     } finally {
       checkpointManager.stop()
       coordinatorStreamStore.close()
+      systemAdmins.stop()
    }
   }
 

@@ -42,7 +42,7 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemAdmins, SystemStreamPartition}
 import org.apache.samza.task._
 import org.junit.Assert._
 
@@ -283,7 +283,9 @@ class StreamTaskTestUtil {
       case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
     }
 
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    val systemAdmins = new SystemAdmins(mapConfig)
+    systemAdmins.start()
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions, systemAdmins)
   }
 }
 

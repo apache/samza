@@ -31,7 +31,6 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -96,14 +95,6 @@ public class TestSystemConfig {
     SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
     Map<String, SystemAdmin> expected = ImmutableMap.of(MOCK_SYSTEM_NAME1, SYSTEM_ADMIN1);
     assertEquals(expected, systemConfig.getSystemAdmins());
-  }
-
-  @Test
-  public void testGetSystemAdmin() {
-    Map<String, String> map = ImmutableMap.of(MOCK_SYSTEM_FACTORY_NAME1, MockSystemFactory.class.getName());
-    SystemConfig systemConfig = new SystemConfig(new MapConfig(map));
-    assertEquals(SYSTEM_ADMIN1, systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME1));
-    assertNull(systemConfig.getSystemAdmin(MOCK_SYSTEM_NAME2));
   }
 
   @Test

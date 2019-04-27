@@ -48,6 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsValidator;
 import org.apache.samza.storage.ChangelogStreamManager;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.Util;
 import org.apache.samza.util.hadoop.HttpFileSystem;
@@ -161,11 +162,14 @@ public class YarnJobValidationTool {
     MetricsRegistry metricsRegistry = new MetricsRegistryMap();
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, metricsRegistry);
     coordinatorStreamStore.init();
+    SystemAdmins systemAdmins = null;
     try{
       Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
       ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
+      systemAdmins = new SystemAdmins(configFromCoordinatorStream);
+      systemAdmins.start();
       JobModelManager jobModelManager = JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-                                                              coordinatorStreamStore, metricsRegistry);
+                                                              coordinatorStreamStore, metricsRegistry, systemAdmins);
       validator.init(config);
       Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
       for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
@@ -181,6 +185,9 @@ public class YarnJobValidationTool {
       validator.complete();
     } finally {
       coordinatorStreamStore.close();
+      if (systemAdmins != null) {
+        systemAdmins.stop();
+      }
     }
   }
 

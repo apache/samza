@@ -31,6 +31,7 @@ import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 import org.apache.samza.metrics._
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.system.SystemAdmins
 import org.junit.Assert._
 import org.junit.Test
 
@@ -107,7 +108,8 @@ class TestSamzaYarnAppMasterService {
     val namespaceAwareCoordinatorStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE)
     try {
       val changelogPartitionManager = new ChangelogStreamManager(namespaceAwareCoordinatorStore)
-      val jobModelManager = JobModelManager(getDummyConfig, changelogPartitionManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+      val systemAdmins = new SystemAdmins(config)
+      val jobModelManager = JobModelManager(getDummyConfig, changelogPartitionManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap(), systemAdmins)
       jobModelManager
     } finally {
       coordinatorStreamStore.close()
