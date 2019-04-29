@@ -20,24 +20,30 @@
 package org.apache.samza.coordinator;
 
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.job.model.JobModel;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 
+public class TestMetadataResourceUtil {
+  private CheckpointManager checkpointManager;
+  private JobModel jobModel;
 
-public class TestMetadataResourceManager {
+  @Before
+  public void setUp() {
+    checkpointManager = Mockito.mock(CheckpointManager.class);
+    jobModel = Mockito.mock(JobModel.class);
+  }
 
   @Test
   public void testLoad() {
-    CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
-    MetadataResourceManager metadataResourceManager = Mockito.mock(MetadataResourceManager.class);
-    Mockito.doCallRealMethod().when(metadataResourceManager).createResources();
-    Mockito.doReturn(checkpointManager).when(metadataResourceManager).getCheckpointManager();
-    Mockito.doNothing().when(metadataResourceManager).createChangelogStreams();
+    MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(checkpointManager, jobModel));
+    Mockito.doCallRealMethod().when(metadataResourceUtil).createResources();
+    Mockito.doNothing().when(metadataResourceUtil).createChangelogStreams();
 
-    metadataResourceManager.createResources();
-    Mockito.verify(metadataResourceManager).getCheckpointManager();
+    metadataResourceUtil.createResources();
     Mockito.verify(checkpointManager).createResources();
-    Mockito.verify(metadataResourceManager).createChangelogStreams();
+    Mockito.verify(metadataResourceUtil).createChangelogStreams();
   }
 }
