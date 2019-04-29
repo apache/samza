@@ -21,6 +21,7 @@ package org.apache.samza.system.inmemory;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.Partition;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -93,6 +94,15 @@ public class InMemorySystemProducer implements SystemProducer {
 
     SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(partition));
     memoryManager.put(ssp, key, message);
+  }
+
+  /**
+   * Populates the IME to the ssp configured, this gives user more control to set up Test environment
+   *
+   * @param envelope
+   */
+  public void send(IncomingMessageEnvelope envelope) {
+    memoryManager.put(envelope.getSystemStreamPartition(), envelope);
   }
 
   /**

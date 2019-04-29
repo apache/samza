@@ -76,6 +76,19 @@ class InMemoryManager {
   }
 
   /**
+   * Handles produce request from {@link InMemorySystemProducer} for case where a job has a custom IME and
+   * populates the underlying message queue with the IME.
+   *
+   * @param ssp
+   * @param envelope
+   */
+  void put(SystemStreamPartition ssp, IncomingMessageEnvelope envelope) {
+    List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
+    bufferedMessages.get(ssp).add(envelope);
+  }
+
+
+  /**
    * Handles the poll request from {@link InMemorySystemConsumer}. It uses the input offset as the starting offset for
    * each {@link SystemStreamPartition}.
    *
