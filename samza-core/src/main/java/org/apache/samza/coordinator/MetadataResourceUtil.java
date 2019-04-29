@@ -21,48 +21,31 @@ package org.apache.samza.coordinator;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.ChangelogStreamManager;
 
 
 /**
  * Loads the managers responsible for the creation and loading of metadata related resources.
- * TODO: Replace with a metadata admin interface when the {@link MetadataStore} is fully augmented to handle all metadata sources.
  */
+// TODO: Replace with a metadata admin interface when the {@link MetadataStore} is fully augmented to handle all metadata sources.
 public class MetadataResourceUtil {
-  private final Config config;
   private final CheckpointManager checkpointManager;
   private final JobModel jobModel; // TODO: Should be loaded by metadata store in the future
 
   /**
-   * @param metadataStore the {@link MetadataStore} that manages the metadata. Assumption is that the metadataStore is
-   *                      initialized and not stopped.
    * @param jobModel the loaded {@link JobModel}
    * @param metricsRegistry the registry for reporting metrics.
-   * @param configOverride the config override to use instead of the one in the jobModel.
    */
-  public MetadataResourceUtil(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry, Config configOverride) {
-    this.config = configOverride;
+  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry) {
     this.jobModel = jobModel;
-    this.checkpointManager = new TaskConfigJava(config).getCheckpointManager(metricsRegistry);
-  }
-
-  /**
-   * @param metadataStore the {@link MetadataStore} that manages the metadata
-   * @param jobModel the loaded {@link JobModel}
-   * @param metricsRegistry the registry for reporting metrics.
-   */
-  public MetadataResourceUtil(MetadataStore metadataStore, JobModel jobModel, MetricsRegistry metricsRegistry) {
-    this(metadataStore, jobModel, metricsRegistry, jobModel.getConfig());
+    this.checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metricsRegistry);
   }
 
   @VisibleForTesting
   MetadataResourceUtil(CheckpointManager checkpointManager, JobModel jobModel) {
-    this.config = jobModel.getConfig();
     this.jobModel = jobModel;
     this.checkpointManager = checkpointManager;
   }
@@ -79,6 +62,6 @@ public class MetadataResourceUtil {
   }
 
   void createChangelogStreams() {
-    ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
   }
 }

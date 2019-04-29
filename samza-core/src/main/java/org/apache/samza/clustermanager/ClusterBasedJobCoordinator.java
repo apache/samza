@@ -222,7 +222,7 @@ public class ClusterBasedJobCoordinator {
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(coordinatorStreamStore, jobModel, metrics);
+          new MetadataResourceUtil(jobModel, metrics);
       metadataResourceUtil.createResources();
 
       // Remap changelog partitions to tasks

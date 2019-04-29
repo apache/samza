@@ -39,7 +39,6 @@ public class TestMetadataResourceUtil {
   @Test
   public void testLoad() {
     MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(checkpointManager, jobModel));
-    Mockito.doCallRealMethod().when(metadataResourceUtil).createResources();
     Mockito.doNothing().when(metadataResourceUtil).createChangelogStreams();
 
     metadataResourceUtil.createResources();

@@ -68,8 +68,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceLoader = new MetadataResourceUtil(coordinatorStreamStore, jobModel, metricsRegistry)
-    metadataResourceLoader.createResources()
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    metadataResourceUtil.createResources()
 
     val containerId = "0"
     var jmxServer: JmxServer = null

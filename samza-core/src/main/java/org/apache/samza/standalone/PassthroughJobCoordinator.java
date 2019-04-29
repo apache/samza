@@ -83,7 +83,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(null, jobModel, null);
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null);
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);

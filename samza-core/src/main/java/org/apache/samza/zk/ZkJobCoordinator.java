@@ -298,7 +298,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       metadataStore.init();
 
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(metadataStore, jobModel, metrics.getMetricsRegistry());
+          new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
       metadataResourceUtil.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
