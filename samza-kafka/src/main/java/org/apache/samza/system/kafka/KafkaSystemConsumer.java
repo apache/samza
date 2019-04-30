@@ -70,8 +70,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   private final KafkaConsumerProxy<K, V> proxy;
 
   // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
-  private final Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
-  private final Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
+  Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
+  Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
 
   long perPartitionFetchThreshold;
   long perPartitionFetchThresholdBytes;
