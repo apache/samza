@@ -28,7 +28,7 @@ import org.apache.samza.system.SystemStreamPartition;
 /**
  * Startpoint represents a position in a stream partition.
  */
-@InterfaceStability.Unstable
+@InterfaceStability.Evolving
 public abstract class Startpoint {
 
   private final long creationTimestamp;
@@ -50,12 +50,13 @@ public abstract class Startpoint {
   }
 
   /**
-   * Apply the visitor {@link StartpointVisitor}'s register methods to the instance of this {@link Startpoint}
-   * class.
-   * @param systemStreamPartition The {@link SystemStreamPartition} needed to register with the {@link StartpointVisitor}
-   * @param startpointVisitor The visitor to register with.
+   * Applies the {@link StartpointVisitor}'s visit methods to the {@link Startpoint}
+   * and resolves it to a system specific offset.
+   * @param systemStreamPartition the {@link SystemStreamPartition} of the startpoint.
+   * @param startpointVisitor the visitor of the startpoint.
+   * @return the resolved offset.
    */
-  public abstract void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
+  public abstract String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
 
   @Override
   public String toString() {

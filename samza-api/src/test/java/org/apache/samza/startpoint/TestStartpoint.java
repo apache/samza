@@ -24,7 +24,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
 import org.junit.Test;
 
-
 public class TestStartpoint {
 
   @Test
@@ -69,44 +68,31 @@ public class TestStartpoint {
     Assert.assertEquals(StartpointUpcoming.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
-  @Test
-  public void testStartpointCustom() {
-    MockStartpointCustom startpoint = new MockStartpointCustom("test12345", 12345);
-    Assert.assertEquals("test12345", startpoint.getTestInfo1());
-    Assert.assertEquals(12345, startpoint.getTestInfo2());
-    Assert.assertTrue(startpoint.getCreationTimestamp() <= Instant.now().toEpochMilli());
-
-    MockStartpointVisitor mockStartpointVisitorConsumer = new MockStartpointVisitor();
-    startpoint.apply(new SystemStreamPartition("sys", "stream", new Partition(1)), mockStartpointVisitorConsumer);
-    Assert.assertEquals(MockStartpointCustom.class, mockStartpointVisitorConsumer.visitedClass);
-  }
-
   static class MockStartpointVisitor implements StartpointVisitor {
     Class<? extends Startpoint> visitedClass;
 
     @Override
-    public void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
+    public String visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
       visitedClass = startpointSpecific.getClass();
+      return null;
     }
 
     @Override
-    public void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+    public String visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
       visitedClass = startpointTimestamp.getClass();
+      return null;
     }
 
     @Override
-    public void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+    public String visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
       visitedClass = startpointOldest.getClass();
+      return null;
     }
 
     @Override
-    public void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+    public String visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
       visitedClass = startpointUpcoming.getClass();
-    }
-
-    @Override
-    public void visit(SystemStreamPartition systemStreamPartition, StartpointCustom startpointCustom) {
-      visitedClass = startpointCustom.getClass();
+      return null;
     }
   }
 }

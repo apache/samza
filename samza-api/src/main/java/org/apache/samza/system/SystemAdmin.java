@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.startpoint.StartpointVisitor;
 
 
 /**
@@ -164,4 +165,10 @@ public interface SystemAdmin {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Builds and returns the {@link StartpointVisitor} for a system.
+   */
+  default StartpointVisitor getStartpointVisitor() {
+    throw new UnsupportedOperationException();
+  }
 }

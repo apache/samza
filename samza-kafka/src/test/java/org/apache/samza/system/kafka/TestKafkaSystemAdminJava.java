@@ -25,16 +25,24 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.startpoint.StartpointOldest;
+import org.apache.samza.startpoint.StartpointSpecific;
+import org.apache.samza.startpoint.StartpointTimestamp;
+import org.apache.samza.startpoint.StartpointUpcoming;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.kafka.KafkaSystemAdmin.KafkaStartpointToOffsetResolver;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -42,10 +50,16 @@ import org.mockito.Mockito;
 import static org.apache.samza.system.kafka.KafkaSystemAdmin.*;
 import static org.junit.Assert.*;
 
-
 public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   private static final String SYSTEM = "kafka";
   private static final String TOPIC = "input";
+  private static final String TEST_SYSTEM = "test-system";
+  private static final String TEST_STREAM = "test-stream";
+  private static final Integer TEST_PARTITION_ID = 0;
+  private static final TopicPartition TEST_TOPIC_PARTITION = new TopicPartition(TEST_STREAM, TEST_PARTITION_ID);
+  private static final Partition TEST_PARTITION = new Partition(TEST_PARTITION_ID);
+  private static final SystemStreamPartition TEST_SYSTEM_STREAM_PARTITION = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, TEST_PARTITION);
+  private static final String TEST_OFFSET = "10";
 
   @Test
   public void testGetOffsetsAfter() {
@@ -336,5 +350,92 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     assertEquals(expectedSystemStream1Partition1Metadata, stream1PartitionMetadata.get(new Partition(1)));
     assertEquals(expectedSystemStream2Partition0Metadata, stream2PartitionMetadata.get(new Partition(0)));
     assertEquals(expectedSystemStream2Partition1Metadata, stream2PartitionMetadata.get(new Partition(1)));
+  }
+
+  @Test
+  public void testStartpointSpecificOffsetVisitorShouldResolveToCorrectOffset() {
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+    final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(consumer);
+
+    final StartpointSpecific testStartpointSpecific = new StartpointSpecific(TEST_OFFSET);
+
+    // Invoke the consumer with startpoint.
+    String resolvedOffset = kafkaStartpointToOffsetResolver.visit(TEST_SYSTEM_STREAM_PARTITION, testStartpointSpecific);
+    Assert.assertEquals(TEST_OFFSET, resolvedOffset);
+  }
+
+  @Test
+  public void testStartpointTimestampVisitorShouldResolveToCorrectOffset() {
+    // Define dummy variables for testing.
+    final Long testTimeStamp = 10L;
+
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+
+    final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(consumer);
+
+    final StartpointTimestamp startpointTimestamp = new StartpointTimestamp(testTimeStamp);
+    final Map<TopicPartition, OffsetAndTimestamp> offsetForTimesResult = ImmutableMap.of(
+        TEST_TOPIC_PARTITION, new OffsetAndTimestamp(Long.valueOf(TEST_OFFSET), testTimeStamp));
+
+    // Mock the consumer interactions.
+    Mockito.when(consumer.offsetsForTimes(ImmutableMap.of(TEST_TOPIC_PARTITION, testTimeStamp))).thenReturn(offsetForTimesResult);
+    Mockito.doNothing().when(consumer).seek(TEST_TOPIC_PARTITION, Long.valueOf(TEST_OFFSET));
+    Mockito.when(consumer.position(TEST_TOPIC_PARTITION)).thenReturn(Long.valueOf(TEST_OFFSET));
+
+    String resolvedOffset = kafkaStartpointToOffsetResolver.visit(TEST_SYSTEM_STREAM_PARTITION, startpointTimestamp);
+    Assert.assertEquals(TEST_OFFSET, resolvedOffset);
+  }
+
+  @Test
+  public void testStartpointTimestampVisitorShouldResolveToCorrectOffsetWhenTimestampDoesNotExist() {
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+    final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(consumer);
+
+    final StartpointTimestamp startpointTimestamp = new StartpointTimestamp(0L);
+    final Map<TopicPartition, OffsetAndTimestamp> offsetForTimesResult = new HashMap<>();
+    offsetForTimesResult.put(TEST_TOPIC_PARTITION, null);
+
+    // Mock the consumer interactions.
+    Mockito.when(consumer.offsetsForTimes(ImmutableMap.of(TEST_TOPIC_PARTITION, 0L))).thenReturn(offsetForTimesResult);
+    Mockito.when(consumer.endOffsets(ImmutableSet.of(TEST_TOPIC_PARTITION))).thenReturn(ImmutableMap.of(TEST_TOPIC_PARTITION, 10L));
+
+    String resolvedOffset = kafkaStartpointToOffsetResolver.visit(TEST_SYSTEM_STREAM_PARTITION, startpointTimestamp);
+    Assert.assertEquals(TEST_OFFSET, resolvedOffset);
+
+    // Mock verifications.
+    Mockito.verify(consumer).offsetsForTimes(ImmutableMap.of(TEST_TOPIC_PARTITION, 0L));
+  }
+
+  @Test
+  public void testStartpointOldestVisitorShouldResolveToCorrectOffset() {
+    // Define dummy variables for testing.
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+    final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(consumer);
+
+    final StartpointOldest testStartpointSpecific = new StartpointOldest();
+
+    // Mock the consumer interactions.
+    Mockito.when(consumer.beginningOffsets(ImmutableSet.of(TEST_TOPIC_PARTITION))).thenReturn(ImmutableMap.of(TEST_TOPIC_PARTITION, 10L));
+
+    // Invoke the consumer with startpoint.
+    String resolvedOffset = kafkaStartpointToOffsetResolver.visit(TEST_SYSTEM_STREAM_PARTITION, testStartpointSpecific);
+    Assert.assertEquals(TEST_OFFSET, resolvedOffset);
+  }
+
+  @Test
+  public void testStartpointUpcomingVisitorShouldResolveToCorrectOffset() {
+    // Define dummy variables for testing.
+    final KafkaConsumer consumer = Mockito.mock(KafkaConsumer.class);
+
+    final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(consumer);
+
+    final StartpointUpcoming testStartpointSpecific = new StartpointUpcoming();
+
+    // Mock the consumer interactions.
+    Mockito.when(consumer.endOffsets(ImmutableSet.of(TEST_TOPIC_PARTITION))).thenReturn(ImmutableMap.of(TEST_TOPIC_PARTITION, 10L));
+
+    // Invoke the consumer with startpoint.
+    String resolvedOffset = kafkaStartpointToOffsetResolver.visit(TEST_SYSTEM_STREAM_PARTITION, testStartpointSpecific);
+    Assert.assertEquals(TEST_OFFSET, resolvedOffset);
   }
 }
