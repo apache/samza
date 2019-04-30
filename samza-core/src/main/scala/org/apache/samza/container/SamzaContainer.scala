@@ -473,14 +473,10 @@ object SamzaContainer extends Logging {
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
 
-    val singleThreadMode = config.getSingleThreadMode
-    info("Got single thread mode: " + singleThreadMode)
-
     val threadPoolSize = config.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
-
-    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0) {
+    val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
         new ThreadFactoryBuilder().setNameFormat("Samza Container Thread-%d").build())
     } else {
@@ -490,16 +486,7 @@ object SamzaContainer extends Logging {
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
-      singleThreadMode,
       taskThreadPool)
-
-    // Wire up all task-instance-level (unshared) objects.
-    val taskNames = containerModel
-      .getTasks
-      .values
-      .asScala
-      .map(_.getTaskName)
-      .toSet
 
     val taskModels = containerModel.getTasks.values.asScala
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
@@ -845,10 +832,7 @@ class SamzaContainer(
 
   // Shutdown Runloop
   def shutdownRunLoop() = {
-    runLoop match {
-      case runLoop: RunLoop => runLoop.shutdown
-      case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
-    }
+    runLoop.asInstanceOf[RunLoop].shutdown
   }
 
   def startDiskSpaceMonitor: Unit = {
@@ -889,14 +873,19 @@ class SamzaContainer(
       info("Starting diagnostics.")
 
       try {
-        val diagnosticsAppender = Class.forName(config.getDiagnosticsAppenderClass).
-          getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
+        var diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
+        info("Attached log4j diagnostics appender.")
       }
       catch {
         case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
-          error("Failed to instantiate diagnostic appender", e)
-          throw new ConfigException("Failed to instantiate diagnostic appender class " +
-            config.getDiagnosticsAppenderClass, e)
+          try {
+            val diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
+            info("Attached log4j2 diagnostics appender.")
+          } catch {
+            case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+              warn("Failed to instantiate neither diagnostic appender for sending error information to diagnostics stream", e)
+            }
+          }
         }
       }
     }

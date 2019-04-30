@@ -153,37 +153,36 @@ public class TestRemoteTableDescriptor {
         .withReadRateLimit(100)
         .toConfig(new MapConfig());
     verify(readFn, times(1)).toConfig(any(), any());
-    Assert.assertEquals("v1", tableConfig.get("k1"));
+    Assert.assertEquals("v1", tableConfig.get("tables.1.io.read.func.k1"));
   }
 
   @Test
   public void testTablePartToConfig() {
 
-    int keys = 0;
+    int key = 0;
 
     TableReadFunction readFn = createMockTableReadFunction();
-    when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     TableWriteFunction writeFn = createMockTableWriteFunction();
-    when(writeFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(writeFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     RateLimiter rateLimiter = createMockRateLimiter();
-    when(((TablePart) rateLimiter).toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(((TablePart) rateLimiter).toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     CreditFunction readCredFn = createMockCreditFunction();
-    when(readCredFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(readCredFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     CreditFunction writeCredFn = createMockCreditFunction();
-    when(writeCredFn.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(writeCredFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     TableRetryPolicy readRetryPolicy = createMockTableRetryPolicy();
-    when(readRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(readRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
     TableRetryPolicy writeRetryPolicy = createMockTableRetryPolicy();
-    when(writeRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(keys++));
+    when(writeRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
-    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
-        .withReadFunction(readFn)
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(readFn)
         .withWriteFunction(writeFn)
         .withRateLimiter(rateLimiter, readCredFn, writeCredFn)
         .withReadRetryPolicy(readRetryPolicy)
@@ -198,9 +197,22 @@ public class TestRemoteTableDescriptor {
     verify(readRetryPolicy, times(1)).toConfig(any(), any());
     verify(writeRetryPolicy, times(1)).toConfig(any(), any());
 
-    for (int n = 0; n < keys; n++) {
-      Assert.assertEquals("v" + n, tableConfig.get("k" + n));
-    }
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.func.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.write.func.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.ratelimiter.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.credit.func.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.write.credit.func.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.retry.policy.k0"), "v0");
+    Assert.assertEquals(tableConfig.get("tables.1.io.write.retry.policy.k0"), "v0");
+  }
+
+  @Test
+  public void testTableRetryPolicyToConfig() {
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy())
+        .toConfig(new MapConfig());
+    Assert.assertEquals(tableConfig.get("tables.1.io.read.retry.policy.TableRetryPolicy"),
+        "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"retryPredicate\":{}}");
   }
 
   private Context createMockContext(TableDescriptor tableDescriptor) {
@@ -241,6 +253,7 @@ public class TestRemoteTableDescriptor {
 
   static class CountingCreditFunction<K, V> implements CreditFunction<K, V> {
     int numCalls = 0;
+
     @Override
     public int getCredits(K key, V value) {
       numCalls++;
@@ -303,7 +316,6 @@ public class TestRemoteTableDescriptor {
 
     ThreadPoolExecutor callbackExecutor = TestUtils.getFieldValue(rwTable, "callbackExecutor");
     Assert.assertEquals(10, callbackExecutor.getCorePoolSize());
-
   }
 
   @Test

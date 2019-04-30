@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
-import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -43,6 +42,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
@@ -56,7 +56,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
-import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
@@ -110,7 +109,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
-  private boolean hasCreatedStreams = false;
+  private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
 
   @VisibleForTesting
@@ -262,16 +261,9 @@ public class ZkJobCoordinator implements JobCoordinator {
     JobModel jobModel = generateNewJobModel(processorNodes);
 
     // Create checkpoint and changelog streams if they don't exist
-    if (!hasCreatedStreams) {
-      CheckpointManager checkpointManager = new TaskConfigJava(config).getCheckpointManager(metrics.getMetricsRegistry());
-      if (checkpointManager != null) {
-        checkpointManager.createResources();
-      }
-
-      // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
-      storeConfigInCoordinatorStream();
-      hasCreatedStreams = true;
+    if (!hasLoadedMetadataResources) {
+      loadMetadataResources(jobModel);
+      hasLoadedMetadataResources = true;
     }
 
     // Assign the next version of JobModel
@@ -296,15 +288,19 @@ public class ZkJobCoordinator implements JobCoordinator {
   /**
    * Stores the configuration of the job in the coordinator stream.
    */
-  private void storeConfigInCoordinatorStream() {
+  private void loadMetadataResources(JobModel jobModel) {
     MetadataStore metadataStore = null;
     try {
       // Creates the coordinator stream if it does not exists.
       createCoordinatorStream();
-
       MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
       metadataStore = metadataStoreFactory.getMetadataStore(SetConfig.TYPE, config, metrics.getMetricsRegistry());
       metadataStore.init();
+
+      MetadataResourceUtil metadataResourceUtil =
+          new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
+      metadataResourceUtil.createResources();
+
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
       for (Map.Entry<String, String> entry : config.entrySet()) {
         byte[] serializedValue = jsonSerde.toBytes(entry.getValue());

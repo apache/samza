@@ -25,7 +25,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
@@ -50,60 +50,53 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())
     coordinatorStreamStore.init()
 
-    try {
-      val configFromCoordinatorStream: Config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
+    val configFromCoordinatorStream: Config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
 
-      val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
+    val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-      val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
-      val jobModel = coordinator.jobModel
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val jobModel = coordinator.jobModel
 
-      val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
-      for (containerModel <- jobModel.getContainers.values) {
-        for (taskModel <- containerModel.getTasks.values) {
-          taskPartitionMappings.put(taskModel.getTaskName, taskModel.getChangelogPartition.getPartitionId)
-        }
+    val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
+    for (containerModel <- jobModel.getContainers.values) {
+      for (taskModel <- containerModel.getTasks.values) {
+        taskPartitionMappings.put(taskModel.getTaskName, taskModel.getChangelogPartition.getPartitionId)
       }
-
-      changelogStreamManager.writePartitionMapping(taskPartitionMappings)
-
-      //create necessary checkpoint and changelog streams
-      val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
-      if (checkpointManager != null) {
-        checkpointManager.createResources()
-      }
-      ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
-
-      val containerModel = coordinator.jobModel.getContainers.get(0)
-
-      val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
-      info("Process job. using fwkPath = " + fwkPath)
-
-      val commandBuilder = {
-        config.getCommandClass match {
-          case Some(cmdBuilderClassName) => {
-            // A command class was specified, so we need to use a process job to
-            // execute the command in its own process.
-            Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
-          }
-          case _ => {
-            info("Defaulting to ShellCommandBuilder")
-            new ShellCommandBuilder
-          }
-        }
-      }
-      // JobCoordinator is stopped by ProcessJob when it exits
-      coordinator.start
-
-      commandBuilder
-        .setConfig(config)
-        .setId("0")
-        .setUrl(coordinator.server.getUrl)
-        .setCommandPath(fwkPath)
-
-      new ProcessJob(commandBuilder, coordinator)
-    } finally {
-      coordinatorStreamStore.close()
     }
+
+    changelogStreamManager.writePartitionMapping(taskPartitionMappings)
+
+    //create necessary checkpoint and changelog streams
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    metadataResourceUtil.createResources()
+
+    val containerModel = coordinator.jobModel.getContainers.get(0)
+
+    val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
+    info("Process job. using fwkPath = " + fwkPath)
+
+    val commandBuilder = {
+      config.getCommandClass match {
+        case Some(cmdBuilderClassName) => {
+          // A command class was specified, so we need to use a process job to
+          // execute the command in its own process.
+          Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
+        }
+        case _ => {
+          info("Defaulting to ShellCommandBuilder")
+          new ShellCommandBuilder
+        }
+      }
+    }
+    // JobCoordinator is stopped by ProcessJob when it exits
+    coordinator.start
+
+    commandBuilder
+      .setConfig(config)
+      .setId("0")
+      .setUrl(coordinator.server.getUrl)
+      .setCommandPath(fwkPath)
+
+    new ProcessJob(commandBuilder, coordinator)
   }
 }

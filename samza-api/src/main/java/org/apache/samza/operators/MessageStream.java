@@ -112,7 +112,7 @@ public interface MessageStream<M> {
    * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
    * the {@link SinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
    * {@link org.apache.samza.task.TaskCoordinator}.
-   * <p>
+   *
    * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
    * Samza SystemProducer implementation.
    *
@@ -121,14 +121,19 @@ public interface MessageStream<M> {
   void sink(SinkFunction<? super M> sinkFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propagates this
+   * {@link MessageStream} to the next chained operator
    * <p>
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
+   * <p>
+   * Note: The message will be written but not flushed to the underlying output system before its propagated to the
+   * chained operators. Messages retain the original partitioning scheme when propogated to next operator.
    *
    * @param outputStream the output stream to send messages to
+   * @return this {@link MessageStream}
    */
-  void sendTo(OutputStream<M> outputStream);
+  MessageStream<M> sendTo(OutputStream<M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -275,14 +280,21 @@ public interface MessageStream<M> {
       MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
   /**
-   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
-   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
+   * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
+   * otherwise a {@link ClassCastException} will be thrown.
+   * <p>
+   * Note: The message will be written but may not be flushed to the underlying table before its propagated to the
+   * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   * scheme when propogated to next operator.
    *
    * @param table the table to write messages to
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
+   * @return this {@link MessageStream}
    */
-  <K, V> void sendTo(Table<KV<K, V>> table);
+  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table);
 
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..

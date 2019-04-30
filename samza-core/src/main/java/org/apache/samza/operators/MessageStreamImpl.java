@@ -120,11 +120,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public void sendTo(OutputStream<M> outputStream) {
+  public MessageStream<M> sendTo(OutputStream<M> outputStream) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
         (OutputStreamImpl<M>) outputStream, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
   }
 
   @Override
@@ -188,11 +189,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(Table<KV<K, V>> table) {
+  public <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     SendToTableOperatorSpec<K, V> op =
         OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableId(), opId);
     this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
   }
 
   @Override

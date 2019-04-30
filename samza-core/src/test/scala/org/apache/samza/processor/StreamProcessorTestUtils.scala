@@ -29,7 +29,7 @@ import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.ContainerStorageManager
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.RoundRobinChooser
-import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
+import org.apache.samza.task.{RunLoop, StreamTask, TaskInstanceCollector}
 import org.mockito.Mockito
 
 
