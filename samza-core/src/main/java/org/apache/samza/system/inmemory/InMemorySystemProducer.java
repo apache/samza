@@ -97,9 +97,13 @@ public class InMemorySystemProducer implements SystemProducer {
   }
 
   /**
-   * Populates the IME to the ssp configured, this gives user more control to set up Test environment
+   * Populates the IME to the ssp configured, this gives user more control to set up Test environment partition.
+   * The offset in the envelope needs to adhere to a rule that for messages in the same system stream partition the
+   * offset needs to start at 0 for the first and be monotonically increasing for the following messages.
+   * If not the {@link InMemoryManager#put(SystemStreamPartition, IncomingMessageEnvelope)} will fail.
    *
-   * @param envelope
+   * Note: Please DO NOT use this in production use cases, this is only meant to set-up more flexible tests
+   * @param envelope incoming message envelope
    */
   public void send(IncomingMessageEnvelope envelope) {
     memoryManager.put(envelope.getSystemStreamPartition(), envelope);
