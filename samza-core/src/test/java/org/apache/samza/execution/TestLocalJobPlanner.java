@@ -85,7 +85,7 @@ public class TestLocalJobPlanner {
         Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(mock(JobConfig.class)));
-    doReturn(plan).when(localPlanner).getExecutionPlan(any());
+    doReturn(plan).when(localPlanner).getExecutionPlan(any(), any());
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
@@ -115,7 +115,7 @@ public class TestLocalJobPlanner {
     when(plan.getIntermediateStreams()).thenReturn(Collections.singletonList(new StreamSpec("test-stream", "test-stream", "test-system")));
     when(plan.getPlanAsJson()).thenReturn("");
     when(plan.getJobConfigs()).thenReturn(Collections.singletonList(mock(JobConfig.class)));
-    doReturn(plan).when(localPlanner).getExecutionPlan(any());
+    doReturn(plan).when(localPlanner).getExecutionPlan(any(), any());
 
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);

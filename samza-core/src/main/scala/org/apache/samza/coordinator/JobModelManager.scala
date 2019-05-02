@@ -268,8 +268,8 @@ object JobModelManager extends Logging {
     * @param streamMetadataCache to query the partition metadata of the input streams.
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
-  private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-
+  private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache,
+    classLoader: ClassLoader): Set[SystemStreamPartition] = {
 
     def invokeRegexTopicRewriter(config: Config): Config = {
       config.getConfigRewriters match {
@@ -277,7 +277,7 @@ object JobModelManager extends Logging {
           filter(rewriterName => config.getConfigRewriterClass(rewriterName)
             .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
             .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(Util.applyRewriter(_, _))
+          foldLeft(config)(Util.applyRewriter(_, _, classLoader))
         case _ => config
       }
     }
@@ -306,7 +306,7 @@ object JobModelManager extends Logging {
     */
   private def getMatchedInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache,
     classLoader: ClassLoader): Set[SystemStreamPartition] = {
-    val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
+    val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache, classLoader)
     config.getSSPMatcherClass match {
       case Some(sspMatcherClassName) =>
         val jfr = config.getSSPMatcherConfigJobFactoryRegex.r

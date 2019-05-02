@@ -145,11 +145,12 @@ object Util extends Logging {
    * no-op.
    *
    * @param config The config to re-write
+   * @param classLoader classloader to use to load the config rewriter classes
    * @return re-written config
    */
-  def rewriteConfig(config: Config): Config = {
+  def rewriteConfig(config: Config, classLoader: ClassLoader): Config = {
     config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").foldLeft(config)(applyRewriter(_, _))
+      case Some(rewriters) => rewriters.split(",").foldLeft(config)(applyRewriter(_, _, classLoader))
       case _ => config
     }
   }
@@ -160,11 +161,11 @@ object Util extends Logging {
     * @param rewriterName the name of the rewriter to apply
     * @return the rewritten config
     */
-  def applyRewriter(config: Config, rewriterName: String): Config = {
+  def applyRewriter(config: Config, rewriterName: String, classLoader: ClassLoader): Config = {
     val rewriterClassName = config
       .getConfigRewriterClass(rewriterName)
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-    val rewriter = ReflectionUtil.getObj(this.getClass.getClassLoader, rewriterClassName, classOf[ConfigRewriter])
+    val rewriter = ReflectionUtil.getObj(classLoader, rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)
     rewriter.rewrite(rewriterName, config)
   }

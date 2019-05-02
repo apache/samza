@@ -64,13 +64,14 @@ import org.slf4j.LoggerFactory;
 /**
  * This class provides methods to generate configuration for a {@link JobNode}
  */
-/* package private */ class JobNodeConfigurationGenerator {
-
+/* package private */
+class JobNodeConfigurationGenerator {
   private static final Logger LOG = LoggerFactory.getLogger(JobNodeConfigurationGenerator.class);
 
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
-  static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+  static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig,
+      ClassLoader classLoader) {
     validateJobConfigs(originalConfig, generatedConfig);
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
 
@@ -81,7 +82,7 @@ import org.slf4j.LoggerFactory;
         mergedConfig.put(k, v);
       });
 
-    return Util.rewriteConfig(new MapConfig(mergedConfig));
+    return Util.rewriteConfig(new MapConfig(mergedConfig), classLoader);
   }
 
   static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
@@ -168,7 +169,7 @@ import org.slf4j.LoggerFactory;
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
-    return new JobConfig(mergeConfig(originalConfig, generatedConfig));
+    return new JobConfig(mergeConfig(originalConfig, generatedConfig, getClass().getClassLoader()));
   }
 
   private Map<String, TableDescriptor> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {

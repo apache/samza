@@ -53,8 +53,10 @@ public class RemoteJobPlanner extends JobPlanner {
     String runId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
     LOG.info("The run id for this run is {}", runId);
 
+    ClassLoader classLoader = getClass().getClassLoader();
+
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan(runId);
+    ExecutionPlan plan = getExecutionPlan(runId, classLoader);
     try {
       writePlanJsonFile(plan.getPlanAsJson());
     } catch (Exception e) {
@@ -75,7 +77,7 @@ public class RemoteJobPlanner extends JobPlanner {
       // create the StreamManager to create intermediate streams in the plan
       streamManager = buildAndStartStreamManager(jobConfig);
       if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun(), getClass().getClassLoader());
+        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun(), classLoader);
       }
       streamManager.createStreams(plan.getIntermediateStreams());
     } finally {

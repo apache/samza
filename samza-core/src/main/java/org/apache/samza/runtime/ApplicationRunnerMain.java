@@ -50,6 +50,6 @@ public class ApplicationRunnerMain {
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
-    ApplicationRunnerUtil.invoke(orgConfig, op);
+    ApplicationRunnerUtil.invoke(orgConfig, op, ApplicationRunnerMain.class.getClassLoader());
   }
 }

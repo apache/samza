@@ -43,7 +43,7 @@ object JobRunner extends Logging {
     val config = cmdline.loadConfig(options)
     val operation = cmdline.getOperation(options)
 
-    val runner = new JobRunner(Util.rewriteConfig(config))
+    val runner = new JobRunner(Util.rewriteConfig(config, classOf[JobRunner].getClassLoader))
     doOperation(runner, operation)
   }
 

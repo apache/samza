@@ -248,7 +248,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val getInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getInputStreamPartitions)
     val getMatchedInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getMatchedInputStreamPartitions)
 
-    val allSSP = JobModelManager invokePrivate getInputStreamPartitions(config, streamMetadataCache)
+    val allSSP = JobModelManager invokePrivate getInputStreamPartitions(config, streamMetadataCache,
+      getClass.getClassLoader)
     val matchedSSP = JobModelManager invokePrivate getMatchedInputStreamPartitions(config, streamMetadataCache,
       getClass.getClassLoader)
     assertEquals(matchedSSP, allSSP)

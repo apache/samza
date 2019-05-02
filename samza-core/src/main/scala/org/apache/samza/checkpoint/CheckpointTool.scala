@@ -137,7 +137,7 @@ object CheckpointTool {
     val options = cmdline.parser.parse(args: _*)
     val userConfig = cmdline.loadConfig(options)
     val jobConfig = JobPlanner.generateSingleJobConfig(userConfig)
-    val rewrittenConfig = Util.rewriteConfig(jobConfig)
+    val rewrittenConfig = Util.rewriteConfig(jobConfig, classOf[CheckpointTool].getClassLoader)
     info(s"Using the rewritten config: $rewrittenConfig")
     val tool = CheckpointTool(rewrittenConfig, cmdline.newOffsets)
     tool.run()

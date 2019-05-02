@@ -46,7 +46,7 @@ public class LocalApplicationRunnerMain {
     ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
+    Config config = Util.rewriteConfig(orgConfig, LocalApplicationRunnerMain.class.getClassLoader());
 
     SamzaApplication app = ApplicationUtil.fromConfig(config);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);

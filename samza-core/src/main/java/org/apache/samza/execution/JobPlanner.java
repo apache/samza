@@ -66,12 +66,8 @@ public abstract class JobPlanner {
     return streamManager;
   }
 
-  ExecutionPlan getExecutionPlan() {
-    return getExecutionPlan(null);
-  }
-
   /* package private */
-  ExecutionPlan getExecutionPlan(String runId) {
+  ExecutionPlan getExecutionPlan(String runId, ClassLoader classLoader) {
     Map<String, String> allowedUserConfig = new HashMap<>(userConfig);
     Map<String, String> generatedConfig = new HashMap<>();
 
@@ -88,7 +84,7 @@ public abstract class JobPlanner {
     }
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
-    Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig);
+    Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig, classLoader);
 
     // creating the StreamManager to get all input/output streams' metadata for planning
     StreamManager streamManager = buildAndStartStreamManager(mergedConfig);

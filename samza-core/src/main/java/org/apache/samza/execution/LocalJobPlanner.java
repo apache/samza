@@ -80,7 +80,7 @@ public class LocalJobPlanner extends JobPlanner {
   public List<JobConfig> prepareJobs() {
     // for high-level DAG, generating the plan and job configs
     // 1. initialize and plan
-    ExecutionPlan plan = getExecutionPlan(runId);
+    ExecutionPlan plan = getExecutionPlan(runId, getClass().getClassLoader());
 
     String executionPlanJson = "";
     try {

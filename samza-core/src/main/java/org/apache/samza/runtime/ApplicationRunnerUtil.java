@@ -38,8 +38,9 @@ public class ApplicationRunnerUtil {
    * @param op the {@link ApplicationRunnerOperation} that needs to be performed on the Application.
    * @return the {@link ApplicationRunner} object.
    */
-  public static ApplicationRunner invoke(Config originalConfig, ApplicationRunnerOperation op) {
-    Config config = Util.rewriteConfig(originalConfig);
+  public static ApplicationRunner invoke(Config originalConfig, ApplicationRunnerOperation op,
+      ClassLoader classLoader) {
+    Config config = Util.rewriteConfig(originalConfig, classLoader);
 
     ApplicationRunner appRunner =
         ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
