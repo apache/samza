@@ -53,7 +53,7 @@ import scala.collection.mutable
 /**
   * This test is parameterized on the offsetFileName and is run for both
   * StorageManagerUtil.OFFSET_FILE_NAME_LEGACY and StorageManagerUtil.OFFSET_FILE_NAME_NEW.
-  * 
+  *
   * @param offsetFileName the name of the offset file.
   */
 @RunWith(value = classOf[Parameterized])
@@ -604,6 +604,28 @@ class TestTaskStorageManager(offsetFileName: String) extends MockitoSugar {
     var ssp = new SystemStreamPartition("kafka", "test-stream", new Partition(0))
     val offsets = StorageManagerUtil.readOffsetFile(storeDirectory, Set(ssp).asJava, false)
     assertTrue(offsets.get(ssp).equals(sampleOldOffset))
+  }
+
+  @Test
+  def testReadOfOffsetInCaseOfBothFilesPresent(): Unit = {
+    // Create a file in old single-offset format, with a sample offset, and another with the new-offset format
+    val storeDirectory = StorageManagerUtil.getStorePartitionDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName, TaskMode.Active)
+    val storeFile = new File(storeDirectory, "store.sst")
+    val sampleOldOffset = "100000001"
+    val sampleNewOffset = "{\"kafka.test-stream.0\":\"200000002\"}"
+    FileUtil.writeWithChecksum(new File(storeDirectory, StorageManagerUtil.OFFSET_FILE_NAME_LEGACY), sampleOldOffset)
+    FileUtil.writeWithChecksum(new File(storeDirectory, StorageManagerUtil.OFFSET_FILE_NAME_NEW), sampleNewOffset)
+
+    // Ensure that the files exist
+    assertTrue(new File(storeDirectory, StorageManagerUtil.OFFSET_FILE_NAME_LEGACY).exists())
+    assertTrue(new File(storeDirectory, StorageManagerUtil.OFFSET_FILE_NAME_NEW).exists())
+
+    // read offset against a given ssp from the file, and check that the one in the new file should be read
+    var ssp = new SystemStreamPartition("kafka", "test-stream", new Partition(0))
+    val offsets = StorageManagerUtil.readOffsetFile(storeDirectory, Set(ssp).asJava, false)
+
+    assertEquals(1, offsets.size())
+    assertEquals("200000002", offsets.get(ssp))
   }
 
   private def testChangelogConsumerOffsetRegistration(oldestOffset: String, newestOffset: String, upcomingOffset: String, expectedRegisteredOffset: String, fileOffset: String, writeOffsetFile: Boolean): Unit = {
