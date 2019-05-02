@@ -503,10 +503,12 @@ public class ContainerStorageManager {
                 .put(storeName, SerdeUtils.deserialize("Side Inputs Processor",
                     sideInputsProcessorSerializedInstance.get()));
           } else {
+            String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName)
+                .orElseThrow(() -> new SamzaException(
+                    String.format("Could not find side inputs processor factory for store: %s", storeName)));
             sideInputStoresToProcessors.get(taskName)
-                .put(storeName, Util.getObj(config.getSideInputsProcessorFactory(storeName).get(),
-                    SideInputsProcessorFactory.class).getSideInputsProcessor(config,
-                    taskInstanceMetrics.get(taskName).registry()));
+                .put(storeName, Util.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class)
+                    .getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry()));
           }
         }
       });
@@ -517,8 +519,10 @@ public class ContainerStorageManager {
         for (String storeName : sideInputSystemStreams.keySet()) {
 
           // have to use the right serde because the sideInput stores are created
-          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName).get());
-          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName).get());
+          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
+              .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
+          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
+              .orElseThrow(() -> new SamzaException("Could not find storage msg serde for store: " + storeName)));
           sideInputStoresToProcessors.get(taskName).put(storeName, new SideInputsProcessor() {
             @Override
             public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
