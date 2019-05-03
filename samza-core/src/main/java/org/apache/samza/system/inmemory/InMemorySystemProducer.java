@@ -102,7 +102,8 @@ public class InMemorySystemProducer implements SystemProducer {
    * offset needs to start at 0 for the first and be monotonically increasing for the following messages.
    * If not the {@link InMemoryManager#put(SystemStreamPartition, IncomingMessageEnvelope)} will fail.
    *
-   * Note: Please DO NOT use this in production use cases, this is only meant to set-up more flexible tests
+   * Note: Please DO NOT use this in production use cases, this is only meant to set-up more flexible tests.
+   * This function is not thread safe.
    * @param envelope incoming message envelope
    */
   public void send(IncomingMessageEnvelope envelope) {

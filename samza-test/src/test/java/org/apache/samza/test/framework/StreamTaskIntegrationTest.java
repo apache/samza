@@ -197,7 +197,7 @@ public class StreamTaskIntegrationTest {
   }
 
   @Test
-  public void testSyncTaskWithMultiplePartitionMultithreadedWithCutomIME() throws Exception {
+  public void testSyncTaskWithMultiplePartitionMultithreadedWithCustomIME() throws Exception {
     Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<KV>> inputPartitionIME = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
