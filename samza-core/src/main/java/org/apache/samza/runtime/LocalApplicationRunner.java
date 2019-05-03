@@ -31,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.StringUtils;
@@ -48,16 +47,18 @@ import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.DistributedDataAccess;
-import org.apache.samza.coordinator.DistributedDataWatcher;
-import org.apache.samza.coordinator.DistributedReadWriteLock;
+import org.apache.samza.coordinator.RunIdGenerator;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String UID = UUID.randomUUID().toString();
+  private final  static String METADATA_STORE = "RunIdCoordinationStore";
+  private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
+  public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
 
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final Set<StreamProcessor> processors = ConcurrentHashMap.newKeySet();
@@ -75,9 +79,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
   private final Optional<CoordinationUtils> coordinationUtils;
-  private DistributedReadWriteLock runIdLock = null;
-  private DistributedDataAccess runIdAccess = null;
   private Optional<String> runId = Optional.empty();
+  private Optional<RunIdGenerator> runIdGenerator = Optional.empty();
 
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
@@ -138,42 +141,17 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private void initializeRunId() {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    if (!coordinationUtils.isPresent() ||  !isAppModeBatch) {
+    MetadataStore metadataStore = getMetadataStore();
+    if (coordinationUtils.isPresent() && metadataStore != null) {
+      runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
+    }
+    if (!coordinationUtils.isPresent() ||  !isAppModeBatch || !runIdGenerator.isPresent()) {
+      LOG.warn("coordination utils or run id generator could not be created successfully!");
       return;
     }
-
-    try {
-      runIdLock = coordinationUtils.get().getReadWriteLock(CoordinationConstants.RUNID_LOCK_ID);
-      runIdAccess = coordinationUtils.get().getDataAccess();
-      if (runIdLock == null || runIdAccess == null) {
-        throw new SamzaException(String.format("Processor {} failed to create utils for run id generation", UID));
-      }
-    } catch (Exception e) {
-      LOG.warn(e.getMessage());
-      return;
-    }
-
-    try {
-      // acquire lock to write or read run.id
-      DistributedReadWriteLock.AccessType lockAccess = runIdLock.lock(CoordinationConstants.LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      if (lockAccess == DistributedReadWriteLock.AccessType.WRITE) {
-        LOG.info("write lock acquired for run.id generation by Processor " + UID);
-        runId = Optional.of(String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8));
-        LOG.info("The run id for this run is {}", runId.get());
-        runIdAccess.writeData(CoordinationConstants.RUNID_PATH, runId.get(), new LocalDistributedDataWatcher());
-      } else if (lockAccess == DistributedReadWriteLock.AccessType.READ) {
-        LOG.info("read lock acquired for run.id by Processor " + UID);
-        runId = Optional.of((String) runIdAccess.readData(CoordinationConstants.RUNID_PATH, new LocalDistributedDataWatcher()));
-        LOG.info("The run id for this run is {}", runId.get());
-      } else {
-        String msg = String.format("Processor {} failed to get the lock for run.id", UID);
-        throw new SamzaException(msg);
-      }
-    } catch (TimeoutException e) {
-      String msg = String.format("Processor {} timed out waiting to acquire lock for run.id generation", UID);
-      throw new SamzaException(msg, e);
-    } finally {
-      runIdLock.unlock();
+    String runid = runIdGenerator.get().getRunId();
+    if (runid != null) {
+      runId = Optional.of(runid);
     }
   }
 
@@ -306,24 +284,18 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   private void cleanup() {
-    if (runIdLock != null) {
-      runIdLock.cleanState();
+    if (runIdGenerator.isPresent()) {
+      runIdGenerator.get().close();
     }
     if (coordinationUtils.isPresent()) {
       coordinationUtils.get().close();
     }
   }
 
-  private void stopProcessingAndShutDown(Exception e) {
-    processors.forEach(StreamProcessor::stop);
-    cleanup();
-    if (e != null) {
-      LOG.warn(e.getMessage());
-      appStatus = ApplicationStatus.UnsuccessfulFinish;
-    } else {
-      appStatus = ApplicationStatus.SuccessfulFinish;
-    }
-    shutdownLatch.countDown();
+  private MetadataStore getMetadataStore() {
+    String metadataStoreFactoryClass = appDesc.getConfig().getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
+    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    return metadataStoreFactory.getMetadataStore(METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 
   /**
@@ -405,31 +377,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
           appStatus = ApplicationStatus.UnsuccessfulFinish;
         }
       }
-    }
-  }
-
-  /**
-   * Defines a specific implementation of {@link DistributedDataWatcher} for local {@link DistributedDataAccess}
-   */
-  private final class LocalDistributedDataWatcher implements DistributedDataWatcher {
-    @Override
-    public void handleDataChange(Object newData) {
-      String globalRunId = (String) newData;
-      if (!runId.isPresent()) {
-        String msg = String.format("Stopping processor {} and shutting down as global runid {} has been published but there is no local runId", UID,
-            globalRunId);
-        stopProcessingAndShutDown(new SamzaException(msg));
-      } else if (!runId.get().equals(globalRunId)) {
-        String msg = String.format("Stopping processor {} and shutting down as local runid {} differs from global runid {}", UID, runId.get(),
-            globalRunId);
-        stopProcessingAndShutDown(new SamzaException(msg));
-      }
-    }
-
-    @Override
-    public void handleDataDeleted() {
-      String msg = String.format("Stopping processor {} and shutting down as global runid was deleted", UID);
-      stopProcessingAndShutDown(new SamzaException(msg));
     }
   }
 }

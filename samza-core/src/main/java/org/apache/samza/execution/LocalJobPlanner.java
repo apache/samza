@@ -18,6 +18,7 @@
  */
 package org.apache.samza.execution;
 
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -29,8 +30,13 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.DistributedLockWithState;
+import org.apache.samza.coordinator.DistributedLock;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +49,10 @@ import org.slf4j.LoggerFactory;
  */
 public class LocalJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalJobPlanner.class);
+  private static final String METADATA_STORE = "StreamCreationCoordinationStore";
+  private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
+  public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
+  private static final String STREAM_CREATED_STATE_KEY = "StreamCreated_%s";
 
   private final String uid;
   private final CoordinationUtils coordinationUtils;
@@ -137,23 +147,69 @@ public class LocalJobPlanner extends JobPlanner {
     if (isAppModeBatch && runId != null) {
       lockId = runId;
     }
-    DistributedLockWithState lockWithState = coordinationUtils.getLockWithState(lockId);
     try {
-      // check if the processor needs to go through leader election and stream creation
-      if (lockWithState.lockIfNotSet(1000, TimeUnit.MILLISECONDS)) {
-        LOG.info("lock acquired for streams creation by " + uid);
+      MetadataStore metadataStore = getMetadataStore();
+      DistributedLock distributedLock = coordinationUtils.getLock(lockId);
+      if (distributedLock == null || metadataStore == null) {
+        LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
+        // each application process will try creating the streams, which requires stream creation to be idempotent
         streamManager.createStreams(intStreams);
-        lockWithState.unlockAndSet();
-      } else {
-        LOG.info("Processor {} did not obtain the lock for streams creation. They must've been created by another processor.", uid);
+        return;
       }
-    } catch (TimeoutException e) {
-      String msg = String.format("Processor {} failed to get the lock for stream initialization", uid);
-      throw new SamzaException(msg, e);
+      //Start timer for timeout
+      long startTime = System.currentTimeMillis();
+      long lockTimeout = TimeUnit.MILLISECONDS.convert(CoordinationConstants.LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+      // If "stream created state" exists in store then skip stream creation
+      // Else acquire lock, create streams, set state in store and unlock
+      // Checking for state before acquiring lock to prevent all processors from acquiring lock
+      // In a while loop so that if two processors check state simultaneously then
+      // to make sure the processor not acquiring the lock
+      // does not die of timeout exception and comes back and checks for state and proceeds
+      while ((System.currentTimeMillis() - startTime) < lockTimeout) {
+        if (metadataStore.get(String.format(STREAM_CREATED_STATE_KEY, lockId)) != null) {
+          LOG.info("Processor {} found streams created state data. They must've been created by another processor.", uid);
+          break;
+        }
+        try {
+          if (distributedLock.lock(10000, TimeUnit.MILLISECONDS)) {
+            LOG.info("lock acquired for streams creation by Processor " + uid);
+            streamManager.createStreams(intStreams);
+            String streamCreatedMessage = "Streams created by processor " + uid;
+            metadataStore.put(String.format(STREAM_CREATED_STATE_KEY, lockId), streamCreatedMessage.getBytes("UTF-8"));
+            break;
+          } else {
+            LOG.info(
+                "Processor {} did not obtain the lock for streams creation. They must've been created by another processor.",
+                uid);
+          }
+        } catch (TimeoutException e) {
+          LOG.warn("Processor {} failed to get the lock for stream initialization. Will try again until time out", uid);
+        } catch (UnsupportedEncodingException e) {
+          String msg = String.format("Processor {} failed to encode string for stream initialization", uid);
+          throw new SamzaException(msg, e);
+        } finally {
+          distributedLock.unlock();
+        }
+      }
+      if ((System.currentTimeMillis() - startTime) >= lockTimeout) {
+        throw new TimeoutException(String.format("Processor {} failed to get the lock for stream initialization within {} milliseconds.", uid, CoordinationConstants.LOCK_TIMEOUT_MS));
+      }
+    } catch (TimeoutException te) {
+      throw new SamzaException(String.format("Processor {} failed to get the lock for stream initialization within timeout.", uid), te);
     } finally {
       if (!isAppModeBatch && coordinationUtils != null) {
         coordinationUtils.close();
       }
     }
+  }
+
+  private MetadataStore getMetadataStore() {
+    String metadataStoreFactoryClass = appDesc.getConfig().get(METADATA_STORE_FACTORY_CONFIG);
+    if (metadataStoreFactoryClass == null) {
+      metadataStoreFactoryClass = DEFAULT_METADATA_STORE_FACTORY;
+    }
+    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    return metadataStoreFactory.getMetadataStore(METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 }

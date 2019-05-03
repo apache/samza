@@ -19,12 +19,23 @@
 
 package org.apache.samza.coordinator;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-public class CoordinationConstants {
-  private CoordinationConstants() {}
 
-  public static final String RUNID_STORE_KEY = "runId";
-  public static final String APPLICATION_RUNNER_PATH_SUFFIX = "ApplicationRunnerData";
-  public static final String RUNID_LOCK_ID = "runId";
-  public static final int LOCK_TIMEOUT_MS = 300000;
+public interface DistributedLock {
+
+  /**
+   * Try to acquire the lock
+   * @param timeout Duration of lock acquiring timeout.
+   * @param unit Time Unit of the timeout defined above.
+   * @return true if lock is acquired successfully
+   * @throws TimeoutException if could not acquire the lock.
+   */
+  boolean lock(long timeout, TimeUnit unit) throws TimeoutException;
+
+  /**
+   * Release the lock
+   */
+  void unlock();
 }

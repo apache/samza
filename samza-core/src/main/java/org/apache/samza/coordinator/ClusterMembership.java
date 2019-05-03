@@ -19,24 +19,22 @@
 
 package org.apache.samza.coordinator;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-
-public interface DistributedLockWithState {
+/**
+ * Coordination Primitive to maintain the list of processors in the quorum
+ */
+public interface ClusterMembership {
+  /**
+   * add processor to the list
+   */
+  void registerProcessor();
 
   /**
-   * Try to acquire the lock, but first check if the state flag is set. If it is set, return false.
-   * If the flag is not set, and lock is acquired - return true.
-   * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if state is already set.
-   * @throws TimeoutException if could not acquire the lock.
+   * @return number of processors in the list
    */
-  boolean lockIfNotSet(long timeout, TimeUnit unit) throws TimeoutException;
+  int getNumberOfProcessors();
 
   /**
-   * Release the lock and set the state
+   * remove processor from the list
    */
-  void unlockAndSet();
+  void unregisterProcessor();
 }

@@ -22,7 +22,6 @@ package org.apache.samza.coordinator;
 import org.apache.samza.AzureClient;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.util.BlobUtils;
 
 
 public class AzureCoordinationUtils implements CoordinationUtils {
@@ -45,21 +44,17 @@ public class AzureCoordinationUtils implements CoordinationUtils {
     return null;
   }
 
+  // To support DistributedLock in Azure, even MetadataStore needs to be implemented
+  // Both of these are used in LocalJobPlanner for intermediate stream creation
+  // See SAMZA-2180 for more details.
   @Override
-  public DistributedLockWithState getLockWithState(String lockId) {
-    BlobUtils blob = new BlobUtils(client, azureConfig.getAzureContainerName(),
-        azureConfig.getAzureBlobName() + lockId, azureConfig.getAzureBlobLength());
-    return new AzureLock(blob);
+  public DistributedLock getLock(String lockId) {
+    throw new UnsupportedOperationException("DistributedLock not supported in Azure!");
   }
 
   @Override
-  public DistributedReadWriteLock getReadWriteLock(String lockId) {
-    throw new UnsupportedOperationException("DistributedReadWriteLock is not supported in Azure");
-  }
-
-  @Override
-  public DistributedDataAccess getDataAccess() {
-    throw new UnsupportedOperationException("DistributedDataAccess is not supported in Azure");
+  public ClusterMembership getClusterMembership() {
+    throw new UnsupportedOperationException("ClusterMembership not supported in Azure!");
   }
 
   @Override
