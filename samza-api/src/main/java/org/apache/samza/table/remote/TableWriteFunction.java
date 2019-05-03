@@ -47,7 +47,7 @@ import com.google.common.collect.Iterables;
  * @param <V> the type of the value in this table
  */
 @InterfaceStability.Unstable
-public interface TableWriteFunction<K, V> extends Serializable, InitableFunction, ClosableFunction {
+public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, ClosableFunction, Serializable {
   /**
    * Store single table {@code record} with specified {@code key}. This method must be thread-safe.
    * The default implementation calls putAsync and blocks on the completion afterwards.

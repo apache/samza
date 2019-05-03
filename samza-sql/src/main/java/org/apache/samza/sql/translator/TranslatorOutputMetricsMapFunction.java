@@ -63,7 +63,7 @@ class TranslatorOutputMetricsMapFunction implements MapFunction<SamzaSqlRelMessa
   @Override
   public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
     Instant endProcessing = Instant.now();
-    Instant beginProcessing = Instant.parse(message.getSamzaSqlRelMsgMetadata().operatorBeginProcessingInstant);
+    Instant beginProcessing = Instant.ofEpochMilli(message.getSamzaSqlRelMsgMetadata().joinStartTimeMs);
     outputEvents.inc();
     processingTime.update(Duration.between(beginProcessing, endProcessing).toMillis());
     return message;

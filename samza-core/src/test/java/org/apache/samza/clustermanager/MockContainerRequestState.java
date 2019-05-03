@@ -70,8 +70,8 @@ public class MockContainerRequestState extends ResourceRequestState {
   }
 
   @Override
-  public void releaseUnstartableContainer(SamzaResource container) {
-    super.releaseUnstartableContainer(container);
+  public void releaseUnstartableContainer(SamzaResource container, String preferredHost) {
+    super.releaseUnstartableContainer(container, preferredHost);
 
     numReleasedContainers += 1;
     for (MockContainerListener listener : mockContainerListeners) {

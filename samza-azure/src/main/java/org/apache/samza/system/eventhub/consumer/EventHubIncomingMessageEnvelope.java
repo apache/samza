@@ -27,7 +27,7 @@ import org.apache.samza.system.SystemStreamPartition;
  * Extension of {@link IncomingMessageEnvelope} which contains {@link EventData} system and user properties metadata
  */
 public class EventHubIncomingMessageEnvelope extends IncomingMessageEnvelope {
-  private EventData eventData;
+  private final EventData eventData;
 
   public EventHubIncomingMessageEnvelope(SystemStreamPartition systemStreamPartition, String offset, Object key,
                                          Object message, EventData eventData) {

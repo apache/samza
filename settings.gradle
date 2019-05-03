@@ -33,6 +33,7 @@ def scalaModules = [
         'samza-kv',
         'samza-kv-inmemory',
         'samza-kv-rocksdb',
+        'samza-kv-couchbase',
         'samza-log4j',
         'samza-log4j2',
         'samza-rest',
@@ -49,7 +50,7 @@ scalaModules.each {
 
 rootProject.children.each {
   if (scalaModules.contains(it.name)) {
-    it.name = it.name + "_" + scalaVersion
+    it.name = it.name + "_" + scalaSuffix
   }
 }
 

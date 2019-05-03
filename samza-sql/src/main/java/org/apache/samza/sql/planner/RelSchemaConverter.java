@@ -61,7 +61,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
 
     for (SqlSchema.SqlField field : fields) {
       String fieldName = field.getFieldName();
-      int fieldPos = field.getPosition() + 1;
+      int fieldPos = field.getPosition();
       RelDataType dataType = getRelDataType(field.getFieldSchema());
       relFields.add(new RelDataTypeFieldImpl(fieldName, fieldPos, dataType));
     }

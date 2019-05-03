@@ -23,10 +23,10 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Requests;
-import com.google.common.base.Optional;
 import org.elasticsearch.index.VersionType;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The default {@link IndexRequestFactory}.
@@ -58,25 +58,10 @@ public class DefaultIndexRequestFactory implements IndexRequestFactory {
   public IndexRequest getIndexRequest(OutgoingMessageEnvelope envelope) {
     IndexRequest indexRequest = getRequest(envelope);
 
-    Optional<String> id = getId(envelope);
-    if (id.isPresent()) {
-      indexRequest.id(id.get());
-    }
-
-    Optional<String> routingKey = getRoutingKey(envelope);
-    if (routingKey.isPresent()) {
-      indexRequest.routing(routingKey.get());
-    }
-
-    Optional<Long> version = getVersion(envelope);
-    if (version.isPresent()) {
-      indexRequest.version(version.get());
-    }
-
-    Optional<VersionType> versionType = getVersionType(envelope);
-    if (versionType.isPresent()) {
-      indexRequest.versionType(versionType.get());
-    }
+    getId(envelope).ifPresent(indexRequest::id);
+    getRoutingKey(envelope).ifPresent(indexRequest::routing);
+    getVersion(envelope).ifPresent(indexRequest::version);
+    getVersionType(envelope).ifPresent(indexRequest::versionType);
 
     setSource(envelope, indexRequest);
 
@@ -94,27 +79,19 @@ public class DefaultIndexRequestFactory implements IndexRequestFactory {
   }
 
   protected Optional<String> getId(OutgoingMessageEnvelope envelope) {
-    Object id = envelope.getKey();
-    if (id == null) {
-      return Optional.absent();
-    }
-    return Optional.of(id.toString());
+    return Optional.ofNullable(envelope.getKey()).map(Object::toString);
   }
 
   protected Optional<String> getRoutingKey(OutgoingMessageEnvelope envelope) {
-    Object partitionKey = envelope.getPartitionKey();
-    if (partitionKey == null) {
-      return Optional.absent();
-    }
-    return Optional.of(partitionKey.toString());
+    return Optional.ofNullable(envelope.getPartitionKey()).map(Object::toString);
   }
 
   protected Optional<Long> getVersion(OutgoingMessageEnvelope envelope) {
-    return Optional.absent();
+    return Optional.empty();
   }
 
   protected Optional<VersionType> getVersionType(OutgoingMessageEnvelope envelope) {
-    return Optional.absent();
+    return Optional.empty();
   }
 
   protected void setSource(OutgoingMessageEnvelope envelope, IndexRequest indexRequest) {

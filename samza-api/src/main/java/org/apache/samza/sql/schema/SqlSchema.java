@@ -75,14 +75,17 @@ public class SqlSchema {
   private List<SqlField> fields;
 
   public SqlSchema(List<String> colNames, List<SqlFieldSchema> colTypes) {
-    if (colNames == null || colNames.size() == 0 || colTypes == null || colTypes.size() == 0
-        || colNames.size() != colTypes.size()) {
+    if (colNames == null || colTypes == null || colNames.size() != colTypes.size()) {
       throw new IllegalArgumentException();
     }
 
     fields = IntStream.range(0, colTypes.size())
         .mapToObj(i -> new SqlField(i, colNames.get(i), colTypes.get(i)))
         .collect(Collectors.toList());
+  }
+
+  public boolean containsField(String keyName) {
+    return fields.stream().anyMatch(x -> x.getFieldName().equals(keyName));
   }
 
   public List<SqlField> getFields() {

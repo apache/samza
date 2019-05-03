@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
@@ -60,9 +61,6 @@ import org.slf4j.LoggerFactory;
 public class TaskNameGrouperProxy {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskNameGrouperProxy.class);
-  private static final String CONTAINER_ID_SEPARATOR = "-";
-  private static final String TASKNAME_SEPARATOR = "-";
-  private static final String STANDBY_TASKNAME_PREFIX = "Standby";
   private final TaskNameGrouper taskNameGrouper;
   private final boolean standbyTasksEnabled;
   private final int replicationFactor;
@@ -104,7 +102,7 @@ public class TaskNameGrouperProxy {
 
     for (ContainerModel activeContainer : containerModels) {
       for (int replicaNum = 0; replicaNum < replicationFactor - 1; replicaNum++) {
-        String buddyContainerId = getBuddyContainerId(activeContainer.getId(), replicaNum);
+        String buddyContainerId = StandbyTaskUtil.getStandbyContainerId(activeContainer.getId(), replicaNum);
 
         ContainerModel buddyContainerModel =
             new ContainerModel(buddyContainerId, getTaskModelForBuddyContainer(activeContainer.getTasks(), replicaNum));
@@ -124,7 +122,7 @@ public class TaskNameGrouperProxy {
     Map<TaskName, TaskModel> standbyTaskModels = new HashMap<>();
 
     for (TaskName taskName : activeContainerTaskModel.keySet()) {
-      TaskName standbyTaskName = getStandbyTaskName(taskName, replicaNum);
+      TaskName standbyTaskName = StandbyTaskUtil.getStandbyTaskName(taskName, replicaNum);
       TaskModel standbyTaskModel =
           new TaskModel(standbyTaskName, activeContainerTaskModel.get(taskName).getSystemStreamPartitions(),
               activeContainerTaskModel.get(taskName).getChangelogPartition(), TaskMode.Standby);
@@ -134,18 +132,5 @@ public class TaskNameGrouperProxy {
     LOG.info("Generated standbyTaskModels : {} for active task models : {}", standbyTaskModels,
         activeContainerTaskModel);
     return standbyTaskModels;
-  }
-
-  // Helper method to generate buddy containerIDs by appending the replica-number to the active-container's id.
-  private final static String getBuddyContainerId(String activeContainerId, int replicaNumber) {
-    return activeContainerId.concat(CONTAINER_ID_SEPARATOR).concat(String.valueOf(replicaNumber));
-  }
-
-  // Helper method to get the standby task name by prefixing "Standby" to the corresponding active task's name.
-  private final static TaskName getStandbyTaskName(TaskName activeTaskName, int replicaNum) {
-    return new TaskName(STANDBY_TASKNAME_PREFIX.concat(TASKNAME_SEPARATOR)
-        .concat(activeTaskName.getTaskName())
-        .concat(TASKNAME_SEPARATOR)
-        .concat(String.valueOf(replicaNum)));
   }
 }

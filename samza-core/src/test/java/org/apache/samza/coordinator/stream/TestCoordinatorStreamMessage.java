@@ -25,6 +25,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
+import java.util.HashMap;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.Delete;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
@@ -61,6 +62,14 @@ public class TestCoordinatorStreamMessage {
   }
 
   @Test
+  public void testGetConfigValueShouldReturnNullForDeletedConfigs() {
+    // Null in passed in the message map to indicate that the message has been deleted.
+    CoordinatorStreamMessage message = new CoordinatorStreamMessage(new Object[] {Integer.valueOf(0), SetConfig.TYPE, "random-key"}, null);
+    SetConfig setConfig = new SetConfig(message);
+    assertEquals(null, setConfig.getConfigValue());
+  }
+
+  @Test
   public void testDelete() {
     Delete delete = new Delete("source2", "key", "delete-type");
     assertEquals("delete-type", delete.getType());
@@ -79,5 +88,19 @@ public class TestCoordinatorStreamMessage {
     assertEquals(message.hashCode(), message1.hashCode());
     assertEquals(message, message1);
     assertTrue(!message.equals(message2));
+  }
+
+  @Test
+  public void testEqualsNPEonNullValues() {
+    String[] testKeys = {"key1", "key2"};
+    HashMap<String, Object> messageMap = new HashMap<>();
+    messageMap.put("values", new HashMap<String, String>());
+    HashMap<String, Object> messageMapWithNullValues = new HashMap<>();
+    messageMapWithNullValues.put("values", null);
+    CoordinatorStreamMessage message = new CoordinatorStreamMessage(testKeys, messageMap);
+    CoordinatorStreamMessage messageWithNullValue = new CoordinatorStreamMessage(testKeys, messageMapWithNullValues);
+
+    assertFalse("Should not throw NPE and should not be equal to each other.",
+        messageWithNullValue.equals(message));
   }
 }

@@ -57,8 +57,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val kafkaConsumer = KafkaSystemConsumer.createKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
     info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, clientId, kafkaConsumer))
 
-    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
-      new SystemClock)
+    val kafkaConsumerProxyFactory =
+      new KafkaConsumerProxy.BaseFactory[Array[Byte], Array[Byte]](kafkaConsumer, systemName, clientId, metrics)
+
+    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId,
+      kafkaConsumerProxyFactory, metrics, new SystemClock)
     info("Created samza system consumer for system %s, config %s: %s" format(systemName, config, kafkaSystemConsumer))
 
     kafkaSystemConsumer
@@ -106,8 +109,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
       val streamConfig = new StreamConfig(config)
       streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
+        // only the override here
         val properties = new Properties()
-        properties.putAll(streamConfig.getStreamProperties(streamId))
         properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
         (streamId, properties)
       }).toMap

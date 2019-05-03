@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.translator;
 
@@ -36,8 +36,8 @@ import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.serializers.NoOpSerde;
-import org.apache.samza.sql.SamzaSqlInputTransformer;
 import org.apache.samza.sql.SamzaSqlInputMessage;
+import org.apache.samza.sql.SamzaSqlInputTransformer;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
@@ -47,6 +47,7 @@ import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.InputTransformer;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
+
 
 /**
  * Translator to translate the TableScans in relational graph to the corresponding input streams in the StreamGraph
@@ -78,7 +79,7 @@ class ScanTranslator {
 
     @Override
     public boolean apply(SamzaSqlInputMessage samzaSqlInputMessage) {
-      return !relConverter.isSystemMessage(samzaSqlInputMessage.getKeyAndMessageKV());
+      return !samzaSqlInputMessage.getMetadata().isSystemMessage();
     }
   }
 
@@ -147,11 +148,11 @@ class ScanTranslator {
       queryInputEvents.inc();
       processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
     }
-
   } // ScanMapFunction
 
-  void translate(final TableScan tableScan, final String queryLogicalId, final String logicalOpId, final TranslatorContext context,
-      Map<String, DelegatingSystemDescriptor> systemDescriptors, Map<String, MessageStream<SamzaSqlInputMessage>> inputMsgStreams) {
+  void translate(final TableScan tableScan, final String queryLogicalId, final String logicalOpId,
+      final TranslatorContext context, Map<String, DelegatingSystemDescriptor> systemDescriptors,
+      Map<String, MessageStream<SamzaSqlInputMessage>> inputMsgStreams) {
     StreamApplicationDescriptor streamAppDesc = context.getStreamAppDescriptor();
     List<String> tableNameParts = tableScan.getTable().getQualifiedName();
     String sourceName = SqlIOConfig.getSourceFromSourceParts(tableNameParts);
@@ -162,9 +163,9 @@ class ScanTranslator {
     final String streamId = sqlIOConfig.getStreamId();
     final String source = sqlIOConfig.getSource();
 
-    final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() &&
-        (sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
-            sqlIOConfig.getTableDescriptor().get() instanceof CachingTableDescriptor);
+    final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() && (
+        sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor || sqlIOConfig.getTableDescriptor()
+            .get() instanceof CachingTableDescriptor);
 
     // For remote table, we don't have an input stream descriptor. The table descriptor is already defined by the
     // SqlIOResolverFactory.
@@ -181,22 +182,55 @@ class ScanTranslator {
       systemDescriptors.put(systemName, systemDescriptor);
     } else {
       /* in SamzaSQL, there should be no systemDescriptor setup by user, so this branch happens only
-      * in case of Fan-OUT (i.e., same input stream used in multiple sql statements), or when same input
-      * used twice in same sql statement (e.g., select ... from input as i1, input as i2 ...), o.w., throw error */
+       * in case of Fan-OUT (i.e., same input stream used in multiple sql statements), or when same input
+       * used twice in same sql statement (e.g., select ... from input as i1, input as i2 ...), o.w., throw error */
       if (systemDescriptor.getTransformer().isPresent()) {
         InputTransformer existingTransformer = systemDescriptor.getTransformer().get();
         if (!(existingTransformer instanceof SamzaSqlInputTransformer)) {
-          throw new SamzaException("SamzaSQL Exception: existing transformer for " + systemName + " is not SamzaSqlInputTransformer");
+          throw new SamzaException(
+              "SamzaSQL Exception: existing transformer for " + systemName + " is not SamzaSqlInputTransformer");
         }
       }
     }
 
     InputDescriptor inputDescriptor = systemDescriptor.getInputDescriptor(streamId, new NoOpSerde<>());
-    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream =
-        inputMsgStreams.computeIfAbsent(source, v -> streamAppDesc.getInputStream(inputDescriptor))
-            .filter(new FilterSystemMessageFunction(sourceName, queryId))
-            .map(new ScanMapFunction(sourceName, queryId, queryLogicalId, logicalOpId));
+
+    if (!inputMsgStreams.containsKey(source)) {
+      MessageStream<SamzaSqlInputMessage> inputMsgStream = streamAppDesc.getInputStream(inputDescriptor);
+      inputMsgStreams.put(source, inputMsgStream.map(new SystemMessageMapperFunction(source, queryId)));
+    }
+    MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputMsgStreams.get(source)
+        .filter(new FilterSystemMessageFunction(sourceName, queryId))
+        .map(new ScanMapFunction(sourceName, queryId, queryLogicalId, logicalOpId));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
+  }
+
+  /**
+   * Function that populates whether the message is a system message.
+   * TODO This should ideally be populated by the InputTransformer in future.
+   */
+  private static class SystemMessageMapperFunction implements MapFunction<SamzaSqlInputMessage, SamzaSqlInputMessage> {
+    private final String source;
+    private final int queryId;
+    private transient SamzaRelConverter relConverter;
+
+    public SystemMessageMapperFunction(String source, int queryId) {
+      this.source = source;
+      this.queryId = queryId;
+    }
+
+    @Override
+    public void init(Context context) {
+      TranslatorContext translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
+      relConverter = translatorContext.getMsgConverter(source);
+    }
+
+    @Override
+    public SamzaSqlInputMessage apply(SamzaSqlInputMessage message) {
+      message.getMetadata().setIsSystemMessage(relConverter.isSystemMessage(message.getKeyAndMessageKV()));
+      return message;
+    }
   }
 }

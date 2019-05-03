@@ -25,6 +25,7 @@ import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
 import org.apache.samza.serializers.JsonSerde;
@@ -58,13 +59,16 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
       return setTaskContainerMapping.getTaskAssignment();
     } else if (type.equalsIgnoreCase(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapping = new SetChangelogMapping(message);
-      return String.valueOf(changelogMapping.getPartition());
+      return (changelogMapping.getPartition() != null) ? String.valueOf(changelogMapping.getPartition()) : null;
     } else if (type.equalsIgnoreCase(SetConfig.TYPE)) {
       SetConfig setConfig = new SetConfig(message);
       return setConfig.getConfigValue();
     } else if (type.equalsIgnoreCase(SetTaskModeMapping.TYPE)) {
       SetTaskModeMapping setTaskModeMapping = new SetTaskModeMapping(message);
       return String.valueOf(setTaskModeMapping.getTaskMode());
+    } else if (type.equalsIgnoreCase(SetTaskPartitionMapping.TYPE)) {
+      SetTaskPartitionMapping setTaskPartitionMapping = new SetTaskPartitionMapping(message);
+      return setTaskPartitionMapping.getTaskNames();
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }
@@ -87,6 +91,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
     } else if (type.equalsIgnoreCase(SetConfig.TYPE)) {
       SetConfig setConfig = new SetConfig(SOURCE, "", value);
       return messageSerde.toBytes(setConfig.getMessageMap());
+    } else if (type.equalsIgnoreCase(SetTaskPartitionMapping.TYPE)) {
+      SetTaskPartitionMapping setTaskPartitionMapping = new SetTaskPartitionMapping(SOURCE, "", value);
+      return messageSerde.toBytes(setTaskPartitionMapping.getMessageMap());
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }

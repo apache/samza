@@ -48,7 +48,7 @@ public class TaskFactoryUtil {
     if (appDesc instanceof TaskApplicationDescriptorImpl) {
       return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
     } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
-      return (StreamTaskFactory) () -> new StreamOperatorTask(
+      return (AsyncStreamTaskFactory) () -> new StreamOperatorTask(
           ((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph());
     }
     throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
@@ -100,29 +100,21 @@ public class TaskFactoryUtil {
    * in multi-thread mode.
    *
    * @param factory  the task factory instance loaded according to the task class
-   * @param singleThreadMode  the flag indicating whether the job is running in single thread mode or not
    * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
    * @return  the finalized task factory object
    */
-  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
-
+  public static TaskFactory finalizeTaskFactory(TaskFactory factory, ExecutorService taskThreadPool) {
     validateFactory(factory);
-
     boolean isAsyncTaskClass = factory instanceof AsyncStreamTaskFactory;
+
     if (isAsyncTaskClass) {
       log.info("Got an AsyncStreamTask implementation.");
+      return factory;
     }
 
-    if (singleThreadMode && isAsyncTaskClass) {
-      throw new SamzaException("AsyncStreamTask cannot run on single thread mode.");
-    }
-
-    if (!singleThreadMode && !isAsyncTaskClass) {
-      log.info("Converting StreamTask to AsyncStreamTaskAdapter when running StreamTask with multiple threads");
-      return (AsyncStreamTaskFactory) () -> new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
-    }
-
-    return factory;
+    log.info("Converting StreamTask to AsyncStreamTaskAdapter");
+    return (AsyncStreamTaskFactory) () ->
+        new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
   }
 
   private static void validateFactory(TaskFactory factory) {

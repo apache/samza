@@ -120,7 +120,7 @@ public class TestCoordinatorStreamSystemConsumer {
 
     consumer.bootstrap();
 
-    Set<CoordinatorStreamMessage> bootstrappedMessages = consumer.getBoostrappedStream();
+    Set<CoordinatorStreamMessage> bootstrappedMessages = consumer.getBootstrappedStream(SetConfig.TYPE);
 
     assertEquals(2, bootstrappedMessages.size()); // First message should have been removed as a duplicate
     CoordinatorStreamMessage[] coordinatorStreamMessages = bootstrappedMessages.toArray(new CoordinatorStreamMessage[2]);

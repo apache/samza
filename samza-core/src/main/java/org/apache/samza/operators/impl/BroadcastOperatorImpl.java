@@ -19,6 +19,8 @@
 
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -50,9 +52,10 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   }
 
   @Override
-  protected Collection<Void> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<Void>> handleMessageAsync(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     collector.send(new OutgoingMessageEnvelope(systemStream, 0, null, message));
-    return Collections.emptyList();
+    return CompletableFuture.completedFuture(Collections.emptyList());
   }
 
   @Override

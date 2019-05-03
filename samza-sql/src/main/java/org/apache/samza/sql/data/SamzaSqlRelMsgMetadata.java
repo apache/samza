@@ -20,6 +20,8 @@
 package org.apache.samza.sql.data;
 
 import java.io.Serializable;
+import java.time.Instant;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 
@@ -36,9 +38,16 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
   public boolean isNewInputMessage = true;
 
   /**
-   *
+   * Indicates whether the SamzaSqlMessage is a system message or not.
    */
-  public String operatorBeginProcessingInstant = null;
+  @JsonIgnore
+  private boolean isSystemMessage = false;
+
+  /**
+   * Time at which the join operation started for the message.
+   * If there is no join node in the operator graph, this will be -1.
+   */
+  public long joinStartTimeMs = -1;
 
 
   /**
@@ -93,7 +102,6 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
 
   public boolean hasArrivalTime() { return arrivalTime != null && !arrivalTime.isEmpty(); }
 
-
   @JsonProperty("scanTime")
   public String getscanTime() { return scanTime;}
 
@@ -102,6 +110,16 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
   }
 
   public boolean hasScanTime() { return scanTime != null && !scanTime.isEmpty(); }
+
+  @JsonIgnore
+  public  void setIsSystemMessage(boolean isSystemMessage) {
+    this.isSystemMessage = isSystemMessage;
+  }
+
+  @JsonIgnore
+  public boolean isSystemMessage() {
+    return isSystemMessage;
+  }
 
   @Override
   public String toString() {

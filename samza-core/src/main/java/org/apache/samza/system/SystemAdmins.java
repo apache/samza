@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.MapConfig;
 
 
@@ -34,7 +34,7 @@ public class SystemAdmins {
   private final Map<String, SystemAdmin> systemAdminMap;
 
   public SystemAdmins(Config config) {
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     this.systemAdminMap = systemConfig.getSystemAdmins();
   }
 

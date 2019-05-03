@@ -30,6 +30,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
+import org.apache.samza.execution.JobPlanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -70,8 +71,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
     final String groupId = createConsumerGroupId(config);
 
-    Map<String, Object> consumerProps = new HashMap<>();
-    consumerProps.putAll(subConf);
+    Map<String, Object> consumerProps = new HashMap<>(subConf);
 
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -82,7 +82,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
     // check if samza default offset value is defined
-    String systemOffsetDefault = new JavaSystemConfig(config).getSystemOffsetDefault(systemName);
+    String systemOffsetDefault = new SystemConfig(config).getSystemOffsetDefault(systemName);
 
     // Translate samza config value to kafka config value
     String autoOffsetReset = getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), systemOffsetDefault);
@@ -114,8 +114,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
 
     // Override default max poll config if there is no value
-    consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
-        (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
+    consumerProps.putIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
     return new KafkaConsumerConfig(consumerProps, systemName);
   }
@@ -159,7 +158,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public static Pair<String, String> getJobNameAndId(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
     Option jobNameOption = jobConfig.getName();
     if (jobNameOption.isEmpty()) {
       throw new ConfigException("Missing job name");
@@ -193,7 +192,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
         return autoOffsetReset;
       }
       // translate old kafka consumer values into new ones (SAMZA-1987 top remove it)
-      String newAutoOffsetReset = null;
+      String newAutoOffsetReset;
       switch (autoOffsetReset) {
         case "largest":
           newAutoOffsetReset = KAFKA_OFFSET_LATEST;
@@ -215,10 +214,10 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     String newAutoOffsetReset = KAFKA_OFFSET_LATEST;
     if (!StringUtils.isBlank(samzaOffsetDefault)) {
       switch (samzaOffsetDefault) {
-        case JavaSystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
           newAutoOffsetReset = KAFKA_OFFSET_LATEST;
           break;
-        case JavaSystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
           newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
           break;
         default:

@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -55,26 +58,30 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   }
 
   @Override
-  public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<JM>> handleMessageAsync(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
     if (message == null) {
-      return Collections.emptyList();
+      return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
     K key = joinOpSpec.getJoinFn().getMessageKey(message);
-    Object recordValue = null;
 
-    if (key != null) {
-      recordValue = table.get(key);
-    }
+    return Optional.ofNullable(key)
+        .map(joinKey -> table.getAsync(joinKey)
+            .thenApply(val -> getJoinOutput(joinKey, val, message)))
+        .orElseGet(() -> CompletableFuture.completedFuture(getJoinOutput(key, null, message)));
+  }
 
-    R record = recordValue != null ? (R) KV.of(key, recordValue) : null;
-    JM output = joinOpSpec.getJoinFn().apply(message, record);
+  private Collection<JM> getJoinOutput(K key, Object value, M message) {
+    JM output = Optional.ofNullable(value)
+        .map(val -> (R) KV.of(key, val))
+        .map(record -> joinOpSpec.getJoinFn().apply(message, record))
+        .orElseGet(() -> joinOpSpec.getJoinFn().apply(message, null));
 
     // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
     // return null, when the corresponding record is absent in the table.
     return output != null ?
-        Collections.singletonList(output)
-      : Collections.emptyList();
+        Collections.singletonList(output) : Collections.emptyList();
   }
 
   @Override

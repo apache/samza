@@ -29,6 +29,7 @@ import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.context.ExternalContext;
+import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
@@ -84,7 +85,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan.
     try {
-      JobConfig jc = new JobConfig(appDesc.getConfig());
+      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
       LOG.info("Killing job {}", jc.getName());
       JobRunner runner = new JobRunner(jc);
       runner.kill();
@@ -98,7 +99,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan
     try {
-      JobConfig jc = new JobConfig(appDesc.getConfig());
+      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
       return getApplicationStatus(jc);
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
@@ -112,7 +113,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
   @Override
   public boolean waitForFinish(Duration timeout) {
-    JobConfig jobConfig = new JobConfig(appDesc.getConfig());
+    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();
     long startTimeInMs = System.currentTimeMillis();

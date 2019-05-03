@@ -51,7 +51,8 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     MERGE,
     PARTITION_BY,
     OUTPUT,
-    BROADCAST
+    BROADCAST,
+    ASYNC_FLAT_MAP
   }
 
   private final String opId;

@@ -83,6 +83,7 @@ public class SamzaObjectMapper {
     module.addKeySerializer(SystemStreamPartition.class, new SystemStreamPartitionKeySerializer());
     module.addSerializer(TaskName.class, new TaskNameSerializer());
     module.addSerializer(TaskMode.class, new TaskModeSerializer());
+    module.addDeserializer(TaskName.class, new TaskNameDeserializer());
     module.addDeserializer(Partition.class, new PartitionDeserializer());
     module.addDeserializer(SystemStreamPartition.class, new SystemStreamPartitionDeserializer());
     module.addKeyDeserializer(SystemStreamPartition.class, new SystemStreamPartitionKeyDeserializer());

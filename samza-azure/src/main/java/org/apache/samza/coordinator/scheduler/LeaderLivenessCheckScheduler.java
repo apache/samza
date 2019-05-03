@@ -84,32 +84,19 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
     String currJMV = currentJMVersion.get();
     String blobJMV = blob.getJobModelVersion();
     //Get the leader processor row from the table.
-    Iterable<ProcessorEntity> tableList = table.getEntitiesWithPartition(currJMV);
-    ProcessorEntity leader = null, nextLeader = null;
-    for (ProcessorEntity entity: tableList) {
-      if (entity.getIsLeader()) {
-        leader = entity;
-        break;
-      }
-    }
-    int currJMVInt = 0;
-    if (!currJMV.equals(initialState)) {
-      currJMVInt = Integer.valueOf(currJMV);
-    }
-    if (Integer.valueOf(blobJMV) > currJMVInt) {
-      for (ProcessorEntity entity : table.getEntitiesWithPartition(blobJMV)) {
-        if (entity.getIsLeader()) {
-          nextLeader = entity;
-          break;
-        }
-      }
-    }
+    ProcessorEntity leader = getLeader(currJMV);
+    int currJMVInt = currJMV.equals(initialState) ? 0 : Integer.valueOf(currJMV);
+    ProcessorEntity nextLeader = Integer.valueOf(blobJMV) > currJMVInt ? getLeader(blobJMV) : null;
     // Check if row hasn't been updated since 30 seconds.
-    if ((leader == null || (System.currentTimeMillis() - leader.getTimestamp().getTime() >= (
-        LIVENESS_DEBOUNCE_TIME_SEC * 1000))) && nextLeader == null) {
-      return false;
+    boolean leaderIsAlive = leader != null && (System.currentTimeMillis() - leader.getTimestamp().getTime() < (LIVENESS_DEBOUNCE_TIME_SEC * 1000));
+    return leaderIsAlive || nextLeader != null;
+  }
+
+  private ProcessorEntity getLeader(String jmv) {
+    for (ProcessorEntity entity: table.getEntitiesWithPartition(jmv)) {
+      if (entity.getIsLeader()) return entity;
     }
-    return true;
+    return null;
   }
 
   @Override

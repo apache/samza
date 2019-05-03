@@ -31,7 +31,7 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  * @param <V> the type of the table record value
  */
 @InterfaceStability.Unstable
-public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> {
+public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, KV<K, V>> {
 
   private final String tableId;
 
