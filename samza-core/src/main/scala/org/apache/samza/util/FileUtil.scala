@@ -21,7 +21,7 @@
 
 package org.apache.samza.util
 
-import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+import java.io._
 import java.nio.file._
 import java.util.zip.CRC32
 
@@ -51,11 +51,50 @@ object FileUtil {
     }
 
     //atomic swap of tmp and real offset file
+    swapFiles(tmpFile, file)
+  }
+
+  /**
+    * Writes the data to a text file
+    * @param file The file handle to write to
+    * @param data The data to be written to the file
+    * @param append true for appending data to file, false otherwise
+    * */
+  def writeToTextFile(file: File, data: String, append: Boolean): Unit = {
+
+    val tmpFilePath = file.getAbsolutePath + ".tmp"
+    var bufferedWriter : BufferedWriter = null
+    var fileWriter: FileWriter = null
+    val tmpFile = new File(tmpFilePath)
+
+
+    //atomic swap of tmp and real file if we need to append
+    if (append) {
+      swapFiles(file, tmpFile)
+    }
+
     try {
-      Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+      fileWriter = new FileWriter(tmpFile, append)
+      bufferedWriter = new BufferedWriter(fileWriter)
+      bufferedWriter.write(data)
+    } finally {
+      bufferedWriter.close()
+      fileWriter.close()
+    }
+
+    //atomic swap of tmp and real file
+    swapFiles(tmpFile, file)
+  }
+
+  private def swapFiles(source: File, destination: File) : Unit = {
+    //atomic swap of source and destination file
+    try {
+      if (source.exists()) {
+        Files.move(source.toPath, destination.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+      }
     } catch {
       case e: AtomicMoveNotSupportedException =>
-        Files.move(tmpFile.toPath, file.toPath, StandardCopyOption.REPLACE_EXISTING)
+        Files.move(source.toPath, destination.toPath, StandardCopyOption.REPLACE_EXISTING)
     }
   }
 

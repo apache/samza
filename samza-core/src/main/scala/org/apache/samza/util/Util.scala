@@ -30,6 +30,7 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
 
+
 import scala.collection.JavaConverters._
 
 
@@ -60,6 +61,27 @@ object Util extends Logging {
       case e: Throwable => {
         error("Unable to create an instance for class %s." format className, e)
         throw e
+      }
+    }
+  }
+
+  def getSamzaVersion(): String = {
+    Option(this.getClass.getPackage.getImplementationVersion)
+      .getOrElse({
+        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
+        "0.0.1"
+      })
+  }
+
+  def getTaskClassVersion(config: Config): String = {
+    try {
+      val taskClass = Option(new ApplicationConfig(config).getAppClass())
+        .orElse(new TaskConfig(config).getTaskClass).get
+      Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
+    } catch {
+      case e: Exception => {
+        warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
+        "0.0.1"
       }
     }
   }
