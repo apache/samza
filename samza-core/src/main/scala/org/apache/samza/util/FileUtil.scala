@@ -63,7 +63,6 @@ object FileUtil {
   def writeToTextFile(file: File, data: String, append: Boolean): Unit = {
 
     val tmpFilePath = file.getAbsolutePath + ".tmp"
-    var bufferedWriter : BufferedWriter = null
     var fileWriter: FileWriter = null
     val tmpFile = new File(tmpFilePath)
 
@@ -74,11 +73,13 @@ object FileUtil {
     }
 
     try {
+      System.out.println("--------" + tmpFile)
       fileWriter = new FileWriter(tmpFile, append)
-      bufferedWriter = new BufferedWriter(fileWriter)
-      bufferedWriter.write(data)
+      fileWriter.write(data)
+    } catch {
+      case e: Exception =>
+        System.out.println(e)
     } finally {
-      bufferedWriter.close()
       fileWriter.close()
     }
 

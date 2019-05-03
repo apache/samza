@@ -100,6 +100,14 @@ public class ListGauge<T> implements Metric {
   }
 
   /**
+   * Removes the given elements from the list-gauge.
+   * @param elementsToRemove collection of elements to remove.
+   */
+  public void remove(Collection<T> elementsToRemove) {
+    this.elements.removeAll(elementsToRemove);
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
