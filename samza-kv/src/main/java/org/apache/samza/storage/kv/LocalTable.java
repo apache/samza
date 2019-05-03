@@ -180,6 +180,39 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
     return future;
   }
 
+  /**
+   * Refer to {@link KeyValueStore#range(Object, Object)}
+   *
+   * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
+   * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
+   * @return an iterator for the specified key range.
+   * @throws NullPointerException if null is used for {@code from} or {@code to}.
+   */
+  public KeyValueIterator<K, V> range(K from, K to) {
+    return kvStore.range(from, to);
+  }
+
+  /**
+   * Refer to {@link KeyValueStore#snapshot(Object, Object)}
+   *
+   * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
+   * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
+   * @return a snapshot for the specified key range.
+   * @throws NullPointerException if null is used for {@code from} or {@code to}.
+   */
+  public KeyValueSnapshot<K, V> snapshot(K from, K to) {
+    return kvStore.snapshot(from, to);
+  }
+
+  /**
+   * Refer to {@link KeyValueStore#all()}
+   *
+   * @return an iterator for all entries in this key-value store.
+   */
+  public KeyValueIterator<K, V> all() {
+    return kvStore.all();
+  }
+
   @Override
   public void flush() {
     // Since the KV store will be flushed by task storage manager, only update metrics here
