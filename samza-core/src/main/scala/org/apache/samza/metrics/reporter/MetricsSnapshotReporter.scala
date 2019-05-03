@@ -88,10 +88,6 @@ class MetricsSnapshotReporter(
     producer.register(source)
   }
 
-  def getProducer : SystemProducer = {
-    producer
-  }
-
   def stop = {
 
     // Scheduling an event with 0 delay to ensure flushing of metrics one last time before shutdown
