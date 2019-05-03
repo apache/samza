@@ -16,12 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.metrics;
+package org.apache.samza.diagnostics;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
@@ -29,7 +30,7 @@ import org.apache.samza.util.TimestampedValue;
 
 
 /**
- * A {@link ListGauge} is a {@link Metric} that buffers multiple instances of a type T in a list.
+ * A {@link ListGauge} buffers multiple instances of a type T in a list.
  * {@link ListGauge}s are useful for maintaining, recording, or collecting values over time.
  * For example, a set of specific logging-events (e.g., errors).
  *
@@ -39,7 +40,7 @@ import org.apache.samza.util.TimestampedValue;
  * All public methods are thread-safe.
  *
  */
-public class ListGauge<T> implements Metric {
+public class ListGauge<T> {
   private final String name;
   private final Queue<TimestampedValue<T>> elements;
 
@@ -104,15 +105,13 @@ public class ListGauge<T> implements Metric {
    * @param elementsToRemove collection of elements to remove.
    */
   public void remove(Collection<T> elementsToRemove) {
-    this.elements.removeAll(elementsToRemove);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void visit(MetricsVisitor visitor) {
-    visitor.listGauge(this);
+    Iterator<TimestampedValue<T>> iterator = this.elements.iterator();
+    while (iterator.hasNext()) {
+      TimestampedValue<T> value = iterator.next();
+      if (elementsToRemove.contains(value.getValue())) {
+        iterator.remove();
+      }
+    }
   }
 
   /**

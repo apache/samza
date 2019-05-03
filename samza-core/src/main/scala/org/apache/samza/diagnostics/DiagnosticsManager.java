@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.metrics.ListGauge;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
@@ -158,6 +157,9 @@ public class DiagnosticsManager {
           systemProducer.send(DiagnosticsManager.class.getName(),
               new OutgoingMessageEnvelope(diagnosticSystemStream, metricsHeader.getHost(), null,
                   new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
+
+          // Remove exceptions from list after successful publish to diagnostics stream
+          exceptions.remove(exceptionList);
         } catch (Exception e) {
           LOG.error("Exception when flushing exceptions", e);
         }

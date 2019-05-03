@@ -21,12 +21,13 @@ package org.apache.samza.metrics;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
+import org.apache.samza.diagnostics.ListGauge;
 import org.junit.Assert;
 import org.junit.Test;
 
 
 /**
- * Class to encapsulate test-cases for {@link org.apache.samza.metrics.ListGauge}
+ * Class to encapsulate test-cases for {@link ListGauge}
  */
 public class TestListGauge {
 

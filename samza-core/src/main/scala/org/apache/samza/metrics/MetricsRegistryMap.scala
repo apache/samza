@@ -22,6 +22,7 @@ package org.apache.samza.metrics
 import org.apache.samza.util.Logging
 import java.util.concurrent.ConcurrentHashMap
 
+
 /**
  * A class that holds all metrics registered with it. It can be registered
  * with one or more MetricReporters to flush metrics.
@@ -73,21 +74,6 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
   def newTimer(group: String, name: String) = {
     debug("Creating new timer %s %s." format (group, name))
     newTimer(group, new Timer(name))
-  }
-
-  /**
-    * Register a {@link org.apache.samza.metrics.ListGauge}
-    *
-    * @param group     Group for this ListGauge
-    * @param listGauge the ListGauge to register
-    * @tparam T the type of the list gauge
-    */
-  def newListGauge[T](group: String, listGauge: ListGauge[T]) = {
-    debug("Adding new listgauge %s %s %s." format(group, listGauge.getName, listGauge))
-    putAndGetGroup(group).putIfAbsent(listGauge.getName, listGauge)
-    val realListGauge = metrics.get(group).get(listGauge.getName).asInstanceOf[ListGauge[T]]
-    listeners.foreach(_.onListGauge(group, realListGauge))
-    realListGauge
   }
 
   private def putAndGetGroup(group: String) = {
