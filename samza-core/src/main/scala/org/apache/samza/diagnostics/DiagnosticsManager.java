@@ -45,6 +45,10 @@ import scala.Tuple2;
 import scala.collection.JavaConverters;
 
 
+/**
+ * Responsible for publishing data to the diagnostic stream.
+ * Currently emits exception/error events obtained using a customer-appender that attaches to the root-logger.
+ */
 public class DiagnosticsManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DiagnosticsManager.class);
