@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointVisitor;
 
 
@@ -168,7 +169,7 @@ public interface SystemAdmin {
   /**
    * Builds and returns the {@link StartpointVisitor} for a system.
    */
-  default StartpointVisitor getStartpointVisitor() {
+  default String resolveStartpointToOffset(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
     throw new UnsupportedOperationException();
   }
 }

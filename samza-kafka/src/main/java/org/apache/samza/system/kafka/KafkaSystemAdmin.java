@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +59,7 @@ import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
+import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
 import org.apache.samza.startpoint.StartpointTimestamp;
 import org.apache.samza.startpoint.StartpointUpcoming;
@@ -119,6 +121,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   private final AtomicBoolean stopped = new AtomicBoolean(false);
   private final ThreadSafeKafkaConsumer threadSafeKafkaConsumer;
+  private final KafkaStartpointToOffsetResolver kafkaStartpointToOffsetResolver;
 
   public KafkaSystemAdmin(String systemName, Config config, Consumer metadataConsumer) {
     this.systemName = systemName;
@@ -129,6 +132,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
           "Cannot construct KafkaSystemAdmin for system " + systemName + " with null metadataConsumer");
     }
     this.threadSafeKafkaConsumer = new ThreadSafeKafkaConsumer(metadataConsumer);
+    this.kafkaStartpointToOffsetResolver = new KafkaStartpointToOffsetResolver(threadSafeKafkaConsumer);
 
     Properties props = createAdminClientProperties();
     LOG.info("New admin client with props:" + props);
@@ -386,13 +390,18 @@ public class KafkaSystemAdmin implements SystemAdmin {
     Map<SystemStreamPartition, String> oldestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> newestOffsets = new HashMap<>();
     Map<SystemStreamPartition, String> upcomingOffsets = new HashMap<>();
-    Map<TopicPartition, Long> oldestOffsetsWithLong;
-    Map<TopicPartition, Long> upcomingOffsetsWithLong;
+    final Map<TopicPartition, Long> oldestOffsetsWithLong = new HashMap<>();
+    final Map<TopicPartition, Long> upcomingOffsetsWithLong = new HashMap<>();
 
-    oldestOffsetsWithLong = threadSafeKafkaConsumer.execute(consumer -> consumer.beginningOffsets(topicPartitions));
-    LOG.debug("Kafka-fetched beginningOffsets: {}", oldestOffsetsWithLong);
-    upcomingOffsetsWithLong = threadSafeKafkaConsumer.execute(consumer -> consumer.endOffsets(topicPartitions));
-    LOG.debug("Kafka-fetched endOffsets: {}", upcomingOffsetsWithLong);
+    threadSafeKafkaConsumer.execute(consumer -> {
+      Map<TopicPartition, Long> beginningOffsets = consumer.beginningOffsets(topicPartitions);
+      LOG.debug("Beginning offsets for topic-partitions: {} is {}", topicPartitions, beginningOffsets);
+      oldestOffsetsWithLong.putAll(beginningOffsets);
+      Map<TopicPartition, Long> endOffsets = consumer.endOffsets(topicPartitions);
+      LOG.debug("End offsets for topic-partitions: {} is {}", topicPartitions, endOffsets);
+      upcomingOffsetsWithLong.putAll(endOffsets);
+      return Optional.empty();
+    });
 
     oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
 
@@ -431,22 +440,22 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
 
     topics.forEach(topic -> {
-      List<PartitionInfo> partitionInfos = threadSafeKafkaConsumer.execute(consumer -> consumer.partitionsFor(topic));
-
-      if (partitionInfos == null) {
-        String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
-        throw new SamzaException(msg);
-      }
-
-      List<TopicPartition> topicPartitions = partitionInfos.stream()
+       threadSafeKafkaConsumer.execute(consumer -> {
+         List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
+         if (partitionInfos == null) {
+           String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
+           throw new SamzaException(msg);
+         }
+         List<TopicPartition> topicPartitions = partitionInfos.stream()
           .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
           .collect(Collectors.toList());
+         OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
+         allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
+         allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
+         allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
 
-      OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
-      allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
-      allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
-      allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
-
+         return Optional.empty();
+       });
     });
 
     return assembleMetadata(allOldestOffsets, allNewestOffsets, allUpcomingOffsets);
@@ -707,8 +716,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
   }
 
   @Override
-  public StartpointVisitor getStartpointVisitor() {
-    return new KafkaStartpointToOffsetResolver(threadSafeKafkaConsumer);
+  public String resolveStartpointToOffset(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
+    return startpoint.apply(systemStreamPartition, kafkaStartpointToOffsetResolver);
   }
 
   /**
@@ -764,9 +773,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
     }
   }
 
-  /**
-   *
-   */
   @VisibleForTesting
   static class KafkaStartpointToOffsetResolver implements StartpointVisitor {
 

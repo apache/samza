@@ -23,7 +23,7 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStreamPartition;
 
 /**
- * A {@link SystemAdmin} implementation should implement this abstraction to support {@link Startpoint}'s.
+ * A {@link SystemAdmin} implementation should implement this abstraction to support {@link Startpoint}.
  */
 @InterfaceStability.Evolving
 public interface StartpointVisitor {

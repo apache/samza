@@ -48,7 +48,7 @@ public class TestKafkaSystemConsumer {
   private static final String TEST_SYSTEM = "test-system";
   private static final String TEST_STREAM = "test-stream";
   private static final String TEST_JOB = "test-job";
-  private static final String TEST_PREFIX_ID = "testClientId";
+  private static final String TEST_CLIENT_ID = "testClientId";
   private static final String BOOTSTRAP_SERVERS = "127.0.0.1:8888";
   private static final String FETCH_THRESHOLD_MSGS = "50000";
   private static final String FETCH_THRESHOLD_BYTES = "100000";
@@ -64,14 +64,14 @@ public class TestKafkaSystemConsumer {
     map.put(JobConfig.JOB_NAME(), "jobName");
 
     Config config = new MapConfig(map);
-    String clientId = KafkaConsumerConfig.createClientId(TEST_PREFIX_ID, config);
+    String clientId = KafkaConsumerConfig.createClientId(TEST_CLIENT_ID, config);
     KafkaConsumerConfig consumerConfig =
         KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, TEST_SYSTEM, clientId);
 
     final KafkaConsumer<byte[], byte[]> kafkaConsumer = new MockKafkaConsumer(consumerConfig);
 
     MockKafkaSystemConsumer newKafkaSystemConsumer =
-        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, config, TEST_PREFIX_ID,
+        new MockKafkaSystemConsumer(kafkaConsumer, TEST_SYSTEM, config, TEST_CLIENT_ID,
             new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry()), System::currentTimeMillis);
 
     return newKafkaSystemConsumer;
@@ -146,13 +146,13 @@ public class TestKafkaSystemConsumer {
     consumer.start();
     consumer.messageSink.addMessage(ssp0, ime0);
     // queue for ssp0 should be full now, because we added message of size FETCH_THRESHOLD_MSGS/partitionsNum
-    Assert.assertEquals(false, consumer.messageSink.needsMoreMessages(ssp0));
+    Assert.assertFalse(consumer.messageSink.needsMoreMessages(ssp0));
     consumer.messageSink.addMessage(ssp1, ime1);
     // queue for ssp1 should be less then full now, because we added message of size (FETCH_THRESHOLD_MSGS/partitionsNum - 1)
-    Assert.assertEquals(true, consumer.messageSink.needsMoreMessages(ssp1));
+    Assert.assertTrue(consumer.messageSink.needsMoreMessages(ssp1));
     consumer.messageSink.addMessage(ssp1, ime11);
     // queue for ssp1 should full now, because we added message of size 20 on top
-    Assert.assertEquals(false, consumer.messageSink.needsMoreMessages(ssp1));
+    Assert.assertFalse(consumer.messageSink.needsMoreMessages(ssp1));
 
     Assert.assertEquals(1, consumer.getNumMessagesInQueue(ssp0));
     Assert.assertEquals(2, consumer.getNumMessagesInQueue(ssp1));
@@ -189,13 +189,13 @@ public class TestKafkaSystemConsumer {
     consumer.start();
     consumer.messageSink.addMessage(ssp0, ime0);
     // should be full by size, but not full by number of messages (1 of 2)
-    Assert.assertEquals(true, consumer.messageSink.needsMoreMessages(ssp0));
+    Assert.assertTrue(consumer.messageSink.needsMoreMessages(ssp0));
     consumer.messageSink.addMessage(ssp1, ime1);
     // not full neither by size nor by messages
-    Assert.assertEquals(true, consumer.messageSink.needsMoreMessages(ssp1));
+    Assert.assertTrue(consumer.messageSink.needsMoreMessages(ssp1));
     consumer.messageSink.addMessage(ssp1, ime11);
     // not full by size, but should be full by messages
-    Assert.assertEquals(false, consumer.messageSink.needsMoreMessages(ssp1));
+    Assert.assertFalse(consumer.messageSink.needsMoreMessages(ssp1));
 
     Assert.assertEquals(1, consumer.getNumMessagesInQueue(ssp0));
     Assert.assertEquals(2, consumer.getNumMessagesInQueue(ssp1));

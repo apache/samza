@@ -45,7 +45,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
 
-
 public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements SystemConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSystemConsumer.class);
@@ -102,7 +101,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    String metricName = String.format("%s-%s", systemName, clientId);
     proxy = kafkaConsumerProxyFactory.create(this.messageSink);
     LOG.info("{}: Created proxy {} ", this, proxy);
   }
@@ -116,7 +114,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * @return KafkaConsumer newly created kafka consumer object
    */
   public static <K, V> KafkaConsumer<K, V> createKafkaConsumerImpl(String systemName, HashMap<String, Object> kafkaConsumerConfig) {
-
     LOG.info("Instantiating KafkaConsumer for systemName {} with properties {}", systemName, kafkaConsumerConfig);
     return new KafkaConsumer<>(kafkaConsumerConfig);
   }
@@ -169,7 +166,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
       try {
         synchronized (kafkaConsumer) {
-          kafkaConsumer.seek(tp, startingOffset); // this value should already be the 'upcoming' value
+          kafkaConsumer.seek(tp, startingOffset);
         }
       } catch (Exception e) {
         // all recoverable execptions are handled by the client.
@@ -268,7 +265,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       LOG.warn("{}: ignoring SSP {}, because this consumer's system doesn't match.", this, systemStreamPartition);
       return;
     }
-    LOG.info("{}: Registering ssp = {} with offset {}", this, systemStreamPartition, offset);
+    LOG.info("{}: Registering ssp: {} with offset: {}", this, systemStreamPartition, offset);
 
     super.register(systemStreamPartition, offset);
 
