@@ -80,7 +80,7 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    writeJobMetadataFile(jobName, jobId, containerName, config);
+    writeMetadataFile(jobName, jobId, containerName, System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()), config);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
@@ -88,19 +88,18 @@ public class LocalContainerRunner {
     ContainerLaunchUtil.run(appDesc, containerId, jobModel);
   }
 
-  public static void writeJobMetadataFile(String jobName, String jobId, String containerName, Config config) throws Exception {
+  public static void writeMetadataFile(String jobName, String jobId, String containerName, String execEnvContainerId, Config config) throws Exception {
 
     StringBuilder metadata = new StringBuilder("Version: 1");
     metadata.append(System.lineSeparator());
-    MetricsHeader metricsHeader = new MetricsHeader(jobName, jobId, containerName,
-        System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()), LocalContainerRunner.class.getName(),
+    MetricsHeader metricsHeader = new MetricsHeader(jobName, jobId, containerName, execEnvContainerId, LocalContainerRunner.class.getName(),
         Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
         System.currentTimeMillis(), System.currentTimeMillis());
 
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
     metadata.append("MetricsSnapshot: ");
     metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
-    FileUtil.writeToTextFile(new File(CONTAINER_METADATA_DIRECTORY, String.format(CONTAINER_METADATA_FILENAME_FORMAT, ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID())),
+    FileUtil.writeToTextFile(new File(CONTAINER_METADATA_DIRECTORY, String.format(CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)),
         metadata.toString(), false);
   }
 }
