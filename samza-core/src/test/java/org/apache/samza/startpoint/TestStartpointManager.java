@@ -70,7 +70,8 @@ public class TestStartpointManager {
 
     startpointManager.start();
     long staleTimestamp = Instant.now().toEpochMilli() - StartpointManager.DEFAULT_EXPIRATION_DURATION.toMillis() - 2;
-    StartpointTimestamp startpoint = new StartpointTimestamp(staleTimestamp);
+    StartpointTimestamp startpoint = new StartpointTimestamp(staleTimestamp, staleTimestamp);
+
     startpointManager.writeStartpoint(ssp, startpoint);
     Assert.assertNull(startpointManager.readStartpoint(ssp));
 

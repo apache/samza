@@ -18,10 +18,10 @@
  */
 package org.apache.samza.startpoint;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import org.apache.samza.system.SystemStreamPartition;
-
 
 /**
  * A {@link Startpoint} that represents a timestamp offset in a stream partition.
@@ -41,6 +41,12 @@ public final class StartpointTimestamp extends Startpoint {
    */
   public StartpointTimestamp(Long timestampOffset) {
     super();
+    this.timestampOffset = timestampOffset;
+  }
+
+  @VisibleForTesting
+  StartpointTimestamp(Long timestampOffset, Long creationTimeStamp) {
+    super(creationTimeStamp);
     this.timestampOffset = timestampOffset;
   }
 
