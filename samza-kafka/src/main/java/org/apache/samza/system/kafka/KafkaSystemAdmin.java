@@ -440,7 +440,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Fetching SystemStreamMetadata for topics {} on system {}", topics, systemName);
 
     topics.forEach(topic -> {
-       threadSafeKafkaConsumer.execute(consumer -> {
+      OffsetsMaps offsetsForTopic = threadSafeKafkaConsumer.execute(consumer -> {
          List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
          if (partitionInfos == null) {
            String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
@@ -449,13 +449,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
          List<TopicPartition> topicPartitions = partitionInfos.stream()
           .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
           .collect(Collectors.toList());
-         OffsetsMaps offsetsForTopic = fetchTopicPartitionsMetadata(topicPartitions);
-         allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
-         allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
-         allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
-
-         return Optional.empty();
+         return fetchTopicPartitionsMetadata(topicPartitions);
        });
+      allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
+      allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
+      allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
     });
 
     return assembleMetadata(allOldestOffsets, allNewestOffsets, allUpcomingOffsets);
