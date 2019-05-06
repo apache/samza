@@ -99,10 +99,6 @@ trait JmxGaugeMBean extends MetricMBean {
   def getValue(): Object
 }
 
-trait JmxListGaugeMBean extends MetricMBean {
-  def getValue(): util.Collection[Object]
-}
-
 class JmxGauge(g: org.apache.samza.metrics.Gauge[Object], on: ObjectName) extends JmxGaugeMBean {
   def getValue = g.getValue
   def objectName = on

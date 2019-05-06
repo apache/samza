@@ -70,7 +70,7 @@ public class DiagnosticsManager {
   private final Instant resetTime;
 
   private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
-  private ListGauge<DiagnosticsExceptionEvent> exceptions; // A ListGauge for storing DiagnosticExceptionEvent
+  private BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
   private final ScheduledExecutorService scheduler; // Scheduler for pushing data to the diagnostic stream
   private final SystemStream diagnosticSystemStream;
 
@@ -88,7 +88,7 @@ public class DiagnosticsManager {
 
     this.systemProducer = systemProducer;
     this.diagnosticSystemStream = diagnosticSystemStream;
-    this.exceptions = new ListGauge<>("exceptions"); // Create a ListGauge with default size and time parameters
+    this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build());
 
