@@ -73,7 +73,6 @@ object FileUtil {
     }
 
     try {
-      System.out.println("--------" + tmpFile)
       fileWriter = new FileWriter(tmpFile, append)
       fileWriter.write(data)
     } catch {
