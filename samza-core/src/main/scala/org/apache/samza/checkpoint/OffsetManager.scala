@@ -356,20 +356,13 @@ class OffsetManager(
 
     // delete corresponding startpoints after checkpoint is supposed to be committed
     if (startpointManager != null && startpoints.contains(taskName)) {
-      val sspStartpoints = checkpoint.getOffsets.keySet.asScala
-        .intersect(startpoints.getOrElse(taskName, Map.empty[SystemStreamPartition, Startpoint]).keySet)
-
-      // delete startpoints for this task and the intersection of SSPs between checkpoint and startpoint.
-      sspStartpoints.foreach(ssp => {
-        startpointManager.deleteStartpoint(ssp, taskName)
-        info("Deleted startpoint for SSP: %s and task: %s" format (ssp, taskName))
-      })
+      info("%d startpoint(s) for taskName: %s have been committed to the checkpoint." format (startpoints.get(taskName).size, taskName.getTaskName))
+      startpointManager.removeFanOutForTask(taskName)
       startpoints -= taskName
 
       if (startpoints.isEmpty) {
-        // Stop startpoint manager after last startpoint is deleted
-        startpointManager.stop()
-        info("No more startpoints left to consume. Stopped the startpoint manager.")
+        info("All outstanding startpoints have been committed to the checkpoint.")
+        startpointManager.stop
       }
     }
   }
@@ -384,11 +377,11 @@ class OffsetManager(
     }
 
     if (startpointManager != null) {
-      debug("Ensuring startpoint manager has shut down.")
+      debug("Shutting down startpoint manager.")
 
       startpointManager.stop
     } else {
-      debug("Skipping startpoint manager shutdown because no checkpoint manager is defined.")
+      debug("Skipping startpoint manager shutdown because no startpoint manager is defined.")
     }
   }
 
@@ -517,23 +510,25 @@ class OffsetManager(
     if (startpointManager != null) {
       info("Starting startpoint manager.")
       startpointManager.start
-      val taskNameToSSPs: Map[TaskName, Set[SystemStreamPartition]] = systemStreamPartitions
 
-      taskNameToSSPs.foreach {
+      systemStreamPartitions.foreach {
         case (taskName, systemStreamPartitionSet) => {
-          val sspToStartpoint = systemStreamPartitionSet
-            .map(ssp => (ssp, startpointManager.readStartpoint(ssp, taskName)))
-            .filter(_._2 != null)
-            .toMap
-
-          if (!sspToStartpoint.isEmpty) {
-            startpoints += taskName -> sspToStartpoint
+          Option(startpointManager.getFanOutForTask(taskName)) match {
+            case Some(fanOut) => {
+              val filteredFanOut = fanOut.asScala
+                .filter(f => systemStreamPartitionSet.contains(f._1))
+                .toMap
+              if (!filteredFanOut.isEmpty) {
+                startpoints += taskName -> filteredFanOut
+              }
+            }
+            case None => debug("No startpoints fanned out on taskName: %s" format taskName.getTaskName)
           }
         }
       }
 
       if (startpoints.isEmpty) {
-        info("No startpoints to consume. Stopping startpoint manager.")
+        info("No startpoints to consume.")
         startpointManager.stop
       } else {
         startpoints
