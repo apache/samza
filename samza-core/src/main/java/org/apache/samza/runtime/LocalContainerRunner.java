@@ -48,8 +48,8 @@ import org.slf4j.MDC;
  */
 public class LocalContainerRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
-  private static final String JOB_METADATA_FILENAME = "job.metadata";
-  private static final File JOB_METADATA_FILE = new File(System.getProperty("samza.log.dir"), JOB_METADATA_FILENAME);
+  private static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: containerID.metadata
+  private static final String CONTAINER_METADATA_DIRECTORY = System.getProperty("samza.log.dir");
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
@@ -100,6 +100,7 @@ public class LocalContainerRunner {
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
     metadata.append("MetricsSnapshot: ");
     metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
-    FileUtil.writeToTextFile(JOB_METADATA_FILE, metadata.toString(), false);
+    FileUtil.writeToTextFile(new File(CONTAINER_METADATA_DIRECTORY, String.format(CONTAINER_METADATA_FILENAME_FORMAT, ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID())),
+        metadata.toString(), false);
   }
 }
