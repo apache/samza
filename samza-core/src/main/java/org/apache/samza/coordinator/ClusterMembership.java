@@ -19,9 +19,12 @@
 
 package org.apache.samza.coordinator;
 
+import org.apache.samza.annotation.InterfaceStability;
+
 /**
  * Coordination Primitive to maintain the list of processors in the quorum
  */
+@InterfaceStability.Evolving
 public interface ClusterMembership {
   /**
    * add processor to the list

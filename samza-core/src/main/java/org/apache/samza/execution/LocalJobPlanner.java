@@ -19,6 +19,7 @@
 package org.apache.samza.execution;
 
 import java.io.UnsupportedEncodingException;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -49,7 +50,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LocalJobPlanner extends JobPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(LocalJobPlanner.class);
-  private static final String METADATA_STORE = "StreamCreationCoordinationStore";
+  private static final String STREAM_CREATION_METADATA_STORE = "StreamCreationCoordinationStore";
   private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
   public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
   private static final String STREAM_CREATED_STATE_KEY = "StreamCreated_%s";
@@ -172,7 +173,7 @@ public class LocalJobPlanner extends JobPlanner {
           break;
         }
         try {
-          if (distributedLock.lock(10000, TimeUnit.MILLISECONDS)) {
+          if (distributedLock.lock(Duration.ofMillis(10000))) {
             LOG.info("lock acquired for streams creation by Processor " + uid);
             streamManager.createStreams(intStreams);
             String streamCreatedMessage = "Streams created by processor " + uid;
@@ -210,6 +211,6 @@ public class LocalJobPlanner extends JobPlanner {
       metadataStoreFactoryClass = DEFAULT_METADATA_STORE_FACTORY;
     }
     MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
-    return metadataStoreFactory.getMetadataStore(METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
+    return metadataStoreFactory.getMetadataStore(STREAM_CREATION_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 }

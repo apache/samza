@@ -263,7 +263,7 @@ public class TestLocalApplicationRunner {
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
 
     DistributedLock distributedLock = mock(DistributedLock.class);
-    when(distributedLock.lock(anyLong(), anyObject())).thenReturn(true);
+    when(distributedLock.lock(anyObject())).thenReturn(true);
     when(coordinationUtils.getLock(anyString())).thenReturn(distributedLock);
 
     ZkMetadataStore zkMetadataStore = mock(ZkMetadataStore.class);
@@ -332,7 +332,7 @@ public class TestLocalApplicationRunner {
     coordinationUtils = mock(CoordinationUtils.class);
 
     DistributedLock lock = mock(DistributedLock.class);
-    when(lock.lock(anyLong(), anyObject())).thenReturn(true);
+    when(lock.lock(anyObject())).thenReturn(true);
     when(coordinationUtils.getLock(anyString())).thenReturn(lock);
 
     clusterMembership = mock(ClusterMembership.class);

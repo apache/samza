@@ -46,7 +46,7 @@ public class TestRunIdGenerator {
 
     verify(coordinationUtils, Mockito.times(1)).getClusterMembership();
     verify(coordinationUtils, Mockito.times(1)).getLock(anyString());
-    verify(distributedLock, Mockito.times(1)).lock(anyLong(), anyObject());
+    verify(distributedLock, Mockito.times(1)).lock(anyObject());
     verify(distributedLock, Mockito.times(1)).unlock();
     verify(membership, Mockito.times(1)).registerProcessor();
     verify(membership, Mockito.times(1)).getNumberOfProcessors();
@@ -60,13 +60,13 @@ public class TestRunIdGenerator {
 
     prepareRunIdGenerator(2);
 
-    String runId = runIdGenerator.getRunId();
+    String runId = runIdGenerator.getRunId().get();
 
     assertEquals("Runid was not read from store", runId, FAKE_RUNID);
 
     verify(coordinationUtils, Mockito.times(1)).getClusterMembership();
     verify(coordinationUtils, Mockito.times(1)).getLock(anyString());
-    verify(distributedLock, Mockito.times(1)).lock(anyLong(), anyObject());
+    verify(distributedLock, Mockito.times(1)).lock(anyObject());
     verify(distributedLock, Mockito.times(1)).unlock();
     verify(membership, Mockito.times(1)).registerProcessor();
     verify(membership, Mockito.times(1)).getNumberOfProcessors();
@@ -78,7 +78,7 @@ public class TestRunIdGenerator {
     coordinationUtils = mock(CoordinationUtils.class);
 
     distributedLock = mock(DistributedLock.class);
-    when(distributedLock.lock(anyLong(), anyObject())).thenReturn(true);
+    when(distributedLock.lock(anyObject())).thenReturn(true);
     when(coordinationUtils.getLock(anyString())).thenReturn(distributedLock);
 
     membership = mock(ClusterMembership.class);

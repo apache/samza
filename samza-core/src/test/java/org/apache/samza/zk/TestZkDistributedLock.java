@@ -18,7 +18,7 @@
  */
 package org.apache.samza.zk;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.config.ZkConfig;
@@ -80,7 +80,7 @@ public class TestZkDistributedLock {
     assertEquals("Lock has participants before any processor tried to lock.", 0, getParticipants(zkUtils1, lockId).size());
 
     try {
-      boolean lock1Status = lock1.lock(10000, TimeUnit.MILLISECONDS);
+      boolean lock1Status = lock1.lock(Duration.ofMillis(10000));
       assertEquals("Lock does not have 1 participant after first processor tries to lock.", 1, getParticipants(zkUtils1, lockId).size());
       assertEquals("1st processor requesting to lock did not acquire the lock.", true, lock1Status);
       lock1.unlock();
@@ -100,10 +100,10 @@ public class TestZkDistributedLock {
     assertEquals("Lock has participants before any processor tried to lock.", 0, getParticipants(zkUtils1, lockId).size());
 
     try {
-      boolean lock1Status = lock1.lock(10000, TimeUnit.MILLISECONDS);
+      boolean lock1Status = lock1.lock(Duration.ofMillis(10000));
       assertEquals("First processor requesting to lock did not acquire the lock.", true, lock1Status);
       lock1.unlock();
-      boolean lock2Status = lock2.lock(10000, TimeUnit.MILLISECONDS);
+      boolean lock2Status = lock2.lock(Duration.ofMillis(10000));
       assertEquals("Second processor requesting to lock did not acquire the lock.", true, lock2Status);
       lock2.unlock();
       assertEquals("Lock does have participants after processors unlocked.", 0, getParticipants(zkUtils1, lockId).size());
@@ -123,12 +123,12 @@ public class TestZkDistributedLock {
     assertEquals("Lock has participants before any processor tried to lock!", 0, getParticipants(zkUtils1, lockId).size());
 
     try {
-      boolean lock1Status = lock1.lock(10000, TimeUnit.MILLISECONDS);
+      boolean lock1Status = lock1.lock(Duration.ofMillis(10000));
       assertEquals("First processor requesting to lock did not acquire the lock.", true, lock1Status);
       // first processor dies before unlock
       zkUtils1.close();
 
-      boolean lock2Status = lock2.lock(10000, TimeUnit.MILLISECONDS);
+      boolean lock2Status = lock2.lock(Duration.ofMillis(10000));
       assertEquals("Second processor requesting to lock did not acquire the lock.", true, lock2Status);
       lock2.unlock();
       assertEquals("Lock does have participants after processors unlocked.", 0, getParticipants(zkUtils2, lockId).size());

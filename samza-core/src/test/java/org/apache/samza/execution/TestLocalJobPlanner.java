@@ -44,7 +44,6 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -125,7 +124,7 @@ public class TestLocalJobPlanner {
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     DistributedLock lock = mock(DistributedLock.class);
-    when(lock.lock(anyLong(), anyObject())).thenReturn(true);
+    when(lock.lock(anyObject())).thenReturn(true);
     when(coordinationUtils.getLock(anyString())).thenReturn(lock);
     when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject()))
         .thenReturn(coordinationUtils);
@@ -200,7 +199,7 @@ public class TestLocalJobPlanner {
   private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) throws  Exception {
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     DistributedLock distributedLock = mock(DistributedLock.class);
-    when(distributedLock.lock(anyLong(), anyObject())).thenReturn(true);
+    when(distributedLock.lock(anyObject())).thenReturn(true);
     when(coordinationUtils.getLock(anyString())).thenReturn(distributedLock);
 
     ZkMetadataStore zkMetadataStore = mock(ZkMetadataStore.class);

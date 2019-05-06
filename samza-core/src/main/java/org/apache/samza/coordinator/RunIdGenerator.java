@@ -20,8 +20,9 @@ package org.apache.samza.coordinator;
 
 import com.google.common.base.Preconditions;
 import java.io.UnsupportedEncodingException;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -47,34 +48,35 @@ public class RunIdGenerator {
 
   private final CoordinationUtils coordinationUtils;
   private final MetadataStore metadataStore;
-  private ClusterMembership clusterMembership = null;
+  private final ClusterMembership clusterMembership;
 
   public RunIdGenerator(CoordinationUtils coordinationUtils, MetadataStore metadataStore) {
     Preconditions.checkNotNull(coordinationUtils, "CoordinationUtils cannot be null");
     Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
     this.coordinationUtils = coordinationUtils;
     this.metadataStore = metadataStore;
+    this.clusterMembership = coordinationUtils.getClusterMembership();
   }
 
-  public String getRunId() {
+  public Optional<String> getRunId() {
     DistributedLock runIdLock;
     String runId = null;
 
 
     try {
       runIdLock = coordinationUtils.getLock(CoordinationConstants.RUNID_LOCK_ID);
-      clusterMembership = coordinationUtils.getClusterMembership();
+
       if (runIdLock == null || metadataStore == null || clusterMembership == null) {
         throw new SamzaException("Failed to create utils for run id generation");
       }
     } catch (Exception e) {
       LOG.warn(e.getMessage());
-      return null;
+      return Optional.empty();
     }
 
     try {
       // acquire lock to write or read run.id
-      if (runIdLock.lock(CoordinationConstants.LOCK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+      if (runIdLock.lock(Duration.ofMillis(CoordinationConstants.LOCK_TIMEOUT_MS))) {
         LOG.info("lock acquired for run.id generation by this processor");
         clusterMembership.registerProcessor();
         int numberOfActiveProcessors = clusterMembership.getNumberOfProcessors();
@@ -101,7 +103,10 @@ public class RunIdGenerator {
     } finally {
       runIdLock.unlock();
     }
-    return runId;
+    if (runId != null) {
+      return Optional.of(runId);
+    }
+    return Optional.empty();
   }
 
   /**
@@ -109,6 +114,8 @@ public class RunIdGenerator {
    * that means the clusterMembership.unregisterProcessor should be idempotent
    */
   public void close() {
-    clusterMembership.unregisterProcessor();
+    if (clusterMembership != null) {
+      clusterMembership.unregisterProcessor();
+    }
   }
 }

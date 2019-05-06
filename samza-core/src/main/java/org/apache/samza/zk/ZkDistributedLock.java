@@ -18,8 +18,8 @@
  */
 package org.apache.samza.zk;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.DistributedLock;
@@ -39,7 +39,7 @@ public class ZkDistributedLock implements DistributedLock {
   private final String participantId;
   private final ZkKeyBuilder keyBuilder;
   private String nodePath = null;
-  private  Object mutex;
+  private Object mutex;
 
   public ZkDistributedLock(String participantId, ZkUtils zkUtils, String lockId) {
     this.zkUtils = zkUtils;
@@ -55,18 +55,18 @@ public class ZkDistributedLock implements DistributedLock {
    * Tries to acquire a lock in order to create intermediate streams. On failure to acquire lock, it keeps trying until the lock times out.
    * Creates a sequential ephemeral node to acquire the lock. If the path of this node has the lowest sequence number, the processor has acquired the lock.
    * @param timeout Duration of lock acquiring timeout.
-   * @param unit Unit of the timeout defined above.
-   * @return true if lock is acquired successfully or throw TimeOutException if could not acquire within timeout
+   * @return true if lock is acquired successfully
+   * @throws TimeoutException if could not acquire within timeout
    */
   @Override
-  public boolean lock(long timeout, TimeUnit unit)
+  public boolean lock(Duration timeout)
       throws TimeoutException {
 
     nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
 
     //Start timer for timeout
     long startTime = System.currentTimeMillis();
-    long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
+    long lockTimeout = timeout.toMillis();
 
     while ((System.currentTimeMillis() - startTime) < lockTimeout) {
       synchronized (mutex) {
@@ -90,7 +90,7 @@ public class ZkDistributedLock implements DistributedLock {
         }
       }
     }
-    throw new TimeoutException("could not acquire lock for " + timeout + " " + unit.toString());
+    throw new TimeoutException("could not acquire lock for " + lockTimeout + " milliseconds.");
   }
 
   /**

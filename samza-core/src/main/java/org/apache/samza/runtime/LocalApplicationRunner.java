@@ -69,7 +69,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String UID = UUID.randomUUID().toString();
-  private final  static String METADATA_STORE = "RunIdCoordinationStore";
+  private final  static String RUN_ID_METADATA_STORE = "RunIdCoordinationStore";
   private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
   public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
 
@@ -149,10 +149,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       LOG.warn("coordination utils or run id generator could not be created successfully!");
       return;
     }
-    String runid = runIdGenerator.get().getRunId();
-    if (runid != null) {
-      runId = Optional.of(runid);
-    }
+    runId = runIdGenerator.get().getRunId();
   }
 
   public String getRunid() {
@@ -284,18 +281,14 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   private void cleanup() {
-    if (runIdGenerator.isPresent()) {
-      runIdGenerator.get().close();
-    }
-    if (coordinationUtils.isPresent()) {
-      coordinationUtils.get().close();
-    }
+    runIdGenerator.ifPresent(RunIdGenerator::close);
+    coordinationUtils.ifPresent(CoordinationUtils::close);
   }
 
   private MetadataStore getMetadataStore() {
     String metadataStoreFactoryClass = appDesc.getConfig().getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
     MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
-    return metadataStoreFactory.getMetadataStore(METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
+    return metadataStoreFactory.getMetadataStore(RUN_ID_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 
   /**
