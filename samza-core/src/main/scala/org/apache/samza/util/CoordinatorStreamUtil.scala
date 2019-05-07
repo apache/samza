@@ -55,9 +55,11 @@ object CoordinatorStreamUtil extends Logging {
 
   /**
     * Creates a coordinator stream.
+    * @param coordinatorSystemStream the {@see SystemStream} that describes the stream to create.
+    * @param coordinatorSystemAdmin the {@see SystemAdmin} used to create the stream.
     */
-  // TODO: This should be part of the final coordinator stream metadata store abstraction. See SAMZA-2182
   def createCoordinatorStream(coordinatorSystemStream: SystemStream, coordinatorSystemAdmin: SystemAdmin): Unit = {
+    // TODO: This logic should be part of the final coordinator stream metadata store abstraction. See SAMZA-2182
     val streamName = coordinatorSystemStream.getStream
     val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
     if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
