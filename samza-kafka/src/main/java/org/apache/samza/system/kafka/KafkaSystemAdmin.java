@@ -243,8 +243,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
             streamNames.forEach(streamName -> {
               Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
-              List<PartitionInfo> partitionInfos;
-              partitionInfos = threadSafeKafkaConsumer.execute(consumer -> consumer.partitionsFor(streamName));
+              List<PartitionInfo> partitionInfos = threadSafeKafkaConsumer.execute(consumer -> consumer.partitionsFor(streamName));
               LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
               partitionInfos.forEach(
                   partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));

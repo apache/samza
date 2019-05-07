@@ -264,15 +264,15 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
     super.register(systemStreamPartition, offset);
 
-    TopicPartition tp = toTopicPartition(systemStreamPartition);
+    TopicPartition topicPartition = toTopicPartition(systemStreamPartition);
 
-    String existingOffset = topicPartitionsToOffset.get(tp);
+    String existingOffset = topicPartitionsToOffset.get(topicPartition);
     // register the older (of the two) offset in the consumer, to guarantee we do not miss any messages.
     if (existingOffset == null || compareOffsets(existingOffset, offset) > 0) {
-      topicPartitionsToOffset.put(tp, offset);
+      topicPartitionsToOffset.put(topicPartition, offset);
     }
 
-    metrics.registerTopicAndPartition(toTopicAndPartition(tp));
+    metrics.registerTopicAndPartition(toTopicAndPartition(topicPartition));
   }
 
   /**
@@ -304,8 +304,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     return super.poll(systemStreamPartitions, timeout);
   }
 
-  protected static TopicAndPartition toTopicAndPartition(TopicPartition tp) {
-    return new TopicAndPartition(tp.topic(), tp.partition());
+  protected static TopicAndPartition toTopicAndPartition(TopicPartition topicPartition) {
+    return new TopicAndPartition(topicPartition.topic(), topicPartition.partition());
   }
 
   protected static TopicPartition toTopicPartition(SystemStreamPartition ssp) {
