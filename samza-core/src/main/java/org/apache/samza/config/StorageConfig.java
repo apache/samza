@@ -40,23 +40,23 @@ public class StorageConfig extends MapConfig {
   private static final String CHANGELOG_SUFFIX = ".changelog";
   private static final String STORE_PREFIX = "stores.";
 
-  public static final String FACTORY = "stores.%s" + FACTORY_SUFFIX;
-  public static final String KEY_SERDE = "stores.%s.key.serde";
-  public static final String MSG_SERDE = "stores.%s.msg.serde";
-  public static final String CHANGELOG_STREAM = "stores.%s" + CHANGELOG_SUFFIX;
-  static final String CHANGELOG_SYSTEM = "job.changelog.system";
-  static final String CHANGELOG_DELETE_RETENTION_MS = "stores.%s.changelog.delete.retention.ms";
-  static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
+  public static final String FACTORY = STORE_PREFIX + "%s" + FACTORY_SUFFIX;
+  public static final String KEY_SERDE = STORE_PREFIX + "%s.key.serde";
+  public static final String MSG_SERDE = STORE_PREFIX + "%s.msg.serde";
+  public static final String CHANGELOG_STREAM = STORE_PREFIX + "%s" + CHANGELOG_SUFFIX;
   public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
-  static final String ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio";
-  static final String ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled";
-  static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
-  static final String SIDE_INPUTS = "stores.%s.side.inputs";
-  static final String SIDE_INPUTS_PROCESSOR_FACTORY = "stores.%s.side.inputs.processor.factory";
-  static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
-      "stores.%s.side.inputs.processor.serialized.instance";
+  public static final String CHANGELOG_REPLICATION_FACTOR = STORE_PREFIX + "%s.changelog.replication.factor";
 
-  public static final String CHANGELOG_REPLICATION_FACTOR = "stores.%s.changelog.replication.factor";
+  static final String CHANGELOG_SYSTEM = "job.changelog.system";
+  static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
+  static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
+  static final String ACCESSLOG_SAMPLING_RATIO = STORE_PREFIX + "%s.accesslog.sampling.ratio";
+  static final String ACCESSLOG_ENABLED = STORE_PREFIX + "%s.accesslog.enabled";
+  static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
+  static final String SIDE_INPUTS = STORE_PREFIX + "%s.side.inputs";
+  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
+  static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
+      STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
 
   public StorageConfig(Config config) {
     super(config);
@@ -126,11 +126,11 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
-   * Gets the System to use for reading/writing checkpoints. Uses the following precedence.
+   * Gets the System to use for changelogs. Uses the following precedence.
    *
    * 1. If job.changelog.system is defined, that value is used.
    * 2. If job.default.system is defined, that value is used.
-   * 3. null
+   * 3. empty optional
    *
    * Note: Changelogs can be defined using
    * stores.storeName.changelog=systemName.streamName  or
@@ -167,7 +167,7 @@ public class StorageConfig extends MapConfig {
    * Gets the SideInputsProcessorFactory associated with the {@code storeName}.
    *
    * @param storeName name of the store
-   * @return the class name of SideInputsProcessorFactory if present, null otherwise
+   * @return the class name of SideInputsProcessorFactory if present, empty optional otherwise
    */
   public Optional<String> getSideInputsProcessorFactory(String storeName) {
     return Optional.ofNullable(get(String.format(SIDE_INPUTS_PROCESSOR_FACTORY, storeName)));
@@ -177,7 +177,7 @@ public class StorageConfig extends MapConfig {
    * Gets the serialized instance of SideInputsProcessor associated with the {@code storeName}.
    *
    * @param storeName name of the store
-   * @return the serialized instance of SideInputsProcessor if present, null otherwise
+   * @return the serialized instance of SideInputsProcessor if present, empty optional otherwise
    */
   public Optional<String> getSideInputsProcessorSerializedInstance(String storeName) {
     return Optional.ofNullable(get(String.format(SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE, storeName)));

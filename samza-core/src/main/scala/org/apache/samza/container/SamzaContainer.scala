@@ -57,7 +57,6 @@ import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Util, _}
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
-import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {

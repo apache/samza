@@ -21,7 +21,6 @@ package org.apache.samza.storage.kv
 
 
 import java.util
-
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Logging
