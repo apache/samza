@@ -771,6 +771,10 @@ public class KafkaSystemAdmin implements SystemAdmin {
     }
   }
 
+  /**
+   * Offers a kafka specific implementation of {@link StartpointVisitor} that resolves
+   * different types of {@link Startpoint} to samza offset.
+    */
   @VisibleForTesting
   static class KafkaStartpointToOffsetResolver implements StartpointVisitor {
 
@@ -799,6 +803,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       if (offsetAndTimestamp != null) {
         return String.valueOf(offsetAndTimestamp.offset());
       } else {
+        LOG.info("Offset for timestamp: {} does not exist for partition: {}. Falling back to end offset.", startpointTimestamp.getTimestampOffset(), topicPartition);
         return getEndOffset(systemStreamPartition);
       }
     }
@@ -817,6 +822,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
       return getEndOffset(systemStreamPartition);
     }
 
+    /**
+     * Converts the {@link SystemStreamPartition} to {@link TopicPartition}.
+     * @param systemStreamPartition the input system stream partition.
+     * @return the converted topic partition.
+     */
     static TopicPartition toTopicPartition(SystemStreamPartition systemStreamPartition) {
       Preconditions.checkNotNull(systemStreamPartition);
       Preconditions.checkNotNull(systemStreamPartition.getPartition());

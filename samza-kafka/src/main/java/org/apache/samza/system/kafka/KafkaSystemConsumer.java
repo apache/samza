@@ -311,11 +311,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     return super.poll(systemStreamPartitions, timeout);
   }
 
-  public static TopicAndPartition toTopicAndPartition(TopicPartition tp) {
+  protected static TopicAndPartition toTopicAndPartition(TopicPartition tp) {
     return new TopicAndPartition(tp.topic(), tp.partition());
   }
 
-  public static TopicPartition toTopicPartition(SystemStreamPartition ssp) {
+  protected static TopicPartition toTopicPartition(SystemStreamPartition ssp) {
     return new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
   }
 
