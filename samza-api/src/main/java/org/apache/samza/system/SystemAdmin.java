@@ -24,8 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.startpoint.Startpoint;
-import org.apache.samza.startpoint.StartpointVisitor;
-
 
 /**
  * Helper interface attached to an underlying system to fetch information about
