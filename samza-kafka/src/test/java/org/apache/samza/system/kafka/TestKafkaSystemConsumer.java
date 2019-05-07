@@ -46,7 +46,6 @@ import org.mockito.Mockito;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
-
 public class TestKafkaSystemConsumer {
   private static final String TEST_SYSTEM = "test-system";
   private static final String TEST_STREAM = "test-stream";
