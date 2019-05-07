@@ -292,6 +292,10 @@ Remote Tables are represented by class
 All configuration options of a Remote Table can be found in the 
 [`RemoteTableDescriptor`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteTableDescriptor.java) class. 
 
+Couchbase is supported as remote table. See
+[`CouchbaseTableReadFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableReadFunction.java) and 
+[`CouchbaseTableWriteFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableWriteFunction.java).
+
 ### Rate Limiting
 
 Remote Table has built-in client-side rate limiting support in both of its sync 
