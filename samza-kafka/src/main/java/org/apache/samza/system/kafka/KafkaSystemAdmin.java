@@ -71,6 +71,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ExponentialSleepStrategy;
+import org.apache.samza.util.KafkaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Function0;
@@ -373,17 +374,6 @@ public class KafkaSystemAdmin implements SystemAdmin {
   }
 
   /**
-   * Convert TopicPartition to SystemStreamPartition
-   * @param topicPartition the topic partition to be created
-   * @return an instance of SystemStreamPartition
-   */
-  private SystemStreamPartition toSystemStreamPartition(TopicPartition topicPartition) {
-    String topic = topicPartition.topic();
-    Partition partition = new Partition(topicPartition.partition());
-    return new SystemStreamPartition(systemName, topic, partition);
-  }
-
-  /**
    * Uses the kafka consumer to fetch the metadata for the {@code topicPartitions}.
    */
   private OffsetsMaps fetchTopicPartitionsMetadata(List<TopicPartition> topicPartitions) {
@@ -403,10 +393,10 @@ public class KafkaSystemAdmin implements SystemAdmin {
       return Optional.empty();
     });
 
-    oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset)));
+    oldestOffsetsWithLong.forEach((topicPartition, offset) -> oldestOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), String.valueOf(offset)));
 
     upcomingOffsetsWithLong.forEach((topicPartition, offset) -> {
-      upcomingOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset));
+      upcomingOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), String.valueOf(offset));
 
       // Kafka's beginning Offset corresponds to the offset for the oldest message.
       // Kafka's end offset corresponds to the offset for the upcoming message, and it is the newest offset + 1.
@@ -419,9 +409,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
         LOG.warn(
             "Empty Kafka topic partition {} with upcoming offset {}. Skipping newest offset and setting oldest offset to 0 to consume from beginning",
             topicPartition, offset);
-        oldestOffsets.put(toSystemStreamPartition(topicPartition), "0");
+        oldestOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), "0");
       } else {
-        newestOffsets.put(toSystemStreamPartition(topicPartition), String.valueOf(offset - 1));
+        newestOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), String.valueOf(offset - 1));
       }
     });
     return new OffsetsMaps(oldestOffsets, newestOffsets, upcomingOffsets);

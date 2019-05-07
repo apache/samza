@@ -41,6 +41,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlockingEnvelopeMap;
 import org.apache.samza.util.Clock;
+import org.apache.samza.util.KafkaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -68,9 +69,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   // BlockingEnvelopMap's buffers.
   private final KafkaConsumerProxy<K, V> proxy;
 
-  // keep registration data until the start - mapping between registered SSPs and topicPartitions, and their offsets
+  // Holds the mapping between the registered TopicPartition and offset until the consumer is started.
   Map<TopicPartition, String> topicPartitionsToOffset = new HashMap<>();
-  Map<TopicPartition, SystemStreamPartition> topicPartitionsToSSP = new HashMap<>();
 
   long perPartitionFetchThreshold;
   long perPartitionFetchThresholdBytes;
@@ -139,11 +139,11 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
 
   private void startSubscription() {
     //subscribe to all the registered TopicPartitions
-    LOG.info("{}: Consumer subscribes to {}", this, topicPartitionsToSSP.keySet());
+    LOG.info("{}: Consumer subscribes to {}", this, topicPartitionsToOffset.keySet());
     try {
       synchronized (kafkaConsumer) {
         // we are using assign (and not subscribe), so we need to specify both topic and partition
-        kafkaConsumer.assign(topicPartitionsToSSP.keySet());
+        kafkaConsumer.assign(topicPartitionsToOffset.keySet());
       }
     } catch (Exception e) {
       throw new SamzaException("Consumer subscription failed for " + this, e);
@@ -161,26 +161,25 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       LOG.error ("{}: Consumer is not subscribed to any SSPs", this);
     }
 
-    topicPartitionsToOffset.forEach((tp, startingOffsetString) -> {
+    topicPartitionsToOffset.forEach((topicPartition, startingOffsetString) -> {
       long startingOffset = Long.valueOf(startingOffsetString);
 
       try {
         synchronized (kafkaConsumer) {
-          kafkaConsumer.seek(tp, startingOffset);
+          kafkaConsumer.seek(topicPartition, startingOffset);
         }
       } catch (Exception e) {
         // all recoverable execptions are handled by the client.
         // if we get here there is nothing left to do but bail out.
-        String msg =
-            String.format("%s: Got Exception while seeking to %s for partition %s", this, startingOffsetString, tp);
+        String msg = String.format("%s: Got Exception while seeking to %s for partition %s", this, startingOffsetString, topicPartition);
         LOG.error(msg, e);
         throw new SamzaException(msg, e);
       }
 
-      LOG.info("{}: Changing consumer's starting offset for tp = {} to {}", this, tp, startingOffsetString);
+      LOG.info("{}: Changing consumer's starting offset for partition {} to {}", this, topicPartition, startingOffsetString);
 
       // add the partition to the proxy
-      proxy.addTopicPartition(topicPartitionsToSSP.get(tp), startingOffset);
+      proxy.addTopicPartition(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), startingOffset);
     });
 
     // start the proxy thread
@@ -206,11 +205,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
       fetchThresholdBytes = Long.valueOf(fetchThresholdBytesOption.get());
     }
 
-    int numPartitions = topicPartitionsToSSP.size();
-    if (numPartitions != topicPartitionsToOffset.size()) {
-      throw new SamzaException("topicPartitionsToSSP.size() doesn't match topicPartitionsToOffset.size()");
-    }
-
+    int numPartitions = topicPartitionsToOffset.size();
 
     if (numPartitions > 0) {
       perPartitionFetchThreshold = fetchThreshold / numPartitions;
@@ -270,8 +265,6 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     super.register(systemStreamPartition, offset);
 
     TopicPartition tp = toTopicPartition(systemStreamPartition);
-
-    topicPartitionsToSSP.put(tp, systemStreamPartition);
 
     String existingOffset = topicPartitionsToOffset.get(tp);
     // register the older (of the two) offset in the consumer, to guarantee we do not miss any messages.
