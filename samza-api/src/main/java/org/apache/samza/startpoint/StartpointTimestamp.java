@@ -21,7 +21,6 @@ package org.apache.samza.startpoint;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * A {@link Startpoint} that represents a timestamp offset in a stream partition.
@@ -59,8 +58,8 @@ public final class StartpointTimestamp extends Startpoint {
   }
 
   @Override
-  public String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor<SystemStreamPartition, String> startpointVisitor) {
-    return startpointVisitor.visit(systemStreamPartition, this);
+  public <IN, OUT> OUT apply(IN input, StartpointVisitor<IN, OUT> startpointVisitor) {
+    return startpointVisitor.visit(input, this);
   }
 
   @Override

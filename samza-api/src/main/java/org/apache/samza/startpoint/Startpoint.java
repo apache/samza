@@ -22,7 +22,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.system.SystemStreamPartition;
 
 /**
  * Startpoint represents a position in a stream partition.
@@ -50,12 +49,12 @@ public abstract class Startpoint {
 
   /**
    * Applies the {@link StartpointVisitor}'s visit methods to the {@link Startpoint}
-   * and resolves it to a system specific offset.
-   * @param systemStreamPartition the {@link SystemStreamPartition} of the startpoint.
+   * and returns the result of that operation.
+   * @param input the metadata associated with the startpoint.
    * @param startpointVisitor the visitor of the startpoint.
-   * @return the resolved offset.
+   * @return the result of applying the visitor on startpoint.
    */
-  public abstract String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor<SystemStreamPartition, String> startpointVisitor);
+  public abstract <IN, OUT> OUT apply(IN input, StartpointVisitor<IN, OUT> startpointVisitor);
 
   @Override
   public String toString() {
