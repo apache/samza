@@ -167,7 +167,10 @@ public interface SystemAdmin {
   }
 
   /**
-   * Builds and returns the {@link StartpointVisitor} for a system.
+   * Resolves the startpoint to a system specific offset.
+   * @param startpoint represents the startpoint.
+   * @param systemStreamPartition represents the system stream partition.
+   * @return the resolved offset.
    */
   default String resolveStartpointToOffset(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
     throw new UnsupportedOperationException();
