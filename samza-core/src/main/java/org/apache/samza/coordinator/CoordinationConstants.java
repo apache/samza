@@ -20,7 +20,7 @@
 package org.apache.samza.coordinator;
 
 
-public class CoordinationConstants {
+public final class CoordinationConstants {
   private CoordinationConstants() {}
 
   public static final String RUNID_STORE_KEY = "runId";

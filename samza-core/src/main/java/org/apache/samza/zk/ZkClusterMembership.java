@@ -45,8 +45,10 @@ public class ZkClusterMembership implements ClusterMembership {
 
   @Override
   public void registerProcessor() {
-    nodePath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
-    LOG.info("created ephemeral node. Registered the processor in the cluster.");
+    if (nodePath == null) {
+      nodePath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
+      LOG.info("created ephemeral node. Registered the processor in the cluster.");
+    }
   }
 
   @Override

@@ -68,7 +68,7 @@ import org.slf4j.LoggerFactory;
 public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
-  private static final String UID = UUID.randomUUID().toString();
+  private static final String PROCESSOR_ID = UUID.randomUUID().toString();
   private final  static String RUN_ID_METADATA_STORE = "RunIdCoordinationStore";
   private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
   public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
@@ -110,7 +110,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       return Optional.empty();
     }
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
-    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, UID, config);
+    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
     if (coordinationUtils != null) {
       return Optional.of(coordinationUtils);
     }
@@ -125,7 +125,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   LocalJobPlanner getPlanner() {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!isAppModeBatch) {
-      return new LocalJobPlanner(appDesc, UID);
+      return new LocalJobPlanner(appDesc, PROCESSOR_ID);
     }
     CoordinationUtils coordinationUtils = null;
     String runId = null;
@@ -135,21 +135,25 @@ public class LocalApplicationRunner implements ApplicationRunner {
     if (this.runId.isPresent()) {
       runId = this.runId.get();
     }
-    return new LocalJobPlanner(appDesc, coordinationUtils, UID, runId);
+    return new LocalJobPlanner(appDesc, coordinationUtils, PROCESSOR_ID, runId);
   }
 
 
   private void initializeRunId() {
-    boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    MetadataStore metadataStore = getMetadataStore();
-    if (coordinationUtils.isPresent() && metadataStore != null) {
-      runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
+    try {
+      boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
+      MetadataStore metadataStore = getMetadataStore();
+      if (coordinationUtils.isPresent() && metadataStore != null) {
+        runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
+      }
+      if (!coordinationUtils.isPresent() || !isAppModeBatch || !runIdGenerator.isPresent()) {
+        LOG.warn("coordination utils or run id generator could not be created successfully!");
+        return;
+      }
+      runId = runIdGenerator.get().getRunId();
+    } catch (Exception e) {
+      LOG.warn("Failed to generate run id. Will continue execution without a run id. Caused by {}", e);
     }
-    if (!coordinationUtils.isPresent() ||  !isAppModeBatch || !runIdGenerator.isPresent()) {
-      LOG.warn("coordination utils or run id generator could not be created successfully!");
-      return;
-    }
-    runId = runIdGenerator.get().getRunId();
   }
 
   public String getRunid() {

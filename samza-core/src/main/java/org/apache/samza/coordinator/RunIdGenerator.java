@@ -56,22 +56,18 @@ public class RunIdGenerator {
     this.coordinationUtils = coordinationUtils;
     this.metadataStore = metadataStore;
     this.clusterMembership = coordinationUtils.getClusterMembership();
+    if (clusterMembership == null) {
+      throw new SamzaException("Failed to create utils for run id generation");
+    }
   }
 
   public Optional<String> getRunId() {
     DistributedLock runIdLock;
     String runId = null;
 
-
-    try {
-      runIdLock = coordinationUtils.getLock(CoordinationConstants.RUNID_LOCK_ID);
-
-      if (runIdLock == null || metadataStore == null || clusterMembership == null) {
-        throw new SamzaException("Failed to create utils for run id generation");
-      }
-    } catch (Exception e) {
-      LOG.warn(e.getMessage());
-      return Optional.empty();
+    runIdLock = coordinationUtils.getLock(CoordinationConstants.RUNID_LOCK_ID);
+    if (runIdLock == null) {
+      throw new SamzaException("Failed to create utils for run id generation");
     }
 
     try {
@@ -93,20 +89,14 @@ public class RunIdGenerator {
           runId = new String(metadataStore.get(CoordinationConstants.RUNID_STORE_KEY));
           LOG.info("Read the run id for this run as {}", runId);
         }
+        runIdLock.unlock();
       }
     } catch (TimeoutException e) {
-      String msg = String.format("Processor timed out waiting to acquire lock for run.id generation");
-      throw new SamzaException(msg, e);
+      throw new SamzaException("Processor timed out waiting to acquire lock for run.id generation", e);
     } catch (UnsupportedEncodingException e) {
-      String msg = String.format("Processor could not serialize/deserialize string for run.id generation");
-      throw new SamzaException(msg, e);
-    } finally {
-      runIdLock.unlock();
+      throw new SamzaException("Processor could not serialize/deserialize string for run.id generation", e);
     }
-    if (runId != null) {
-      return Optional.of(runId);
-    }
-    return Optional.empty();
+    return Optional.ofNullable(runId);
   }
 
   /**

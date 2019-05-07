@@ -23,11 +23,22 @@ import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * Coordination Primitive to maintain the list of processors in the quorum
+ *
+ * Guarantees:
+ * 1. after registerProcessor, getNumberOfProcessors should return count inclusive of at least the current processor
+ * 2. after unregisterProcessor, getNumberOfProcessors should return count exclusive of at least the current processor
+ * 3. processor can register again after unregister
+ *
+ * Non-guarantees:
+ * 1. thread safe
+ * 2. concurrent access of the list
+ * 3. persistence of membership across connection errors
  */
 @InterfaceStability.Evolving
 public interface ClusterMembership {
   /**
-   * add processor to the list
+   * add current processor to the list
+   * should be idempotent
    */
   void registerProcessor();
 
@@ -37,7 +48,8 @@ public interface ClusterMembership {
   int getNumberOfProcessors();
 
   /**
-   * remove processor from the list
+   * remove current processor from the list
+   * should be idempotent
    */
   void unregisterProcessor();
 }
