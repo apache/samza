@@ -68,7 +68,7 @@ public class TestStartpoint {
     Assert.assertEquals(StartpointUpcoming.class, mockStartpointVisitorConsumer.visitedClass);
   }
 
-  static class MockStartpointVisitor implements StartpointVisitor {
+  static class MockStartpointVisitor implements StartpointVisitor<SystemStreamPartition, String> {
     Class<? extends Startpoint> visitedClass;
 
     @Override

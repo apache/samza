@@ -61,6 +61,7 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
+import org.apache.samza.startpoint.StartpointSpecific;
 import org.apache.samza.startpoint.StartpointTimestamp;
 import org.apache.samza.startpoint.StartpointUpcoming;
 import org.apache.samza.startpoint.StartpointVisitor;
@@ -765,7 +766,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
    * different types of {@link Startpoint} to samza offset.
     */
   @VisibleForTesting
-  static class KafkaStartpointToOffsetResolver implements StartpointVisitor {
+  static class KafkaStartpointToOffsetResolver implements StartpointVisitor<SystemStreamPartition, String> {
 
     private final ThreadSafeKafkaConsumer threadSafeKafkaConsumer;
 
@@ -776,6 +777,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
     @VisibleForTesting
     KafkaStartpointToOffsetResolver(Consumer consumer) {
       this.threadSafeKafkaConsumer = new ThreadSafeKafkaConsumer(consumer);
+    }
+
+    @Override
+    public String visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
+      return startpointSpecific.getSpecificOffset();
     }
 
     @Override

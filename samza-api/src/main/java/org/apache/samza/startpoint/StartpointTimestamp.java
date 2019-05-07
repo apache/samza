@@ -59,7 +59,7 @@ public final class StartpointTimestamp extends Startpoint {
   }
 
   @Override
-  public String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+  public String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor<SystemStreamPartition, String> startpointVisitor) {
     return startpointVisitor.visit(systemStreamPartition, this);
   }
 

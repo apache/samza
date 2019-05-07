@@ -24,7 +24,6 @@ import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.system.SystemStreamPartition;
 
-
 /**
  * Startpoint represents a position in a stream partition.
  */
@@ -56,7 +55,7 @@ public abstract class Startpoint {
    * @param startpointVisitor the visitor of the startpoint.
    * @return the resolved offset.
    */
-  public abstract String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
+  public abstract String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor<SystemStreamPartition, String> startpointVisitor);
 
   @Override
   public String toString() {

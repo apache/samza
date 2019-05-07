@@ -21,7 +21,6 @@ package org.apache.samza.startpoint;
 import com.google.common.base.MoreObjects;
 import org.apache.samza.system.SystemStreamPartition;
 
-
 /**
  * A {@link Startpoint} that represents the latest offset in a stream partition.
  */
@@ -35,7 +34,7 @@ public final class StartpointUpcoming extends Startpoint {
   }
 
   @Override
-  public String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+  public String apply(SystemStreamPartition systemStreamPartition, StartpointVisitor<SystemStreamPartition, String> startpointVisitor) {
     return startpointVisitor.visit(systemStreamPartition, this);
   }
 
