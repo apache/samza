@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
@@ -37,8 +38,10 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
@@ -203,6 +206,35 @@ public class TestKafkaSystemConsumer {
     Assert.assertEquals(ime1Size + ime11Size, consumer.getMessagesSizeInQueue(ssp1));
 
     consumer.stop();
+  }
+
+  @Test
+  public void testStartConsumer() {
+    final Consumer consumer = Mockito.mock(Consumer.class);
+    final KafkaConsumerProxyFactory kafkaConsumerProxyFactory = Mockito.mock(KafkaConsumerProxyFactory.class);
+
+    final KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics = new KafkaSystemConsumerMetrics(TEST_SYSTEM, new NoOpMetricsRegistry());
+    final SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(0));
+    final SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, new Partition(1));
+    final String testOffset = "1";
+    final KafkaConsumerProxy kafkaConsumerProxy = Mockito.mock(KafkaConsumerProxy.class);
+
+    Mockito.when(kafkaConsumerProxyFactory.create(Mockito.anyObject())).thenReturn(kafkaConsumerProxy);
+    Mockito.doNothing().when(consumer).seek(new TopicPartition(TEST_STREAM, 0), 1);
+    Mockito.doNothing().when(consumer).seek(new TopicPartition(TEST_STREAM, 1), 1);
+
+    KafkaSystemConsumer kafkaSystemConsumer = new KafkaSystemConsumer(consumer, TEST_SYSTEM, new MapConfig(), TEST_CLIENT_ID, kafkaConsumerProxyFactory,
+                                                                      kafkaSystemConsumerMetrics, new SystemClock());
+    kafkaSystemConsumer.register(testSystemStreamPartition1, testOffset);
+    kafkaSystemConsumer.register(testSystemStreamPartition2, testOffset);
+
+    kafkaSystemConsumer.startConsumer();
+
+    Mockito.verify(consumer).seek(new TopicPartition(TEST_STREAM, 0), 1);
+    Mockito.verify(consumer).seek(new TopicPartition(TEST_STREAM, 1), 1);
+    Mockito.verify(kafkaConsumerProxy).start();
+    Mockito.verify(kafkaConsumerProxy).addTopicPartition(testSystemStreamPartition1, Long.valueOf(testOffset));
+    Mockito.verify(kafkaConsumerProxy).addTopicPartition(testSystemStreamPartition2, Long.valueOf(testOffset));
   }
 
   // mock kafkaConsumer and SystemConsumer
