@@ -29,10 +29,7 @@ import com.google.common.base.Stopwatch
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
 import org.apache.commons.lang.RandomStringUtils
-import org.apache.samza.config.Config
-import org.apache.samza.config.JobConfig
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.StorageConfig._
+import org.apache.samza.config.{Config, JobConfig, MapConfig, StorageConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.context.ContainerContextImpl
 import org.apache.samza.context.JobContextImpl
@@ -53,9 +50,10 @@ import org.apache.samza.task.TaskInstanceCollector
 import org.apache.samza.util.CommandLine
 import org.apache.samza.util.FileUtil
 import org.apache.samza.util.Logging
-import org.apache.samza.util. Util
+import org.apache.samza.util.Util
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
 import scala.util.Random
@@ -121,18 +119,19 @@ object TestKeyValuePerformance extends Logging {
       Map[String, SystemProducer](),
       new SerdeManager
     )
+    val storageConfig = new StorageConfig(config)
     // Build a Map[String, StorageEngineFactory]. The key is the store name.
-    val storageEngineMappings = config
-      .getStoreNames
+    val storageEngineMappings = storageConfig
+      .getStoreNames.asScala
       .map(storeName => {
         val storageFactoryClassName =
-          config.getStorageFactoryClassName(storeName)
+          JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
                 .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
         (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
     })
 
     for((storeName, storageEngine) <- storageEngineMappings) {
-      val testSetCount = config.getInt("set.count", 1)
+      val testSetCount = storageConfig.getInt("set.count", 1)
       (1 to testSetCount).foreach(testSet => {
         //Create a new DB instance for each test set
         val output = new File("/tmp/" + UUID.randomUUID())
@@ -145,7 +144,7 @@ object TestKeyValuePerformance extends Logging {
           new TaskInstanceCollector(producerMultiplexer),
           new MetricsRegistryMap,
           null,
-          JobContextImpl.fromConfigWithDefaults(config),
+          JobContextImpl.fromConfigWithDefaults(storageConfig),
           new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap), StoreMode.ReadWrite
         )
 
@@ -156,7 +155,7 @@ object TestKeyValuePerformance extends Logging {
         }
 
         // Run the test method
-        testMethod(db, config.subset("set-" + testSet + ".", true))
+        testMethod(db, storageConfig.subset("set-" + testSet + ".", true))
 
         FileUtil.rm(output)
       })
