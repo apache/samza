@@ -19,10 +19,9 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,19 +44,17 @@ import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
@@ -289,28 +286,28 @@ public class ZkJobCoordinator implements JobCoordinator {
    * Stores the configuration of the job in the coordinator stream.
    */
   private void loadMetadataResources(JobModel jobModel) {
-    MetadataStore metadataStore = null;
+    CoordinatorStreamStore coordinatorStreamStore = null;
     try {
       // Creates the coordinator stream if it does not exists.
       createCoordinatorStream();
-      MetadataStoreFactory metadataStoreFactory = Util.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
-      metadataStore = metadataStoreFactory.getMetadataStore(SetConfig.TYPE, config, metrics.getMetricsRegistry());
-      metadataStore.init();
+      coordinatorStreamStore = new CoordinatorStreamStore(config, metrics.getMetricsRegistry());
+      coordinatorStreamStore.init();
 
       MetadataResourceUtil metadataResourceUtil =
           new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
       metadataResourceUtil.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+      NamespaceAwareCoordinatorStreamStore configStore =
+          new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);
       for (Map.Entry<String, String> entry : config.entrySet()) {
         byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
-        String configKey = CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, entry.getKey());
-        metadataStore.put(configKey, serializedValue);
+        configStore.put(entry.getKey(), serializedValue);
       }
     } finally {
-      if (metadataStore != null) {
-        LOG.info("Stopping the coordinator system producer.");
-        metadataStore.close();
+      if (coordinatorStreamStore != null) {
+        LOG.info("Stopping the coordinator stream metadata store.");
+        coordinatorStreamStore.close();
       }
     }
   }
@@ -319,16 +316,9 @@ public class ZkJobCoordinator implements JobCoordinator {
    * Creates a coordinator stream kafka topic.
    */
   private void createCoordinatorStream() {
-    SystemAdmin coordinatorSystemAdmin = null;
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
-    coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
-    String streamName = coordinatorSystemStream.getStream();
-    StreamSpec coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem());
-    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
-      LOG.info("Created coordinator stream: {}.", streamName);
-    } else {
-      LOG.info("Coordinator stream: {} already exists.", streamName);
-    }
+    SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
+    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin);
   }
 
   /**
