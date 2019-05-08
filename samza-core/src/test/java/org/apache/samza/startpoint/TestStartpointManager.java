@@ -64,6 +64,22 @@ public class TestStartpointManager {
   }
 
   @Test
+  public void testStaleStartpoints() {
+    SystemStreamPartition ssp = new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
+    TaskName taskName = new TaskName("MockTask");
+
+    startpointManager.start();
+    long staleTimestamp = Instant.now().toEpochMilli() - StartpointManager.DEFAULT_EXPIRATION_DURATION.toMillis() - 2;
+    StartpointTimestamp startpoint = new StartpointTimestamp(staleTimestamp, staleTimestamp);
+
+    startpointManager.writeStartpoint(ssp, startpoint);
+    Assert.assertNull(startpointManager.readStartpoint(ssp));
+
+    startpointManager.writeStartpoint(ssp, taskName, startpoint);
+    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
+  }
+
+  @Test
   public void testNoLongerUsableAfterStop() {
     StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
     startpointManager.start();
@@ -168,21 +184,6 @@ public class TestStartpointManager {
     Assert.assertNotNull(startpointManager.readStartpoint(ssp));
 
     startpointManager.stop();
-  }
-
-  @Test
-  public void testStaleStartpoints() {
-    SystemStreamPartition ssp = new SystemStreamPartition("mockSystem", "mockStream", new Partition(2));
-    TaskName taskName = new TaskName("MockTask");
-
-    startpointManager.start();
-    long staleTimestamp = Instant.now().toEpochMilli() - StartpointManager.DEFAULT_EXPIRATION_DURATION.toMillis() - 2;
-    MockStartpointCustom startpoint = new MockStartpointCustom("das boot", 42, staleTimestamp);
-    startpointManager.writeStartpoint(ssp, startpoint);
-    Assert.assertNull(startpointManager.readStartpoint(ssp));
-
-    startpointManager.writeStartpoint(ssp, taskName, startpoint);
-    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
   }
 
   @Test

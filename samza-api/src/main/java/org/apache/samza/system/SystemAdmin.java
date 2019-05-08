@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import org.apache.samza.startpoint.Startpoint;
 
 /**
  * Helper interface attached to an underlying system to fetch information about
@@ -164,4 +164,13 @@ public interface SystemAdmin {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Resolves the startpoint to a system specific offset.
+   * @param startpoint represents the startpoint.
+   * @param systemStreamPartition represents the system stream partition.
+   * @return the resolved offset.
+   */
+  default String resolveStartpointToOffset(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
+    throw new UnsupportedOperationException();
+  }
 }

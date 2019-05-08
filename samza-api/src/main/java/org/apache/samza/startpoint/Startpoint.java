@@ -22,13 +22,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.system.SystemStreamPartition;
-
 
 /**
  * Startpoint represents a position in a stream partition.
  */
-@InterfaceStability.Unstable
+@InterfaceStability.Evolving
 public abstract class Startpoint {
 
   private final long creationTimestamp;
@@ -50,12 +48,13 @@ public abstract class Startpoint {
   }
 
   /**
-   * Apply the visitor {@link StartpointVisitor}'s register methods to the instance of this {@link Startpoint}
-   * class.
-   * @param systemStreamPartition The {@link SystemStreamPartition} needed to register with the {@link StartpointVisitor}
-   * @param startpointVisitor The visitor to register with.
+   * Applies the {@link StartpointVisitor}'s visit methods to the {@link Startpoint}
+   * and returns the result of that operation.
+   * @param input the metadata associated with the startpoint.
+   * @param startpointVisitor the visitor of the startpoint.
+   * @return the result of applying the visitor on startpoint.
    */
-  public abstract void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
+  public abstract <IN, OUT> OUT apply(IN input, StartpointVisitor<IN, OUT> startpointVisitor);
 
   @Override
   public String toString() {
