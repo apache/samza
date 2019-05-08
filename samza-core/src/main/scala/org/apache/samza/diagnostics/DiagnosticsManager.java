@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
+import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.LocalContainerRunner;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -41,8 +42,11 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Function0;
+import scala.Option;
 import scala.Tuple2;
 import scala.collection.JavaConverters;
+import scala.runtime.AbstractFunction0;
 
 
 /**
@@ -74,9 +78,12 @@ public class DiagnosticsManager {
   private final ScheduledExecutorService scheduler; // Scheduler for pushing data to the diagnostic stream
   private final SystemStream diagnosticSystemStream;
 
+  private final MetricsSnapshotReporter metricsSnapshotReporter; // DiagnosticsManager uses a metricsSnapshotReporter to publish metrics to the diagnostic stream
+
+
   public DiagnosticsManager(String jobName, String jobId, String containerName, String executionEnvContainerId,
       String taskClassVersion, String samzaVersion, String hostname, SystemStream diagnosticSystemStream,
-      SystemProducer systemProducer) {
+      int publishInterval, Option<String> metricsBlacklist, SystemProducer systemProducer) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerName = containerName;
@@ -88,6 +95,18 @@ public class DiagnosticsManager {
 
     this.systemProducer = systemProducer;
     this.diagnosticSystemStream = diagnosticSystemStream;
+
+    Function0<Object> f = new AbstractFunction0<Object>() {
+      @Override
+      public Object apply() {
+        return System.currentTimeMillis();
+      }
+    };
+
+    this.metricsSnapshotReporter =
+        new MetricsSnapshotReporter(systemProducer, diagnosticSystemStream, publishInterval, jobName, jobId,
+            containerName, taskClassVersion, samzaVersion, hostname, new MetricsSnapshotSerdeV2(), metricsBlacklist, f);
+
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build());
@@ -119,6 +138,7 @@ public class DiagnosticsManager {
   }
 
   public void start() {
+    this.metricsSnapshotReporter.start();
     this.scheduler.scheduleWithFixedDelay(new DiagnosticsStreamPublisher(), 0, DEFAULT_PUBLISH_PERIOD.getSeconds(),
         TimeUnit.SECONDS);
   }
@@ -131,7 +151,9 @@ public class DiagnosticsManager {
 
     if (!scheduler.isTerminated()) {
       LOG.warn("Unable to terminate scheduler");
+      scheduler.shutdownNow();
     }
+    this.metricsSnapshotReporter.stop();
   }
 
   public void addExceptionEvent(DiagnosticsExceptionEvent diagnosticsExceptionEvent) {

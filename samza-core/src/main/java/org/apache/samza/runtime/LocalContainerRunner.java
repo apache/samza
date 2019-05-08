@@ -20,6 +20,7 @@
 package org.apache.samza.runtime;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationUtil;
@@ -37,10 +38,12 @@ import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.util.FileUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
+import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import scala.Option;
 
 
 /**
@@ -48,8 +51,6 @@ import org.slf4j.MDC;
  */
 public class LocalContainerRunner {
   private static final Logger log = LoggerFactory.getLogger(LocalContainerRunner.class);
-  private static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: containerID.metadata
-  private static final String CONTAINER_METADATA_DIRECTORY = System.getProperty("samza.log.dir");
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(
@@ -67,6 +68,8 @@ public class LocalContainerRunner {
     log.info(String.format("Got coordinator URL: %s", coordinatorUrl));
     System.out.println(String.format("Coordinator URL: %s", coordinatorUrl));
 
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()));
+
     int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
     JobModel jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
     Config config = jobModel.getConfig();
@@ -80,26 +83,34 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    writeMetadataFile(jobName, jobId, containerName, System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()), config);
+    writeMetadataFile(jobName, jobId, containerName, execEnvContainerId, config);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
 
-    ContainerLaunchUtil.run(appDesc, containerId, jobModel);
+    ContainerLaunchUtil.run(appDesc, jobName, jobId, containerName, containerId, execEnvContainerId, jobModel);
   }
 
-  public static void writeMetadataFile(String jobName, String jobId, String containerName, String execEnvContainerId, Config config) throws Exception {
+  public static void writeMetadataFile(String jobName, String jobId, String containerName,
+      Optional<String> execEnvContainerId, Config config) throws Exception {
 
-    StringBuilder metadata = new StringBuilder("Version: 1");
-    metadata.append(System.lineSeparator());
-    MetricsHeader metricsHeader = new MetricsHeader(jobName, jobId, containerName, execEnvContainerId, LocalContainerRunner.class.getName(),
-        Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
-        System.currentTimeMillis(), System.currentTimeMillis());
+    Option<File> metadataFile = new JobConfig(config).getMetadataFile(ScalaJavaUtil.JavaOptionals$.MODULE$.toRichOptional(execEnvContainerId).toOption());
 
-    MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
-    metadata.append("MetricsSnapshot: ");
-    metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
-    FileUtil.writeToTextFile(new File(CONTAINER_METADATA_DIRECTORY, String.format(CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)),
-        metadata.toString(), false);
+    if (metadataFile.isDefined()) {
+
+      StringBuilder metadata = new StringBuilder("Version: 1");
+      metadata.append(System.lineSeparator());
+      MetricsHeader metricsHeader =
+          new MetricsHeader(jobName, jobId, containerName, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
+              Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
+              System.currentTimeMillis(), System.currentTimeMillis());
+
+      MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
+      metadata.append("MetricsSnapshot: ");
+      metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
+      FileUtil.writeToTextFile(metadataFile.get(), metadata.toString(), false);
+    } else {
+      log.info("Skipping writing metadata file.");
+    }
   }
 }

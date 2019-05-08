@@ -138,14 +138,14 @@ object SamzaContainer extends Logging {
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
     localityManager: LocalityManager = null,
-    startpointManager: StartpointManager = null) = {
+    startpointManager: StartpointManager = null,
+    diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
     val config = jobContext.getConfig
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
-    val jobName = config.getName.getOrElse(throw new ConfigException("Missing required config: job.name"))
+    val jobName = config.getName.get
     val jobId = config.getJobId
-    val execEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
@@ -417,32 +417,6 @@ object SamzaContainer extends Logging {
     var reporters = MetricsReporterLoader.getMetricsReporters(config, containerName).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
-
-    info("Setting up diagnostics.")
-
-    val diagnosticsManager = if (config.getDiagnosticsEnabled) {
-
-      val diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS
-
-      val publishInterval: Int = config.getMetricsSnapshotReporterInterval(diagnosticsReporterName).getOrElse("60").toInt
-
-      val diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(new MetricsConfig(config).
-        getMetricsSnapshotReporterStream(diagnosticsReporterName).
-        getOrElse(throw new ConfigException("Missing required config: " +
-          String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM, diagnosticsReporterName))))
-
-      val systemProducer = systemFactories.get(diagnosticsSystemStream.getSystem).get.getProducer(diagnosticsSystemStream.getSystem, config, new MetricsRegistryMap())
-
-      val diagnosticsMetricsReporter = new MetricsSnapshotReporter(systemProducer, diagnosticsSystemStream, publishInterval, jobName, jobId,
-        containerName, Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost.getHostName,
-        new MetricsSnapshotSerdeV2, config.getMetricsSnapshotReporterBlacklist(diagnosticsReporterName))
-
-      reporters += (diagnosticsReporterName -> diagnosticsMetricsReporter)
-
-      new DiagnosticsManager(jobName, jobId, containerName, execEnvContainerId, Util.getTaskClassVersion(config),
-        Util.getSamzaVersion, Util.getLocalHost.getHostName, diagnosticsSystemStream, systemProducer)
-    }
-    else null
 
     val securityManager = config.getSecurityManagerFactory match {
       case Some(securityManagerFactoryClassName) =>
@@ -723,7 +697,7 @@ class SamzaContainer(
   applicationContainerContextOption: Option[ApplicationContainerContext],
   externalContextOption: Option[ExternalContext],
   containerStorageManager: ContainerStorageManager,
-  diagnosticsManager: DiagnosticsManager = null) extends Runnable with Logging {
+  diagnosticsManager: Option[DiagnosticsManager] = Option.empty) extends Runnable with Logging {
 
   val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
   var shutdownHookThread: Thread = null
@@ -902,9 +876,9 @@ class SamzaContainer(
   }
 
   def startDiagnostics {
-    if (diagnosticsManager != null) {
+    if (diagnosticsManager.isDefined) {
       info("Starting diagnostics manager.")
-      diagnosticsManager.start()
+      diagnosticsManager.get.start()
     }
   }
 
@@ -1097,8 +1071,9 @@ class SamzaContainer(
 
   def shutdownDiagnostics {
     info("Shutting down diagnostics manager.")
-    if (diagnosticsManager != null)
-      diagnosticsManager.stop()
+    if (diagnosticsManager.isDefined) {
+      diagnosticsManager.get.stop()
+    }
   }
 
   def shutdownMetrics {

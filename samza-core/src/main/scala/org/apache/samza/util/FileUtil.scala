@@ -27,7 +27,7 @@ import java.util.zip.CRC32
 
 import org.apache.samza.util.Util.info
 
-object FileUtil {
+object FileUtil extends Logging {
   /**
     * Writes checksum & data to a file
     * Checksum is pre-fixed to the data and is a 32-bit long type data.
@@ -66,7 +66,6 @@ object FileUtil {
     var fileWriter: FileWriter = null
     val tmpFile = new File(tmpFilePath)
 
-
     //atomic swap of tmp and real file if we need to append
     if (append) {
       swapFiles(file, tmpFile)
@@ -77,6 +76,7 @@ object FileUtil {
       fileWriter.write(data)
     } catch {
       case e: Exception =>
+        error("Error in writing to file %s isAppend %s" format (file, append))
         System.out.println(e)
     } finally {
       fileWriter.close()

@@ -334,7 +334,7 @@ public class StreamProcessor {
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), null, null);
+        Option.apply(this.externalContextOptional.orElse(null)), null, null, Option.empty());
   }
 
   private JobCoordinator createJobCoordinator() {
