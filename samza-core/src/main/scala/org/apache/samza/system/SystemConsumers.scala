@@ -35,7 +35,6 @@ import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 
-
 object SystemConsumers {
   val DEFAULT_POLL_INTERVAL_MS = 50
   val DEFAULT_NO_NEW_MESSAGES_TIMEOUT = 10
@@ -220,14 +219,11 @@ class SystemConsumers (
 
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
-      if (startpoint != null) {
-        consumer.register(systemStreamPartition, startpoint)
-      } else {
-        val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
-        val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-        if (existingOffset == null || systemAdmin.offsetComparator(existingOffset, offset) > 0) {
-          sspToRegisteredOffsets.put(systemStreamPartition, offset)
-        }
+      val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+      val offsetComparisonResult = systemAdmin.offsetComparator(existingOffset, offset)
+      if (existingOffset == null || (offsetComparisonResult != null && offsetComparisonResult > 0)) {
+        sspToRegisteredOffsets.put(systemStreamPartition, offset)
       }
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)

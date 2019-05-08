@@ -422,11 +422,6 @@ class TestSystemConsumers {
     override def register(systemStreamPartition: SystemStreamPartition, offset: String): Unit = {
        super[BlockingEnvelopeMap].register(systemStreamPartition, offset)
     }
-
-    override def register(systemStreamPartition: SystemStreamPartition, startpoint: Startpoint): Unit = {
-      super[BlockingEnvelopeMap].register(systemStreamPartition, startpoint)
-    }
-
   }
 }
 

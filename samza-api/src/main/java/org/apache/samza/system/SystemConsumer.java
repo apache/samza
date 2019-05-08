@@ -22,8 +22,6 @@ package org.apache.samza.system;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.startpoint.Startpoint;
 
 /**
  * <p>
@@ -137,19 +135,6 @@ public interface SystemConsumer {
    *          is the system's responsibility to select the lowest one.
    */
   void register(SystemStreamPartition systemStreamPartition, String offset);
-
-  /**
-   * Registers the {@link Startpoint} to the SystemConsumer. SystemConsumer
-   * should read the messages from all the registered SystemStreamPartitions.
-   * SystemStreamPartitions should be registered before the start is called.
-   *
-   * @param systemStreamPartition represents the SystemStreamPartition to be registered.
-   * @param startpoint represents the position in the SystemStreamPartition.
-   */
-  @InterfaceStability.Evolving
-  default void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
-    throw new UnsupportedOperationException(String.format("Registering the ssp: %s with startpoint: %s is not supported.", systemStreamPartition, startpoint));
-  }
 
   /**
    * Poll the SystemConsumer to get any available messages from the underlying
