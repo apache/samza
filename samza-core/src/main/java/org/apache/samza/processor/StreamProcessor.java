@@ -53,9 +53,9 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
-import org.apache.samza.runtime.ContainerLaunchUtil;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.TaskFactory;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
@@ -338,8 +338,7 @@ public class StreamProcessor {
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
 
     // Creating diagnostics manager and reporter, and wiring it respectively
-    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
-        ContainerLaunchUtil.buildDiagnosticsManager(new ApplicationConfig(config).getAppName(), new ApplicationConfig(config).getAppId(), processorId, Optional.empty(), config);
+    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(new ApplicationConfig(config).getAppName(), new ApplicationConfig(config).getAppId(), processorId, Optional.empty(), config);
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());

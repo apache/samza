@@ -33,11 +33,11 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.runtime.LocalContainerRunner;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,7 +156,7 @@ public class DiagnosticsManager {
 
         // Create the metricHeader
         MetricsHeader metricsHeader = new MetricsHeader(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-            LocalContainerRunner.class.getName(), taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(),
+            DiagnosticsUtil.class.getName(), taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(),
             resetTime.toEpochMilli());
 
         Map<String, Map<String, Object>> metricsMessage = new HashMap<>();
