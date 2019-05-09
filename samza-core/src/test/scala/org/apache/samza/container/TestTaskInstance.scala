@@ -380,6 +380,35 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(offsetManagerMock).getStartingOffset(TASK_NAME, systemStreamPartition)
   }
 
+  @Test
+  def testRegisterConsumersShouldUseCheckpointedOffsetWhenStartpointResolutionReturnsNull(): Unit = {
+    val offsetManagerMock = mock[OffsetManager]
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val startingOffset = "72"
+    val mockStartpoint: Startpoint = mock[Startpoint]
+
+    when(offsetManagerMock.getStartingOffset(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(startingOffset))
+    when(offsetManagerMock.getStartpoint(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(mockStartpoint))
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    doReturn(null).when(systemAdmin).resolveStartpointToOffset(systemStreamPartition, mockStartpoint)
+    doNothing().when(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    doNothing().when(this.metrics).addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(TASK_NAME, systemStreamPartition).orNull)
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel, this.metrics, this.systemAdmins, this.consumerMultiplexer, this.collector,
+      offsetManager = offsetManagerMock, storageManager = this.taskStorageManager, tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(systemStreamPartition), exceptionHandler = this.taskInstanceExceptionHandler, streamMetadataCache = cacheMock,
+      jobContext = this.jobContext, containerContext = this.containerContext, applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory), externalContextOption = Some(this.externalContext))
+
+    taskInstance.registerConsumers
+
+    verify(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    verify(offsetManagerMock).getStartpoint(TASK_NAME, systemStreamPartition)
+    verify(offsetManagerMock).getStartingOffset(TASK_NAME, systemStreamPartition)
+  }
+
   private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {
     this.taskInstance = new TaskInstance(this.task,
