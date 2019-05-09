@@ -38,7 +38,6 @@ import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.util.FileUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,6 @@ public class LocalContainerRunner {
         }));
 
     String containerId = System.getenv(ShellCommandConfig.ENV_CONTAINER_ID());
-    String containerName = "samza-container-" + containerId;
     log.info(String.format("Got container ID: %s", containerId));
     System.out.println(String.format("Container ID: %s", containerId));
 
@@ -79,29 +77,29 @@ public class LocalContainerRunner {
     }
     String jobName = jobConfig.getName().get();
     String jobId = jobConfig.getJobId();
-    MDC.put("containerName", containerName);
+    MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    writeMetadataFile(jobName, jobId, containerName, execEnvContainerId, config);
+    writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
 
-    ContainerLaunchUtil.run(appDesc, jobName, jobId, containerName, containerId, execEnvContainerId, jobModel);
+    ContainerLaunchUtil.run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel);
   }
 
-  public static void writeMetadataFile(String jobName, String jobId, String containerName,
+  public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) throws Exception {
 
-    Option<File> metadataFile = new JobConfig(config).getMetadataFile(ScalaJavaUtil.JavaOptionals$.MODULE$.toRichOptional(execEnvContainerId).toOption());
+    Option<File> metadataFile = new JobConfig(config).getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
 
     if (metadataFile.isDefined()) {
 
       StringBuilder metadata = new StringBuilder("Version: 1");
       metadata.append(System.lineSeparator());
       MetricsHeader metricsHeader =
-          new MetricsHeader(jobName, jobId, containerName, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
+          new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
               Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
               System.currentTimeMillis(), System.currentTimeMillis());
 

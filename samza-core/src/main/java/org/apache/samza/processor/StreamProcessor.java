@@ -32,8 +32,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
@@ -46,9 +48,12 @@ import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import org.apache.samza.runtime.ContainerLaunchUtil;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.util.ScalaJavaUtil;
@@ -56,6 +61,7 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
+import scala.Tuple2;
 
 
 /**
@@ -330,11 +336,21 @@ public class StreamProcessor {
 
   @VisibleForTesting
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
+
+    // Creating diagnostics manager and reporter, and wiring it respectively
+    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+        ContainerLaunchUtil.buildDiagnosticsManager(new ApplicationConfig(config).getAppName(), new ApplicationConfig(config).getAppId(), processorId, Optional.empty(), config);
+    Option<DiagnosticsManager> diagnosticsManager = Option.empty();
+    if (diagnosticsManagerReporterPair.isPresent()) {
+      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());
+      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
+    }
+
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), null, null, Option.empty());
+        Option.apply(this.externalContextOptional.orElse(null)), null, null, diagnosticsManager);
   }
 
   private JobCoordinator createJobCoordinator() {

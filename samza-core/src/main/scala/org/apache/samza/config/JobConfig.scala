@@ -270,7 +270,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     if (dir == null || execEnvContainerId.isEmpty) {
       None
     } else {
-      Option.apply(new File(dir, String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)))
+      Option.apply(new File(dir, String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId.get)))
     }
   }
 
