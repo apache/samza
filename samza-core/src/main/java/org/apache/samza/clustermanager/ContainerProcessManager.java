@@ -154,7 +154,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     } else {
       this.standbyContainerManager = Optional.empty();
     }
-    
+
     if (this.hostAffinityEnabled) {
       this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
     } else {
@@ -203,8 +203,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   public void start() {
     log.info("Starting the container process manager");
-    jvmMetrics.start();
-    this.metricsReporters.values().forEach(reporter -> reporter.start());
+
+    if (jvmMetrics != null) {
+      jvmMetrics.start();
+    }
+
+    if (this.metricsReporters != null) {
+      this.metricsReporters.values().forEach(reporter -> reporter.start());
+    }
 
     log.info("Starting the cluster resource manager");
     clusterResourceManager.start();
@@ -237,8 +243,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     if (containerProcessManagerMetrics != null) {
       try {
-        this.metricsReporters.values().forEach(reporter -> reporter.start());
-        jvmMetrics.stop();
+
+        if (this.metricsReporters != null) {
+          this.metricsReporters.values().forEach(reporter -> reporter.start());
+        }
+
+        if (this.jvmMetrics != null) {
+          jvmMetrics.stop();
+        }
+
         log.info("Stopped containerProcessManagerMetrics reporters");
       } catch (Throwable e) {
         log.error("Exception while stopping containerProcessManagerMetrics", e);
