@@ -20,11 +20,11 @@
 package org.apache.samza.serializers
 
 import org.apache.samza.SamzaException
+import org.apache.samza.config.StorageConfig
 import org.apache.samza.system.ControlMessage
 import org.apache.samza.system.SystemStream
 import org.apache.samza.system.OutgoingMessageEnvelope
 import org.apache.samza.system.IncomingMessageEnvelope
-import org.apache.samza.config.StorageConfig
 
 class SerdeManager(
   serdes: Map[String, Serde[Object]] = Map(),

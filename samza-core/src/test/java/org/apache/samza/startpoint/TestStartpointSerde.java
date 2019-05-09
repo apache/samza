@@ -21,7 +21,6 @@ package org.apache.samza.startpoint;
 import org.junit.Assert;
 import org.junit.Test;
 
-
 public class TestStartpointSerde {
   private final StartpointSerde startpointSerde = new StartpointSerde();
 
@@ -61,16 +60,5 @@ public class TestStartpointSerde {
 
     Assert.assertEquals(startpointUpcoming.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointUpcoming.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
-  }
-
-  @Test
-  public void testStartpointCustomSerde() {
-    MockStartpointCustom startpointCustom = new MockStartpointCustom("das boot", 42);
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointCustom));
-
-    Assert.assertEquals(startpointCustom.getClass(), startpointFromSerde.getClass());
-    Assert.assertEquals(startpointCustom.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
-    Assert.assertEquals(startpointCustom.getTestInfo1(), ((MockStartpointCustom) startpointFromSerde).getTestInfo1());
-    Assert.assertEquals(startpointCustom.getTestInfo2(), ((MockStartpointCustom) startpointFromSerde).getTestInfo2());
   }
 }

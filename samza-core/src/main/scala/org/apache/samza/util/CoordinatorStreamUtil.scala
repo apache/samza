@@ -22,18 +22,19 @@
 package org.apache.samza.util
 
 import java.util
+
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
-import org.apache.samza.config._
-import org.apache.samza.system.{SystemFactory, SystemStream}
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config._
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde
 import org.apache.samza.coordinator.stream.messages.SetConfig
+import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemFactory, SystemStream}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
-import scala.collection.immutable.Map
 import scala.collection.JavaConverters._
+import scala.collection.immutable.Map
 
 object CoordinatorStreamUtil extends Logging {
   /**
@@ -50,6 +51,22 @@ object CoordinatorStreamUtil extends Logging {
         JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
         JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency))
     new MapConfig(map.asJava)
+  }
+
+  /**
+    * Creates a coordinator stream.
+    * @param coordinatorSystemStream the {@see SystemStream} that describes the stream to create.
+    * @param coordinatorSystemAdmin the {@see SystemAdmin} used to create the stream.
+    */
+  def createCoordinatorStream(coordinatorSystemStream: SystemStream, coordinatorSystemAdmin: SystemAdmin): Unit = {
+    // TODO: This logic should be part of the final coordinator stream metadata store abstraction. See SAMZA-2182
+    val streamName = coordinatorSystemStream.getStream
+    val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
+    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
+      info("Created coordinator stream: %s." format streamName)
+    } else {
+      info("Coordinator stream: %s already exists." format streamName)
+    }
   }
 
   /**
