@@ -90,6 +90,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   // The StandbyContainerManager manages standby-aware allocation and failover of containers
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
+  private final Option<DiagnosticsManager> diagnosticsManager;
+
   /**
    * A standard interface to request resources.
    */
@@ -139,10 +141,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
     Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(new JobConfig(config).getName().get(),
         new JobConfig(config).getJobId(), METRICS_SOURCE_NAME, execEnvContainerId, config);
-    Option<DiagnosticsManager> diagnosticsManager = Option.empty();
+
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());
       metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
+    } else {
+      diagnosticsManager = Option.empty();
     }
 
     // Wire all metrics to all reporters
@@ -177,6 +181,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     this.clusterResourceManager = resourceManager;
     this.standbyContainerManager = Optional.empty();
+    this.diagnosticsManager = Option.empty();
 
     if (allocator.isPresent()) {
       this.containerAllocator = allocator.get();
@@ -212,6 +217,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       this.metricsReporters.values().forEach(reporter -> reporter.start());
     }
 
+    if (this.diagnosticsManager.isDefined()) {
+      this.diagnosticsManager.get().start();
+    }
+
     log.info("Starting the cluster resource manager");
     clusterResourceManager.start();
 
@@ -241,11 +250,19 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       Thread.currentThread().interrupt();
     }
 
+    if (this.diagnosticsManager.isDefined()) {
+      try {
+        this.diagnosticsManager.get().stop();
+      } catch (InterruptedException e) {
+        log.error("InterruptedException while stopping diagnosticsManager", e);
+      }
+    }
+
     if (containerProcessManagerMetrics != null) {
       try {
 
         if (this.metricsReporters != null) {
-          this.metricsReporters.values().forEach(reporter -> reporter.start());
+          this.metricsReporters.values().forEach(reporter -> reporter.stop());
         }
 
         if (this.jvmMetrics != null) {
