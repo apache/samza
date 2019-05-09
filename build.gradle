@@ -716,7 +716,6 @@ project(":samza-kv-couchbase_$scalaSuffix") {
     compile project(":samza-kv_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.couchbase.client:java-client:$couchbaseClientVersion"
-    compile "com.couchbase.client:encryption:$couchbaseEncryptionVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
