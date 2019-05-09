@@ -72,12 +72,15 @@ public class DiagnosticsManager {
   private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
   private BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
   private final ScheduledExecutorService scheduler; // Scheduler for pushing data to the diagnostic stream
+  private final Duration terminationDuration; // duration to wait when terminating the scheduler
+
   private final SystemStream diagnosticSystemStream;
- // DiagnosticsManager uses a metricsSnapshotReporter to publish metrics to the diagnostic stream
+
 
 
   public DiagnosticsManager(String jobName, String jobId, String containerId, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, SystemStream diagnosticSystemStream, SystemProducer systemProducer) {
+      String taskClassVersion, String samzaVersion, String hostname, SystemStream diagnosticSystemStream,
+      SystemProducer systemProducer, Duration terminationDuration) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerId = containerId;
@@ -93,6 +96,7 @@ public class DiagnosticsManager {
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build());
+    this.terminationDuration = terminationDuration;
 
     try {
 
@@ -128,8 +132,8 @@ public class DiagnosticsManager {
   public void stop() throws InterruptedException {
     scheduler.shutdown();
 
-    // Allow any scheduled publishes to finish, and block for termination (for max 60 seconds)
-    scheduler.awaitTermination(60, TimeUnit.SECONDS);
+    // Allow any scheduled publishes to finish, and block for termination
+    scheduler.awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
 
     if (!scheduler.isTerminated()) {
       LOG.warn("Unable to terminate scheduler");

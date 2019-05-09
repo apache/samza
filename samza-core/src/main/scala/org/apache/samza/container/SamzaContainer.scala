@@ -699,7 +699,7 @@ class SamzaContainer(
   containerStorageManager: ContainerStorageManager,
   diagnosticsManager: Option[DiagnosticsManager] = Option.empty) extends Runnable with Logging {
 
-  val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
+  val shutdownMs = new TaskConfigJava(config).getShutdownMs
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 

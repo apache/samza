@@ -22,7 +22,6 @@ package org.apache.samza.metrics
 import org.apache.samza.util.Logging
 import java.util.concurrent.ConcurrentHashMap
 
-
 /**
  * A class that holds all metrics registered with it. It can be registered
  * with one or more MetricReporters to flush metrics.
