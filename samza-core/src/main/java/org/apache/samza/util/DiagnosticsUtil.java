@@ -50,11 +50,8 @@ import scala.runtime.AbstractFunction0;
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
 
-  /**
-   * Write a file in the samza.log.dir named <exec-env-container-id>.metadata that contains
-   * metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
-   *
-   */
+  // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
+  // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) throws Exception {
 
