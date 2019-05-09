@@ -55,6 +55,7 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,6 +219,11 @@ public class ClusterBasedJobCoordinator {
     try {
       //initialize JobCoordinator state
       LOG.info("Starting cluster based job coordinator");
+
+      // write the diagnostics metadata file
+      Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
+      DiagnosticsUtil.writeMetadataFile(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
+          "ApplicationMaster", execEnvContainerId, config);
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();

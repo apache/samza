@@ -19,7 +19,6 @@
 
 package org.apache.samza.runtime;
 
-import java.io.File;
 import java.util.Optional;
 import java.util.Random;
 import org.apache.samza.SamzaException;
@@ -32,17 +31,11 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.metrics.reporter.Metrics;
-import org.apache.samza.metrics.reporter.MetricsHeader;
-import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.apache.samza.util.FileUtil;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import scala.Option;
 
 
 /**
@@ -81,7 +74,7 @@ public class LocalContainerRunner {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
 
-    writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
+    DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
@@ -89,26 +82,4 @@ public class LocalContainerRunner {
     ContainerLaunchUtil.run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel);
   }
 
-  public static void writeMetadataFile(String jobName, String jobId, String containerId,
-      Optional<String> execEnvContainerId, Config config) throws Exception {
-
-    Option<File> metadataFile = new JobConfig(config).getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
-
-    if (metadataFile.isDefined()) {
-
-      StringBuilder metadata = new StringBuilder("Version: 1");
-      metadata.append(System.lineSeparator());
-      MetricsHeader metricsHeader =
-          new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
-              Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
-              System.currentTimeMillis(), System.currentTimeMillis());
-
-      MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
-      metadata.append("MetricsSnapshot: ");
-      metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
-      FileUtil.writeToTextFile(metadataFile.get(), metadata.toString(), false);
-    } else {
-      log.info("Skipping writing metadata file.");
-    }
-  }
 }
