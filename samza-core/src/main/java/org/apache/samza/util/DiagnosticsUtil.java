@@ -50,6 +50,11 @@ import scala.runtime.AbstractFunction0;
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
 
+  /**
+   * Write a file in the samza.log.dir named <exec-env-container-id>.metadata that contains
+   * metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
+   *
+   */
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) throws Exception {
 
@@ -85,8 +90,9 @@ public class DiagnosticsUtil {
     Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
     if (new JobConfig(config).getDiagnosticsEnabled()) {
-      String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
 
+      // Diagnostic stream, producer, and reporter related parameters
+      String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
       Integer publishInterval = Integer.parseInt(new MetricsConfig(config).getMetricsSnapshotReporterInterval(diagnosticsReporterName));
       String taskClassVersion = Util.getTaskClassVersion(config);
       String samzaVersion = Util.getSamzaVersion();
@@ -105,9 +111,9 @@ public class DiagnosticsUtil {
         throw new SamzaException("A stream uses system " + diagnosticsSystemStream.getSystem() + ", which is missing from the configuration.");
       }
 
+      // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
       SystemFactory systemFactory = Util.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
-      SystemProducer
-          systemProducer = systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
+      SystemProducer systemProducer = systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager = new DiagnosticsManager(jobName, jobId, containerId, execEnvContainerId.orElse(""), taskClassVersion,
           samzaVersion, hostName, diagnosticsSystemStream, systemProducer, Duration.ofMillis(new TaskConfigJava(config).getShutdownMs()));
 

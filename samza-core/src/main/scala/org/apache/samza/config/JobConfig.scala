@@ -115,7 +115,7 @@ object JobConfig {
   val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
   // Naming format and directory for container.metadata file
-  private val CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata" // Filename: containerID.metadata
+  private val CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata" // Filename: <containerID>.metadata
   private val CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)

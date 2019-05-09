@@ -98,19 +98,19 @@ public class ContainerLaunchUtil {
         startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
       }
 
-      Map<String, MetricsReporter> customReporters = loadMetricsReporters(appDesc, containerId, config);
+      Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 
       // Creating diagnostics manager and reporter, and wiring it respectively
       Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, containerId, execEnvContainerId, config);
       Option<DiagnosticsManager> diagnosticsManager = Option.empty();
       if (diagnosticsManagerReporterPair.isPresent()) {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());
-        customReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
+        metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
       }
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
           containerId, jobModel,
-          ScalaJavaUtil.toScalaMap(customReporters),
+          ScalaJavaUtil.toScalaMap(metricsReporters),
           taskFactory,
           JobContextImpl.fromConfigWithDefaults(config),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),

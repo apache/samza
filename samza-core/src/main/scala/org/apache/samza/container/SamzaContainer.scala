@@ -414,7 +414,7 @@ object SamzaContainer extends Logging {
 
     info("Setting up metrics reporters.")
 
-    var reporters = MetricsReporterLoader.getMetricsReporters(config, containerName).asScala.toMap ++ customReporters
+    val reporters = MetricsReporterLoader.getMetricsReporters(config, containerName).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
 
