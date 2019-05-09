@@ -129,64 +129,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
-    initializeMetrics(config, registry);
 
-    if (jobConfig.getStandbyTasksEnabled()) {
-      this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
-    } else {
-      this.standbyContainerManager = Optional.empty();
-    }
-
-    if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
-    } else {
-      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
-    }
-
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    log.info("Finished container process manager initialization.");
-  }
-
-  //for testing
-  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      AbstractContainerAllocator allocator, ClusterResourceManager manager) {
-    this.state = state;
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
-    this.jobConfig = new JobConfig(config);
-    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
-    this.clusterResourceManager = manager;
-    initializeMetrics(config, registry);
-    this.containerAllocator = allocator;
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    this.standbyContainerManager = Optional.empty();
-  }
-
-  //package private, used only in tests
-  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      ClusterResourceManager resourceManager) {
-    JobModelManager jobModelManager = state.jobModelManager;
-    this.state = state;
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
-    this.jobConfig = new JobConfig(config);
-
-    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
-
-    this.clusterResourceManager = resourceManager;
-    initializeMetrics(config, registry);
-
-    this.standbyContainerManager = Optional.empty();
-
-    if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
-    } else {
-      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
-    }
-
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    log.info("Finished container process manager initialization");
-  }
-
-  private void initializeMetrics(Config config, MetricsRegistryMap registry) {
+    // Initialize metrics
     this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
     this.jvmMetrics = new JvmMetrics(registry);
     this.metricsReporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), METRICS_SOURCE_NAME);
@@ -201,7 +145,49 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
     }
 
+    // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
+
+    // Enable standby container manager if required
+    if (jobConfig.getStandbyTasksEnabled()) {
+      this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
+    } else {
+      this.standbyContainerManager = Optional.empty();
+    }
+    
+    if (this.hostAffinityEnabled) {
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
+    } else {
+      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
+    }
+
+    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    log.info("Finished container process manager initialization.");
+  }
+
+  //package private, used only in tests
+  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
+      ClusterResourceManager resourceManager, Optional<AbstractContainerAllocator> allocator) {
+    JobModelManager jobModelManager = state.jobModelManager;
+    this.state = state;
+    this.clusterManagerConfig = new ClusterManagerConfig(config);
+    this.jobConfig = new JobConfig(config);
+
+    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
+
+    this.clusterResourceManager = resourceManager;
+    this.standbyContainerManager = Optional.empty();
+
+    if (allocator.isPresent()) {
+      this.containerAllocator = allocator.get();
+    } else if (this.hostAffinityEnabled) {
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
+    } else {
+      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
+    }
+
+    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    log.info("Finished container process manager initialization");
   }
 
   public boolean shouldShutdown() {
