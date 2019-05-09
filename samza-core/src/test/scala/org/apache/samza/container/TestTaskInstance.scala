@@ -19,14 +19,14 @@
 
 package org.apache.samza.container
 
-
-import java.util.Collections
+import java.util.{Collections, Optional}
 
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
+import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
@@ -295,6 +295,90 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     assertTrue(taskInstance.ssp2CaughtupMapping(ssp))
   }
 
+  @Test
+  def testRegisterConsumersShouldUseTheCheckpointedOffsetWhenStartpointDoesNotExist(): Unit = {
+    val offsetManagerMock = mock[OffsetManager]
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val startingOffset = "42"
+
+    when(offsetManagerMock.getStartingOffset(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(startingOffset))
+    when(offsetManagerMock.getStartpoint(TASK_NAME, systemStreamPartition)).thenReturn(None)
+    doNothing().when(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    doNothing().when(this.metrics).addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(TASK_NAME, systemStreamPartition).orNull)
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel, this.metrics, this.systemAdmins, this.consumerMultiplexer, this.collector,
+      offsetManager = offsetManagerMock, storageManager = this.taskStorageManager, tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(systemStreamPartition), exceptionHandler = this.taskInstanceExceptionHandler, streamMetadataCache = cacheMock,
+      jobContext = this.jobContext, containerContext = this.containerContext, applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory), externalContextOption = Some(this.externalContext))
+
+    taskInstance.registerConsumers
+
+    verify(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    verify(offsetManagerMock).getStartpoint(TASK_NAME, systemStreamPartition)
+    verify(offsetManagerMock).getStartingOffset(TASK_NAME, systemStreamPartition)
+  }
+
+  @Test
+  def testRegisterConsumersShouldUseStartpointtWhenItExists(): Unit = {
+    val offsetManagerMock = mock[OffsetManager]
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val startingOffset = "52"
+    val resolvedOffset = "62"
+    val mockStartpoint: Startpoint = mock[Startpoint]
+
+    when(offsetManagerMock.getStartingOffset(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(startingOffset))
+    when(offsetManagerMock.getStartpoint(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(mockStartpoint))
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    when(systemAdmin.resolveStartpointToOffset(systemStreamPartition, mockStartpoint)).thenReturn(resolvedOffset)
+    doNothing().when(this.consumerMultiplexer).register(systemStreamPartition, resolvedOffset)
+    doNothing().when(this.metrics).addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(TASK_NAME, systemStreamPartition).orNull)
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel, this.metrics, this.systemAdmins, this.consumerMultiplexer, this.collector,
+      offsetManager = offsetManagerMock, storageManager = this.taskStorageManager, tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(systemStreamPartition), exceptionHandler = this.taskInstanceExceptionHandler, streamMetadataCache = cacheMock,
+      jobContext = this.jobContext, containerContext = this.containerContext, applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory), externalContextOption = Some(this.externalContext))
+
+    taskInstance.registerConsumers
+
+    verify(this.consumerMultiplexer).register(systemStreamPartition, resolvedOffset)
+    verify(offsetManagerMock).getStartpoint(TASK_NAME, systemStreamPartition)
+    verify(offsetManagerMock).getStartingOffset(TASK_NAME, systemStreamPartition)
+  }
+
+  @Test
+  def testRegisterConsumersShouldUseCheckpointedOffsetWhenStartpointResolutionThrowsUp(): Unit = {
+    val offsetManagerMock = mock[OffsetManager]
+    val cacheMock = mock[StreamMetadataCache]
+    val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val startingOffset = "72"
+    val mockStartpoint: Startpoint = mock[Startpoint]
+
+    when(offsetManagerMock.getStartingOffset(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(startingOffset))
+    when(offsetManagerMock.getStartpoint(TASK_NAME, systemStreamPartition)).thenReturn(Option.apply(mockStartpoint))
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    doThrow(new RuntimeException("Random exception")).when(systemAdmin).resolveStartpointToOffset(systemStreamPartition, mockStartpoint)
+    doNothing().when(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    doNothing().when(this.metrics).addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(TASK_NAME, systemStreamPartition).orNull)
+
+    val taskInstance = new TaskInstance(this.task,
+      this.taskModel, this.metrics, this.systemAdmins, this.consumerMultiplexer, this.collector,
+      offsetManager = offsetManagerMock, storageManager = this.taskStorageManager, tableManager = this.taskTableManager,
+      systemStreamPartitions = Set(systemStreamPartition), exceptionHandler = this.taskInstanceExceptionHandler, streamMetadataCache = cacheMock,
+      jobContext = this.jobContext, containerContext = this.containerContext, applicationContainerContextOption = Some(this.applicationContainerContext),
+      applicationTaskContextFactoryOption = Some(this.applicationTaskContextFactory), externalContextOption = Some(this.externalContext))
+
+    taskInstance.registerConsumers
+
+    verify(this.consumerMultiplexer).register(systemStreamPartition, startingOffset)
+    verify(offsetManagerMock).getStartpoint(TASK_NAME, systemStreamPartition)
+    verify(offsetManagerMock).getStartingOffset(TASK_NAME, systemStreamPartition)
+  }
 
   private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {

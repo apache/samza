@@ -667,7 +667,7 @@ public class ContainerStorageManager {
       }
 
       // register startingOffset with the sysConsumer and register a metric for it
-      sideInputSystemConsumers.register(ssp, startingOffset, null);
+      sideInputSystemConsumers.register(ssp, startingOffset);
       taskInstanceMetrics.get(sideInputStorageManagers.get(ssp).getTaskName()).addOffsetGauge(
           ssp, ScalaJavaUtil.toScalaFunction(() -> sideInputStorageManagers.get(ssp).getLastProcessedOffset(ssp)));
 
