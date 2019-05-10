@@ -154,21 +154,24 @@ class TaskInstance(
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
       var startingOffset: String = getStartingOffset(systemStreamPartition)
-      val startpoint: Option[Startpoint] = offsetManager.getStartpoint(taskName, systemStreamPartition)
-      if (startpoint != null && startpoint.isDefined) {
-        try {
-          val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-          val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(systemStreamPartition, startpoint.get)
-          if (StringUtils.isNotBlank(resolvedOffset)) {
-            startingOffset = resolvedOffset
-            info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint,  systemStreamPartition, startingOffset))
+      val startpointOption: Option[Startpoint] = offsetManager.getStartpoint(taskName, systemStreamPartition)
+      startpointOption match {
+        case Some(startpoint) => {
+          try {
+            val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+            val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(systemStreamPartition, startpoint)
+            if (StringUtils.isNotBlank(resolvedOffset)) {
+              startingOffset = resolvedOffset
+              info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint,  systemStreamPartition, startingOffset))
+            }
+          } catch {
+            case e: Exception =>
+              error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, systemStreamPartition), e)
           }
-        } catch {
-          case e: Exception =>
-            error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, systemStreamPartition), e)
         }
-      } else {
-        debug("Startpoint does not exist for system stream partition: %s. Using the checkpointed offset: %s" format(systemStreamPartition, startingOffset))
+        case None => {
+          debug("Startpoint does not exist for system stream partition: %s. Using the checkpointed offset: %s" format(systemStreamPartition, startingOffset))
+        }
       }
       consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull)

@@ -19,7 +19,7 @@
 
 package org.apache.samza.container
 
-import java.util.{Collections, Optional}
+import java.util.Collections
 
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
