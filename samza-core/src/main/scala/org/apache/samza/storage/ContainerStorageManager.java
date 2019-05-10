@@ -453,24 +453,26 @@ public class ContainerStorageManager {
 
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    if (storageConfig.getStorageKeySerde(storeName).isEmpty()) {
+    Optional<String> storageKeySerde = storageConfig.getStorageKeySerde(storeName);
+    if (!storageKeySerde.isPresent()) {
       throw new SamzaException("No key serde defined for store: " + storeName);
     }
 
-    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).get());
+    Serde keySerde = serdes.get(storageKeySerde.get());
     if (keySerde == null) {
       throw new SamzaException(
-          "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
+          "StorageKeySerde: No class defined for serde: " + storageKeySerde.get());
     }
 
-    if (storageConfig.getStorageMsgSerde(storeName).isEmpty()) {
+    Optional<String> storageMsgSerde = storageConfig.getStorageMsgSerde(storeName);
+    if (!storageMsgSerde.isPresent()) {
       throw new SamzaException("No msg serde defined for store: " + storeName);
     }
 
-    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).get());
+    Serde messageSerde = serdes.get(storageMsgSerde.get());
     if (messageSerde == null) {
       throw new SamzaException(
-          "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
+          "StorageMsgSerde: No class defined for serde: " + storageMsgSerde.get());
     }
 
     // if taskInstanceMetrics are specified use those for store metrics,
@@ -486,17 +488,20 @@ public class ContainerStorageManager {
 
 
   // Create side input store processors, one per store per task
-  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config, ContainerModel containerModel,
-      Map<String, Set<SystemStream>> sideInputSystemStreams, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
+      ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
         sideInputStoresToProcessors.put(taskName, new HashMap<>());
         for (String storeName : sideInputSystemStreams.keySet()) {
-          if (config.getSideInputsProcessorSerializedInstance(storeName).isDefined()) {
+          Optional<String> sideInputsProcessorSerializedInstance =
+              config.getSideInputsProcessorSerializedInstance(storeName);
+          if (sideInputsProcessorSerializedInstance.isPresent()) {
             sideInputStoresToProcessors.get(taskName)
                 .put(storeName, SerdeUtils.deserialize("Side Inputs Processor",
-                    config.getSideInputsProcessorSerializedInstance(storeName).get()));
+                    sideInputsProcessorSerializedInstance.get()));
           } else {
             sideInputStoresToProcessors.get(taskName)
                 .put(storeName, Util.getObj(config.getSideInputsProcessorFactory(storeName).get(),
@@ -512,8 +517,8 @@ public class ContainerStorageManager {
         for (String storeName : sideInputSystemStreams.keySet()) {
 
           // have to use the right serde because the sideInput stores are created
-          Serde keySerde = serdes.get(new StorageConfig(config).getStorageKeySerde(storeName).get());
-          Serde msgSerde = serdes.get(new StorageConfig(config).getStorageMsgSerde(storeName).get());
+          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName).get());
+          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName).get());
           sideInputStoresToProcessors.get(taskName).put(storeName, new SideInputsProcessor() {
             @Override
             public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
@@ -530,7 +535,9 @@ public class ContainerStorageManager {
   private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
 
     // creating side input store processors, one per store per task
-    Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors = createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams, this.taskInstanceMetrics);
+    Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
+        createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
+            this.taskInstanceMetrics);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 
@@ -956,12 +963,7 @@ public class ContainerStorageManager {
      * @return true if the logged store is valid, false otherwise.
      */
     private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-      long changeLogDeleteRetentionInMs = StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS();
-
-      if (new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).isDefined()) {
-        changeLogDeleteRetentionInMs =
-            (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
-      }
+      long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
 
       if (changelogSystemStreams.containsKey(storeName)) {
         SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());

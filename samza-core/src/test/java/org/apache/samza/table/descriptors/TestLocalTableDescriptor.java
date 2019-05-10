@@ -23,9 +23,9 @@ import java.util.Map;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
@@ -71,7 +71,7 @@ public class TestLocalTableDescriptor {
     Map<String, String> tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertEquals(1, tableConfig.size());
-    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM, TABLE_ID)));
   }
 
   @Test
@@ -81,7 +81,7 @@ public class TestLocalTableDescriptor {
         .toConfig(createJobConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals("test-job-10-table-t1", String.format(
-        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID))));
+        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM, TABLE_ID))));
   }
 
   @Test
@@ -92,9 +92,9 @@ public class TestLocalTableDescriptor {
         .toConfig(createJobConfig());
     Assert.assertEquals(3, tableConfig.size());
     Assert.assertEquals("my-stream", String.format(
-        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID))));
+        tableConfig.get(String.format(StorageConfig.CHANGELOG_STREAM, TABLE_ID))));
     Assert.assertEquals("100", String.format(
-        tableConfig.get(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), TABLE_ID))));
+        tableConfig.get(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR, TABLE_ID))));
   }
 
   @Test(expected = NullPointerException.class)

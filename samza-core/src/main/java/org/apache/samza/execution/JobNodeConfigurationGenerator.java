@@ -328,12 +328,12 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
 

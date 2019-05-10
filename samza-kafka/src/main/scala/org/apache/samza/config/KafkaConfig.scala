@@ -30,6 +30,7 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, StreamUtil}
 
 import scala.collection.JavaConverters._
@@ -214,12 +215,12 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     * 2. If systems.changelog-system.default.stream.replication.factor is configured, that value is used.
     * 3. 2
     *
-    * Note that the changelog-system has a similar precedence. See [[JavaStorageConfig]]
+    * Note that the changelog-system has a similar precedence. See [[StorageConfig]]
     */
   def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor)
 
   def getDefaultChangelogStreamReplicationFactor() = {
-    val changelogSystem =  new JavaStorageConfig(config).getChangelogSystem()
+    val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
     getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
   }
 
@@ -236,7 +237,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       val matcher = pattern.matcher(changelogConfig)
       val storeName = if (matcher.find()) matcher.group(1) else throw new SamzaException("Unable to find store name in the changelog configuration: " + changelogConfig + " with SystemStream: " + cn)
 
-      storageConfig.getChangelogStream(storeName).foreach(changelogName => {
+      JavaOptionals.toRichOptional(storageConfig.getChangelogStream(storeName)).toOption.foreach(changelogName => {
         val systemStream = StreamUtil.getSystemStreamFromNames(changelogName)
         storeToChangelog += storeName -> systemStream.getStream
       })

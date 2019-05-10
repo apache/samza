@@ -21,6 +21,7 @@ package org.apache.samza.system.inmemory;
 
 import com.google.common.base.Preconditions;
 import org.apache.samza.Partition;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -93,6 +94,20 @@ public class InMemorySystemProducer implements SystemProducer {
 
     SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(partition));
     memoryManager.put(ssp, key, message);
+  }
+
+  /**
+   * Populates the IME to the ssp configured, this gives user more control to set up Test environment partition.
+   * The offset in the envelope needs to adhere to a rule that for messages in the same system stream partition the
+   * offset needs to start at 0 for the first and be monotonically increasing for the following messages.
+   * If not the {@link InMemoryManager#put(SystemStreamPartition, IncomingMessageEnvelope)} will fail.
+   *
+   * Note: Please DO NOT use this in production use cases, this is only meant to set-up more flexible tests.
+   * This function is not thread safe.
+   * @param envelope incoming message envelope
+   */
+  public void send(IncomingMessageEnvelope envelope) {
+    memoryManager.put(envelope.getSystemStreamPartition(), envelope);
   }
 
   /**
