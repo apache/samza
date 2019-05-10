@@ -27,7 +27,6 @@ import org.apache.samza.annotation.InterfaceStability;
  * Guarantees:
  * 1. after registerProcessor, getNumberOfProcessors should return count inclusive of at least the current processor
  * 2. after unregisterProcessor, getNumberOfProcessors should return count exclusive of at least the current processor
- * 3. processor can register again after unregister
  *
  * Non-guarantees:
  * 1. thread safe
@@ -37,10 +36,10 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Evolving
 public interface ClusterMembership {
   /**
-   * add current processor to the list
-   * should be idempotent
+   * add processor to the list
+   * @return unique id of the processor registration
    */
-  void registerProcessor();
+  String registerProcessor();
 
   /**
    * @return number of processors in the list
@@ -48,8 +47,8 @@ public interface ClusterMembership {
   int getNumberOfProcessors();
 
   /**
-   * remove current processor from the list
-   * should be idempotent
+   * remove processor from the list
+   * @param processorId to be removed from list
    */
-  void unregisterProcessor();
+  void unregisterProcessor(String processorId);
 }

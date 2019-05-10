@@ -58,6 +58,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   }
 
   public void close() {
+    System.out.println("Manasa: closing coordination utils");
     try {
       if (zkUtils != null)
         zkUtils.close();

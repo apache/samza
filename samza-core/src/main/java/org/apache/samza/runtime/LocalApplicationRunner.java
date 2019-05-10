@@ -78,6 +78,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
+  private final boolean isAppModeBatch;
   private final Optional<CoordinationUtils> coordinationUtils;
   private Optional<String> runId = Optional.empty();
   private Optional<RunIdGenerator> runIdGenerator = Optional.empty();
@@ -92,6 +93,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   public LocalApplicationRunner(SamzaApplication app, Config config) {
     this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
+    isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     coordinationUtils = getCoordinationUtils(config);
   }
 
@@ -101,24 +103,20 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @VisibleForTesting
   LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, Optional<CoordinationUtils> coordinationUtils) {
     this.appDesc = appDesc;
+    isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = coordinationUtils;
   }
 
   private Optional<CoordinationUtils> getCoordinationUtils(Config config) {
-    boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!isAppModeBatch) {
       return Optional.empty();
     }
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
     CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
-    if (coordinationUtils != null) {
-      return Optional.of(coordinationUtils);
-    }
-    return Optional.empty();
+    return Optional.ofNullable(coordinationUtils);
   }
 
   /**
-   *
    * @return LocalJobPlanner created
    */
   @VisibleForTesting
@@ -141,7 +139,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private void initializeRunId() {
     try {
-      boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
       MetadataStore metadataStore = getMetadataStore();
       if (coordinationUtils.isPresent() && metadataStore != null) {
         runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
@@ -165,7 +162,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   @Override
   public void run(ExternalContext externalContext) {
-    boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (isAppModeBatch) {
       initializeRunId();
     }

@@ -20,7 +20,6 @@ package org.apache.samza.zk;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.DistributedLock;
 import org.slf4j.Logger;
@@ -55,12 +54,10 @@ public class ZkDistributedLock implements DistributedLock {
    * Tries to acquire a lock in order to create intermediate streams. On failure to acquire lock, it keeps trying until the lock times out.
    * Creates a sequential ephemeral node to acquire the lock. If the path of this node has the lowest sequence number, the processor has acquired the lock.
    * @param timeout Duration of lock acquiring timeout.
-   * @return true if lock is acquired successfully
-   * @throws TimeoutException if could not acquire within timeout
+   * @return true if lock is acquired successfully else returns false if failed to acquire within timeout
    */
   @Override
-  public boolean lock(Duration timeout)
-      throws TimeoutException {
+  public boolean lock(Duration timeout) {
 
     nodePath = zkUtils.getZkClient().createEphemeralSequential(lockPath + "/", participantId);
 
@@ -90,7 +87,8 @@ public class ZkDistributedLock implements DistributedLock {
         }
       }
     }
-    throw new TimeoutException("could not acquire lock for " + lockTimeout + " milliseconds.");
+    LOG.info("Failed to acquire lock within {} milliseconds.", lockTimeout);
+    return false;
   }
 
   /**

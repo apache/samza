@@ -20,7 +20,6 @@
 package org.apache.samza.coordinator;
 
 import java.time.Duration;
-import java.util.concurrent.TimeoutException;
 
 
 public interface DistributedLock {
@@ -28,10 +27,9 @@ public interface DistributedLock {
   /**
    * Try to acquire the lock
    * @param timeout Duration of lock acquiring timeout.
-   * @return true if lock is acquired successfully
-   * @throws TimeoutException if could not acquire the lock.
+   * @return true if lock is acquired successfully else returns false if failed to acquire within timeout
    */
-  boolean lock(Duration timeout) throws TimeoutException;
+  boolean lock(Duration timeout);
 
   /**
    * Release the lock

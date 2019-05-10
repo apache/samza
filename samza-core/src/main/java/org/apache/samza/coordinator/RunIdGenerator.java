@@ -23,7 +23,6 @@ import java.io.UnsupportedEncodingException;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.slf4j.Logger;
@@ -49,6 +48,8 @@ public class RunIdGenerator {
   private final CoordinationUtils coordinationUtils;
   private final MetadataStore metadataStore;
   private final ClusterMembership clusterMembership;
+  private String processorId = null;
+  private boolean closed = false;
 
   public RunIdGenerator(CoordinationUtils coordinationUtils, MetadataStore metadataStore) {
     Preconditions.checkNotNull(coordinationUtils, "CoordinationUtils cannot be null");
@@ -56,9 +57,7 @@ public class RunIdGenerator {
     this.coordinationUtils = coordinationUtils;
     this.metadataStore = metadataStore;
     this.clusterMembership = coordinationUtils.getClusterMembership();
-    if (clusterMembership == null) {
-      throw new SamzaException("Failed to create utils for run id generation");
-    }
+    Preconditions.checkNotNull(this.clusterMembership, "Failed to create utils for run id generation");
   }
 
   public Optional<String> getRunId() {
@@ -74,7 +73,7 @@ public class RunIdGenerator {
       // acquire lock to write or read run.id
       if (runIdLock.lock(Duration.ofMillis(CoordinationConstants.LOCK_TIMEOUT_MS))) {
         LOG.info("lock acquired for run.id generation by this processor");
-        clusterMembership.registerProcessor();
+        processorId = clusterMembership.registerProcessor();
         int numberOfActiveProcessors = clusterMembership.getNumberOfProcessors();
         if (numberOfActiveProcessors == 0) {
           String msg = String.format("Processor failed to fetch number of processors for run.id generation");
@@ -90,9 +89,9 @@ public class RunIdGenerator {
           LOG.info("Read the run id for this run as {}", runId);
         }
         runIdLock.unlock();
+      } else {
+        throw new SamzaException("Processor timed out waiting to acquire lock for run.id generation");
       }
-    } catch (TimeoutException e) {
-      throw new SamzaException("Processor timed out waiting to acquire lock for run.id generation", e);
     } catch (UnsupportedEncodingException e) {
       throw new SamzaException("Processor could not serialize/deserialize string for run.id generation", e);
     }
@@ -101,11 +100,11 @@ public class RunIdGenerator {
 
   /**
    * might be called several times and hence should be idempotent
-   * that means the clusterMembership.unregisterProcessor should be idempotent
    */
   public void close() {
-    if (clusterMembership != null) {
-      clusterMembership.unregisterProcessor();
+    if (!closed && clusterMembership != null && processorId != null) {
+      closed = true;
+      clusterMembership.unregisterProcessor(processorId);
     }
   }
 }

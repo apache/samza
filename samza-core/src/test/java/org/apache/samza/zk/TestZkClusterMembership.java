@@ -67,14 +67,15 @@ public class TestZkClusterMembership {
   public void testMembershipSingleProcessor() {
     // happy path for single processor
     ZkClusterMembership clusterMembership = new ZkClusterMembership("p1", zkUtils1);
+    String processorId;
 
     assertEquals("ClusterMembership has participants before any processor registered.", 0, clusterMembership.getNumberOfProcessors());
 
-    clusterMembership.registerProcessor();
+    processorId = clusterMembership.registerProcessor();
 
     assertEquals("ClusterMembership does not have participants after a processor registered.", 1, clusterMembership.getNumberOfProcessors());
 
-    clusterMembership.unregisterProcessor();
+    clusterMembership.unregisterProcessor(processorId);
 
     assertEquals("ClusterMembership has participants after the single processor unregistered.", 0, clusterMembership.getNumberOfProcessors());
   }
@@ -85,18 +86,21 @@ public class TestZkClusterMembership {
     ZkClusterMembership clusterMembership1 = new ZkClusterMembership("p1", zkUtils1);
     ZkClusterMembership clusterMembership2 = new ZkClusterMembership("p2", zkUtils1);
 
+    String processorId1;
+    String processorId2;
+
     assertEquals("ClusterMembership has participants before any processor registered.", 0, clusterMembership1.getNumberOfProcessors());
 
-    clusterMembership1.registerProcessor();
+    processorId1 = clusterMembership1.registerProcessor();
 
     assertEquals("ClusterMembership does not have participants after one processor registered.", 1, clusterMembership1.getNumberOfProcessors());
 
-    clusterMembership2.registerProcessor();
+    processorId2 = clusterMembership2.registerProcessor();
 
     assertEquals("ClusterMembership does not have 2 participants after two processor registered.", 2, clusterMembership2.getNumberOfProcessors());
 
-    clusterMembership1.unregisterProcessor();
-    clusterMembership2.unregisterProcessor();
+    clusterMembership1.unregisterProcessor(processorId1);
+    clusterMembership2.unregisterProcessor(processorId2);
 
     assertEquals("ClusterMembership has participants after both processors unregistered.", 0, clusterMembership1.getNumberOfProcessors());
   }
@@ -107,19 +111,22 @@ public class TestZkClusterMembership {
     ZkClusterMembership clusterMembership1 = new ZkClusterMembership("p1", zkUtils1);
     ZkClusterMembership clusterMembership2 = new ZkClusterMembership("p2", zkUtils1);
 
+    String processorId1;
+    String processorId2;
+
     assertEquals("ClusterMembership has participants before any processor registered.", 0, clusterMembership1.getNumberOfProcessors());
 
-    clusterMembership1.registerProcessor();
+    processorId1 = clusterMembership1.registerProcessor();
 
     assertEquals("ClusterMembership does not have participants after one processor registered.", 1, clusterMembership1.getNumberOfProcessors());
 
-    clusterMembership1.unregisterProcessor();
+    clusterMembership1.unregisterProcessor(processorId1);
 
-    clusterMembership2.registerProcessor();
+    processorId2 = clusterMembership2.registerProcessor();
 
     assertEquals("ClusterMembership does not have 1 participant1 after second processor registered.", 1, clusterMembership2.getNumberOfProcessors());
 
-    clusterMembership2.unregisterProcessor();
+    clusterMembership2.unregisterProcessor(processorId2);
 
     assertEquals("ClusterMembership has participants after both processors unregistered.", 0, clusterMembership2.getNumberOfProcessors());
   }

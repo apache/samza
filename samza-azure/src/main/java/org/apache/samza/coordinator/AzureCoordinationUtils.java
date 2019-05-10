@@ -44,8 +44,10 @@ public class AzureCoordinationUtils implements CoordinationUtils {
     return null;
   }
 
-  // To support DistributedLock in Azure, even MetadataStore needs to be implemented
-  // Both of these are used in LocalJobPlanner for intermediate stream creation
+  // To support DistributedLock in Azure, even MetadataStore needs to be implemented.
+  // Because, both of these are used in LocalJobPlanner for intermediate stream creation.
+  // Currently MetadataStore defaults to ZkMetataStore in LocalJobPlanner due to `metadata.store.factory` not being exposed
+  // So in order to avoid using AzureLock coupled with ZkMetadataStore, DistributedLock is not supported for Azure
   // See SAMZA-2180 for more details.
   @Override
   public DistributedLock getLock(String lockId) {

@@ -31,7 +31,6 @@ public class ZkClusterMembership implements ClusterMembership {
   private final String processorsPath;
   private final String participantId;
   private final ZkKeyBuilder keyBuilder;
-  private String nodePath = null;
 
   public ZkClusterMembership(String participantId, ZkUtils zkUtils) {
     Preconditions.checkNotNull(participantId, "ParticipantId cannot be null");
@@ -44,11 +43,10 @@ public class ZkClusterMembership implements ClusterMembership {
   }
 
   @Override
-  public void registerProcessor() {
-    if (nodePath == null) {
-      nodePath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
-      LOG.info("created ephemeral node. Registered the processor in the cluster.");
-    }
+  public String registerProcessor() {
+    String nodePath = zkUtils.getZkClient().createEphemeralSequential(processorsPath + "/", participantId);
+    LOG.info("created ephemeral node. Registered the processor in the cluster.");
+    return ZkKeyBuilder.parseIdFromPath(nodePath);
   }
 
   @Override
@@ -57,11 +55,17 @@ public class ZkClusterMembership implements ClusterMembership {
   }
 
   @Override
-  public void unregisterProcessor() {
-    if (nodePath != null && zkUtils.exists(nodePath)) {
+  public void unregisterProcessor(String processorId) {
+    if (processorId == null) {
+      LOG.warn("Can not unregister processor with null processorId");
+      return;
+    }
+    String nodePath = processorsPath + "/" + processorId;
+    if (zkUtils.exists(nodePath)) {
       zkUtils.getZkClient().delete(nodePath);
-      nodePath = null;
       LOG.info("Ephemeral node deleted. Unregistered the processor from cluster membership.");
+    } else {
+      LOG.warn("Ephemeral node you want to delete doesnt exist. Processor with id {} is not currently registered.", processorId);
     }
   }
 }

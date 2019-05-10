@@ -159,7 +159,7 @@ public class LocalJobPlanner extends JobPlanner {
     }
   }
 
-  private void checkAndCreateStreams(String lockId, List<StreamSpec> intStreams, StreamManager streamManager) throws TimeoutException{
+  private void checkAndCreateStreams(String lockId, List<StreamSpec> intStreams, StreamManager streamManager) throws TimeoutException {
     MetadataStore metadataStore = getMetadataStore();
     DistributedLock distributedLock = coordinationUtils.getLock(lockId);
     if (distributedLock == null || metadataStore == null) {
@@ -192,12 +192,8 @@ public class LocalJobPlanner extends JobPlanner {
           distributedLock.unlock();
           break;
         } else {
-          LOG.info(
-              "Processor {} did not obtain the lock for streams creation. They must've been created by another processor.",
-              processorId);
+          LOG.info("Processor {} failed to get the lock for stream initialization. Will try again until time out", processorId);
         }
-      } catch (TimeoutException e) {
-        LOG.warn("Processor {} failed to get the lock for stream initialization. Will try again until time out", processorId);
       } catch (UnsupportedEncodingException e) {
         String msg = String.format("Processor {} failed to encode string for stream initialization", processorId);
         throw new SamzaException(msg, e);
