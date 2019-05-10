@@ -36,7 +36,6 @@ import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.LocalContainerRunner;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
-import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
@@ -53,7 +52,7 @@ public class DiagnosticsUtil {
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
-      Optional<String> execEnvContainerId, Config config) throws Exception {
+      Optional<String> execEnvContainerId, Config config) {
 
     Option<File> metadataFile = JobConfig.getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
 
@@ -68,7 +67,7 @@ public class DiagnosticsUtil {
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
       metadata.append("MetricsSnapshot: ");
-      metadata.append(SamzaObjectMapper.getObjectMapper().writeValueAsString(metricsSnapshot));
+      metadata.append(new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
       FileUtil.writeToTextFile(metadataFile.get(), metadata.toString(), false);
     } else {
       log.info("Skipping writing metadata file.");
