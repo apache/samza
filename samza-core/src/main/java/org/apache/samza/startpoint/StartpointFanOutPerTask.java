@@ -20,33 +20,45 @@ package org.apache.samza.startpoint;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import org.apache.samza.container.TaskName;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.map.annotate.JsonDeserialize;
 import org.codehaus.jackson.map.annotate.JsonSerialize;
 
 
-@JsonSerialize(using = StartpointKeySerializer.class)
-class StartpointKey {
-  private final SystemStreamPartition systemStreamPartition;
-  private final TaskName taskName;
+/**
+ * Holds the {@link Startpoint} fan outs for each {@link SystemStreamPartition}. Each StartpointFanOutPerTask maps to a
+ * {@link org.apache.samza.container.TaskName}
+ */
+class StartpointFanOutPerTask {
+  @JsonSerialize
+  @JsonDeserialize
+  private final Instant timestamp;
 
-  // Constructs a startpoint key with SSP. This means the key will apply to all tasks that are mapped to this SSP
-  StartpointKey(SystemStreamPartition systemStreamPartition) {
-    this(systemStreamPartition, null);
+  @JsonDeserialize(keyUsing = SamzaObjectMapper.SystemStreamPartitionKeyDeserializer.class)
+  @JsonSerialize(keyUsing = SamzaObjectMapper.SystemStreamPartitionKeySerializer.class)
+  private final Map<SystemStreamPartition, Startpoint> fanOuts;
+
+  // required for Jackson deserialization
+  StartpointFanOutPerTask() {
+    this(Instant.now());
   }
 
-  // Constructs a startpoint key with SSP and a task.
-  StartpointKey(SystemStreamPartition systemStreamPartition, TaskName taskName) {
-    this.systemStreamPartition = systemStreamPartition;
-    this.taskName = taskName;
+  StartpointFanOutPerTask(Instant timestamp) {
+    this.timestamp = timestamp;
+    this.fanOuts = new HashMap<>();
   }
 
-  SystemStreamPartition getSystemStreamPartition() {
-    return systemStreamPartition;
+  // Unused in code, but useful for auditing when the fan out is serialized into the store
+  Instant getTimestamp() {
+    return timestamp;
   }
 
-  TaskName getTaskName() {
-    return taskName;
+  Map<SystemStreamPartition, Startpoint> getFanOuts() {
+    return fanOuts;
   }
 
   @Override
@@ -62,12 +74,12 @@ class StartpointKey {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    StartpointKey that = (StartpointKey) o;
-    return Objects.equal(systemStreamPartition, that.systemStreamPartition) && Objects.equal(taskName, that.taskName);
+    StartpointFanOutPerTask that = (StartpointFanOutPerTask) o;
+    return Objects.equal(timestamp, that.timestamp) && Objects.equal(fanOuts, that.fanOuts);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(systemStreamPartition, taskName);
+    return Objects.hashCode(timestamp, fanOuts);
   }
 }

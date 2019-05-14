@@ -520,6 +520,7 @@ class OffsetManager(
                 .toMap
               if (!filteredFanOut.isEmpty) {
                 startpoints += taskName -> filteredFanOut
+                info("Startpoint fan out for task: %s - %s" format (taskName, filteredFanOut))
               }
             }
             case None => debug("No startpoints fanned out on taskName: %s" format taskName.getTaskName)

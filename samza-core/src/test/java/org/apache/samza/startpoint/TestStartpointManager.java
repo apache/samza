@@ -21,6 +21,7 @@ package org.apache.samza.startpoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +53,7 @@ public class TestStartpointManager {
   public void setup() {
     CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
     coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    coordinatorStreamStore.init();
     startpointManager = new StartpointManager(coordinatorStreamStore);
     startpointManager.start();
   }
@@ -87,7 +89,7 @@ public class TestStartpointManager {
   }
 
   @Test
-  public void testNoLongerUsableAfterStop() {
+  public void testNoLongerUsableAfterStop() throws IOException {
     StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
     startpointManager.start();
     SystemStreamPartition ssp =
@@ -201,7 +203,7 @@ public class TestStartpointManager {
   }
 
   @Test
-  public void testFanOutBasic() {
+  public void testFanOutBasic() throws IOException {
     SystemStreamPartition sspBroadcast = new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));
     SystemStreamPartition sspSingle = new SystemStreamPartition("mockSystem2", "mockStream2", new Partition(3));
 
@@ -250,12 +252,12 @@ public class TestStartpointManager {
       }
 
       startpointManager.removeFanOutForTask(taskName);
-      Assert.assertNull(startpointManager.getFanOutForTask(taskName));
+      Assert.assertTrue(startpointManager.getFanOutForTask(taskName).isEmpty());
     }
   }
 
   @Test
-  public void testFanOutWithStartpointResolutions() {
+  public void testFanOutWithStartpointResolutions() throws IOException {
     SystemStreamPartition sspBroadcast = new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));
     SystemStreamPartition sspSingle = new SystemStreamPartition("mockSystem2", "mockStream2", new Partition(3));
 
@@ -275,6 +277,7 @@ public class TestStartpointManager {
     StartpointMock startpointPresent = new StartpointMock(now.toEpochMilli());
     StartpointMock startpointFuture = new StartpointMock(now.plusMillis(10000L).toEpochMilli());
 
+    startpointManager.getObjectMapper().registerSubtypes(StartpointMock.class);
     startpointManager.writeStartpoint(sspSingle, startpointPast);
     startpointManager.writeStartpoint(sspSingle, startpointPresent);
     startpointManager.writeStartpoint(sspBroadcast, startpointPresent);
@@ -306,7 +309,7 @@ public class TestStartpointManager {
         Assert.assertEquals(startpointPresent, fanOutForTask.get(sspBroadcast));
       }
       startpointManager.removeFanOutForTask(taskName);
-      Assert.assertNull(startpointManager.getFanOutForTask(taskName));
+      Assert.assertTrue(startpointManager.getFanOutForTask(taskName).isEmpty());
     }
   }
 }

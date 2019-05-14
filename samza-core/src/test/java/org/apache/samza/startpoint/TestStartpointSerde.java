@@ -18,16 +18,18 @@
  */
 package org.apache.samza.startpoint;
 
+import java.io.IOException;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class TestStartpointSerde {
-  private final StartpointSerde startpointSerde = new StartpointSerde();
+  private static final ObjectMapper MAPPER = StartpointObjectMapper.getObjectMapper();
 
   @Test
-  public void testStartpointSpecificSerde() {
+  public void testStartpointSpecificSerde() throws IOException {
     StartpointSpecific startpointSpecific = new StartpointSpecific("42");
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointSpecific));
+    Startpoint startpointFromSerde = MAPPER.readValue(MAPPER.writeValueAsBytes(startpointSpecific), Startpoint.class);
 
     Assert.assertEquals(startpointSpecific.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointSpecific.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
@@ -35,9 +37,9 @@ public class TestStartpointSerde {
   }
 
   @Test
-  public void testStartpointTimestampSerde() {
+  public void testStartpointTimestampSerde() throws IOException {
     StartpointTimestamp startpointTimestamp = new StartpointTimestamp(123456L);
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointTimestamp));
+    Startpoint startpointFromSerde = MAPPER.readValue(MAPPER.writeValueAsBytes(startpointTimestamp), Startpoint.class);
 
     Assert.assertEquals(startpointTimestamp.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointTimestamp.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
@@ -45,18 +47,18 @@ public class TestStartpointSerde {
   }
 
   @Test
-  public void testStartpointEarliestSerde() {
+  public void testStartpointEarliestSerde() throws IOException {
     StartpointOldest startpointOldest = new StartpointOldest();
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointOldest));
+    Startpoint startpointFromSerde = MAPPER.readValue(MAPPER.writeValueAsBytes(startpointOldest), Startpoint.class);
 
     Assert.assertEquals(startpointOldest.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointOldest.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
   }
 
   @Test
-  public void testStartpointLatestSerde() {
+  public void testStartpointLatestSerde() throws IOException {
     StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
-    Startpoint startpointFromSerde = startpointSerde.fromBytes(startpointSerde.toBytes(startpointUpcoming));
+    Startpoint startpointFromSerde = MAPPER.readValue(MAPPER.writeValueAsBytes(startpointUpcoming), Startpoint.class);
 
     Assert.assertEquals(startpointUpcoming.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointUpcoming.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
