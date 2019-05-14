@@ -75,7 +75,7 @@ public class StartpointManager {
   private final NamespaceAwareCoordinatorStreamStore readWriteStore;
   private final ObjectMapper objectMapper = StartpointObjectMapper.getObjectMapper();
 
-  private boolean stopped = false;
+  private boolean stopped = true;
 
   /**
    *  Builds the StartpointManager based upon the provided {@link MetadataStore} that is instantiated.
@@ -97,21 +97,31 @@ public class StartpointManager {
   }
 
   /**
-   * Perform startup operations.
+   * Perform startup operations. Method is idempotent.
    */
   public void start() {
-    readWriteStore.init();
-    fanOutStore.init();
-    stopped = false;
+    if (stopped) {
+      LOG.info("starting");
+      readWriteStore.init();
+      fanOutStore.init();
+      stopped = false;
+    } else {
+      LOG.warn("Already started");
+    }
   }
 
   /**
-   * Perform teardown operations.
+   * Perform teardown operations. Method is idempotent.
    */
   public void stop() {
-    readWriteStore.close();
-    fanOutStore.close();
-    stopped = true;
+    if (!stopped) {
+      LOG.info("stopping");
+      readWriteStore.close();
+      fanOutStore.close();
+      stopped = true;
+    } else {
+      LOG.warn("Already stopped");
+    }
   }
 
     /**
