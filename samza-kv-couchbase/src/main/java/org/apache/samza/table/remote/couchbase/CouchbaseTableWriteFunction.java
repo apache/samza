@@ -74,7 +74,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
             : BinaryDocument.create(key, (int) ttl.getSeconds(), Unpooled.copiedBuffer(valueSerde.toBytes(record)));
     return asyncWriteHelper(bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
         String.format("Failed to insert key %s into bucket %s", key, bucketName));
-}
+  }
 
   @Override
   public CompletableFuture<Void> deleteAsync(String key) {

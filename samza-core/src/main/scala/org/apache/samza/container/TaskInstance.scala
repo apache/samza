@@ -23,14 +23,15 @@ package org.apache.samza.container
 import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
-import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, ScheduledCallback}
+import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
@@ -141,15 +142,39 @@ class TaskInstance(
     collector.register
   }
 
-  def registerConsumers {
+  /**
+    * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
+    *
+    * Starting offset for a partition of the task is computed in the following manner:
+    *
+    * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
+    * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
+    */
+  def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
-      val startingOffset = getStartingOffset(systemStreamPartition)
-      val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
-      consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
-      metrics.addOffsetGauge(systemStreamPartition, () =>
-          offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
-        )
+      var startingOffset: String = getStartingOffset(systemStreamPartition)
+      val startpointOption: Option[Startpoint] = offsetManager.getStartpoint(taskName, systemStreamPartition)
+      startpointOption match {
+        case Some(startpoint) => {
+          try {
+            val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+            val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(systemStreamPartition, startpoint)
+            if (StringUtils.isNotBlank(resolvedOffset)) {
+              startingOffset = resolvedOffset
+              info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint,  systemStreamPartition, startingOffset))
+            }
+          } catch {
+            case e: Exception =>
+              error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, systemStreamPartition), e)
+          }
+        }
+        case None => {
+          debug("Startpoint does not exist for system stream partition: %s. Using the checkpointed offset: %s" format(systemStreamPartition, startingOffset))
+        }
+      }
+      consumerMultiplexer.register(systemStreamPartition, startingOffset)
+      metrics.addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull)
     })
   }
 
