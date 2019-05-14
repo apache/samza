@@ -133,7 +133,7 @@ public class TestEventHubSystemAdmin {
     EventHubSystemAdmin mockEventHubSystemAdmin = Mockito.mock(EventHubSystemAdmin.class);
     EventHubConfig eventHubConfig = Mockito.mock(EventHubConfig.class);
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
-    String mocketOffsetToReturn = "100";
+    String mockedOffsetToReturn = "100";
 
     // Setup the mock variables.
     EventHubClientManager mockEventHubClientManager = Mockito.mock(EventHubClientManager.class);
@@ -148,11 +148,11 @@ public class TestEventHubSystemAdmin {
     Mockito.when(mockEventHubClient.createReceiverSync(Mockito.anyString(), Mockito.anyString(), Mockito.any())).thenReturn(mockPartitionReceiver);
     Mockito.when(mockPartitionReceiver.receiveSync(1)).thenReturn(Arrays.asList(mockEventData));
     Mockito.when(mockEventData.getSystemProperties()).thenReturn(mockSystemProperties);
-    Mockito.when(mockSystemProperties.getOffset()).thenReturn(mocketOffsetToReturn);
+    Mockito.when(mockSystemProperties.getOffset()).thenReturn(mockedOffsetToReturn);
 
     // Test the Offset resolver.
     EventHubSamzaOffsetResolver resolver = new EventHubSamzaOffsetResolver(mockEventHubSystemAdmin, eventHubConfig);
     String resolvedOffset = resolver.visit(systemStreamPartition, new StartpointTimestamp(100L));
-    Assert.assertEquals(mocketOffsetToReturn, resolvedOffset);
+    Assert.assertEquals(mockedOffsetToReturn, resolvedOffset);
   }
 }
