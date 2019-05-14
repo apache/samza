@@ -106,7 +106,7 @@ public class StartpointManager {
       fanOutStore.init();
       stopped = false;
     } else {
-      LOG.warn("Already started");
+      LOG.warn("already started");
     }
   }
 
@@ -120,7 +120,7 @@ public class StartpointManager {
       fanOutStore.close();
       stopped = true;
     } else {
-      LOG.warn("Already stopped");
+      LOG.warn("already stopped");
     }
   }
 
