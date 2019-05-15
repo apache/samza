@@ -143,11 +143,13 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
               .withBootstrapHttpDirectPort(couchbaseMock.getHttpPort());
 
       RemoteTableDescriptor<String, String> inputTableDesc = new RemoteTableDescriptor<>("input-table");
-      inputTableDesc.withReadFunction(readFunction);
+      inputTableDesc.withReadFunction(readFunction).withRateLimiterDisabled();
       Table<KV<String, String>> inputTable = appDesc.getTable(inputTableDesc);
 
       RemoteTableDescriptor<String, JsonObject> outputTableDesc = new RemoteTableDescriptor<>("output-table");
-      outputTableDesc.withReadFunction(new DummyReadFunction<>()).withWriteFunction(writeFunction);
+      outputTableDesc.withReadFunction(new DummyReadFunction<>())
+          .withWriteFunction(writeFunction)
+          .withRateLimiterDisabled();
       Table<KV<String, JsonObject>> outputTable = appDesc.getTable(outputTableDesc);
 
       appDesc.getInputStream(inputDescriptor)
