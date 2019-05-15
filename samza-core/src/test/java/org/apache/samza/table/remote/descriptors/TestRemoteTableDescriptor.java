@@ -217,6 +217,7 @@ public class TestRemoteTableDescriptor {
   public void testTableRetryPolicyToConfig() {
     Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy())
+        .withRateLimiterDisabled()
         .toConfig(new MapConfig());
     Assert.assertEquals(tableConfig.get("tables.1.io.read.retry.policy.TableRetryPolicy"),
         "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"retryPredicate\":{}}");
