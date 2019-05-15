@@ -37,19 +37,21 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
    * Gets the value associated with the specified {@code key}.
    *
    * @param key the key with which the associated value is to be fetched.
+   * @param args additional arguments
    * @return if found, the value associated with the specified {@code key}; otherwise, {@code null}.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  V get(K key);
+  V get(K key, Object ... args);
 
   /**
    * Gets the values with which the specified {@code keys} are associated.
    *
    * @param keys the keys with which the associated values are to be fetched.
+   * @param args additional arguments
    * @return a map of the keys that were found and their respective values.
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  Map<K, V> getAll(List<K> keys);
+  Map<K, V> getAll(List<K> keys, Object ... args);
 
   /**
    * Updates the mapping of the specified key-value pair;
@@ -59,9 +61,10 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
    *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  void put(K key, V value);
+  void put(K key, V value, Object ... args);
 
   /**
    * Updates the mappings of the specified key-value {@code entries}.
@@ -69,23 +72,26 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
    * A key is deleted from the table if its corresponding value is {@code null}.
    *
    * @param entries the updated mappings to put into this table.
+   * @param args additional arguments
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
-  void putAll(List<Entry<K, V>> entries);
+  void putAll(List<Entry<K, V>> entries, Object ... args);
 
   /**
    * Deletes the mapping for the specified {@code key} from this table (if such mapping exists).
    *
    * @param key the key for which the mapping is to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  void delete(K key);
+  void delete(K key, Object ... args);
 
   /**
    * Deletes the mappings for the specified {@code keys} from this table.
    *
    * @param keys the keys for which the mappings are to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  void deleteAll(List<K> keys);
+  void deleteAll(List<K> keys, Object ... args);
 }

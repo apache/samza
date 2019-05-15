@@ -33,6 +33,7 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.SqlIOResolver;
 import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
+import org.apache.samza.table.remote.BaseTableFunction;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 
@@ -51,7 +52,8 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
     return new TestRemoteStoreIOResolver(config);
   }
 
-  public static class InMemoryWriteFunction implements TableWriteFunction<Object, Object> {
+  public static class InMemoryWriteFunction extends BaseTableFunction
+      implements TableWriteFunction<Object, Object> {
 
     @Override
     public CompletableFuture<Void> putAsync(Object key, Object record) {
@@ -71,7 +73,8 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
     }
   }
 
-  static class InMemoryReadFunction implements TableReadFunction<Object, Object> {
+  static class InMemoryReadFunction extends BaseTableFunction
+      implements TableReadFunction<Object, Object> {
 
     @Override
     public CompletableFuture<Object> getAsync(Object key) {

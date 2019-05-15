@@ -22,24 +22,26 @@ package org.apache.samza.table.remote.couchbase;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.error.TemporaryFailureException;
 import com.couchbase.client.java.error.TemporaryLockFailureException;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import java.io.Serializable;
+
 import java.time.Duration;
 import java.util.List;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.functions.ClosableFunction;
-import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.remote.BaseTableFunction;
 
 
 /**
  * Base class for {@link CouchbaseTableReadFunction} and {@link CouchbaseTableWriteFunction}
  * @param <V> Type of values to read from / write to couchbase
  */
-public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction, ClosableFunction, Serializable {
+public abstract class BaseCouchbaseTableFunction<V> extends BaseTableFunction {
 
   // Clients
   private final static CouchbaseBucketRegistry COUCHBASE_BUCKET_REGISTRY = new CouchbaseBucketRegistry();
@@ -75,11 +77,9 @@ public abstract class BaseCouchbaseTableFunction<V> implements InitableFunction,
     environmentConfigs = new CouchbaseEnvironmentConfigs();
   }
 
-  /**
-   * Helper method to initialize {@link Bucket}.
-   */
   @Override
-  public void init(Context context) {
+  public void init(Context context, AsyncReadWriteTable table) {
+    super.init(context, table);
     bucket = COUCHBASE_BUCKET_REGISTRY.getBucket(bucketName, clusterNodes, environmentConfigs);
   }
 

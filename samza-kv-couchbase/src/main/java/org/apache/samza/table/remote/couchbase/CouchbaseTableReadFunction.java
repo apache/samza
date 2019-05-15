@@ -43,16 +43,23 @@ import com.couchbase.client.java.document.BinaryDocument;
 import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
+
 import com.google.common.base.Preconditions;
+
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.commons.lang3.StringUtils;
+
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
+import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.remote.TableReadFunction;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Single;
 import rx.SingleSubscriber;
 
@@ -66,6 +73,7 @@ import rx.SingleSubscriber;
  */
 public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
     implements TableReadFunction<String, V> {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseTableReadFunction.class);
 
   protected final Class<? extends Document<?>> documentType;
@@ -83,8 +91,8 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
   }
 
   @Override
-  public void init(Context context) {
-    super.init(context);
+  public void init(Context context, AsyncReadWriteTable table) {
+    super.init(context, table);
     LOGGER.info("Read function for bucket {} initialized successfully", bucketName);
   }
 
@@ -123,10 +131,10 @@ public class CouchbaseTableReadFunction<V> extends BaseCouchbaseTableFunction<V>
     return future;
   }
 
-  /**
+  /*
    * Helper method to read bytes from binaryDocument and release the buffer.
    */
-  private void handleGetAsyncBinaryDocument(BinaryDocument binaryDocument, CompletableFuture<V> future, String key) {
+  protected void handleGetAsyncBinaryDocument(BinaryDocument binaryDocument, CompletableFuture<V> future, String key) {
     ByteBuf buffer = binaryDocument.content();
     try {
       byte[] bytes;
