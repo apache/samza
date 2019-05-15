@@ -82,10 +82,10 @@ public class TestStartpointManager {
     StartpointTimestamp startpoint = new StartpointTimestamp(staleTimestamp, staleTimestamp);
 
     startpointManager.writeStartpoint(ssp, startpoint);
-    Assert.assertNull(startpointManager.readStartpoint(ssp));
+    Assert.assertFalse(startpointManager.readStartpoint(ssp).isPresent());
 
     startpointManager.writeStartpoint(ssp, taskName, startpoint);
-    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
+    Assert.assertFalse(startpointManager.readStartpoint(ssp, taskName).isPresent());
   }
 
   @Test
@@ -162,18 +162,18 @@ public class TestStartpointManager {
     Assert.assertNotNull(startpoint4.getCreationTimestamp());
 
     // Test reads on non-existent keys
-    Assert.assertNull(startpointManager.readStartpoint(ssp));
-    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
+    Assert.assertFalse(startpointManager.readStartpoint(ssp).isPresent());
+    Assert.assertFalse(startpointManager.readStartpoint(ssp, taskName).isPresent());
 
     // Test writes
     Startpoint startpointFromStore;
     startpointManager.writeStartpoint(ssp, startpoint1);
     startpointManager.writeStartpoint(ssp, taskName, startpoint2);
-    startpointFromStore = startpointManager.readStartpoint(ssp);
+    startpointFromStore = startpointManager.readStartpoint(ssp).get();
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint1.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
     Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
-    startpointFromStore = startpointManager.readStartpoint(ssp, taskName);
+    startpointFromStore = startpointManager.readStartpoint(ssp, taskName).get();
     Assert.assertEquals(StartpointTimestamp.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint2.getTimestampOffset(), ((StartpointTimestamp) startpointFromStore).getTimestampOffset());
     Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
@@ -181,25 +181,25 @@ public class TestStartpointManager {
     // Test overwrites
     startpointManager.writeStartpoint(ssp, startpoint3);
     startpointManager.writeStartpoint(ssp, taskName, startpoint4);
-    startpointFromStore = startpointManager.readStartpoint(ssp);
+    startpointFromStore = startpointManager.readStartpoint(ssp).get();
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint3.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
     Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
-    startpointFromStore = startpointManager.readStartpoint(ssp, taskName);
+    startpointFromStore = startpointManager.readStartpoint(ssp, taskName).get();
     Assert.assertEquals(StartpointSpecific.class, startpointFromStore.getClass());
     Assert.assertEquals(startpoint4.getSpecificOffset(), ((StartpointSpecific) startpointFromStore).getSpecificOffset());
     Assert.assertTrue(startpointFromStore.getCreationTimestamp() <= Instant.now().toEpochMilli());
 
     // Test deletes on SSP keys does not affect SSP+TaskName keys
     startpointManager.deleteStartpoint(ssp);
-    Assert.assertNull(startpointManager.readStartpoint(ssp));
-    Assert.assertNotNull(startpointManager.readStartpoint(ssp, taskName));
+    Assert.assertFalse(startpointManager.readStartpoint(ssp).isPresent());
+    Assert.assertTrue(startpointManager.readStartpoint(ssp, taskName).isPresent());
 
     // Test deletes on SSP+TaskName keys does not affect SSP keys
     startpointManager.writeStartpoint(ssp, startpoint3);
     startpointManager.deleteStartpoint(ssp, taskName);
-    Assert.assertNull(startpointManager.readStartpoint(ssp, taskName));
-    Assert.assertNotNull(startpointManager.readStartpoint(ssp));
+    Assert.assertFalse(startpointManager.readStartpoint(ssp, taskName).isPresent());
+    Assert.assertTrue(startpointManager.readStartpoint(ssp).isPresent());
   }
 
   @Test
@@ -222,11 +222,11 @@ public class TestStartpointManager {
     startpointManager.writeStartpoint(sspSingle, startpoint42);
 
     // startpoint42 should remap with key sspBroadcast to all tasks + sspBroadcast
-    Set<TaskName> tasksFannedOutTo = startpointManager.fanOut(taskToSSPs);
+    Map<TaskName, Map<SystemStreamPartition, Startpoint>> tasksFannedOutTo = startpointManager.fanOut(taskToSSPs);
     Assert.assertEquals(tasks.size(), tasksFannedOutTo.size());
-    Assert.assertTrue(tasksFannedOutTo.containsAll(tasks));
-    Assert.assertNull("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast));
-    Assert.assertNull("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle));
+    Assert.assertTrue(tasksFannedOutTo.keySet().containsAll(tasks));
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast).isPresent());
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle).isPresent());
 
     for (TaskName taskName : tasks) {
       Map<SystemStreamPartition, Startpoint> fanOutForTask = startpointManager.getFanOutForTask(taskName);
@@ -284,14 +284,14 @@ public class TestStartpointManager {
     startpointManager.writeStartpoint(sspBroadcast, taskBroadcastInPast, startpointPast);
     startpointManager.writeStartpoint(sspBroadcast, taskBroadcastInFuture, startpointFuture);
 
-    Set<TaskName> fannedOut = startpointManager.fanOut(taskToSSPs);
+    Map<TaskName, Map<SystemStreamPartition, Startpoint>> fannedOut = startpointManager.fanOut(taskToSSPs);
     Assert.assertEquals(tasks.size(), fannedOut.size());
-    Assert.assertTrue(fannedOut.containsAll(tasks));
-    Assert.assertNull("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast));
-    for (TaskName taskName : fannedOut) {
-      Assert.assertNull("Should be deleted after fan out for task: " + taskName.getTaskName(), startpointManager.readStartpoint(sspBroadcast, taskName));
+    Assert.assertTrue(fannedOut.keySet().containsAll(tasks));
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast).isPresent());
+    for (TaskName taskName : fannedOut.keySet()) {
+      Assert.assertFalse("Should be deleted after fan out for task: " + taskName.getTaskName(), startpointManager.readStartpoint(sspBroadcast, taskName).isPresent());
     }
-    Assert.assertNull("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle));
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle).isPresent());
 
     for (TaskName taskName : tasks) {
       Map<SystemStreamPartition, Startpoint> fanOutForTask = startpointManager.getFanOutForTask(taskName);

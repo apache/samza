@@ -24,7 +24,6 @@ import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 
-
 /**
  * Startpoint represents a position in a stream partition.
  */
