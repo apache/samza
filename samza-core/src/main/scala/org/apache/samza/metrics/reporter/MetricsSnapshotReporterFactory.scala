@@ -86,7 +86,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val pollingInterval: Int = config
       .getMetricsSnapshotReporterInterval(name)
-      .toInt
 
     info("Setting polling interval to %d" format pollingInterval)
 

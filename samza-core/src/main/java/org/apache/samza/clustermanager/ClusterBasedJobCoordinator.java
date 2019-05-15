@@ -89,6 +89,7 @@ import scala.collection.JavaConverters;
 public class ClusterBasedJobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   private final Config config;
   private final ClusterManagerConfig clusterManagerConfig;
@@ -221,9 +222,10 @@ public class ClusterBasedJobCoordinator {
       LOG.info("Starting cluster based job coordinator");
 
       // write the diagnostics metadata file
+      String jobName = new JobConfig(config).getName().get();
+      String jobId = new JobConfig(config).getJobId();
       Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
-      DiagnosticsUtil.writeMetadataFile(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
-          "ApplicationMaster", execEnvContainerId, config);
+      DiagnosticsUtil.writeMetadataFile(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();

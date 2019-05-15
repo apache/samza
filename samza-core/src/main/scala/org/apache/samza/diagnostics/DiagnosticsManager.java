@@ -50,7 +50,6 @@ import scala.collection.JavaConverters;
  * Currently emits exception/error events obtained using a customer-appender that attaches to the root-logger.
  */
 public class DiagnosticsManager {
-
   private static final Logger LOG = LoggerFactory.getLogger(DiagnosticsManager.class);
   private static final Duration DEFAULT_PUBLISH_PERIOD = Duration.ofSeconds(60);
   // Period size for pushing data to the diagnostic stream
@@ -73,10 +72,7 @@ public class DiagnosticsManager {
   private BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
   private final ScheduledExecutorService scheduler; // Scheduler for pushing data to the diagnostic stream
   private final Duration terminationDuration; // duration to wait when terminating the scheduler
-
   private final SystemStream diagnosticSystemStream;
-
-
 
   public DiagnosticsManager(String jobName, String jobId, String containerId, String executionEnvContainerId,
       String taskClassVersion, String samzaVersion, String hostname, SystemStream diagnosticSystemStream,

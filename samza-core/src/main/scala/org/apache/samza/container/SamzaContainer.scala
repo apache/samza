@@ -1070,8 +1070,8 @@ class SamzaContainer(
   }
 
   def shutdownDiagnostics {
-    info("Shutting down diagnostics manager.")
     if (diagnosticsManager.isDefined) {
+      info("Shutting down diagnostics manager.")
       diagnosticsManager.get.stop()
     }
   }

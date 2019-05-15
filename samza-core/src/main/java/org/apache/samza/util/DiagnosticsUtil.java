@@ -21,6 +21,8 @@ package org.apache.samza.util;
 import java.io.File;
 import java.time.Duration;
 import java.util.Optional;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -42,8 +44,6 @@ import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-import scala.Tuple2;
-import scala.runtime.AbstractFunction0;
 
 
 public class DiagnosticsUtil {
@@ -66,7 +66,7 @@ public class DiagnosticsUtil {
               System.currentTimeMillis(), System.currentTimeMillis());
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
-      metadata.append("MetricsSnapshot: ");
+      metadata.append("ContainerMetadata: ");
       metadata.append(new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
       FileUtil.writeToTextFile(metadataFile.get(), metadata.toString(), false);
     } else {
@@ -80,16 +80,16 @@ public class DiagnosticsUtil {
    * if diagnostics is enabled.
    * execEnvContainerId is the ID assigned to the container by the cluster manager (e.g., YARN).
    */
-  public static Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName, String jobId,
+  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName, String jobId,
       String containerId, Optional<String> execEnvContainerId, Config config) {
 
-    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
+    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
     if (new JobConfig(config).getDiagnosticsEnabled()) {
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
-      Integer publishInterval = Integer.parseInt(new MetricsConfig(config).getMetricsSnapshotReporterInterval(diagnosticsReporterName));
+      Integer publishInterval = new MetricsConfig(config).getMetricsSnapshotReporterInterval(diagnosticsReporterName);
       String taskClassVersion = Util.getTaskClassVersion(config);
       String samzaVersion = Util.getSamzaVersion();
       String hostName = Util.getLocalHost().getHostName();
@@ -104,7 +104,7 @@ public class DiagnosticsUtil {
 
       Optional<String> diagnosticsSystemFactoryName = new SystemConfig(config).getSystemFactory(diagnosticsSystemStream.getSystem());
       if (!diagnosticsSystemFactoryName.isPresent()) {
-        throw new SamzaException("A stream uses system " + diagnosticsSystemStream.getSystem() + ", which is missing from the configuration.");
+        throw new SamzaException("Missing factory in config for system " + diagnosticsSystemStream.getSystem());
       }
 
       // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
@@ -116,14 +116,9 @@ public class DiagnosticsUtil {
       MetricsSnapshotReporter diagnosticsReporter =
           new MetricsSnapshotReporter(systemProducer, diagnosticsSystemStream, publishInterval, jobName, jobId,
               "samza-container-" + containerId, taskClassVersion, samzaVersion, hostName, new MetricsSnapshotSerdeV2(),
-              blacklist, new AbstractFunction0<Object>() {
-                @Override
-                  public Object apply() {
-                    return System.currentTimeMillis();
-                  }
-              });
+              blacklist, ScalaJavaUtil.toScalaFunction(() -> System.currentTimeMillis()));
 
-      diagnosticsManagerReporterPair = Optional.of(new Tuple2<>(diagnosticsManager, diagnosticsReporter));
+      diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
     }
 
     return diagnosticsManagerReporterPair;

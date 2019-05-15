@@ -77,7 +77,7 @@ object Util extends Logging {
     try {
       val taskClass = Option(new ApplicationConfig(config).getAppClass())
         .orElse(new TaskConfig(config).getTaskClass).get
-      Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
+      Class.forName(taskClass).getPackage.getImplementationVersion
     } catch {
       case e: Exception => {
         warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")

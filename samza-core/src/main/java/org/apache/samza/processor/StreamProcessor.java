@@ -31,9 +31,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfigJava;
@@ -61,7 +62,6 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-import scala.Tuple2;
 
 
 /**
@@ -338,11 +338,14 @@ public class StreamProcessor {
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
 
     // Creating diagnostics manager and reporter, and wiring it respectively
-    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(new ApplicationConfig(config).getAppName(), new ApplicationConfig(config).getAppId(), processorId, Optional.empty(), config);
+    String jobName = new JobConfig(config).getName().get();
+    String jobId = new JobConfig(config).getJobId();
+    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, processorId, Optional.empty(), config);
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
-      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());
-      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
+      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
+      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
     }
 
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),

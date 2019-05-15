@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager;
 
 import java.util.Optional;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -41,7 +42,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import scala.Option;
-import scala.Tuple2;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -64,6 +64,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ContainerProcessManager implements ClusterResourceManager.Callback   {
 
   private static final Logger log = LoggerFactory.getLogger(ContainerProcessManager.class);
+
+  /**
+   * Metrics for the {@link ContainerProcessManager}
+   */
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   /**
    * Does this Samza Job need hostAffinity when containers are allocated.
@@ -113,11 +118,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * value is the {@link ProcessorFailure} object that has a count of failures.
    */
   private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
-
-  /**
-   * Metrics for the {@link ContainerProcessManager}
-   */
-  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
   private ContainerProcessManagerMetrics containerProcessManagerMetrics;
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
@@ -138,13 +138,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.metricsReporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), METRICS_SOURCE_NAME);
 
     // Creating diagnostics manager and reporter, and wiring it respectively
+    String jobName = new JobConfig(config).getName().get();
+    String jobId = new JobConfig(config).getJobId();
     Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
-    Optional<Tuple2<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(new JobConfig(config).getName().get(),
-        new JobConfig(config).getJobId(), METRICS_SOURCE_NAME, execEnvContainerId, config);
+    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
 
     if (diagnosticsManagerReporterPair.isPresent()) {
-      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get()._1());
-      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get()._2());
+      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
+      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
     } else {
       diagnosticsManager = Option.empty();
     }
