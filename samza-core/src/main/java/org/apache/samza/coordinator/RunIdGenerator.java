@@ -49,7 +49,7 @@ public class RunIdGenerator {
   private final MetadataStore metadataStore;
   private final ClusterMembership clusterMembership;
   private String processorId = null;
-  private boolean closed = false;
+  private volatile boolean closed = false;
 
   public RunIdGenerator(CoordinationUtils coordinationUtils, MetadataStore metadataStore) {
     Preconditions.checkNotNull(coordinationUtils, "CoordinationUtils cannot be null");
@@ -102,7 +102,7 @@ public class RunIdGenerator {
    * might be called several times and hence should be idempotent
    */
   public void close() {
-    if (!closed && clusterMembership != null && processorId != null) {
+    if (!closed && processorId != null) {
       closed = true;
       clusterMembership.unregisterProcessor(processorId);
     }

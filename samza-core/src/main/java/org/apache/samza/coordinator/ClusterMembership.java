@@ -25,18 +25,24 @@ import org.apache.samza.annotation.InterfaceStability;
  * Coordination Primitive to maintain the list of processors in the quorum
  *
  * Guarantees:
- * 1. after registerProcessor, getNumberOfProcessors should return count inclusive of at least the current processor
- * 2. after unregisterProcessor, getNumberOfProcessors should return count exclusive of at least the current processor
+ * 1. operations are linearizable
+ * 2. registration persistence in the absence of connection errors
  *
  * Non-guarantees:
  * 1. thread safe
- * 2. concurrent access of the list
- * 3. persistence of membership across connection errors
+ * 2. concurrent access of the list of processors in the quorum
+ * 3. persistence of registration across connection errors
+ * 4. processorId as indicator of registration order
+ *
+ *  Implementor responsibilities:
+ * 1. registerProcessor returns a unique processorId
+ * 2. getNumberOfProcessors by a processor should reflect at least its own registration status
+ * 3. unregisterProcessor for a null or unregistered processorId is a no-op
  */
 @InterfaceStability.Evolving
 public interface ClusterMembership {
   /**
-   * add processor to the list
+   * add processor to the list of processors in the quorum
    * @return unique id of the processor registration
    */
   String registerProcessor();
@@ -47,8 +53,8 @@ public interface ClusterMembership {
   int getNumberOfProcessors();
 
   /**
-   * remove processor from the list
-   * @param processorId to be removed from list
+   * remove processor from the list of processors in the quorum
+   * @param processorId to be removed from the list
    */
   void unregisterProcessor(String processorId);
 }

@@ -125,46 +125,39 @@ public class LocalApplicationRunner implements ApplicationRunner {
     if (!isAppModeBatch) {
       return new LocalJobPlanner(appDesc, PROCESSOR_ID);
     }
-    CoordinationUtils coordinationUtils = null;
-    String runId = null;
-    if (this.coordinationUtils.isPresent()) {
-      coordinationUtils = this.coordinationUtils.get();
-    }
-    if (this.runId.isPresent()) {
-      runId = this.runId.get();
-    }
+    CoordinationUtils coordinationUtils = this.coordinationUtils.orElse(null);
+    String runId = this.runId.orElse(null);
     return new LocalJobPlanner(appDesc, coordinationUtils, PROCESSOR_ID, runId);
   }
 
 
   private void initializeRunId() {
+    if (!isAppModeBatch) {
+      LOG.info("Not BATCH mode and hence not generating run id");
+      return;
+    }
+
+    if (!coordinationUtils.isPresent()) {
+      LOG.warn("Coordination utils not present. Aborting run id generation. Will continue execution without a run id.");
+      return;
+    }
+
     try {
       MetadataStore metadataStore = getMetadataStore();
-      if (coordinationUtils.isPresent() && metadataStore != null) {
-        runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
-      }
-      if (!coordinationUtils.isPresent() || !isAppModeBatch || !runIdGenerator.isPresent()) {
-        LOG.warn("coordination utils or run id generator could not be created successfully!");
-        return;
-      }
-      runId = runIdGenerator.get().getRunId();
+      runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
+      runId = runIdGenerator.flatMap(RunIdGenerator::getRunId);
     } catch (Exception e) {
       LOG.warn("Failed to generate run id. Will continue execution without a run id. Caused by {}", e);
     }
   }
 
-  public String getRunid() {
-    if (runId.isPresent()) {
-      return runId.get();
-    }
-    return null;
+  public Optional<String> getRunId() {
+    return this.runId;
   }
 
   @Override
   public void run(ExternalContext externalContext) {
-    if (isAppModeBatch) {
-      initializeRunId();
-    }
+    initializeRunId();
 
     LocalJobPlanner planner = getPlanner();
 
