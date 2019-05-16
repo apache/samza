@@ -44,7 +44,7 @@ public class TestTableRateLimiter {
 
   public TableRateLimiter<String, String> getThrottler(String tag) {
     TableRateLimiter.CreditFunction<String, String> credFn =
-        (TableRateLimiter.CreditFunction<String, String>) (key, value) -> {
+        (TableRateLimiter.CreditFunction<String, String>) (key, value, args) -> {
       int credits = key == null ? 0 : 3;
       credits += value == null ? 0 : 3;
       return credits;
@@ -83,13 +83,29 @@ public class TestTableRateLimiter {
   }
 
   @Test
+  public void testCreditOpId() {
+    TableRateLimiter<String, String> rateLimitHelper = getThrottler();
+    Assert.assertEquals(1, rateLimitHelper.getCredits(1, 2));
+  }
+
+  @Test
   public void testThrottle() {
     TableRateLimiter<String, String> rateLimitHelper = getThrottler();
     Timer timer = mock(Timer.class);
     rateLimitHelper.setTimerMetric(timer);
+    int times = 0;
     rateLimitHelper.throttle("foo");
-    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMapOf(String.class, Integer.class));
-    verify(timer, times(1)).update(anyLong());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle("foo", "bar");
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle(Arrays.asList("foo", "bar"));
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle(1, 2);
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(timer, times(times)).update(anyLong());
   }
 
   @Test

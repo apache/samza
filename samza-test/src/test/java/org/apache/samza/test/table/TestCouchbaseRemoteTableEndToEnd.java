@@ -28,10 +28,12 @@ import com.couchbase.client.java.env.CouchbaseEnvironment;
 import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
 import com.couchbase.mock.BucketConfiguration;
 import com.couchbase.mock.CouchbaseMock;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -44,11 +46,13 @@ import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
+import org.apache.samza.table.remote.BaseTableFunction;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableWriteFunction;
 import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -132,23 +136,24 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
       GenericInputDescriptor<String> inputDescriptor =
           inputSystemDescriptor.getInputDescriptor("User", new NoOpSerde<>());
 
-      CouchbaseTableReadFunction<String> readFunction = new CouchbaseTableReadFunction<>(inputBucketName, String.class,
-          "couchbase://127.0.0.1").withBootstrapCarrierDirectPort(couchbaseMock.getCarrierPort(inputBucketName))
+      CouchbaseTableReadFunction<String> readFunction = new CouchbaseTableReadFunction<>(inputBucketName,
+              String.class, "couchbase://127.0.0.1")
+          .withBootstrapCarrierDirectPort(couchbaseMock.getCarrierPort(inputBucketName))
           .withBootstrapHttpDirectPort(couchbaseMock.getHttpPort())
           .withSerde(new StringSerde());
 
-      CouchbaseTableWriteFunction<JsonObject> writeFunction =
-          new CouchbaseTableWriteFunction<>(outputBucketName, JsonObject.class,
-              "couchbase://127.0.0.1").withBootstrapCarrierDirectPort(couchbaseMock.getCarrierPort(outputBucketName))
-              .withBootstrapHttpDirectPort(couchbaseMock.getHttpPort());
+      CouchbaseTableWriteFunction<JsonObject> writeFunction = new CouchbaseTableWriteFunction<>(outputBucketName,
+              JsonObject.class, "couchbase://127.0.0.1")
+          .withBootstrapCarrierDirectPort(couchbaseMock.getCarrierPort(outputBucketName))
+          .withBootstrapHttpDirectPort(couchbaseMock.getHttpPort());
 
-      RemoteTableDescriptor<String, String> inputTableDesc = new RemoteTableDescriptor<>("input-table");
-      inputTableDesc.withReadFunction(readFunction).withRateLimiterDisabled();
+      RemoteTableDescriptor inputTableDesc = new RemoteTableDescriptor<String, String>("input-table")
+          .withReadFunction(readFunction)
+          .withRateLimiterDisabled();
       Table<KV<String, String>> inputTable = appDesc.getTable(inputTableDesc);
 
-      RemoteTableDescriptor<String, JsonObject> outputTableDesc = new RemoteTableDescriptor<>("output-table");
-      outputTableDesc.withReadFunction(new DummyReadFunction<>())
-          .withWriteFunction(writeFunction)
+      RemoteTableDescriptor outputTableDesc = new RemoteTableDescriptor<String, JsonObject>("output-table")
+          .withReadFunction(new DummyReadFunction<>()).withWriteFunction(writeFunction)
           .withRateLimiterDisabled();
       Table<KV<String, JsonObject>> outputTable = appDesc.getTable(outputTableDesc);
 
@@ -189,7 +194,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
     }
   }
 
-  static class DummyReadFunction<K, V> implements TableReadFunction<K, V> {
+  static class DummyReadFunction<K, V> extends BaseTableFunction implements TableReadFunction<K, V> {
     @Override
     public CompletableFuture<V> getAsync(K key) {
       return null;

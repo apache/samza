@@ -95,9 +95,9 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
    * @param records result map
    * @return list of keys missed in the cache
    */
-  private List<K> lookupCache(List<K> keys, Map<K, V> records) {
+  private List<K> lookupCache(List<K> keys, Map<K, V> records, Object ... args) {
     List<K> missKeys = new ArrayList<>();
-    records.putAll(cache.getAll(keys));
+    records.putAll(cache.getAll(keys, args));
     keys.forEach(k -> {
         if (!records.containsKey(k)) {
           missKeys.add(k);
@@ -107,18 +107,18 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public V get(K key) {
+  public V get(K key, Object ... args) {
     try {
-      return getAsync(key).get();
+      return getAsync(key, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletableFuture<V> getAsync(K key, Object ... args) {
     incCounter(metrics.numGets);
-    V value = cache.get(key);
+    V value = cache.get(key, args);
     if (value != null) {
       hitCount.incrementAndGet();
       return CompletableFuture.completedFuture(value);
@@ -127,12 +127,12 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     long startNs = clock.nanoTime();
     missCount.incrementAndGet();
 
-    return table.getAsync(key).handle((result, e) -> {
+    return table.getAsync(key, args).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get the record for " + key, e);
         } else {
           if (result != null) {
-            cache.put(key, result);
+            cache.put(key, result, args);
           }
           updateTimer(metrics.getNs, clock.nanoTime() - startNs);
           return result;
@@ -141,16 +141,16 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public Map<K, V> getAll(List<K> keys) {
+  public Map<K, V> getAll(List<K> keys, Object ... args) {
     try {
-      return getAllAsync(keys).get();
+      return getAllAsync(keys, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
     incCounter(metrics.numGetAlls);
     // Make a copy of entries which might be immutable
     Map<K, V> getAllResult = new HashMap<>();
@@ -161,14 +161,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     }
 
     long startNs = clock.nanoTime();
-    return table.getAllAsync(missingKeys).handle((records, e) -> {
+    return table.getAllAsync(missingKeys, args).handle((records, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to get records for " + keys, e);
         } else {
           if (records != null) {
             cache.putAll(records.entrySet().stream()
                 .map(r -> new Entry<>(r.getKey(), r.getValue()))
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList()), args);
             getAllResult.putAll(records);
           }
           updateTimer(metrics.getAllNs, clock.nanoTime() - startNs);
@@ -178,28 +178,28 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void put(K key, V value) {
+  public void put(K key, V value, Object ... args) {
     try {
-      putAsync(key, value).get();
+      putAsync(key, value, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
     incCounter(metrics.numPuts);
     Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
 
     long startNs = clock.nanoTime();
-    return table.putAsync(key, value).handle((result, e) -> {
+    return table.putAsync(key, value, args).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
         } else if (!isWriteAround) {
           if (value == null) {
-            cache.delete(key);
+            cache.delete(key, args);
           } else {
-            cache.put(key, value);
+            cache.put(key, value, args);
           }
         }
         updateTimer(metrics.putNs, clock.nanoTime() - startNs);
@@ -208,24 +208,24 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void putAll(List<Entry<K, V>> records) {
+  public void putAll(List<Entry<K, V>> records, Object ... args) {
     try {
-      putAllAsync(records).get();
+      putAllAsync(records, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records, Object ... args) {
     incCounter(metrics.numPutAlls);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
-    return table.putAllAsync(records).handle((result, e) -> {
+    return table.putAllAsync(records, args).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to put records " + records, e);
         } else if (!isWriteAround) {
-          cache.putAll(records);
+          cache.putAll(records, args);
         }
 
         updateTimer(metrics.putAllNs, clock.nanoTime() - startNs);
@@ -234,24 +234,24 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void delete(K key) {
+  public void delete(K key, Object ... args) {
     try {
-      deleteAsync(key).get();
+      deleteAsync(key, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
     incCounter(metrics.numDeletes);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
-    return table.deleteAsync(key).handle((result, e) -> {
+    return table.deleteAsync(key, args).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to delete the record for " + key, e);
         } else if (!isWriteAround) {
-          cache.delete(key);
+          cache.delete(key, args);
         }
         updateTimer(metrics.deleteNs, clock.nanoTime() - startNs);
         return result;
@@ -259,27 +259,53 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void deleteAll(List<K> keys) {
+  public void deleteAll(List<K> keys, Object ... args) {
     try {
-      deleteAllAsync(keys).get();
+      deleteAllAsync(keys, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
     incCounter(metrics.numDeleteAlls);
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
-    return table.deleteAllAsync(keys).handle((result, e) -> {
+    return table.deleteAllAsync(keys, args).handle((result, e) -> {
         if (e != null) {
           throw new SamzaException("Failed to delete the record for " + keys, e);
         } else if (!isWriteAround) {
-          cache.deleteAll(keys);
+          cache.deleteAll(keys, args);
         }
         updateTimer(metrics.deleteAllNs, clock.nanoTime() - startNs);
         return result;
+      });
+  }
+
+  @Override
+  public <T> CompletableFuture<T> readAsync(int opId, Object... args) {
+    incCounter(metrics.numReads);
+    long startNs = clock.nanoTime();
+    return table.readAsync(opId, args).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to read, opId=" + opId, e);
+        }
+        updateTimer(metrics.readNs, clock.nanoTime() - startNs);
+        return (T) result;
+      });
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
+    incCounter(metrics.numWrites);
+    long startNs = clock.nanoTime();
+    return table.writeAsync(opId, args).handle((result, e) -> {
+        if (e != null) {
+          throw new SamzaException("Failed to write, opId=" + opId, e);
+        }
+        updateTimer(metrics.writeNs, clock.nanoTime() - startNs);
+        return (T) result;
       });
   }
 

@@ -111,17 +111,17 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testSerializeWithLimiterAndReadCredFn() {
-    doTestSerialize(createMockRateLimiter(), (k, v) -> 1, null);
+    doTestSerialize(createMockRateLimiter(), (k, v, args) -> 1, null);
   }
 
   @Test
   public void testSerializeWithLimiterAndWriteCredFn() {
-    doTestSerialize(createMockRateLimiter(), null, (k, v) -> 1);
+    doTestSerialize(createMockRateLimiter(), null, (k, v, args) -> 1);
   }
 
   @Test
   public void testSerializeWithLimiterAndReadWriteCredFns() {
-    doTestSerialize(createMockRateLimiter(), (key, value) -> 1, (key, value) -> 1);
+    doTestSerialize(createMockRateLimiter(), (key, value, args) -> 1, (key, value, args) -> 1);
   }
 
   @Test
@@ -263,7 +263,7 @@ public class TestRemoteTableDescriptor {
     int numCalls = 0;
 
     @Override
-    public int getCredits(K key, V value) {
+    public int getCredits(K key, V value, Object ... args) {
       numCalls++;
       return 1;
     }

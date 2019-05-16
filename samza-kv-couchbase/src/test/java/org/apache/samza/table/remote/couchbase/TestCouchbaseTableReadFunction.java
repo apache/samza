@@ -28,16 +28,23 @@ import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
 import com.couchbase.client.java.error.TemporaryFailureException;
 import com.couchbase.client.java.error.TemporaryLockFailureException;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.table.AsyncReadWriteTable;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+
 import rx.Observable;
 
 import static org.junit.Assert.*;
@@ -176,7 +183,7 @@ public class TestCouchbaseTableReadFunction {
         CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
     CouchbaseTableReadFunction<V> readFunction =
         new CouchbaseTableReadFunction<>(DEFAULT_BUCKET_NAME, valueClass, DEFAULT_CLUSTER_NODE).withSerde(serde);
-    readFunction.init(null);
+    readFunction.init(mock(Context.class), mock(AsyncReadWriteTable.class));
     return readFunction;
   }
 }
