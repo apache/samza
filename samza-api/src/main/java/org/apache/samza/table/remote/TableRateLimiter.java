@@ -74,7 +74,7 @@ public class TableRateLimiter<K, V> {
      * @param args additional arguments
      * @return number of credits
      */
-    default int getCredit(int opId, Object ... args) {
+    default int getCredits(int opId, Object ... args) {
       return 1;
     }
   }
@@ -124,7 +124,7 @@ public class TableRateLimiter<K, V> {
   }
 
   int getCredits(int opId, Object ... args) {
-    return (creditFn == null) ? 1 : creditFn.getCredit(opId, args);
+    return (creditFn == null) ? 1 : creditFn.getCredits(opId, args);
   }
 
   private void throttle(int credits) {

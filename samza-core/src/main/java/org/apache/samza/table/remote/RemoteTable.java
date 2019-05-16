@@ -193,6 +193,15 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
+  public <T> T read(int opId, Object ... args) {
+    try {
+      return (T) readAsync(opId, args).get();
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  @Override
   public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
     return (CompletableFuture<T>) instrument(() -> asyncTable.readAsync(opId, args), metrics.numReads, metrics.readNs)
         .exceptionally(e -> {
@@ -301,6 +310,15 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
         .exceptionally(e -> {
             throw new SamzaException(String.format("Failed to delete records for " + keys), e);
           });
+  }
+
+  @Override
+  public <T> T write(int opId, Object ... args) {
+    try {
+      return (T) writeAsync(opId, args).get();
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
   }
 
   @Override

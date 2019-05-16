@@ -186,6 +186,43 @@ public class TestRemoteTable {
           });
   }
 
+  public void doTestRead(boolean sync, boolean error) {
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    RemoteTable<String, String> table = getTable("testRead-" + sync + error,
+        readFn, mock(TableWriteFunction.class), false);
+    CompletableFuture<?> future;
+    if (error) {
+      future = new CompletableFuture();
+      future.completeExceptionally(new RuntimeException("Test exception"));
+    } else {
+      future = CompletableFuture.completedFuture(5);
+    }
+    // Sync is backed by async so needs to mock the async method
+    doReturn(future).when(readFn).readAsync(anyInt(), any());
+
+    int readResult = sync
+        ? table.read(1, 2)
+        : (Integer) table.readAsync(1, 2).join();
+    verify(readFn, times(1)).readAsync(anyInt(), any());
+    Assert.assertEquals(5, readResult);
+    verify(table.readRateLimiter, times(1)).throttle(anyInt(), any());
+  }
+
+  @Test
+  public void testRead() {
+    doTestRead(true, false);
+  }
+
+  @Test
+  public void testReadAsync() {
+    doTestRead(false, false);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testReadAsyncError() {
+    doTestRead(false, true);
+  }
+
   private void doTestPut(boolean sync, boolean error, boolean isDelete, boolean retry) {
     String tableId = "testPut-" + sync + error + isDelete + retry;
     TableWriteFunction<String, String> mockWriteFn = mock(TableWriteFunction.class);
@@ -449,6 +486,43 @@ public class TestRemoteTable {
   @Test(expected = RuntimeException.class)
   public void testDeleteAllAsyncError() {
     doTestDeleteAll(false, true);
+  }
+
+  public void doTestWrite(boolean sync, boolean error) {
+    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    RemoteTable<String, String> table = getTable("testWrite-" + sync + error,
+        mock(TableReadFunction.class), writeFn, false);
+    CompletableFuture<?> future;
+    if (error) {
+      future = new CompletableFuture();
+      future.completeExceptionally(new RuntimeException("Test exception"));
+    } else {
+      future = CompletableFuture.completedFuture(5);
+    }
+    // Sync is backed by async so needs to mock the async method
+    doReturn(future).when(writeFn).writeAsync(anyInt(), any());
+
+    int writeResult = sync
+        ? table.write(1, 2)
+        : (Integer) table.writeAsync(1, 2).join();
+    verify(writeFn, times(1)).writeAsync(anyInt(), any());
+    Assert.assertEquals(5, writeResult);
+    verify(table.writeRateLimiter, times(1)).throttle(anyInt(), any());
+  }
+
+  @Test
+  public void testWrite() {
+    doTestWrite(true, false);
+  }
+
+  @Test
+  public void testWriteAsync() {
+    doTestWrite(false, false);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testWriteAsyncError() {
+    doTestWrite(false, true);
   }
 
   @Test

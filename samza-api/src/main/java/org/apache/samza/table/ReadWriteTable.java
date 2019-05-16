@@ -21,6 +21,7 @@ package org.apache.samza.table;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
@@ -52,6 +53,19 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
   Map<K, V> getAll(List<K> keys, Object ... args);
+
+  /**
+   * Executes a read operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return read result
+   */
+
+  default <T> T read(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Updates the mapping of the specified key-value pair;
@@ -94,4 +108,16 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
   void deleteAll(List<K> keys, Object ... args);
+
+  /**
+   * Executes a write operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return write result
+   */
+  default <T> T write(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 }

@@ -38,6 +38,7 @@ package org.apache.samza.table.remote;
 
 import java.io.Serializable;
 
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -46,6 +47,7 @@ import org.apache.samza.table.AsyncReadWriteTable;
 /**
  * The root interface for table read and write function.
  */
+@InterfaceStability.Unstable
 public interface TableFunction extends TablePart, ClosableFunction, Serializable {
 
   /**
