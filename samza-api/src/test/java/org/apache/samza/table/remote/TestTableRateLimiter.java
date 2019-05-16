@@ -113,6 +113,6 @@ public class TestTableRateLimiter {
     TableRateLimiter<String, String> rateLimitHelper = getThrottler("unknown_tag");
     rateLimitHelper.throttle("foo");
     verify(rateLimitHelper.rateLimiter, times(0)).acquire(anyInt());
-    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMapOf(String.class, Integer.class));
   }
 }
