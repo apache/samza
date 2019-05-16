@@ -72,7 +72,6 @@ public class StartpointManager {
   private static final Logger LOG = LoggerFactory.getLogger(StartpointManager.class);
   private static final String NAMESPACE_FAN_OUT = NAMESPACE + "-fan-out";
 
-  private final MetadataStore metadataStore;
   private final NamespaceAwareCoordinatorStreamStore fanOutStore;
   private final NamespaceAwareCoordinatorStreamStore readWriteStore;
   private final ObjectMapper objectMapper = StartpointObjectMapper.getObjectMapper();
@@ -90,12 +89,10 @@ public class StartpointManager {
   public StartpointManager(MetadataStore metadataStore) {
     Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
 
-    this.metadataStore = metadataStore;
     this.readWriteStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE);
     this.fanOutStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE_FAN_OUT);
-    LOG.info("Lifecycle of metadata store: {} is managed externally", metadataStore.getClass().getCanonicalName());
-    LOG.info("Startpoints are written to namespace: {} and fanned out to namespace: {} in the metadata store", NAMESPACE,
-        NAMESPACE_FAN_OUT);
+    LOG.info("Startpoints are written to namespace: {} and fanned out to namespace: {} in the metadata store of type: {}",
+        NAMESPACE, NAMESPACE_FAN_OUT, metadataStore.getClass().getCanonicalName());
   }
 
   /**
@@ -157,7 +154,8 @@ public class StartpointManager {
   /**
    * Returns the last {@link Startpoint} that defines the start position for a {@link SystemStreamPartition}.
    * @param ssp The {@link SystemStreamPartition} to fetch the {@link Startpoint} for.
-   * @return {@link Startpoint} for the {@link SystemStreamPartition}, or null if it does not exist or if it is too stale
+   * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition}.
+   *         It is empty if it does not exist or if it is too stale.
    */
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp) {
     return readStartpoint(ssp, null);
@@ -167,7 +165,8 @@ public class StartpointManager {
    * Returns the {@link Startpoint} for a {@link SystemStreamPartition} and {@link TaskName}.
    * @param ssp The {@link SystemStreamPartition} to fetch the {@link Startpoint} for.
    * @param taskName The {@link TaskName} to fetch the {@link Startpoint} for.
-   * @return {@link Startpoint} for the {@link SystemStreamPartition}, or null if it does not exist or if it is too stale.
+   * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition} and {@link TaskName}.
+   *         It is empty if it does not exist or if it is too stale.
    */
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
@@ -305,11 +304,6 @@ public class StartpointManager {
     Preconditions.checkNotNull(taskName, "TaskName cannot be null");
 
     fanOutStore.delete(toFanOutStoreKey(taskName));
-  }
-
-  @VisibleForTesting
-  MetadataStore getMetadataStore() {
-    return metadataStore;
   }
 
   @VisibleForTesting

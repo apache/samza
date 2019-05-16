@@ -34,6 +34,10 @@ import org.codehaus.jackson.map.annotate.JsonSerialize;
  * {@link org.apache.samza.container.TaskName}
  */
 class StartpointFanOutPerTask {
+  // TODO: Remove the @JsonSerialize and @JsonDeserialize annotations and use the SimpleModule#addKeySerializer and
+  //  SimpleModule#addKeyDeserializer methods in StartpointObjectMapper after upgrading jackson version.
+  //  Those methods do not work on nested maps with the current version (1.9.13) of jackson.
+
   @JsonSerialize
   @JsonDeserialize
   private final Instant timestamp;

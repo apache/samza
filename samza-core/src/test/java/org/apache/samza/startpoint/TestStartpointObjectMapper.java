@@ -19,11 +19,14 @@
 package org.apache.samza.startpoint;
 
 import java.io.IOException;
+import java.time.Instant;
+import org.apache.samza.Partition;
+import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class TestStartpointSerde {
+public class TestStartpointObjectMapper {
   private static final ObjectMapper MAPPER = StartpointObjectMapper.getObjectMapper();
 
   @Test
@@ -62,5 +65,19 @@ public class TestStartpointSerde {
 
     Assert.assertEquals(startpointUpcoming.getClass(), startpointFromSerde.getClass());
     Assert.assertEquals(startpointUpcoming.getCreationTimestamp(), startpointFromSerde.getCreationTimestamp());
+  }
+
+  @Test
+  public void testFanOutSerde() throws IOException {
+    StartpointFanOutPerTask startpointFanOutPerTask = new StartpointFanOutPerTask(Instant.now().minusSeconds(60));
+    startpointFanOutPerTask.getFanOuts()
+        .put(new SystemStreamPartition("system1", "stream1", new Partition(1)), new StartpointUpcoming());
+    startpointFanOutPerTask.getFanOuts()
+        .put(new SystemStreamPartition("system2", "stream2", new Partition(2)), new StartpointOldest());
+
+    String serialized = MAPPER.writeValueAsString(startpointFanOutPerTask);
+    StartpointFanOutPerTask startpointFanOutPerTaskFromSerde = MAPPER.readValue(serialized, StartpointFanOutPerTask.class);
+
+    Assert.assertEquals(startpointFanOutPerTask, startpointFanOutPerTaskFromSerde);
   }
 }

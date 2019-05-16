@@ -30,6 +30,9 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
 @InterfaceStability.Evolving
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "@type")
 public abstract class Startpoint {
+  // TODO: Remove the @JsonTypeInfo annotation and use the ObjectMapper#enableDefaultTyping method in
+  //  StartpointObjectMapper after upgrading jackson version. That method does not add the appropriate type info to the
+  //  serialized json with the current version (1.9.13) of jackson.
 
   private final long creationTimestamp;
 

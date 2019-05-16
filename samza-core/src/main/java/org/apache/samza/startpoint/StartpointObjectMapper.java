@@ -29,6 +29,7 @@ import org.codehaus.jackson.map.JsonDeserializer;
 import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.SerializerProvider;
+import org.codehaus.jackson.map.jsontype.NamedType;
 import org.codehaus.jackson.map.module.SimpleModule;
 
 
@@ -39,12 +40,16 @@ class StartpointObjectMapper {
     SimpleModule module = new SimpleModule("StartpointModule", new Version(1, 0, 0, ""));
     module.addSerializer(Instant.class, new CustomInstantSerializer());
     module.addDeserializer(Instant.class, new CustomInstantDeserializer());
-
     objectMapper.registerModule(module);
-    objectMapper.registerSubtypes(StartpointSpecific.class);
-    objectMapper.registerSubtypes(StartpointTimestamp.class);
-    objectMapper.registerSubtypes(StartpointUpcoming.class);
-    objectMapper.registerSubtypes(StartpointOldest.class);
+
+    // 1. To support polymorphism for serialization, the Startpoint subtypes must be registered here.
+    // 2. The NamedType container class provides a logical name as an external identifier so that the full canonical
+    //    class name is not serialized into the json type property.
+    objectMapper.registerSubtypes(new NamedType(StartpointSpecific.class));
+    objectMapper.registerSubtypes(new NamedType(StartpointTimestamp.class));
+    objectMapper.registerSubtypes(new NamedType(StartpointUpcoming.class));
+    objectMapper.registerSubtypes(new NamedType(StartpointOldest.class));
+
     return objectMapper;
   }
 

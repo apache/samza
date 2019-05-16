@@ -68,7 +68,6 @@ public class TestStartpointManager {
   public void testDefaultMetadataStore() {
     StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
     Assert.assertNotNull(startpointManager);
-    Assert.assertEquals(CoordinatorStreamStore.class, startpointManager.getMetadataStore().getClass());
     Assert.assertEquals(NamespaceAwareCoordinatorStreamStore.class, startpointManager.getReadWriteStore().getClass());
     Assert.assertEquals(NamespaceAwareCoordinatorStreamStore.class, startpointManager.getFanOutStore().getClass());
   }
