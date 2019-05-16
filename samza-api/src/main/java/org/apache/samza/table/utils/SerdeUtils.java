@@ -73,6 +73,7 @@ public final class SerdeUtils {
 
   /**
    * Helper method to serialize Java objects as json strings
+   * @param name name of object used for logging
    * @param object object to be serialized
    * @return Json representation of the object
    */
