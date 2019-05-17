@@ -26,9 +26,9 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
+import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.storage.SideInputsProcessor;
@@ -290,7 +290,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     assertEquals(numSerdes, serializers.size());
     return serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
+        e -> e.getKey().replace(JavaSerializerConfig.SERIALIZED_INSTANCE_SUFFIX, ""),
         e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
     ));
   }

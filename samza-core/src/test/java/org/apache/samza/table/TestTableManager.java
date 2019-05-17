@@ -20,9 +20,9 @@ package org.apache.samza.table;
 
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.context.MockContext;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.Serde;
@@ -108,14 +108,14 @@ public class TestTableManager {
 
   private void addKeySerde(Map<String, String> map) {
     String serdeId = "key-serde";
-    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
+    map.put(String.format(JavaSerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeId),
         serializeSerde(new IntegerSerde()));
     map.put(String.format(JavaTableConfig.STORE_KEY_SERDE, TABLE_ID), serdeId);
   }
 
   private void addValueSerde(Map<String, String> map) {
     String serdeId = "value-serde";
-    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
+    map.put(String.format(JavaSerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeId),
             serializeSerde(new StringSerde("UTF-8")));
     map.put(String.format(JavaTableConfig.STORE_MSG_SERDE, TABLE_ID), serdeId);
   }

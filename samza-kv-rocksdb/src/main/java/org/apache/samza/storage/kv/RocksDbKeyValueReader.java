@@ -23,7 +23,6 @@ import java.io.File;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaSerializerConfig;
-import org.apache.samza.config.SerializerConfig$;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
@@ -117,10 +116,8 @@ public class RocksDbKeyValueReader {
    * @return a Serde of this serde name
    */
   private Serde<Object> getSerdeFromName(String name, JavaSerializerConfig serializerConfig) {
-    String serdeClassName = serializerConfig.getSerdeClass(name);
-    if (serdeClassName == null) {
-      serdeClassName = SerializerConfig$.MODULE$.getSerdeFactoryName(name);
-    }
+    String serdeClassName =
+        serializerConfig.getSerdeClass(name).orElseGet(() -> JavaSerializerConfig.getSerdeFactoryName(name));
     return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
 }

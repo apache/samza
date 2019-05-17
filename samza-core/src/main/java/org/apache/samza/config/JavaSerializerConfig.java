@@ -21,20 +21,51 @@ package org.apache.samza.config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import org.apache.samza.SamzaException;
+import org.apache.samza.serializers.ByteBufferSerdeFactory;
+import org.apache.samza.serializers.ByteSerdeFactory;
+import org.apache.samza.serializers.DoubleSerdeFactory;
+import org.apache.samza.serializers.IntegerSerdeFactory;
+import org.apache.samza.serializers.JsonSerdeFactory;
+import org.apache.samza.serializers.LongSerdeFactory;
+import org.apache.samza.serializers.SerializableSerdeFactory;
+import org.apache.samza.serializers.StringSerdeFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
- * java version of the SerializerConfig
+ * Provides helpers for accessing configs related to serialization and deserialization.
  */
 public class JavaSerializerConfig extends MapConfig {
-  private final static String SERIALIZER_PREFIX = "serializers.registry.%s";
-  private final static String SERDE = "serializers.registry.%s.class";
+  public static final Logger LOGGER = LoggerFactory.getLogger(JavaSerializerConfig.class);
+
+  public static final String SERIALIZER_PREFIX = "serializers.registry.%s";
+  public static final String SERDE_FACTORY_CLASS = SERIALIZER_PREFIX + ".class";
+  public static final String SERIALIZED_INSTANCE_SUFFIX = ".samza.serialized.instance";
+  public static final String SERDE_SERIALIZED_INSTANCE = SERIALIZER_PREFIX + SERIALIZED_INSTANCE_SUFFIX;
 
   public JavaSerializerConfig(Config config) {
     super(config);
   }
 
-  public String getSerdeClass(String name) {
-    return get(String.format(SERDE, name), null);
+  /**
+   * Returns the pre-defined serde factory class name for the provided serde name. If no pre-defined factory exists,
+   * throws an exception.
+   */
+  public static String getSerdeFactoryName(String serdeName) {
+    String serdeFactoryName = doGetSerdeFactoryName(serdeName);
+    LOGGER.info(String.format("Using default serde %s for serde name %s", serdeFactoryName, serdeName));
+    return serdeFactoryName;
+  }
+
+  /**
+   * @param name name of the serde in the config
+   * @return serde factory class name for {@code name}; empty if no class was found in the config
+   */
+  public Optional<String> getSerdeClass(String name) {
+    return Optional.ofNullable(get(String.format(SERDE_FACTORY_CLASS, name), null));
   }
 
   /**
@@ -50,5 +81,28 @@ public class JavaSerializerConfig extends MapConfig {
       }
     }
     return results;
+  }
+
+  private static String doGetSerdeFactoryName(String serdeName) {
+    switch (serdeName) {
+      case "byte":
+        return ByteSerdeFactory.class.getCanonicalName();
+      case "bytebuffer":
+        return ByteBufferSerdeFactory.class.getCanonicalName();
+      case "integer":
+        return IntegerSerdeFactory.class.getCanonicalName();
+      case "json":
+        return JsonSerdeFactory.class.getCanonicalName();
+      case "long":
+        return LongSerdeFactory.class.getCanonicalName();
+      case "serializable":
+        return SerializableSerdeFactory.class.getCanonicalName();
+      case "string":
+        return StringSerdeFactory.class.getCanonicalName();
+      case "double":
+        return DoubleSerdeFactory.class.getCanonicalName();
+      default:
+        throw new SamzaException(String.format("No pre-defined factory class name for serde name %s", serdeName));
+    }
   }
 }

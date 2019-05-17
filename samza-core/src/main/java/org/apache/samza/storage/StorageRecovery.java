@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
@@ -48,13 +48,11 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.CoordinatorStreamUtil;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
 
 
 /**
@@ -184,19 +182,15 @@ public class StorageRecovery extends CommandLine {
 
   private Map<String, Serde<Object>> getSerdes() {
     Map<String, Serde<Object>> serdeMap = new HashMap<>();
-    SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
+    JavaSerializerConfig serializerConfig = new JavaSerializerConfig(jobConfig);
 
     // Adding all serdes from factories
-    ScalaJavaUtil.toJavaCollection(serializerConfig.getSerdeNames())
+    serializerConfig.getSerdeNames()
         .stream()
         .forEach(serdeName -> {
-            Option<String> serdeClassName = serializerConfig.getSerdeClass(serdeName);
-
-            if (serdeClassName.isEmpty()) {
-              serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
-            }
-
-            Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class).getSerde(serdeName, serializerConfig);
+            String serdeClassName = serializerConfig.getSerdeClass(serdeName)
+              .orElseGet(() -> JavaSerializerConfig.getSerdeFactoryName(serdeName));
+            Serde serde = Util.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
 
