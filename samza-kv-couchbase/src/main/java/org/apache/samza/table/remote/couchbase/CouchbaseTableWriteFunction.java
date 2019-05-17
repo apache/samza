@@ -24,15 +24,21 @@ import com.couchbase.client.java.document.BinaryDocument;
 import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
+
 import com.google.common.base.Preconditions;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
+import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.remote.TableWriteFunction;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Single;
 import rx.SingleSubscriber;
 
@@ -45,6 +51,7 @@ import rx.SingleSubscriber;
  */
 public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V>
     implements TableWriteFunction<String, V> {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseTableWriteFunction.class);
 
   /**
@@ -59,8 +66,8 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
   }
 
   @Override
-  public void init(Context context) {
-    super.init(context);
+  public void init(Context context, AsyncReadWriteTable table) {
+    super.init(context, table);
     LOGGER.info("Write function for bucket {} initialized successfully", bucketName);
   }
 
@@ -83,10 +90,10 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
         String.format("Failed to delete key %s from bucket %s.", key, bucketName));
   }
 
-  /**
+  /*
    * Helper method for putAsync and deleteAsync to convert Single to CompletableFuture.
    */
-  private CompletableFuture<Void> asyncWriteHelper(Single<? extends Document<?>> single, String errorMessage) {
+  protected CompletableFuture<Void> asyncWriteHelper(Single<? extends Document<?>> single, String errorMessage) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     single.subscribe(new SingleSubscriber<Document>() {
       @Override

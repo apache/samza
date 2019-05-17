@@ -25,8 +25,7 @@ import org.apache.samza.table.utils.TableMetricsUtil;
 
 
 /**
- * Wrapper of retry-related metrics common to both {@link RetriableReadFunction} and
- * {@link RetriableWriteFunction}.
+ * Retry-related metrics
  */
 class RetryMetrics {
   /**
