@@ -75,19 +75,11 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
     info("Process job. using fwkPath = " + fwkPath)
 
-    val commandBuilder = {
-      config.getCommandClass match {
-        case Some(cmdBuilderClassName) => {
-          // A command class was specified, so we need to use a process job to
-          // execute the command in its own process.
-          Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
-        }
-        case _ => {
-          info("Defaulting to ShellCommandBuilder")
-          new ShellCommandBuilder
-        }
-      }
-    }
+    val taskConfig = new TaskConfigJava(config)
+    val commandBuilderClass = taskConfig.getCommandClass(classOf[ShellCommandBuilder].getName)
+    info("Using command builder class %s" format commandBuilderClass)
+    val commandBuilder = Util.getObj(commandBuilderClass, classOf[CommandBuilder])
+
     // JobCoordinator is stopped by ProcessJob when it exits
     coordinator.start
 

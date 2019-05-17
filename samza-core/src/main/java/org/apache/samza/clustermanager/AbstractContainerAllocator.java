@@ -22,6 +22,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.job.ShellCommandBuilder;
 import org.apache.samza.util.Util;
@@ -50,7 +51,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   /**
    * Config and derived config objects
    */
-  private final TaskConfig taskConfig;
+  private final TaskConfigJava taskConfig;
 
   private final Config config;
 
@@ -88,7 +89,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.resourceRequestState = resourceRequestState;
     this.containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
     this.containerNumCpuCores = clusterManagerConfig.getNumCores();
-    this.taskConfig = new TaskConfig(config);
+    this.taskConfig = new TaskConfigJava(config);
     this.state = state;
     this.config = config;
   }

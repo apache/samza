@@ -42,6 +42,7 @@ import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, Names
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.execution.JobPlanner
 import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.mutable.ListBuffer
 
@@ -173,13 +174,12 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     combinedConfigMap.putAll(userDefinedConfig)
     val combinedConfig: Config = new MapConfig(combinedConfigMap)
 
+    val taskConfig = new TaskConfigJava(combinedConfig)
     // Instantiate the checkpoint manager with coordinator stream configuration.
-    val checkpointManager: CheckpointManager = combinedConfig.getCheckpointManagerFactory() match {
-      case Some(className) =>
-        Util.getObj(className, classOf[CheckpointManagerFactory])
-          .getCheckpointManager(combinedConfig, new MetricsRegistryMap)
-      case _ =>
-        throw new SamzaException("Configuration: task.checkpoint.factory is not defined.")
+    val checkpointManager: CheckpointManager =
+      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap)).toOption match {
+        case Some(manager) => manager
+        case _ => throw new SamzaException("Configuration: task.checkpoint.factory is not defined.")
     }
     try {
       // Find all the TaskNames that would be generated for this job config

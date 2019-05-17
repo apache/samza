@@ -21,6 +21,7 @@ package org.apache.samza.container;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.RunLoop;
 import org.apache.samza.util.HighResolutionClock;
@@ -42,14 +43,14 @@ public class RunLoopFactory {
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      TaskConfig config,
+      TaskConfigJava taskConfig,
       HighResolutionClock clock) {
 
-    long taskWindowMs = config.getWindowMs();
+    long taskWindowMs = taskConfig.getWindowMs();
 
     log.info("Got window milliseconds: {}.", taskWindowMs);
 
-    long taskCommitMs = config.getCommitMs();
+    long taskCommitMs = taskConfig.getCommitMs();
 
     log.info("Got commit milliseconds: {}.", taskCommitMs);
 
@@ -65,16 +66,16 @@ public class RunLoopFactory {
       throw new SamzaException("Mixing StreamTask and AsyncStreamTask is not supported");
     }
 
-    int taskMaxConcurrency = config.getMaxConcurrency();
+    int taskMaxConcurrency = taskConfig.getMaxConcurrency();
     log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
 
-    boolean isAsyncCommitEnabled = config.getAsyncCommit();
+    boolean isAsyncCommitEnabled = taskConfig.getAsyncCommit();
     log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
 
-    long callbackTimeout = config.getCallbackTimeoutMs();
+    long callbackTimeout = taskConfig.getCallbackTimeoutMs();
     log.info("Got callbackTimeout: {}.", callbackTimeout);
 
-    long maxIdleMs = config.getMaxIdleMs();
+    long maxIdleMs = taskConfig.getMaxIdleMs();
     log.info("Got maxIdleMs: {}.", maxIdleMs);
 
     log.info("Run loop in asynchronous mode.");

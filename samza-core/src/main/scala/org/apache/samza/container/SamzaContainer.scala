@@ -401,7 +401,8 @@ object SamzaContainer extends Logging {
 
     info("Setting up message chooser.")
 
-    val chooserFactoryClassName = config.getMessageChooserClass.getOrElse(classOf[RoundRobinChooserFactory].getName)
+    val taskConfig = new TaskConfigJava(config)
+    val chooserFactoryClassName = taskConfig.getMessageChooserClass.orElse(classOf[RoundRobinChooserFactory].getName)
 
     val chooserFactory = Util.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
 
@@ -422,11 +423,8 @@ object SamzaContainer extends Logging {
     }
     info("Got security manager: %s" format securityManager)
 
-    val checkpointManager = config.getCheckpointManagerFactory()
-      .filterNot(_.isEmpty)
-      .map(Util.getObj(_, classOf[CheckpointManagerFactory])
-        .getCheckpointManager(config, samzaContainerMetrics.registry))
-      .orNull
+    val checkpointManager =
+      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(samzaContainerMetrics.registry)).toOption.orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
     // create a map of consumers with callbacks to pass to the OffsetManager
@@ -437,13 +435,10 @@ object SamzaContainer extends Logging {
     val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
-    val dropDeserializationError = config.getDropDeserializationErrors
-    val dropSerializationError = config.getDropSerializationErrors
+    val dropDeserializationError = taskConfig.getDropDeserializationErrors
+    val dropSerializationError = taskConfig.getDropSerializationErrors
 
-    val pollIntervalMs = config
-      .getPollIntervalMs
-      .getOrElse(SystemConsumers.DEFAULT_POLL_INTERVAL_MS.toString)
-      .toInt
+    val pollIntervalMs = taskConfig.getPollIntervalMs.orElse(SystemConsumers.DEFAULT_POLL_INTERVAL_MS)
 
     val consumerMultiplexer = new SystemConsumers(
       chooser = chooser,
@@ -567,7 +562,7 @@ object SamzaContainer extends Logging {
           storageManager = storageManager,
           tableManager = tableManager,
           systemStreamPartitions = taskSSPs -- taskSideInputSSPs,
-          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, config),
+          exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           timerExecutor = timerExecutor,
@@ -591,7 +586,7 @@ object SamzaContainer extends Logging {
       taskThreadPool,
       maxThrottlingDelayMs,
       samzaContainerMetrics,
-      config,
+      taskConfig,
       clock)
 
     val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
@@ -692,7 +687,8 @@ class SamzaContainer(
   externalContextOption: Option[ExternalContext],
   containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
-  val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
+  private val taskConfig = new TaskConfigJava(config)
+  val shutdownMs: Long = taskConfig.getShutdownMs
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 

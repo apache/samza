@@ -600,7 +600,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId);
-    configMap.put(TaskConfig.SHUTDOWN_MS(), "0");
+    configMap.put(TaskConfigJava.TASK_SHUTDOWN_MS, "0");
 
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     Config applicationConfig1 = new MapConfig(configMap);
@@ -633,7 +633,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
 
     // Reset the task shutdown ms for 3rd application to give it ample time to shutdown cleanly
-    configMap.put(TaskConfig.SHUTDOWN_MS(), TASK_SHUTDOWN_MS);
+    configMap.put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
     Config applicationConfig3 = new MapConfig(configMap);
 
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);

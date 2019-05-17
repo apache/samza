@@ -80,12 +80,13 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     // for us.
     info("Creating kafka producer for system %s, producerClientId %s" format(systemName, clientId))
 
+    val taskConfig = new TaskConfigJava(config)
     new KafkaSystemProducer(
       systemName,
       new ExponentialSleepStrategy(initialDelayMs = producerConfig.reconnectIntervalMs),
       getProducer,
       metrics,
-      dropProducerExceptions = config.getDropProducerErrors)
+      dropProducerExceptions = taskConfig.getDropProducerErrors)
   }
 
   def getAdmin(systemName: String, config: Config): SystemAdmin = {

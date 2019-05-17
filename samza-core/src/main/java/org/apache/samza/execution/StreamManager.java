@@ -126,15 +126,8 @@ public class StreamManager {
         });
 
       //Find checkpoint stream and clean up
-      TaskConfig taskConfig = new TaskConfig(prevConfig);
-      String checkpointManagerFactoryClassName = taskConfig.getCheckpointManagerFactory()
-          .getOrElse(defaultValue(null));
-      if (checkpointManagerFactoryClassName != null) {
-        CheckpointManager checkpointManager =
-            Util.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
-                .getCheckpointManager(prevConfig, new MetricsRegistryMap());
-        checkpointManager.clearCheckpoints();
-      }
+      TaskConfigJava taskConfig = new TaskConfigJava(prevConfig);
+      taskConfig.getCheckpointManager(new MetricsRegistryMap()).ifPresent(CheckpointManager::clearCheckpoints);
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);

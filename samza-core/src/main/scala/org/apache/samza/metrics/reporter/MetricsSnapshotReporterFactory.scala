@@ -21,7 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config, SystemConfig}
+import org.apache.samza.config.{ApplicationConfig, Config, SystemConfig, TaskConfigJava}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -47,8 +47,10 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val version =
       try {
-        val taskClass = Option(new ApplicationConfig(config).getAppClass())
-          .orElse(config.getTaskClass).get
+        val taskConfig = new TaskConfigJava(config)
+        val taskClass = Option(new ApplicationConfig(config).getAppClass)
+          .orElse(JavaOptionals.toRichOptional(taskConfig.getTaskClass).toOption)
+          .get
         Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
       } catch {
         case e: Exception => {

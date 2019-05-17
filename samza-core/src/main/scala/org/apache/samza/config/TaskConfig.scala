@@ -19,8 +19,6 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.checkpoint.CheckpointManager
-import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.{Logging, StreamUtil}
 
@@ -34,7 +32,6 @@ object TaskConfig {
   val COMMAND_BUILDER = "task.command.class" // streaming.task-factory-class
   val LIFECYCLE_LISTENERS = "task.lifecycle.listeners" // li-generator,foo
   val LIFECYCLE_LISTENER = "task.lifecycle.listener.%s.class" // task.lifecycle.listener.li-generator.class
-  val CHECKPOINT_MANAGER_FACTORY = TaskConfigJava.CHECKPOINT_MANAGER_FACTORY // class name to use when sending offset checkpoints
   val MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class"
   val DROP_DESERIALIZATION_ERRORS = "task.drop.deserialization.errors" // define whether drop the messages or not when deserialization fails
   val DROP_SERIALIZATION_ERRORS = "task.drop.serialization.errors" // define whether drop the messages or not when serialization fails
@@ -73,89 +70,4 @@ object TaskConfig {
 }
 
 class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
-  val javaTaskConfig = new TaskConfigJava(config)
-
-  def getInputStreams = getOption(TaskConfig.INPUT_STREAMS) match {
-    case Some(streams) => if (streams.length > 0) {
-      streams.split(",").map(systemStreamNames => {
-        StreamUtil.getSystemStreamFromNames(systemStreamNames.trim)
-      }).toSet
-    } else {
-      Set[SystemStream]()
-    }
-    case _ => Set[SystemStream]()
-  }
-
-  def getWindowMs: Long = getOption(TaskConfig.WINDOW_MS) match {
-    case Some(ms) => ms.toLong
-    case _ => TaskConfig.DEFAULT_WINDOW_MS
-  }
-
-  def getCommitMs: Long = getOption(TaskConfig.COMMIT_MS) match {
-    case Some(ms) => ms.toLong
-    case _ => TaskConfig.DEFAULT_COMMIT_MS
-  }
-
-  def getShutdownMs: Option[Long] = getOption(TaskConfig.SHUTDOWN_MS) match {
-    case Some(ms) => Some(ms.toLong)
-    case _ => None
-  }
-
-  def getTaskClass = getOption(TaskConfig.TASK_CLASS)
-
-  def getCommandClass = getOption(TaskConfig.COMMAND_BUILDER)
-
-  def getCommandClass(defaultValue: String) = getOrElse(TaskConfig.COMMAND_BUILDER, defaultValue)
-
-  def getCheckpointManagerFactory() = Option(javaTaskConfig.getCheckpointManagerFactoryName)
-
-  def getCheckpointManager(metricsRegistry: MetricsRegistry): Option[CheckpointManager] = {
-    Option(javaTaskConfig.getCheckpointManager(metricsRegistry))
-  }
-
-  def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
-
-  def getDropDeserializationErrors = getBoolean(TaskConfig.DROP_DESERIALIZATION_ERRORS, false)
-
-  def getDropSerializationErrors = getBoolean(TaskConfig.DROP_SERIALIZATION_ERRORS, false)
-
-  def getDropProducerErrors = getBoolean(TaskConfig.DROP_PRODUCER_ERRORS, false)
-
-  def getPollIntervalMs = getOption(TaskConfig.POLL_INTERVAL_MS)
-
-  def getIgnoredExceptions = getOption(TaskConfig.IGNORED_EXCEPTIONS)
-
-  def getTaskNameGrouperFactory = {
-    getOption(TaskConfig.GROUPER_FACTORY) match {
-      case Some(grouperFactory) => grouperFactory
-      case _ =>
-        info("No %s configuration, using 'org.apache.samza.container.grouper.task.GroupByContainerCountFactory'" format TaskConfig.GROUPER_FACTORY)
-        "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
-    }
-  }
-
-  def getMaxConcurrency: Int = getOption(TaskConfig.MAX_CONCURRENCY) match {
-    case Some(count) => count.toInt
-    case _ => TaskConfig.DEFAULT_MAX_CONCURRENCY
-  }
-
-  def getCallbackTimeoutMs: Long = getOption(TaskConfig.CALLBACK_TIMEOUT_MS) match {
-    case Some(ms) => ms.toLong
-    case _ => TaskConfig.DEFAULT_CALLBACK_TIMEOUT_MS
-  }
-
-  def getAsyncCommit: Boolean = getOption(TaskConfig.ASYNC_COMMIT) match {
-    case Some(asyncCommit) => asyncCommit.toBoolean
-    case _ => false
-  }
-
-  def isAutoCommitEnabled: Boolean = getOption(TaskConfig.COMMIT_MS) match {
-    case Some(commitMs) => commitMs.toInt > 0
-    case _ => TaskConfig.DEFAULT_COMMIT_MS > 0
-  }
-
-  def getMaxIdleMs: Long = getOption(TaskConfig.MAX_IDLE_MS) match {
-    case Some(ms) => ms.toLong
-    case _ => TaskConfig.DEFAULT_MAX_IDLE_MS
-  }
 }

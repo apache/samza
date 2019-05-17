@@ -28,7 +28,6 @@ import org.apache.samza.util.{Logging, StreamUtil}
 
 import collection.JavaConverters._
 import scala.collection._
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.system.SystemStream
 
 /**
@@ -58,7 +57,8 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
     val topics = getTopicsFromZK(rewriterName, config)
-    val existingInputStreams = config.getInputStreams
+    val taskConfig = new TaskConfigJava(config)
+    val existingInputStreams = JavaConversions.asScalaSet(taskConfig.getInputStreams).toSet
     val newInputStreams = new mutable.HashSet[SystemStream]
     val keysAndValsToAdd = new mutable.HashMap[String, String]
 

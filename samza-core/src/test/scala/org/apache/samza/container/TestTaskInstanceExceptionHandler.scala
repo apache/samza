@@ -19,7 +19,7 @@
 package org.apache.samza.container
 
 import com.google.common.collect.ImmutableMap
-import org.apache.samza.config.{Config, MapConfig, TaskConfig}
+import org.apache.samza.config.{Config, MapConfig, TaskConfig, TaskConfigJava}
 import org.apache.samza.metrics.{Counter, MetricsHelper}
 import org.junit.{Before, Test}
 import org.mockito.Mockito._
@@ -121,7 +121,7 @@ class TestTaskInstanceExceptionHandler extends AssertionsForJUnit with MockitoSu
   }
 
   private def build(config: Config): TaskInstanceExceptionHandler = {
-    TaskInstanceExceptionHandler.apply(this.metrics, config)
+    TaskInstanceExceptionHandler.apply(this.metrics, new TaskConfigJava(config))
   }
 
   /**

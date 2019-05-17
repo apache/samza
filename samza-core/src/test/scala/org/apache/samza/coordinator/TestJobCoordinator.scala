@@ -255,7 +255,7 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
 
   def getTestConfig(clazz : Class[_]) = {
     val config = new MapConfig(Map(
-      TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
+      TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
       TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_NAME -> "test",

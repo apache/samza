@@ -22,13 +22,16 @@ package org.apache.samza.config;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointManagerFactory;
+import org.apache.samza.container.grouper.task.GroupByContainerCountFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -40,7 +43,8 @@ import scala.collection.JavaConverters;
 
 
 public class TaskConfigJava extends MapConfig {
-  // Task Configs
+  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
+
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   public static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
 
@@ -52,36 +56,113 @@ public class TaskConfigJava extends MapConfig {
   // class name to use when sending offset checkpoints
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
-  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
-
   public TaskConfigJava(Config config) {
     super(config);
+  }
+
+  public Set<SystemStream> getInputStreams() {
+    Optional<String> inputStreams = Optional.ofNullable(get(TaskConfig.INPUT_STREAMS()));
+    if (!inputStreams.isPresent() || inputStreams.get().isEmpty()) {
+      return Collections.emptySet();
+    } else {
+      return Stream.of(inputStreams.get().split(","))
+          .map(systemStreamNames -> StreamUtil.getSystemStreamFromNames(systemStreamNames.trim()))
+          .collect(Collectors.toSet());
+    }
+  }
+
+  public long getWindowMs() {
+    return getLong(TaskConfig.WINDOW_MS(), TaskConfig.DEFAULT_WINDOW_MS());
+  }
+
+  public long getCommitMs() {
+    return getLong(TaskConfig.COMMIT_MS(), TaskConfig.DEFAULT_COMMIT_MS());
+  }
+
+  public Optional<String> getTaskClass() {
+    return Optional.ofNullable(get(TaskConfig.TASK_CLASS()));
+  }
+
+  public String getCommandClass(String defaultCommandClass) {
+    return get(TaskConfig.COMMAND_BUILDER(), defaultCommandClass);
+  }
+
+  public Optional<String> getMessageChooserClass() {
+    return Optional.ofNullable(get(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME()));
+  }
+
+  public boolean getDropDeserializationErrors() {
+    return getBoolean(TaskConfig.DROP_DESERIALIZATION_ERRORS(), false);
+  }
+
+  public boolean getDropSerializationErrors() {
+    return getBoolean(TaskConfig.DROP_SERIALIZATION_ERRORS(), false);
+  }
+
+  public boolean getDropProducerErrors() {
+    return getBoolean(TaskConfig.DROP_PRODUCER_ERRORS(), false);
+  }
+
+  public Optional<Integer> getPollIntervalMs() {
+    return Optional.ofNullable(get(TaskConfig.POLL_INTERVAL_MS())).map(Integer::parseInt);
+  }
+
+  public Optional<String> getIgnoredExceptions() {
+    return Optional.ofNullable(get(TaskConfig.IGNORED_EXCEPTIONS()));
+  }
+
+  public String getTaskNameGrouperFactory() {
+    Optional<String> taskNameGrouperFactory = Optional.ofNullable(get(TaskConfig.GROUPER_FACTORY()));
+    if (taskNameGrouperFactory.isPresent()) {
+      return taskNameGrouperFactory.get();
+    } else {
+      LOGGER.info(String.format("No %s configuration, using %s", TaskConfig.GROUPER_FACTORY(),
+          GroupByContainerCountFactory.class.getName()));
+      return GroupByContainerCountFactory.class.getName();
+    }
+  }
+
+  public int getMaxConcurrency() {
+    return getInt(TaskConfig.MAX_CONCURRENCY(), TaskConfig.DEFAULT_MAX_CONCURRENCY());
+  }
+
+  public long getCallbackTimeoutMs() {
+    return getLong(TaskConfig.CALLBACK_TIMEOUT_MS(), TaskConfig.DEFAULT_CALLBACK_TIMEOUT_MS());
+  }
+
+  public boolean getAsyncCommit() {
+    return getBoolean(TaskConfig.ASYNC_COMMIT(), false);
+  }
+
+  public boolean isAutoCommitEnabled() {
+    return getCommitMs() > 0;
+  }
+
+  public long getMaxIdleMs() {
+    return getLong(TaskConfig.MAX_IDLE_MS(), TaskConfig.DEFAULT_MAX_IDLE_MS());
   }
 
   /**
    * Get the name of the checkpoint manager factory
    *
-   * @return Name of checkpoint manager factory
+   * @return Name of checkpoint manager factory; empty if not specified
    */
-  public String getCheckpointManagerFactoryName() {
-    return get(CHECKPOINT_MANAGER_FACTORY, null);
+  public Optional<String> getCheckpointManagerFactoryName() {
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY, null));
   }
 
   /**
    * Create the checkpoint manager
    *
    * @param metricsRegistry Registry of metrics to use. Can be null if not using metrics.
-   * @return CheckpointManager object if checkpoint manager factory is configured, otherwise null.
+   * @return CheckpointManager object if checkpoint manager factory is configured, otherwise empty.
    */
-  public CheckpointManager getCheckpointManager(MetricsRegistry metricsRegistry) {
+  public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry) {
     // Initialize checkpoint streams during job coordination
-    String checkpointManagerFactoryName = getCheckpointManagerFactoryName();
-    if (StringUtils.isNotBlank(checkpointManagerFactoryName)) {
-      CheckpointManager checkpointManager =
-          Util.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry);
-      return checkpointManager;
-    }
-    return null;
+    return getCheckpointManagerFactoryName()
+        .filter(StringUtils::isNotBlank)
+        .map(checkpointManagerFactoryName -> Util.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class)
+            .getCheckpointManager(this, metricsRegistry));
   }
 
   /**
@@ -92,8 +173,8 @@ public class TaskConfigJava extends MapConfig {
    * @return a Set of SystemStreamPartitions
    */
   public Set<SystemStreamPartition> getBroadcastSystemStreamPartitions() {
-    HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<SystemStreamPartition>();
-    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.<String>emptyList());
+    HashSet<SystemStreamPartition> systemStreamPartitionSet = new HashSet<>();
+    List<String> systemStreamPartitions = getList(BROADCAST_INPUT_STREAMS, Collections.emptyList());
 
     for (String systemStreamPartition : systemStreamPartitions) {
       int hashPosition = systemStreamPartition.indexOf("#");
@@ -149,8 +230,7 @@ public class TaskConfigJava extends MapConfig {
   public Set<SystemStream> getAllInputStreams() {
     Set<SystemStream> allInputSS = new HashSet<>();
 
-    TaskConfig taskConfig = TaskConfig.Config2Task(this);
-    allInputSS.addAll((Set<? extends SystemStream>) JavaConverters.setAsJavaSetConverter(taskConfig.getInputStreams()).asJava());
+    allInputSS.addAll(getInputStreams());
     allInputSS.addAll(getBroadcastSystemStreams());
 
     return Collections.unmodifiableSet(allInputSS);

@@ -41,7 +41,8 @@ public class MetadataResourceUtil {
    */
   public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry) {
     this.jobModel = jobModel;
-    this.checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metricsRegistry);
+    TaskConfigJava taskConfig = new TaskConfigJava(jobModel.getConfig());
+    this.checkpointManager = taskConfig.getCheckpointManager(metricsRegistry).orElse(null);
   }
 
   @VisibleForTesting
