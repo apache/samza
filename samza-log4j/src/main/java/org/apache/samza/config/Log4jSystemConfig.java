@@ -77,7 +77,7 @@ public class Log4jSystemConfig extends SystemConfig {
    *         supplied serde name.
    */
   public String getSerdeClass(String name) {
-    return get(String.format(JavaSerializerConfig.SERDE_FACTORY_CLASS, name), null);
+    return get(String.format(SerializerConfig.SERDE_FACTORY_CLASS, name), null);
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {

@@ -38,15 +38,15 @@ import org.slf4j.LoggerFactory;
 /**
  * Provides helpers for accessing configs related to serialization and deserialization.
  */
-public class JavaSerializerConfig extends MapConfig {
-  public static final Logger LOGGER = LoggerFactory.getLogger(JavaSerializerConfig.class);
+public class SerializerConfig extends MapConfig {
+  public static final Logger LOGGER = LoggerFactory.getLogger(SerializerConfig.class);
 
   public static final String SERIALIZER_PREFIX = "serializers.registry.%s";
   public static final String SERDE_FACTORY_CLASS = SERIALIZER_PREFIX + ".class";
   public static final String SERIALIZED_INSTANCE_SUFFIX = ".samza.serialized.instance";
   public static final String SERDE_SERIALIZED_INSTANCE = SERIALIZER_PREFIX + SERIALIZED_INSTANCE_SUFFIX;
 
-  public JavaSerializerConfig(Config config) {
+  public SerializerConfig(Config config) {
     super(config);
   }
 

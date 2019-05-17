@@ -21,7 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config, JavaSerializerConfig, SystemConfig}
+import org.apache.samza.config.{ApplicationConfig, Config, SerializerConfig, SystemConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -89,7 +89,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val streamSerdeName = config.getStreamMsgSerde(systemStream)
     val systemSerdeName = JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption
     val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
-    val serializerConfig = new JavaSerializerConfig(config)
+    val serializerConfig = new SerializerConfig(config)
     val serde = if (serdeName != null) {
       JavaOptionals.toRichOptional(serializerConfig.getSerdeClass(serdeName)).toOption match {
         case Some(serdeClassName) =>

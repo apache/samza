@@ -246,10 +246,10 @@ object SamzaContainer extends Logging {
 
     info("Got system producers: %s" format producers.keys)
 
-    val serializerConfig = new JavaSerializerConfig(config)
+    val serializerConfig = new SerializerConfig(config)
     val serdesFromFactories = serializerConfig.getSerdeNames.asScala.map(serdeName => {
       val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeClass(serdeName)).toOption
-        .getOrElse(JavaSerializerConfig.getSerdeFactoryName(serdeName))
+        .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
 
       val serde = Util.getObj(serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
@@ -259,10 +259,10 @@ object SamzaContainer extends Logging {
     info("Got serdes from factories: %s" format serdesFromFactories.keys)
 
     val serializableSerde = new SerializableSerde[Serde[Object]]()
-    val serdesFromSerializedInstances = config.subset(JavaSerializerConfig.SERIALIZER_PREFIX format "").asScala
-        .filter { case (key, value) => key.endsWith(JavaSerializerConfig.SERIALIZED_INSTANCE_SUFFIX) }
+    val serdesFromSerializedInstances = config.subset(SerializerConfig.SERIALIZER_PREFIX format "").asScala
+        .filter { case (key, value) => key.endsWith(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX) }
         .flatMap { case (key, value) =>
-          val serdeName = key.replace(JavaSerializerConfig.SERIALIZED_INSTANCE_SUFFIX, "")
+          val serdeName = key.replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX, "")
           debug(s"Trying to deserialize serde instance for $serdeName")
           try {
             val bytes = Base64.getDecoder.decode(value)

@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSerializerConfig;
 import org.apache.samza.config.JavaTableConfig;
+import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
@@ -90,7 +90,7 @@ public class TableConfigGenerator {
     serdes.forEach(serde -> {
         String serdeName = serdeUUIDs.computeIfAbsent(serde,
             s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        serdeConfigs.putIfAbsent(String.format(JavaSerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
+        serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
             base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 

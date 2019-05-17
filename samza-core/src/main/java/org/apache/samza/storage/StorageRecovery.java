@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSerializerConfig;
+import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
@@ -182,14 +182,14 @@ public class StorageRecovery extends CommandLine {
 
   private Map<String, Serde<Object>> getSerdes() {
     Map<String, Serde<Object>> serdeMap = new HashMap<>();
-    JavaSerializerConfig serializerConfig = new JavaSerializerConfig(jobConfig);
+    SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
 
     // Adding all serdes from factories
     serializerConfig.getSerdeNames()
         .stream()
         .forEach(serdeName -> {
             String serdeClassName = serializerConfig.getSerdeClass(serdeName)
-              .orElseGet(() -> JavaSerializerConfig.getSerdeFactoryName(serdeName));
+              .orElseGet(() -> SerializerConfig.getSerdeFactoryName(serdeName));
             Serde serde = Util.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
