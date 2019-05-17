@@ -19,9 +19,11 @@
 package org.apache.samza.table.remote;
 
 import com.google.common.base.Preconditions;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -46,45 +48,66 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
-    return readFn.getAsync(key);
+  public CompletableFuture<V> getAsync(K key, Object ... args) {
+    return args.length > 0
+        ? readFn.getAsync(key, args)
+        : readFn.getAsync(key);
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    return readFn.getAllAsync(keys);
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
+    return args.length > 0
+        ? readFn.getAllAsync(keys, args)
+        : readFn.getAllAsync(keys);
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public <T> CompletableFuture<T> readAsync(int opId, Object... args) {
+    return readFn.readAsync(opId, args);
+  }
+
+  @Override
+  public CompletableFuture<Void> putAsync(K key, V record, Object... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return writeFn.putAsync(key, value);
+    return args.length > 0
+        ? writeFn.putAsync(key, record, args)
+        : writeFn.putAsync(key, record);
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return writeFn.putAllAsync(entries);
+    return args.length > 0
+        ? writeFn.putAllAsync(entries, args)
+        : writeFn.putAllAsync(entries);
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletableFuture<Void> deleteAsync(K key, Object... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return writeFn.deleteAsync(key);
+    return args.length > 0
+        ? writeFn.deleteAsync(key, args)
+        : writeFn.deleteAsync(key);
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return writeFn.deleteAllAsync(keys);
+    return args.length > 0
+        ? writeFn.deleteAllAsync(keys, args)
+        : writeFn.deleteAllAsync(keys);
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
+    Preconditions.checkNotNull(writeFn, "null writeFn");
+    return writeFn.writeAsync(opId, args);
   }
 
   @Override
   public void init(Context context) {
-    readFn.init(context);
-    if (writeFn != null) {
-      writeFn.init(context);
-    }
+    // Note: Initialization of table functions is done in {@link RemoteTable#init(Context)},
+    //       as we need to pass in the reference to the top level table
   }
 
   @Override
