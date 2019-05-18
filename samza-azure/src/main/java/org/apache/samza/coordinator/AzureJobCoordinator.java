@@ -23,7 +23,7 @@ import org.apache.samza.AzureClient;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
@@ -271,7 +271,7 @@ public class AzureJobCoordinator implements JobCoordinator {
    * partitions, returning a set of SystemStreamPartitions containing them all.
    */
   private Set<SystemStreamPartition> getInputStreamPartitions() {
-    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    TaskConfig taskConfig = new TaskConfig(config);
     scala.collection.immutable.Set<SystemStream> inputSystemStreams =
         JavaConversions.asScalaSet(taskConfig.getInputStreams()).toSet();
 

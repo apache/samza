@@ -92,10 +92,10 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_NAME -> "test",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
-      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
       SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
       SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
-      TaskConfigJava.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
+      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory",
       JobConfig.MONITOR_PARTITION_CHANGE -> "true",
       JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> "100"
       )
@@ -158,10 +158,10 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
       JobConfig.JOB_NAME -> "test",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_CONTAINER_COUNT -> "2",
-      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
       SystemConfig.SYSTEM_FACTORY_FORMAT.format("test") -> classOf[MockSystemFactory].getCanonicalName,
       SystemConfig.SYSTEM_FACTORY_FORMAT.format("coordinator") -> classOf[MockCoordinatorStreamSystemFactory].getName,
-      TaskConfigJava.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
+      TaskConfig.GROUPER_FACTORY -> "org.apache.samza.container.grouper.task.GroupByContainerCountFactory"
       )
 
     // Enable caching on MockConsumer to add more messages later
@@ -255,8 +255,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
 
   def getTestConfig(clazz : Class[_]) = {
     val config = new MapConfig(Map(
-      TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
-      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
+      TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.JOB_COORDINATOR_SYSTEM -> "coordinator",
       JobConfig.JOB_NAME -> "test",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> clazz.getCanonicalName,

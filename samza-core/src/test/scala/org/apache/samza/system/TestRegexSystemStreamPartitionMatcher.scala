@@ -47,8 +47,8 @@ class TestRegexSystemStreamPartitionMatcher {
 
   private def getConfig(regex: String): MapConfig = {
     new MapConfig(mutable.Map(
-      TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
-      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
+      TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
       JobConfig.SSP_MATCHER_CONFIG_REGEX -> regex,
@@ -66,8 +66,8 @@ class TestRegexSystemStreamPartitionMatcher {
   @Test(expected = classOf[SamzaException])
   def testFilterWithNoMatcherConfigRegex() {
     val config = new MapConfig(mutable.Map(
-      TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
-      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
+      TaskConfig.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
+      TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CONFIG_REGEX,
       (SystemConfig.SYSTEM_FACTORY_FORMAT format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)

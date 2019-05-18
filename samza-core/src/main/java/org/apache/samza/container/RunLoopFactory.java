@@ -20,7 +20,7 @@
 package org.apache.samza.container;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.RunLoop;
 import org.apache.samza.util.HighResolutionClock;
@@ -42,7 +42,7 @@ public class RunLoopFactory {
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      TaskConfigJava taskConfig,
+      TaskConfig taskConfig,
       HighResolutionClock clock) {
 
     long taskWindowMs = taskConfig.getWindowMs();

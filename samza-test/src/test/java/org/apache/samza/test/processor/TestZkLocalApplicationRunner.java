@@ -48,7 +48,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
@@ -195,12 +195,12 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     String coordinatorSystemName = "coordinatorSystem";
     Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder()
         .put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS)
-        .put(TaskConfigJava.INPUT_STREAMS, Joiner.on(',').join(inputSystemStreams))
+        .put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputSystemStreams))
         .put(JobConfig.JOB_DEFAULT_SYSTEM(), TestZkLocalApplicationRunner.TEST_SYSTEM)
-        .put(TaskConfigJava.IGNORED_EXCEPTIONS, "*")
+        .put(TaskConfig.IGNORED_EXCEPTIONS, "*")
         .put(ZkConfig.ZK_CONNECT, zkConnect())
         .put(JobConfig.SSP_GROUPER_FACTORY(), TEST_SSP_GROUPER_FACTORY)
-        .put(TaskConfigJava.GROUPER_FACTORY, TEST_TASK_GROUPER_FACTORY)
+        .put(TaskConfig.GROUPER_FACTORY, TEST_TASK_GROUPER_FACTORY)
         .put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY)
         .put(ApplicationConfig.APP_NAME, appName)
         .put(ApplicationConfig.APP_ID, appId)
@@ -208,8 +208,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
         .put(String.format("systems.%s.samza.factory", TestZkLocalApplicationRunner.TEST_SYSTEM), TEST_SYSTEM_FACTORY)
         .put(JobConfig.JOB_NAME(), appName)
         .put(JobConfig.JOB_ID(), appId)
-        .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
-        .put(TaskConfigJava.DROP_PRODUCER_ERRORS, "true")
+        .put(TaskConfig.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
+        .put(TaskConfig.DROP_PRODUCER_ERRORS, "true")
         .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
         .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
         .put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true")
@@ -599,7 +599,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId);
-    configMap.put(TaskConfigJava.TASK_SHUTDOWN_MS, "0");
+    configMap.put(TaskConfig.TASK_SHUTDOWN_MS, "0");
 
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     Config applicationConfig1 = new MapConfig(configMap);
@@ -632,7 +632,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
 
     // Reset the task shutdown ms for 3rd application to give it ample time to shutdown cleanly
-    configMap.put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
+    configMap.put(TaskConfig.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
     Config applicationConfig3 = new MapConfig(configMap);
 
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
@@ -939,7 +939,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     TaskApplication taskApplication = new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, shutdownLatch);
     MapConfig taskApplicationConfig = new MapConfig(ImmutableList.of(applicationConfig1,
-        ImmutableMap.of(TaskConfigJava.MAX_CONCURRENCY, "1", JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
+        ImmutableMap.of(TaskConfig.MAX_CONCURRENCY, "1", JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
     ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(taskApplication, taskApplicationConfig);
 
     // Run the application.

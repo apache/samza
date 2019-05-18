@@ -22,7 +22,7 @@ package org.apache.samza.job.local
 import java.util
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
+import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
@@ -74,7 +74,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
     info("Process job. using fwkPath = " + fwkPath)
 
-    val taskConfig = new TaskConfigJava(config)
+    val taskConfig = new TaskConfig(config)
     val commandBuilderClass = taskConfig.getCommandClass(classOf[ShellCommandBuilder].getName)
     info("Using command builder class %s" format commandBuilderClass)
     val commandBuilder = Util.getObj(commandBuilderClass, classOf[CommandBuilder])

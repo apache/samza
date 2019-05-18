@@ -79,7 +79,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     // for us.
     info("Creating kafka producer for system %s, producerClientId %s" format(systemName, clientId))
 
-    val taskConfig = new TaskConfigJava(config)
+    val taskConfig = new TaskConfig(config)
     new KafkaSystemProducer(
       systemName,
       new ExponentialSleepStrategy(initialDelayMs = producerConfig.reconnectIntervalMs),

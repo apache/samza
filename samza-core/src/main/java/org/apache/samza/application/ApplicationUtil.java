@@ -23,7 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 
 
 /**
@@ -52,7 +52,7 @@ public class ApplicationUtil {
       }
     }
     // no app.class defined. It has to be a legacy application with task.class configuration
-    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    TaskConfig taskConfig = new TaskConfig(config);
     Optional<String> taskClassOption = taskConfig.getTaskClass();
     if (!taskClassOption.isPresent() || StringUtils.isBlank(taskClassOption.get())) {
       // no task.class defined either. This is wrong.

@@ -64,7 +64,7 @@ class TestRegExTopicGenerator {
       unrelated)
 
     expected.foreach(e => assertEquals(e._2, rewritten.get(e._1))) // Compiler bug in 2.8 requires this dumb syntax
-    val inputStreams = rewritten.get(TaskConfigJava.INPUT_STREAMS).split(",").toSet
+    val inputStreams = rewritten.get(TaskConfig.INPUT_STREAMS).split(",").toSet
     assertEquals(2, inputStreams.size)
     assertEquals(Set("test.crazycat", "test.scaredycat"), inputStreams)
   }
@@ -73,7 +73,7 @@ class TestRegExTopicGenerator {
   def emptyInputStreamsWorks = {
     // input.streams is required but appears as the empty string, which has been problematic.
     val map = Map(
-      TaskConfigJava.INPUT_STREAMS -> "",
+      TaskConfig.INPUT_STREAMS -> "",
       getRegexConfigKey -> "yo.*",
       getRegexConfigSystem -> "test",
       getRegexConfigInherited + ".config.zorp" -> "morp")
@@ -83,6 +83,6 @@ class TestRegExTopicGenerator {
     }
 
     val config = rewriter.rewrite(REWRITER_NAME, new MapConfig(map.asJava))
-    assertEquals("test.yoyoyo", config.get(TaskConfigJava.INPUT_STREAMS))
+    assertEquals("test.yoyoyo", config.get(TaskConfig.INPUT_STREAMS))
   }
 }

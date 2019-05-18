@@ -57,7 +57,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
     val topics = getTopicsFromZK(rewriterName, config)
-    val taskConfig = new TaskConfigJava(config)
+    val taskConfig = new TaskConfig(config)
     val existingInputStreams = JavaConversions.asScalaSet(taskConfig.getInputStreams).toSet
     val newInputStreams = new mutable.HashSet[SystemStream]
     val keysAndValsToAdd = new mutable.HashMap[String, String]
@@ -88,7 +88,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
 
     info("Generated config values for %d new topics" format newInputStreams.size)
 
-    val inputStreams = TaskConfigJava.INPUT_STREAMS -> (existingInputStreams ++ newInputStreams)
+    val inputStreams = TaskConfig.INPUT_STREAMS -> (existingInputStreams ++ newInputStreams)
       .map(StreamUtil.getNameFromSystemStream)
       .toArray
       .sortWith(_ < _)

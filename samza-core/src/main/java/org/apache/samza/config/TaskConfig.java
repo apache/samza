@@ -41,20 +41,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class TaskConfigJava extends MapConfig {
-  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
+/**
+ * Helper for accessing config values related to tasks.
+ */
+public class TaskConfig extends MapConfig {
+  public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfig.class);
 
   // comma-separated list of system-streams
   public static final String INPUT_STREAMS = "task.inputs";
   // window period in milliseconds
   public static final String WINDOW_MS = "task.window.ms";
-  public static final long DEFAULT_WINDOW_MS = -1L;
+  static final long DEFAULT_WINDOW_MS = -1L;
   // commit period in milliseconds
   public static final String COMMIT_MS = "task.commit.ms";
-  public static final long DEFAULT_COMMIT_MS = 60000L;
+  static final long DEFAULT_COMMIT_MS = 60000L;
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
-  public static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
+  static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
   // legacy config for specifying task class; replaced by SamzaApplication and app.class
   public static final String TASK_CLASS = "task.class";
   // command builder to use for launching a Samza job
@@ -73,15 +76,15 @@ public class TaskConfigJava extends MapConfig {
   public static final String GROUPER_FACTORY = "task.name.grouper.factory";
   // max number of concurrent process for a AsyncStreamTask
   public static final String MAX_CONCURRENCY = "task.max.concurrency";
-  public static final int DEFAULT_MAX_CONCURRENCY = 1;
+  static final int DEFAULT_MAX_CONCURRENCY = 1;
   // timeout period for triggering a callback
   public static final String CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms";
-  public static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
+  static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
   // to enable async commit in a AsyncStreamTask
   public static final String ASYNC_COMMIT = "task.async.commit";
   // maximum time to wait for a task worker to complete when there are no new messages to handle
   public static final String MAX_IDLE_MS = "task.max.idle.ms";
-  public static final long DEFAULT_MAX_IDLE_MS = 10L;
+  static final long DEFAULT_MAX_IDLE_MS = 10L;
   /**
    * Samza's container polls for more messages under two conditions. The first
    * condition arises when there are simply no remaining buffered messages to
@@ -100,12 +103,12 @@ public class TaskConfigJava extends MapConfig {
   public static final String POLL_INTERVAL_MS = "task.poll.interval.ms";
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
-  public static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
-  public static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
+  private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
+  private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   // class name to use when sending offset checkpoints
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
-  public TaskConfigJava(Config config) {
+  public TaskConfig(Config config) {
     super(config);
   }
 

@@ -399,7 +399,7 @@ object SamzaContainer extends Logging {
 
     info("Setting up message chooser.")
 
-    val taskConfig = new TaskConfigJava(config)
+    val taskConfig = new TaskConfig(config)
     val chooserFactoryClassName = taskConfig.getMessageChooserClass.orElse(classOf[RoundRobinChooserFactory].getName)
 
     val chooserFactory = Util.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
@@ -685,7 +685,7 @@ class SamzaContainer(
   externalContextOption: Option[ExternalContext],
   containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
 
-  private val taskConfig = new TaskConfigJava(config)
+  private val taskConfig = new TaskConfig(config)
   val shutdownMs: Long = taskConfig.getShutdownMs
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null

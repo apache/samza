@@ -26,7 +26,7 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -55,9 +55,9 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.zk.ZkJobCoordinatorFactory");
     configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfigJava.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(FaultInjectionStreamApp.INPUT_TOPIC_NAME_PROP, "page-views");
-    configs.put(TaskConfigJava.INPUT_STREAMS, "kafka.page-views");
+    configs.put(TaskConfig.INPUT_STREAMS, "kafka.page-views");
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
     configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "5000");
 

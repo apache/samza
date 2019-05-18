@@ -19,7 +19,7 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.config.TaskConfigJava
+import org.apache.samza.config.TaskConfig
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.util.Logging
@@ -91,7 +91,7 @@ object TaskInstanceExceptionHandler {
    * @param metrics The {@link TaskInstanceMetrics} used to track exception counts.
    * @param taskConfig The configuration to read the list of ignored exceptions from.
    */
-  def apply(metrics: MetricsHelper, taskConfig: TaskConfigJava) = {
+  def apply(metrics: MetricsHelper, taskConfig: TaskConfig) = {
     new TaskInstanceExceptionHandler(
       metrics = metrics,
       ignoredExceptions = JavaOptionals.toRichOptional(taskConfig.getIgnoredExceptions).toOption match {

@@ -173,7 +173,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     combinedConfigMap.putAll(userDefinedConfig)
     val combinedConfig: Config = new MapConfig(combinedConfigMap)
 
-    val taskConfig = new TaskConfigJava(combinedConfig)
+    val taskConfig = new TaskConfig(combinedConfig)
     // Instantiate the checkpoint manager with coordinator stream configuration.
     val checkpointManager: CheckpointManager =
       JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap)).toOption match {

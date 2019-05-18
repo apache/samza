@@ -266,7 +266,7 @@ object JobModelManager extends Logging {
     * @param streamMetadataCache to query the partition metadata of the input streams.
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
-  private def getInputStreamPartitions(taskConfig: TaskConfigJava, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
+  private def getInputStreamPartitions(taskConfig: TaskConfig, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
     val inputSystemStreams = JavaConversions.asScalaSet(taskConfig.getInputStreams).toSet
 
     // Get the set of partitions for each SystemStream from the stream metadata
@@ -288,7 +288,7 @@ object JobModelManager extends Logging {
     * @param streamMetadataCache required to query the partition metadata of the input streams.
     * @return the input SystemStreamPartitions of the job.
     */
-  private def getMatchedInputStreamPartitions(config: Config, taskConfig: TaskConfigJava,
+  private def getMatchedInputStreamPartitions(config: Config, taskConfig: TaskConfig,
     streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
     val allSystemStreamPartitions = getInputStreamPartitions(taskConfig, streamMetadataCache)
     config.getSSPMatcherClass match {
@@ -335,7 +335,7 @@ object JobModelManager extends Logging {
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
                    grouperMetadata: GrouperMetadata): JobModel = {
-    val taskConfig = new TaskConfigJava(config)
+    val taskConfig = new TaskConfig(config)
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, taskConfig, streamMetadataCache)
 

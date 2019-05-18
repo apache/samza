@@ -36,7 +36,7 @@ import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericSystemDescriptor;
 import org.apache.samza.operators.MessageStream;
@@ -70,7 +70,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     props.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     props.put(String.format(ConfigBasedSspGrouperFactory.CONFIG_STREAM_PARTITIONS, streamId),
         Joiner.on(",").join(partitions));
-    props.put(TaskConfigJava.GROUPER_FACTORY, ConfigBasedSspGrouperFactory.class.getName());
+    props.put(TaskConfig.GROUPER_FACTORY, ConfigBasedSspGrouperFactory.class.getName());
   }
 
   public void start() throws IOException, InterruptedException {

@@ -37,7 +37,7 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
@@ -82,7 +82,7 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
   @Test(expected = SamzaException.class)
   public void testProcessingFutureCompletesAfterTaskTimeout() {
     Map<String, String> configs = new HashMap<>();
-    configs.put(TaskConfigJava.CALLBACK_TIMEOUT_MS, "100");
+    configs.put(TaskConfig.CALLBACK_TIMEOUT_MS, "100");
     configs.put(PROCESS_JITTER, "200");
 
     runTest(PAGE_VIEWS, configs);

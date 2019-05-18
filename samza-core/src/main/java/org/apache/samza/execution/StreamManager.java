@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.checkpoint.CheckpointManagerFactory;
 import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
@@ -39,12 +38,10 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
 
-import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 public class StreamManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamManager.class);
@@ -126,7 +123,7 @@ public class StreamManager {
         });
 
       //Find checkpoint stream and clean up
-      TaskConfigJava taskConfig = new TaskConfigJava(prevConfig);
+      TaskConfig taskConfig = new TaskConfig(prevConfig);
       taskConfig.getCheckpointManager(new MetricsRegistryMap()).ifPresent(CheckpointManager::clearCheckpoints);
 
       //Find changelog streams and remove them
