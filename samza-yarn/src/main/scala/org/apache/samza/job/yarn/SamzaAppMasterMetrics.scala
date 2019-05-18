@@ -20,8 +20,7 @@
 package org.apache.samza.job.yarn
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.Config
-import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.config.{Config, MetricsConfig}
 import org.apache.samza.util.Logging
 import org.apache.samza.util.MetricsReporterLoader
 import org.apache.samza.metrics.ReadableMetricsRegistry
@@ -43,7 +42,8 @@ class SamzaAppMasterMetrics(
                              val state: SamzaApplicationState,
                              val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  private val metricsConfig = new MetricsConfig(config)
+  val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {

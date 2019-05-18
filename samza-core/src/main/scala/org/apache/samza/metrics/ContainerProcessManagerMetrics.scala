@@ -20,8 +20,7 @@
 package org.apache.samza.metrics
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.{ClusterManagerConfig, Config}
-import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.config.{ClusterManagerConfig, Config, MetricsConfig}
 import org.apache.samza.util.Logging
 import org.apache.samza.util.MetricsReporterLoader
 
@@ -42,7 +41,8 @@ class ContainerProcessManagerMetrics(
                                       val registry: ReadableMetricsRegistry) extends MetricsHelper  with Logging {
 
   val jvm = new JvmMetrics(registry)
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName).asScala
+  private val metricsConfig = new MetricsConfig(config)
+  val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, ContainerProcessManagerMetrics.sourceName).asScala
   val clusterManagerConfig = new ClusterManagerConfig(config)
 
   reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))

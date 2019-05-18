@@ -22,8 +22,7 @@ package org.apache.samza.storage.kv
 import java.io.File
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.config.StorageConfig
+import org.apache.samza.config.{MetricsConfig, StorageConfig}
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.Serde
@@ -148,7 +147,8 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     // create the storage engine and return
     // TODO: Decide if we should use raw bytes when restoring
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
-    val clock = if (jobContext.getConfig.getMetricsTimerEnabled) {
+    val metricsConfig = new MetricsConfig(jobContext.getConfig)
+    val clock = if (metricsConfig.getMetricsTimerEnabled) {
       new HighResolutionClock {
         override def nanoTime(): Long = System.nanoTime()
       }

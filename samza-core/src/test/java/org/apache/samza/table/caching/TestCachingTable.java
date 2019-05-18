@@ -144,7 +144,7 @@ public class TestCachingTable {
   private void initTables(boolean isTimerMetricsDisabled, ReadWriteTable ... tables) {
     Map<String, String> config = new HashMap<>();
     if (isTimerMetricsDisabled) {
-      config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
+      config.put(MetricsConfig.METRICS_TIMER_ENABLED, "false");
     }
     Context context = new MockContext();
     doReturn(new MapConfig(config)).when(context.getJobContext()).getConfig();
