@@ -88,7 +88,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
 
     info("Generated config values for %d new topics" format newInputStreams.size)
 
-    val inputStreams = TaskConfig.INPUT_STREAMS -> (existingInputStreams ++ newInputStreams)
+    val inputStreams = TaskConfigJava.INPUT_STREAMS -> (existingInputStreams ++ newInputStreams)
       .map(StreamUtil.getNameFromSystemStream)
       .toArray
       .sortWith(_ < _)

@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicReference
 import org.apache.samza.Partition
 import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config.Config
 import org.apache.samza.container.grouper.stream.SSPGrouperProxy
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory

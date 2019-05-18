@@ -41,7 +41,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig$;
-import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
@@ -725,7 +725,7 @@ public class TestExecutionPlanner {
     assertEquals(1, jobConfigs.size());
 
     // GCD of 8, 16, 1600 and 252 is 4
-    assertEquals("4", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
+    assertEquals("4", jobConfigs.get(0).get(TaskConfigJava.WINDOW_MS));
   }
 
   @Test
@@ -741,7 +741,7 @@ public class TestExecutionPlanner {
     assertEquals(1, jobConfigs.size());
 
     // GCD of 8, 16, 1600 and 252 is 4
-    assertEquals("4", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
+    assertEquals("4", jobConfigs.get(0).get(TaskConfigJava.WINDOW_MS));
   }
 
   @Test
@@ -755,13 +755,13 @@ public class TestExecutionPlanner {
     ExecutionPlan plan = planner.plan(graphSpec);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
-    assertFalse(jobConfigs.get(0).containsKey(TaskConfig.WINDOW_MS()));
+    assertFalse(jobConfigs.get(0).containsKey(TaskConfigJava.WINDOW_MS));
   }
 
   @Test
   public void testTriggerIntervalWhenWindowMsIsConfigured() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(TaskConfig.WINDOW_MS(), "2000");
+    map.put(TaskConfigJava.WINDOW_MS, "2000");
     map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
@@ -770,7 +770,7 @@ public class TestExecutionPlanner {
     ExecutionPlan plan = planner.plan(graphSpec);
     List<JobConfig> jobConfigs = plan.getJobConfigs();
     assertEquals(1, jobConfigs.size());
-    assertEquals("2000", jobConfigs.get(0).get(TaskConfig.WINDOW_MS()));
+    assertEquals("2000", jobConfigs.get(0).get(TaskConfigJava.WINDOW_MS));
   }
 
   @Test

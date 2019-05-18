@@ -48,7 +48,6 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
@@ -196,12 +195,12 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     String coordinatorSystemName = "coordinatorSystem";
     Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder()
         .put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS)
-        .put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputSystemStreams))
+        .put(TaskConfigJava.INPUT_STREAMS, Joiner.on(',').join(inputSystemStreams))
         .put(JobConfig.JOB_DEFAULT_SYSTEM(), TestZkLocalApplicationRunner.TEST_SYSTEM)
-        .put(TaskConfig.IGNORED_EXCEPTIONS(), "*")
+        .put(TaskConfigJava.IGNORED_EXCEPTIONS, "*")
         .put(ZkConfig.ZK_CONNECT, zkConnect())
         .put(JobConfig.SSP_GROUPER_FACTORY(), TEST_SSP_GROUPER_FACTORY)
-        .put(TaskConfig.GROUPER_FACTORY(), TEST_TASK_GROUPER_FACTORY)
+        .put(TaskConfigJava.GROUPER_FACTORY, TEST_TASK_GROUPER_FACTORY)
         .put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY)
         .put(ApplicationConfig.APP_NAME, appName)
         .put(ApplicationConfig.APP_ID, appId)
@@ -210,7 +209,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
         .put(JobConfig.JOB_NAME(), appName)
         .put(JobConfig.JOB_ID(), appId)
         .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
-        .put(TaskConfig.DROP_PRODUCER_ERRORS(), "true")
+        .put(TaskConfigJava.DROP_PRODUCER_ERRORS, "true")
         .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
         .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
         .put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true")
@@ -940,7 +939,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     TaskApplication taskApplication = new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, shutdownLatch);
     MapConfig taskApplicationConfig = new MapConfig(ImmutableList.of(applicationConfig1,
-        ImmutableMap.of(TaskConfig.MAX_CONCURRENCY(), "1", JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
+        ImmutableMap.of(TaskConfigJava.MAX_CONCURRENCY, "1", JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
     ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(taskApplication, taskApplicationConfig);
 
     // Run the application.

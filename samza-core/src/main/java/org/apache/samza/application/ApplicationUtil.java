@@ -23,9 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
-import scala.Option;
 
 
 /**

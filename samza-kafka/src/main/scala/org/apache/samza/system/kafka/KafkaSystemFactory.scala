@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer}

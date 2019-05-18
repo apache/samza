@@ -39,20 +39,69 @@ import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 
 public class TaskConfigJava extends MapConfig {
   public static final Logger LOGGER = LoggerFactory.getLogger(TaskConfigJava.class);
 
+  // comma-separated list of system-streams
+  public static final String INPUT_STREAMS = "task.inputs";
+  // window period in milliseconds
+  public static final String WINDOW_MS = "task.window.ms";
+  public static final long DEFAULT_WINDOW_MS = -1L;
+  // commit period in milliseconds
+  public static final String COMMIT_MS = "task.commit.ms";
+  public static final long DEFAULT_COMMIT_MS = 60000L;
+  // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   public static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
-
+  // legacy config for specifying task class; replaced by SamzaApplication and app.class
+  public static final String TASK_CLASS = "task.class";
+  // command builder to use for launching a Samza job
+  public static final String COMMAND_BUILDER = "task.command.class";
+  // message chooser for controlling stream consumption
+  public static final String MESSAGE_CHOOSER_CLASS_NAME = "task.chooser.class";
+  // define whether drop the messages or not when deserialization fails
+  public static final String DROP_DESERIALIZATION_ERRORS = "task.drop.deserialization.errors";
+  // define whether drop the messages or not when serialization fails
+  public static final String DROP_SERIALIZATION_ERRORS = "task.drop.serialization.errors";
+  // whether to ignore producer errors and drop the messages that failed to send
+  public static final String DROP_PRODUCER_ERRORS = "task.drop.producer.errors";
+  // exceptions to ignore in process and window
+  public static final String IGNORED_EXCEPTIONS = "task.ignored.exceptions";
+  // class name for task grouper
+  public static final String GROUPER_FACTORY = "task.name.grouper.factory";
+  // max number of concurrent process for a AsyncStreamTask
+  public static final String MAX_CONCURRENCY = "task.max.concurrency";
+  public static final int DEFAULT_MAX_CONCURRENCY = 1;
+  // timeout period for triggering a callback
+  public static final String CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms";
+  public static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
+  // to enable async commit in a AsyncStreamTask
+  public static final String ASYNC_COMMIT = "task.async.commit";
+  // maximum time to wait for a task worker to complete when there are no new messages to handle
+  public static final String MAX_IDLE_MS = "task.max.idle.ms";
+  public static final long DEFAULT_MAX_IDLE_MS = 10L;
+  /**
+   * Samza's container polls for more messages under two conditions. The first
+   * condition arises when there are simply no remaining buffered messages to
+   * process for any input SystemStreamPartition. The second condition arises
+   * when some input SystemStreamPartitions have empty buffers, but some do
+   * not. In the latter case, a polling interval is defined to determine how
+   * often to refresh the empty SystemStreamPartition buffers. By default,
+   * this interval is 50ms, which means that any empty SystemStreamPartition
+   * buffer will be refreshed at least every 50ms. A higher value here means
+   * that empty SystemStreamPartitions will be refreshed less often, which
+   * means more latency is introduced, but less CPU and network will be used.
+   * Decreasing this value means that empty SystemStreamPartitions are
+   * refreshed more frequently, thereby introducing less latency, but
+   * increasing CPU and network utilization.
+   */
+  public static final String POLL_INTERVAL_MS = "task.poll.interval.ms";
   // broadcast streams consumed by all tasks. e.g. kafka.foo#1
   public static final String BROADCAST_INPUT_STREAMS = "task.broadcast.inputs";
-  private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
-  private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
-
+  public static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
+  public static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   // class name to use when sending offset checkpoints
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
@@ -61,7 +110,7 @@ public class TaskConfigJava extends MapConfig {
   }
 
   public Set<SystemStream> getInputStreams() {
-    Optional<String> inputStreams = Optional.ofNullable(get(TaskConfig.INPUT_STREAMS()));
+    Optional<String> inputStreams = Optional.ofNullable(get(INPUT_STREAMS));
     if (!inputStreams.isPresent() || inputStreams.get().isEmpty()) {
       return Collections.emptySet();
     } else {
@@ -72,66 +121,66 @@ public class TaskConfigJava extends MapConfig {
   }
 
   public long getWindowMs() {
-    return getLong(TaskConfig.WINDOW_MS(), TaskConfig.DEFAULT_WINDOW_MS());
+    return getLong(WINDOW_MS, DEFAULT_WINDOW_MS);
   }
 
   public long getCommitMs() {
-    return getLong(TaskConfig.COMMIT_MS(), TaskConfig.DEFAULT_COMMIT_MS());
+    return getLong(COMMIT_MS, DEFAULT_COMMIT_MS);
   }
 
   public Optional<String> getTaskClass() {
-    return Optional.ofNullable(get(TaskConfig.TASK_CLASS()));
+    return Optional.ofNullable(get(TASK_CLASS));
   }
 
   public String getCommandClass(String defaultCommandClass) {
-    return get(TaskConfig.COMMAND_BUILDER(), defaultCommandClass);
+    return get(COMMAND_BUILDER, defaultCommandClass);
   }
 
   public Optional<String> getMessageChooserClass() {
-    return Optional.ofNullable(get(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME()));
+    return Optional.ofNullable(get(MESSAGE_CHOOSER_CLASS_NAME));
   }
 
   public boolean getDropDeserializationErrors() {
-    return getBoolean(TaskConfig.DROP_DESERIALIZATION_ERRORS(), false);
+    return getBoolean(DROP_DESERIALIZATION_ERRORS, false);
   }
 
   public boolean getDropSerializationErrors() {
-    return getBoolean(TaskConfig.DROP_SERIALIZATION_ERRORS(), false);
+    return getBoolean(DROP_SERIALIZATION_ERRORS, false);
   }
 
   public boolean getDropProducerErrors() {
-    return getBoolean(TaskConfig.DROP_PRODUCER_ERRORS(), false);
+    return getBoolean(DROP_PRODUCER_ERRORS, false);
   }
 
   public Optional<Integer> getPollIntervalMs() {
-    return Optional.ofNullable(get(TaskConfig.POLL_INTERVAL_MS())).map(Integer::parseInt);
+    return Optional.ofNullable(get(POLL_INTERVAL_MS)).map(Integer::parseInt);
   }
 
   public Optional<String> getIgnoredExceptions() {
-    return Optional.ofNullable(get(TaskConfig.IGNORED_EXCEPTIONS()));
+    return Optional.ofNullable(get(IGNORED_EXCEPTIONS));
   }
 
   public String getTaskNameGrouperFactory() {
-    Optional<String> taskNameGrouperFactory = Optional.ofNullable(get(TaskConfig.GROUPER_FACTORY()));
+    Optional<String> taskNameGrouperFactory = Optional.ofNullable(get(GROUPER_FACTORY));
     if (taskNameGrouperFactory.isPresent()) {
       return taskNameGrouperFactory.get();
     } else {
-      LOGGER.info(String.format("No %s configuration, using %s", TaskConfig.GROUPER_FACTORY(),
+      LOGGER.info(String.format("No %s configuration, using %s", GROUPER_FACTORY,
           GroupByContainerCountFactory.class.getName()));
       return GroupByContainerCountFactory.class.getName();
     }
   }
 
   public int getMaxConcurrency() {
-    return getInt(TaskConfig.MAX_CONCURRENCY(), TaskConfig.DEFAULT_MAX_CONCURRENCY());
+    return getInt(MAX_CONCURRENCY, DEFAULT_MAX_CONCURRENCY);
   }
 
   public long getCallbackTimeoutMs() {
-    return getLong(TaskConfig.CALLBACK_TIMEOUT_MS(), TaskConfig.DEFAULT_CALLBACK_TIMEOUT_MS());
+    return getLong(CALLBACK_TIMEOUT_MS, DEFAULT_CALLBACK_TIMEOUT_MS);
   }
 
   public boolean getAsyncCommit() {
-    return getBoolean(TaskConfig.ASYNC_COMMIT(), false);
+    return getBoolean(ASYNC_COMMIT, false);
   }
 
   public boolean isAutoCommitEnabled() {
@@ -139,7 +188,7 @@ public class TaskConfigJava extends MapConfig {
   }
 
   public long getMaxIdleMs() {
-    return getLong(TaskConfig.MAX_IDLE_MS(), TaskConfig.DEFAULT_MAX_IDLE_MS());
+    return getLong(MAX_IDLE_MS, DEFAULT_MAX_IDLE_MS);
   }
 
   /**
@@ -148,7 +197,7 @@ public class TaskConfigJava extends MapConfig {
    * @return Name of checkpoint manager factory; empty if not specified
    */
   public Optional<String> getCheckpointManagerFactoryName() {
-    return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY, null));
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY));
   }
 
   /**

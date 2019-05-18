@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.controlmessages;
 
+import org.apache.samza.config.TaskConfigJava;
 import scala.collection.JavaConverters;
 
 import java.util.ArrayList;
@@ -34,7 +35,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
@@ -131,7 +131,7 @@ public class WatermarkIntegrationTest extends IntegrationTestHarness {
     configs.put(JobConfig.JOB_NAME(), "test-watermark-job");
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    configs.put(TaskConfigJava.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
     configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());

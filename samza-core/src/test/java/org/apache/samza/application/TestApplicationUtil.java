@@ -24,9 +24,9 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.task.MockStreamTask;
 import org.junit.Test;
 
@@ -45,7 +45,7 @@ public class TestApplicationUtil {
     SamzaApplication app = ApplicationUtil.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockStreamApplication);
 
-    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
+    configMap.put(TaskConfigJava.TASK_CLASS, MockStreamTask.class.getName());
     app = ApplicationUtil.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockStreamApplication);
   }
@@ -57,7 +57,7 @@ public class TestApplicationUtil {
     SamzaApplication app = ApplicationUtil.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockTaskApplication);
 
-    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
+    configMap.put(TaskConfigJava.TASK_CLASS, MockStreamTask.class.getName());
     app = ApplicationUtil.fromConfig(new MapConfig(configMap));
     assertTrue(app instanceof MockTaskApplication);
   }
@@ -65,7 +65,7 @@ public class TestApplicationUtil {
   @Test
   public void testTaskClassOnly() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(TaskConfig.TASK_CLASS(), MockStreamTask.class.getName());
+    configMap.put(TaskConfigJava.TASK_CLASS, MockStreamTask.class.getName());
     Config config = new MapConfig(configMap);
     SamzaApplication app = ApplicationUtil.fromConfig(config);
     assertTrue(app instanceof TaskApplication);
@@ -76,7 +76,7 @@ public class TestApplicationUtil {
   @Test(expected = ConfigException.class)
   public void testEmptyTaskClassOnly() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(TaskConfig.TASK_CLASS(), "");
+    configMap.put(TaskConfigJava.TASK_CLASS, "");
     ApplicationUtil.fromConfig(new MapConfig(configMap));
   }
 

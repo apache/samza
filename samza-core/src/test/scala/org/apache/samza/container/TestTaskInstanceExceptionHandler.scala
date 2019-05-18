@@ -19,7 +19,7 @@
 package org.apache.samza.container
 
 import com.google.common.collect.ImmutableMap
-import org.apache.samza.config.{Config, MapConfig, TaskConfig, TaskConfigJava}
+import org.apache.samza.config.{Config, MapConfig, TaskConfigJava}
 import org.apache.samza.metrics.{Counter, MetricsHelper}
 import org.junit.{Before, Test}
 import org.mockito.Mockito._
@@ -69,7 +69,7 @@ class TestTaskInstanceExceptionHandler extends AssertionsForJUnit with MockitoSu
    */
   @Test
   def testHandleIgnoreSome() {
-    val config = new MapConfig(ImmutableMap.of(TaskConfig.IGNORED_EXCEPTIONS,
+    val config = new MapConfig(ImmutableMap.of(TaskConfigJava.IGNORED_EXCEPTIONS,
         String.join(",", classOf[TroublesomeException].getName, classOf[NonFatalException].getName)))
     val handler = build(config)
     handler.maybeHandle(() -> {
@@ -98,7 +98,7 @@ class TestTaskInstanceExceptionHandler extends AssertionsForJUnit with MockitoSu
    */
   @Test
   def testHandleIgnoreAll() {
-    val config = new MapConfig(ImmutableMap.of(TaskConfig.IGNORED_EXCEPTIONS, "*"))
+    val config = new MapConfig(ImmutableMap.of(TaskConfigJava.IGNORED_EXCEPTIONS, "*"))
     val handler = build(config)
     handler.maybeHandle(() -> {
       throw new TroublesomeException()

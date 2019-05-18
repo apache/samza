@@ -40,7 +40,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
@@ -164,7 +163,7 @@ import org.slf4j.LoggerFactory;
     configureTables(generatedConfig, originalConfig, reachableTables, inputs);
 
     // generate the task.inputs configuration
-    generatedConfig.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    generatedConfig.put(TaskConfigJava.INPUT_STREAMS, Joiner.on(',').join(inputs));
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
@@ -200,7 +199,7 @@ import org.slf4j.LoggerFactory;
     long triggerInterval = computeTriggerInterval(reachableOperators);
     LOG.info("Using triggering interval: {}", triggerInterval);
 
-    configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
+    configs.put(TaskConfigJava.WINDOW_MS, String.valueOf(triggerInterval));
   }
 
   /**

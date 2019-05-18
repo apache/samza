@@ -21,7 +21,6 @@ package org.apache.samza.clustermanager;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.job.ShellCommandBuilder;

@@ -19,8 +19,7 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.config.{Config, TaskConfig, TaskConfigJava}
-import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.TaskConfigJava
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.util.Logging

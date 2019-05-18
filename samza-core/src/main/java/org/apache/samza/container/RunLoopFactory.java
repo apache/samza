@@ -20,7 +20,6 @@
 package org.apache.samza.container;
 
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.task.RunLoop;

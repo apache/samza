@@ -23,7 +23,6 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
-import org.apache.samza.config.TaskConfig._
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}

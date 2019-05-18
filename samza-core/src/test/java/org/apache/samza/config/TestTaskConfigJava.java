@@ -45,7 +45,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetInputStreams() {
     Config config = new MapConfig(
-        ImmutableMap.of(TaskConfig.INPUT_STREAMS(), "kafka.foo, kafka.bar, otherKafka.bar, otherKafka.foo.bar"));
+        ImmutableMap.of(TaskConfigJava.INPUT_STREAMS, "kafka.foo, kafka.bar, otherKafka.bar, otherKafka.foo.bar"));
     Set<SystemStream> expected = ImmutableSet.of(
         new SystemStream("kafka", "foo"),
         new SystemStream("kafka", "bar"),
@@ -54,7 +54,7 @@ public class TestTaskConfigJava {
     assertEquals(expected, new TaskConfigJava(config).getAllInputStreams());
 
     // empty string for value
-    MapConfig configEmptyInput = new MapConfig(ImmutableMap.of(TaskConfig.INPUT_STREAMS(), ""));
+    MapConfig configEmptyInput = new MapConfig(ImmutableMap.of(TaskConfigJava.INPUT_STREAMS, ""));
     assertTrue(new TaskConfigJava(configEmptyInput).getInputStreams().isEmpty());
     // config not specified
     assertTrue(new TaskConfigJava(new MapConfig()).getInputStreams().isEmpty());
@@ -62,32 +62,32 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetWindowMs() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.WINDOW_MS(), "10"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.WINDOW_MS, "10"));
     assertEquals(10, new TaskConfigJava(config).getWindowMs());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.WINDOW_MS(), "-1"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.WINDOW_MS, "-1"));
     assertEquals(-1, new TaskConfigJava(config).getWindowMs());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_WINDOW_MS(), new TaskConfigJava(new MapConfig()).getWindowMs());
+    assertEquals(TaskConfigJava.DEFAULT_WINDOW_MS, new TaskConfigJava(new MapConfig()).getWindowMs());
   }
 
   @Test
   public void testGetCommitMs() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.COMMIT_MS(), "10"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.COMMIT_MS, "10"));
     assertEquals(10, new TaskConfigJava(config).getCommitMs());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.COMMIT_MS(), "-1"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.COMMIT_MS, "-1"));
     assertEquals(-1, new TaskConfigJava(config).getCommitMs());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_COMMIT_MS(), new TaskConfigJava(new MapConfig()).getCommitMs());
+    assertEquals(TaskConfigJava.DEFAULT_COMMIT_MS, new TaskConfigJava(new MapConfig()).getCommitMs());
   }
 
   @Test
   public void testGetTaskClass() {
     String taskClass = "some.task.class";
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.TASK_CLASS(), taskClass));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.TASK_CLASS, taskClass));
     assertEquals(Optional.of(taskClass), new TaskConfigJava(config).getTaskClass());
 
     // config not specified
@@ -98,7 +98,7 @@ public class TestTaskConfigJava {
   public void testGetCommandClass() {
     String commandClass = "some.command.class";
     String defaultCommandClass = "default.command.class";
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.COMMAND_BUILDER(), commandClass));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.COMMAND_BUILDER, commandClass));
     assertEquals(commandClass, new TaskConfigJava(config).getCommandClass(defaultCommandClass));
 
     // config not specified
@@ -108,7 +108,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetMessageChooserClass() {
     String messageChooserClassValue = "some.message.chooser.class";
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME(), messageChooserClassValue));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.MESSAGE_CHOOSER_CLASS_NAME, messageChooserClassValue));
     assertEquals(Optional.of(messageChooserClassValue), new TaskConfigJava(config).getMessageChooserClass());
 
     // config not specified
@@ -117,10 +117,10 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetDropDeserializationErrors() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_DESERIALIZATION_ERRORS(), "true"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_DESERIALIZATION_ERRORS, "true"));
     assertTrue(new TaskConfigJava(config).getDropDeserializationErrors());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_DESERIALIZATION_ERRORS(), "false"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_DESERIALIZATION_ERRORS, "false"));
     assertFalse(new TaskConfigJava(config).getDropDeserializationErrors());
 
     // config not specified
@@ -129,10 +129,10 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetDropSerializationErrors() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_SERIALIZATION_ERRORS(), "true"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_SERIALIZATION_ERRORS, "true"));
     assertTrue(new TaskConfigJava(config).getDropSerializationErrors());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_SERIALIZATION_ERRORS(), "false"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_SERIALIZATION_ERRORS, "false"));
     assertFalse(new TaskConfigJava(config).getDropSerializationErrors());
 
     // config not specified
@@ -141,10 +141,10 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetDropProducerErrors() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS(), "true"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_PRODUCER_ERRORS, "true"));
     assertTrue(new TaskConfigJava(config).getDropProducerErrors());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS(), "false"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.DROP_PRODUCER_ERRORS, "false"));
     assertFalse(new TaskConfigJava(config).getDropProducerErrors());
 
     // config not specified
@@ -153,7 +153,7 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetPollIntervalMs() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.POLL_INTERVAL_MS(), "10"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.POLL_INTERVAL_MS, "10"));
     assertEquals(Optional.of(10), new TaskConfigJava(config).getPollIntervalMs());
 
     // config not specified
@@ -163,7 +163,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetIgnoredExceptions() {
     String ignoredExceptionsValue = "exception0.class, exception1.class";
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.IGNORED_EXCEPTIONS(), ignoredExceptionsValue));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.IGNORED_EXCEPTIONS, ignoredExceptionsValue));
     assertEquals(Optional.of(ignoredExceptionsValue), new TaskConfigJava(config).getIgnoredExceptions());
 
     // config not specified
@@ -173,7 +173,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetTaskNameGrouperFactory() {
     String taskNameGrouperFactoryValue = "task.name.grouper.factory.class";
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.GROUPER_FACTORY(), taskNameGrouperFactoryValue));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.GROUPER_FACTORY, taskNameGrouperFactoryValue));
     assertEquals(taskNameGrouperFactoryValue, new TaskConfigJava(config).getTaskNameGrouperFactory());
 
     // config not specified
@@ -183,31 +183,31 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetMaxConcurrency() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.MAX_CONCURRENCY(), "10"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.MAX_CONCURRENCY, "10"));
     assertEquals(10, new TaskConfigJava(config).getMaxConcurrency());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_MAX_CONCURRENCY(), new TaskConfigJava(new MapConfig()).getMaxConcurrency());
+    assertEquals(TaskConfigJava.DEFAULT_MAX_CONCURRENCY, new TaskConfigJava(new MapConfig()).getMaxConcurrency());
   }
 
   @Test
   public void testGetCallbackTimeoutMs() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.CALLBACK_TIMEOUT_MS(), "10"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.CALLBACK_TIMEOUT_MS, "10"));
     assertEquals(10, new TaskConfigJava(config).getCallbackTimeoutMs());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.CALLBACK_TIMEOUT_MS(), "-1"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.CALLBACK_TIMEOUT_MS, "-1"));
     assertEquals(-1, new TaskConfigJava(config).getCallbackTimeoutMs());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_CALLBACK_TIMEOUT_MS(), new TaskConfigJava(new MapConfig()).getCallbackTimeoutMs());
+    assertEquals(TaskConfigJava.DEFAULT_CALLBACK_TIMEOUT_MS, new TaskConfigJava(new MapConfig()).getCallbackTimeoutMs());
   }
 
   @Test
   public void testGetAsyncCommit() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.ASYNC_COMMIT(), "true"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.ASYNC_COMMIT, "true"));
     assertTrue(new TaskConfigJava(config).getAsyncCommit());
 
-    config = new MapConfig(ImmutableMap.of(TaskConfig.ASYNC_COMMIT(), "false"));
+    config = new MapConfig(ImmutableMap.of(TaskConfigJava.ASYNC_COMMIT, "false"));
     assertFalse(new TaskConfigJava(config).getAsyncCommit());
 
     // config not specified
@@ -235,11 +235,11 @@ public class TestTaskConfigJava {
 
   @Test
   public void testGetMaxIdleMs() {
-    Config config = new MapConfig(ImmutableMap.of(TaskConfig.MAX_IDLE_MS(), "20"));
+    Config config = new MapConfig(ImmutableMap.of(TaskConfigJava.MAX_IDLE_MS, "20"));
     assertEquals(20, new TaskConfigJava(config).getMaxIdleMs());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_MAX_IDLE_MS(), new TaskConfigJava(new MapConfig()).getMaxIdleMs());
+    assertEquals(TaskConfigJava.DEFAULT_MAX_IDLE_MS, new TaskConfigJava(new MapConfig()).getMaxIdleMs());
   }
 
   @Test
@@ -320,7 +320,7 @@ public class TestTaskConfigJava {
   @Test
   public void testGetAllInputStreams() {
     Config config = new MapConfig(ImmutableMap.of(
-        TaskConfig.INPUT_STREAMS(), "kafka.foo, otherKafka.bar",
+        TaskConfigJava.INPUT_STREAMS, "kafka.foo, otherKafka.bar",
         TaskConfigJava.BROADCAST_INPUT_STREAMS, "kafka.bar#4, otherKafka.foo#5"));
     Set<SystemStream> expected = ImmutableSet.of(
         new SystemStream("kafka", "foo"),
@@ -336,7 +336,7 @@ public class TestTaskConfigJava {
         new SystemStream("otherKafka", "foo"));
     assertEquals(expectedOnlyBroadcast, new TaskConfigJava(configOnlyBroadcast).getAllInputStreams());
 
-    Config configOnlyInputs = new MapConfig(ImmutableMap.of(TaskConfig.INPUT_STREAMS(), "kafka.foo, otherKafka.bar"));
+    Config configOnlyInputs = new MapConfig(ImmutableMap.of(TaskConfigJava.INPUT_STREAMS, "kafka.foo, otherKafka.bar"));
     Set<SystemStream> expectedOnlyInputs = ImmutableSet.of(
         new SystemStream("kafka", "foo"),
         new SystemStream("otherKafka", "bar"));

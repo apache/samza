@@ -36,7 +36,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,11 +78,11 @@ public abstract class JobPlanner {
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
     // Don't generate any configurations for LegacyTaskApplications
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
-      if (userConfig.containsKey(TaskConfig.INPUT_STREAMS())) {
+      if (userConfig.containsKey(TaskConfigJava.INPUT_STREAMS)) {
         LOG.warn("SamzaApplications should not specify task.inputs in configuration. " +
             "Specify them using InputDescriptors instead. Ignoring configured task.inputs value of " +
-            userConfig.get(TaskConfig.INPUT_STREAMS()));
-        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS());
+            userConfig.get(TaskConfigJava.INPUT_STREAMS));
+        allowedUserConfig.remove(TaskConfigJava.INPUT_STREAMS);
       }
       generatedConfig.putAll(getGeneratedConfig(runId));
     }

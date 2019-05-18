@@ -48,7 +48,7 @@ class TestRangeSystemStreamPartitionMatcher {
   private def getConfig(range: String): MapConfig = {
     new MapConfig(mutable.Map(
       TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
-      TaskConfig.INPUT_STREAMS -> "test.stream1",
+      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_RANGE,
       JobConfig.SSP_MATCHER_CONFIG_RANGES -> range,
@@ -96,7 +96,7 @@ class TestRangeSystemStreamPartitionMatcher {
   def testFilterWithNoMatcherConfigRange() {
     val config = new MapConfig(mutable.Map(
       TaskConfigJava.CHECKPOINT_MANAGER_FACTORY -> classOf[MockCheckpointManagerFactory].getCanonicalName,
-      TaskConfig.INPUT_STREAMS -> "test.stream1",
+      TaskConfigJava.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_RANGE,
       (SystemConfig.SYSTEM_FACTORY_FORMAT format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)

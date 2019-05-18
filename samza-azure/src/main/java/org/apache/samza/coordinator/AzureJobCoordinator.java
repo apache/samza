@@ -23,7 +23,6 @@ import org.apache.samza.AzureClient;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;

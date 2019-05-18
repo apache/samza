@@ -26,7 +26,6 @@ import java.util.regex.Pattern
 import joptsimple.ArgumentAcceptingOptionSpec
 import joptsimple.OptionSet
 import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.info

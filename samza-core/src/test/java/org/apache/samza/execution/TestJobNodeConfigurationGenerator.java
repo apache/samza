@@ -29,7 +29,6 @@ import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.storage.SideInputsProcessor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
@@ -75,7 +74,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
     // additional, check the computed window.ms for join
-    assertEquals("3600000", jobConfig.get(TaskConfig.WINDOW_MS()));
+    assertEquals("3600000", jobConfig.get(TaskConfigJava.WINDOW_MS));
     Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 5);
     validateStreamConfigures(jobConfig, deserializedSerdes);
     validateJoinStoreConfigures(jobConfig, deserializedSerdes);
@@ -276,7 +275,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
       }
     }
     if (!inputs.isEmpty()) {
-      configMap.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+      configMap.put(TaskConfigJava.INPUT_STREAMS, Joiner.on(',').join(inputs));
     }
     if (!broadcasts.isEmpty()) {
       configMap.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
@@ -299,7 +298,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals(expectedConfig.get(JobConfig.JOB_NAME()), jobConfig.getName().get());
     assertEquals(expectedConfig.get(JobConfig.JOB_ID()), jobConfig.getJobId());
     assertEquals("testJobGraphJson", jobConfig.get(JobNodeConfigurationGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
-    assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS()), jobConfig.get(TaskConfig.INPUT_STREAMS()));
+    assertEquals(expectedConfig.get(TaskConfigJava.INPUT_STREAMS), jobConfig.get(TaskConfigJava.INPUT_STREAMS));
     assertEquals(expectedConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS));
   }
 

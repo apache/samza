@@ -50,7 +50,7 @@ import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j2.serializers.LoggingEventJsonSerdeFactory;
@@ -300,7 +300,7 @@ public class StreamAppender extends AbstractAppender {
       throw new SamzaException("can not read the config", e);
     }
     // Make system producer drop producer errors for StreamAppender
-    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS(), "true"));
+    config = new MapConfig(config, ImmutableMap.of(TaskConfigJava.DROP_PRODUCER_ERRORS, "true"));
 
     return config;
   }
