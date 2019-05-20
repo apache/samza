@@ -19,10 +19,12 @@
 
 package org.apache.samza.clustermanager;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -30,6 +32,7 @@ import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -38,13 +41,22 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
+import org.mockito.exceptions.base.MockitoException;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 
 /**
  * Tests for {@link ClusterBasedJobCoordinator}
@@ -118,5 +130,32 @@ public class TestClusterBasedJobCoordinator {
     StreamPartitionCountMonitor monitor = clusterCoordinator.getPartitionMonitor();
     monitor.updatePartitionCountMetric();
     assertEquals(clusterCoordinator.getAppStatus(), SamzaApplicationState.SamzaAppStatus.UNDEFINED);
+  }
+
+  @Test
+  public void testVerifyStartpointManagerFanOut() throws IOException {
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    configMap.put("job.jmx.enabled", "false");
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
+    Config config = new MapConfig(configMap);
+    MockitoException stopException = new MockitoException("Stop");
+
+    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(new ClusterBasedJobCoordinator(config));
+    ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
+    doReturn(true).when(mockContainerProcessManager).shouldShutdown();
+    StartpointManager mockStartpointManager = mock(StartpointManager.class);
+    doThrow(stopException).when(mockStartpointManager).stop(); // Stop ClusterBasedJobCoordinator#run after stop() method.
+    doReturn(mockContainerProcessManager).when(clusterCoordinator).createContainerProcessManager();
+    doReturn(mockStartpointManager).when(clusterCoordinator).createStartpointManager();
+    try {
+      clusterCoordinator.run();
+    } catch (SamzaException ex) {
+      assertEquals(stopException, ex.getCause());
+      verify(mockStartpointManager).start();
+      verify(mockStartpointManager).fanOut(any());
+      verify(mockStartpointManager).stop();
+      return;
+    }
+    fail("Expected run() method to stop after StartpointManager#stop()");
   }
 }

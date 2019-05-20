@@ -19,12 +19,18 @@
 
 package org.apache.samza.job.model;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.system.SystemStreamPartition;
+
 
 /**
  * <p>
@@ -117,6 +123,30 @@ public class JobModel {
       }
     }
     return allValues;
+  }
+
+  /**
+   * Extracts the map of {@link SystemStreamPartition}s to {@link TaskName} from the underlying {@link TaskModel}s
+   *
+   * @return the extracted map
+   */
+  public Map<TaskName, Set<SystemStreamPartition>> getTaskToSystemStreamPartitions() {
+    HashMap<TaskName, Set<SystemStreamPartition>> taskToSSPs = new HashMap<>();
+    for (String containerID : containers.keySet()) {
+      ContainerModel containerModel = containers.get(containerID);
+      for (TaskName taskName : containerModel.getTasks().keySet()) {
+        TaskModel taskModel = containerModel.getTasks().get(taskName);
+        if (taskModel.getTaskMode() != TaskMode.Active) {
+          // Avoid duplicate tasks
+          continue;
+        }
+        ImmutableSet.Builder<SystemStreamPartition> setOfSSPs = ImmutableSet.builder();
+        setOfSSPs.addAll(taskToSSPs.getOrDefault(taskName, ImmutableSet.of()));
+        setOfSSPs.addAll(taskModel.getSystemStreamPartitions());
+        taskToSSPs.put(taskName, setOfSSPs.build());
+      }
+    }
+    return ImmutableMap.copyOf(taskToSSPs);
   }
 
   private void populateContainerLocalityMappings() {

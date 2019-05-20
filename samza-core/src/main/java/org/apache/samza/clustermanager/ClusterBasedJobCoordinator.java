@@ -50,6 +50,7 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
@@ -194,7 +195,7 @@ public class ClusterBasedJobCoordinator {
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = new ContainerProcessManager(config, state, metrics);
+    containerProcessManager = createContainerProcessManager();
   }
 
   /**
@@ -216,14 +217,23 @@ public class ClusterBasedJobCoordinator {
     }
 
     try {
-      //initialize JobCoordinator state
+      // initialize JobCoordinator state
       LOG.info("Starting cluster based job coordinator");
 
-      //create necessary checkpoint and changelog streams, if not created
+      // create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
           new MetadataResourceUtil(jobModel, metrics);
       metadataResourceUtil.createResources();
+
+      // fan out the startpoints
+      StartpointManager startpointManager = createStartpointManager();
+      startpointManager.start();
+      try {
+        startpointManager.fanOut(jobModel.getTaskToSystemStreamPartitions());
+      } finally {
+        startpointManager.stop();
+      }
 
       // Remap changelog partitions to tasks
       Map<TaskName, Integer> prevPartitionMappings = changelogStreamManager.readPartitionMapping();
@@ -374,6 +384,16 @@ public class ClusterBasedJobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionMonitor() {
     return partitionMonitor.get();
+  }
+
+  @VisibleForTesting
+  StartpointManager createStartpointManager() {
+    return new StartpointManager(coordinatorStreamStore);
+  }
+
+  @VisibleForTesting
+  ContainerProcessManager createContainerProcessManager() {
+    return new ContainerProcessManager(config, state, metrics);
   }
 
   /**
