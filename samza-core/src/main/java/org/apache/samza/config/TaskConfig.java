@@ -186,21 +186,8 @@ public class TaskConfig extends MapConfig {
     return getBoolean(ASYNC_COMMIT, false);
   }
 
-  public boolean isAutoCommitEnabled() {
-    return getCommitMs() > 0;
-  }
-
   public long getMaxIdleMs() {
     return getLong(MAX_IDLE_MS, DEFAULT_MAX_IDLE_MS);
-  }
-
-  /**
-   * Get the name of the checkpoint manager factory
-   *
-   * @return Name of checkpoint manager factory; empty if not specified
-   */
-  public Optional<String> getCheckpointManagerFactoryName() {
-    return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY));
   }
 
   /**
@@ -211,7 +198,7 @@ public class TaskConfig extends MapConfig {
    */
   public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry) {
     // Initialize checkpoint streams during job coordination
-    return getCheckpointManagerFactoryName()
+    return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY))
         .filter(StringUtils::isNotBlank)
         .map(checkpointManagerFactoryName -> Util.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class)
             .getCheckpointManager(this, metricsRegistry));

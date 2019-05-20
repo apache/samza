@@ -215,41 +215,12 @@ public class TestTaskConfig {
   }
 
   @Test
-  public void testIsAutoCommitEnabled() {
-    // positive values of commit.ms => autoCommit = true
-    Config config1 = new MapConfig(ImmutableMap.of("task.commit.ms", "1"));
-    assertTrue(new TaskConfig(config1).isAutoCommitEnabled());
-
-    // no value for commit.ms => autoCommit = true
-    Config config2 = new MapConfig(ImmutableMap.of());
-    assertTrue(new TaskConfig(config2).isAutoCommitEnabled());
-
-    // A zero value for commit.ms => autoCommit = false
-    Config config3 = new MapConfig(ImmutableMap.of("task.commit.ms", "0"));
-    assertFalse(new TaskConfig(config3).isAutoCommitEnabled());
-
-    // negative value for commit.ms => autoCommit = false
-    Config config4 = new MapConfig(ImmutableMap.of("task.commit.ms", "-1"));
-    assertFalse(new TaskConfig(config4).isAutoCommitEnabled());
-  }
-
-  @Test
   public void testGetMaxIdleMs() {
     Config config = new MapConfig(ImmutableMap.of(TaskConfig.MAX_IDLE_MS, "20"));
     assertEquals(20, new TaskConfig(config).getMaxIdleMs());
 
     // config not specified
     assertEquals(TaskConfig.DEFAULT_MAX_IDLE_MS, new TaskConfig(new MapConfig()).getMaxIdleMs());
-  }
-
-  @Test
-  public void testGetCheckpointManagerFactoryName() {
-    String checkpointManagerFactoryClass = "checkpoint.manager.factory.class";
-    Config config =
-        new MapConfig(ImmutableMap.of(TaskConfig.CHECKPOINT_MANAGER_FACTORY, checkpointManagerFactoryClass));
-    assertEquals(Optional.of(checkpointManagerFactoryClass),
-        new TaskConfig(config).getCheckpointManagerFactoryName());
-    assertFalse(new TaskConfig(new MapConfig()).getCheckpointManagerFactoryName().isPresent());
   }
 
   @Test
