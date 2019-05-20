@@ -19,21 +19,21 @@
 
 package org.apache.samza.task;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.OperatorImplGraph;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.util.Clock;
 import org.junit.Test;
 
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestStreamOperatorTask {
-
   public static OperatorImplGraph getOperatorImplGraph(StreamOperatorTask task) {
     return task.getOperatorImplGraph();
   }
@@ -53,5 +53,23 @@ public class TestStreamOperatorTask {
       }
     }
     operatorTask.close();
+  }
+
+  /**
+   * Pass an invalid IME to processAsync. Any exceptions in processAsync should still get propagated through the
+   * task callback.
+   */
+  @Test
+  public void testExceptionsInProcessInvokesTaskCallback() {
+    ExecutorService taskThreadPool = Executors.newFixedThreadPool(2);
+    TaskCallback mockTaskCallback = mock(TaskCallback.class);
+    MessageCollector mockMessageCollector = mock(MessageCollector.class);
+    TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);
+    StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class));
+    operatorTask.setTaskThreadPool(taskThreadPool);
+
+    operatorTask.processAsync(mock(IncomingMessageEnvelope.class), mockMessageCollector,
+        mockTaskCoordinator, mockTaskCallback);
+    verify(mockTaskCallback, times(1)).failure(any());
   }
 }

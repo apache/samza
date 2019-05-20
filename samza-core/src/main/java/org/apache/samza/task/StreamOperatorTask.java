@@ -21,6 +21,7 @@ package org.apache.samza.task;
 import com.google.common.base.Preconditions;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.OperatorSpecGraph;
@@ -47,6 +48,14 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
   private final OperatorSpecGraph specGraph;
   private final Clock clock;
 
+  /*
+   * Thread pool used by the task to schedule processing of incoming messages. If job.container.thread.pool.size is
+   * not configured, this will be null. We don't want to create an executor service within StreamOperatorTask due to
+   * following reasons
+   *   1. It is harder to reason about the lifecycle of the executor service
+   *   2. We end up with thread pool proliferation. Especially for jobs with high number of tasks.
+   */
+  private ExecutorService taskThreadPool;
   private OperatorImplGraph operatorImplGraph;
 
   /**
@@ -86,7 +95,9 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
 
   /**
    * Passes the incoming message envelopes along to the {@link InputOperatorImpl} node
-   * for the input {@link SystemStream}.
+   * for the input {@link SystemStream}. It is non-blocking and dispatches the message to an internally managed thread
+   * pool. The thread pool size is configured through job.container.thread.pool.size. In the absence of the config,
+   * the task defaults to a single thread executor.
    * <p>
    * From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its transformed output to
    * its chained {@link org.apache.samza.operators.impl.OperatorImpl}s itself.
@@ -99,40 +110,55 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
   @Override
   public final void processAsync(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator,
       TaskCallback callback) {
-    SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
-    InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
-    if (inputOpImpl != null) {
-      CompletionStage<Void> processFuture;
-      MessageType messageType = MessageType.of(ime.getMessage());
-      switch (messageType) {
-        case USER_MESSAGE:
-          processFuture = inputOpImpl.onMessageAsync(ime, collector, coordinator);
-          break;
+    Runnable processRunnable = () -> {
+      try {
+        SystemStream systemStream = ime.getSystemStreamPartition().getSystemStream();
+        InputOperatorImpl inputOpImpl = operatorImplGraph.getInputOperator(systemStream);
+        if (inputOpImpl != null) {
+          CompletionStage<Void> processFuture;
+          MessageType messageType = MessageType.of(ime.getMessage());
+          switch (messageType) {
+            case USER_MESSAGE:
+              processFuture = inputOpImpl.onMessageAsync(ime, collector, coordinator);
+              break;
 
-        case END_OF_STREAM:
-          EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
-          processFuture =
-              inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
-          break;
+            case END_OF_STREAM:
+              EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
+              processFuture =
+                  inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
+              break;
 
-        case WATERMARK:
-          WatermarkMessage watermarkMessage = (WatermarkMessage) ime.getMessage();
-          processFuture =
-              inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector, coordinator);
-          break;
+            case WATERMARK:
+              WatermarkMessage watermarkMessage = (WatermarkMessage) ime.getMessage();
+              processFuture = inputOpImpl.aggregateWatermark(watermarkMessage, ime.getSystemStreamPartition(), collector,
+                  coordinator);
+              break;
 
-        default:
-          processFuture = failedFuture(new SamzaException("Unknown message type " + messageType + " encountered."));
-          break;
-      }
-
-      processFuture.whenComplete((val, ex) -> {
-          if (ex != null) {
-            callback.failure(ex);
-          } else {
-            callback.complete();
+            default:
+              processFuture = failedFuture(new SamzaException("Unknown message type " + messageType + " encountered."));
+              break;
           }
-        });
+
+          processFuture.whenComplete((val, ex) -> {
+              if (ex != null) {
+                callback.failure(ex);
+              } else {
+                callback.complete();
+              }
+            });
+        }
+      } catch (Exception e) {
+        LOG.error("Failed to process the incoming message due to ", e);
+        callback.failure(e);
+      }
+    };
+
+    if (taskThreadPool != null) {
+      LOG.debug("Processing message using thread pool.");
+      taskThreadPool.submit(processRunnable);
+    } else {
+      LOG.debug("Processing message on the run loop thread.");
+      processRunnable.run();
     }
   }
 
@@ -151,6 +177,11 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
     if (operatorImplGraph != null) {
       operatorImplGraph.close();
     }
+  }
+
+  /* package private setter for TaskFactoryUtil to initialize the taskThreadPool */
+  void setTaskThreadPool(ExecutorService taskThreadPool) {
+    this.taskThreadPool = taskThreadPool;
   }
 
   /* package private for testing */
