@@ -98,9 +98,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getCoordinatorTopicProperties(config: Config) = {
     val segmentBytes = config.getCoordinatorSegmentBytes
+    val maxMessageBytes = config.getCoordinatorMaxMessageByte
     (new Properties /: Map(
       "cleanup.policy" -> "compact",
-      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+      "segment.bytes" -> segmentBytes,
+      "max.message.bytes" -> maxMessageBytes)) { case (props, (k, v)) => props.put(k, v); props }
   }
 
   def getIntermediateStreamProperties(config: Config): Map[String, Properties] = {

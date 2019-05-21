@@ -85,6 +85,7 @@ class TestKafkaConfig {
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
     props.setProperty("stores.test1.changelog", "kafka.mychangelog1")
     props.setProperty("stores.test2.changelog", "kafka.mychangelog2")
+    props.setProperty("stores.test2.changelog.max.message.bytes", "1024000")
     props.setProperty("job.changelog.system", "kafka")
     props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
@@ -98,6 +99,7 @@ class TestKafkaConfig {
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("cleanup.policy"), "compact")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("max.message.bytes"), "1024000")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact")
     val storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores()
     assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
@@ -114,6 +116,7 @@ class TestKafkaConfig {
 
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("retention.ms"), "3600")
+    assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("max.message.bytes"), null)
 
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test5").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test5").getProperty("retention.ms"), "1000")
@@ -133,6 +136,8 @@ class TestKafkaConfig {
     assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact")
     assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("delete.retention.ms"),
       String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+    assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("max.message.bytes"),
+      KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
   }
 
   @Test
@@ -247,72 +252,84 @@ class TestKafkaConfig {
   }
 
   @Test
-  def testCheckpointReplicationFactor() {
+  def testCheckpointConfigs() {
     val emptyConfig = new KafkaConfig(new MapConfig())
     assertEquals("3", emptyConfig.getCheckpointReplicationFactor.orNull)
+    assertEquals(1000012, emptyConfig.getCheckpointMaxMessageBytes())
     assertNull(emptyConfig.getCheckpointSystem.orNull)
 
     props.setProperty(KafkaConfig.CHECKPOINT_SYSTEM, "kafka-system")
     props.setProperty("task.checkpoint.replication.factor", "4")
+    props.setProperty("task.checkpoint.max.message.bytes", "2048000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("kafka-system", kafkaConfig.getCheckpointSystem.orNull)
     assertEquals("4", kafkaConfig.getCheckpointReplicationFactor.orNull)
+    assertEquals(2048000, kafkaConfig.getCheckpointMaxMessageBytes())
   }
 
   @Test
-  def testCheckpointReplicationFactorWithSystemDefault() {
+  def testCheckpointConfigsWithSystemDefault() {
     props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "other-kafka-system")
     props.setProperty("systems.other-kafka-system.default.stream.replication.factor", "8")
     props.setProperty("systems.other-kafka-system.default.stream.segment.bytes", "8675309")
+    props.setProperty("systems.other-kafka-system.default.stream.max.message.bytes", "4096000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("other-kafka-system", kafkaConfig.getCheckpointSystem.orNull)
     assertEquals("8", kafkaConfig.getCheckpointReplicationFactor.orNull)
     assertEquals(8675309, kafkaConfig.getCheckpointSegmentBytes)
+    assertEquals(4096000, kafkaConfig.getCheckpointMaxMessageBytes())
   }
 
   @Test
-  def testCheckpointReplicationFactorWithSystemOverriddenDefault() {
+  def testCheckpointConfigsWithSystemOverriddenDefault() {
     // Defaults
     props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "other-kafka-system")
     props.setProperty("systems.other-kafka-system.default.stream.replication.factor", "8")
+    props.setProperty("systems.other-kafka-system.default.stream.max.message.bytes", "4096000")
     props.setProperty("systems.kafka-system.default.stream.segment.bytes", "8675309")
 
     // Overrides
     props.setProperty(KafkaConfig.CHECKPOINT_SYSTEM, "kafka-system")
     props.setProperty(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR, "4")
+    props.setProperty(KafkaConfig.CHECKPOINT_MAX_MESSAGE_BYTES, "8192000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("kafka-system", kafkaConfig.getCheckpointSystem.orNull)
     assertEquals("4", kafkaConfig.getCheckpointReplicationFactor.orNull)
     assertEquals(8675309, kafkaConfig.getCheckpointSegmentBytes)
+    assertEquals(8192000, kafkaConfig.getCheckpointMaxMessageBytes())
   }
 
   @Test
-  def testCoordinatorReplicationFactor() {
+  def testCoordinatorConfigs() {
     val emptyConfig = new KafkaConfig(new MapConfig())
     assertEquals("3", emptyConfig.getCoordinatorReplicationFactor)
+    assertEquals("1000012", emptyConfig.getCoordinatorMaxMessageByte)
     assertNull(new JobConfig(new MapConfig()).getCoordinatorSystemNameOrNull)
 
     props.setProperty(JobConfig.JOB_COORDINATOR_SYSTEM, "kafka-system")
     props.setProperty(KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "4")
+    props.setProperty(KafkaConfig.JOB_COORDINATOR_MAX_MESSAGE_BYTES, "1024000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val jobConfig = new JobConfig(mapConfig)
     assertEquals("kafka-system", jobConfig.getCoordinatorSystemNameOrNull)
     assertEquals("4", kafkaConfig.getCoordinatorReplicationFactor)
+    assertEquals("1024000", kafkaConfig.getCoordinatorMaxMessageByte)
   }
 
   @Test
-  def testCoordinatorReplicationFactorWithSystemDefault() {
+  def testCoordinatorConfigsWithSystemDefault() {
     props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "other-kafka-system")
     props.setProperty("systems.other-kafka-system.default.stream.replication.factor", "8")
     props.setProperty("systems.other-kafka-system.default.stream.segment.bytes", "8675309")
+    props.setProperty("systems.other-kafka-system.default.stream.max.message.bytes", "2048000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
@@ -320,24 +337,28 @@ class TestKafkaConfig {
     assertEquals("other-kafka-system", jobConfig.getCoordinatorSystemNameOrNull)
     assertEquals("8", kafkaConfig.getCoordinatorReplicationFactor)
     assertEquals("8675309", kafkaConfig.getCoordinatorSegmentBytes)
+    assertEquals("2048000", kafkaConfig.getCoordinatorMaxMessageByte)
   }
 
   @Test
-  def testCoordinatorReplicationFactorWithSystemOverriddenDefault() {
+  def testCoordinatorConfigsWithSystemOverriddenDefault() {
     // Defaults
     props.setProperty(JobConfig.JOB_DEFAULT_SYSTEM, "other-kafka-system")
     props.setProperty("systems.other-kafka-system.default.stream.replication.factor", "8")
+    props.setProperty("systems.other-kafka-system.default.stream.max.message.byte", "2048000")
     props.setProperty("systems.kafka-system.default.stream.segment.bytes", "8675309")
 
     // Overrides
     props.setProperty(JobConfig.JOB_COORDINATOR_SYSTEM, "kafka-system")
     props.setProperty(KafkaConfig.JOB_COORDINATOR_REPLICATION_FACTOR, "4")
+    props.setProperty(KafkaConfig.JOB_COORDINATOR_MAX_MESSAGE_BYTES, "4096000")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     val jobConfig = new JobConfig(mapConfig)
     assertEquals("kafka-system", jobConfig.getCoordinatorSystemNameOrNull)
     assertEquals("4", kafkaConfig.getCoordinatorReplicationFactor)
+    assertEquals("4096000", kafkaConfig.getCoordinatorMaxMessageByte)
     assertEquals("8675309", kafkaConfig.getCoordinatorSegmentBytes)
   }
 }
