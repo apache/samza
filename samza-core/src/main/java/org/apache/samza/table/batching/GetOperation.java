@@ -78,23 +78,4 @@ public class GetOperation<K, V> implements Operation<K, V> {
   void completeExceptionally(Throwable ex) {
     completableFuture.completeExceptionally(ex);
   }
-
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (other == null || getClass() != other.getClass()) {
-      return false;
-    }
-
-    final GetOperation<K, V> otherOp = (GetOperation) other;
-    return otherOp.getValue() == null && getKey().equals(otherOp.getKey());
-  }
-
-  @Override
-  public int hashCode() {
-    return getKey().hashCode();
-  }
 }

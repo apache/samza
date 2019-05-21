@@ -61,22 +61,4 @@ public class DeleteOperation<K, V> implements Operation<K, V> {
   public Object[] getArgs() {
     return args;
   }
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (other == null || getClass() != other.getClass()) {
-      return false;
-    }
-
-    final DeleteOperation<K, V> otherOp = (DeleteOperation) other;
-    return otherOp.getValue() == null && getKey().equals(otherOp.getKey());
-  }
-
-  @Override
-  public int hashCode() {
-    return getKey().hashCode();
-  }
 }

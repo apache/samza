@@ -245,8 +245,8 @@ The table below summarizes table metrics:
 
 | Metrics | Class | Description |
 |---------|-------|-------------|
-|`batch-count`|`AsyncBatchingTable`|Count of batch operations|
-|`batch-duration`|`AsyncBatchingTable`|Timer interval between opening and closing a batch|
+|`num-batches`|`AsyncBatchingTable`|Number of batch operations|
+|`batch-ns`|`AsyncBatchingTable`|Time interval between opening and closing a batch|
 |`get-ns`|`ReadableTable`|Average latency of `get/getAsync()` operations|
 |`getAll-ns`|`ReadableTable`|Average latency of `getAll/getAllAsync()` operations|
 |`num-gets`|`ReadableTable`|Count of `get/getAsync()` operations

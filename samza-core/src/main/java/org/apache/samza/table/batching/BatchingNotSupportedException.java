@@ -19,20 +19,24 @@
 
 package org.apache.samza.table.batching;
 
-public class BatchNotSupportedException extends RuntimeException {
-  public BatchNotSupportedException() {
+/**
+ * When adding an {@link Operation} to a {@link Batch}, if the batch implementation class
+ * does not want to batch the operation, it should throw a {@link BatchingNotSupportedException}.
+ */
+public class BatchingNotSupportedException extends UnsupportedOperationException {
+  public BatchingNotSupportedException() {
     super();
   }
 
-  public BatchNotSupportedException(String message) {
+  public BatchingNotSupportedException(String message) {
     super(message);
   }
 
-  public BatchNotSupportedException(Throwable cause) {
+  public BatchingNotSupportedException(Throwable cause) {
     super(cause);
   }
 
-  public BatchNotSupportedException(String message, Throwable cause) {
+  public BatchingNotSupportedException(String message, Throwable cause) {
     super(message, cause);
   }
 }

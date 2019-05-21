@@ -30,6 +30,7 @@ import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -46,7 +47,7 @@ import org.apache.samza.table.utils.TableMetricsUtil;
  * If the table is used by a single thread, there will be at most one operation in the batch, and the
  * batch will be performed when the TTL of the batch window expires. Batching does not make sense in this scenario.
  *
- * The Batch implementation class can throw {@link BatchNotSupportedException} if it thinks the operation is
+ * The Batch implementation class can throw {@link BatchingNotSupportedException} if it thinks the operation is
  * not batch-able. When receiving this exception, {@link AsyncBatchingTable} will send the operation to the
  * {@link AsyncReadWriteTable}.
  *
@@ -80,11 +81,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<V> getAsync(K key, Object... args) {
-    Preconditions.checkNotNull(key);
-
     try {
       return batchProcessor.processQueryOperation(new GetOperation<>(key, args));
-    } catch (BatchNotSupportedException e) {
+    } catch (BatchingNotSupportedException e) {
       return table.getAsync(key, args);
     } catch (Exception e) {
       throw new SamzaException(e);
@@ -93,18 +92,14 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object... args) {
-    Preconditions.checkNotNull(keys);
-
     return table.getAllAsync(keys);
   }
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V value, Object... args) {
-    Preconditions.checkNotNull(key);
-
     try {
       return batchProcessor.processUpdateOperation(new PutOperation<>(key, value, args));
-    } catch (BatchNotSupportedException e) {
+    } catch (BatchingNotSupportedException e) {
       return table.putAsync(key, value, args);
     } catch (Exception e) {
       throw new SamzaException(e);
@@ -113,17 +108,14 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object... args) {
-    Preconditions.checkNotNull(entries);
-
     return table.putAllAsync(entries);
   }
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key, Object... args) {
-    Preconditions.checkNotNull(key);
     try {
       return batchProcessor.processUpdateOperation(new DeleteOperation<>(key, args));
-    } catch (BatchNotSupportedException e) {
+    } catch (BatchingNotSupportedException e) {
       return table.deleteAsync(key, args);
     } catch (Exception e) {
       throw new SamzaException(e);
@@ -132,8 +124,6 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object... args) {
-    Preconditions.checkNotNull(keys);
-
     return table.deleteAllAsync(keys);
   }
 
@@ -141,7 +131,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   public void init(Context context) {
     table.init(context);
     final TableMetricsUtil metricsUtil = new TableMetricsUtil(context, this, tableId);
-    setBatchProcessor(new BatchMetrics(metricsUtil));
+
+    createBatchProcessor(TableMetricsUtil.mayCreateHighResolutionClock(context.getJobContext().getConfig()),
+        new BatchMetrics(metricsUtil));
   }
 
   @Override
@@ -156,9 +148,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @VisibleForTesting
-  void setBatchProcessor(BatchMetrics batchMetrics) {
+  void createBatchProcessor(HighResolutionClock clock, BatchMetrics batchMetrics) {
     batchProcessor = new BatchProcessor<>(batchMetrics, new TableBatchHandler<>(table),
-        batchProvider, batchTimerExecutorService);
+        batchProvider, clock, batchTimerExecutorService);
   }
 
   @VisibleForTesting

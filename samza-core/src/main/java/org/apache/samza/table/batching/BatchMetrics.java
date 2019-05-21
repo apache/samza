@@ -39,8 +39,8 @@ class BatchMetrics {
   final Timer batchDuration;
 
   public BatchMetrics(TableMetricsUtil metricsUtil) {
-    batchCount = metricsUtil.newCounter("batch-count");
-    batchDuration = metricsUtil.newTimer("batch-duration");
+    batchCount = metricsUtil.newCounter("num-batches");
+    batchDuration = metricsUtil.newTimer("batch-ns");
   }
 
   public void incBatchCount() {

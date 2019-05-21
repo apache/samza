@@ -21,6 +21,7 @@ package org.apache.samza.table.batching;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -55,7 +56,7 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
     Preconditions.checkNotNull(operations);
     final List<K> gets = getOperationKeys(operations);
     if (gets.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
+      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
 
     final Object[] args = getOperationArgs(operations);
@@ -88,7 +89,7 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
         .map(op -> new Entry<>(op.getKey(), op.getValue()))
         .collect(Collectors.toList());
     if (puts.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
+      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
 
     final Object[] args = getOperationArgs(operations);
@@ -106,7 +107,7 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
 
     final List<K> deletes = getOperationKeys(operations);
     if (deletes.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
+      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
     final Object[] args = getOperationArgs(operations);
     return args == null ? table.deleteAllAsync(deletes) : table.deleteAllAsync(deletes, args);

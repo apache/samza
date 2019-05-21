@@ -168,16 +168,19 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
     batchWrites.put(testName, new AtomicInteger());
     writtenRecords.put(testName, new CopyOnWriteArrayList<>());
 
-    int count = 10;
-    PageView[] pageViews = generatePageViews(count);
+    final int count = 16;
+    final int batchSize = 4;
+    PageView[] pageViews = generatePageViewsWithDistinctKeys(count);
     String profiles = Base64Serializer.serialize(generateProfiles(count));
 
-    int partitionCount = 4;
+    int partitionCount = 1;
     Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
 
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
+    configs.put("task.max.concurrency", String.valueOf(count));
+    configs.put("task.async.commit", String.valueOf(true));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
@@ -188,7 +191,7 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(testName, profiles))
           .withRateLimiter(readRateLimiter, creditFunction, null);
       if (batchRead) {
-        inputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchDelay(Duration.ofMillis(10)));
+        inputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchSize(batchSize).withmaxBatchDelay(Duration.ofHours(1)));
       }
 
       // dummy reader
@@ -200,7 +203,7 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, creditFunction, creditFunction);
       if (batchWrite) {
-        outputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchDelay(Duration.ofMillis(10)));
+        outputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchSize(batchSize).withmaxBatchDelay(Duration.ofHours(1)));
       }
 
       Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
@@ -226,10 +229,10 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
     Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
 
     if (batchRead) {
-      Assert.assertEquals(numExpected, batchReads.get(testName).get());
+      Assert.assertEquals(numExpected / batchSize, batchReads.get(testName).get());
     }
     if (batchWrite) {
-      Assert.assertEquals(numExpected, batchWrites.get(testName).get());
+      Assert.assertEquals(numExpected / batchSize, batchWrites.get(testName).get());
     }
   }
 

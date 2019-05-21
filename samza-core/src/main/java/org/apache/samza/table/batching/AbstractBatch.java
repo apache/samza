@@ -28,6 +28,7 @@ abstract class AbstractBatch<K, V> implements Batch<K, V> {
   protected final Duration maxBatchDelay;
   protected final CompletableFuture<Void> completableFuture;
   protected boolean closed = false;
+  protected static final BatchingNotSupportedException BATCH_NOT_SUPPORTED_EXCEPTION = new BatchingNotSupportedException();
 
   AbstractBatch(int maxBatchSize, Duration maxBatchDelay) {
     // The max number of {@link Operation}s that the batch can hold.
@@ -41,7 +42,7 @@ abstract class AbstractBatch<K, V> implements Batch<K, V> {
    * @return The batch capacity.
    */
   @Override
-  public int getmaxBatchSize() {
+  public int getMaxBatchSize() {
     return maxBatchSize;
   }
 
@@ -49,7 +50,7 @@ abstract class AbstractBatch<K, V> implements Batch<K, V> {
    * @return The batch max delay.
    */
   @Override
-  public Duration getmaxBatchDelay() {
+  public Duration getMaxBatchDelay() {
     return maxBatchDelay;
   }
 

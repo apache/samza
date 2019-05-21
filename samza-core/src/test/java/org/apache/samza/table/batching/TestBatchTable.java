@@ -109,7 +109,7 @@ public class TestBatchTable {
     asyncBatchingTable = new AsyncBatchingTable("id", table, new CompactBatchProvider()
         .withmaxBatchSize(BATCH_SIZE)
         .withmaxBatchDelay(BATCH_DELAY), Executors.newSingleThreadScheduledExecutor());
-    asyncBatchingTable.setBatchProcessor(mock(BatchMetrics.class));
+    asyncBatchingTable.createBatchProcessor(() -> 0, mock(BatchMetrics.class));
 
     doAnswer(putAnswer).when(table).put(anyInt(), anyInt());
     doAnswer(putAsyncAnswer).when(table).putAsync(anyInt(), anyInt());

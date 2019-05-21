@@ -65,28 +65,4 @@ public class PutOperation<K, V> implements Operation<K, V> {
   public Object[] getArgs() {
     return args;
   }
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (other == null || getClass() != other.getClass()) {
-      return false;
-    }
-
-    final PutOperation<K, V> otherOp = (PutOperation) other;
-
-    // If value for this object is null, should be null for other object as well.
-    if ((getValue() == null) ^ (otherOp.getValue() == null)) {
-      return false;
-    }
-
-    return getKey().equals(otherOp.getKey()) && getValue().equals(otherOp.getValue());
-  }
-
-  @Override
-  public int hashCode() {
-    return getKey().hashCode();
-  }
 }

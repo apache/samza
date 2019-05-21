@@ -59,12 +59,12 @@ public interface Batch<K, V> {
   /**
    * @return The batch max delay.
    */
-  Duration getmaxBatchDelay();
+  Duration getMaxBatchDelay();
 
   /**
    * @return The batch capacity
    */
-  int getmaxBatchSize();
+  int getMaxBatchSize();
 
   /**
    * Change the batch status to be complete.

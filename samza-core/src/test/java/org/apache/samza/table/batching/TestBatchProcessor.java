@@ -159,6 +159,6 @@ public class TestBatchProcessor {
         .withmaxBatchDelay(Duration.ofMillis(maxDelay)).withmaxBatchSize(maxSize);
     final BatchHandler<Integer, Integer> batchHandler = new TableBatchHandler<>(table);
     final BatchMetrics batchMetrics = mock(BatchMetrics.class);
-    return new BatchProcessor<>(batchMetrics, batchHandler, batchProvider, Executors.newSingleThreadScheduledExecutor());
+    return new BatchProcessor<>(batchMetrics, batchHandler, batchProvider, () -> 0, Executors.newSingleThreadScheduledExecutor());
   }
 }

@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -44,6 +45,7 @@ public class BatchProcessor<K, V> {
   private final BatchHandler<K, V> batchHandler;
   private final BatchProvider<K, V> batchProvider;
   private final BatchMetrics batchMetrics;
+  private final HighResolutionClock clock;
   private Batch<K, V> batch;
   private ScheduledFuture<?> scheduledFuture;
   private long batchOpenTimestamp;
@@ -51,18 +53,21 @@ public class BatchProcessor<K, V> {
   /**
    * @param batchHandler Defines how each batch will be processed.
    * @param batchProvider The batch provider to create a batch instance.
+   * @param clock A clock used to get the timestamp.
    * @param scheduledExecutorService A scheduled executor service to set timers for the managed batches.
    */
   public BatchProcessor(BatchMetrics batchMetrics, BatchHandler<K, V> batchHandler, BatchProvider batchProvider,
-      ScheduledExecutorService scheduledExecutorService) {
+      HighResolutionClock clock, ScheduledExecutorService scheduledExecutorService) {
     Preconditions.checkNotNull(batchHandler);
     Preconditions.checkNotNull(batchProvider);
+    Preconditions.checkNotNull(clock);
     Preconditions.checkNotNull(scheduledExecutorService);
 
     this.batchHandler = batchHandler;
     this.batchProvider = batchProvider;
     this.scheduledExecutorService = scheduledExecutorService;
     this.batchMetrics = batchMetrics;
+    this.clock = clock;
   }
 
   private CompletableFuture<Void> addOperation(Operation<K, V> operation) {
@@ -119,14 +124,14 @@ public class BatchProcessor<K, V> {
 
   private void startNewBatch() {
     batch = batchProvider.getBatch();
-    batchOpenTimestamp = System.currentTimeMillis();
+    batchOpenTimestamp = clock.nanoTime();
     batchMetrics.incBatchCount();
     setBatchTimer(batch);
   }
 
   private void closeBatch() {
     batch.close();
-    batchMetrics.updateBatchDuration(System.currentTimeMillis() - batchOpenTimestamp);
+    batchMetrics.updateBatchDuration(clock.nanoTime() - batchOpenTimestamp);
   }
 
   private void mayCancelTimer(boolean cancelTimer) {
@@ -139,7 +144,7 @@ public class BatchProcessor<K, V> {
    * Set a timer to close the batch when the batch is older than the max delay.
    */
   private void setBatchTimer(Batch<K, V> batch) {
-    final long maxDelay = batch.getmaxBatchDelay().toMillis();
+    final long maxDelay = batch.getMaxBatchDelay().toMillis();
     if (maxDelay != Integer.MAX_VALUE) {
       scheduledFuture = scheduledExecutorService.schedule(() -> {
           lock.lock();

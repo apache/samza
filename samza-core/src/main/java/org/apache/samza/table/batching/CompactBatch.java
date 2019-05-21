@@ -23,9 +23,7 @@ import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,8 +38,7 @@ import java.util.stream.Stream;
  */
 class CompactBatch<K, V> extends AbstractBatch<K, V> {
   private final Map<K, Operation<K, V>> updates = new LinkedHashMap<>();
-  private final Set<Operation<K, V>> queries = new LinkedHashSet<>();
-  private static final BatchNotSupportedException BATCH_NOT_SUPPORTED_EXCEPTION = new BatchNotSupportedException();
+  private final Map<K, Operation<K, V>> queries = new LinkedHashMap<>();
 
   public CompactBatch(int maxBatchSize, Duration maxBatchDelay) {
     super(maxBatchSize, maxBatchDelay);
@@ -70,7 +67,7 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
     }
 
     if (operation instanceof GetOperation) {
-      queries.add(operation);
+      queries.putIfAbsent(operation.getKey(), operation);
     } else {
       updates.put(operation.getKey(), operation);
     }
@@ -82,6 +79,6 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
 
   @Override
   public Collection<Operation<K, V>> getOperations() {
-    return Stream.of(queries, updates.values()).flatMap(Collection::stream).collect(Collectors.toList());
+    return Stream.of(queries.values(), updates.values()).flatMap(Collection::stream).collect(Collectors.toList());
   }
 }
