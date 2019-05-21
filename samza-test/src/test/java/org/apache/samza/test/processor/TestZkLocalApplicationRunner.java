@@ -1011,7 +1011,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
     LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
 
-    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId().orElse(null), localApplicationRunner1.getRunId().orElse(null));
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
 
     appRunner1.kill();
     appRunner1.waitForFinish();
@@ -1064,7 +1064,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
     LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
 
-    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId().orElse(null), localApplicationRunner1.getRunId().orElse(null));
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
 
     //Bring up a new processsor
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
@@ -1077,7 +1077,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // At this stage, the new processor is running.
     // check if new processor's runId matches that of the older processors
     LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
-    assertEquals("RunId of the new processor does not match that of old processor", localApplicationRunner3.getRunId().orElse(null), localApplicationRunner1.getRunId().orElse(null));
+    assertEquals("RunId of the new processor does not match that of old processor", localApplicationRunner3.getRunId(), localApplicationRunner1.getRunId());
 
 
     appRunner1.kill();
@@ -1134,9 +1134,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
     LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
 
-    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId().orElse(null), localApplicationRunner1.getRunId().orElse(null));
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
 
-    String oldRunId = localApplicationRunner1.getRunId().orElse(null);
+    String oldRunId = localApplicationRunner1.getRunId().get();
 
     // shut down both the processors
     appRunner1.kill();
@@ -1156,7 +1156,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // check if new processor's runId matches that of the older processors
     LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
 
-    assertNotEquals("RunId of the new processor same as that of old stopped processors", oldRunId, localApplicationRunner3.getRunId().orElse(null));
+    assertNotEquals("RunId of the new processor same as that of old stopped processors", oldRunId, localApplicationRunner3.getRunId());
 
     appRunner3.kill();
     appRunner3.waitForFinish();
@@ -1207,7 +1207,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     processedMessagesLatch2.await();
     LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
 
-    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId().orElse(null), localApplicationRunner1.getRunId().orElse(null));
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
 
     // shut down first processor
     appRunner1.kill();
@@ -1224,7 +1224,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // At this stage, the new processor is running.
     // check if new processor runid matches the old ones
     LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
-    assertEquals("RunId of the new processor is not the same as that of earlier processors", localApplicationRunner2.getRunId().orElse(null), localApplicationRunner3.getRunId().orElse(null));
+    assertEquals("RunId of the new processor is not the same as that of earlier processors", localApplicationRunner2.getRunId(), localApplicationRunner3.getRunId());
 
 
     appRunner2.kill();
