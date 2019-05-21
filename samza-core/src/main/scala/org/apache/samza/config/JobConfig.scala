@@ -137,9 +137,9 @@ object JobConfig {
     fwkPath
   }
 
-  // The metadata file is written in a <exec-env-container-id>.metadata file in the log-dir of the container.
-  // Here the <exec-env-container-id> refers to the ID assigned by the cluster manager (e.g., YARN) to the container,
-  // which uniquely identifies a container's lifecycle.
+  /** The metadata file is written in a <exec-env-container-id>.metadata file in the log-dir of the container.
+   Here the <exec-env-container-id> refers to the ID assigned by the cluster manager (e.g., YARN) to the container,
+   which uniquely identifies a container's lifecycle.*/
   def getMetadataFile(execEnvContainerId: Option[String]): Option[File] = {
     val dir = System.getProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY)
     if (dir == null || execEnvContainerId.isEmpty) {

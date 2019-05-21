@@ -69,6 +69,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * Metrics for the {@link ContainerProcessManager}
    */
   private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
+  private final static String EXEC_ENV_CONTAINER_ID_SYS_PROPERTY = "CONTAINER_ID";
+
 
   /**
    * Does this Samza Job need hostAffinity when containers are allocated.
@@ -140,7 +142,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Creating diagnostics manager and reporter, and wiring it respectively
     String jobName = new JobConfig(config).getName().get();
     String jobId = new JobConfig(config).getJobId();
-    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(EXEC_ENV_CONTAINER_ID_SYS_PROPERTY));
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
         DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
 
@@ -260,21 +262,19 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       }
     }
 
-    if (containerProcessManagerMetrics != null) {
-      try {
+    try {
 
-        if (this.metricsReporters != null) {
-          this.metricsReporters.values().forEach(reporter -> reporter.stop());
-        }
-
-        if (this.jvmMetrics != null) {
-          jvmMetrics.stop();
-        }
-
-        log.info("Stopped containerProcessManagerMetrics reporters");
-      } catch (Throwable e) {
-        log.error("Exception while stopping containerProcessManagerMetrics", e);
+      if (this.metricsReporters != null) {
+        this.metricsReporters.values().forEach(reporter -> reporter.stop());
       }
+
+      if (this.jvmMetrics != null) {
+        jvmMetrics.stop();
+      }
+
+      log.info("Stopped containerProcessManagerMetrics reporters");
+    } catch (Throwable e) {
+      log.error("Exception while stopping containerProcessManagerMetrics", e);
     }
 
     try {
