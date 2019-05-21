@@ -19,32 +19,20 @@
 
 package org.apache.samza.table.batching;
 
-import java.io.Serializable;
-import java.time.Duration;
-import org.apache.samza.table.remote.TablePart;
-
-
-public abstract class BatchProvider<K, V> implements TablePart, Serializable {
-  public abstract Batch<K, V> getBatch();
-
-  private int maxBatchSize = 100;
-  private Duration maxBatchDelay = Duration.ofMillis(100);
-
-  public BatchProvider<K, V> withmaxBatchSize(int maxBatchSize) {
-    this.maxBatchSize = maxBatchSize;
-    return this;
+public class BatchNotSupportedException extends RuntimeException {
+  public BatchNotSupportedException() {
+    super();
   }
 
-  public BatchProvider<K, V> withmaxBatchDelay(Duration maxBatchDelay) {
-    this.maxBatchDelay = maxBatchDelay;
-    return this;
+  public BatchNotSupportedException(String message) {
+    super(message);
   }
 
-  public int getMaxBatchSize() {
-    return maxBatchSize;
+  public BatchNotSupportedException(Throwable cause) {
+    super(cause);
   }
 
-  public Duration getMaxBatchDelay() {
-    return maxBatchDelay;
+  public BatchNotSupportedException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

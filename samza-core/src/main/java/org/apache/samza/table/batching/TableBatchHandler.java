@@ -51,13 +51,16 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
    * @param operations The batch get operations.
    * @return A CompletableFuture to represent the status of the batch operation.
    */
-  CompletableFuture<?> handleBatchGet(Collection<Operation<K, V>> operations) {
+  private CompletableFuture<?> handleBatchGet(Collection<Operation<K, V>> operations) {
     Preconditions.checkNotNull(operations);
+    final List<K> gets = getOperationKeys(operations);
+    if (gets.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
 
-    final List<K> gets = new ArrayList<>(operations.size());
-    operations.forEach(operation -> gets.add(operation.getKey()));
-    final CompletableFuture<Map<K, V>> getsFuture = gets.isEmpty() ?
-        CompletableFuture.completedFuture(null) : table.getAllAsync(gets);
+    final Object[] args = getOperationArgs(operations);
+    final CompletableFuture<Map<K, V>> getsFuture = args == null ?
+        table.getAllAsync(gets) : table.getAllAsync(gets, args);
 
     getsFuture.whenComplete((map, throwable) -> {
         operations.forEach(operation -> {
@@ -78,14 +81,18 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
    * @param operations The batch get operations.
    * @return A CompletableFuture to represent the status of the batch operation.
    */
-  CompletableFuture<?> handleBatchPut(Collection<Operation<K, V>> operations) {
+  private CompletableFuture<?> handleBatchPut(Collection<Operation<K, V>> operations) {
     Preconditions.checkNotNull(operations);
 
     final List<Entry<K, V>> puts = operations.stream()
         .map(op -> new Entry<>(op.getKey(), op.getValue()))
         .collect(Collectors.toList());
+    if (puts.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
 
-    return puts.isEmpty() ? CompletableFuture.completedFuture(null) : table.putAllAsync(puts);
+    final Object[] args = getOperationArgs(operations);
+    return args == null ? table.putAllAsync(puts) : table.putAllAsync(puts, args);
   }
 
   /**
@@ -94,27 +101,41 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
    * @param operations The batch get operations.
    * @return A CompletableFuture to represent the status of the batch operation.
    */
-  CompletableFuture<?> handleBatchDelete(Collection<Operation<K, V>> operations) {
+  private CompletableFuture<?> handleBatchDelete(Collection<Operation<K, V>> operations) {
     Preconditions.checkNotNull(operations);
 
-    final List<K> deletes = operations.stream()
-        .map(op -> op.getKey())
-        .collect(Collectors.toList());
-
-    return deletes.isEmpty() ? CompletableFuture.completedFuture(null) : table.deleteAllAsync(deletes);
+    final List<K> deletes = getOperationKeys(operations);
+    if (deletes.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+    final Object[] args = getOperationArgs(operations);
+    return args == null ? table.deleteAllAsync(deletes) : table.deleteAllAsync(deletes, args);
   }
 
-  List<Operation<K, V>> getQueryOperations(Batch<K, V> batch) {
+  private List<K> getOperationKeys(Collection<Operation<K, V>> operations) {
+    return operations.stream().map(op -> op.getKey()).collect(Collectors.toList());
+  }
+
+  private Object[] getOperationArgs(Collection<Operation<K, V>> operations) {
+    if (!operations.stream().anyMatch(operation -> operation.getArgs() != null && operation.getArgs().length > 0)) {
+      return null;
+    }
+    final List<Object[]> argsList = new ArrayList<>(operations.size());
+    operations.forEach(operation -> argsList.add(operation.getArgs()));
+    return argsList.toArray();
+  }
+
+  private List<Operation<K, V>> getQueryOperations(Batch<K, V> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof GetOperation)
         .collect(Collectors.toList());
   }
 
-  List<Operation<K, V>> getPutOperations(Batch<K, V> batch) {
+  private List<Operation<K, V>> getPutOperations(Batch<K, V> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof PutOperation)
         .collect(Collectors.toList());
   }
 
-  List<Operation<K, V>> getDeleteOperations(Batch<K, V> batch) {
+  private List<Operation<K, V>> getDeleteOperations(Batch<K, V> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof DeleteOperation)
         .collect(Collectors.toList());
   }

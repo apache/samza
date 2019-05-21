@@ -30,12 +30,15 @@ import java.util.concurrent.CompletableFuture;
  */
 public class GetOperation<K, V> implements Operation<K, V> {
   final K key;
+  final Object[] args;
   final CompletableFuture<V> completableFuture = new CompletableFuture<>();
 
-  public GetOperation(K key) {
+  public GetOperation(K key, Object ... args) {
     Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(args);
 
     this.key = key;
+    this.args = args;
   }
 
   /**
@@ -54,6 +57,14 @@ public class GetOperation<K, V> implements Operation<K, V> {
   @Override
   public V getValue() {
     return null;
+  }
+
+  /**
+   * @return The extra arguments associated with the table.
+   */
+  @Override
+  public Object[] getArgs() {
+    return args;
   }
 
   CompletableFuture<V> getCompletableFuture() {

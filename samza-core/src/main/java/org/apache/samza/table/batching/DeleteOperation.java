@@ -29,11 +29,13 @@ import com.google.common.base.Preconditions;
  */
 public class DeleteOperation<K, V> implements Operation<K, V> {
   final K key;
+  final Object[] args;
 
-  public DeleteOperation(K key) {
+  public DeleteOperation(K key, Object ... args) {
     Preconditions.checkNotNull(key);
 
     this.key = key;
+    this.args = args;
   }
 
   /**
@@ -52,6 +54,13 @@ public class DeleteOperation<K, V> implements Operation<K, V> {
     return null;
   }
 
+  /**
+   * @return The extra arguments associated with the table.
+   */
+  @Override
+  public Object[] getArgs() {
+    return args;
+  }
 
   @Override
   public boolean equals(Object other) {

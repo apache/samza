@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 class CompactBatch<K, V> extends AbstractBatch<K, V> {
   private final Map<K, Operation<K, V>> updates = new LinkedHashMap<>();
   private final Set<Operation<K, V>> queries = new LinkedHashSet<>();
+  private static final BatchNotSupportedException BATCH_NOT_SUPPORTED_EXCEPTION = new BatchNotSupportedException();
 
   public CompactBatch(int maxBatchSize, Duration maxBatchDelay) {
     super(maxBatchSize, maxBatchDelay);
@@ -63,6 +64,10 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
   @Override
   public CompletableFuture<Void> addOperation(Operation<K, V> operation) {
     Preconditions.checkNotNull(operation);
+
+    if (operation.getArgs() != null && operation.getArgs().length > 0) {
+      throw BATCH_NOT_SUPPORTED_EXCEPTION;
+    }
 
     if (operation instanceof GetOperation) {
       queries.add(operation);

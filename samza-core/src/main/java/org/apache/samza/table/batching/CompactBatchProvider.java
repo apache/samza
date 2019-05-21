@@ -22,6 +22,6 @@ package org.apache.samza.table.batching;
 public class CompactBatchProvider<K, V> extends BatchProvider<K, V> {
   @Override
   public Batch<K, V> getBatch() {
-    return new CompactBatch<>(getMaxBatchSize(), getmaxBatchDelay());
+    return new CompactBatch<>(getMaxBatchSize(), getMaxBatchDelay());
   }
 }

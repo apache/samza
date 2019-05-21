@@ -37,7 +37,7 @@ import org.apache.samza.table.utils.TableMetricsUtil;
  *
  * This batching table does not guarantee any ordering of different operation types within the batch.
  * For instance, query(Q) and update(u) operations arrives in the following sequences, Q1, U1, Q2, U2,
- * it does not mean the the remote data store will receive the messages in the same order. Instead,
+ * it does not mean the remote data store will receive the messages in the same order. Instead,
  * the operations will be grouped by type and sent via micro batches. For this sequence, Q1 and Q2 will
  * be grouped to micro batch B1; U1 and U2 will be grouped to micro batch B2, the implementation class
  * can decide the order of the micro batches.
@@ -46,7 +46,9 @@ import org.apache.samza.table.utils.TableMetricsUtil;
  * If the table is used by a single thread, there will be at most one operation in the batch, and the
  * batch will be performed when the TTL of the batch window expires. Batching does not make sense in this scenario.
  *
- * Note: The batching feature will ignore the "args" parameter for each API.
+ * The Batch implementation class can throw {@link BatchNotSupportedException} if it thinks the operation is
+ * not batch-able. When receiving this exception, {@link AsyncBatchingTable} will send the operation to the
+ * {@link AsyncReadWriteTable}.
  *
  * @param <K> The type of the key.
  * @param <V> The type of the value.
@@ -81,7 +83,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
     Preconditions.checkNotNull(key);
 
     try {
-      return batchProcessor.processQueryOperation(new GetOperation<>(key));
+      return batchProcessor.processQueryOperation(new GetOperation<>(key, args));
+    } catch (BatchNotSupportedException e) {
+      return table.getAsync(key, args);
     } catch (Exception e) {
       throw new SamzaException(e);
     }
@@ -99,7 +103,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
     Preconditions.checkNotNull(key);
 
     try {
-      return batchProcessor.processUpdateOperation(new PutOperation<>(key, value));
+      return batchProcessor.processUpdateOperation(new PutOperation<>(key, value, args));
+    } catch (BatchNotSupportedException e) {
+      return table.putAsync(key, value, args);
     } catch (Exception e) {
       throw new SamzaException(e);
     }
@@ -116,7 +122,9 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   public CompletableFuture<Void> deleteAsync(K key, Object... args) {
     Preconditions.checkNotNull(key);
     try {
-      return batchProcessor.processUpdateOperation(new DeleteOperation<>(key));
+      return batchProcessor.processUpdateOperation(new DeleteOperation<>(key, args));
+    } catch (BatchNotSupportedException e) {
+      return table.deleteAsync(key, args);
     } catch (Exception e) {
       throw new SamzaException(e);
     }

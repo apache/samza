@@ -68,8 +68,6 @@ public class BatchProcessor<K, V> {
   private CompletableFuture<Void> addOperation(Operation<K, V> operation) {
     if (batch == null) {
       startNewBatch();
-    } else if (batch.isClosed()) {
-      processBatch(true);
     }
     final CompletableFuture<Void> res = batch.addOperation(operation);
     if (batch.isClosed()) {

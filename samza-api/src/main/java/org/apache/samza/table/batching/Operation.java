@@ -35,4 +35,9 @@ public interface Operation<K, V> {
    * @return The value associated with the operation.
    */
   V getValue();
+
+  /**
+   * @return The extra arguments associated with the operation.
+   */
+  Object[] getArgs();
 }

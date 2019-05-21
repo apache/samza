@@ -31,12 +31,15 @@ import com.google.common.base.Preconditions;
 public class PutOperation<K, V> implements Operation<K, V> {
   final private K key;
   final private V val;
+  final private Object[] args;
 
-  public PutOperation(K key, V val) {
+  public PutOperation(K key, V val, Object ... args) {
     Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(args);
 
     this.key = key;
     this.val = val;
+    this.args = args;
   }
 
   /**
@@ -53,6 +56,14 @@ public class PutOperation<K, V> implements Operation<K, V> {
   @Override
   public V getValue() {
     return val;
+  }
+
+  /**
+   * @return The extra arguments associated with the table.
+   */
+  @Override
+  public Object[] getArgs() {
+    return args;
   }
 
   @Override

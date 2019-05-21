@@ -91,7 +91,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   // Indicate whether write rate limiter is enabled or not
   private boolean enableWriteRateLimiter = true;
 
-  // Batching support to reduce traffic volume sent to the the remote store.
+  // Batching support to reduce traffic volume sent to the remote store.
   private BatchProvider<K, V> batchProvider;
 
   // Rates for constructing the default rate limiter when they are non-zero
