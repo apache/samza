@@ -92,7 +92,7 @@ public class TestTaskFactoryUtil {
     retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, null);
     assertEquals(retFactory, mockAsyncStreamFactory);
   }
-  
+
   public void testFinalizeTaskFactoryForStreamOperatorTask() {
     TaskFactory mockFactory = mock(StreamOperatorTaskFactory.class);
     StreamOperatorTask mockStreamOperatorTask = mock(StreamOperatorTask.class);
@@ -111,8 +111,8 @@ public class TestTaskFactoryUtil {
     OperatorSpecGraph mockSpecGraph = mock(OperatorSpecGraph.class);
     when(mockStreamApp.getOperatorSpecGraph()).thenReturn(mockSpecGraph);
     TaskFactory streamTaskFactory = TaskFactoryUtil.getTaskFactory(mockStreamApp);
-    assertTrue(streamTaskFactory instanceof AsyncStreamTaskFactory);
-    AsyncStreamTask streamTask = ((AsyncStreamTaskFactory) streamTaskFactory).createInstance();
+    assertTrue(streamTaskFactory instanceof StreamOperatorTaskFactory);
+    AsyncStreamTask streamTask = ((StreamOperatorTaskFactory) streamTaskFactory).createInstance();
     assertTrue(streamTask instanceof StreamOperatorTask);
     verify(mockSpecGraph).clone();
   }
