@@ -82,7 +82,9 @@ public class ZkBarrierForVersionUpgrade {
   private final ScheduleAfterDebounceTime debounceTimer;
 
   public enum State {
-    NEW("NEW"), TIMED_OUT("TIMED_OUT"), DONE("DONE");
+    NEW("NEW"),
+    TIMED_OUT("TIMED_OUT"),
+    DONE("DONE");
 
     private String str;
 
@@ -123,7 +125,7 @@ public class ZkBarrierForVersionUpgrade {
         barrierParticipantsPath,
         barrierStatePath});
     LOG.info("Marking the barrier state: {} as {}.", barrierStatePath, State.NEW);
-    zkUtils.writeData(barrierStatePath, State.NEW);
+    zkUtils.writeData(barrierStatePath, State.NEW.toString());
 
     LOG.info("Subscribing child changes on the path: {} for barrier version: {}.", barrierParticipantsPath, version);
     zkUtils.subscribeChildChanges(barrierParticipantsPath, new ZkBarrierChangeHandler(version, participants, zkUtils));
@@ -155,10 +157,10 @@ public class ZkBarrierForVersionUpgrade {
    */
   public void expire(String version) {
     String barrierStatePath = keyBuilder.getBarrierStatePath(version);
-    State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
+    State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
     if (Objects.equals(barrierState, State.NEW)) {
       LOG.info(String.format("Expiring the barrier version: %s. Marking the barrier state: %s as %s.", version, barrierStatePath, State.TIMED_OUT));
-      zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT);
+      zkUtils.writeData(keyBuilder.getBarrierStatePath(version), State.TIMED_OUT.toString());
     } else {
       LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", version, barrierState, State.TIMED_OUT));
     }
@@ -193,10 +195,10 @@ public class ZkBarrierForVersionUpgrade {
       if (participantIds.size() == expectedParticipantIds.size() && CollectionUtils.containsAll(participantIds, expectedParticipantIds)) {
         debounceTimer.scheduleAfterDebounceTime(ACTION_NAME, 0, () -> {
             String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
-            State barrierState = zkUtils.getZkClient().readData(barrierStatePath);
+            State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
             if (Objects.equals(barrierState, State.NEW)) {
               LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
-              zkUtils.writeData(barrierStatePath, State.DONE); // this will trigger notifications
+              zkUtils.writeData(barrierStatePath, State.DONE.toString()); // this will trigger notifications
             } else {
               LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
             }
@@ -227,12 +229,13 @@ public class ZkBarrierForVersionUpgrade {
     public void doHandleDataChange(String dataPath, Object data) {
       LOG.info(String.format("Received barrierState change notification for barrier version: %s from zkNode: %s with data: %s.", barrierVersion, dataPath, data));
 
-      State barrierState = (State) data;
+      String dataStr = (String) data;
+      State barrierState = State.valueOf(dataStr);
       List<State> expectedBarrierStates = ImmutableList.of(State.DONE, State.TIMED_OUT);
 
-      if (barrierState != null && expectedBarrierStates.contains(barrierState)) {
+      if (expectedBarrierStates.contains(barrierState)) {
         zkUtils.unsubscribeDataChanges(barrierStatePath, this);
-        barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, (State) data));
+        barrierListenerOptional.ifPresent(zkBarrierListener -> zkBarrierListener.onBarrierStateChanged(barrierVersion, barrierState));
       } else {
         LOG.debug("Barrier version: {} is at state: {}. Ignoring the barrierState change notification.", barrierVersion, barrierState);
       }

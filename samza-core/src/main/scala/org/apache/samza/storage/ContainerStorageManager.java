@@ -113,7 +113,8 @@ public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
-  private static final String SIDEINPUTS_METRICS_NAME = "samza-container-%s-sideinputs";
+  private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
+  // We use a prefix to differentiate the SystemConsumersMetrics for side-inputs from the ones in SamzaContainer
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
@@ -215,7 +216,7 @@ public class ContainerStorageManager {
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // creating task restore managers
-    this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock);
+    this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
 
     // create side input storage managers
     sideInputStorageManagers = createSideInputStorageManagers(clock);
@@ -229,15 +230,15 @@ public class ContainerStorageManager {
       scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(JavaConversions.asScalaSet(
           this.sideInputSystemStreams.values().stream().flatMap(Set::stream).collect(Collectors.toSet())).toSet(), false);
 
-      SystemConsumersMetrics systemConsumersMetrics = new SystemConsumersMetrics(
-          new MetricsRegistryMap(String.format(SIDEINPUTS_METRICS_NAME, containerModel.getId())));
+      SystemConsumersMetrics sideInputSystemConsumersMetrics = new SystemConsumersMetrics(samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
+      // we use the same registry as samza-container-metrics
 
       MessageChooser chooser = DefaultChooser.apply(inputStreamMetadata, new RoundRobinChooserFactory(), config,
-          systemConsumersMetrics.registry(), systemAdmins);
+          sideInputSystemConsumersMetrics.registry(), systemAdmins);
 
       sideInputSystemConsumers =
-          new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(this.sideInputConsumers), serdeManager,
-              systemConsumersMetrics, SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT(), SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR(),
+          new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(this.sideInputConsumers), systemAdmins, serdeManager,
+              sideInputSystemConsumersMetrics, SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT(), SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR(),
               SystemConsumers.DEFAULT_POLL_INTERVAL_MS(), ScalaJavaUtil.toScalaFunction(() -> System.nanoTime()));
     }
 
@@ -336,11 +337,12 @@ public class ContainerStorageManager {
     return storeConsumers;
   }
 
-  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock) {
+  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock, SamzaContainerMetrics samzaContainerMetrics) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
         taskRestoreManagers.put(taskName,
             new TaskRestoreManager(taskModel, changelogSystemStreams, getNonSideInputStores(taskName), systemAdmins, clock));
+        samzaContainerMetrics.addStoresRestorationGauge(taskName);
       });
     return taskRestoreManagers;
   }
@@ -451,24 +453,26 @@ public class ContainerStorageManager {
 
     this.storeDirectoryPaths.add(storeDirectory.toPath());
 
-    if (storageConfig.getStorageKeySerde(storeName).isEmpty()) {
+    Optional<String> storageKeySerde = storageConfig.getStorageKeySerde(storeName);
+    if (!storageKeySerde.isPresent()) {
       throw new SamzaException("No key serde defined for store: " + storeName);
     }
 
-    Serde keySerde = serdes.get(storageConfig.getStorageKeySerde(storeName).get());
+    Serde keySerde = serdes.get(storageKeySerde.get());
     if (keySerde == null) {
       throw new SamzaException(
-          "StorageKeySerde: No class defined for serde: " + storageConfig.getStorageKeySerde(storeName));
+          "StorageKeySerde: No class defined for serde: " + storageKeySerde.get());
     }
 
-    if (storageConfig.getStorageMsgSerde(storeName).isEmpty()) {
+    Optional<String> storageMsgSerde = storageConfig.getStorageMsgSerde(storeName);
+    if (!storageMsgSerde.isPresent()) {
       throw new SamzaException("No msg serde defined for store: " + storeName);
     }
 
-    Serde messageSerde = serdes.get(storageConfig.getStorageMsgSerde(storeName).get());
+    Serde messageSerde = serdes.get(storageMsgSerde.get());
     if (messageSerde == null) {
       throw new SamzaException(
-          "StorageMsgSerde: No class defined for serde: " + storageConfig.getStorageMsgSerde(storeName));
+          "StorageMsgSerde: No class defined for serde: " + storageMsgSerde.get());
     }
 
     // if taskInstanceMetrics are specified use those for store metrics,
@@ -484,17 +488,20 @@ public class ContainerStorageManager {
 
 
   // Create side input store processors, one per store per task
-  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config, ContainerModel containerModel,
-      Map<String, Set<SystemStream>> sideInputSystemStreams, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+  private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
+      ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
         sideInputStoresToProcessors.put(taskName, new HashMap<>());
         for (String storeName : sideInputSystemStreams.keySet()) {
-          if (config.getSideInputsProcessorSerializedInstance(storeName).isDefined()) {
+          Optional<String> sideInputsProcessorSerializedInstance =
+              config.getSideInputsProcessorSerializedInstance(storeName);
+          if (sideInputsProcessorSerializedInstance.isPresent()) {
             sideInputStoresToProcessors.get(taskName)
                 .put(storeName, SerdeUtils.deserialize("Side Inputs Processor",
-                    config.getSideInputsProcessorSerializedInstance(storeName).get()));
+                    sideInputsProcessorSerializedInstance.get()));
           } else {
             sideInputStoresToProcessors.get(taskName)
                 .put(storeName, Util.getObj(config.getSideInputsProcessorFactory(storeName).get(),
@@ -510,8 +517,8 @@ public class ContainerStorageManager {
         for (String storeName : sideInputSystemStreams.keySet()) {
 
           // have to use the right serde because the sideInput stores are created
-          Serde keySerde = serdes.get(new StorageConfig(config).getStorageKeySerde(storeName).get());
-          Serde msgSerde = serdes.get(new StorageConfig(config).getStorageMsgSerde(storeName).get());
+          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName).get());
+          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName).get());
           sideInputStoresToProcessors.get(taskName).put(storeName, new SideInputsProcessor() {
             @Override
             public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
@@ -528,7 +535,9 @@ public class ContainerStorageManager {
   private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
 
     // creating side input store processors, one per store per task
-    Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors = createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams, this.taskInstanceMetrics);
+    Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
+        createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
+            this.taskInstanceMetrics);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 
@@ -572,7 +581,6 @@ public class ContainerStorageManager {
   private Set<TaskSideInputStorageManager> getSideInputStorageManagers() {
     return this.sideInputStorageManagers.values().stream().collect(Collectors.toSet());
   }
-
 
   public void start() throws SamzaException {
     restoreStores();
@@ -659,7 +667,7 @@ public class ContainerStorageManager {
       }
 
       // register startingOffset with the sysConsumer and register a metric for it
-      sideInputSystemConsumers.register(ssp, startingOffset, null);
+      sideInputSystemConsumers.register(ssp, startingOffset);
       taskInstanceMetrics.get(sideInputStorageManagers.get(ssp).getTaskName()).addOffsetGauge(
           ssp, ScalaJavaUtil.toScalaFunction(() -> sideInputStorageManagers.get(ssp).getLastProcessedOffset(ssp)));
 
@@ -935,7 +943,7 @@ public class ContainerStorageManager {
 
             SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
             Map<SystemStreamPartition, String> offset =
-                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP));
+                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
             LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
 
             if (offset.containsKey(changelogSSP)) {
@@ -955,17 +963,12 @@ public class ContainerStorageManager {
      * @return true if the logged store is valid, false otherwise.
      */
     private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-      long changeLogDeleteRetentionInMs = StorageConfig.DEFAULT_CHANGELOG_DELETE_RETENTION_MS();
-
-      if (new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).isDefined()) {
-        changeLogDeleteRetentionInMs =
-            (long) new StorageConfig(config).getChangeLogDeleteRetentionsInMs().get(storeName).get();
-      }
+      long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
 
       if (changelogSystemStreams.containsKey(storeName)) {
         SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-        return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP))
-            && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis());
+        return this.taskStores.get(storeName).getStoreProperties().isPersistedToDisk() && StorageManagerUtil.isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP), false)
+            && !StorageManagerUtil.isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis(), false);
       }
 
       return false;

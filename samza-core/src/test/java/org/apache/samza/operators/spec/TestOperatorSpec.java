@@ -300,24 +300,26 @@ public class TestOperatorSpec {
     String tableId = "t1";
 
     StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOperatorSpec =
-        new StreamTableJoinOperatorSpec<>(tableId, joinFn, "join-3");
+        new StreamTableJoinOperatorSpec<>(tableId, joinFn, "join-3", 1, null, "3");
 
     StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope> joinOpSpecCopy =
         (StreamTableJoinOperatorSpec<String, Object, Object, TestOutputMessageEnvelope>) OperatorSpecTestUtils.copyOpSpec(joinOperatorSpec);
     assertNotEquals(joinOpSpecCopy, joinOperatorSpec);
     assertEquals(joinOpSpecCopy.getOpId(), joinOperatorSpec.getOpId());
     assertEquals(joinOpSpecCopy.getTableId(), joinOperatorSpec.getTableId());
+    assertArrayEquals(joinOpSpecCopy.getArgs(), joinOperatorSpec.getArgs());
   }
 
   @Test
   public void testSendToTableOperatorSpec() {
     String tableId = "t1";
     SendToTableOperatorSpec<String, Integer> sendOpSpec =
-        new SendToTableOperatorSpec<>(tableId, "output-1");
+        new SendToTableOperatorSpec<>(tableId, "output-1", 1, null, "3");
     SendToTableOperatorSpec<String, Integer> sendToCopy = (SendToTableOperatorSpec<String, Integer>) OperatorSpecTestUtils
         .copyOpSpec(sendOpSpec);
     assertNotEquals(sendToCopy, sendOpSpec);
     assertEquals(sendToCopy.getOpId(), sendOpSpec.getOpId());
+    assertArrayEquals(sendToCopy.getArgs(), sendOpSpec.getArgs());
     assertTrue(sendToCopy.getTableId().equals(sendOpSpec.getTableId()));
   }
 

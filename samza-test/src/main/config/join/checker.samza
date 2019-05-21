@@ -16,8 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Job
-job.name=checker
+# App
+app.name=checker
 
 systems.kafka.partitioner.class=org.apache.samza.test.integration.join.EpochPartitioner
 systems.kafka.samza.offset.default=oldest

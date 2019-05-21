@@ -120,7 +120,7 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
    * @return this system descriptor
    */
   public KafkaSystemDescriptor withConsumerAutoOffsetReset(String consumerAutoOffsetReset) {
-    this.consumerAutoOffsetResetOptional = Optional.of(StringUtils.stripToNull(consumerAutoOffsetReset));
+    this.consumerAutoOffsetResetOptional = Optional.ofNullable(StringUtils.stripToNull(consumerAutoOffsetReset));
     return this;
   }
 

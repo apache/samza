@@ -35,6 +35,7 @@ import kafka.common.TopicAndPartition;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
@@ -51,12 +52,12 @@ import org.slf4j.LoggerFactory;
  * This class is not thread safe. There will be only one instance of this class per KafkaSystemConsumer object.
  * We still need some synchronization around kafkaConsumer. See pollConsumer() method for details.
  */
-class KafkaConsumerProxy<K, V> {
+public class KafkaConsumerProxy<K, V> {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerProxy.class);
 
   private static final int SLEEP_MS_WHILE_NO_TOPIC_PARTITION = 100;
 
-  final Thread consumerPollThread;
+  private final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
@@ -74,8 +75,8 @@ class KafkaConsumerProxy<K, V> {
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
-      KafkaSystemConsumer.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
+  public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+      KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
     this.kafkaConsumer = kafkaConsumer;
@@ -186,7 +187,7 @@ class KafkaConsumerProxy<K, V> {
 
   // creates a separate thread for getting the messages.
   private Runnable createProxyThreadRunnable() {
-    Runnable runnable = () -> {
+    return () -> {
       isRunning = true;
 
       try {
@@ -207,8 +208,6 @@ class KafkaConsumerProxy<K, V> {
         LOG.info("KafkaConsumerProxy for system {} has stopped.", systemName);
       }
     };
-
-    return runnable;
   }
 
   private void fetchMessages() {
@@ -304,18 +303,10 @@ class KafkaConsumerProxy<K, V> {
       updateMetrics(record, tp);
 
       SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
-      List<IncomingMessageEnvelope> messages = results.get(ssp);
-      if (messages == null) {
-        messages = new ArrayList<>();
-        results.put(ssp, messages);
-      }
+      List<IncomingMessageEnvelope> messages = results.computeIfAbsent(ssp, k -> new ArrayList<>());
 
-      K key = record.key();
-      Object value = record.value();
-      IncomingMessageEnvelope imEnvelope =
-          new IncomingMessageEnvelope(ssp, String.valueOf(record.offset()), key, value, getRecordSize(record),
-              record.timestamp(), Instant.now().toEpochMilli());
-      messages.add(imEnvelope);
+      IncomingMessageEnvelope incomingMessageEnvelope = handleNewRecord(record, ssp);
+      messages.add(incomingMessageEnvelope);
     }
     if (LOG.isDebugEnabled()) {
       LOG.debug("# records per SSP:");
@@ -328,7 +319,28 @@ class KafkaConsumerProxy<K, V> {
     return results;
   }
 
-  private int getRecordSize(ConsumerRecord<K, V> r) {
+  /**
+   * Convert a {@link ConsumerRecord} to an {@link IncomingMessageEnvelope}. This may also execute some other custom
+   * logic for each new {@link IncomingMessageEnvelope}.
+   *
+   * This has a protected visibility so that {@link KafkaConsumerProxy} can be extended to add special handling logic
+   * for custom Kafka systems.
+   *
+   * @param consumerRecord {@link ConsumerRecord} from Kafka that was consumed
+   * @param systemStreamPartition {@link SystemStreamPartition} corresponding to the record
+   * @return {@link IncomingMessageEnvelope} corresponding to the {@code consumerRecord}
+   */
+  protected IncomingMessageEnvelope handleNewRecord(ConsumerRecord<K, V> consumerRecord,
+      SystemStreamPartition systemStreamPartition) {
+    return new IncomingMessageEnvelope(systemStreamPartition, String.valueOf(consumerRecord.offset()),
+        consumerRecord.key(), consumerRecord.value(), getRecordSize(consumerRecord), consumerRecord.timestamp(),
+        Instant.now().toEpochMilli());
+  }
+
+  /**
+   * Protected to help extensions of this class build {@link IncomingMessageEnvelope}s.
+   */
+  protected int getRecordSize(ConsumerRecord<K, V> r) {
     int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
     return keySize + r.serializedValueSize();
   }
@@ -341,7 +353,7 @@ class KafkaConsumerProxy<K, V> {
     if (lag == null) {
       throw new SamzaException("Unknown/unregistered ssp in latestLags. ssp=" + ssp + "; system=" + systemName);
     }
-    long currentSSPLag = lag.longValue(); // lag between the current offset and the highwatermark
+    long currentSSPLag = lag; // lag between the current offset and the highwatermark
     if (currentSSPLag < 0) {
       return;
     }
@@ -379,12 +391,16 @@ class KafkaConsumerProxy<K, V> {
 
     // populate the MetricNames first time
     if (perPartitionMetrics.isEmpty()) {
-      HashMap<String, String> tags = new HashMap<>();
-      tags.put("client-id", clientId); // this is required by the KafkaConsumer to get the metrics
-
       for (SystemStreamPartition ssp : ssps) {
         TopicPartition tp = KafkaSystemConsumer.toTopicPartition(ssp);
-        perPartitionMetrics.put(ssp, new MetricName(tp + ".records-lag", "consumer-fetch-manager-metrics", "", tags));
+
+        // These are required by the KafkaConsumer to get the metrics
+        HashMap<String, String> tags = new HashMap<>();
+        tags.put("client-id", clientId);
+        tags.put("topic", tp.topic());
+        tags.put("partition", Integer.toString(tp.partition()));
+
+        perPartitionMetrics.put(ssp, new MetricName("records-lag", "consumer-fetch-manager-metrics", "", tags));
       }
     }
 
@@ -411,10 +427,10 @@ class KafkaConsumerProxy<K, V> {
       Long lag = latestLags.get(ssp);
       LOG.trace("Latest offset of {} is  {}; lag = {}", ssp, offset, lag);
       if (lag != null && offset != null && lag >= 0) {
-        long streamEndOffset = offset.longValue() + lag.longValue();
+        long streamEndOffset = offset + lag;
         // update the metrics
         kafkaConsumerMetrics.setHighWatermarkValue(tp, streamEndOffset);
-        kafkaConsumerMetrics.setLagValue(tp, lag.longValue());
+        kafkaConsumerMetrics.setLagValue(tp, lag);
       }
     }
   }
@@ -422,6 +438,33 @@ class KafkaConsumerProxy<K, V> {
    @Override
   public String toString() {
     return String.format("consumerProxy-%s-%s", systemName, clientId);
+  }
+
+
+
+  /**
+   * Used to create an instance of {@link KafkaConsumerProxy}. This can be overridden in case an extension of
+   * {@link KafkaConsumerProxy} needs to be used within kafka system components like {@link KafkaSystemConsumer}.
+   */
+  public static class BaseFactory<K, V> implements KafkaConsumerProxyFactory<K, V> {
+    private final KafkaConsumer<K, V> kafkaConsumer;
+    private final String systemName;
+    private final String clientId;
+    private final KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics;
+
+    public BaseFactory(KafkaConsumer<K, V> kafkaConsumer, String systemName, String clientId,
+        KafkaSystemConsumerMetrics kafkaSystemConsumerMetrics) {
+      this.kafkaConsumer = kafkaConsumer;
+      this.systemName = systemName;
+      this.clientId = clientId;
+      this.kafkaSystemConsumerMetrics = kafkaSystemConsumerMetrics;
+    }
+
+    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink) {
+      String metricName = String.format("%s-%s", systemName, clientId);
+      return new KafkaConsumerProxy<>(this.kafkaConsumer, this.systemName, this.clientId, messageSink,
+          this.kafkaSystemConsumerMetrics, metricName);
+    }
   }
 }
 

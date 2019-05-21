@@ -22,55 +22,72 @@ Before you start, here are a few prerequisite steps that would be useful later:
 
 And before you proceed, do the following steps:
 
-   * create a branch $VERSION from the latest master branch
-   * checkout the $VERSION branch
-   * update the gradle.properties s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
+   * Create a branch $VERSION from the latest master branch.
+   * Checkout the $VERSION branch.
+   * Update the gradle.properties s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
       version=$VERSION
-   * change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'. 
-   * change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
-   * change the executable version in samza-test/src/main/python/stream_processor.py to $VERSION w/o the suffix '-SNAPSHOT'.
-   * push the changes to the $VERSION branch
+   * Change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'. 
+   * Change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
+   * Change the executable version in samza-test/src/main/python/stream_processor.py to $VERSION w/o the suffix '-SNAPSHOT'.
+   * Push the changes to the $VERSION branch
 
 Validate Samza using all our supported build matrix.
 
+```bash
     ./bin/check-all.sh
+```
 
 To release to a local Maven repository:
 
+```bash
     ./gradlew clean publishToMavenLocal
+```
 
 To build a tarball suitable for an ASF source release (and its accompanying MD5 file):
 
 First, clean any non-checked-in files from git (this removes all such files without prompting):
 
+```bash
     git clean -fdx
+```
 
 Alternatively, you can make a fresh clone of the repository to a separate directory:
 
+```bash
     git clone http://git-wip-us.apache.org/repos/asf/samza.git samza-release
     cd samza-release
+```
 
 Then build the source and samza-tools tarballs:
 
+```bash
     ./gradlew clean sourceRelease && ./gradlew releaseToolsTarGz
+```
 
 Then sign them:
 
+   ```bash
     gpg --sign --armor --detach-sig ./build/distribution/source/apache-samza-*.tgz
     gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools-*.tgz
+   ```
 
 Create MD5 signatures:
 
+   ```bash
     gpg --print-md MD5 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.md5
     gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.md5
+   ```
 
 Create SHA1 signatures:
 
+   ```bash
     gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
     gpg --print-md SHA1 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.sha1
+   ```
 
 Upload the build artifacts to your Apache home directory:
 
+   ```bash
     sftp <apache-username>@home.apache.org
     cd public_html
     mkdir samza-$VERSION-rc0
@@ -78,22 +95,29 @@ Upload the build artifacts to your Apache home directory:
     put ./build/distribution/source/apache-samza-$VERSION-src.* .
     put ./samza-tools/build/distributions/samza-tools-$VERSION.* .
     bye
+   ```
 
 Make a signed git tag for the release candidate:
 
+```bash
     git tag -s release-$VERSION-rc0 -m "Apache Samza $VERSION release candidate 0"
+```
 
 Push the release tag to remote repository:
 
+```bash
     git push origin release-$VERSION-rc0
+```
 
 Edit `$HOME/.gradle/gradle.properties` and add your GPG key information (without the comments):
 
-    signing.keyId=01234567                          # Your GPG key ID, as 8 hex digits
-    signing.secretKeyRingFile=/path/to/secring.gpg  # Normally in $HOME/.gnupg/secring.gpg
-    signing.password=YourSuperSecretPassphrase      # Plaintext passphrase to decrypt key
-    nexusUsername=yourname                          # Your username on Apache's LDAP
-    nexusPassword=password                          # Your password on Apache's LDAP
+   ```bash
+     signing.keyId=01234567                          # Your GPG key ID, as 8 hex digits
+     signing.secretKeyRingFile=/path/to/secring.gpg  # Normally in $HOME/.gnupg/secring.gpg
+     signing.password=YourSuperSecretPassphrase      # Plaintext passphrase to decrypt key
+     nexusUsername=yourname                          # Your username on Apache's LDAP
+     nexusPassword=password                          # Your password on Apache's LDAP
+   ```
 
 Putting your passwords there in plaintext is unfortunately unavoidable. The
 [nexus plugin](https://github.com/bmuschko/gradle-nexus-plugin) supports asking
@@ -103,10 +127,12 @@ from reading keyboard input (because we need `org.gradle.jvmargs` set).
 
 Build binary artifacts and upload them to the staging repository:
 
+   ```bash
     # Set this to the oldest JDK which we are currently supporting for Samza.
     # If it's built with Java 8, the classes won't be readable by Java 7.
     export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents/Home
     ./gradlew clean uploadArchives
+   ```
 
 Go to [repository web interface](https://repository.apache.org/), log in with
 Apache LDAP credentials, go to "Staging Repositories", select the org.apache.samza
@@ -114,37 +140,41 @@ repository just created, and close it. This may take a minute or so. When it
 finishes, the UI shows a staging repository URL. This can be used in a project
 that depends on Samza, to test the release candidate.
 
-
-If the VOTE has successfully passed on the release candidate, you can log in to the 
-[repository web interface](https://repository.apache.org) (same as above) and "release" 
-the org.apache.samza repository listed under "Staging Repositories".
-
-The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.10 and 2.12:
+The instructions above publish the Samza artifacts for scala 2.11. To publish for scala 2.12:
 
 * Set the desired `scalaSuffix` in `gradle.properties`.
 * Run `./gradlew clean uploadArchives` to generate and upload the Samza artifacts.
-* Login to the [repository web interface](https://repository.apache.org/) with your Apache LDAP 
-credentials, "close" the created repository and "release" it.
+
+# After the VOTE has passed
+
+If the VOTE has successfully passed on the release candidate, you can log in to the  [repository web interface](https://repository.apache.org) (same as above) and "release"  the org.apache.samza repository listed under "Staging Repositories". This may take a minute or so.
+This will publish the samza release artifacts to the open source [maven repository](https://repo1.maven.org/maven2).
 
 ## Steps to Upload Source Tarball to Apache SVN
 
 Check out the following Apache dist SVN to local:
 
+```bash
    svn checkout https://dist.apache.org/repos/dist/release/samza samza-dist
+```
 
 Create the new version's sub-directory and add the source tarball, MD5, and asc files from the 
 previous step to the new directory:
 
+   ```bash
    cd samza-dist
    mkdir $VERSION
    cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz $VERSION
    cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz.MD5 $VERSION
    cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz.asc $VERSION
    svn add $VERSION
+   ```
 
 Commit to Apache release SVN
 
+```bash
    svn ci -m "Releasing Apache Samza $VERSION Source Tarballs"
+```
 
 Check the download link [here](http://www-us.apache.org/dist/samza/) to make sure that the mirror
 site has picked up the new release. The third-party mirrors may take upto 24 hours to pick-up the release. 

@@ -20,81 +20,114 @@ package org.apache.samza.startpoint;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
-import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
-import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 /**
- * The StartpointManager reads and writes {@link Startpoint} to the {@link MetadataStore} defined by
- * the configuration task.startpoint.metadata.store.factory.
- *
- * Startpoints are keyed in the MetadataStore by two different formats:
- * 1) Only by {@link SystemStreamPartition}
- * 2) A combination of {@link SystemStreamPartition} and {@link TaskName}
+ * The StartpointManager reads and writes {@link Startpoint} to the provided {@link MetadataStore}
  *
  * The intention for the StartpointManager is to maintain a strong contract between the caller
  * and how Startpoints are stored in the underlying MetadataStore.
+ *
+ * Startpoints are written in the MetadataStore using keys of two different formats:
+ * 1) {@link SystemStreamPartition} only
+ * 2) A combination of {@link SystemStreamPartition} and {@link TaskName}
+ *
+ * Startpoints are then fanned out to a fan out namespace in the MetadataStore by the
+ * {@link org.apache.samza.clustermanager.ClusterBasedJobCoordinator} or the standalone
+ * {@link org.apache.samza.coordinator.JobCoordinator} upon startup and the
+ * {@link org.apache.samza.checkpoint.OffsetManager} gets the fan outs to set the starting offsets per task and per
+ * {@link SystemStreamPartition}. The fan outs are deleted once the offsets are committed to the checkpoint.
+ *
+ * The read, write and delete methods are intended for external callers.
+ * The fan out methods are intended to be used within a job coordinator.
  */
 public class StartpointManager {
-  private static final Logger LOG = LoggerFactory.getLogger(StartpointManager.class);
-  private static final String NAMESPACE = "samza-startpoint-v1";
+  private static final Integer VERSION = 1;
+  public static final String NAMESPACE = "samza-startpoint-v" + VERSION;
 
   static final Duration DEFAULT_EXPIRATION_DURATION = Duration.ofHours(12);
 
-  private final MetadataStore metadataStore;
-  private final StartpointSerde startpointSerde = new StartpointSerde();
+  private static final Logger LOG = LoggerFactory.getLogger(StartpointManager.class);
+  private static final String NAMESPACE_FAN_OUT = NAMESPACE + "-fan-out";
 
-  private boolean started = false;
+  private final NamespaceAwareCoordinatorStreamStore fanOutStore;
+  private final NamespaceAwareCoordinatorStreamStore readWriteStore;
+  private final ObjectMapper objectMapper = StartpointObjectMapper.getObjectMapper();
+
+  private boolean stopped = true;
 
   /**
-   * Constructs a {@link StartpointManager} instance with the provided {@link MetadataStoreFactory}
-   * @param metadataStoreFactory {@link MetadataStoreFactory} used to construct the underlying store.
-   * @param config {@link Config} required for the underlying store.
-   * @param metricsRegistry {@link MetricsRegistry} to hook into the underlying store.
+   *  Builds the StartpointManager based upon the provided {@link MetadataStore} that is instantiated.
+   *  Setting up a metadata store instance is expensive which requires opening multiple connections
+   *  and reading tons of information. Fully instantiated metadata store is passed in as a constructor argument
+   *  to reuse it across different utility classes.
+   *
+   * @param metadataStore an instance of {@link MetadataStore} used to read/write the start-points.
    */
-  public StartpointManager(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
-    Preconditions.checkNotNull(metadataStoreFactory, "MetadataStoreFactory cannot be null");
-    Preconditions.checkNotNull(config, "Config cannot be null");
-    Preconditions.checkNotNull(metricsRegistry, "MetricsRegistry cannot be null");
+  public StartpointManager(MetadataStore metadataStore) {
+    Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
 
-    this.metadataStore = metadataStoreFactory.getMetadataStore(NAMESPACE, config, metricsRegistry);
-    LOG.info("StartpointManager created with metadata store: {}", metadataStore.getClass().getCanonicalName());
+    this.readWriteStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE);
+    this.fanOutStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, NAMESPACE_FAN_OUT);
+    LOG.info("Startpoints are written to namespace: {} and fanned out to namespace: {} in the metadata store of type: {}",
+        NAMESPACE, NAMESPACE_FAN_OUT, metadataStore.getClass().getCanonicalName());
   }
 
   /**
-   * Starts the underlying {@link MetadataStore}
+   * Perform startup operations. Method is idempotent.
    */
   public void start() {
-    if (!started) {
-      metadataStore.init();
-      started = true;
+    if (stopped) {
+      LOG.info("starting");
+      readWriteStore.init();
+      fanOutStore.init();
+      stopped = false;
     } else {
-      LOG.warn("StartpointManager already started");
+      LOG.warn("already started");
     }
   }
 
   /**
-   * Writes a {@link Startpoint} that defines the start position for a {@link SystemStreamPartition}.
-   * @param ssp The {@link SystemStreamPartition} to map the {@link Startpoint} against.
-   * @param startpoint Reference to a Startpoint object.
+   * Perform teardown operations. Method is idempotent.
    */
+  public void stop() {
+    if (!stopped) {
+      LOG.info("stopping");
+      readWriteStore.close();
+      fanOutStore.close();
+      stopped = true;
+    } else {
+      LOG.warn("already stopped");
+    }
+  }
+
+    /**
+     * Writes a {@link Startpoint} that defines the start position for a {@link SystemStreamPartition}.
+     * @param ssp The {@link SystemStreamPartition} to map the {@link Startpoint} against.
+     * @param startpoint Reference to a Startpoint object.
+     */
   public void writeStartpoint(SystemStreamPartition ssp, Startpoint startpoint) {
     writeStartpoint(ssp, null, startpoint);
   }
@@ -106,12 +139,12 @@ public class StartpointManager {
    * @param startpoint Reference to a Startpoint object.
    */
   public void writeStartpoint(SystemStreamPartition ssp, TaskName taskName, Startpoint startpoint) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
     Preconditions.checkNotNull(startpoint, "Startpoint cannot be null");
 
     try {
-      metadataStore.put(toStoreKey(ssp, taskName), startpointSerde.toBytes(startpoint));
+      readWriteStore.put(toReadWriteStoreKey(ssp, taskName), objectMapper.writeValueAsBytes(startpoint));
     } catch (Exception ex) {
       throw new SamzaException(String.format(
           "Startpoint for SSP: %s and task: %s may not have been written to the metadata store.", ssp, taskName), ex);
@@ -121,9 +154,10 @@ public class StartpointManager {
   /**
    * Returns the last {@link Startpoint} that defines the start position for a {@link SystemStreamPartition}.
    * @param ssp The {@link SystemStreamPartition} to fetch the {@link Startpoint} for.
-   * @return {@link Startpoint} for the {@link SystemStreamPartition}, or null if it does not exist or if it is too stale
+   * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition}.
+   *         It is empty if it does not exist or if it is too stale.
    */
-  public Startpoint readStartpoint(SystemStreamPartition ssp) {
+  public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp) {
     return readStartpoint(ssp, null);
   }
 
@@ -131,23 +165,29 @@ public class StartpointManager {
    * Returns the {@link Startpoint} for a {@link SystemStreamPartition} and {@link TaskName}.
    * @param ssp The {@link SystemStreamPartition} to fetch the {@link Startpoint} for.
    * @param taskName The {@link TaskName} to fetch the {@link Startpoint} for.
-   * @return {@link Startpoint} for the {@link SystemStreamPartition}, or null if it does not exist or if it is too stale.
+   * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition} and {@link TaskName}.
+   *         It is empty if it does not exist or if it is too stale.
    */
-  public Startpoint readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+  public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
-    byte[] startpointBytes = metadataStore.get(toStoreKey(ssp, taskName));
+    byte[] startpointBytes = readWriteStore.get(toReadWriteStoreKey(ssp, taskName));
 
-    if (Objects.nonNull(startpointBytes)) {
-      Startpoint startpoint = startpointSerde.fromBytes(startpointBytes);
-      if (Instant.now().minus(DEFAULT_EXPIRATION_DURATION).isBefore(Instant.ofEpochMilli(startpoint.getCreationTimestamp()))) {
-        return startpoint; // return if deserializable and if not stale
+    if (ArrayUtils.isNotEmpty(startpointBytes)) {
+      try {
+        Startpoint startpoint = objectMapper.readValue(startpointBytes, Startpoint.class);
+        if (Instant.now().minus(DEFAULT_EXPIRATION_DURATION).isBefore(Instant.ofEpochMilli(startpoint.getCreationTimestamp()))) {
+          return Optional.of(startpoint); // return if deserializable and if not stale
+        }
+        LOG.warn("Creation timestamp: {} of startpoint: {} has crossed the expiration duration: {}. Ignoring it",
+            startpoint.getCreationTimestamp(), startpoint, DEFAULT_EXPIRATION_DURATION);
+      } catch (IOException ex) {
+        throw new SamzaException(ex);
       }
-      LOG.warn("Stale Startpoint: {} was read. Ignoring.", startpoint);
     }
 
-    return null;
+    return Optional.empty();
   }
 
   /**
@@ -164,78 +204,151 @@ public class StartpointManager {
    * @param taskName ssp The {@link TaskName} to delete the {@link Startpoint} for.
    */
   public void deleteStartpoint(SystemStreamPartition ssp, TaskName taskName) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
-    metadataStore.delete(toStoreKey(ssp, taskName));
+    readWriteStore.delete(toReadWriteStoreKey(ssp, taskName));
   }
 
   /**
-   * For {@link Startpoint}s keyed only by {@link SystemStreamPartition}, this method re-maps the Startpoints from
-   * SystemStreamPartition to SystemStreamPartition+{@link TaskName} for all tasks provided by the {@link JobModel}
+   * The Startpoints that are written to with {@link #writeStartpoint(SystemStreamPartition, Startpoint)} and with
+   * {@link #writeStartpoint(SystemStreamPartition, TaskName, Startpoint)} are moved from a "read-write" namespace
+   * to a "fan out" namespace.
    * This method is not atomic or thread-safe. The intent is for the Samza Processor's coordinator to use this
    * method to assign the Startpoints to the appropriate tasks.
-   * @param jobModel The {@link JobModel} is used to determine which {@link TaskName} each {@link SystemStreamPartition} maps to.
-   * @return The list of {@link SystemStreamPartition}s that were fanned out to SystemStreamPartition+TaskName.
+   * @param taskToSSPs Determines which {@link TaskName} each {@link SystemStreamPartition} maps to.
+   * @return The set of active {@link TaskName}s that were fanned out to.
    */
-  public Set<SystemStreamPartition> fanOutStartpointsToTasks(JobModel jobModel) {
-    Preconditions.checkState(started, "Underlying metadata store not available");
-    Preconditions.checkNotNull(jobModel, "JobModel cannot be null");
+  public Map<TaskName, Map<SystemStreamPartition, Startpoint>> fanOut(Map<TaskName, Set<SystemStreamPartition>> taskToSSPs) throws IOException {
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
+    Preconditions.checkArgument(MapUtils.isNotEmpty(taskToSSPs), "taskToSSPs cannot be null or empty");
 
-    HashSet<SystemStreamPartition> sspsToDelete = new HashSet<>();
+    // construct fan out with the existing readWriteStore entries and mark the entries for deletion after fan out
+    Instant now = Instant.now();
+    HashMultimap<SystemStreamPartition, TaskName> deleteKeys = HashMultimap.create();
+    HashMap<TaskName, StartpointFanOutPerTask> fanOuts = new HashMap<>();
+    for (TaskName taskName : taskToSSPs.keySet()) {
+      Set<SystemStreamPartition> ssps = taskToSSPs.get(taskName);
+      if (CollectionUtils.isEmpty(ssps)) {
+        LOG.warn("No SSPs are mapped to taskName: {}", taskName.getTaskName());
+        continue;
+      }
+      for (SystemStreamPartition ssp : ssps) {
+        Optional<Startpoint> startpoint = readStartpoint(ssp); // Read SSP-only key
+        startpoint.ifPresent(sp -> deleteKeys.put(ssp, null));
 
-    // Inspect the job model for TaskName-to-SSPs mapping and re-map startpoints from SSP-only keys to SSP+TaskName keys.
-    for (ContainerModel containerModel: jobModel.getContainers().values()) {
-      for (TaskModel taskModel : containerModel.getTasks().values()) {
-        TaskName taskName = taskModel.getTaskName();
-        for (SystemStreamPartition ssp : taskModel.getSystemStreamPartitions()) {
-          Startpoint startpoint = readStartpoint(ssp); // Read SSP-only key
-          if (startpoint == null) {
-            LOG.debug("No Startpoint for SSP: {} in task: {}", ssp, taskName);
-            continue;
-          }
+        Optional<Startpoint> startpointForTask = readStartpoint(ssp, taskName); // Read SSP+taskName key
+        startpointForTask.ifPresent(sp -> deleteKeys.put(ssp, taskName));
 
-          LOG.info("Grouping Startpoint keyed on SSP: {} to tasks determined by the job model.", ssp);
-          Startpoint startpointForTask = readStartpoint(ssp, taskName);
-          if (startpointForTask == null || startpointForTask.getCreationTimestamp() < startpoint.getCreationTimestamp()) {
-            writeStartpoint(ssp, taskName, startpoint);
-            sspsToDelete.add(ssp); // Mark for deletion
-            LOG.info("Startpoint for SSP: {} remapped with task: {}.", ssp, taskName);
-          } else {
-            LOG.info("Startpoint for SSP: {} and task: {} already exists and will not be overwritten.", ssp, taskName);
-          }
+        Optional<Startpoint> startpointWithPrecedence = resolveStartpointPrecendence(startpoint, startpointForTask);
+        if (!startpointWithPrecedence.isPresent()) {
+          continue;
+        }
 
+        fanOuts.putIfAbsent(taskName, new StartpointFanOutPerTask(now));
+        fanOuts.get(taskName).getFanOuts().put(ssp, startpointWithPrecedence.get());
+      }
+    }
+
+    if (fanOuts.isEmpty()) {
+      LOG.debug("No fan outs created.");
+      return ImmutableMap.of();
+    }
+
+    LOG.info("Fanning out to {} tasks", fanOuts.size());
+
+    // Fan out to store
+    for (TaskName taskName : fanOuts.keySet()) {
+      String fanOutKey = toFanOutStoreKey(taskName);
+      StartpointFanOutPerTask newFanOut = fanOuts.get(taskName);
+      fanOutStore.put(fanOutKey, objectMapper.writeValueAsBytes(newFanOut));
+    }
+
+    for (SystemStreamPartition ssp : deleteKeys.keySet()) {
+      for (TaskName taskName : deleteKeys.get(ssp)) {
+        if (taskName != null) {
+          deleteStartpoint(ssp, taskName);
+        } else {
+          deleteStartpoint(ssp);
         }
       }
     }
 
-    // Delete SSP-only keys
-    sspsToDelete.forEach(ssp -> {
-        deleteStartpoint(ssp);
-        LOG.info("All Startpoints for SSP: {} have been grouped to the appropriate tasks and the SSP was deleted.");
-      });
-
-    return ImmutableSet.copyOf(sspsToDelete);
+    return ImmutableMap.copyOf(fanOuts.entrySet().stream()
+        .collect(Collectors.toMap(fo -> fo.getKey(), fo -> fo.getValue().getFanOuts())));
   }
 
   /**
-   * Relinquish resources held by the underlying {@link MetadataStore}
+   * Read the fanned out {@link Startpoint}s for the given {@link TaskName}
+   * @param taskName to read the fan out Startpoints for
+   * @return fanned out Startpoints
    */
-  public void stop() {
-    if (started) {
-      metadataStore.close();
-      started = false;
-    } else {
-      LOG.warn("StartpointManager already stopped.");
+  public Map<SystemStreamPartition, Startpoint> getFanOutForTask(TaskName taskName) throws IOException {
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
+    Preconditions.checkNotNull(taskName, "TaskName cannot be null");
+
+    byte[] fanOutBytes = fanOutStore.get(toFanOutStoreKey(taskName));
+    if (ArrayUtils.isEmpty(fanOutBytes)) {
+      return ImmutableMap.of();
     }
+    StartpointFanOutPerTask startpointFanOutPerTask = objectMapper.readValue(fanOutBytes, StartpointFanOutPerTask.class);
+    return ImmutableMap.copyOf(startpointFanOutPerTask.getFanOuts());
+  }
+
+  /**
+   * Deletes the fanned out {@link Startpoint} for the given {@link TaskName}
+   * @param taskName to delete the fan out Startpoints for
+   */
+  public void removeFanOutForTask(TaskName taskName) {
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
+    Preconditions.checkNotNull(taskName, "TaskName cannot be null");
+
+    fanOutStore.delete(toFanOutStoreKey(taskName));
   }
 
   @VisibleForTesting
-  MetadataStore getMetadataStore() {
-    return metadataStore;
+  MetadataStore getReadWriteStore() {
+    return readWriteStore;
   }
 
-  private static String toStoreKey(SystemStreamPartition ssp, TaskName taskName) {
-    return new String(new JsonSerdeV2<>().toBytes(new StartpointKey(ssp, taskName)));
+  @VisibleForTesting
+  MetadataStore getFanOutStore() {
+    return fanOutStore;
+  }
+
+  @VisibleForTesting
+  ObjectMapper getObjectMapper() {
+    return objectMapper;
+  }
+
+  private static Optional<Startpoint> resolveStartpointPrecendence(Optional<Startpoint> startpoint1, Optional<Startpoint> startpoint2) {
+    if (startpoint1.isPresent() && startpoint2.isPresent()) {
+      // if SSP-only and SSP+taskName startpoints both exist, resolve to the one with the latest timestamp
+      if (startpoint1.get().getCreationTimestamp() > startpoint2.get().getCreationTimestamp()) {
+        return startpoint1;
+      }
+      return startpoint2;
+    }
+    return startpoint1.isPresent() ? startpoint1 : startpoint2;
+  }
+
+  private static String toReadWriteStoreKey(SystemStreamPartition ssp, TaskName taskName) {
+    Preconditions.checkArgument(ssp != null, "SystemStreamPartition should be defined");
+    Preconditions.checkArgument(StringUtils.isNotBlank(ssp.getSystem()), "System should be defined");
+    Preconditions.checkArgument(StringUtils.isNotBlank(ssp.getStream()), "Stream should be defined");
+    Preconditions.checkArgument(ssp.getPartition() != null, "Partition should be defined");
+
+    String storeKey = ssp.getSystem() + "." + ssp.getStream() + "." + String.valueOf(ssp.getPartition().getPartitionId());
+    if (taskName != null) {
+      storeKey += "." + taskName.getTaskName();
+    }
+    return storeKey;
+  }
+
+  private static String toFanOutStoreKey(TaskName taskName) {
+    Preconditions.checkArgument(taskName != null, "TaskName should be defined");
+    Preconditions.checkArgument(StringUtils.isNotBlank(taskName.getTaskName()), "TaskName should not be blank");
+
+    return taskName.getTaskName();
   }
 }

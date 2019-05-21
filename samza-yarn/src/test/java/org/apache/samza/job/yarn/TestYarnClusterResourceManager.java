@@ -58,7 +58,7 @@ public class TestYarnClusterResourceManager {
     YarnClusterResourceManager yarnClusterResourceManager = new YarnClusterResourceManager(asyncClient, asyncNMClient,
         callback, yarnAppState, lifecycle, service, metrics, yarnConfiguration, config);
 
-    yarnAppState.pendingYarnContainers.put(String.valueOf(samzaContainerId),
+    yarnAppState.pendingProcessors.put(String.valueOf(samzaContainerId),
         new YarnContainer(Container.newInstance(
             ContainerId.newContainerId(
                 ApplicationAttemptId.newInstance(
@@ -68,14 +68,14 @@ public class TestYarnClusterResourceManager {
             Token.newInstance("id".getBytes(), "read", "password".getBytes(), "service"))));
 
     yarnClusterResourceManager.start();
-    assertEquals(1, yarnAppState.pendingYarnContainers.size());
+    assertEquals(1, yarnAppState.pendingProcessors.size());
 
     yarnClusterResourceManager.onStartContainerError(ContainerId.newContainerId(
         ApplicationAttemptId.newInstance(
             ApplicationId.newInstance(10000l, 1), 1), 1),
         new Exception());
 
-    assertEquals(0, yarnAppState.pendingYarnContainers.size());
+    assertEquals(0, yarnAppState.pendingProcessors.size());
     verify(callback, times(1)).onStreamProcessorLaunchFailure(anyObject(), any(Exception.class));
   }
 }

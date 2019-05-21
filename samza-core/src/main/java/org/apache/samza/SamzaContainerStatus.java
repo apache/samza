@@ -44,12 +44,12 @@ public enum  SamzaContainerStatus {
 
   /**
    * Indicates that the container is starting all the components required by the
-   * {@link org.apache.samza.container.RunLoop} for processing
+   * {@link org.apache.samza.task.RunLoop} for processing
    */
   STARTING,
 
   /**
-   * Indicates that the container started the {@link org.apache.samza.container.RunLoop}
+   * Indicates that the container started the {@link org.apache.samza.task.RunLoop}
    */
   STARTED,
 

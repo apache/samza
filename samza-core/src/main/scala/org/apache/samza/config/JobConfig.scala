@@ -51,7 +51,6 @@ object JobConfig {
   val JOB_JMX_ENABLED = "job.jmx.enabled"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
-  val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
   val JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms"
   val DEFAULT_DEBOUNCE_TIME_MS = 20000
@@ -111,14 +110,8 @@ object JobConfig {
   val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
 
   // Enables standby tasks
-  val STANDBY_TASKS_ENABLED = "job.standbytasks.enabled"
   val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replication.factor"
-  val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 2
-
-  // Specify DiagnosticAppender class
-  val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
-  val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
-
+  val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1
   val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
@@ -245,11 +238,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case _ => 0
   }
 
-  def getSingleThreadMode = getOption(JobConfig.JOB_CONTAINER_SINGLE_THREAD_MODE) match {
-    case Some(mode) => mode.toBoolean
-    case _ => false
-  }
-
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)
 
   def getNonLoggedStorePath = getOption(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR)
@@ -262,10 +250,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
 
-  def getDiagnosticsAppenderClass = {
-    getOrDefault(JobConfig.DIAGNOSTICS_APPENDER_CLASS, JobConfig.DEFAULT_DIAGNOSTICS_APPENDER_CLASS)
-  }
-
   def getJMXEnabled = {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
   }
@@ -274,7 +258,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
   }
 
-  def getStandbyTasksEnabled = getBoolean(JobConfig.STANDBY_TASKS_ENABLED, false)
+  def getStandbyTasksEnabled = getStandbyTaskReplicationFactor > 1
 
   def getStandbyTaskReplicationFactor = getInt(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, JobConfig.DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR)
 }

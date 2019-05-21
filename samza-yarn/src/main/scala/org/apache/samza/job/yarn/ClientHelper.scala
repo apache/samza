@@ -350,6 +350,12 @@ class ClientHelper(conf: Configuration) extends Logging {
       } else {
         false
       }
+    } catch {
+      case e: Exception => {
+        // ignore any exceptions when querying the AM - likely due to YARN restarting the AM process
+        warn("Exception when querying AM metrics", e)
+        false
+      }
     } finally {
       amClient.close()
     }

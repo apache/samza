@@ -32,8 +32,10 @@ public class TableMetrics {
   // Read metrics
   public final Timer getNs;
   public final Timer getAllNs;
+  public final Timer readNs;
   public final Counter numGets;
   public final Counter numGetAlls;
+  public final Counter numReads;
   public final Counter numMissedLookups;
   // Write metrics
   public final Counter numPuts;
@@ -44,6 +46,8 @@ public class TableMetrics {
   public final Timer deleteNs;
   public final Counter numDeleteAlls;
   public final Timer deleteAllNs;
+  public final Counter numWrites;
+  public final Timer writeNs;
   public final Counter numFlushes;
   public final Timer flushNs;
 
@@ -61,6 +65,8 @@ public class TableMetrics {
     getNs = tableMetricsUtil.newTimer("get-ns");
     numGetAlls = tableMetricsUtil.newCounter("num-getAlls");
     getAllNs = tableMetricsUtil.newTimer("getAll-ns");
+    numReads = tableMetricsUtil.newCounter("num-reads");
+    readNs = tableMetricsUtil.newTimer("read-ns");
     numMissedLookups = tableMetricsUtil.newCounter("num-missed-lookups");
     // Write metrics
     numPuts = tableMetricsUtil.newCounter("num-puts");
@@ -71,6 +77,8 @@ public class TableMetrics {
     deleteNs = tableMetricsUtil.newTimer("delete-ns");
     numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");
     deleteAllNs = tableMetricsUtil.newTimer("deleteAll-ns");
+    numWrites = tableMetricsUtil.newCounter("num-writes");
+    writeNs = tableMetricsUtil.newTimer("write-ns");
     numFlushes = tableMetricsUtil.newCounter("num-flushes");
     flushNs = tableMetricsUtil.newTimer("flush-ns");
   }

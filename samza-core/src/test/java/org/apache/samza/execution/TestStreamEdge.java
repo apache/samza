@@ -50,8 +50,15 @@ public class TestStreamEdge {
     Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_MODE, ApplicationConfig.ApplicationMode.BATCH.name());
     config.put(ApplicationConfig.APP_RUN_ID, "123");
-    StreamEdge edge = new StreamEdge(spec, true, false, new MapConfig(config));
-    assertEquals(edge.getStreamSpec().getPhysicalName(), spec.getPhysicalName() + "-123");
+
+    // For batch, if the physical name hasn't been generated, it should append the unique id
+    StreamSpec batchSpec = new StreamSpec("stream-1", "stream-1", "system-1");
+    StreamEdge edge = new StreamEdge(batchSpec, true, false, new MapConfig(config));
+    assertEquals(edge.getStreamSpec().getPhysicalName(), batchSpec.getPhysicalName() + "-123");
+
+    // if the physical name has already been geneated somehow, then don't change
+    edge = new StreamEdge(spec, true, false, new MapConfig(config));
+    assertEquals(edge.getStreamSpec().getPhysicalName(), spec.getPhysicalName());
   }
 
   @Test

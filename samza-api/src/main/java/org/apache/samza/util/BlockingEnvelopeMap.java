@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * rather those extending Samza to consume from new types of stream providers
  * and other systems.
  * </p>
- * 
+ *
  * <p>
  * SystemConsumers that implement BlockingEnvelopeMap need to add messages using
  * {@link #put(org.apache.samza.system.SystemStreamPartition, org.apache.samza.system.IncomingMessageEnvelope) put}
@@ -97,7 +97,16 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   /**
    * {@inheritDoc}
    */
+  @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    initializeInternalStateForSSP(systemStreamPartition);
+  }
+
+  /**
+   * Initializes the metrics and in-memory buffer for the {@param systemStreamPartition}.
+   * @param systemStreamPartition represents the input system stream partition.
+   */
+  private void initializeInternalStateForSSP(SystemStreamPartition systemStreamPartition) {
     metrics.initMetrics(systemStreamPartition);
     bufferedMessages.putIfAbsent(systemStreamPartition, newBlockingQueue());
     bufferedMessagesSize.putIfAbsent(systemStreamPartition, new AtomicLong(0));
@@ -110,6 +119,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   /**
    * {@inheritDoc}
    */
+  @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
     long stopTime = clock.currentTimeMillis() + timeout;
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> messagesToReturn = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();

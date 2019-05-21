@@ -26,6 +26,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -48,7 +49,7 @@ import org.apache.samza.util.CommandLine;
 public class KeyValueStoreExample implements StreamApplication {
 
   // local execution mode
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new KeyValueStoreExample(), config);
@@ -73,7 +74,7 @@ public class KeyValueStoreExample implements StreamApplication {
     OutputStream<KV<String, StatsOutput>> pageViewEventPerMember = appDescriptor.getOutputStream(outputStreamDescriptor);
 
     pageViewEvents
-        .partitionBy(pve -> pve.memberId, pve -> pve,
+        .partitionBy(pve -> pve.getMemberId(), pve -> pve,
             KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class)), "partitionBy")
         .map(KV::getValue)
         .flatMap(new MyStatsCounter())
@@ -95,8 +96,8 @@ public class KeyValueStoreExample implements StreamApplication {
     @Override
     public Collection<StatsOutput> apply(PageViewEvent message) {
       List<StatsOutput> outputStats = new ArrayList<>();
-      long wndTimestamp = (long) Math.floor(TimeUnit.MILLISECONDS.toMinutes(message.timestamp) / 5) * 5;
-      String wndKey = String.format("%s-%d", message.memberId, wndTimestamp);
+      long wndTimestamp = (long) Math.floor(TimeUnit.MILLISECONDS.toMinutes(message.getTimestamp()) / 5) * 5;
+      String wndKey = String.format("%s-%d", message.getMemberId(), wndTimestamp);
       StatsWindowState curState = this.statsStore.get(wndKey);
       if (curState == null) {
         curState = new StatsWindowState();
@@ -107,7 +108,7 @@ public class KeyValueStoreExample implements StreamApplication {
         curState.timeAtLastOutput = curTimeMs;
         curState.lastCount += curState.newCount;
         curState.newCount = 0;
-        outputStats.add(new StatsOutput(message.memberId, wndTimestamp, curState.lastCount));
+        outputStats.add(new StatsOutput(message.getMemberId(), wndTimestamp, curState.lastCount));
       }
       // update counter w/o generating output
       this.statsStore.put(wndKey, curState);
@@ -118,18 +119,6 @@ public class KeyValueStoreExample implements StreamApplication {
     public void init(Context context) {
       this.statsStore =
           (KeyValueStore<String, StatsWindowState>) context.getTaskContext().getStore("my-stats-wnd-store");
-    }
-  }
-
-  class PageViewEvent {
-    String pageId;
-    String memberId;
-    long timestamp;
-
-    PageViewEvent(String pageId, String memberId, long timestamp) {
-      this.pageId = pageId;
-      this.memberId = memberId;
-      this.timestamp = timestamp;
     }
   }
 

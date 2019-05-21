@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.UUID;
 import java.util.Objects;
 import java.util.Set;
@@ -38,13 +37,11 @@ import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
-import kafka.utils.TestUtils;
 import org.I0Itec.zkclient.ZkClient;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.Partition;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -56,6 +53,7 @@ import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
@@ -69,10 +67,11 @@ import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
 import org.apache.samza.zk.ZkUtils;
@@ -94,7 +93,7 @@ import static org.junit.Assert.*;
  * through {@link org.apache.samza.runtime.LocalApplicationRunner} to verify the guarantees made in stand alone execution
  * environment.
  */
-public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarness {
+public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TestZkLocalApplicationRunner.class);
 
@@ -150,47 +149,36 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
     applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
 
-    ZkClient zkClient = new ZkClient(zkConnect());
+    ZkClient zkClient = new ZkClient(zkConnect(), ZK_CONNECTION_TIMEOUT_MS, ZK_CONNECTION_TIMEOUT_MS, new ZkStringSerializer());
     ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(ZkJobCoordinatorFactory.getJobCoordinationZkPath(applicationConfig1));
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 5, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 1, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
+    ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.of(
+        inputSinglePartitionKafkaTopic, 1,
+        outputSinglePartitionKafkaTopic, 1,
+        inputKafkaTopic, 5,
+        outputKafkaTopic, 5);
+
+    List<NewTopic> newTopics =
+        ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
+            .stream()
+            .map(topic -> new NewTopic(topic, topicToPartitionCount.get(topic), (short) 1))
+            .collect(Collectors.toList());
+
+    assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
   }
 
+  @Override
   public void tearDown() {
+    deleteTopics(ImmutableList.of(
+        inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic));
     SharedContextFactories.clearAll();
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
     zkUtils.close();
     super.tearDown();
   }
 
   private void publishKafkaEvents(String topic, int startIndex, int endIndex, String streamProcessorId) {
-    KafkaProducer producer = getKafkaProducer();
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
@@ -711,7 +699,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(5, ssps.size());
 
     // Increase the partition count of input kafka topic to 100.
-    AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(inputKafkaTopic, 100);
 
     long jobModelWaitTimeInMillis = 10;
     while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
@@ -745,8 +733,9 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Map<String, String> configMap = new HashMap<>();
     CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
     metadataStore.all().forEach((key, value) -> {
+        CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
         String deserializedValue = jsonSerde.fromBytes(value);
-        configMap.put(key, deserializedValue);
+        configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
       });
     return new MapConfig(configMap);
   }
@@ -763,7 +752,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   public void testStatefulSamzaApplicationShouldRedistributeInputPartitionsToCorrectTasksWhenAInputStreamIsExpanded() throws Exception {
     // Setup input topics.
     String statefulInputKafkaTopic = String.format("test-input-topic-%s", UUID.randomUUID().toString());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic, 32, 1, servers(), new Properties());
+    createTopic(statefulInputKafkaTopic, 32, 1);
 
     // Generate configuration for the test.
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic), testStreamAppName, testStreamAppId);
@@ -804,7 +793,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
 
     // Increase the partition count of the input kafka topic to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic, 64);
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;
@@ -862,8 +851,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Setup the two input kafka topics.
     String statefulInputKafkaTopic1 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
     String statefulInputKafkaTopic2 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic1, 32, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), statefulInputKafkaTopic2, 32, 1, servers(), new Properties());
+    createTopic(statefulInputKafkaTopic1, 32, 1);
+    createTopic(statefulInputKafkaTopic2, 32, 1);
 
     // Generate configuration for the test.
     Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic1, statefulInputKafkaTopic2),
@@ -909,10 +898,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
 
     // Increase the partition count of the input kafka topic1 to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic1, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic1, 64);
 
     // Increase the partition count of the input kafka topic2 to 64.
-    AdminUtils.addPartitions(zkUtils(), statefulInputKafkaTopic2, 64, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(statefulInputKafkaTopic2, 64);
 
     // Wait for the JobModel version to change due to the increase in the input partition count.
     long jobModelWaitTimeInMillis = 10;
@@ -947,6 +936,37 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     actualTaskAssignments = getTaskAssignments(jobModel);
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
     Assert.assertEquals(32, jobModel.maxChangeLogStreamPartitions);
+  }
+
+  @Test
+  public void testApplicationShutdownShouldBeIndependentOfPerMessageProcessingTime() throws Exception {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    // Create a TaskApplication with only one task per container.
+    // The task does not invokes taskCallback.complete for any of the dispatched message.
+    CountDownLatch shutdownLatch = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    TaskApplication taskApplication = new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, shutdownLatch);
+    MapConfig taskApplicationConfig = new MapConfig(ImmutableList.of(applicationConfig1,
+        ImmutableMap.of(TaskConfig.MAX_CONCURRENCY(), "1", JobConfig.SSP_GROUPER_FACTORY(), "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
+    ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(taskApplication, taskApplicationConfig);
+
+    // Run the application.
+    executeRun(appRunner, applicationConfig1);
+
+    // Wait for the task to receive at least one dispatched message.
+    processedMessagesLatch1.await();
+
+    // Kill the application when none of the dispatched messages is acknowledged as completed by the task.
+    appRunner.kill();
+    appRunner.waitForFinish();
+
+    // Expect the shutdown latch to be triggered.
+    shutdownLatch.await();
+
+    // Assert that the shutdown was successful.
+    Assert.assertEquals(ApplicationStatus.SuccessfulFinish, appRunner.status());
   }
 
   /**

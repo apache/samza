@@ -33,16 +33,13 @@ import java.util.Map;
 
 /**
  * {@link AbstractContainerAllocator} makes requests for physical resources to the resource manager and also runs
- * a container process on an allocated physical resource. Sub-classes should override the assignResourceRequests()
+ * a processor on an allocated physical resource. Sub-classes should override the assignResourceRequests()
  * method to assign resource requests according to some strategy.
  *
  * See {@link ContainerAllocator} and {@link HostAwareContainerAllocator} for two such strategies
  *
- * This class is not thread-safe.
+ * This class is not thread-safe. This class is used in the refactored code path as called by run-jc.sh
  */
-
-//This class is used in the refactored code path as called by run-jc.sh
-
 public abstract class AbstractContainerAllocator implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(AbstractContainerAllocator.class);
@@ -72,12 +69,12 @@ public abstract class AbstractContainerAllocator implements Runnable {
   protected final int containerNumCpuCores;
 
   /**
-   * State corresponding to num failed containers, running containers etc.
+   * State corresponding to num failed containers, running processors etc.
    */
   protected final SamzaApplicationState state;
 
   /**
-   * ContainerRequestState indicates the state of all unfulfilled container requests and allocated containers
+   * ResourceRequestState indicates the state of all unfulfilled and allocated container requests
    */
   protected final ResourceRequestState resourceRequestState;
 
@@ -97,7 +94,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Continually schedule StreamProcessors to run on resources obtained from the cluster manager.
+   * Continually schedule processors to run on resources obtained from the cluster manager.
    * The loop frequency is governed by thread sleeps for allocatorSleepIntervalMs ms.
    *
    * Terminates when the isRunning flag is cleared.
@@ -121,53 +118,55 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Assign resources from the cluster manager and matches them to run container processes on them.
-   *
+   * Assigns resources received from the cluster manager to processors.
    */
   protected abstract void assignResourceRequests();
 
   /**
-   * Updates the request state and runs a container process on the specified host. Assumes a resource
+   * Updates the request state and runs a processor on the specified host. Assumes a resource
    * is available on the preferred host, so the caller must verify that before invoking this method.
    *
    * @param request             the {@link SamzaResourceRequest} which is being handled.
-   * @param preferredHost       the preferred host on which the StreamProcessor process should be run or
+   * @param preferredHost       the preferred host on which the processor should be run or
    *                            {@link ResourceRequestState#ANY_HOST} if there is no host preference.
-   * @throws
-   * SamzaException if there is no allocated resource in the specified host.
+   * @throws                    SamzaException if there is no allocated resource in the specified host.
    */
   protected void runStreamProcessor(SamzaResourceRequest request, String preferredHost) {
-    CommandBuilder builder = getCommandBuilder(request.getContainerID());
+    CommandBuilder builder = getCommandBuilder(request.getProcessorId());
     // Get the available resource
     SamzaResource resource = peekAllocatedResource(preferredHost);
-    if (resource == null)
-      throw new SamzaException("Expected resource was unavailable on host " + preferredHost);
+    if (resource == null) {
+      throw new SamzaException("Expected resource for Processor ID: " + request.getProcessorId() + " was unavailable on host: " + preferredHost);
+    }
 
     // Update state
     resourceRequestState.updateStateAfterAssignment(request, preferredHost, resource);
-    String containerID = request.getContainerID();
+    String processorId = request.getProcessorId();
 
-    //run container on resource
-    log.info("Found available resources on {}. Assigning request for container_id {} with "
-            + "timestamp {} to resource {}",
-        new Object[]{preferredHost, String.valueOf(containerID), request.getRequestTimestampMs(), resource.getResourceID()});
+    // Run processor on resource
+    log.info("Found Container ID: {} for Processor ID: {} on host: {} for request creation time: {}.",
+        resource.getContainerId(), processorId, preferredHost, request.getRequestTimestampMs());
 
-    //Submit a request to launch a StreamProcessor on the provided resource. To match with the response returned later
-    //in the callback, we should also store state about the container whose launch is pending.
+    // Update processor state as "pending" and then issue a request to launch it. It's important to perform the state-update
+    // prior to issuing the request. Otherwise, there's a race where the response callback may arrive sooner and not see
+    // the processor as "pending" (SAMZA-2117)
+
+    state.pendingProcessors.put(processorId, resource);
+
     clusterResourceManager.launchStreamProcessor(resource, builder);
-    state.pendingContainers.put(containerID, resource);
   }
 
   /**
    * Called during initial request for resources
    *
-   * @param resourceToHostMapping A Map of [containerId, hostName] containerId is the ID of the container process
-   *                               to run on the resource. hostName is the host on which the resource must be allocated.
-   *                                The hostName value is null, either
+   * @param processorToHostMapping A Map of [processorId, hostName], where processorId is the ID of the Samza processor
+   *                               to run on the resource. hostName is the host on which the resource should be allocated.
+   *                               The hostName value is null, either
    *                                - when host-affinity has never been enabled, or
    *                                - when host-affinity is enabled and job is run for the first time
+   *                                - when the number of containers has been increased.
    */
-  public abstract void requestResources(Map<String, String> resourceToHostMapping);
+  public abstract void requestResources(Map<String, String> processorToHostMapping);
 
   /**
    * Checks if this allocator has a pending resource request.
@@ -187,20 +186,18 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Method to request a resource from the cluster manager
+   * Requests a resource from the cluster manager
    *
-   * @param containerID Identifier of the container that will be run when a resource is allocated for
-   *                            this request
-   * @param preferredHost Name of the host that you prefer to run the container on
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
    */
-  public final void requestResource(String containerID, String preferredHost) {
-    SamzaResourceRequest request = getResourceRequest(containerID, preferredHost);
+  public final void requestResource(String processorId, String preferredHost) {
+    SamzaResourceRequest request = getResourceRequest(processorId, preferredHost);
     issueResourceRequest(request);
   }
 
-  public final SamzaResourceRequest getResourceRequest(String containerID, String preferredHost) {
-    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb,
-        preferredHost, containerID);
+  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId);
   }
 
   public final void issueResourceRequest(SamzaResourceRequest request) {
@@ -233,17 +230,18 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Returns a command builder with the build environment configured with the containerId.
-   * @param samzaContainerId to configure the builder with.
+   * Returns a command builder with the build environment configured with the processorId.
+   * @param processorId to configure the builder with.
    * @return the constructed builder object
    */
-  private CommandBuilder getCommandBuilder(String samzaContainerId) {
+  private CommandBuilder getCommandBuilder(String processorId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
     CommandBuilder cmdBuilder = Util.getObj(cmdBuilderClassName, CommandBuilder.class);
 
-    cmdBuilder.setConfig(config).setId(samzaContainerId).setUrl(state.jobModelManager.server().getUrl());
+    cmdBuilder.setConfig(config).setId(processorId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;
   }
+
   /**
    * Adds allocated samzaResource to a synchronized buffer of allocated resources.
    * See allocatedResources in {@link ResourceRequestState}
@@ -255,10 +253,9 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Stops the Allocator. Setting this flag to false, exits the allocator loop.
+   * Stops the Allocator. Setting this flag to false exits the allocator loop.
    */
   public void stop() {
     isRunning = false;
   }
-
 }

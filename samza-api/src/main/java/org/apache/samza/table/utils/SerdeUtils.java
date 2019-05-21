@@ -19,11 +19,17 @@
 
 package org.apache.samza.table.utils;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Modifier;
 import java.util.Base64;
 
 import org.apache.samza.SamzaException;
@@ -62,6 +68,37 @@ public final class SerdeUtils {
     } catch (Exception e) {
       String errMsg = "Failed to deserialize " + name;
       throw new SamzaException(errMsg, e);
+    }
+  }
+
+  /**
+   * Helper method to serialize Java objects as json strings
+   * @param name name of object used for logging
+   * @param object object to be serialized
+   * @return Json representation of the object
+   */
+  public static String toJson(String name, Object object) {
+    final Gson gson = new GsonBuilder().excludeFieldsWithModifiers(Modifier.TRANSIENT, Modifier.STATIC)
+        // Tells Gson how to serialize fields with type of Class.
+        .registerTypeHierarchyAdapter(Class.class, new TypeAdapter<Class>() {
+          @Override
+          public void write(JsonWriter out, Class value) throws IOException {
+            if (value == null) {
+              out.nullValue();
+            } else {
+              out.value(value.getName());
+            }
+          }
+
+          @Override
+          public Class read(JsonReader in) {
+            throw new SamzaException("Deserialization from json is not supported.");
+          }
+        }).create();
+    try {
+      return gson.toJson(object);
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Failed to serialize %s to json", name), e);
     }
   }
 }

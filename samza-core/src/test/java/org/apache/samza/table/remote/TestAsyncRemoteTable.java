@@ -20,7 +20,6 @@ package org.apache.samza.table.remote;
 
 import java.util.Arrays;
 
-import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 
 import org.junit.Before;
@@ -30,6 +29,7 @@ import org.apache.samza.table.BaseReadWriteTable.Func0;
 
 import static org.junit.Assert.assertTrue;
 
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -60,12 +60,39 @@ public class TestAsyncRemoteTable {
   }
 
   @Test
+  public void testGetAsyncWithArgs() {
+    int times = 0;
+    roTable.getAsync(1, 1);
+    verify(readFn, times(++times)).getAsync(any(), any());
+    rwTable.getAsync(1, 1);
+    verify(readFn, times(++times)).getAsync(any(), any());
+  }
+
+  @Test
   public void testGetAllAsync() {
     int times = 0;
     roTable.getAllAsync(Arrays.asList(1, 2));
     verify(readFn, times(++times)).getAllAsync(any());
     rwTable.getAllAsync(Arrays.asList(1, 2));
     verify(readFn, times(++times)).getAllAsync(any());
+  }
+
+  @Test
+  public void testGetAllAsyncWithArgs() {
+    int times = 0;
+    roTable.getAllAsync(Arrays.asList(1, 2), Arrays.asList(0, 0));
+    verify(readFn, times(++times)).getAllAsync(any(), any());
+    rwTable.getAllAsync(Arrays.asList(1, 2), Arrays.asList(0, 0));
+    verify(readFn, times(++times)).getAllAsync(any(), any());
+  }
+
+  @Test
+  public void testReadAsync() {
+    int times = 0;
+    roTable.readAsync(1, 2, 3);
+    verify(readFn, times(++times)).readAsync(anyInt(), any(), any());
+    rwTable.readAsync(1, 2, 3);
+    verify(readFn, times(++times)).readAsync(anyInt(), any(), any());
   }
 
   @Test
@@ -76,10 +103,24 @@ public class TestAsyncRemoteTable {
   }
 
   @Test
+  public void testPutAsyncWithArgs() {
+    verifyFailure(() -> roTable.putAsync(1, 2, 3));
+    rwTable.putAsync(1, 2, 3);
+    verify(writeFn, times(1)).putAsync(any(), any(), any());
+  }
+
+  @Test
   public void testPutAllAsync() {
     verifyFailure(() -> roTable.putAllAsync(Arrays.asList(new Entry(1, 2))));
     rwTable.putAllAsync(Arrays.asList(new Entry(1, 2)));
     verify(writeFn, times(1)).putAllAsync(any());
+  }
+
+  @Test
+  public void testPutAllAsyncWithArgs() {
+    verifyFailure(() -> roTable.putAllAsync(Arrays.asList(new Entry(1, 2)), Arrays.asList(0, 0)));
+    rwTable.putAllAsync(Arrays.asList(new Entry(1, 2)), Arrays.asList(0, 0));
+    verify(writeFn, times(1)).putAllAsync(any(), any());
   }
 
   @Test
@@ -88,6 +129,14 @@ public class TestAsyncRemoteTable {
     rwTable.deleteAsync(1);
     verify(writeFn, times(1)).deleteAsync(any());
   }
+
+  @Test
+  public void testDeleteAsyncWithArgs() {
+    verifyFailure(() -> roTable.deleteAsync(1, 2));
+    rwTable.deleteAsync(1, 2);
+    verify(writeFn, times(1)).deleteAsync(any(), any());
+  }
+
   @Test
   public void testDeleteAllAsync() {
     verifyFailure(() -> roTable.deleteAllAsync(Arrays.asList(1)));
@@ -96,13 +145,17 @@ public class TestAsyncRemoteTable {
   }
 
   @Test
-  public void testInit() {
-    roTable.init(mock(Context.class));
-    verify(readFn, times(1)).init(any());
-    verify(writeFn, times(0)).init(any());
-    rwTable.init(mock(Context.class));
-    verify(readFn, times(2)).init(any());
-    verify(writeFn, times(1)).init(any());
+  public void testDeleteAllAsyncWithArgs() {
+    verifyFailure(() -> roTable.deleteAllAsync(Arrays.asList(1), Arrays.asList(2)));
+    rwTable.deleteAllAsync(Arrays.asList(1, 2), Arrays.asList(2));
+    verify(writeFn, times(1)).deleteAllAsync(any(), any());
+  }
+
+  @Test
+  public void testWriteAsync() {
+    verifyFailure(() -> roTable.writeAsync(1, 2, 3));
+    rwTable.writeAsync(1, 2, 3);
+    verify(writeFn, times(1)).writeAsync(anyInt(), any(), any());
   }
 
   @Test

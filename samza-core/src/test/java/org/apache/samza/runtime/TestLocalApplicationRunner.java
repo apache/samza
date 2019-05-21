@@ -87,8 +87,8 @@ public class TestLocalApplicationRunner {
   public void testRunStreamTask() throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(ApplicationConfig.APP_NAME, "test-app");
+    cfgs.put(ApplicationConfig.APP_ID, "test-appId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
     prepareTest();
@@ -120,8 +120,8 @@ public class TestLocalApplicationRunner {
   public void testRunStreamTaskWithoutExternalContext() throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(ApplicationConfig.APP_NAME, "test-app");
+    cfgs.put(ApplicationConfig.APP_ID, "test-appId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
     prepareTest();

@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.StorageConfig._
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
@@ -34,7 +33,7 @@ import org.apache.samza.util._
 
 object KafkaSystemFactory extends Logging {
   @VisibleForTesting
-  def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
+  def getInjectedProducerProperties(systemName: String, config: Config) = if (new StorageConfig(config).isChangelogSystem(systemName)) {
     warn("System name '%s' is being used as a changelog. Disabling compression since Kafka does not support compression for log compacted topics." format systemName)
     Map[String, String]("compression.type" -> "none")
   } else {
@@ -57,8 +56,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val kafkaConsumer = KafkaSystemConsumer.createKafkaConsumerImpl[Array[Byte], Array[Byte]](systemName, kafkaConsumerConfig)
     info("Created kafka consumer for system %s, clientId %s: %s" format (systemName, clientId, kafkaConsumer))
 
-    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId, metrics,
-      new SystemClock)
+    val kafkaConsumerProxyFactory =
+      new KafkaConsumerProxy.BaseFactory[Array[Byte], Array[Byte]](kafkaConsumer, systemName, clientId, metrics)
+
+    val kafkaSystemConsumer = new KafkaSystemConsumer(kafkaConsumer, systemName, config, clientId,
+      kafkaConsumerProxyFactory, metrics, new SystemClock)
     info("Created samza system consumer for system %s, config %s: %s" format(systemName, config, kafkaSystemConsumer))
 
     kafkaSystemConsumer
@@ -106,8 +108,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
       val streamConfig = new StreamConfig(config)
       streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
+        // only the override here
         val properties = new Properties()
-        properties.putAll(streamConfig.getStreamProperties(streamId))
         properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
         (streamId, properties)
       }).toMap

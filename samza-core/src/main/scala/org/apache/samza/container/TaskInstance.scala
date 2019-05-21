@@ -20,19 +20,20 @@
 package org.apache.samza.container
 
 
-import java.util.Optional
+import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
-import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, ScheduledCallback}
+import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.{TaskStorageManager}
+import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -52,7 +53,6 @@ class TaskInstance(
   val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
-  reporters: Map[String, MetricsReporter] = Map(),
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
@@ -105,12 +105,6 @@ class TaskInstance(
 
   val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
 
-  def registerMetrics {
-    debug("Registering metrics for taskName: %s" format taskName)
-
-    reporters.values.foreach(_.register(metrics.source, metrics.registry))
-  }
-
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)
     offsetManager.register(taskName, systemStreamPartitions)
@@ -127,6 +121,8 @@ class TaskInstance(
   }
 
   def initTask {
+    initCaughtUpMapping()
+
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
 
@@ -146,15 +142,39 @@ class TaskInstance(
     collector.register
   }
 
-  def registerConsumers {
+  /**
+    * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
+    *
+    * Starting offset for a partition of the task is computed in the following manner:
+    *
+    * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
+    * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
+    */
+  def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
-      val startingOffset = getStartingOffset(systemStreamPartition)
-      val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
-      consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
-      metrics.addOffsetGauge(systemStreamPartition, () =>
-          offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
-        )
+      var startingOffset: String = getStartingOffset(systemStreamPartition)
+      val startpointOption: Option[Startpoint] = offsetManager.getStartpoint(taskName, systemStreamPartition)
+      startpointOption match {
+        case Some(startpoint) => {
+          try {
+            val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+            val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(systemStreamPartition, startpoint)
+            if (StringUtils.isNotBlank(resolvedOffset)) {
+              startingOffset = resolvedOffset
+              info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint,  systemStreamPartition, startingOffset))
+            }
+          } catch {
+            case e: Exception =>
+              error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, systemStreamPartition), e)
+          }
+        }
+        case None => {
+          debug("Startpoint does not exist for system stream partition: %s. Using the checkpointed offset: %s" format(systemStreamPartition, startingOffset))
+        }
+      }
+      consumerMultiplexer.register(systemStreamPartition, startingOffset)
+      metrics.addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull)
     })
   }
 
@@ -318,6 +338,31 @@ class TaskInstance(
           }
         }
       }
+    }
+  }
+
+  /**
+    * Check each partition assigned to the task is caught to the last offset
+    */
+  def initCaughtUpMapping() {
+    if (taskContext.getStreamMetadataCache != null) {
+      systemStreamPartitions.foreach(ssp => {
+        val partitionMetadata = taskContext
+          .getStreamMetadataCache
+          .getSystemStreamMetadata(ssp.getSystemStream, false)
+          .getSystemStreamPartitionMetadata.get(ssp.getPartition)
+
+        val upcomingOffset = partitionMetadata.getUpcomingOffset
+        val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
+          .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
+
+        // Mark ssp to be caught up if the starting offset is already the
+        // upcoming offset, meaning the task has consumed all the messages
+        // in this partition before and waiting for the future incoming messages.
+        if(Objects.equals(upcomingOffset, startingOffset)) {
+          ssp2CaughtupMapping(ssp) = true
+        }
+      })
     }
   }
 

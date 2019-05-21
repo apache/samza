@@ -16,8 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Job
-job.name=watcher
+# App
+app.name=watcher
 
 # Task
 task.class=org.apache.samza.test.integration.join.Watcher

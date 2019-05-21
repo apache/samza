@@ -106,6 +106,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start()
+    // the consumer will be closed after first time reading the checkpoint
   }
 
   /**
@@ -128,11 +129,11 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Reading checkpoint for taskName $taskName")
 
     if (taskNamesToCheckpoints == null) {
-      debug("Reading checkpoints for the first time")
+      info("Reading checkpoints for the first time")
       taskNamesToCheckpoints = readCheckpoints()
-    } else {
-      debug("Updating existing checkpoint mappings")
-      taskNamesToCheckpoints ++= readCheckpoints()
+      // Stop the system consumer since we only need to read checkpoints once
+      info("Stopping system consumer.")
+      systemConsumer.stop()
     }
 
     val checkpoint: Checkpoint = taskNamesToCheckpoints.getOrElse(taskName, null)
@@ -217,9 +218,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     info ("Stopping system producer.")
     producerRef.get().stop()
-
-    info("Stopping system consumer.")
-    systemConsumer.stop()
 
     info("CheckpointManager stopped.")
   }

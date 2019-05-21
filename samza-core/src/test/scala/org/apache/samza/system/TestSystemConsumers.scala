@@ -44,14 +44,17 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition0, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0L
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.doReturn(Mockito.mock(classOf[SystemAdmin])).when(systemAdmins.getSystemAdmin(system))
+
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), systemAdmins,
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition0, "0", null)
-    consumers.register(systemStreamPartition1, "1234", null)
+    consumers.register(systemStreamPartition0, "0")
+    consumers.register(systemStreamPartition1, "1234")
     consumers.start
 
     // Tell the consumer to respond with 1000 messages for SSP0, and no
@@ -106,13 +109,16 @@ class TestSystemConsumers {
     val envelope = new IncomingMessageEnvelope(systemStreamPartition, "1", "k", "v")
     val consumer = new CustomPollResponseSystemConsumer(envelope)
     var now = 0
-    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.doReturn(Mockito.mock(classOf[SystemAdmin])).when(systemAdmins.getSystemAdmin(system))
+
+    val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), systemAdmins,
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition, "0", null)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -167,15 +173,18 @@ class TestSystemConsumers {
       def poll(systemStreamPartitions: java.util.Set[SystemStreamPartition], timeout: Long) = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]]().asJava
     })
 
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
+
     val consumers = new SystemConsumers(new MessageChooser {
       def update(envelope: IncomingMessageEnvelope) = Unit
       def choose = null
       def start = chooserStarted += 1
       def stop = chooserStopped += 1
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = chooserRegistered += systemStreamPartition -> offset
-    }, consumer, null)
+    }, consumer, systemAdmins)
 
-    consumers.register(systemStreamPartition, "0", null)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
     consumers.stop
 
@@ -217,7 +226,7 @@ class TestSystemConsumers {
     // it should throw a SystemConsumersException because system2 does not have a consumer
     var caughtRightException = false
     try {
-      consumers.register(systemStreamPartition2, "0", null)
+      consumers.register(systemStreamPartition2, "0")
     } catch {
       case e: SystemConsumersException => caughtRightException = true
       case _: Throwable => caughtRightException = false
@@ -231,15 +240,17 @@ class TestSystemConsumers {
     val systemStreamPartition = new SystemStreamPartition(system, "some-stream", new Partition(1))
     val msgChooser = new DefaultChooser
     val consumer = Map(system -> new SerializingConsumer)
-    val systemMessageSerdes = Map(system -> (new StringSerde("UTF-8")).asInstanceOf[Serde[Object]]);
+    val systemMessageSerdes = Map(system -> (new StringSerde("UTF-8")).asInstanceOf[Serde[Object]])
     val serdeManager = new SerdeManager(systemMessageSerdes = systemMessageSerdes)
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
 
     // throw exceptions when the deserialization has error
-    val consumers = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = false)
-    consumers.register(systemStreamPartition, "0", null)
-    consumer(system).putBytesMessage
-    consumer(system).putStringMessage
+    val consumers = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = false)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
+    consumer(system).putStringMessage
+    consumer(system).putBytesMessage
 
     var caughtRightException = false
     try {
@@ -248,16 +259,16 @@ class TestSystemConsumers {
       case e: SystemConsumersException => caughtRightException = true
       case _: Throwable => caughtRightException = false
     }
-    assertTrue("suppose to throw SystemConsumersException", caughtRightException);
+    assertTrue("suppose to throw SystemConsumersException", caughtRightException)
     consumers.stop
 
     // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
-    val consumers2 = new SystemConsumers(msgChooser, consumer, serdeManager, dropDeserializationError = true)
-    consumers2.register(systemStreamPartition, "0", null)
+    val consumers2 = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = true)
+    consumers2.register(systemStreamPartition, "0")
+    consumers2.start
     consumer(system).putBytesMessage
     consumer(system).putStringMessage
     consumer(system).putBytesMessage
-    consumers2.start
 
     var notThrowException = true;
     try {
@@ -299,14 +310,16 @@ class TestSystemConsumers {
     val normalEnvelope = new IncomingMessageEnvelope(systemStreamPartition1, "1", "k", "v")
     val endOfStreamEnvelope = IncomingMessageEnvelope.buildEndOfStreamEnvelope(systemStreamPartition2)
     val consumer = new CustomPollResponseSystemConsumer(normalEnvelope)
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
     val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
-      new SerdeManager, new SystemConsumersMetrics,
+      systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
-    consumers.register(systemStreamPartition1, "0", null)
-    consumers.register(systemStreamPartition2, "0", null)
+    consumers.register(systemStreamPartition1, "0")
+    consumers.register(systemStreamPartition2, "0")
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -349,14 +362,16 @@ class TestSystemConsumers {
     val systemStreamPartition2 = new SystemStreamPartition(system, stream, new Partition(2))
 
     val consumer = Mockito.mock(classOf[SystemConsumer])
-    val startpoint = Mockito.mock(classOf[Startpoint])
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
+
     val consumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer),
-      new SerdeManager, new SystemConsumersMetrics,
+      systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
-    consumers.register(systemStreamPartition1, "0", startpoint)
+    consumers.register(systemStreamPartition1, "0")
   }
 
   /**
@@ -394,20 +409,23 @@ class TestSystemConsumers {
    */
   private class SerializingConsumer extends BlockingEnvelopeMap {
     val systemStreamPartition = new SystemStreamPartition("test-system", "some-stream", new Partition(1))
-    def putBytesMessage {
+    def putBytesMessage() {
       put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, "0", "0", "test".getBytes()))
     }
-    def putStringMessage {
+    def putStringMessage() {
       put(systemStreamPartition, new IncomingMessageEnvelope(systemStreamPartition, "0", "1", "test"))
     }
-    def start {}
-    def stop {}
-    def register { super.register(systemStreamPartition, "0") }
+    def start() {}
+    def stop() {}
+
+    override def register(systemStreamPartition: SystemStreamPartition, offset: String): Unit = {
+       super[BlockingEnvelopeMap].register(systemStreamPartition, offset)
+    }
   }
 }
 
 object TestSystemConsumers {
-  def getSystemConsumers(consumers: java.util.Map[String, SystemConsumer]) : SystemConsumers = {
-    new SystemConsumers(new DefaultChooser, consumers.asScala.toMap)
+  def getSystemConsumers(consumers: java.util.Map[String, SystemConsumer], systemAdmins: SystemAdmins = SystemAdmins.empty()) : SystemConsumers = {
+    new SystemConsumers(new DefaultChooser, consumers.asScala.toMap, systemAdmins)
   }
 }

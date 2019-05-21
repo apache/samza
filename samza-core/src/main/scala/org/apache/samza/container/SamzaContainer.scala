@@ -35,9 +35,7 @@ import org.apache.samza.checkpoint.{CheckpointListener, CheckpointManagerFactory
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.StorageConfig.Config2Storage
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -50,13 +48,12 @@ import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, Metr
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
-import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage._
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.{DefaultChooser, MessageChooserFactory, RoundRobinChooserFactory}
 import org.apache.samza.table.TableManager
-import org.apache.samza.table.utils.SerdeUtils
 import org.apache.samza.task._
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Util, _}
 import org.apache.samza.{SamzaContainerStatus, SamzaException}
 
@@ -137,8 +134,10 @@ object SamzaContainer extends Logging {
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
-    localityManager: LocalityManager = null) = {
+    localityManager: LocalityManager = null,
+    startpointManager: StartpointManager = null) = {
     val config = jobContext.getConfig
+    val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
@@ -174,8 +173,9 @@ object SamzaContainer extends Logging {
       .flatMap(_.getSystemStreamPartitions.asScala)
       .toSet
 
-    val sideInputStoresToSystemStreams = config.getStoreNames
-      .map { storeName => (storeName, config.getSideInputs(storeName)) }
+    val storageConfig = new StorageConfig(config)
+    val sideInputStoresToSystemStreams = storageConfig.getStoreNames.asScala
+      .map { storeName => (storeName, storageConfig.getSideInputs(storeName).asScala) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
       .map { case (storeName, sideInputs) => (storeName, sideInputs.map(StreamUtil.getSystemStreamFromNameOrId(config, _))) }
       .toMap
@@ -192,8 +192,7 @@ object SamzaContainer extends Logging {
       .map(_.getSystem)
       .toSet
 
-
-    val systemNames = config.getSystemNames
+    val systemNames = systemConfig.getSystemNames.asScala
 
     info("Got system names: %s" format systemNames)
 
@@ -202,8 +201,7 @@ object SamzaContainer extends Logging {
     info("Got serde streams: %s" format serdeStreams)
 
     val systemFactories = systemNames.map(systemName => {
-      val systemFactoryClassName = config
-        .getSystemFactory(systemName)
+      val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
       (systemName, Util.getObj(systemFactoryClassName, classOf[SystemFactory]))
     }).toMap
@@ -321,11 +319,13 @@ object SamzaContainer extends Logging {
         }).toMap
     }
 
-    val systemKeySerdes = buildSystemSerdeMap(systemName => config.getSystemKeySerde(systemName))
+    val systemKeySerdes = buildSystemSerdeMap(systemName =>
+      JavaOptionals.toRichOptional(systemConfig.getSystemKeySerde(systemName)).toOption)
 
     debug("Got system key serdes: %s" format systemKeySerdes)
 
-    val systemMessageSerdes = buildSystemSerdeMap(systemName => config.getSystemMsgSerde(systemName))
+    val systemMessageSerdes = buildSystemSerdeMap(systemName =>
+      JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption)
 
     debug("Got system message serdes: %s" format systemMessageSerdes)
 
@@ -337,10 +337,10 @@ object SamzaContainer extends Logging {
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
-    val changeLogSystemStreams = config
-      .getStoreNames
-      .filter(config.getChangelogStream(_).isDefined)
-      .map(name => (name, config.getChangelogStream(name).get)).toMap
+    val changeLogSystemStreams = storageConfig
+      .getStoreNames.asScala
+      .filter(storageConfig.getChangelogStream(_).isPresent)
+      .map(name => (name, storageConfig.getChangelogStream(name).get)).toMap
       .mapValues(StreamUtil.getSystemStreamFromNames(_))
 
     info("Got change log system streams: %s" format changeLogSystemStreams)
@@ -429,28 +429,12 @@ object SamzaContainer extends Logging {
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
 
-    val startpointMetadataStoreFactory = Option(config.getStartpointMetadataStoreFactory)
-      .map(Util.getObj(_, classOf[MetadataStoreFactory]))
-      .orNull
-    val startpointManager = if (startpointMetadataStoreFactory != null) {
-      try {
-        Option(new StartpointManager(startpointMetadataStoreFactory, config, samzaContainerMetrics.registry))
-      } catch {
-        case e: Exception => {
-          error("Unable to get an instance of the StartpointManager. Continuing without one.", e)
-          None
-        }
-      }
-    } else {
-      None
-    }
-
     // create a map of consumers with callbacks to pass to the OffsetManager
     val checkpointListeners = consumers.filter(_._2.isInstanceOf[CheckpointListener])
       .map { case (system, consumer) => (system, consumer.asInstanceOf[CheckpointListener])}
     info("Got checkpointListeners : %s" format checkpointListeners)
 
-    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager.getOrElse(null), systemAdmins, checkpointListeners, offsetManagerMetrics)
+    val offsetManager = OffsetManager(inputStreamMetadata, config, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
     info("Got offset manager: %s" format offsetManager)
 
     val dropDeserializationError = config.getDropDeserializationErrors
@@ -464,6 +448,7 @@ object SamzaContainer extends Logging {
     val consumerMultiplexer = new SystemConsumers(
       chooser = chooser,
       consumers = consumers,
+      systemAdmins = systemAdmins,
       serdeManager = serdeManager,
       metrics = systemConsumersMetrics,
       dropDeserializationError = dropDeserializationError,
@@ -476,25 +461,21 @@ object SamzaContainer extends Logging {
       metrics = systemProducersMetrics,
       dropSerializationError = dropSerializationError)
 
-    val storageEngineFactories = config
-      .getStoreNames
+    val storageEngineFactories = storageConfig
+      .getStoreNames.asScala
       .map(storeName => {
-        val storageFactoryClassName = config
-          .getStorageFactoryClassName(storeName)
+        val storageFactoryClassName =
+          JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
         (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
 
-    val singleThreadMode = config.getSingleThreadMode
-    info("Got single thread mode: " + singleThreadMode)
-
     val threadPoolSize = config.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
-
-    val taskThreadPool = if (!singleThreadMode && threadPoolSize > 0) {
+    val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
         new ThreadFactoryBuilder().setNameFormat("Samza Container Thread-%d").build())
     } else {
@@ -504,16 +485,7 @@ object SamzaContainer extends Logging {
 
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
-      singleThreadMode,
       taskThreadPool)
-
-    // Wire up all task-instance-level (unshared) objects.
-    val taskNames = containerModel
-      .getTasks
-      .values
-      .asScala
-      .map(_.getTaskName)
-      .toSet
 
     val taskModels = containerModel.getTasks.values.asScala
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
@@ -594,7 +566,6 @@ object SamzaContainer extends Logging {
           offsetManager = offsetManager,
           storageManager = storageManager,
           tableManager = tableManager,
-          reporters = reporters,
           systemStreamPartitions = taskSSPs -- taskSideInputSSPs,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, config),
           jobModel = jobModel,
@@ -663,6 +634,7 @@ object SamzaContainer extends Logging {
     new SamzaContainer(
       config = config,
       taskInstances = taskInstances,
+      taskInstanceMetrics = taskInstanceMetrics,
       runLoop = runLoop,
       systemAdmins = systemAdmins,
       consumerMultiplexer = consumerMultiplexer,
@@ -700,6 +672,7 @@ object SamzaContainer extends Logging {
 class SamzaContainer(
   config: Config,
   taskInstances: Map[TaskName, TaskInstance],
+  taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics],
   runLoop: Runnable,
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
@@ -858,10 +831,7 @@ class SamzaContainer(
 
   // Shutdown Runloop
   def shutdownRunLoop() = {
-    runLoop match {
-      case runLoop: RunLoop => runLoop.shutdown
-      case asyncRunLoop: AsyncRunLoop => asyncRunLoop.shutdown()
-    }
+    runLoop.asInstanceOf[RunLoop].shutdown
   }
 
   def startDiskSpaceMonitor: Unit = {
@@ -879,9 +849,9 @@ class SamzaContainer(
   }
 
   def startMetrics {
-    info("Registering task instances with metrics.")
-
-    taskInstances.values.foreach(_.registerMetrics)
+    info("Registering task instance metrics.")
+    reporters.values.foreach(reporter =>
+      taskInstanceMetrics.values.foreach(taskMetrics => reporter.register(taskMetrics.source, taskMetrics.registry)))
 
     info("Starting JVM metrics.")
 
@@ -902,14 +872,19 @@ class SamzaContainer(
       info("Starting diagnostics.")
 
       try {
-        val diagnosticsAppender = Class.forName(config.getDiagnosticsAppenderClass).
-          getDeclaredConstructor(classOf[SamzaContainerMetrics]).newInstance(this.metrics);
+        var diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
+        info("Attached log4j diagnostics appender.")
       }
       catch {
         case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
-          error("Failed to instantiate diagnostic appender", e)
-          throw new ConfigException("Failed to instantiate diagnostic appender class " +
-            config.getDiagnosticsAppenderClass, e)
+          try {
+            val diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
+            info("Attached log4j2 diagnostics appender.")
+          } catch {
+            case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+              warn("Failed to instantiate neither diagnostic appender for sending error information to diagnostics stream", e)
+            }
+          }
         }
       }
     }
@@ -937,11 +912,11 @@ class SamzaContainer(
         localityManager.writeContainerToHostMapping(containerId, hostInet.getHostName)
       } catch {
         case uhe: UnknownHostException =>
-          warn("Received UnknownHostException when persisting locality info for container %s: " +
-            "%s" format (containerId, uhe.getMessage))  //No-op
+          warn("Received UnknownHostException when persisting locality info for container: " +
+            "%s" format (containerId), uhe)  //No-op
         case unknownException: Throwable =>
           warn("Received an exception when persisting locality info for container %s: " +
-            "%s" format (containerId, unknownException.getMessage))
+            "%s" format (containerId), unknownException)
       } finally {
         info("Shutting down locality manager.")
         localityManager.close()

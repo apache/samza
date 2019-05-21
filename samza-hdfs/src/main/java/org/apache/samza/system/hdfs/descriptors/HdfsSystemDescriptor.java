@@ -92,7 +92,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withDatePathFormat(String datePathFormat) {
-    this.datePathFormat = Optional.of(StringUtils.stripToNull(datePathFormat));
+    this.datePathFormat = Optional.ofNullable(StringUtils.stripToNull(datePathFormat));
     return this;
   }
 
@@ -102,7 +102,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withOutputBaseDir(String outputBaseDir) {
-    this.outputBaseDir = Optional.of(StringUtils.stripToNull(outputBaseDir));
+    this.outputBaseDir = Optional.ofNullable(StringUtils.stripToNull(outputBaseDir));
     return this;
   }
 
@@ -135,7 +135,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withWriteCompressionType(String writeCompressionType) {
-    this.writeCompressionType = Optional.of(StringUtils.stripToNull(writeCompressionType));
+    this.writeCompressionType = Optional.ofNullable(StringUtils.stripToNull(writeCompressionType));
     return this;
   }
 
@@ -145,7 +145,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withWriterClassName(String writerClassName) {
-    this.writerClass = Optional.of(StringUtils.stripToNull(writerClassName));
+    this.writerClass = Optional.ofNullable(StringUtils.stripToNull(writerClassName));
     return this;
   }
 
@@ -175,7 +175,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerWhiteList(String whiteList) {
-    this.consumerWhiteList = Optional.of(StringUtils.stripToNull(whiteList));
+    this.consumerWhiteList = Optional.ofNullable(StringUtils.stripToNull(whiteList));
     return this;
   }
 
@@ -185,7 +185,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerBlackList(String blackList) {
-    this.consumerBlackList = Optional.of(StringUtils.stripToNull(blackList));
+    this.consumerBlackList = Optional.ofNullable(StringUtils.stripToNull(blackList));
     return this;
   }
 
@@ -195,7 +195,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withConsumerGroupPattern(String groupPattern) {
-    this.consumerGroupPattern = Optional.of(StringUtils.stripToNull(groupPattern));
+    this.consumerGroupPattern = Optional.ofNullable(StringUtils.stripToNull(groupPattern));
     return this;
   }
 
@@ -205,7 +205,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withReaderType(String readerType) {
-    this.consumerReader = Optional.of(StringUtils.stripToNull(readerType));
+    this.consumerReader = Optional.ofNullable(StringUtils.stripToNull(readerType));
     return this;
   }
 
@@ -216,7 +216,7 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
    * @return this system descriptor
    */
   public HdfsSystemDescriptor withStagingDirectory(String stagingDirectory) {
-    this.consumerStagingDirectory = Optional.of(StringUtils.stripToNull(stagingDirectory));
+    this.consumerStagingDirectory = Optional.ofNullable(StringUtils.stripToNull(stagingDirectory));
     return this;
   }
 
@@ -225,29 +225,29 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
     Map<String, String> config = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    this.datePathFormat.ifPresent(
+    datePathFormat.ifPresent(
         val -> config.put(String.format(HdfsConfig.DATE_PATH_FORMAT_STRING(), systemName), val));
-    this.outputBaseDir.ifPresent(val -> config.put(String.format(HdfsConfig.BASE_OUTPUT_DIR(), systemName), val));
-    this.writeBatchSizeBytes.ifPresent(
+    outputBaseDir.ifPresent(val -> config.put(String.format(HdfsConfig.BASE_OUTPUT_DIR(), systemName), val));
+    writeBatchSizeBytes.ifPresent(
         val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_BYTES(), systemName), String.valueOf(val)));
-    this.writeBatchSizeRecords.ifPresent(
+    writeBatchSizeRecords.ifPresent(
         val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_RECORDS(), systemName), String.valueOf(val)));
-    this.writeCompressionType.ifPresent(
+    writeCompressionType.ifPresent(
         val -> config.put(String.format(HdfsConfig.COMPRESSION_TYPE(), systemName), val));
-    this.writerClass.ifPresent(val -> config.put(String.format(HdfsConfig.HDFS_WRITER_CLASS_NAME(), systemName), val));
+    writerClass.ifPresent(val -> config.put(String.format(HdfsConfig.HDFS_WRITER_CLASS_NAME(), systemName), val));
 
-    this.consumerBufferCapacity.ifPresent(
+    consumerBufferCapacity.ifPresent(
         val -> config.put(String.format(HdfsConfig.CONSUMER_BUFFER_CAPACITY(), systemName), String.valueOf(val)));
-    this.consumerMaxRetries.ifPresent(
+    consumerMaxRetries.ifPresent(
         val -> config.put(String.format(HdfsConfig.CONSUMER_NUM_MAX_RETRIES(), systemName), String.valueOf(val)));
-    this.consumerWhiteList.ifPresent(
+    consumerWhiteList.ifPresent(
         val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_WHITELIST(), systemName), val));
-    this.consumerBlackList.ifPresent(
+    consumerBlackList.ifPresent(
         val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_BLACKLIST(), systemName), val));
-    this.consumerGroupPattern.ifPresent(
+    consumerGroupPattern.ifPresent(
         val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_GROUP_PATTERN(), systemName), val));
-    this.consumerReader.ifPresent(val -> config.put(String.format(HdfsConfig.FILE_READER_TYPE(), systemName), val));
-    this.consumerStagingDirectory.ifPresent(
+    consumerReader.ifPresent(val -> config.put(String.format(HdfsConfig.FILE_READER_TYPE(), systemName), val));
+    consumerStagingDirectory.ifPresent(
         val -> config.put(String.format(HdfsConfig.STAGING_DIRECTORY(), systemName), val));
 
     return config;

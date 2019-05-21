@@ -150,11 +150,11 @@ public class TestOperatorImplGraph {
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream(inputSystem, inputPhysicalName));
     assertEquals(1, inputOpImpl.registeredOperators.size());
 
-    OperatorImpl filterOpImpl = (StreamOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
+    OperatorImpl filterOpImpl = (FlatmapOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
     assertEquals(1, filterOpImpl.registeredOperators.size());
     assertEquals(OpCode.FILTER, filterOpImpl.getOperatorSpec().getOpCode());
 
-    OperatorImpl mapOpImpl = (StreamOperatorImpl) filterOpImpl.registeredOperators.iterator().next();
+    OperatorImpl mapOpImpl = (FlatmapOperatorImpl) filterOpImpl.registeredOperators.iterator().next();
     assertEquals(1, mapOpImpl.registeredOperators.size());
     assertEquals(OpCode.MAP, mapOpImpl.getOperatorSpec().getOpCode());
 

@@ -93,33 +93,43 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
-    return doRead(() -> table.getAsync(key));
+  public CompletableFuture<V> getAsync(K key, Object... args) {
+    return doRead(() -> table.getAsync(key, args));
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    return doRead(() -> table.getAllAsync(keys));
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
+    return doRead(() -> table.getAllAsync(keys, args));
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
-    return doWrite(() -> table.putAsync(key, value));
+  public <T> CompletableFuture<T> readAsync(int opId, Object... args) {
+    return doRead(() -> table.readAsync(opId, args));
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
-    return doWrite(() -> table.putAllAsync(entries));
+  public CompletableFuture<Void> putAsync(K key, V value, Object... args) {
+    return doWrite(() -> table.putAsync(key, value, args));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
-    return doWrite(() -> table.deleteAsync(key));
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
+    return doWrite(() -> table.putAllAsync(entries, args));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
-    return doWrite(() -> table.deleteAllAsync(keys));
+  public CompletableFuture<Void> deleteAsync(K key, Object... args) {
+    return doWrite(() -> table.deleteAsync(key, args));
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
+    return doWrite(() -> table.deleteAllAsync(keys, args));
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
+    return doWrite(() -> table.writeAsync(opId, args));
   }
 
   @Override

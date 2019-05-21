@@ -40,7 +40,7 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.Base64Serializer;
 
 import org.junit.Assert;
@@ -49,7 +49,7 @@ import org.junit.Test;
 import static org.apache.samza.test.table.TestLocalTableEndToEnd.getBaseJobConfig;
 
 
-public class TestLocalTableWithLowLevelApiEndToEnd extends AbstractIntegrationTestHarness {
+public class TestLocalTableWithLowLevelApiEndToEnd extends IntegrationTestHarness {
 
   @Test
   public void testTableWithLowLevelApi() throws Exception {

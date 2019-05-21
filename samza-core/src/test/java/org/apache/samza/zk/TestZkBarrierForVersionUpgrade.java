@@ -55,9 +55,9 @@ public class TestZkBarrierForVersionUpgrade {
 
   @Before
   public void testSetup() {
-    ZkClient zkClient = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    ZkClient zkClient = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, new ZkStringSerializer());
     this.zkUtils = new ZkUtils(new ZkKeyBuilder("group1"), zkClient, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
-    ZkClient zkClient1 = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS);
+    ZkClient zkClient1 = new ZkClient(testZkConnectionString, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, new ZkStringSerializer());
     this.zkUtils1 = new ZkUtils(new ZkKeyBuilder("group1"), zkClient1, ZkConfig.DEFAULT_CONNECTION_TIMEOUT_MS, ZkConfig.DEFAULT_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
   }
 
@@ -110,8 +110,8 @@ public class TestZkBarrierForVersionUpgrade {
 
     processor1Barrier.create(BARRIER_VERSION, processors);
 
-    State barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
-    assertEquals(State.NEW, barrierState);
+    String barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
+    assertEquals(State.NEW, State.valueOf(barrierState));
 
     processor1Barrier.join(BARRIER_VERSION, "p1");
     processor2Barrier.join(BARRIER_VERSION, "p2");
@@ -126,7 +126,7 @@ public class TestZkBarrierForVersionUpgrade {
 
     List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_1/barrier_participants");
     barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
-    assertEquals(State.DONE, barrierState);
+    assertEquals(State.DONE, State.valueOf(barrierState));
     assertNotNull(children);
     assertEquals("Unexpected barrier state. Didn't find two processors.", 2, children.size());
     assertEquals("Unexpected barrier state. Didn't find the expected members.", processors, children);
@@ -158,8 +158,8 @@ public class TestZkBarrierForVersionUpgrade {
     assertTrue("Barrier Timeout test failed to complete within test timeout.", result);
 
     List<String> children = zkUtils.getZkClient().getChildren(barrierId + "/barrier_1/barrier_participants");
-    State barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
-    assertEquals(State.TIMED_OUT, barrierState);
+    String barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
+    assertEquals(State.TIMED_OUT, State.valueOf(barrierState));
     assertNotNull(children);
     assertEquals("Unexpected barrier state. Didn't find two processors.", 2, children.size());
     assertEquals("Unexpected barrier state. Didn't find the expected members.", ImmutableList.of("p1", "p2"), children);
@@ -190,8 +190,8 @@ public class TestZkBarrierForVersionUpgrade {
 
     processor1Barrier.expire(BARRIER_VERSION);
 
-    State barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
-    assertEquals(State.DONE, barrierState);
+    String barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
+    assertEquals(State.DONE, State.valueOf(barrierState));
   }
 
   @Test
@@ -222,7 +222,7 @@ public class TestZkBarrierForVersionUpgrade {
 
     processor1Barrier.join(BARRIER_VERSION, "p3");
 
-    State barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
-    assertEquals(State.TIMED_OUT, barrierState);
+    String barrierState = zkUtils.getZkClient().readData(barrierId + "/barrier_1/barrier_state");
+    assertEquals(State.TIMED_OUT, State.valueOf(barrierState));
   }
 }

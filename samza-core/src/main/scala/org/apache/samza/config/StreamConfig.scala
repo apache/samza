@@ -273,7 +273,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     if (systemName == null) {
       Map()
     }
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val defaults = systemConfig.getDefaultStreamProperties(systemName)
     val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
     new MapConfig(defaults, explicitConfigs)

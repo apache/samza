@@ -19,6 +19,8 @@
 
 package org.apache.samza.operators.impl;
 
+import java.util.Queue;
+import java.util.concurrent.PriorityBlockingQueue;
 import org.apache.samza.operators.triggers.Cancellable;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
@@ -26,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 
 /**
  * Allows to schedule and cancel callbacks for triggers.
@@ -35,11 +36,11 @@ public class TriggerScheduler<WK> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TriggerScheduler.class);
 
-  private final PriorityQueue<TriggerCallbackState<WK>> pendingCallbacks;
+  private final Queue<TriggerCallbackState<WK>> pendingCallbacks;
   private final Clock clock;
 
   public TriggerScheduler(Clock clock) {
-    this.pendingCallbacks = new PriorityQueue<>();
+    this.pendingCallbacks = new PriorityBlockingQueue<>();
     this.clock = clock;
   }
 
