@@ -144,7 +144,11 @@ public class TestClusterBasedJobCoordinator {
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
-    doThrow(stopException).when(mockStartpointManager).stop(); // Stop ClusterBasedJobCoordinator#run after stop() method.
+
+    // Stop ClusterBasedJobCoordinator#run after stop() method by throwing an exception to stop the run loop.
+    // ClusterBasedJobCoordinator will need to be refactored for better mock support.
+    doThrow(stopException).when(mockStartpointManager).stop();
+
     doReturn(mockContainerProcessManager).when(clusterCoordinator).createContainerProcessManager();
     doReturn(mockStartpointManager).when(clusterCoordinator).createStartpointManager();
     try {

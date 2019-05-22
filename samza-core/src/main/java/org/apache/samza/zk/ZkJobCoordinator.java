@@ -51,6 +51,7 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.LocationId;
@@ -288,15 +289,15 @@ public class ZkJobCoordinator implements JobCoordinator {
   /**
    * Stores the configuration of the job in the coordinator stream.
    */
-  private void loadMetadataResources(JobModel jobModel) {
+  @VisibleForTesting
+  void loadMetadataResources(JobModel jobModel) {
     CoordinatorStreamStore coordinatorStreamStore = null;
     try {
       // Creates the coordinator stream if it does not exists.
       coordinatorStreamStore = createCoordinatorStreamStore();
       coordinatorStreamStore.init();
 
-      MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel);
       metadataResourceUtil.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
@@ -311,18 +312,23 @@ public class ZkJobCoordinator implements JobCoordinator {
       StartpointManager startpointManager = createStartpointManager(coordinatorStreamStore);
       startpointManager.start();
       try {
-        startpointManager.fanOut(jobModel.getTaskToSystemStreamPartitions());
-      } catch (IOException ex) {
-        throw new SamzaException(String.format("Error calling fan out from StartpointManager."), ex);
+        startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions());
       } finally {
         startpointManager.stop();
       }
+    } catch (IOException ex) {
+      throw new SamzaException(String.format("IO exception while loading metadata resources."), ex);
     } finally {
       if (coordinatorStreamStore != null) {
         LOG.info("Stopping the coordinator stream metadata store.");
         coordinatorStreamStore.close();
       }
     }
+  }
+
+  @VisibleForTesting
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
   }
 
   /**

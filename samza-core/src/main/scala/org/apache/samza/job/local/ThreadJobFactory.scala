@@ -30,6 +30,7 @@ import org.apache.samza.context.{ExternalContext, JobContextImpl}
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
@@ -76,7 +77,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val startpointManager = new StartpointManager(coordinatorStreamStore)
     startpointManager.start()
     try {
-      startpointManager.fanOut(jobModel.getTaskToSystemStreamPartitions)
+      startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions)
     } finally {
       startpointManager.stop()
     }

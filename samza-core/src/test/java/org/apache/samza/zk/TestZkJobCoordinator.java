@@ -26,12 +26,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
@@ -50,11 +51,39 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import static junit.framework.Assert.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 
 public class TestZkJobCoordinator {
   private static final String TEST_BARRIER_ROOT = "/testBarrierRoot";
   private static final String TEST_JOB_MODEL_VERSION = "1";
+
+  private final Config config;
+  private final JobModel jobModel;
+
+  public TestZkJobCoordinator() {
+    Map<String, String> configMap = ImmutableMap.of(
+        "job.coordinator.system", "kafka",
+        "job.name", "test-job",
+        "systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory");
+    config = new MapConfig(configMap);
+
+    Set<SystemStreamPartition> ssps = ImmutableSet.of(
+        new SystemStreamPartition("system1", "stream1_1", new Partition(0)),
+        new SystemStreamPartition("system1", "stream1_2", new Partition(0)));
+    Map<TaskName, TaskModel> tasksForContainer = ImmutableMap.of(
+        new TaskName("t1"), new TaskModel(new TaskName("t1"), ssps, new Partition(0)));
+    ContainerModel containerModel = new ContainerModel("0", tasksForContainer);
+    jobModel = new JobModel(config, ImmutableMap.of("0", containerModel));
+  }
 
   @Test
   public void testFollowerShouldStopWhenNotPartOfGeneratedJobModel() throws Exception {
@@ -104,7 +133,7 @@ public class TestZkJobCoordinator {
 
     verify(zkUtils).incGeneration();
     verify(mockDebounceTimer).cancelAllScheduledActions();
-    verify(mockDebounceTimer).scheduleAfterDebounceTime(Mockito.eq("ZK_SESSION_EXPIRED"), Mockito.eq(0L), Mockito.any(Runnable.class));
+    verify(mockDebounceTimer).scheduleAfterDebounceTime(eq("ZK_SESSION_EXPIRED"), eq(0L), Mockito.any(Runnable.class));
     Assert.assertEquals(1, zkJobCoordinator.zkSessionMetrics.zkSessionExpirations.getCount());
   }
 
@@ -214,7 +243,7 @@ public class TestZkJobCoordinator {
   }
 
   @Test
-  public void testStartpointFanOutOnBecomingLeader() throws IOException {
+  public void testLoadMetadataResources() throws IOException {
     ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
     ZkClient mockZkClient = Mockito.mock(ZkClient.class);
     when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
@@ -222,39 +251,45 @@ public class TestZkJobCoordinator {
     ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
     when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
     when(zkUtils.getZkClient()).thenReturn(mockZkClient);
-    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(jobModel);
 
-    ScheduleAfterDebounceTime mockDebounceTimer = Mockito.mock(ScheduleAfterDebounceTime.class);
+    StartpointManager mockStartpointManager = Mockito.mock(StartpointManager.class);
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator("TEST_PROCESSOR_ID", config, new NoOpMetricsRegistry(), zkUtils));
+    doReturn(mockStartpointManager).when(zkJobCoordinator).createStartpointManager(any(CoordinatorStreamStore.class));
+    doReturn(mock(CoordinatorStreamStore.class)).when(zkJobCoordinator).createCoordinatorStreamStore();
+    doReturn(mock(MetadataResourceUtil.class)).when(zkJobCoordinator).createMetadataResourceUtil(any(JobModel.class));
 
-    Map<String, String> configMap = ImmutableMap.of(
-        "job.coordinator.system", "kafka",
-        "job.name", "test-job",
-        "systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory");
-    MapConfig config = new MapConfig(configMap);
+    verifyZeroInteractions(mockStartpointManager);
+
+    zkJobCoordinator.loadMetadataResources(jobModel);
+    verify(mockStartpointManager).start();
+    verify(mockStartpointManager).fanOut(any());
+    verify(mockStartpointManager).stop();
+  }
+
+  @Test
+  public void testDoOnProcessorChange() {
+    ZkKeyBuilder keyBuilder = Mockito.mock(ZkKeyBuilder.class);
+    ZkClient mockZkClient = Mockito.mock(ZkClient.class);
+    when(keyBuilder.getJobModelVersionBarrierPrefix()).thenReturn(TEST_BARRIER_ROOT);
+
+    ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
+    when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
+    when(zkUtils.getZkClient()).thenReturn(mockZkClient);
+    when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(jobModel);
 
     StartpointManager mockStartpointManager = Mockito.mock(StartpointManager.class);
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator("TEST_PROCESSOR_ID", config, new NoOpMetricsRegistry(), zkUtils));
     doReturn(mockStartpointManager).when(zkJobCoordinator).createStartpointManager(any(CoordinatorStreamStore.class));
     doReturn(mock(CoordinatorStreamStore.class)).when(zkJobCoordinator).createCoordinatorStreamStore();
 
-    StreamPartitionCountMonitor monitor = Mockito.mock(StreamPartitionCountMonitor.class);
-    zkJobCoordinator.debounceTimer = mockDebounceTimer;
-    zkJobCoordinator.streamPartitionCountMonitor = monitor;
-    when(zkJobCoordinator.getPartitionCountMonitor()).thenReturn(monitor);
-
-    Set<SystemStreamPartition> ssps = ImmutableSet.of(
-        new SystemStreamPartition("system1", "stream1_1", new Partition(0)),
-        new SystemStreamPartition("system1", "stream1_2", new Partition(0)));
-    Map<TaskName, TaskModel> tasksForContainer = ImmutableMap.of(
-        new TaskName("t1"), new TaskModel(new TaskName("t1"), ssps, new Partition(0)));
-    ContainerModel containerModel = new ContainerModel("0", tasksForContainer);
-    doReturn(new JobModel(config, ImmutableMap.of("0", containerModel))).when(zkJobCoordinator).generateNewJobModel(any());
-
-    verifyZeroInteractions(mockStartpointManager);
+    doReturn(jobModel).when(zkJobCoordinator).generateNewJobModel(any());
+    doNothing().when(zkJobCoordinator).loadMetadataResources(jobModel);
 
     zkJobCoordinator.doOnProcessorChange();
-    verify(mockStartpointManager).start();
-    verify(mockStartpointManager).fanOut(any());
-    verify(mockStartpointManager).stop();
+
+    verify(zkUtils).publishJobModel(anyString(), eq(jobModel));
+    verify(zkUtils).publishJobModelVersion(anyString(), anyString());
+    verify(zkJobCoordinator).loadMetadataResources(eq(jobModel));
   }
 }

@@ -46,6 +46,7 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -230,7 +231,7 @@ public class ClusterBasedJobCoordinator {
       StartpointManager startpointManager = createStartpointManager();
       startpointManager.start();
       try {
-        startpointManager.fanOut(jobModel.getTaskToSystemStreamPartitions());
+        startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions());
       } finally {
         startpointManager.stop();
       }
