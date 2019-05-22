@@ -179,8 +179,10 @@ public class ClusterBasedJobCoordinator {
 
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
-    jobModelManager = JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(),
-                                            coordinatorStreamStore, metrics);
+    ClassLoader classLoader = getClass().getClassLoader();
+    jobModelManager =
+        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore,
+            classLoader, metrics);
 
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
@@ -194,12 +196,11 @@ public class ClusterBasedJobCoordinator {
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = new ContainerProcessManager(config, state, metrics);
+    containerProcessManager = new ContainerProcessManager(config, state, metrics, classLoader);
   }
 
   /**
    * Starts the JobCoordinator.
-   *
    */
   public void run() {
     if (!isStarted.compareAndSet(false, true)) {
@@ -222,7 +223,7 @@ public class ClusterBasedJobCoordinator {
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, metrics);
+          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader());
       metadataResourceUtil.createResources();
 
       // Remap changelog partitions to tasks

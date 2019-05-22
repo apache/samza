@@ -109,8 +109,8 @@ public class LocalJobPlanner extends JobPlanner {
     // Refer SAMZA-1385 for more details
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(userConfig);
     String coordinationId = new ApplicationConfig(userConfig).getGlobalAppId() + APPLICATION_RUNNER_PATH_SUFFIX;
-    CoordinationUtils coordinationUtils =
-        jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(coordinationId, uid, userConfig);
+    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory(getClass().getClassLoader())
+        .getCoordinationUtils(coordinationId, uid, userConfig);
     if (coordinationUtils == null) {
       LOG.warn("Processor {} failed to create utils. Each processor will attempt to create streams.", uid);
       // each application process will try creating the streams, which

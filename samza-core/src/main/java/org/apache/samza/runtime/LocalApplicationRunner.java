@@ -49,7 +49,7 @@ import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -170,7 +170,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       Optional<ExternalContext> externalContextOptional) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
-    String processorId = createProcessorId(new ApplicationConfig(config));
+    String processorId = createProcessorId(new ApplicationConfig(config), getClass().getClassLoader());
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, processorId, config)));
     return new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
@@ -184,15 +184,17 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * to generate the unique processorId.
    * 3. Else throws the {@see ConfigException} back to the caller.
    * @param appConfig the configuration of the samza application.
+   * @param classLoader classloader for loading processor id generator
    * @throws ConfigException if neither processor.id nor app.processor-id-generator.class is defined in the configuration.
    * @return the generated processor identifier.
    */
   @VisibleForTesting
-  static String createProcessorId(ApplicationConfig appConfig) {
+  static String createProcessorId(ApplicationConfig appConfig, ClassLoader classLoader) {
     if (StringUtils.isNotBlank(appConfig.getProcessorId())) {
       return appConfig.getProcessorId();
     } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
-      ProcessorIdGenerator idGenerator = Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
+      ProcessorIdGenerator idGenerator =
+          ReflectionUtil.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class, classLoader);
       return idGenerator.generateProcessorId(appConfig);
     } else {
       throw new ConfigException(String.format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,

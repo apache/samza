@@ -86,7 +86,7 @@ public class TestLocalJobPlanner {
 
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
-    when(mockJcConfig.getCoordinationUtilsFactory()).thenReturn(coordinationUtilsFactory);
+    when(mockJcConfig.getCoordinationUtilsFactory(getClass().getClassLoader())).thenReturn(coordinationUtilsFactory);
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     localPlanner.prepareJobs();
@@ -115,7 +115,7 @@ public class TestLocalJobPlanner {
     CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
     CoordinationUtilsFactory coordinationUtilsFactory = mock(CoordinationUtilsFactory.class);
     JobCoordinatorConfig mockJcConfig = mock(JobCoordinatorConfig.class);
-    when(mockJcConfig.getCoordinationUtilsFactory()).thenReturn(coordinationUtilsFactory);
+    when(mockJcConfig.getCoordinationUtilsFactory(getClass().getClassLoader())).thenReturn(coordinationUtilsFactory);
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
     DistributedLockWithState lock = mock(DistributedLockWithState.class);

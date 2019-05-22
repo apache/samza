@@ -55,7 +55,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.apache.samza.util.HttpUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 /**
  * StreamAppender is a log4j appender that sends logs to the system which is
@@ -300,7 +300,8 @@ public class StreamAppender extends AppenderSkeleton {
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
         .orElseThrow(() -> new SamzaException(
             "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
-    SystemFactory systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
+    SystemFactory systemFactory =
+        ReflectionUtil.getObj(systemFactoryName, SystemFactory.class, getClass().getClassLoader());
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
@@ -391,7 +392,8 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
+      SerdeFactory<LoggingEvent> serdeFactory =
+          ReflectionUtil.getObj(serdeClass, SerdeFactory.class, getClass().getClassLoader());
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);

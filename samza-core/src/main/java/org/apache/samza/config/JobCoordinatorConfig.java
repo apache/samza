@@ -24,7 +24,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.zk.ZkCoordinationUtilsFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 
@@ -62,11 +62,11 @@ public class JobCoordinatorConfig extends MapConfig {
     return coordinationUtilsFactory;
   }
 
-  public CoordinationUtilsFactory getCoordinationUtilsFactory() {
+  public CoordinationUtilsFactory getCoordinationUtilsFactory(ClassLoader classLoader) {
     // load the class
     String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
 
-    return Util.getObj(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
+    return ReflectionUtil.getObj(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class, classLoader);
   }
 
   public String getJobCoordinatorFactoryClassName() {

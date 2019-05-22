@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,9 +68,9 @@ public class TableManager {
    * Construct a table manager instance
    * @param config job configuration
    */
-  public TableManager(Config config) {
+  public TableManager(Config config, ClassLoader classLoader) {
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
-        addTable(tableId, config);
+        addTable(tableId, config, classLoader);
         logger.debug("Added table " + tableId);
       });
     logger.info(String.format("Added %d tables", tableContexts.size()));
@@ -85,14 +85,14 @@ public class TableManager {
     initialized = true;
   }
 
-  private void addTable(String tableId, Config config) {
+  private void addTable(String tableId, Config config, ClassLoader classLoader) {
     if (tableContexts.containsKey(tableId)) {
       throw new SamzaException("Table " + tableId + " already exists");
     }
     JavaTableConfig tableConfig = new JavaTableConfig(config);
     String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
-        Util.getObj(providerFactoryClassName, TableProviderFactory.class);
+        ReflectionUtil.getObj(providerFactoryClassName, TableProviderFactory.class, classLoader);
     TableCtx ctx = new TableCtx();
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
     tableContexts.put(tableId, ctx);

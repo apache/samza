@@ -36,13 +36,14 @@ object ContainerProcessManagerMetrics {
  * registry, we might as well use it. This class takes Samza's application
  * master state, and converts it to metrics.
  */
-class ContainerProcessManagerMetrics(
-                                      val config: Config,
-                                      val state: SamzaApplicationState,
-                                      val registry: ReadableMetricsRegistry) extends MetricsHelper  with Logging {
+class ContainerProcessManagerMetrics(val config: Config,
+  val state: SamzaApplicationState,
+  val registry: ReadableMetricsRegistry,
+  val classLoader: ClassLoader) extends MetricsHelper with Logging {
 
   val jvm = new JvmMetrics(registry)
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName).asScala
+  val reporters =
+    MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName, classLoader).asScala
   val clusterManagerConfig = new ClusterManagerConfig(config)
 
   reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))

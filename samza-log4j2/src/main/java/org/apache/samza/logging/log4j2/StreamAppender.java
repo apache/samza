@@ -67,7 +67,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.apache.samza.util.HttpUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 @Plugin(name = "Stream", category = "Core", elementType = "appender", printObject = true)
 public class StreamAppender extends AbstractAppender {
@@ -321,7 +321,8 @@ public class StreamAppender extends AbstractAppender {
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
         .orElseThrow(() -> new SamzaException(
             "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
-    SystemFactory systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
+    SystemFactory systemFactory =
+        ReflectionUtil.getObj(systemFactoryName, SystemFactory.class, getClass().getClassLoader());
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
@@ -413,7 +414,8 @@ public class StreamAppender extends AbstractAppender {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LogEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
+      SerdeFactory<LogEvent> serdeFactory =
+          ReflectionUtil.getObj(serdeClass, SerdeFactory.class, getClass().getClassLoader());
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);

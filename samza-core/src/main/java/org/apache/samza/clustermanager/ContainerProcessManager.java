@@ -18,21 +18,21 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.Optional;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -108,16 +108,17 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final ContainerProcessManagerMetrics metrics;
 
-  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry) {
+  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
+      ClassLoader classLoader) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
-    ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
+    ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig, classLoader);
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.metrics = new ContainerProcessManagerMetrics(config, state, registry, classLoader);
 
     if (jobConfig.getStandbyTasksEnabled()) {
       this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
@@ -125,34 +126,30 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       this.standbyContainerManager = Optional.empty();
     }
 
-    if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
-    } else {
-      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
-    }
-
+    this.containerAllocator =
+        buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
+            config, this.standbyContainerManager, state, classLoader);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     log.info("Finished container process manager initialization.");
   }
 
-  //for testing
+  @VisibleForTesting
   ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      AbstractContainerAllocator allocator, ClusterResourceManager manager) {
+      AbstractContainerAllocator allocator, ClusterResourceManager manager, ClassLoader classLoader) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
     this.clusterResourceManager = manager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.metrics = new ContainerProcessManagerMetrics(config, state, registry, classLoader);
     this.containerAllocator = allocator;
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     this.standbyContainerManager = Optional.empty();
   }
 
-  //package private, used only in tests
+  @VisibleForTesting
   ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      ClusterResourceManager resourceManager) {
-    JobModelManager jobModelManager = state.jobModelManager;
+      ClusterResourceManager resourceManager, ClassLoader classLoader) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -160,17 +157,25 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.metrics = new ContainerProcessManagerMetrics(config, state, registry, classLoader);
     this.standbyContainerManager = Optional.empty();
 
-    if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
-    } else {
-      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
-    }
-
+    this.containerAllocator =
+        buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
+            config, this.standbyContainerManager, state, classLoader);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     log.info("Finished container process manager initialization");
+  }
+
+  private static AbstractContainerAllocator buildContainerAllocator(boolean hostAffinityEnabled,
+      ClusterResourceManager clusterResourceManager, ClusterManagerConfig clusterManagerConfig, Config config,
+      Optional<StandbyContainerManager> standbyContainerManager, SamzaApplicationState state, ClassLoader classLoader) {
+    if (hostAffinityEnabled) {
+      return new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(),
+          config, standbyContainerManager, state, classLoader);
+    } else {
+      return new ContainerAllocator(clusterResourceManager, config, state, classLoader);
+    }
   }
 
   public boolean shouldShutdown() {
@@ -464,12 +469,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * @param clusterManagerConfig, the cluster manager config to parse.
    *
    */
-  private ResourceManagerFactory getContainerProcessManagerFactory(final ClusterManagerConfig clusterManagerConfig) {
+  private ResourceManagerFactory getContainerProcessManagerFactory(final ClusterManagerConfig clusterManagerConfig,
+      ClassLoader classLoader) {
     final String containerManagerFactoryClass = clusterManagerConfig.getContainerManagerClass();
     final ResourceManagerFactory factory;
 
     try {
-      factory = Util.getObj(containerManagerFactoryClass, ResourceManagerFactory.class);
+      factory = ReflectionUtil.getObj(containerManagerFactoryClass, ResourceManagerFactory.class, classLoader);
     } catch (Exception e) {
       log.error("Error creating the cluster resource manager.", e);
       throw new SamzaException(e);

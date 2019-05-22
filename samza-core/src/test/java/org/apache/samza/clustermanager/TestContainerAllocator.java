@@ -54,7 +54,7 @@ public class TestContainerAllocator {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new ContainerAllocator(manager, config, state);
+    containerAllocator = new ContainerAllocator(manager, config, state, getClass().getClassLoader());
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
@@ -62,14 +62,11 @@ public class TestContainerAllocator {
     allocatorThread = new Thread(containerAllocator);
   }
 
-
-
   @After
   public void teardown() throws Exception {
     jobModelManager.stop();
     containerAllocator.stop();
   }
-
 
   private static Config getConfig() {
     Config config = new MapConfig(new HashMap<String, String>() {
@@ -91,8 +88,6 @@ public class TestContainerAllocator {
     map.putAll(config);
     return new MapConfig(map);
   }
-
-
 
   /**
    * Adds all containers returned to ANY_HOST only

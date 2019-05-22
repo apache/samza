@@ -47,10 +47,7 @@ import org.apache.samza.system.SystemProducer
 import org.apache.samza.system.SystemProducers
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.CommandLine
-import org.apache.samza.util.FileUtil
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{CommandLine, FileUtil, Logging, ReflectionUtil}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
@@ -127,7 +124,8 @@ object TestKeyValuePerformance extends Logging {
         val storageFactoryClassName =
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
                 .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
+        (storeName, ReflectionUtil.getObj(storageFactoryClassName,
+          classOf[StorageEngineFactory[Array[Byte], Array[Byte]]], getClass.getClassLoader))
     })
 
     for((storeName, storageEngine) <- storageEngineMappings) {

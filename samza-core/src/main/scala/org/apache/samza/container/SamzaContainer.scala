@@ -133,6 +133,7 @@ object SamzaContainer extends Logging {
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
+    classLoader: ClassLoader,
     localityManager: LocalityManager = null,
     startpointManager: StartpointManager = null) = {
     val config = jobContext.getConfig
@@ -202,7 +203,7 @@ object SamzaContainer extends Logging {
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, Util.getObj(systemFactoryClassName, classOf[SystemFactory]))
+      (systemName, ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory], classLoader))
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -250,10 +251,8 @@ object SamzaContainer extends Logging {
       val serdeClassName = config
         .getSerdeClass(serdeName)
         .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
-
-      val serde = Util.getObj(serdeClassName, classOf[SerdeFactory[Object]])
+      val serde = ReflectionUtil.getObj(serdeClassName, classOf[SerdeFactory[Object]], classLoader)
         .getSerde(serdeName, config)
-
       (serdeName, serde)
     }).toMap
     info("Got serdes from factories: %s" format serdesFromFactories.keys)
@@ -402,20 +401,20 @@ object SamzaContainer extends Logging {
 
     val chooserFactoryClassName = config.getMessageChooserClass.getOrElse(classOf[RoundRobinChooserFactory].getName)
 
-    val chooserFactory = Util.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
+    val chooserFactory = ReflectionUtil.getObj(chooserFactoryClassName, classOf[MessageChooserFactory], classLoader)
 
     val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
-    val reporters = MetricsReporterLoader.getMetricsReporters(config, containerName).asScala.toMap ++ customReporters
+    val reporters =
+      MetricsReporterLoader.getMetricsReporters(config, containerName, classLoader).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
 
     val securityManager = config.getSecurityManagerFactory match {
       case Some(securityManagerFactoryClassName) =>
-        Util
-          .getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory])
+        ReflectionUtil.getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory], classLoader)
           .getSecurityManager(config)
       case _ => null
     }
@@ -423,7 +422,7 @@ object SamzaContainer extends Logging {
 
     val checkpointManager = config.getCheckpointManagerFactory()
       .filterNot(_.isEmpty)
-      .map(Util.getObj(_, classOf[CheckpointManagerFactory])
+      .map(ReflectionUtil.getObj(_, classOf[CheckpointManagerFactory], classLoader)
         .getCheckpointManager(config, samzaContainerMetrics.registry))
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
@@ -466,7 +465,8 @@ object SamzaContainer extends Logging {
         val storageFactoryClassName =
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
+        (storeName,
+          ReflectionUtil.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]], classLoader))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
@@ -514,11 +514,26 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    val containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins,
-      changeLogSystemStreams.asJava, sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
-      storageEngineFactories.asJava, systemFactories.asJava, serdes.asJava, config,
-      taskInstanceMetrics.asJava, samzaContainerMetrics, jobContext, containerContext, taskCollectors.asJava,
-      loggedStorageBaseDir, nonLoggedStorageBaseDir, maxChangeLogStreamPartitions, serdeManager, new SystemClock)
+    val containerStorageManager = new ContainerStorageManager(containerModel,
+      streamMetadataCache,
+      systemAdmins,
+      changeLogSystemStreams.asJava,
+      sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
+      storageEngineFactories.asJava,
+      systemFactories.asJava,
+      serdes.asJava,
+      config,
+      taskInstanceMetrics.asJava,
+      samzaContainerMetrics,
+      jobContext,
+      containerContext,
+      taskCollectors.asJava,
+      loggedStorageBaseDir,
+      nonLoggedStorageBaseDir,
+      maxChangeLogStreamPartitions,
+      serdeManager,
+      new SystemClock,
+      classLoader)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -551,7 +566,7 @@ object SamzaContainer extends Logging {
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition)
 
-      val tableManager = new TableManager(config)
+      val tableManager = new TableManager(config, classLoader)
 
       info("Got table manager")
 
@@ -608,7 +623,8 @@ object SamzaContainer extends Logging {
 
     val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
       classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
-    val diskQuotaPolicyFactory = Util.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
+    val diskQuotaPolicyFactory =
+      ReflectionUtil.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory], classLoader)
     val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
 
     var diskSpaceMonitor: DiskSpaceMonitor = null

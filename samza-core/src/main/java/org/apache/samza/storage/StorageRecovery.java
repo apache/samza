@@ -48,10 +48,10 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -132,8 +132,9 @@ public class StorageRecovery extends CommandLine {
     try {
       Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
       ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
-      JobModelManager jobModelManager = JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-                                                              coordinatorStreamStore, metricsRegistryMap);
+      JobModelManager jobModelManager =
+          JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+              coordinatorStreamStore, getClass().getClassLoader(), metricsRegistryMap);
       JobModel jobModel = jobModelManager.jobModel();
       containers = jobModel.getContainers();
     } finally {
@@ -162,7 +163,8 @@ public class StorageRecovery extends CommandLine {
 
       Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass.isPresent()) {
-        storageEngineFactories.put(storeName, Util.getObj(factoryClass.get(), StorageEngineFactory.class));
+        storageEngineFactories.put(storeName,
+            ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class, getClass().getClassLoader()));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -196,7 +198,8 @@ public class StorageRecovery extends CommandLine {
               serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
             }
 
-            Serde serde = Util.getObj(serdeClassName.get(), SerdeFactory.class).getSerde(serdeName, serializerConfig);
+            Serde serde = ReflectionUtil.getObj(serdeClassName.get(), SerdeFactory.class, getClass().getClassLoader())
+                .getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
 
@@ -219,11 +222,26 @@ public class StorageRecovery extends CommandLine {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
       ContainerStorageManager containerStorageManager =
-          new ContainerStorageManager(containerModel, streamMetadataCache, systemAdmins, changeLogSystemStreams,
-              new HashMap<>(), storageEngineFactories, systemFactories, this.getSerdes(), jobConfig, new HashMap<>(),
+          new ContainerStorageManager(containerModel,
+              streamMetadataCache,
+              systemAdmins,
+              changeLogSystemStreams,
+              new HashMap<>(),
+              storageEngineFactories,
+              systemFactories,
+              this.getSerdes(),
+              jobConfig,
+              new HashMap<>(),
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
-              JobContextImpl.fromConfigWithDefaults(jobConfig), containerContext, new HashMap<>(),
-              storeBaseDir, storeBaseDir, maxPartitionNumber, null, new SystemClock());
+              JobContextImpl.fromConfigWithDefaults(jobConfig),
+              containerContext,
+              new HashMap<>(),
+              storeBaseDir,
+              storeBaseDir,
+              maxPartitionNumber,
+              null,
+              new SystemClock(),
+              getClass().getClassLoader());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

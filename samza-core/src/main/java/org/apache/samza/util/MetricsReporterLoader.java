@@ -34,7 +34,8 @@ public class MetricsReporterLoader {
   private MetricsReporterLoader() {
   }
 
-  public static Map<String, MetricsReporter> getMetricsReporters(MetricsConfig config, String containerName) {
+  public static Map<String, MetricsReporter> getMetricsReporters(MetricsConfig config, String containerName,
+      ClassLoader classLoader) {
     Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
     for (String metricsReporterName : JavaConverters.seqAsJavaListConverter(config.getMetricReporterNames()).asJava()) {
@@ -42,7 +43,8 @@ public class MetricsReporterLoader {
       if (metricsFactoryClassName == null) {
         throw new SamzaException(String.format("Metrics reporter %s missing .class config", metricsReporterName));
       }
-      MetricsReporterFactory metricsReporterFactory = Util.getObj(metricsFactoryClassName, MetricsReporterFactory.class);
+      MetricsReporterFactory metricsReporterFactory =
+          ReflectionUtil.getObj(metricsFactoryClassName, MetricsReporterFactory.class, classLoader);
       metricsReporters.put(metricsReporterName,
                            metricsReporterFactory.getMetricsReporter(metricsReporterName,
                                                                      containerName,

@@ -228,7 +228,8 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldReturnProcessorIdDefinedInConfiguration() {
     String processorId = "testProcessorId";
     MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.PROCESSOR_ID, processorId));
-    String actualProcessorId = LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap));
+    String actualProcessorId =
+        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
     assertEquals(processorId, actualProcessorId);
   }
 
@@ -236,7 +237,8 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldInvokeProcessorIdGeneratorDefinedInConfiguration() {
     String processorId = "testProcessorId";
     MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, MockProcessorIdGenerator.class.getCanonicalName()));
-    String actualProcessorId = LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap));
+    String actualProcessorId =
+        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
     assertEquals(processorId, actualProcessorId);
   }
 
@@ -244,7 +246,7 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldThrowExceptionWhenProcessorIdAndGeneratorAreNotDefined() {
     ApplicationConfig mockConfig = Mockito.mock(ApplicationConfig.class);
     Mockito.when(mockConfig.getProcessorId()).thenReturn(null);
-    LocalApplicationRunner.createProcessorId(mockConfig);
+    LocalApplicationRunner.createProcessorId(mockConfig, getClass().getClassLoader());
   }
 
   private void prepareTest() {

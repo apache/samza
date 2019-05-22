@@ -21,7 +21,6 @@ package org.apache.samza.job.local
 
 import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
-import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
@@ -55,7 +54,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val classLoader = getClass.getClassLoader
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+      coordinatorStreamStore, classLoader, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -68,7 +69,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
     metadataResourceUtil.createResources()
 
     val containerId = "0"
@@ -120,7 +121,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         JobContextImpl.fromConfigWithDefaults(config),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
         Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
-        buildExternalContext(config)
+        buildExternalContext(config),
+        classLoader
       )
       container.setContainerListener(containerListener)
 
