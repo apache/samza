@@ -34,8 +34,8 @@ import static org.junit.Assert.assertTrue;
 public class TestJobModelUtil {
 
   @Test(expected = IllegalArgumentException.class)
-  public void testNullJobModel() {
-    new JobModelUtil(null);
+  public void testTaskToSystemStreamPartitionsWithNullJobModel() {
+    JobModelUtil.getTaskToSystemStreamPartitions(null);
   }
 
   @Test
@@ -50,21 +50,33 @@ public class TestJobModelUtil {
     Set<SystemStreamPartition> ssps3 = ImmutableSet.of(
         new SystemStreamPartition("system1", "stream3_1", new Partition(2)),
         new SystemStreamPartition("system1", "stream3_2", new Partition(2)));
+    Set<SystemStreamPartition> ssps4 = ImmutableSet.of(
+        new SystemStreamPartition("system1", "stream4_1", new Partition(3)),
+        new SystemStreamPartition("system1", "stream4_2", new Partition(3)));
+    TaskName task1 = new TaskName("task1"); // adding this task to both container models
+    TaskName task2 = new TaskName("task2");
     Map<TaskName, TaskModel> tasksForContainer1 = ImmutableMap.of(
-        new TaskName("t1"), new TaskModel(new TaskName("t1"), ssps1, new Partition(0)),
-        new TaskName("t2"), new TaskModel(new TaskName("t2"), ssps2, new Partition(1)));
+        task1, new TaskModel(task1, ssps1, new Partition(0)),
+        task2, new TaskModel(task2, ssps2, new Partition(1)));
+    TaskName task3 = new TaskName("task3");
     Map<TaskName, TaskModel> tasksForContainer2 = ImmutableMap.of(
-        new TaskName("t3"), new TaskModel(new TaskName("t3"), ssps3, new Partition(2)));
+        task3, new TaskModel(task3, ssps3, new Partition(2)),
+        task1, new TaskModel(task1, ssps4, new Partition(3)));
     ContainerModel containerModel1 = new ContainerModel("0", tasksForContainer1);
     ContainerModel containerModel2 = new ContainerModel("1", tasksForContainer2);
     Map<String, ContainerModel> containers = ImmutableMap.of("0", containerModel1, "1", containerModel2);
 
-    JobModelUtil jobModelUtil = new JobModelUtil(new JobModel(config, containers));
-    assertEquals(ssps1.size(), jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t1")).size());
-    assertTrue(jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t1")).containsAll(ssps1));
-    assertEquals(ssps2.size(), jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t2")).size());
-    assertTrue(jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t2")).containsAll(ssps2));
-    assertEquals(ssps3.size(), jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t3")).size());
-    assertTrue(jobModelUtil.getTaskToSystemStreamPartitions().get(new TaskName("t3")).containsAll(ssps3));
+    JobModel jobModel = new JobModel(config, containers);
+
+    // test having same task1 in multiple containers
+    assertEquals(ssps1.size() + ssps4.size(), JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task1).size());
+    assertTrue(JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task1).containsAll(ssps1));
+    assertTrue(JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task1).containsAll(ssps4));
+
+    assertEquals(ssps2.size(), JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task2).size());
+    assertTrue(JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task2).containsAll(ssps2));
+
+    assertEquals(ssps3.size(), JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task3).size());
+    assertTrue(JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task3).containsAll(ssps3));
   }
 }

@@ -231,7 +231,7 @@ public class ClusterBasedJobCoordinator {
       StartpointManager startpointManager = createStartpointManager();
       startpointManager.start();
       try {
-        startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions());
+        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
       } finally {
         startpointManager.stop();
       }

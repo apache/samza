@@ -312,7 +312,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       StartpointManager startpointManager = createStartpointManager(coordinatorStreamStore);
       startpointManager.start();
       try {
-        startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions());
+        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
       } finally {
         startpointManager.stop();
       }

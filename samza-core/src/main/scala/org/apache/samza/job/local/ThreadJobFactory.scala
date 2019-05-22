@@ -77,7 +77,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val startpointManager = new StartpointManager(coordinatorStreamStore)
     startpointManager.start()
     try {
-      startpointManager.fanOut(new JobModelUtil(jobModel).getTaskToSystemStreamPartitions)
+      startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel))
     } finally {
       startpointManager.stop()
     }

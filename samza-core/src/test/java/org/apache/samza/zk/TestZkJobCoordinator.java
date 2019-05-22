@@ -257,11 +257,15 @@ public class TestZkJobCoordinator {
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator("TEST_PROCESSOR_ID", config, new NoOpMetricsRegistry(), zkUtils));
     doReturn(mockStartpointManager).when(zkJobCoordinator).createStartpointManager(any(CoordinatorStreamStore.class));
     doReturn(mock(CoordinatorStreamStore.class)).when(zkJobCoordinator).createCoordinatorStreamStore();
-    doReturn(mock(MetadataResourceUtil.class)).when(zkJobCoordinator).createMetadataResourceUtil(any(JobModel.class));
+
+    MetadataResourceUtil mockMetadataResourceUtil = mock(MetadataResourceUtil.class);
+    doReturn(mockMetadataResourceUtil).when(zkJobCoordinator).createMetadataResourceUtil(any(JobModel.class));
 
     verifyZeroInteractions(mockStartpointManager);
 
     zkJobCoordinator.loadMetadataResources(jobModel);
+
+    verify(mockMetadataResourceUtil).createResources();
     verify(mockStartpointManager).start();
     verify(mockStartpointManager).fanOut(any());
     verify(mockStartpointManager).stop();

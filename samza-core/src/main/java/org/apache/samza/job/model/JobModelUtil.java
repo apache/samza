@@ -30,20 +30,15 @@ import org.apache.samza.system.SystemStreamPartition;
  * Utility class for the {@link JobModel}
  */
 public class JobModelUtil {
-  private final JobModel jobModel;
-
-  public JobModelUtil(JobModel jobModel) {
-    Preconditions.checkArgument(jobModel != null, "JobModel cannot be null");
-
-    this.jobModel = jobModel;
-  }
 
   /**
    * Extracts the map of {@link SystemStreamPartition}s to {@link TaskName} from the {@link JobModel}
    *
    * @return the extracted map
    */
-  public Map<TaskName, Set<SystemStreamPartition>> getTaskToSystemStreamPartitions() {
+  public static Map<TaskName, Set<SystemStreamPartition>> getTaskToSystemStreamPartitions(JobModel jobModel) {
+    Preconditions.checkArgument(jobModel != null, "JobModel cannot be null");
+
     Map<String, ContainerModel> containers = jobModel.getContainers();
     HashMap<TaskName, Set<SystemStreamPartition>> taskToSSPs = new HashMap<>();
     for (ContainerModel containerModel : containers.values()) {
@@ -59,4 +54,6 @@ public class JobModelUtil {
     }
     return taskToSSPs;
   }
+
+  private JobModelUtil() { }
 }
