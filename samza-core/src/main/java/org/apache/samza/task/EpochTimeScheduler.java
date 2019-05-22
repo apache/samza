@@ -81,7 +81,7 @@ public class EpochTimeScheduler {
     }
   }
 
-  void registerListener(TimerListener listener) {
+  public void registerListener(TimerListener listener) {
     timerListener = listener;
 
     if (!readyTimers.isEmpty()) {
