@@ -23,9 +23,11 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -53,7 +55,11 @@ public interface TableReadFunction<K, V> extends TablePart, InitableFunction, Cl
    * @return table record for the specified {@code key}
    */
   default V get(K key) {
-    return getAsync(key).toCompletableFuture().join();
+    try {
+      return getAsync(key).toCompletableFuture().join();
+    } catch (CompletionException e) {
+      throw new SamzaException("GET failed for " + key, e);
+    }
   }
 
   /**
@@ -70,7 +76,11 @@ public interface TableReadFunction<K, V> extends TablePart, InitableFunction, Cl
    * @return all records for the specified keys.
    */
   default Map<K, V> getAll(Collection<K> keys) {
-    return getAllAsync(keys).toCompletableFuture().join();
+    try {
+      return getAllAsync(keys).toCompletableFuture().join();
+    } catch (CompletionException e) {
+      throw new SamzaException("GET_ALL failed for " + keys, e);
+    }
   }
 
   /**

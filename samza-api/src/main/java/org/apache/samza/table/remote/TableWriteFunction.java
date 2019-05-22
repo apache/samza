@@ -23,9 +23,11 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.InitableFunction;
@@ -55,7 +57,11 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
    * @param record table record to be written
    */
   default void put(K key, V record) {
-    putAsync(key, record).toCompletableFuture().join();
+    try {
+      putAsync(key, record).toCompletableFuture().join();
+    } catch (CompletionException e) {
+      throw new SamzaException("PUT failed for " + key, e);
+    }
   }
 
   /**
@@ -95,7 +101,11 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
    * @param key key to the table record to be deleted
    */
   default void delete(K key) {
-    deleteAsync(key).toCompletableFuture().join();
+    try {
+      deleteAsync(key).toCompletableFuture().join();
+    } catch (CompletionException e) {
+      throw new SamzaException("DELETE failed for " + key, e);
+    }
   }
 
   /**
@@ -111,7 +121,11 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
    * @param keys keys for the table records to be written
    */
   default void deleteAll(Collection<K> keys) {
-    deleteAllAsync(keys).toCompletableFuture().join();
+    try {
+      deleteAllAsync(keys).toCompletableFuture().join();
+    } catch (CompletionException e) {
+      throw new SamzaException("DELETE failed for " + keys, e);
+    }
   }
 
   /**

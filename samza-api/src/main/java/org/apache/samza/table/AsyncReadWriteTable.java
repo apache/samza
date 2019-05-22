@@ -36,7 +36,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * Asynchronously gets the value associated with the specified {@code key}.
    *
    * @param key the key with which the associated value is to be fetched.
-   * @return completableFuture for the requested value
+   * @return CompletionStage for the requested value
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
   CompletionStage<V> getAsync(K key);
@@ -45,7 +45,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * Asynchronously gets the values with which the specified {@code keys} are associated.
    *
    * @param keys the keys with which the associated values are to be fetched.
-   * @return completableFuture for the requested entries
+   * @return CompletionStage for the requested entries
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
   CompletionStage<Map<K, V>> getAllAsync(List<K> keys);
@@ -58,7 +58,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
-   * @return CompletableFuture for the operation
+   * @return CompletionStage for the operation
    */
   CompletionStage<Void> putAsync(K key, V value);
 
@@ -68,7 +68,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    *
    * @param entries the updated mappings to put into this table.
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
-   * @return CompletableFuture for the operation
+   * @return CompletionStage for the operation
    */
   CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries);
 
@@ -76,7 +76,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).
    * @param key the key for which the mapping is to be deleted.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
-   * @return CompletableFuture for the operation
+   * @return CompletionStage for the operation
    */
   CompletionStage<Void> deleteAsync(K key);
 
@@ -84,7 +84,7 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * Asynchronously deletes the mappings for the specified {@code keys} from this table.
    * @param keys the keys for which the mappings are to be deleted.
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
-   * @return CompletableFuture for the operation
+   * @return CompletionStage for the operation
    */
   CompletionStage<Void> deleteAllAsync(List<K> keys);
 
