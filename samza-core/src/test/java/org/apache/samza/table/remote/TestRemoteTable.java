@@ -87,7 +87,7 @@ public class TestRemoteTable {
 
     RemoteTable<K, V> table = new RemoteTable<>(tableId, readFn, writeFn,
         readRateLimiter, writeRateLimiter, rateLimitingExecutor,
-        readPolicy, writePolicy, retryExecutor, cbExecutor);
+        readPolicy, writePolicy, retryExecutor, null, null, cbExecutor);
     table.init(getMockContext());
     verify(readFn, times(1)).init(any(), any());
     if (writeFn != null) {

@@ -16,34 +16,38 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.batching;
+
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Timer;
+import org.apache.samza.table.utils.TableMetricsUtil;
+
 
 /**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
+ * Wrapper of batch-related metrics.
  */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
-
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
+class BatchMetrics {
+  /**
+   * The number of batches
+   */
+  final Counter batchCount;
 
   /**
-   * utilites cleanup
+   * The time duration between opening and closing the batch
    */
-  void close();
+  final Timer batchDuration;
+
+  public BatchMetrics(TableMetricsUtil metricsUtil) {
+    batchCount = metricsUtil.newCounter("num-batches");
+    batchDuration = metricsUtil.newTimer("batch-ns");
+  }
+
+  public void incBatchCount() {
+    batchCount.inc();
+  }
+
+  public void updateBatchDuration(long d) {
+    batchDuration.update(d);
+  }
 }

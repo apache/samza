@@ -17,23 +17,48 @@
  * under the License.
  */
 
-package org.apache.samza.coordinator;
+package org.apache.samza.table.batching;
 
-import java.util.concurrent.TimeUnit;
+import com.google.common.base.Preconditions;
 
 
-public interface DistributedLock {
+/**
+ * Delete operation.
+ *
+ * @param <K> The type of the key.
+ */
+public class DeleteOperation<K, V> implements Operation<K, V> {
+  final K key;
+  final Object[] args;
+
+  public DeleteOperation(K key, Object ... args) {
+    Preconditions.checkNotNull(key);
+
+    this.key = key;
+    this.args = args;
+  }
 
   /**
-   * Tries to acquire the lock
-   * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if it times out.
+   * @return The key to be deleted.
    */
-  boolean lock(long timeout, TimeUnit unit);
+  @Override
+  public K getKey() {
+    return key;
+  }
 
   /**
-   * Releases the lock
+   * @return null.
    */
-  void unlock();
+  @Override
+  public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return The extra arguments associated with the table.
+   */
+  @Override
+  public Object[] getArgs() {
+    return args;
+  }
 }

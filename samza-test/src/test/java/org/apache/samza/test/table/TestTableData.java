@@ -205,6 +205,16 @@ public class TestTableData {
     return pageviews;
   }
 
+  static public PageView[] generatePageViewsWithDistinctKeys(int count) {
+    Random random = new Random();
+    PageView[] pageviews = new PageView[count];
+    for (int i = 0; i < count; i++) {
+      String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
+      pageviews[i] = new PageView(pagekey, i);
+    }
+    return pageviews;
+  }
+
   private static final String[] COMPANIES = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
 
   static public Profile[] generateProfiles(int count) {

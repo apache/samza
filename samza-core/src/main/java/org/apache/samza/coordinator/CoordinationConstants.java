@@ -16,34 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
+public final class CoordinationConstants {
+  private CoordinationConstants() {}
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
-
-  /**
-   * utilites cleanup
-   */
-  void close();
+  public static final String RUNID_STORE_KEY = "runId";
+  public static final String APPLICATION_RUNNER_PATH_SUFFIX = "ApplicationRunnerData";
+  public static final String RUNID_LOCK_ID = "runId";
+  public static final int LOCK_TIMEOUT_MS = 300000;
 }

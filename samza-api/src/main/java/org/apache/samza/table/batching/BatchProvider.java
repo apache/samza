@@ -16,34 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.batching;
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
+import java.io.Serializable;
+import java.time.Duration;
+import org.apache.samza.table.remote.TablePart;
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
 
-  Latch getLatch(int size, String latchId);
+public abstract class BatchProvider<K, V> implements TablePart, Serializable {
+  public abstract Batch<K, V> getBatch();
 
-  DistributedLock getLock(String lockId);
+  private int maxBatchSize = 100;
+  private Duration maxBatchDelay = Duration.ofMillis(100);
 
-  ClusterMembership getClusterMembership();
+  public BatchProvider<K, V> withMaxBatchSize(int maxBatchSize) {
+    this.maxBatchSize = maxBatchSize;
+    return this;
+  }
 
-  /**
-   * utilites cleanup
-   */
-  void close();
+  public BatchProvider<K, V> withMaxBatchDelay(Duration maxBatchDelay) {
+    this.maxBatchDelay = maxBatchDelay;
+    return this;
+  }
+
+  public int getMaxBatchSize() {
+    return maxBatchSize;
+  }
+
+  public Duration getMaxBatchDelay() {
+    return maxBatchDelay;
+  }
 }

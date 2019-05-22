@@ -16,34 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.batching;
 
 /**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
+ * When adding an {@link Operation} to a {@link Batch}, if the batch implementation class
+ * does not want to batch the operation, it should throw a {@link BatchingNotSupportedException}.
  */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
+public class BatchingNotSupportedException extends UnsupportedOperationException {
+  public BatchingNotSupportedException() {
+    super();
+  }
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
+  public BatchingNotSupportedException(String message) {
+    super(message);
+  }
 
-  Latch getLatch(int size, String latchId);
+  public BatchingNotSupportedException(Throwable cause) {
+    super(cause);
+  }
 
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
-
-  /**
-   * utilites cleanup
-   */
-  void close();
+  public BatchingNotSupportedException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

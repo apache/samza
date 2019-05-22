@@ -20,8 +20,9 @@ package org.apache.samza.zk;
 
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
+import org.apache.samza.coordinator.ClusterMembership;
 import org.apache.samza.coordinator.CoordinationUtils;
-import org.apache.samza.coordinator.DistributedLockWithState;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.coordinator.Latch;
 import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
@@ -52,7 +53,7 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   }
 
   @Override
-  public DistributedLockWithState getLockWithState(String lockId) {
+  public DistributedLock getLock(String lockId) {
     return new ZkDistributedLock(processorIdStr, zkUtils, lockId);
   }
 
@@ -69,5 +70,10 @@ public class ZkCoordinationUtils implements CoordinationUtils {
   // TODO - SAMZA-1128 CoordinationService should directly depend on ZkUtils and DebounceTimer
   public ZkUtils getZkUtils() {
     return zkUtils;
+  }
+
+  @Override
+  public ClusterMembership getClusterMembership() {
+    return new ZkClusterMembership(processorIdStr, zkUtils);
   }
 }

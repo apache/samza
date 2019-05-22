@@ -16,34 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.batching;
 
 /**
+ * Interface for operations that can be batched.
  *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
+ * @param <K> The key type associated with the operation.
+ * @param <V> The value type associated with the operation.
  */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
-
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
+public interface Operation<K, V> {
+  /**
+   * @return The key associated with the operation.
+   */
+  K getKey();
 
   /**
-   * utilites cleanup
+   * @return The value associated with the operation.
    */
-  void close();
+  V getValue();
+
+  /**
+   * @return The extra arguments associated with the operation.
+   */
+  Object[] getArgs();
 }

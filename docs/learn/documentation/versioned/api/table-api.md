@@ -245,6 +245,8 @@ The table below summarizes table metrics:
 
 | Metrics | Class | Description |
 |---------|-------|-------------|
+|`num-batches`|`AsyncBatchingTable`|Number of batch operations|
+|`batch-ns`|`AsyncBatchingTable`|Time interval between opening and closing a batch|
 |`get-ns`|`ReadableTable`|Average latency of `get/getAsync()` operations|
 |`getAll-ns`|`ReadableTable`|Average latency of `getAll/getAllAsync()` operations|
 |`num-gets`|`ReadableTable`|Count of `get/getAsync()` operations
@@ -300,6 +302,29 @@ All configuration options of a Remote Table can be found in the
 Couchbase is supported as remote table. See
 [`CouchbaseTableReadFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableReadFunction.java) and 
 [`CouchbaseTableWriteFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableWriteFunction.java).
+
+### Batching
+
+Remote Table has built-in client-side batching support for its async executions.
+This is useful when a remote data store supports batch processing and is not sophisticated enough
+to handle heavy inbound requests. 
+
+#### Configuration
+
+Batching can be enabled with [`RemoteTableDescriptor`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteTableDescriptor.java)
+by providing a [`BatchProvider`](https://github.com/apache/samza/samza-api/src/main/java/org/apache/samza/table/batching/BatchProvider.java)
+The user can choose:
+ 
+1. A [`CompactBatchProvider`](https://github.com/apache/samza/samza-core/src/main/java/org/apache/samza/table/batching/CompactBatchProvider.java) which provides a batch such that
+   the operations are compacted by the key. For update operations, the latter update will override the value of the previous one when they have the same key. For query operations,
+   the operations will be combined as a single operation when they have the same key. 
+2. A [`CompleteBatchProvider`](https://github.com/apache/samza/samza-core/src/main/java/org/apache/samza/table/batching/CompleteBatchProvider.java) which provides a batch such that
+   all the operations will be visible to the remote store regardless of the keys.
+3. A user-defined instance of [`BatchProvider`].
+
+For each [`BatchProvider`], the user can config the following:
+1. Specify the max size the batch can grow before being closed by `withmaxBatchSize(int)`
+2. Specify the max time the batch can last before being closed by `withmaxBatchDelay(Duration)`
 
 ### Rate Limiting
 
@@ -607,6 +632,11 @@ We recommend:
    intent of the current design of Samza Remote Table API is to handle 
    retries at a higher and more abstract Remote Table level, which implies 
    retrying is not a responsibility of I/O functions.
+
+### Batching
+
+Samza Remote Table API can be configured to utilize user-supplied bath providers. 
+You may refer to the [Batching](#batching) section under Remote Table for more details.
 
 ### Caching
 

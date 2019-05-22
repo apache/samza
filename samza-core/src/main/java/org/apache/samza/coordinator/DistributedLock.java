@@ -16,34 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+import java.time.Duration;
 
-/**
- *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
- */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
 
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
+public interface DistributedLock {
 
   /**
-   * utilites cleanup
+   * Try to acquire the lock
+   * @param timeout Duration of lock acquiring timeout.
+   * @return true if lock is acquired successfully else returns false if failed to acquire within timeout
    */
-  void close();
+  boolean lock(Duration timeout);
+
+  /**
+   * Release the lock
+   */
+  void unlock();
 }

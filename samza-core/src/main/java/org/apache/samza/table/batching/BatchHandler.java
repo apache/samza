@@ -16,34 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
 
-import org.apache.samza.annotation.InterfaceStability;
+package org.apache.samza.table.batching;
+
+import java.util.concurrent.CompletableFuture;
+
 
 /**
+ * Define how the batch operations will be handled.
  *
- * Coordination service provides synchronization primitives.
- * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provides the following primitives:
- *   - LeaderElection
- *   - Latch
- *   - Lock
- *   - ClusterMembership (to check number of processors in quorum)
+ * @param <K> The key type of the operations
+ * @param <V> The value type of the operations.
  */
-@InterfaceStability.Evolving
-public interface CoordinationUtils {
-
-  // facilities for group coordination
-  LeaderElector getLeaderElector(); // leaderElector is unique based on the groupId
-
-  Latch getLatch(int size, String latchId);
-
-  DistributedLock getLock(String lockId);
-
-  ClusterMembership getClusterMembership();
-
+public interface BatchHandler<K, V> {
   /**
-   * utilites cleanup
+   *
+   * @param batch The batch to be handled
+   * @return A {@link CompletableFuture} that indicates the status of the handle process.
    */
-  void close();
+  CompletableFuture<Void> handle(Batch<K, V> batch);
 }
