@@ -18,17 +18,36 @@
  */
 package org.apache.samza.startpoint;
 
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.util.NoOpMetricsRegistry;
 
 
 public class StartpointManagerTestUtil {
+  private final MetadataStore metadataStore;
+  private final StartpointManager startpointManager;
 
-  private StartpointManagerTestUtil() {
+  public StartpointManagerTestUtil() {
+    this(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
   }
 
-  public static StartpointManager getStartpointManager() {
-    return new StartpointManager(new InMemoryMetadataStoreFactory(), new MapConfig(), new NoOpMetricsRegistry());
+  public StartpointManagerTestUtil(MetadataStoreFactory metadataStoreFactory, Config config, MetricsRegistry metricsRegistry) {
+    this.metadataStore = metadataStoreFactory.getMetadataStore(StartpointManager.NAMESPACE, config, metricsRegistry);
+    this.metadataStore.init();
+    this.startpointManager = new StartpointManager(metadataStore);
+    this.startpointManager.start();
+  }
+
+  public StartpointManager getStartpointManager() {
+    return startpointManager;
+  }
+
+  public void stop() {
+    startpointManager.stop();
+    metadataStore.close();
   }
 }

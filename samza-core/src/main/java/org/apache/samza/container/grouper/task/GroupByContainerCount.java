@@ -168,11 +168,14 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     if (tasks.size() <= 0)
       throw new IllegalArgumentException("No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
-    if (tasks.size() < containerCount)
-      throw new IllegalArgumentException(String.format(
+    if (tasks.size() < containerCount) {
+      String msg = String.format(
           "Your container count (%s) is larger than your task count (%s). Can't have containers with nothing to do, so aborting.",
-          containerCount,
-          tasks.size()));
+          containerCount, tasks.size());
+      LOG.error(msg);
+      LOG.info("List of all task models: {}", tasks);
+      throw new IllegalArgumentException(msg);
+    }
   }
 
   /**

@@ -213,11 +213,12 @@ public class OperatorSpecs {
    * @param <M> the type of input messages
    * @param <R> the type of table record
    * @param <JM> the type of the join result
+   * @param args additional arguments passed to the table
    * @return the {@link StreamTableJoinOperatorSpec}
    */
   public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
-      String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
-    return new StreamTableJoinOperatorSpec(tableId, joinFn, opId);
+      String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId, Object ... args) {
+    return new StreamTableJoinOperatorSpec(tableId, joinFn, opId, args);
   }
 
   /**
@@ -226,13 +227,14 @@ public class OperatorSpecs {
    *
    * @param tableId the table Id for the underlying table
    * @param opId the unique ID of the operator
+   * @param args additional arguments passed to the table
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
   public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
-     String tableId, String opId) {
-    return new SendToTableOperatorSpec(tableId, opId);
+     String tableId, String opId, Object ... args) {
+    return new SendToTableOperatorSpec(tableId, opId, args);
   }
 
   /**

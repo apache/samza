@@ -21,30 +21,19 @@ package org.apache.samza.startpoint;
 import java.time.Instant;
 
 
-public class MockStartpointCustom extends StartpointCustom {
-  private final String testInfo1;
-  private final long testInfo2;
-
-  // Default constructor needed for serde.
-  private MockStartpointCustom() {
-    this(null, 0);
+// Can't mock concrete Startpoint classes because they are final.
+public class StartpointMock extends Startpoint {
+  public StartpointMock() {
+    super(Instant.now().toEpochMilli());
   }
 
-  public MockStartpointCustom(String testInfo1, long testInfo2) {
-    this(testInfo1, testInfo2, Instant.now().toEpochMilli());
-  }
-
-  public MockStartpointCustom(String testInfo1, long testInfo2, long creationTimestamp) {
+  public StartpointMock(long creationTimestamp) {
     super(creationTimestamp);
-    this.testInfo1 = testInfo1;
-    this.testInfo2 = testInfo2;
   }
 
-  public String getTestInfo1() {
-    return testInfo1;
-  }
-
-  public long getTestInfo2() {
-    return testInfo2;
+  @Override
+  public <IN, OUT> OUT apply(IN input, StartpointVisitor<IN, OUT> startpointVisitor) {
+    // mocked
+    return startpointVisitor.visit(input, new StartpointSpecific("Mocked"));
   }
 }

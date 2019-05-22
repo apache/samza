@@ -32,7 +32,7 @@ public interface SamzaContainerListener {
   /**
    *  Method invoked after the {@link SamzaContainer} has successfully transitioned to
    *  the {@link org.apache.samza.SamzaContainerStatus#STARTED} state and is about to start the
-   *  {@link org.apache.samza.container.RunLoop}
+   *  {@link org.apache.samza.task.RunLoop}
    */
   void afterStart();
 

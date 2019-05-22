@@ -16,28 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
+package org.apache.samza.util
 
-import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemStream}
+import org.junit.Test
+import org.mockito.Matchers.any
+import org.mockito.Mockito
 
+class TestCoordinatorStreamUtil {
 
-/**
- * A {@link Startpoint} that represents a custom startpoint. This is for systems that have a non-generic option
- * for setting offsets. Startpoints are serialized to JSON in the {@link org.apache.samza.metadatastore.MetadataStore}
- * and it is recommended to maintain the subclass of this {@link StartpointCustom} as a simple POJO.
- */
-public abstract class StartpointCustom extends Startpoint {
+  @Test
+  def testCreateCoordinatorStream  {
+    val systemStream = Mockito.spy(new SystemStream("testSystem", "testStream"))
+    val systemAdmin = Mockito.mock(classOf[SystemAdmin])
 
-  StartpointCustom() {
-    super();
-  }
-
-  StartpointCustom(long creationTimestamp) {
-    super(creationTimestamp);
-  }
-
-  @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
+    CoordinatorStreamUtil.createCoordinatorStream(systemStream, systemAdmin)
+    Mockito.verify(systemStream).getStream
+    Mockito.verify(systemAdmin).createStream(any(classOf[StreamSpec]))
   }
 }

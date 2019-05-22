@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -74,6 +75,26 @@ class InMemoryManager {
     bufferedMessages.get(ssp)
         .add(messageEnvelope);
   }
+
+  /**
+   * Handles produce request from {@link InMemorySystemProducer} for case where a job has a custom IME and
+   * populates the underlying message queue with the IME.
+   * Note: Offset in the envelope needs to be in the increasing order for envelopes in the same ssp and needs to
+   * start at 0 for the first envelope, otherwise poll logic will be impacted
+   *
+   * @param ssp system stream partition
+   * @param envelope incoming message envelope
+   */
+  void put(SystemStreamPartition ssp, IncomingMessageEnvelope envelope) {
+    List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
+    String offset = String.valueOf(messages.size());
+    if (envelope.getOffset().equals(offset)) {
+      throw new SamzaException(
+          String.format("Offset mismatch for ssp %s, expected %s found %s, please set the correct offset", ssp, offset, envelope.getOffset()));
+    }
+    bufferedMessages.get(ssp).add(envelope);
+  }
+
 
   /**
    * Handles the poll request from {@link InMemorySystemConsumer}. It uses the input offset as the starting offset for

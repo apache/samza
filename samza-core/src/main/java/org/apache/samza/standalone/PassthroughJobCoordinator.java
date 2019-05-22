@@ -19,21 +19,19 @@
 package org.apache.samza.standalone;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
@@ -85,12 +83,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(null);
-      if (checkpointManager != null) {
-        checkpointManager.createResources();
-      }
-
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null);
+      metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {

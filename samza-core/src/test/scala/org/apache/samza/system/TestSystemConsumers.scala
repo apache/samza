@@ -53,8 +53,8 @@ class TestSystemConsumers {
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition0, "0", null)
-    consumers.register(systemStreamPartition1, "1234", null)
+    consumers.register(systemStreamPartition0, "0")
+    consumers.register(systemStreamPartition1, "1234")
     consumers.start
 
     // Tell the consumer to respond with 1000 messages for SSP0, and no
@@ -118,7 +118,7 @@ class TestSystemConsumers {
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
                                         SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
-    consumers.register(systemStreamPartition, "0", null)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -184,7 +184,7 @@ class TestSystemConsumers {
       def register(systemStreamPartition: SystemStreamPartition, offset: String) = chooserRegistered += systemStreamPartition -> offset
     }, consumer, systemAdmins)
 
-    consumers.register(systemStreamPartition, "0", null)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
     consumers.stop
 
@@ -226,7 +226,7 @@ class TestSystemConsumers {
     // it should throw a SystemConsumersException because system2 does not have a consumer
     var caughtRightException = false
     try {
-      consumers.register(systemStreamPartition2, "0", null)
+      consumers.register(systemStreamPartition2, "0")
     } catch {
       case e: SystemConsumersException => caughtRightException = true
       case _: Throwable => caughtRightException = false
@@ -247,7 +247,7 @@ class TestSystemConsumers {
 
     // throw exceptions when the deserialization has error
     val consumers = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = false)
-    consumers.register(systemStreamPartition, "0", null)
+    consumers.register(systemStreamPartition, "0")
     consumers.start
     consumer(system).putStringMessage
     consumer(system).putBytesMessage
@@ -264,7 +264,7 @@ class TestSystemConsumers {
 
     // it should not throw exceptions when deserializaion fails if dropDeserializationError is set to true
     val consumers2 = new SystemConsumers(msgChooser, consumer, systemAdmins, serdeManager, dropDeserializationError = true)
-    consumers2.register(systemStreamPartition, "0", null)
+    consumers2.register(systemStreamPartition, "0")
     consumers2.start
     consumer(system).putBytesMessage
     consumer(system).putStringMessage
@@ -318,8 +318,8 @@ class TestSystemConsumers {
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
-    consumers.register(systemStreamPartition1, "0", null)
-    consumers.register(systemStreamPartition2, "0", null)
+    consumers.register(systemStreamPartition1, "0")
+    consumers.register(systemStreamPartition2, "0")
     consumers.start
 
     // Start should trigger a poll to the consumer.
@@ -362,7 +362,6 @@ class TestSystemConsumers {
     val systemStreamPartition2 = new SystemStreamPartition(system, stream, new Partition(2))
 
     val consumer = Mockito.mock(classOf[SystemConsumer])
-    val startpoint = Mockito.mock(classOf[Startpoint])
     val systemAdmins = Mockito.mock(classOf[SystemAdmins])
     Mockito.when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
 
@@ -372,7 +371,7 @@ class TestSystemConsumers {
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
       SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
-    consumers.register(systemStreamPartition1, "0", startpoint)
+    consumers.register(systemStreamPartition1, "0")
   }
 
   /**
@@ -422,11 +421,6 @@ class TestSystemConsumers {
     override def register(systemStreamPartition: SystemStreamPartition, offset: String): Unit = {
        super[BlockingEnvelopeMap].register(systemStreamPartition, offset)
     }
-
-    override def register(systemStreamPartition: SystemStreamPartition, startpoint: Startpoint): Unit = {
-      super[BlockingEnvelopeMap].register(systemStreamPartition, startpoint)
-    }
-
   }
 }
 
