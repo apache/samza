@@ -57,7 +57,7 @@ public class TestZkMetadataStore {
   public void beforeTest() {
     String testZkConnectionString = String.format("%s:%s", LOCALHOST, zkServer.getPort());
     Config zkConfig = new MapConfig(ImmutableMap.of(ZkConfig.ZK_CONNECT, testZkConnectionString));
-    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("/%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
+    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
   }
 
   @After

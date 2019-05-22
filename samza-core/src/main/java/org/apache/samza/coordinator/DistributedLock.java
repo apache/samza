@@ -19,21 +19,20 @@
 
 package org.apache.samza.coordinator;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 
 public interface DistributedLock {
 
   /**
-   * Tries to acquire the lock
+   * Try to acquire the lock
    * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if it times out.
+   * @return true if lock is acquired successfully else returns false if failed to acquire within timeout
    */
-  boolean lock(long timeout, TimeUnit unit);
+  boolean lock(Duration timeout);
 
   /**
-   * Releases the lock
+   * Release the lock
    */
   void unlock();
 }

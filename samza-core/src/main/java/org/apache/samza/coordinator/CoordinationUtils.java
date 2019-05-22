@@ -24,10 +24,11 @@ import org.apache.samza.annotation.InterfaceStability;
  *
  * Coordination service provides synchronization primitives.
  * The actual implementation (for example ZK based) is left to each implementation class.
- * This service provide three primitives:
+ * This service provides the following primitives:
  *   - LeaderElection
  *   - Latch
- *   - LockWithState (does not lock if state is set)
+ *   - Lock
+ *   - ClusterMembership (to check number of processors in quorum)
  */
 @InterfaceStability.Evolving
 public interface CoordinationUtils {
@@ -37,7 +38,9 @@ public interface CoordinationUtils {
 
   Latch getLatch(int size, String latchId);
 
-  DistributedLockWithState getLockWithState(String lockId);
+  DistributedLock getLock(String lockId);
+
+  ClusterMembership getClusterMembership();
 
   /**
    * utilites cleanup
