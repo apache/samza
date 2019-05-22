@@ -96,6 +96,11 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
+  public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
+    return table.readAsync(opId, args);
+  }
+
+  @Override
   public CompletableFuture<Void> putAsync(K key, V value, Object... args) {
     try {
       return batchProcessor.processUpdateOperation(new PutOperation<>(key, value, args));
@@ -134,6 +139,11 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
 
     createBatchProcessor(TableMetricsUtil.mayCreateHighResolutionClock(context.getJobContext().getConfig()),
         new BatchMetrics(metricsUtil));
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object ... args) {
+    return table.writeAsync(opId, args);
   }
 
   @Override

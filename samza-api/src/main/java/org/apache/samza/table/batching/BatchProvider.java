@@ -30,12 +30,12 @@ public abstract class BatchProvider<K, V> implements TablePart, Serializable {
   private int maxBatchSize = 100;
   private Duration maxBatchDelay = Duration.ofMillis(100);
 
-  public BatchProvider<K, V> withmaxBatchSize(int maxBatchSize) {
+  public BatchProvider<K, V> withMaxBatchSize(int maxBatchSize) {
     this.maxBatchSize = maxBatchSize;
     return this;
   }
 
-  public BatchProvider<K, V> withmaxBatchDelay(Duration maxBatchDelay) {
+  public BatchProvider<K, V> withMaxBatchDelay(Duration maxBatchDelay) {
     this.maxBatchDelay = maxBatchDelay;
     return this;
   }

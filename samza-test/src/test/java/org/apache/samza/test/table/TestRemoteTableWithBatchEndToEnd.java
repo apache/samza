@@ -191,7 +191,7 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(testName, profiles))
           .withRateLimiter(readRateLimiter, creditFunction, null);
       if (batchRead) {
-        inputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchSize(batchSize).withmaxBatchDelay(Duration.ofHours(1)));
+        inputTableDesc.withBatchProvider(new CompactBatchProvider().withMaxBatchSize(batchSize).withMaxBatchDelay(Duration.ofHours(1)));
       }
 
       // dummy reader
@@ -203,7 +203,7 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
           .withWriteFunction(writer)
           .withRateLimiter(writeRateLimiter, creditFunction, creditFunction);
       if (batchWrite) {
-        outputTableDesc.withBatchProvider(new CompactBatchProvider().withmaxBatchSize(batchSize).withmaxBatchDelay(Duration.ofHours(1)));
+        outputTableDesc.withBatchProvider(new CompactBatchProvider().withMaxBatchSize(batchSize).withMaxBatchDelay(Duration.ofHours(1)));
       }
 
       Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
