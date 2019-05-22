@@ -131,7 +131,7 @@ public class StreamManager {
           .getOrElse(defaultValue(null));
       if (checkpointManagerFactoryClassName != null) {
         CheckpointManager checkpointManager =
-            ReflectionUtil.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class, classLoader)
+            ReflectionUtil.getObj(classLoader, checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
                 .getCheckpointManager(prevConfig, new MetricsRegistryMap());
         checkpointManager.clearCheckpoints();
       }

@@ -161,7 +161,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     // Instantiate the checkpoint manager with coordinator stream configuration.
     val checkpointManager: CheckpointManager = combinedConfig.getCheckpointManagerFactory() match {
       case Some(className) =>
-        ReflectionUtil.getObj(className, classOf[CheckpointManagerFactory], classLoader)
+        ReflectionUtil.getObj(classLoader, className, classOf[CheckpointManagerFactory])
           .getCheckpointManager(combinedConfig, new MetricsRegistryMap)
       case _ =>
         throw new SamzaException("Configuration: task.checkpoint.factory is not defined.")

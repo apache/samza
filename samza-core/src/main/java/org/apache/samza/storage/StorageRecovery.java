@@ -164,7 +164,7 @@ public class StorageRecovery extends CommandLine {
       Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass.isPresent()) {
         storageEngineFactories.put(storeName,
-            ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class, getClass().getClassLoader()));
+            ReflectionUtil.getObj(getClass().getClassLoader(), factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -198,7 +198,7 @@ public class StorageRecovery extends CommandLine {
               serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
             }
 
-            Serde serde = ReflectionUtil.getObj(serdeClassName.get(), SerdeFactory.class, getClass().getClassLoader())
+            Serde serde = ReflectionUtil.getObj(getClass().getClassLoader(), serdeClassName.get(), SerdeFactory.class)
                 .getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });

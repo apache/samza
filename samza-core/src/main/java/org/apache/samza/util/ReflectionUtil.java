@@ -19,6 +19,7 @@
 package org.apache.samza.util;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
@@ -26,6 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Helper methods for reflection usage.
+ */
 public class ReflectionUtil {
   private static final Logger LOG = LoggerFactory.getLogger(ReflectionUtil.class);
 
@@ -33,18 +37,25 @@ public class ReflectionUtil {
   }
 
   /**
-   * Instantiate an object of type T from a given className using the given classLoader.
+   * Create an instance of the specified class with the empty constructor.
    *
-   * @param className full class name (including namespace)
+   * Possible recommendations for the classloader to use:
+   * 1) If there is a custom classloader being passed to the caller, consider using that one.
+   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
+   * loaded the caller instance.
+   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
+   *
+   * @param <T> type of the object to return
+   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
+   * {@link Class#forName(String, boolean, ClassLoader)}
+   * @param className name of the class
    * @param clazz type of object to return
-   * @param classLoader classloader to use to load className
-   * @return object of type T created from the empty constructor of the class corresponding to className
-   * @throws SamzaException if class instance cannot be created
+   * @return instance of the class
+   * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  public static <T> T getObj(String className, Class<T> clazz, ClassLoader classLoader) {
+  public static <T> T getObj(ClassLoader classLoader, String className, Class<T> clazz) {
     try {
-      //noinspection unchecked
-      return (T) Class.forName(className, true, classLoader).newInstance();
+      return doGetObjWithArgs(classLoader, className, clazz);
     } catch (Exception e) {
       String errorMessage = String.format("Unable to create instance for class: %s", className);
       LOG.error(errorMessage, e);
@@ -54,43 +65,84 @@ public class ReflectionUtil {
 
   /**
    * Create an instance of the specified class with constructor matching the argument array.
+   *
+   * Possible recommendations for the classloader to use:
+   * 1) If there is a custom classloader being passed to the caller, consider using that one.
+   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
+   * loaded the caller instance.
+   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
+   *
+   * @param <T> type of the object to return
+   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
+   * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
-   * @param classLoader {@link ClassLoader} to use for loading the class
-   * @param args argument array
-   * @param <T> type fo the class
+   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
    * @return instance of the class
+   * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  public static <T> T getObjWithArgs(String className, Class<T> clazz, ClassLoader classLoader, Object... args) {
-    Validate.notNull(className, "null class name");
+  public static <T> T getObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
     try {
-      //noinspection unchecked
-      Class<T> classObj = (Class<T>) Class.forName(className, true, classLoader);
-      Class<?>[] argTypes = new Class<?>[args.length];
-      IntStream.range(0, args.length).forEach(i -> argTypes[i] = args[i].getClass());
-      Constructor<T> ctor = classObj.getDeclaredConstructor(argTypes);
-      return ctor.newInstance(args);
+      return doGetObjWithArgs(classLoader, className, clazz, args);
     } catch (Exception e) {
-      LOG.warn("Failed to create instance for: " + className, e);
-      throw new SamzaException(e);
+      String errorMessage = String.format("Unable to create instance for class: %s", className);
+      LOG.error(errorMessage, e);
+      throw new SamzaException(errorMessage, e);
     }
   }
 
   /**
    * Create an instance of the specified class with constructor matching the argument array.
+   *
+   * Possible recommendations for the classloader to use:
+   * 1) If there is a custom classloader being passed to the caller, consider using that one.
+   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
+   * loaded the caller instance.
+   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
+   *
+   * @param <T> type of the object to return
+   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
+   * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
-   * @param classLoader {@link ClassLoader} to use for loading the class
-   * @param args argument array
-   * @param <T> type fo the class
-   * @return instance of the class, or null if anything went wrong
+   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
+   * @return instance of the class, or null if an exception was thrown while trying to create the instance
    */
-  public static <T> T createInstanceOrNull(String className, Class<T> clazz, ClassLoader classLoader, Object... args) {
+  public static <T> T createInstanceOrNull(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
     try {
-      return getObjWithArgs(className, clazz, classLoader, args);
+      return doGetObjWithArgs(classLoader, className, clazz, args);
     } catch (Exception e) {
-      // exception logging gets done in getObjWithArgs
+      LOG.warn(String.format("Unable to create instance for class: %s", className), e);
       return null;
+    }
+  }
+
+  /**
+   * Create an instance of the specified class with constructor matching the argument array. If there are no args, then
+   * this will use the empty constructor.
+   *
+   * @param <T> type of the object to return
+   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
+   * {@link Class#forName(String, boolean, ClassLoader)}
+   * @param className name of the class
+   * @param clazz type of object to return
+   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
+   * @return instance of the class
+   */
+  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args)
+      throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
+             InstantiationException {
+    Validate.notNull(className, "Null class name");
+
+    //noinspection unchecked
+    Class<T> classObj = (Class<T>) Class.forName(className, true, classLoader);
+    if (args.length == 0) {
+      return classObj.newInstance();
+    } else {
+      Class<?>[] argTypes = new Class<?>[args.length];
+      IntStream.range(0, args.length).forEach(i -> argTypes[i] = args[i].getClass());
+      Constructor<T> constructor = classObj.getDeclaredConstructor(argTypes);
+      return constructor.newInstance(args);
     }
   }
 }
