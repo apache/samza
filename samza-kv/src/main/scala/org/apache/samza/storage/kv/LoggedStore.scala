@@ -19,44 +19,34 @@
 
 package org.apache.samza.storage.kv
 
-import org.apache.samza.SamzaException
-import org.apache.samza.config.Config
 import org.apache.samza.util.Logging
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task.MessageCollector
 
-import scala.collection.JavaConverters.asScalaBufferConverter
-
 /**
- * A key/value store decorator that adds a changelog for any changes made to the underlying store
- */
-class LoggedStore(
-  val store: KeyValueStore[Array[Byte], Array[Byte]],
-  val storeName: String,
-  val storeConfig: Config,
+  * A key/value store decorator that adds a changelog for any changes made to the underlying store
+  */
+class LoggedStore[K, V](
+  val store: KeyValueStore[K, V],
   val systemStreamPartition: SystemStreamPartition,
   val collector: MessageCollector,
-  val metrics: LoggedStoreMetrics = new LoggedStoreMetrics) extends KeyValueStore[Array[Byte], Array[Byte]] with Logging {
+  val metrics: LoggedStoreMetrics = new LoggedStoreMetrics) extends KeyValueStore[K, V] with Logging {
 
   val systemStream = systemStreamPartition.getSystemStream
   val partitionId = systemStreamPartition.getPartition.getPartitionId
 
-  private val DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1000000
-  private val CHANGELOG_MAX_MSG_SIZE_BYTES = "changelog.max.message.size.bytes"
-  private val maxMessageSize = storeConfig.getInt(CHANGELOG_MAX_MSG_SIZE_BYTES, DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES) // slightly less than 1 MB
-
   /* pass through methods */
-  def get(key: Array[Byte]) = {
+  def get(key: K) = {
     metrics.gets.inc
     store.get(key)
   }
 
-  override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = {
+  override def getAll(keys: java.util.List[K]): java.util.Map[K, V] = {
     metrics.gets.inc(keys.size)
     store.getAll(keys)
   }
 
-  def range(from: Array[Byte], to: Array[Byte]) = {
+  def range(from: K, to: K) = {
     metrics.ranges.inc
     store.range(from, to)
   }
@@ -67,22 +57,18 @@ class LoggedStore(
   }
 
   /**
-   * Perform the local update and log it out to the changelog
-   */
-  def put(key: Array[Byte], value: Array[Byte]) {
-    validateMessageSize(key, value)
+    * Perform the local update and log it out to the changelog
+    */
+  def put(key: K, value: V) {
     metrics.puts.inc
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, value))
     store.put(key, value)
   }
 
   /**
-   * Perform multiple local updates and log out all changes to the changelog
-   */
-  def putAll(entries: java.util.List[Entry[Array[Byte], Array[Byte]]]) {
-    entries.asScala.foreach(entry => {
-      validateMessageSize(entry.getKey, entry.getValue)
-    })
+    * Perform multiple local updates and log out all changes to the changelog
+    */
+  def putAll(entries: java.util.List[Entry[K, V]]) {
     metrics.puts.inc(entries.size)
     val iter = entries.iterator
     while (iter.hasNext) {
@@ -93,18 +79,18 @@ class LoggedStore(
   }
 
   /**
-   * Perform the local delete and log it out to the changelog
-   */
-  def delete(key: Array[Byte]) {
+    * Perform the local delete and log it out to the changelog
+    */
+  def delete(key: K) {
     metrics.deletes.inc
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, null))
     store.delete(key)
   }
 
   /**
-   * Perform the local deletes and log them out to the changelog
-   */
-  override def deleteAll(keys: java.util.List[Array[Byte]]) = {
+    * Perform the local deletes and log them out to the changelog
+    */
+  override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     val keysIterator = keys.iterator
     while (keysIterator.hasNext) {
@@ -128,14 +114,7 @@ class LoggedStore(
     store.close
   }
 
-  override def snapshot(from: Array[Byte], to: Array[Byte]): KeyValueSnapshot[Array[Byte], Array[Byte]] = {
+  override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     store.snapshot(from, to)
-  }
-
-  private def validateMessageSize(key: Array[Byte], message: Array[Byte]): Unit = {
-    if (message.length > maxMessageSize) {
-      throw new SamzaException("RocksDB message size " + message.length + " for store " + storeName
-        + " was larger than the maximum allowed message size " + maxMessageSize + ".")
-    }
   }
 }
