@@ -41,7 +41,7 @@ public class ReflectionUtil {
    * @return object of type T created from the empty constructor of the class corresponding to className
    * @throws SamzaException if class instance cannot be created
    */
-  public static <T> T getObj(String className, Class<?> clazz, ClassLoader classLoader) {
+  public static <T> T getObj(String className, Class<T> clazz, ClassLoader classLoader) {
     try {
       //noinspection unchecked
       return (T) Class.forName(className, true, classLoader).newInstance();
@@ -61,7 +61,7 @@ public class ReflectionUtil {
    * @param <T> type fo the class
    * @return instance of the class
    */
-  public static <T> T getObjWithArgs(String className, Class<?> clazz, ClassLoader classLoader, Object... args) {
+  public static <T> T getObjWithArgs(String className, Class<T> clazz, ClassLoader classLoader, Object... args) {
     Validate.notNull(className, "null class name");
     try {
       //noinspection unchecked
@@ -85,7 +85,7 @@ public class ReflectionUtil {
    * @param <T> type fo the class
    * @return instance of the class, or null if anything went wrong
    */
-  public static <T> T createInstanceOrNull(String className, Class<?> clazz, ClassLoader classLoader, Object... args) {
+  public static <T> T createInstanceOrNull(String className, Class<T> clazz, ClassLoader classLoader, Object... args) {
     try {
       return getObjWithArgs(className, clazz, classLoader, args);
     } catch (Exception e) {
