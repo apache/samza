@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.TableRetryPolicy;
 import org.apache.samza.table.BaseTableProvider;
@@ -51,6 +52,7 @@ public class RemoteTableProvider extends BaseTableProvider {
    */
   private static Map<String, ExecutorService> rateLimitingExecutors = new ConcurrentHashMap<>();
   private static Map<String, ExecutorService> callbackExecutors = new ConcurrentHashMap<>();
+  private static Map<String, ScheduledExecutorService> batchExecutors = new ConcurrentHashMap<>();
   private static ScheduledExecutorService retryExecutor;
 
   public RemoteTableProvider(String tableId) {
@@ -116,10 +118,22 @@ public class RemoteTableProvider extends BaseTableProvider {
             }));
     }
 
+    BatchProvider batchProvider = deserializeObject(tableConfig, RemoteTableDescriptor.BATCH_PROVIDER);
+    if (batchProvider != null) {
+      batchExecutors.computeIfAbsent(tableId, (arg) ->
+          Executors.newSingleThreadScheduledExecutor(runnable -> {
+              Thread thread = new Thread(runnable);
+              thread.setName("table-" + tableId + "-batch-scheduled-executor");
+              thread.setDaemon(true);
+              return thread;
+            }));
+    }
+
+
     RemoteTable table = new RemoteTable(tableId,
         readFn, writeFn,
         readRateLimiter, writeRateLimiter, rateLimitingExecutors.get(tableId),
-        readRetryPolicy, writeRetryPolicy, retryExecutor,
+        readRetryPolicy, writeRetryPolicy, retryExecutor, batchProvider, batchExecutors.get(tableId),
         callbackExecutors.get(tableId));
     table.init(this.context);
     tables.add(table);
@@ -134,6 +148,8 @@ public class RemoteTableProvider extends BaseTableProvider {
     rateLimitingExecutors.clear();
     callbackExecutors.values().forEach(e -> e.shutdown());
     callbackExecutors.clear();
+    batchExecutors.values().forEach(e -> e.shutdown());
+    batchExecutors.clear();
   }
 
   private <T> T deserializeObject(JavaTableConfig tableConfig, String key) {
