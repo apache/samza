@@ -33,9 +33,9 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.sql.util.ReflectionUtils;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.tools.CommandLineHelper;
+import org.apache.samza.util.ReflectionUtil;
 
 
 /**
@@ -125,7 +125,7 @@ public abstract class AbstractSamzaBench {
     String systemFactory = config.get(String.format(CFG_SYSTEM_FACTORY, systemName));
     physicalStreamName = config.get(String.format(CFG_PHYSICAL_STREAM_NAME, streamId));
 
-    factory = ReflectionUtils.createInstance(systemFactory);
+    factory = ReflectionUtil.createInstanceOrNull(systemFactory, SystemFactory.class, getClass().getClassLoader());
     if (factory == null) {
       throw new RuntimeException("Cannot instantiate systemfactory " + systemFactory);
     }

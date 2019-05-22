@@ -326,6 +326,7 @@ project(":samza-sql_$scalaSuffix") {
 
   dependencies {
     compile project(':samza-api')
+    compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-kv-inmemory_$scalaSuffix")
     compile project(":samza-kv-rocksdb_$scalaSuffix")
@@ -384,6 +385,7 @@ project(":samza-tools_$scalaSuffix") {
     compile project(":samza-sql_$scalaSuffix")
     compile project(':samza-api')
     compile project(":samza-azure_$scalaSuffix")
+    compile project(":samza-core_$scalaSuffix")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "commons-cli:commons-cli:$commonsCliVersion"
     compile "org.apache.avro:avro:$avroVersion"
