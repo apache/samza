@@ -26,7 +26,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 
-
 /**
  * <p>
  * The data model used to represent a Samza job. The model is used in the job

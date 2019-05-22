@@ -26,7 +26,6 @@ import java.util.Set;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
-
 /**
  * Utility class for the {@link JobModel}
  */
