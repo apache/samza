@@ -38,7 +38,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.CoordinatorRequests;
-import org.apache.samza.task.EpochTimeScheduler;
+import org.apache.samza.scheduler.EpochTimeScheduler;
 import org.apache.samza.task.ReadableCoordinator;
 import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskCallbackFactory;
@@ -61,7 +61,7 @@ import scala.collection.JavaConverters;
  *      happens on a thread pool.
  *      If job.container.thread.pool.size &lt; 1 (single-threaded), operations for all tasks are multiplexed onto one execution thread.
  *    </p>.
- *    Note: In both models, process for all tasks happen sequentially on the main execution thread.
+ *    Note: In both models, process/processAsync for all tasks is invoked on the run loop thread.
  */
 public class RunLoop implements Runnable, Throttleable {
   private static final Logger log = LoggerFactory.getLogger(RunLoop.class);
