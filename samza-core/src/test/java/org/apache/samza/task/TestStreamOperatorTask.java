@@ -19,6 +19,7 @@
 
 package org.apache.samza.task;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.samza.context.Context;
@@ -60,7 +61,7 @@ public class TestStreamOperatorTask {
    * task callback.
    */
   @Test
-  public void testExceptionsInProcessInvokesTaskCallback() {
+  public void testExceptionsInProcessInvokesTaskCallback() throws InterruptedException {
     ExecutorService taskThreadPool = Executors.newFixedThreadPool(2);
     TaskCallback mockTaskCallback = mock(TaskCallback.class);
     MessageCollector mockMessageCollector = mock(MessageCollector.class);
@@ -68,8 +69,15 @@ public class TestStreamOperatorTask {
     StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class));
     operatorTask.setTaskThreadPool(taskThreadPool);
 
+    CountDownLatch failureLatch = new CountDownLatch(1);
+
+    doAnswer(ctx -> {
+        failureLatch.countDown();
+        return null;
+      }).when(mockTaskCallback).failure(anyObject());
+
     operatorTask.processAsync(mock(IncomingMessageEnvelope.class), mockMessageCollector,
         mockTaskCoordinator, mockTaskCallback);
-    verify(mockTaskCallback, times(1)).failure(any());
+    failureLatch.await();
   }
 }

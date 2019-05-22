@@ -18,14 +18,13 @@
  */
 package org.apache.samza.task;
 
-import org.apache.samza.annotation.InterfaceStability;
-
 
 /**
- * Build {@link AsyncStreamTask} instances.
+ * Build {@link StreamOperatorTask} instances.
  * <p>
- * Implementations should return a new instance of {@link AsyncStreamTask} for each {@link #createInstance()} invocation.
+ * Implementations should return a new instance of {@link StreamOperatorTask} for each {@link #createInstance()} invocation.
+ * Note: It is not part of samza-api as it is a temporary hack introduced for SAMZA-2172. It will eventually
+ * go away with SAMZA-2203
  */
-@InterfaceStability.Evolving
-public interface StreamOperatorTaskFactory extends TaskFactory<AsyncStreamTask> {
+interface StreamOperatorTaskFactory extends TaskFactory<AsyncStreamTask> {
 }

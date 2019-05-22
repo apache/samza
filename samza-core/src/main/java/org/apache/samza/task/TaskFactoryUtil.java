@@ -122,7 +122,7 @@ public class TaskFactoryUtil {
      * Refer to SAMZA-2203 for more details.
      */
     if (isStreamOperatorTaskClass) {
-      log.info("Adapting StreamOperatorTask to AsyncStreamTaskAdapter");
+      log.info("Adapting StreamOperatorTaskFactory to inject container thread pool");
       return (AsyncStreamTaskFactory) () -> {
         StreamOperatorTask operatorTask = (StreamOperatorTask) factory.createInstance();
         operatorTask.setTaskThreadPool(taskThreadPool);

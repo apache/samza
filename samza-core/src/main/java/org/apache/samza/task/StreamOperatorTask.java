@@ -95,9 +95,9 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
 
   /**
    * Passes the incoming message envelopes along to the {@link InputOperatorImpl} node
-   * for the input {@link SystemStream}. It is non-blocking and dispatches the message to an internally managed thread
+   * for the input {@link SystemStream}. It is non-blocking and dispatches the message to the container thread
    * pool. The thread pool size is configured through job.container.thread.pool.size. In the absence of the config,
-   * the task defaults to a single thread executor.
+   * the task executes the DAG on the run loop thread.
    * <p>
    * From then on, each {@link org.apache.samza.operators.impl.OperatorImpl} propagates its transformed output to
    * its chained {@link org.apache.samza.operators.impl.OperatorImpl}s itself.
