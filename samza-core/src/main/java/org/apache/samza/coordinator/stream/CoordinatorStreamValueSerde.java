@@ -59,7 +59,7 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
       return setTaskContainerMapping.getTaskAssignment();
     } else if (type.equalsIgnoreCase(SetChangelogMapping.TYPE)) {
       SetChangelogMapping changelogMapping = new SetChangelogMapping(message);
-      return String.valueOf(changelogMapping.getPartition());
+      return (changelogMapping.getPartition() != null) ? String.valueOf(changelogMapping.getPartition()) : null;
     } else if (type.equalsIgnoreCase(SetConfig.TYPE)) {
       SetConfig setConfig = new SetConfig(message);
       return setConfig.getConfigValue();

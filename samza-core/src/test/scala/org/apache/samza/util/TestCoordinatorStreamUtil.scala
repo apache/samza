@@ -16,35 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
+package org.apache.samza.util
 
-import java.time.Instant;
+import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemStream}
+import org.junit.Test
+import org.mockito.Matchers.any
+import org.mockito.Mockito
 
+class TestCoordinatorStreamUtil {
 
-public class MockStartpointCustom extends StartpointCustom {
-  private final String testInfo1;
-  private final long testInfo2;
+  @Test
+  def testCreateCoordinatorStream  {
+    val systemStream = Mockito.spy(new SystemStream("testSystem", "testStream"))
+    val systemAdmin = Mockito.mock(classOf[SystemAdmin])
 
-  // Default constructor needed for serde.
-  private MockStartpointCustom() {
-    this(null, 0);
-  }
-
-  public MockStartpointCustom(String testInfo1, long testInfo2) {
-    this(testInfo1, testInfo2, Instant.now().toEpochMilli());
-  }
-
-  public MockStartpointCustom(String testInfo1, long testInfo2, long creationTimestamp) {
-    super(creationTimestamp);
-    this.testInfo1 = testInfo1;
-    this.testInfo2 = testInfo2;
-  }
-
-  public String getTestInfo1() {
-    return testInfo1;
-  }
-
-  public long getTestInfo2() {
-    return testInfo2;
+    CoordinatorStreamUtil.createCoordinatorStream(systemStream, systemAdmin)
+    Mockito.verify(systemStream).getStream
+    Mockito.verify(systemAdmin).createStream(any(classOf[StreamSpec]))
   }
 }

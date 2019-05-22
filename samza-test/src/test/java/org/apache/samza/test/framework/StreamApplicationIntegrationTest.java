@@ -50,10 +50,13 @@ import org.apache.samza.test.table.PageViewToProfileJoinFunction;
 import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTest.class);
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
@@ -81,14 +84,20 @@ public class StreamApplicationIntegrationTest {
     InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
         .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
 
+    InMemoryOutputDescriptor<String> joinKeysDescriptor = isd
+        .getOutputDescriptor("JoinPageKeys", new NoOpSerde<>());
+
     TestRunner
         .of(new PageViewProfileViewJoinApplication())
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
+        .addOutputStream(joinKeysDescriptor, 1)
         .run(Duration.ofSeconds(2));
 
+
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
+    Assert.assertEquals(10, TestRunner.consumeStream(joinKeysDescriptor, Duration.ofSeconds(1)).get(0).size());
   }
 
   @Test
@@ -149,21 +158,28 @@ public class StreamApplicationIntegrationTest {
       KafkaInputDescriptor<KV<String, TestTableData.Profile>> profileISD =
           ksd.getInputDescriptor("Profile", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
 
-      appDescriptor
-          .getInputStream(profileISD)
-          .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
-          .sendTo(table);
-
       KafkaInputDescriptor<KV<String, TestTableData.PageView>> pageViewISD =
           ksd.getInputDescriptor("PageView", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
       KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new JsonSerdeV2<>());
 
+      appDescriptor.getInputStream(profileISD)
+          .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
+          .sendTo(table)
+          .sink((kv, collector, coordinator) -> {
+              LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
+            });
+
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
       appDescriptor.getInputStream(pageViewISD)
           .partitionBy(pv -> pv.getValue().getMemberId(),  pv -> pv.getValue(), KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(TestTableData.PageView.class)), "p1")
           .join(table, new PageViewToProfileJoinFunction())
-          .sendTo(outputStream);
+          .sendTo(outputStream)
+          .map(TestTableData.EnrichedPageView::getPageKey)
+          .sink((joinPageKey, collector, coordinator) -> {
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
+            });
+
     }
   }
 

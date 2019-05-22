@@ -16,28 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
-
-import org.apache.samza.system.SystemStreamPartition;
+package org.apache.samza.task;
 
 
 /**
- * A {@link Startpoint} that represents a custom startpoint. This is for systems that have a non-generic option
- * for setting offsets. Startpoints are serialized to JSON in the {@link org.apache.samza.metadatastore.MetadataStore}
- * and it is recommended to maintain the subclass of this {@link StartpointCustom} as a simple POJO.
+ * Build {@link StreamOperatorTask} instances.
+ * <p>
+ * Implementations should return a new instance of {@link StreamOperatorTask} for each {@link #createInstance()} invocation.
+ * Note: It is not part of samza-api as it is a temporary hack introduced for SAMZA-2172. It will eventually
+ * go away with SAMZA-2203
  */
-public abstract class StartpointCustom extends Startpoint {
-
-  StartpointCustom() {
-    super();
-  }
-
-  StartpointCustom(long creationTimestamp) {
-    super(creationTimestamp);
-  }
-
-  @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
-  }
+interface StreamOperatorTaskFactory extends TaskFactory<AsyncStreamTask> {
 }

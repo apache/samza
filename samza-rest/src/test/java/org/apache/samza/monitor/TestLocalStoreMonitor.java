@@ -196,7 +196,7 @@ public class TestLocalStoreMonitor {
   }
 
   private static File createOffsetFile(File taskStoreDir) throws Exception {
-    File offsetFile = new File(taskStoreDir, StorageManagerUtil.OFFSET_FILE_NAME);
+    File offsetFile = new File(taskStoreDir, StorageManagerUtil.OFFSET_FILE_NAME_NEW);
     offsetFile.createNewFile();
     return offsetFile;
   }

@@ -30,22 +30,20 @@ import org.apache.samza.config.Config
 import org.apache.samza.container.grouper.stream.SSPGrouperProxy
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.LocalityManager
-import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
+import org.apache.samza.container.LocalityManager
+import org.apache.samza.container.TaskName
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
+import org.apache.samza.coordinator.server.HttpServer
+import org.apache.samza.coordinator.server.JobServlet
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metadatastore.MetadataStore
-import org.apache.samza.metadatastore.MetadataStoreFactory
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
@@ -81,10 +79,9 @@ object JobModelManager extends Logging {
    * @param metricsRegistry the registry for reporting metrics.
    * @return the instantiated {@see JobModelManager}.
    */
-  def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer], metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
-    val coordinatorStreamStoreFactory: MetadataStoreFactory = new CoordinatorStreamMetadataStoreFactory()
-    val coordinatorStreamStore: MetadataStore = coordinatorStreamStoreFactory.getMetadataStore(SOURCE, config, metricsRegistry)
-    coordinatorStreamStore.init()
+  def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
+            coordinatorStreamStore: CoordinatorStreamStore,
+            metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
     val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
@@ -125,9 +122,9 @@ object JobModelManager extends Logging {
     val processorLocality: util.Map[String, LocationId] = getProcessorLocality(config, localityManager)
     val taskModes: util.Map[TaskName, TaskMode] = taskAssignmentManager.readTaskModes()
 
-    // We read the taskAssignment only for ActiveTasks
+    // We read the taskAssignment only for ActiveTasks, i.e., tasks that have no task-mode or have an active task mode
     val taskAssignment: util.Map[String, String] = taskAssignmentManager.readTaskAssignment().
-      filterKeys(taskName => taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
+      filterKeys(taskName => !taskModes.containsKey(new TaskName(taskName)) || taskModes.get(new TaskName(taskName)).eq(TaskMode.Active))
 
 
     val taskNameToProcessorId: util.Map[TaskName, String] = new util.HashMap[TaskName, String]()
@@ -152,11 +149,9 @@ object JobModelManager extends Logging {
       for (task <- taskNames) {
         val taskName: TaskName = new TaskName(task)
 
-        // We read the partition assignments only for active-tasks
-        if (taskModes.get(taskName).eq(TaskMode.Active)) {
-          if (!taskPartitionAssignments.containsKey(taskName)) {
-            taskPartitionAssignments.put(taskName, new util.ArrayList[SystemStreamPartition]())
-          }
+        // We read the partition assignments only for active-tasks, i.e., tasks that have no task-mode or have an active task mode
+        if (!taskModes.containsKey(taskName) || taskModes.get(taskName).eq(TaskMode.Active)) {
+          taskPartitionAssignments.putIfAbsent(taskName, new util.ArrayList[SystemStreamPartition]())
           taskPartitionAssignments.get(taskName).add(systemStreamPartition)
         }
       }

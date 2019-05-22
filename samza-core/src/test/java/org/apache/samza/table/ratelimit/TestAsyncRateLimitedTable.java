@@ -32,7 +32,9 @@ import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.remote.TestRemoteTable;
+
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.mockito.Mockito.*;
@@ -41,6 +43,46 @@ import static org.mockito.Mockito.*;
 public class TestAsyncRateLimitedTable {
 
   private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
+
+  private Map<String, String> readMap = new HashMap<>();
+  private AsyncReadWriteTable readTable;
+  private TableRateLimiter readRateLimiter;
+  private TableReadFunction<String, String> readFn;
+  private AsyncReadWriteTable<String, String> writeTable;
+  private TableRateLimiter<String, String> writeRateLimiter;
+  private TableWriteFunction<String, String> writeFn;
+
+  @Before
+  public void prepare() {
+    // Read part
+    readRateLimiter = mock(TableRateLimiter.class);
+    readFn = mock(TableReadFunction.class);
+    doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any());
+    doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any(), any());
+    readMap.put("foo", "bar");
+    doReturn(CompletableFuture.completedFuture(readMap)).when(readFn).getAllAsync(any());
+    doReturn(CompletableFuture.completedFuture(readMap)).when(readFn).getAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(5)).when(readFn).readAsync(anyInt(), any());
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, null);
+    readTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, null, schedExec);
+    readTable.init(TestRemoteTable.getMockContext());
+
+    // Write part
+    writeRateLimiter = mock(TableRateLimiter.class);
+    writeFn = mock(TableWriteFunction.class);
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(5)).when(writeFn).writeAsync(anyInt(), any());
+    delegate = new AsyncRemoteTable(readFn, writeFn);
+    writeTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, writeRateLimiter, schedExec);
+    writeTable.init(TestRemoteTable.getMockContext());
+  }
 
   @Test(expected = NullPointerException.class)
   public void testNotNullTableId() {
@@ -71,71 +113,183 @@ public class TestAsyncRateLimitedTable {
   }
 
   @Test
-  public void testGetThrottling() throws Exception {
-    TableRateLimiter readRateLimiter = mock(TableRateLimiter.class);
-    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any());
-    Map<String, String> result = new HashMap<>();
-    result.put("foo", "bar");
-    doReturn(CompletableFuture.completedFuture(result)).when(readFn).getAllAsync(any());
-    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, null);
-    AsyncRateLimitedTable table = new AsyncRateLimitedTable("t1", delegate,
-        readRateLimiter, null, schedExec);
-    table.init(TestRemoteTable.getMockContext());
-
-    Assert.assertEquals("bar", table.getAsync("foo").toCompletableFuture().join());
+  public void testGetAsync() {
+    Assert.assertEquals("bar", readTable.getAsync("foo").toCompletableFuture().join());
     verify(readFn, times(1)).getAsync(any());
+    verify(readFn, times(0)).getAsync(any(), any());
     verify(readRateLimiter, times(1)).throttle(anyString());
-    verify(readRateLimiter, times(0)).throttle(anyList());
-
-    Assert.assertEquals(result, table.getAllAsync(Arrays.asList("")).toCompletableFuture().join());
-    verify(readFn, times(1)).getAllAsync(any());
-    verify(readRateLimiter, times(1)).throttle(anyList());
-    verify(readRateLimiter, times(1)).throttle(anyString());
+    verify(readRateLimiter, times(0)).throttle(anyCollection());
+    verify(readRateLimiter, times(0)).throttle(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyWritePartNotCalled();
   }
 
   @Test
-  public void testPutThrottling() throws Exception {
-    TableRateLimiter readRateLimiter = mock(TableRateLimiter.class);
-    TableRateLimiter writeRateLimiter = mock(TableRateLimiter.class);
-    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(any());
-    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
-    AsyncRateLimitedTable table = new AsyncRateLimitedTable("t1", delegate,
-        readRateLimiter, writeRateLimiter, schedExec);
-    table.init(TestRemoteTable.getMockContext());
+  public void testGetAsyncWithArgs() {
+    Assert.assertEquals("bar", readTable.getAsync("foo", 1).toCompletableFuture().join());
+    verify(readFn, times(0)).getAsync(any());
+    verify(readFn, times(1)).getAsync(any(), any());
+    verify(readRateLimiter, times(1)).throttle(anyString(), any());
+    verify(readRateLimiter, times(0)).throttle(anyCollection());
+    verify(readRateLimiter, times(0)).throttle(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyWritePartNotCalled();
+  }
 
-    table.putAsync("foo", "bar").toCompletableFuture().join();
+  @Test
+  public void testGetAllAsync() {
+    Assert.assertEquals(readMap, readTable.getAllAsync(Arrays.asList("")).toCompletableFuture().join());
+    verify(readFn, times(1)).getAllAsync(any());
+    verify(readFn, times(0)).getAllAsync(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyString());
+    verify(readRateLimiter, times(1)).throttle(anyCollection());
+    verify(readRateLimiter, times(0)).throttle(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyWritePartNotCalled();
+  }
+
+  @Test
+  public void testGetAllAsyncWithArgs() {
+    Assert.assertEquals(readMap, readTable.getAllAsync(Arrays.asList(""), "").toCompletableFuture().join());
+    verify(readFn, times(0)).getAllAsync(any());
+    verify(readFn, times(1)).getAllAsync(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyString());
+    verify(readRateLimiter, times(1)).throttle(anyCollection(), any());
+    verify(readRateLimiter, times(0)).throttle(anyString(), any());
+    verify(readRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyWritePartNotCalled();
+  }
+
+  @Test
+  public void testReadAsync() {
+    Assert.assertEquals(5, readTable.readAsync(1, 2).toCompletableFuture().join());
+    verify(readFn, times(1)).readAsync(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttle(anyString());
+    verify(readRateLimiter, times(0)).throttle(anyCollection());
+    verify(readRateLimiter, times(0)).throttle(any(), any());
+    verify(readRateLimiter, times(1)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyWritePartNotCalled();
+  }
+
+  @Test
+  public void testPutAsync() {
+    writeTable.putAsync("foo", "bar").toCompletableFuture().join();
     verify(writeFn, times(1)).putAsync(any(), any());
-    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(0)).throttleRecords(anyList());
+    verify(writeFn, times(0)).putAsync(any(), any(), any());
     verify(writeRateLimiter, times(0)).throttle(anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyList());
-
-    table.putAllAsync(Arrays.asList(new Entry("1", "2"))).toCompletableFuture().join();
-    verify(writeFn, times(1)).putAllAsync(any());
     verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(1)).throttleRecords(anyList());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testPutAsyncWithArgs() {
+    writeTable.putAsync("foo", "bar", 1).toCompletableFuture().join();
+    verify(writeFn, times(0)).putAsync(any(), any());
+    verify(writeFn, times(1)).putAsync(any(), any(), any());
     verify(writeRateLimiter, times(0)).throttle(anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyList());
+    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
 
-    table.deleteAsync("foo").toCompletableFuture().join();
-    verify(writeFn, times(1)).deleteAsync(anyString());
-    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(1)).throttleRecords(anyList());
-    verify(writeRateLimiter, times(1)).throttle(anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyList());
+  @Test
+  public void testPutAllAsync() {
+    writeTable.putAllAsync(Arrays.asList(new Entry("1", "2"))).toCompletableFuture().join();
+    verify(writeFn, times(1)).putAllAsync(anyCollection());
+    verify(writeFn, times(0)).putAllAsync(anyCollection(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(1)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
 
-    table.deleteAllAsync(Arrays.asList("1", "2")).toCompletableFuture().join();
-    verify(writeFn, times(1)).deleteAllAsync(any());
-    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(1)).throttleRecords(anyList());
+  @Test
+  public void testPutAllAsyncWithArgs() {
+    writeTable.putAllAsync(Arrays.asList(new Entry("1", "2")), Arrays.asList(1)).toCompletableFuture().join();
+    verify(writeFn, times(0)).putAllAsync(anyCollection());
+    verify(writeFn, times(1)).putAllAsync(anyCollection(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(1)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testDeleteAsync() {
+    writeTable.deleteAsync("foo").toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAsync(any());
+    verify(writeFn, times(0)).deleteAsync(any(), any());
     verify(writeRateLimiter, times(1)).throttle(anyString());
-    verify(writeRateLimiter, times(1)).throttle(anyList());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testDeleteAsyncWithArgs() {
+    writeTable.deleteAsync("foo", 1).toCompletableFuture().join();
+    verify(writeFn, times(0)).deleteAsync(any());
+    verify(writeFn, times(1)).deleteAsync(any(), any());
+    verify(writeRateLimiter, times(1)).throttle(anyString(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testDeleteAllAsync() {
+    writeTable.deleteAllAsync(Arrays.asList("1", "2")).toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAllAsync(anyCollection());
+    verify(writeFn, times(0)).deleteAllAsync(anyCollection(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(1)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testDeleteAllAsyncWithArgs() {
+    writeTable.deleteAllAsync(Arrays.asList("1", "2"), 1).toCompletableFuture().join();
+    verify(writeFn, times(0)).deleteAllAsync(anyCollection());
+    verify(writeFn, times(1)).deleteAllAsync(anyCollection(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(1)).throttle(anyCollection(), any());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
+    verifyReadPartNotCalled();
+  }
+
+  @Test
+  public void testWriteAsync() {
+    Assert.assertEquals(5, writeTable.writeAsync(1, 2).toCompletableFuture().join());
+    verify(writeFn, times(1)).writeAsync(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(1)).throttle(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verifyReadPartNotCalled();
   }
 
   @Test
@@ -155,6 +309,36 @@ public class TestAsyncRateLimitedTable {
     table.close();
     verify(readFn, times(1)).close();
     verify(writeFn, times(1)).close();
+  }
+
+  private void verifyReadPartNotCalled() {
+    verify(readFn, times(0)).getAsync(any());
+    verify(readFn, times(0)).getAsync(any(), any());
+    verify(readFn, times(0)).getAllAsync(any(), any());
+    verify(readFn, times(0)).getAllAsync(any(), any(), any());
+    verify(readFn, times(0)).readAsync(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttle(anyString());
+    verify(readRateLimiter, times(0)).throttle(anyCollection());
+    verify(readRateLimiter, times(0)).throttle(any(), any());
+    verify(readRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(readRateLimiter, times(0)).throttleRecords(anyCollection());
+  }
+
+  private void verifyWritePartNotCalled() {
+    verify(writeFn, times(0)).putAsync(any(), any());
+    verify(writeFn, times(0)).putAsync(any(), any(), any());
+    verify(writeFn, times(0)).putAllAsync(any());
+    verify(writeFn, times(0)).putAllAsync(any(), any());
+    verify(writeFn, times(0)).deleteAsync(any());
+    verify(writeFn, times(0)).deleteAsync(any(), any());
+    verify(writeFn, times(0)).deleteAllAsync(any());
+    verify(writeFn, times(0)).deleteAllAsync(any(), any());
+    verify(writeFn, times(0)).writeAsync(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
   }
 
 }

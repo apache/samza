@@ -19,7 +19,6 @@
 
 package org.apache.samza.table.remote;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -29,8 +28,6 @@ import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.ClosableFunction;
-import org.apache.samza.operators.functions.InitableFunction;
 import org.apache.samza.storage.kv.Entry;
 
 import com.google.common.collect.Iterables;
@@ -48,7 +45,7 @@ import com.google.common.collect.Iterables;
  * @param <V> the type of the value in this table
  */
 @InterfaceStability.Unstable
-public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, ClosableFunction, Serializable {
+public interface TableWriteFunction<K, V> extends TableFunction {
   /**
    * Store single table {@code record} with specified {@code key}. This method must be thread-safe.
    * The default implementation calls putAsync and blocks on the completion afterwards.
@@ -71,6 +68,18 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
    * @return CompletionStage for the put request
    */
   CompletionStage<Void> putAsync(K key, V record);
+
+  /**
+   * Asynchronously store single table {@code record} with specified {@code key} and additional arguments.
+   * This method must be thread-safe.
+   * @param key key for the table record
+   * @param record table record to be written
+   * @param args additional arguments
+   * @return CompletableFuture for the put request
+   */
+  default CompletableFuture<Void> putAsync(K key, V record, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Store the table {@code records} with specified {@code keys}. This method must be thread-safe.
@@ -96,6 +105,17 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
   }
 
   /**
+   * Asynchronously store the table {@code records} with specified {@code keys} and additional arguments.
+   * This method must be thread-safe.
+   * @param records table records to be written
+   * @param args additional arguments
+   * @return CompletableFuture for the put request
+   */
+  default CompletableFuture<Void> putAllAsync(Collection<Entry<K, V>> records, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
+
+  /**
    * Delete the {@code record} with specified {@code key} from the remote store.
    * The default implementation calls deleteAsync and blocks on the completion afterwards.
    * @param key key to the table record to be deleted
@@ -114,6 +134,16 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
    * @return CompletionStage for the delete request
    */
   CompletionStage<Void> deleteAsync(K key);
+
+  /**
+   * Asynchronously delete the {@code record} with specified {@code key} and additional arguments from the remote store
+   * @param key key to the table record to be deleted
+   * @param args additional arguments
+   * @return CompletableFuture for the delete request
+   */
+  default CompletableFuture<Void> deleteAsync(K key, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Delete all {@code records} with the specified {@code keys} from the remote store
@@ -144,11 +174,28 @@ public interface TableWriteFunction<K, V> extends TablePart, InitableFunction, C
   }
 
   /**
-   * Determine whether the current operation can be retried with the last thrown exception.
-   * @param exception exception thrown by a table operation
-   * @return whether the operation can be retried
+   * Asynchronously delete all {@code records} with the specified {@code keys} and additional arguments from
+   * the remote store.
+   *
+   * @param keys keys for the table records to be written
+   * @param args additional arguments
+   * @return CompletableFuture for the deleteAll request
    */
-  boolean isRetriable(Throwable exception);
+  default CompletableFuture<Void> deleteAllAsync(Collection<K> keys, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
+
+  /**
+   * Asynchronously write data to table for specified {@code opId} and additional arguments.
+   * This method must be thread-safe.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return CompletableFuture for the write request
+   */
+  default <T> CompletableFuture<T> writeAsync(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Flush the remote store (optional)

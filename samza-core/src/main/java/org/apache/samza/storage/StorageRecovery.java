@@ -23,17 +23,18 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -46,6 +47,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
@@ -61,17 +63,17 @@ import scala.Option;
  * from the job's config file.
  */
 public class StorageRecovery extends CommandLine {
+  private static final Logger LOG = LoggerFactory.getLogger(StorageRecovery.class);
 
-  private Config jobConfig;
+  private final Config jobConfig;
+  private final File storeBaseDir;
+  private final SystemAdmins systemAdmins;
+  private final Map<String, SystemStream> changeLogSystemStreams = new HashMap<>();
+  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
+  private final Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
+
   private int maxPartitionNumber = 0;
-  private File storeBaseDir = null;
-  private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
-  private HashMap<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
-  private Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
-
-  private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
-  private SystemAdmins systemAdmins = null;
 
   /**
    * Construct the StorageRecovery
@@ -92,7 +94,7 @@ public class StorageRecovery extends CommandLine {
    * tasks.
    */
   private void setup() {
-    log.info("setting up the recovery...");
+    LOG.info("setting up the recovery...");
 
     getContainerModels();
     getChangeLogSystemStreamsAndStorageFactories();
@@ -106,7 +108,7 @@ public class StorageRecovery extends CommandLine {
   public void run() {
     setup();
 
-    log.info("start recovering...");
+    LOG.info("start recovering...");
 
     systemAdmins.start();
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
@@ -117,7 +119,7 @@ public class StorageRecovery extends CommandLine {
       });
     systemAdmins.stop();
 
-    log.info("successfully recovered in " + storeBaseDir.toString());
+    LOG.info("successfully recovered in " + storeBaseDir.toString());
   }
 
   /**
@@ -125,14 +127,18 @@ public class StorageRecovery extends CommandLine {
    */
   private void getContainerModels() {
     MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, metricsRegistryMap);
-    coordinatorStreamManager.register(getClass().getSimpleName());
-    coordinatorStreamManager.start();
-    coordinatorStreamManager.bootstrap();
-    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
-    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping(), metricsRegistryMap).jobModel();
-    containers = jobModel.getContainers();
-    coordinatorStreamManager.stop();
+    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(jobConfig, metricsRegistryMap);
+    coordinatorStreamStore.init();
+    try {
+      Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+      ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
+      JobModelManager jobModelManager = JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+                                                              coordinatorStreamStore, metricsRegistryMap);
+      JobModel jobModel = jobModelManager.jobModel();
+      containers = jobModel.getContainers();
+    } finally {
+      coordinatorStreamStore.close();
+    }
   }
 
   /**
@@ -140,23 +146,23 @@ public class StorageRecovery extends CommandLine {
    * and put them into the maps
    */
   private void getChangeLogSystemStreamsAndStorageFactories() {
-    JavaStorageConfig config = new JavaStorageConfig(jobConfig);
+    StorageConfig config = new StorageConfig(jobConfig);
     List<String> storeNames = config.getStoreNames();
 
-    log.info("Got store names: " + storeNames.toString());
+    LOG.info("Got store names: " + storeNames.toString());
 
     for (String storeName : storeNames) {
-      String streamName = config.getChangelogStream(storeName);
+      Optional<String> streamName = config.getChangelogStream(storeName);
 
-      log.info("stream name for " + storeName + " is " + streamName);
+      LOG.info("stream name for " + storeName + " is " + streamName.orElse(null));
 
-      if (streamName != null) {
-        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName));
+      if (streamName.isPresent()) {
+        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName.get()));
       }
 
-      String factoryClass = config.getStorageFactoryClassName(storeName);
-      if (factoryClass != null) {
-        storageEngineFactories.put(storeName, Util.getObj(factoryClass, StorageEngineFactory.class));
+      Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
+      if (factoryClass.isPresent()) {
+        storageEngineFactories.put(storeName, Util.getObj(factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }

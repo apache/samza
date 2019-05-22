@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -100,14 +99,6 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
    */
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
-    initializeInternalStateForSSP(systemStreamPartition);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
     initializeInternalStateForSSP(systemStreamPartition);
   }
 

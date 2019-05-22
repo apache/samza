@@ -19,7 +19,6 @@
 
 package org.apache.samza.table.remote;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -29,8 +28,6 @@ import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.operators.functions.ClosableFunction;
-import org.apache.samza.operators.functions.InitableFunction;
 
 import com.google.common.collect.Iterables;
 
@@ -47,7 +44,7 @@ import com.google.common.collect.Iterables;
  * @param <V> the type of the value in this table
  */
 @InterfaceStability.Unstable
-public interface TableReadFunction<K, V> extends TablePart, InitableFunction, ClosableFunction, Serializable {
+public interface TableReadFunction<K, V> extends TableFunction {
   /**
    * Fetch single table record for a specified {@code key}. This method must be thread-safe.
    * The default implementation calls getAsync and blocks on the completion afterwards.
@@ -68,6 +65,17 @@ public interface TableReadFunction<K, V> extends TablePart, InitableFunction, Cl
    * @return CompletionStage for the get request
    */
   CompletionStage<V> getAsync(K key);
+
+  /**
+   * Asynchronously fetch single table record for a specified {@code key} with additional arguments.
+   * This method must be thread-safe.
+   * @param key key for the table record
+   * @param args additional arguments
+   * @return CompletableFuture for the get request
+   */
+  default CompletableFuture<V> getAsync(K key, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Fetch the table {@code records} for specified {@code keys}. This method must be thread-safe.
@@ -102,11 +110,27 @@ public interface TableReadFunction<K, V> extends TablePart, InitableFunction, Cl
   }
 
   /**
-   * Determine whether the current operation can be retried with the last thrown exception.
-   * @param exception exception thrown by a table operation
-   * @return whether the operation can be retried
+   * Asynchronously fetch the table {@code records} for specified {@code keys} and additional arguments.
+   * This method must be thread-safe.
+   * @param keys keys for the table records
+   * @param args additional arguments
+   * @return CompletableFuture for the get request
    */
-  boolean isRetriable(Throwable exception);
+  default CompletableFuture<Map<K, V>> getAllAsync(Collection<K> keys, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
+
+  /**
+   * Asynchronously read data from table for specified {@code opId} and additional arguments.
+   * This method must be thread-safe.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return CompletableFuture for the read request
+   */
+  default <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   // optionally implement readObject() to initialize transient states
 }

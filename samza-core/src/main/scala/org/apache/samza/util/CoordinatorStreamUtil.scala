@@ -21,16 +21,22 @@
 
 package org.apache.samza.util
 
+import java.util
+
+import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
-import org.apache.samza.config._
-import org.apache.samza.system.{SystemFactory, SystemStream}
 import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config._
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde
+import org.apache.samza.coordinator.stream.messages.SetConfig
+import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemFactory, SystemStream}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
-import scala.collection.immutable.Map
 import scala.collection.JavaConverters._
+import scala.collection.immutable.Map
 
-object CoordinatorStreamUtil {
+object CoordinatorStreamUtil extends Logging {
   /**
     * Given a job's full config object, build a subset config which includes
     * only the job name, job id, and system config for the coordinator stream.
@@ -45,6 +51,22 @@ object CoordinatorStreamUtil {
         JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
         JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency))
     new MapConfig(map.asJava)
+  }
+
+  /**
+    * Creates a coordinator stream.
+    * @param coordinatorSystemStream the {@see SystemStream} that describes the stream to create.
+    * @param coordinatorSystemAdmin the {@see SystemAdmin} used to create the stream.
+    */
+  def createCoordinatorStream(coordinatorSystemStream: SystemStream, coordinatorSystemAdmin: SystemAdmin): Unit = {
+    // TODO: This logic should be part of the final coordinator stream metadata store abstraction. See SAMZA-2182
+    val streamName = coordinatorSystemStream.getStream
+    val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
+    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
+      info("Created coordinator stream: %s." format streamName)
+    } else {
+      info("Coordinator stream: %s already exists." format streamName)
+    }
   }
 
   /**
@@ -90,5 +112,30 @@ object CoordinatorStreamUtil {
   private def getJobNameAndId(config: Config) = {
     (config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
       config.getJobId)
+  }
+
+  /**
+    * Reads and returns the complete configuration stored in the coordinator stream.
+    * @param coordinatorStreamStore an instance of the instantiated {@link CoordinatorStreamStore}.
+    * @return the configuration read from the coordinator stream.
+    */
+  def readConfigFromCoordinatorStream(coordinatorStreamStore: CoordinatorStreamStore): Config = {
+    val namespaceAwareCoordinatorStreamStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE)
+    val configFromCoordinatorStream: util.Map[String, Array[Byte]] = namespaceAwareCoordinatorStreamStore.all
+    val configMap: util.Map[String, String] = new util.HashMap[String, String]
+    for ((key: String, valueAsBytes: Array[Byte]) <- configFromCoordinatorStream.asScala) {
+      if (valueAsBytes == null) {
+        warn("Value for key: %s in config is null. Ignoring it." format key)
+      } else {
+        val valueSerde: CoordinatorStreamValueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
+        val valueAsString: String = valueSerde.fromBytes(valueAsBytes)
+        if (StringUtils.isBlank(valueAsString)) {
+          warn("Value for key: %s in config is empty or null. Ignoring it." format key)
+        } else {
+          configMap.put(key, valueAsString)
+        }
+      }
+    }
+    new MapConfig(configMap)
   }
 }

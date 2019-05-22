@@ -674,6 +674,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
+  @Ignore
   @Test
   public void testEndToEndStreamTableTableJoin() throws Exception {
     int numMessages = 20;

@@ -50,10 +50,10 @@ import scala.collection.JavaConverters;
 
 
 /**
- * The AsyncRunLoop supports multithreading execution of Samza {@link AsyncStreamTask}s.
+ * The RunLoop supports multithreading execution of Samza {@link AsyncStreamTask}s.
  */
-public class AsyncRunLoop implements Runnable, Throttleable {
-  private static final Logger log = LoggerFactory.getLogger(AsyncRunLoop.class);
+public class RunLoop implements Runnable, Throttleable {
+  private static final Logger log = LoggerFactory.getLogger(RunLoop.class);
 
   private final List<AsyncTaskWorker> taskWorkers;
   private final SystemConsumers consumerMultiplexer;
@@ -77,7 +77,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
   private final boolean isAsyncCommitEnabled;
   private volatile boolean runLoopResumedSinceLastChecked;
 
-  public AsyncRunLoop(Map<TaskName, TaskInstance> taskInstances,
+  public RunLoop(Map<TaskName, TaskInstance> taskInstances,
       ExecutorService threadPool,
       SystemConsumers consumerMultiplexer,
       int maxConcurrency,
@@ -240,10 +240,10 @@ public class AsyncRunLoop implements Runnable, Throttleable {
    * Block the runloop thread if all tasks are busy. When a task worker finishes or window/commit completes,
    * it will resume the runloop.
    *
-   * In addition, delay the AsyncRunLoop thread for a short time if there are no new messages to process and the run loop
+   * In addition, delay the RunLoop thread for a short time if there are no new messages to process and the run loop
    * has not been resumed since the last time this code was run. This will prevent the main thread from spinning when it
    * has no work to distribute. If a task worker finishes or window/commit completes before the timeout then resume
-   * the AsyncRunLoop thread immediately. That event may allow a task worker to start processing a message that has already
+   * the RunLoop thread immediately. That event may allow a task worker to start processing a message that has already
    * been chosen.  In any event it should only delay for a short time.  It needs to periodically check for new messages.
    */
   private void blockIfBusyOrNoNewWork(IncomingMessageEnvelope envelope) {
@@ -818,7 +818,7 @@ public class AsyncRunLoop implements Runnable, Throttleable {
 
     /**
      * Fetch the pending envelope in the pending queue for the task to process.
-     * Update the chooser for flow control on the SSP level. Once it's updated, the AsyncRunLoop
+     * Update the chooser for flow control on the SSP level. Once it's updated, the RunLoop
      * will be able to choose new messages from this SSP for the task to process. Note that we
      * update only when the envelope is first time being processed. This solves the issue in
      * Broadcast stream where a message need to be processed by multiple tasks. In that case,

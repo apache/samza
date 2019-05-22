@@ -40,7 +40,7 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
+public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   protected final KeyValueStore<K, V> kvStore;
 
@@ -56,7 +56,7 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public V get(K key) {
+  public V get(K key, Object ... args) {
     V result = instrument(metrics.numGets, metrics.getNs, () -> kvStore.get(key));
     if (result == null) {
       incCounter(metrics.numMissedLookups);
@@ -65,10 +65,10 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletionStage<V> getAsync(K key) {
+  public CompletionStage<V> getAsync(K key, Object ... args) {
     CompletableFuture<V> future = new CompletableFuture<>();
     try {
-      future.complete(get(key));
+      future.complete(get(key, args));
     } catch (Exception e) {
       future.completeExceptionally(e);
     }
@@ -76,17 +76,17 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public Map<K, V> getAll(List<K> keys) {
+  public Map<K, V> getAll(List<K> keys, Object ... args) {
     Map<K, V> result = instrument(metrics.numGetAlls, metrics.getAllNs, () -> kvStore.getAll(keys));
     result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(metrics.numMissedLookups));
     return result;
   }
 
   @Override
-  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
     CompletableFuture<Map<K, V>> future = new CompletableFuture<>();
     try {
-      future.complete(getAll(keys));
+      future.complete(getAll(keys, args));
     } catch (Exception e) {
       future.completeExceptionally(e);
     }
@@ -94,7 +94,7 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public void put(K key, V value) {
+  public void put(K key, V value, Object ... args) {
     if (value != null) {
       instrument(metrics.numPuts, metrics.putNs, () -> kvStore.put(key, value));
     } else {
@@ -103,10 +103,10 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletionStage<Void> putAsync(K key, V value) {
+  public CompletionStage<Void> putAsync(K key, V value, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
-      put(key, value);
+      put(key, value, args);
       future.complete(null);
     } catch (Exception e) {
       future.completeExceptionally(e);
@@ -115,7 +115,7 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public void putAll(List<Entry<K, V>> entries) {
+  public void putAll(List<Entry<K, V>> entries, Object ... args) {
     List<Entry<K, V>> toPut = new LinkedList<>();
     List<K> toDelete = new LinkedList<>();
     entries.forEach(e -> {
@@ -136,10 +136,10 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
-      putAll(entries);
+      putAll(entries, args);
       future.complete(null);
     } catch (Exception e) {
       future.completeExceptionally(e);
@@ -148,15 +148,15 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public void delete(K key) {
+  public void delete(K key, Object ... args) {
     instrument(metrics.numDeletes, metrics.deleteNs, () -> kvStore.delete(key));
   }
 
   @Override
-  public CompletionStage<Void> deleteAsync(K key) {
+  public CompletionStage<Void> deleteAsync(K key, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
-      delete(key);
+      delete(key, args);
       future.complete(null);
     } catch (Exception e) {
       future.completeExceptionally(e);
@@ -165,20 +165,53 @@ public class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
   }
 
   @Override
-  public void deleteAll(List<K> keys) {
+  public void deleteAll(List<K> keys, Object ... args) {
     instrument(metrics.numDeleteAlls, metrics.deleteAllNs, () -> kvStore.deleteAll(keys));
   }
 
   @Override
-  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
+  public CompletionStage<Void> deleteAllAsync(List<K> keys, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
-      deleteAll(keys);
+      deleteAll(keys, args);
       future.complete(null);
     } catch (Exception e) {
       future.completeExceptionally(e);
     }
     return future;
+  }
+
+  /**
+   * Refer to {@link KeyValueStore#range(Object, Object)}
+   *
+   * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
+   * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
+   * @return an iterator for the specified key range.
+   * @throws NullPointerException if null is used for {@code from} or {@code to}.
+   */
+  public KeyValueIterator<K, V> range(K from, K to) {
+    return kvStore.range(from, to);
+  }
+
+  /**
+   * Refer to {@link KeyValueStore#snapshot(Object, Object)}
+   *
+   * @param from the key specifying the low endpoint (inclusive) of the keys in the returned range.
+   * @param to the key specifying the high endpoint (exclusive) of the keys in the returned range.
+   * @return a snapshot for the specified key range.
+   * @throws NullPointerException if null is used for {@code from} or {@code to}.
+   */
+  public KeyValueSnapshot<K, V> snapshot(K from, K to) {
+    return kvStore.snapshot(from, to);
+  }
+
+  /**
+   * Refer to {@link KeyValueStore#all()}
+   *
+   * @return an iterator for all entries in this key-value store.
+   */
+  public KeyValueIterator<K, V> all() {
+    return kvStore.all();
   }
 
   @Override

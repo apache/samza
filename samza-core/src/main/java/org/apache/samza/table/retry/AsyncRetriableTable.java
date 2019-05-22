@@ -93,33 +93,43 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletionStage<V> getAsync(K key) {
-    return doRead(() -> table.getAsync(key));
+  public CompletionStage<V> getAsync(K key, Object... args) {
+    return doRead(() -> table.getAsync(key, args));
   }
 
   @Override
-  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys) {
-    return doRead(() -> table.getAllAsync(keys));
+  public CompletionStage<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
+    return doRead(() -> table.getAllAsync(keys, args));
   }
 
   @Override
-  public CompletionStage<Void> putAsync(K key, V value) {
-    return doWrite(() -> table.putAsync(key, value));
+  public <T> CompletionStage<T> readAsync(int opId, Object... args) {
+    return doRead(() -> table.readAsync(opId, args));
   }
 
   @Override
-  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries) {
-    return doWrite(() -> table.putAllAsync(entries));
+  public CompletionStage<Void> putAsync(K key, V value, Object... args) {
+    return doWrite(() -> table.putAsync(key, value, args));
   }
 
   @Override
-  public CompletionStage<Void> deleteAsync(K key) {
-    return doWrite(() -> table.deleteAsync(key));
+  public CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
+    return doWrite(() -> table.putAllAsync(entries, args));
   }
 
   @Override
-  public CompletionStage<Void> deleteAllAsync(List<K> keys) {
-    return doWrite(() -> table.deleteAllAsync(keys));
+  public CompletionStage<Void> deleteAsync(K key, Object... args) {
+    return doWrite(() -> table.deleteAsync(key, args));
+  }
+
+  @Override
+  public CompletionStage<Void> deleteAllAsync(List<K> keys, Object ... args) {
+    return doWrite(() -> table.deleteAllAsync(keys, args));
+  }
+
+  @Override
+  public <T> CompletionStage<T> writeAsync(int opId, Object... args) {
+    return doWrite(() -> table.writeAsync(opId, args));
   }
 
   @Override

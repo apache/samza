@@ -27,8 +27,12 @@ import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
+import org.apache.samza.table.retry.AsyncRetriableTable;
 import org.apache.samza.table.retry.TableRetryPolicy;
 
+import org.apache.samza.testUtils.TestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -43,9 +47,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyCollection;
-import static org.mockito.Matchers.anyString;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -86,10 +89,14 @@ public class TestRemoteTable {
         readRateLimiter, writeRateLimiter, rateLimitingExecutor,
         readPolicy, writePolicy, retryExecutor, cbExecutor);
     table.init(getMockContext());
+    verify(readFn, times(1)).init(any(), any());
+    if (writeFn != null) {
+      verify(writeFn, times(1)).init(any(), any());
+    }
     return (T) table;
   }
 
-  private void doTestGet(boolean sync, boolean error, boolean retry) throws Exception {
+  private void doTestGet(boolean sync, boolean error, boolean retry) {
     String tableId = "testGet-" + sync + error + retry;
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     // Sync is backed by async so needs to mock the async method
@@ -117,12 +124,34 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testGet() throws Exception {
+  public void testInit() {
+    String tableId = "testInit";
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    RemoteTable<String, String> table = getTable(tableId, readFn, writeFn, true);
+    // AsyncRetriableTable
+    AsyncReadWriteTable innerTable = TestUtils.getFieldValue(table, "asyncTable");
+    Assert.assertTrue(innerTable instanceof AsyncRetriableTable);
+    Assert.assertNotNull(TestUtils.getFieldValue(innerTable, "readRetryMetrics"));
+    Assert.assertNotNull(TestUtils.getFieldValue(innerTable, "writeRetryMetrics"));
+    // AsyncRateLimitedTable
+    innerTable = TestUtils.getFieldValue(innerTable, "table");
+    Assert.assertTrue(innerTable instanceof AsyncRateLimitedTable);
+    // AsyncRemoteTable
+    innerTable = TestUtils.getFieldValue(innerTable, "table");
+    Assert.assertTrue(innerTable instanceof AsyncRemoteTable);
+    // Verify table functions are initialized
+    verify(readFn, times(1)).init(any(), any());
+    verify(writeFn, times(1)).init(any(), any());
+  }
+
+  @Test
+  public void testGet() {
     doTestGet(true, false, false);
   }
 
   @Test
-  public void testGetAsync() throws Exception {
+  public void testGetAsync() {
     doTestGet(false, false, false);
   }
 
@@ -132,7 +161,7 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testGetAsyncErrorRetried() throws Exception {
+  public void testGetAsyncErrorRetried() {
     doTestGet(false, true, true);
   }
 
@@ -158,7 +187,44 @@ public class TestRemoteTable {
           });
   }
 
-  private void doTestPut(boolean sync, boolean error, boolean isDelete, boolean retry) throws Exception {
+  public void doTestRead(boolean sync, boolean error) {
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    RemoteTable<String, String> table = getTable("testRead-" + sync + error,
+        readFn, mock(TableWriteFunction.class), false);
+    CompletableFuture<?> future;
+    if (error) {
+      future = new CompletableFuture();
+      future.completeExceptionally(new RuntimeException("Test exception"));
+    } else {
+      future = CompletableFuture.completedFuture(5);
+    }
+    // Sync is backed by async so needs to mock the async method
+    doReturn(future).when(readFn).readAsync(anyInt(), any());
+
+    int readResult = sync
+        ? table.read(1, 2)
+        : (Integer) table.readAsync(1, 2).toCompletableFuture().join();
+    verify(readFn, times(1)).readAsync(anyInt(), any());
+    Assert.assertEquals(5, readResult);
+    verify(table.readRateLimiter, times(1)).throttle(anyInt(), any());
+  }
+
+  @Test
+  public void testRead() {
+    doTestRead(true, false);
+  }
+
+  @Test
+  public void testReadAsync() {
+    doTestRead(false, false);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testReadAsyncError() {
+    doTestRead(false, true);
+  }
+
+  private void doTestPut(boolean sync, boolean error, boolean isDelete, boolean retry) {
     String tableId = "testPut-" + sync + error + isDelete + retry;
     TableWriteFunction<String, String> mockWriteFn = mock(TableWriteFunction.class);
     TableWriteFunction<String, String> writeFn = mockWriteFn;
@@ -209,22 +275,22 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testPut() throws Exception {
+  public void testPut() {
     doTestPut(true, false, false, false);
   }
 
   @Test
-  public void testPutDelete() throws Exception {
+  public void testPutDelete() {
     doTestPut(true, false, true, false);
   }
 
   @Test
-  public void testPutAsync() throws Exception {
+  public void testPutAsync() {
     doTestPut(false, false, false, false);
   }
 
   @Test
-  public void testPutAsyncDelete() throws Exception {
+  public void testPutAsyncDelete() {
     doTestPut(false, false, true, false);
   }
 
@@ -234,11 +300,11 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testPutAsyncErrorRetried() throws Exception {
+  public void testPutAsyncErrorRetried() {
     doTestPut(false, true, false, true);
   }
 
-  private void doTestDelete(boolean sync, boolean error) throws Exception {
+  private void doTestDelete(boolean sync, boolean error) {
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     RemoteTable<String, String> table = getTable("testDelete-" + sync + error,
         mock(TableReadFunction.class), writeFn, false);
@@ -263,12 +329,12 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testDelete() throws Exception {
+  public void testDelete() {
     doTestDelete(true, false);
   }
 
   @Test
-  public void testDeleteAsync() throws Exception {
+  public void testDeleteAsync() {
     doTestDelete(false, false);
   }
 
@@ -277,7 +343,7 @@ public class TestRemoteTable {
     doTestDelete(false, true);
   }
 
-  private void doTestGetAll(boolean sync, boolean error, boolean partial) throws Exception {
+  private void doTestGetAll(boolean sync, boolean error, boolean partial) {
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     Map<String, String> res = new HashMap<>();
     res.put("foo1", "bar1");
@@ -300,12 +366,12 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testGetAll() throws Exception {
+  public void testGetAll() {
     doTestGetAll(true, false, false);
   }
 
   @Test
-  public void testGetAllAsync() throws Exception {
+  public void testGetAllAsync() {
     doTestGetAll(false, false, false);
   }
 
@@ -316,11 +382,11 @@ public class TestRemoteTable {
 
   // Partial result is an acceptable scenario
   @Test
-  public void testGetAllPartialResult() throws Exception {
+  public void testGetAllPartialResult() {
     doTestGetAll(false, false, true);
   }
 
-  public void doTestPutAll(boolean sync, boolean error, boolean hasDelete) throws Exception {
+  public void doTestPutAll(boolean sync, boolean error, boolean hasDelete) {
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     RemoteTable<String, String> table = getTable("testPutAll-" + sync + error + hasDelete,
         mock(TableReadFunction.class), writeFn, false);
@@ -359,22 +425,22 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testPutAll() throws Exception {
+  public void testPutAll() {
     doTestPutAll(true, false, false);
   }
 
   @Test
-  public void testPutAllHasDelete() throws Exception {
+  public void testPutAllHasDelete() {
     doTestPutAll(true, false, true);
   }
 
   @Test
-  public void testPutAllAsync() throws Exception {
+  public void testPutAllAsync() {
     doTestPutAll(false, false, false);
   }
 
   @Test
-  public void testPutAllAsyncHasDelete() throws Exception {
+  public void testPutAllAsyncHasDelete() {
     doTestPutAll(false, false, true);
   }
 
@@ -383,7 +449,7 @@ public class TestRemoteTable {
     doTestPutAll(false, true, false);
   }
 
-  public void doTestDeleteAll(boolean sync, boolean error) throws Exception {
+  public void doTestDeleteAll(boolean sync, boolean error) {
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
     RemoteTable<String, String> table = getTable("testDeleteAll-" + sync + error,
         mock(TableReadFunction.class), writeFn, false);
@@ -409,18 +475,55 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testDeleteAll() throws Exception {
+  public void testDeleteAll() {
     doTestDeleteAll(true, false);
   }
 
   @Test
-  public void testDeleteAllAsync() throws Exception {
+  public void testDeleteAllAsync() {
     doTestDeleteAll(false, false);
   }
 
   @Test(expected = CompletionException.class)
   public void testDeleteAllAsyncError() throws Exception {
     doTestDeleteAll(false, true);
+  }
+
+  public void doTestWrite(boolean sync, boolean error) {
+    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    RemoteTable<String, String> table = getTable("testWrite-" + sync + error,
+        mock(TableReadFunction.class), writeFn, false);
+    CompletableFuture<?> future;
+    if (error) {
+      future = new CompletableFuture();
+      future.completeExceptionally(new RuntimeException("Test exception"));
+    } else {
+      future = CompletableFuture.completedFuture(5);
+    }
+    // Sync is backed by async so needs to mock the async method
+    doReturn(future).when(writeFn).writeAsync(anyInt(), any());
+
+    int writeResult = sync
+        ? table.write(1, 2)
+        : (Integer) table.writeAsync(1, 2).toCompletableFuture().join();
+    verify(writeFn, times(1)).writeAsync(anyInt(), any());
+    Assert.assertEquals(5, writeResult);
+    verify(table.writeRateLimiter, times(1)).throttle(anyInt(), any());
+  }
+
+  @Test
+  public void testWrite() {
+    doTestWrite(true, false);
+  }
+
+  @Test
+  public void testWriteAsync() {
+    doTestWrite(false, false);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testWriteAsyncError() {
+    doTestWrite(false, true);
   }
 
   @Test
@@ -432,7 +535,7 @@ public class TestRemoteTable {
   }
 
   @Test
-  public void testGetWithCallbackExecutor() throws Exception {
+  public void testGetWithCallbackExecutor() {
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     // Sync is backed by async so needs to mock the async method
     doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(anyString());
@@ -445,5 +548,107 @@ public class TestRemoteTable {
         // Must be executed on the executor thread
         Assert.assertNotSame(testThread, Thread.currentThread());
       });
+  }
+
+  @Test
+  public void testGetDelegation() {
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any());
+    doReturn(CompletableFuture.completedFuture("bar")).when(readFn).getAsync(any(), any());
+    Map<String, String> result = new HashMap<>();
+    result.put("foo", "bar");
+    doReturn(CompletableFuture.completedFuture(result)).when(readFn).getAllAsync(any());
+    doReturn(CompletableFuture.completedFuture(result)).when(readFn).getAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(5)).when(readFn).readAsync(anyInt(), any());
+
+    RemoteTable<String, String> table = getTable("testGetDelegation", readFn, null,
+        Executors.newSingleThreadExecutor(), true);
+    verify(readFn, times(1)).init(any(), any());
+
+    // GetAsync
+    verify(readFn, times(0)).getAsync(any());
+    verify(readFn, times(0)).getAsync(any(), any());
+    assertEquals("bar", table.getAsync("foo").toCompletableFuture().join());
+    verify(readFn, times(1)).getAsync(any());
+    verify(readFn, times(0)).getAsync(any(), any());
+    assertEquals("bar", table.getAsync("foo", 1).toCompletableFuture().join());
+    verify(readFn, times(1)).getAsync(any());
+    verify(readFn, times(1)).getAsync(any(), any());
+    // GetAllAsync
+    verify(readFn, times(0)).getAllAsync(any());
+    verify(readFn, times(0)).getAllAsync(any(), any());
+    assertEquals(result, table.getAllAsync(Arrays.asList("foo")).toCompletableFuture().join());
+    verify(readFn, times(1)).getAllAsync(any());
+    verify(readFn, times(0)).getAllAsync(any(), any());
+    assertEquals(result, table.getAllAsync(Arrays.asList("foo"), Arrays.asList(1)).toCompletableFuture().join());
+    verify(readFn, times(1)).getAllAsync(any());
+    verify(readFn, times(1)).getAllAsync(any(), any());
+    // ReadAsync
+    verify(readFn, times(0)).readAsync(anyInt(), any());
+    assertEquals(5, table.readAsync(1, 2).toCompletableFuture().join());
+    verify(readFn, times(1)).readAsync(anyInt(), any());
+
+    table.close();
+  }
+
+  @Test
+  public void testPutAndDeleteDelegation() {
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction writeFn = mock(TableWriteFunction.class);
+    doReturn(true).when(writeFn).isRetriable(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(anyCollection());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(anyCollection(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).writeAsync(anyInt(), any());
+
+    RemoteTable<String, String> table = getTable("testGetDelegation", readFn, writeFn,
+        Executors.newSingleThreadExecutor(), true);
+    verify(readFn, times(1)).init(any(), any());
+
+    // PutAsync
+    verify(writeFn, times(0)).putAsync(any(), any());
+    verify(writeFn, times(0)).putAsync(any(), any(), any());
+    table.putAsync("roo", "bar").toCompletableFuture().join();
+    verify(writeFn, times(1)).putAsync(any(), any());
+    verify(writeFn, times(0)).putAsync(any(), any(), any());
+    table.putAsync("foo", "bar", 3).toCompletableFuture().join();
+    verify(writeFn, times(1)).putAsync(any(), any());
+    verify(writeFn, times(1)).putAsync(any(), any(), any());
+    // PutAllAsync
+    verify(writeFn, times(0)).putAllAsync(anyCollection());
+    verify(writeFn, times(0)).putAllAsync(anyCollection(), any());
+    table.putAllAsync(Arrays.asList(new Entry("foo", "bar"))).toCompletableFuture().join();
+    verify(writeFn, times(1)).putAllAsync(anyCollection());
+    verify(writeFn, times(0)).putAllAsync(anyCollection(), any());
+    table.putAllAsync(Arrays.asList(new Entry("foo", "bar")), 2).toCompletableFuture().join();
+    verify(writeFn, times(1)).putAllAsync(anyCollection());
+    verify(writeFn, times(1)).putAllAsync(anyCollection(), any());
+    // DeleteAsync
+    verify(writeFn, times(0)).deleteAsync(any());
+    verify(writeFn, times(0)).deleteAsync(any(), any());
+    table.deleteAsync("foo").toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAsync(any());
+    verify(writeFn, times(0)).deleteAsync(any(), any());
+    table.deleteAsync("foo", 2).toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAsync(any());
+    verify(writeFn, times(1)).deleteAsync(any(), any());
+    // DeleteAllAsync
+    verify(writeFn, times(0)).deleteAllAsync(anyCollection());
+    verify(writeFn, times(0)).deleteAllAsync(anyCollection(), any());
+    table.deleteAllAsync(Arrays.asList("foo")).toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAllAsync(anyCollection());
+    verify(writeFn, times(0)).deleteAllAsync(anyCollection(), any());
+    table.deleteAllAsync(Arrays.asList("foo"), Arrays.asList(2)).toCompletableFuture().join();
+    verify(writeFn, times(1)).deleteAllAsync(anyCollection());
+    verify(writeFn, times(1)).deleteAllAsync(anyCollection(), any());
+    // WriteAsync
+    verify(writeFn, times(0)).writeAsync(anyInt(), any());
+    table.writeAsync(1, 2).toCompletableFuture().join();
+    verify(writeFn, times(1)).writeAsync(anyInt(), any());
   }
 }

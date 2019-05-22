@@ -21,6 +21,7 @@ package org.apache.samza.table;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 
@@ -36,19 +37,33 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * Asynchronously gets the value associated with the specified {@code key}.
    *
    * @param key the key with which the associated value is to be fetched.
+   * @param args additional arguments
    * @return CompletionStage for the requested value
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  CompletionStage<V> getAsync(K key);
+  CompletionStage<V> getAsync(K key, Object ... args);
 
   /**
    * Asynchronously gets the values with which the specified {@code keys} are associated.
    *
    * @param keys the keys with which the associated values are to be fetched.
+   * @param args additional arguments
    * @return CompletionStage for the requested entries
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  CompletionStage<Map<K, V>> getAllAsync(List<K> keys);
+  CompletionStage<Map<K, V>> getAllAsync(List<K> keys, Object ... args);
+
+  /**
+   * Asynchronously executes a read operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return CompletionStage for read result
+   */
+  default <T> CompletionStage<T> readAsync(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Asynchronously updates the mapping of the specified key-value pair;
@@ -57,36 +72,52 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    * @return CompletionStage for the operation
    */
-  CompletionStage<Void> putAsync(K key, V value);
+  CompletionStage<Void> putAsync(K key, V value, Object ... args);
 
   /**
    * Asynchronously updates the mappings of the specified key-value {@code entries}.
    * A key is deleted from the table if its corresponding value is {@code null}.
    *
    * @param entries the updated mappings to put into this table.
+   * @param args additional arguments
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    * @return CompletionStage for the operation
    */
-  CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries);
+  CompletionStage<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args);
 
   /**
    * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).
    * @param key the key for which the mapping is to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    * @return CompletionStage for the operation
    */
-  CompletionStage<Void> deleteAsync(K key);
+  CompletionStage<Void> deleteAsync(K key, Object ... args);
 
   /**
    * Asynchronously deletes the mappings for the specified {@code keys} from this table.
    * @param keys the keys for which the mappings are to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    * @return CompletionStage for the operation
    */
-  CompletionStage<Void> deleteAllAsync(List<K> keys);
+  CompletionStage<Void> deleteAllAsync(List<K> keys, Object ... args);
+
+  /**
+   * Asynchronously executes a write operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return completableFuture for write result
+   */
+  default <T> CompletionStage<T> writeAsync(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Initializes the table during container initialization.

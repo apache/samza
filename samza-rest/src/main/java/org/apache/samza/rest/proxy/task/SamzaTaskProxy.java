@@ -50,7 +50,7 @@ import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
+
 
 /**
  * {@link TaskProxy} interface implementation for samza jobs running in yarn execution environment.
@@ -140,7 +140,7 @@ public class SamzaTaskProxy implements TaskProxy {
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE));
     Map<String, String> taskNameToContainerIdMapping = taskAssignmentManager.readTaskAssignment();
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());
-    List<String> storeNames = JavaConverters.seqAsJavaListConverter(storageConfig.getStoreNames()).asJava();
+    List<String> storeNames = storageConfig.getStoreNames();
     return taskNameToContainerIdMapping.entrySet()
                                        .stream()
                                        .map(entry -> {
