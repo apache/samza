@@ -475,7 +475,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     final ResourceManagerFactory factory;
 
     try {
-      factory = ReflectionUtil.getObj(classLoader, containerManagerFactoryClass, ResourceManagerFactory.class);
+      factory = ReflectionUtil.getObj(containerManagerFactoryClass, ResourceManagerFactory.class, classLoader);
     } catch (Exception e) {
       log.error("Error creating the cluster resource manager.", e);
       throw new SamzaException(e);

@@ -92,7 +92,7 @@ public class TableManager {
     JavaTableConfig tableConfig = new JavaTableConfig(config);
     String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
-        ReflectionUtil.getObj(classLoader, providerFactoryClassName, TableProviderFactory.class);
+        ReflectionUtil.getObj(providerFactoryClassName, TableProviderFactory.class, classLoader);
     TableCtx ctx = new TableCtx();
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
     tableContexts.put(tableId, ctx);

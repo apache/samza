@@ -203,7 +203,7 @@ object SamzaContainer extends Logging {
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, ReflectionUtil.getObj(classLoader, systemFactoryClassName, classOf[SystemFactory]))
+      (systemName, ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory], classLoader))
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -251,7 +251,7 @@ object SamzaContainer extends Logging {
       val serdeClassName = config
         .getSerdeClass(serdeName)
         .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
-      val serde = ReflectionUtil.getObj(classLoader, serdeClassName, classOf[SerdeFactory[Object]])
+      val serde = ReflectionUtil.getObj(serdeClassName, classOf[SerdeFactory[Object]], classLoader)
         .getSerde(serdeName, config)
       (serdeName, serde)
     }).toMap
@@ -401,7 +401,7 @@ object SamzaContainer extends Logging {
 
     val chooserFactoryClassName = config.getMessageChooserClass.getOrElse(classOf[RoundRobinChooserFactory].getName)
 
-    val chooserFactory = ReflectionUtil.getObj(classLoader, chooserFactoryClassName, classOf[MessageChooserFactory])
+    val chooserFactory = ReflectionUtil.getObj(chooserFactoryClassName, classOf[MessageChooserFactory], classLoader)
 
     val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
@@ -414,7 +414,7 @@ object SamzaContainer extends Logging {
 
     val securityManager = config.getSecurityManagerFactory match {
       case Some(securityManagerFactoryClassName) =>
-        ReflectionUtil.getObj(classLoader, securityManagerFactoryClassName, classOf[SecurityManagerFactory])
+        ReflectionUtil.getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory], classLoader)
           .getSecurityManager(config)
       case _ => null
     }
@@ -422,7 +422,7 @@ object SamzaContainer extends Logging {
 
     val checkpointManager = config.getCheckpointManagerFactory()
       .filterNot(_.isEmpty)
-      .map(ReflectionUtil.getObj(classLoader, _, classOf[CheckpointManagerFactory])
+      .map(ReflectionUtil.getObj(_, classOf[CheckpointManagerFactory], classLoader)
         .getCheckpointManager(config, samzaContainerMetrics.registry))
       .orNull
     info("Got checkpoint manager: %s" format checkpointManager)
@@ -466,7 +466,7 @@ object SamzaContainer extends Logging {
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
         (storeName,
-          ReflectionUtil.getObj(classLoader, storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
+          ReflectionUtil.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]], classLoader))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
@@ -624,7 +624,7 @@ object SamzaContainer extends Logging {
     val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
       classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
     val diskQuotaPolicyFactory =
-      ReflectionUtil.getObj(classLoader, diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
+      ReflectionUtil.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory], classLoader)
     val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
 
     var diskSpaceMonitor: DiskSpaceMonitor = null

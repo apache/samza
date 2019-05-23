@@ -29,6 +29,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.storage.StorageEngineFactory;
 import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.util.Util;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -123,6 +124,6 @@ public class RocksDbKeyValueReader {
     if (serdeClassName == null) {
       serdeClassName = SerializerConfig$.MODULE$.getSerdeFactoryName(name);
     }
-    return ReflectionUtil.getObj(classLoader, serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
+    return ReflectionUtil.getObj(serdeClassName, SerdeFactory.class, classLoader).getSerde(name, serializerConfig);
   }
 }

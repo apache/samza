@@ -36,14 +36,15 @@ public class TestReflectionUtil {
   public void testGetObj() {
     // using caller classloader
     assertTrue(
-        ReflectionUtil.getObj(getClass().getClassLoader(), ArrayList.class.getName(), List.class) instanceof ArrayList);
+        ReflectionUtil.getObj(ArrayList.class.getName(), List.class, getClass().getClassLoader()) instanceof ArrayList);
     assertEquals(new ArrayList<>(),
-        ReflectionUtil.getObj(getClass().getClassLoader(), ArrayList.class.getName(), List.class));
+        ReflectionUtil.getObj(ArrayList.class.getName(), List.class, getClass().getClassLoader()));
 
     // using custom classloader
-    assertTrue(ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(), List.class) instanceof ArrayList);
+    assertTrue(ReflectionUtil.getObj(ArrayList.class.getName(), List.class,
+        new ArrayListOnlyClassLoader()) instanceof ArrayList);
     assertEquals(new ArrayList<>(),
-        ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(), List.class));
+        ReflectionUtil.getObj(ArrayList.class.getName(), List.class, new ArrayListOnlyClassLoader()));
   }
 
   /**
@@ -53,19 +54,19 @@ public class TestReflectionUtil {
    */
   @Test(expected = SamzaException.class)
   public void testGetObjNoClass() {
-    ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class);
+    ReflectionUtil.getObj(HashSet.class.getName(), Set.class, new ArrayListOnlyClassLoader());
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjInvalidConstructor() {
-    ReflectionUtil.getObj(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class);
+    ReflectionUtil.getObj(WithTwoArgConstructor.class.getName(), Object.class, getClass().getClassLoader());
   }
 
   @Test
   public void testGetObjWithArgs() {
     assertEquals(new WithTwoArgConstructor("hello", "world"),
-        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
-            "hello", "world"));
+        ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
+            getClass().getClassLoader(), "hello", "world"));
   }
 
   /**
@@ -75,31 +76,31 @@ public class TestReflectionUtil {
    */
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsNoClass() {
-    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class, 10);
+    ReflectionUtil.getObjWithArgs(HashSet.class.getName(), Set.class, new ArrayListOnlyClassLoader(), 10);
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsInvalidConstructor() {
-    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
+    ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(), Object.class, getClass().getClassLoader(),
         "hello world");
   }
 
   @Test
   public void testCreateInstanceOrNull() {
     assertEquals(new WithTwoArgConstructor("hello", "world"),
-        ReflectionUtil.createInstanceOrNull(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
-            "hello", "world"));
+        ReflectionUtil.createInstanceOrNull(WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
+            getClass().getClassLoader(), "hello", "world"));
   }
 
   @Test
   public void testCreateInstanceOrNullInvalid() {
     // no class exists (also verifies classloader passed as argument gets used)
     assertNull(
-        ReflectionUtil.createInstanceOrNull(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class, 10));
+        ReflectionUtil.createInstanceOrNull(HashSet.class.getName(), Set.class, new ArrayListOnlyClassLoader(), 10));
 
     // class doesn't have a matching constructor
-    assertNull(ReflectionUtil.createInstanceOrNull(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
-        "hello world"));
+    assertNull(ReflectionUtil.createInstanceOrNull(WithTwoArgConstructor.class.getName(), Object.class,
+        getClass().getClassLoader(), "hello world"));
   }
 
   private static class WithTwoArgConstructor {

@@ -50,7 +50,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
   public SimpleYarnJobProxy(JobsResourceConfig config) throws Exception {
     super(config);
     this.installFinder = new SimpleInstallationFinder(config.getInstallationsPath(),
-        ReflectionUtil.getObj(getClass().getClassLoader(), config.getJobConfigFactory(), ConfigFactory.class));
+        ReflectionUtil.getObj(config.getJobConfigFactory(), ConfigFactory.class, getClass().getClassLoader()));
     this.statusProvider = new YarnRestJobStatusProvider(config);
   }
 

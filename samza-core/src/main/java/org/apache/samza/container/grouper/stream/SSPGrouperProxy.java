@@ -175,7 +175,7 @@ public class SSPGrouperProxy {
     JobConfig jobConfig = new JobConfig(config);
     String systemStreamPartitionMapperClass = jobConfig.getSystemStreamPartitionMapperFactoryName();
     SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory =
-        ReflectionUtil.getObj(classLoader, systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
+        ReflectionUtil.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class, classLoader);
     return systemStreamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 

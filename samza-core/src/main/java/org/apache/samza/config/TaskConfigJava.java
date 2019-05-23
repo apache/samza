@@ -77,7 +77,7 @@ public class TaskConfigJava extends MapConfig {
     // Initialize checkpoint streams during job coordination
     String checkpointManagerFactoryName = getCheckpointManagerFactoryName();
     if (StringUtils.isNotBlank(checkpointManagerFactoryName)) {
-      return ReflectionUtil.getObj(classLoader, checkpointManagerFactoryName, CheckpointManagerFactory.class)
+      return ReflectionUtil.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class, classLoader)
           .getCheckpointManager(this, metricsRegistry);
     }
     return null;

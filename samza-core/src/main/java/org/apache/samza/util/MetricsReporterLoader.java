@@ -44,7 +44,7 @@ public class MetricsReporterLoader {
         throw new SamzaException(String.format("Metrics reporter %s missing .class config", metricsReporterName));
       }
       MetricsReporterFactory metricsReporterFactory =
-          ReflectionUtil.getObj(classLoader, metricsFactoryClassName, MetricsReporterFactory.class);
+          ReflectionUtil.getObj(metricsFactoryClassName, MetricsReporterFactory.class, classLoader);
       metricsReporters.put(metricsReporterName,
                            metricsReporterFactory.getMetricsReporter(metricsReporterName,
                                                                      containerName,

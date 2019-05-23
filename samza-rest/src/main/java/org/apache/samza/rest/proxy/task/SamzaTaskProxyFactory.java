@@ -45,7 +45,7 @@ public class SamzaTaskProxyFactory implements TaskProxyFactory {
     String configFactoryClass = config.getJobConfigFactory();
     try {
       ConfigFactory configFactory =
-          ReflectionUtil.getObj(getClass().getClassLoader(), configFactoryClass, ConfigFactory.class);
+          ReflectionUtil.getObj(configFactoryClass, ConfigFactory.class, getClass().getClassLoader());
       InstallationFinder installFinder = new SimpleInstallationFinder(installationsPath, configFactory);
       return new SamzaTaskProxy(config, installFinder);
     } catch (Exception e) {

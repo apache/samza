@@ -22,7 +22,7 @@ package org.apache.samza.job.local
 import java.util
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig}
+import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
@@ -77,7 +77,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     val commandBuilderClass = config.getCommandClass(classOf[ShellCommandBuilder].getName)
     info("Using command builder class " + commandBuilderClass)
-    val commandBuilder = ReflectionUtil.getObj(classLoader, commandBuilderClass, classOf[CommandBuilder])
+    val commandBuilder = ReflectionUtil.getObj(commandBuilderClass, classOf[CommandBuilder], classLoader)
 
     // JobCoordinator is stopped by ProcessJob when it exits
     coordinator.start

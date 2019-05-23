@@ -140,8 +140,8 @@ public class ZkJobCoordinator implements JobCoordinator {
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     LocationIdProviderFactory locationIdProviderFactory =
-        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
-            LocationIdProviderFactory.class);
+        ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class,
+            getClass().getClassLoader());
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
   }

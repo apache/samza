@@ -340,7 +340,7 @@ public class StreamProcessor {
   private JobCoordinator createJobCoordinator() {
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinatorFactory jobCoordinatorFactory =
-        ReflectionUtil.getObj(getClass().getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class);
+        ReflectionUtil.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class, getClass().getClassLoader());
     return jobCoordinatorFactory.getJobCoordinator(processorId, config, metricsRegistry);
   }
 

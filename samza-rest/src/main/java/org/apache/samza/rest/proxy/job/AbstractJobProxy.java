@@ -50,7 +50,7 @@ public abstract class AbstractJobProxy implements JobProxy {
     String jobProxyFactoryClassName = config.getJobProxyFactory();
     if (jobProxyFactoryClassName != null && !jobProxyFactoryClassName.isEmpty()) {
       try {
-        JobProxyFactory factory = ReflectionUtil.getObj(classLoader, jobProxyFactoryClassName, JobProxyFactory.class);
+        JobProxyFactory factory = ReflectionUtil.getObj(jobProxyFactoryClassName, JobProxyFactory.class, classLoader);
         return factory.getJobProxy(config);
       } catch (Exception e) {
         throw new SamzaException(e);

@@ -50,8 +50,7 @@ object Util extends Logging {
   /**
    * Instantiate an object of type T from a given className.
    *
-   * Deprecated: Use [[ReflectionUtil.getObj(ClassLoader, String, Class)]] instead. See javadocs for that method for
-   * recommendations of classloaders to use.
+   * Deprecated: Use [[ReflectionUtil.getObj(String, Class, ClassLoader)]] instead.
    */
   @Deprecated
   def getObj[T](className: String, clazz: Class[T]) = {
@@ -71,8 +70,7 @@ object Util extends Logging {
   /**
     * Instantiate an object from given className, and given constructor parameters.
     *
-    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, Object...)]] instead. See javadocs for
-    * that method for recommendations of classloaders to use.
+    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(String, Class, ClassLoader, Object...)]] instead.
     */
   @Deprecated
   def getObj[T](className: String, constructorParams: (Class[_], Object)*) : T = {

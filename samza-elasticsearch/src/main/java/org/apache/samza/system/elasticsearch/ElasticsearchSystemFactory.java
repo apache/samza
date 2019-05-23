@@ -83,8 +83,8 @@ public class ElasticsearchSystemFactory implements SystemFactory {
   protected static IndexRequestFactory getIndexRequestFactory(ElasticsearchConfig config,
       ClassLoader classLoader) {
     if (config.getIndexRequestFactoryClassName().isPresent()) {
-      return ReflectionUtil.getObj(classLoader, config.getIndexRequestFactoryClassName().get(),
-          IndexRequestFactory.class);
+      return ReflectionUtil.getObj(config.getIndexRequestFactoryClassName().get(), IndexRequestFactory.class,
+          classLoader);
     } else {
       return new DefaultIndexRequestFactory();
     }

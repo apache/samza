@@ -48,7 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, ReflectionUtil}
+import org.apache.samza.util.{Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -299,7 +299,7 @@ object JobModelManager extends Logging {
         config.getStreamJobFactoryClass match {
           case Some(jfr(_*)) =>
             info("before match: allSystemStreamPartitions.size = %s" format allSystemStreamPartitions.size)
-            val sspMatcher = ReflectionUtil.getObj(classLoader, s, classOf[SystemStreamPartitionMatcher])
+            val sspMatcher = ReflectionUtil.getObj(s, classOf[SystemStreamPartitionMatcher], classLoader)
             val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions.asJava, config).asScala.toSet
             // Usually a small set hence ok to log at info level
             info("after match: matchedPartitions = %s" format matchedPartitions)
@@ -318,7 +318,7 @@ object JobModelManager extends Logging {
     */
   private def getSystemStreamPartitionGrouper(config: Config, classLoader: ClassLoader) = {
     val factoryString = config.getSystemStreamPartitionGrouperFactory
-    val factory = ReflectionUtil.getObj(classLoader, factoryString, classOf[SystemStreamPartitionGrouperFactory])
+    val factory = ReflectionUtil.getObj(factoryString, classOf[SystemStreamPartitionGrouperFactory], classLoader)
     factory.getSystemStreamPartitionGrouper(config)
   }
 
@@ -382,7 +382,7 @@ object JobModelManager extends Logging {
     // Here is where we should put in a pluggable option for the
     // SSPTaskNameGrouper for locality, load-balancing, etc.
     val containerGrouperFactory =
-      ReflectionUtil.getObj(classLoader, config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
+      ReflectionUtil.getObj(config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory], classLoader)
     val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
     val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
     val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
