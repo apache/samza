@@ -16,12 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.metrics;
+package org.apache.samza.diagnostics;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
@@ -29,17 +30,17 @@ import org.apache.samza.util.TimestampedValue;
 
 
 /**
- * A {@link ListGauge} is a {@link Metric} that buffers multiple instances of a type T in a list.
- * {@link ListGauge}s are useful for maintaining, recording, or collecting values over time.
+ * A {@link BoundedList} buffers multiple instances of a type T in a list.
+ * {@link BoundedList}s are useful for maintaining, recording, or collecting values over time.
  * For example, a set of specific logging-events (e.g., errors).
  *
  * Eviction is controlled by parameters (maxNumberOfItems and maxStaleness), which are set during instantiation.
- * Eviction happens during element addition or during reads of the ListGauge (getValues).
+ * Eviction happens during element addition or during reads of the BoundedList (getValues).
  *
  * All public methods are thread-safe.
  *
  */
-public class ListGauge<T> implements Metric {
+public class BoundedList<T> {
   private final String name;
   private final Queue<TimestampedValue<T>> elements;
 
@@ -49,13 +50,13 @@ public class ListGauge<T> implements Metric {
   private final static Duration DEFAULT_MAX_STALENESS = Duration.ofMinutes(60);
 
   /**
-   * Create a new {@link ListGauge} that auto evicts based on the given maxNumberOfItems, maxStaleness, and period parameters.
+   * Create a new {@link BoundedList} that auto evicts based on the given maxNumberOfItems, maxStaleness, and period parameters.
    *
    * @param name Name to be assigned
-   * @param maxNumberOfItems The max number of items that can remain in the listgauge
-   * @param maxStaleness The max staleness of items permitted in the listgauge
+   * @param maxNumberOfItems The max number of items that can remain in the list
+   * @param maxStaleness The max staleness of items permitted in the list
    */
-  public ListGauge(String name, int maxNumberOfItems, Duration maxStaleness) {
+  public BoundedList(String name, int maxNumberOfItems, Duration maxStaleness) {
     this.name = name;
     this.elements = new ConcurrentLinkedQueue<TimestampedValue<T>>();
     this.maxNumberOfItems = maxNumberOfItems;
@@ -63,15 +64,15 @@ public class ListGauge<T> implements Metric {
   }
 
   /**
-   * Create a new {@link ListGauge} that auto evicts upto a max of 100 items and a max-staleness of 60 minutes.
+   * Create a new {@link BoundedList} that auto evicts upto a max of 100 items and a max-staleness of 60 minutes.
    * @param name Name to be assigned
    */
-  public ListGauge(String name) {
+  public BoundedList(String name) {
     this(name, DEFAULT_MAX_NITEMS, DEFAULT_MAX_STALENESS);
   }
 
   /**
-   * Get the name assigned to this {@link ListGauge}
+   * Get the name assigned to this {@link BoundedList}
    * @return the assigned name
    */
   public String getName() {
@@ -100,11 +101,17 @@ public class ListGauge<T> implements Metric {
   }
 
   /**
-   * {@inheritDoc}
+   * Removes the given elements from the list-gauge.
+   * @param elementsToRemove collection of elements to remove.
    */
-  @Override
-  public void visit(MetricsVisitor visitor) {
-    visitor.listGauge(this);
+  public void remove(Collection<T> elementsToRemove) {
+    Iterator<TimestampedValue<T>> iterator = this.elements.iterator();
+    while (iterator.hasNext()) {
+      TimestampedValue<T> value = iterator.next();
+      if (elementsToRemove.contains(value.getValue())) {
+        iterator.remove();
+      }
+    }
   }
 
   /**

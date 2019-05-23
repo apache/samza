@@ -57,6 +57,7 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +91,7 @@ import scala.collection.JavaConverters;
 public class ClusterBasedJobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   private final Config config;
   private final ClusterManagerConfig clusterManagerConfig;
@@ -221,7 +223,13 @@ public class ClusterBasedJobCoordinator {
       // initialize JobCoordinator state
       LOG.info("Starting cluster based job coordinator");
 
-      // create necessary checkpoint and changelog streams, if not created
+      // write the diagnostics metadata file
+      String jobName = new JobConfig(config).getName().get();
+      String jobId = new JobConfig(config).getJobId();
+      Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
+      DiagnosticsUtil.writeMetadataFile(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
+
+      //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
           new MetadataResourceUtil(jobModel, metrics);
