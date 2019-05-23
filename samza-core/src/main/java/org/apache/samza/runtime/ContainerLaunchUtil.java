@@ -85,10 +85,9 @@ public class ContainerLaunchUtil {
     try {
       TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
       LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
-      Optional<StartpointManager> startpointManager = Optional.empty();
-      if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
-        startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
-      }
+
+      // StartpointManager wraps the coordinatorStreamStore in the namespaces internally
+      StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
           containerId,
@@ -98,7 +97,7 @@ public class ContainerLaunchUtil {
           JobContextImpl.fromConfigWithDefaults(config),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null));
+          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager);
 
       ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);
