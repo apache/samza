@@ -228,6 +228,15 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-coordinator-max-message-bytes">job.coordinator.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this sets the largest record size for the checkpoint
+                        topic.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
@@ -1538,6 +1547,15 @@
                         If you are using Kafka for checkpoints, this is the segment size to be used for the checkpoint
                         topic's log segments. Keeping this number small is useful because it increases the frequency
                         that Kafka will garbage collect old checkpoints.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-max-message-bytes">task.checkpoint.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for checkpoints, this sets the largest record size for the checkpoint
+                        topic.
                     </td>
                 </tr>
 
