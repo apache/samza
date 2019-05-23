@@ -81,6 +81,12 @@ public class TestRemoteTableDescriptor {
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
+      if (readCredFn == null) {
+        desc.withReadRateLimiterDisabled();
+      }
+      if (writeCredFn == null) {
+        desc.withWriteRateLimiterDisabled();
+      }
     } else {
       desc.withReadRateLimit(100);
       desc.withWriteRateLimit(200);
@@ -100,29 +106,30 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testSerializeWithLimiter() {
-    doTestSerialize(createMockRateLimiter(), null, null);
+    doTestSerialize(createMockRateLimiter(), new CountingCreditFunction(), new CountingCreditFunction());
   }
 
   @Test
   public void testSerializeWithLimiterAndReadCredFn() {
-    doTestSerialize(createMockRateLimiter(), (k, v) -> 1, null);
+    doTestSerialize(createMockRateLimiter(), (k, v, args) -> 1, null);
   }
 
   @Test
   public void testSerializeWithLimiterAndWriteCredFn() {
-    doTestSerialize(createMockRateLimiter(), null, (k, v) -> 1);
+    doTestSerialize(createMockRateLimiter(), null, (k, v, args) -> 1);
   }
 
   @Test
   public void testSerializeWithLimiterAndReadWriteCredFns() {
-    doTestSerialize(createMockRateLimiter(), (key, value) -> 1, (key, value) -> 1);
+    doTestSerialize(createMockRateLimiter(), (key, value, args) -> 1, (key, value, args) -> 1);
   }
 
   @Test
   public void testSerializeNullWriteFunction() {
     String tableId = "1";
     RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
-        .withReadFunction(createMockTableReadFunction());
+        .withReadFunction(createMockTableReadFunction())
+        .withRateLimiterDisabled();
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -210,6 +217,7 @@ public class TestRemoteTableDescriptor {
   public void testTableRetryPolicyToConfig() {
     Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy())
+        .withRateLimiterDisabled()
         .toConfig(new MapConfig());
     Assert.assertEquals(tableConfig.get("tables.1.io.read.retry.policy.TableRetryPolicy"),
         "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"retryPredicate\":{}}");
@@ -255,7 +263,7 @@ public class TestRemoteTableDescriptor {
     int numCalls = 0;
 
     @Override
-    public int getCredits(K key, V value) {
+    public int getCredits(K key, V value, Object ... args) {
       numCalls++;
       return 1;
     }
@@ -272,23 +280,33 @@ public class TestRemoteTableDescriptor {
     if (rateOnly) {
       if (rlGets) {
         desc.withReadRateLimit(1000);
+      } else {
+        desc.withReadRateLimiterDisabled();
       }
       if (rlPuts) {
         desc.withWriteRateLimit(2000);
+      } else {
+        desc.withWriteRateLimiterDisabled();
       }
     } else {
       if (numRateLimitOps > 0) {
         Map<String, Integer> tagCredits = new HashMap<>();
         if (rlGets) {
           tagCredits.put(RemoteTableDescriptor.RL_READ_TAG, 1000);
+        } else {
+          desc.withReadRateLimiterDisabled();
         }
         if (rlPuts) {
           tagCredits.put(RemoteTableDescriptor.RL_WRITE_TAG, 2000);
+        } else {
+          desc.withWriteRateLimiterDisabled();
         }
 
         // Spy the rate limiter to verify call count
         RateLimiter rateLimiter = spy(new EmbeddedTaggedRateLimiter(tagCredits));
         desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction());
+      } else {
+        desc.withRateLimiterDisabled();
       }
     }
 

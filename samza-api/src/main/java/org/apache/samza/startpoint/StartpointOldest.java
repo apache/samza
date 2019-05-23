@@ -19,8 +19,6 @@
 package org.apache.samza.startpoint;
 
 import com.google.common.base.MoreObjects;
-import org.apache.samza.system.SystemStreamPartition;
-
 
 /**
  * A {@link Startpoint} that represents the earliest offset in a stream partition.
@@ -35,8 +33,8 @@ public final class StartpointOldest extends Startpoint {
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
+  public <IN, OUT> OUT apply(IN input, StartpointVisitor<IN, OUT> startpointVisitor) {
+    return startpointVisitor.visit(input, this);
   }
 
   @Override

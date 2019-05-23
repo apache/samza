@@ -20,6 +20,8 @@
 package org.apache.samza.table.utils;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
@@ -29,6 +31,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.SupplierGauge;
 
 import java.util.function.Supplier;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -103,4 +106,8 @@ public class TableMetricsUtil {
     return String.format("%s-%s", tableId, name);
   }
 
+  public static HighResolutionClock mayCreateHighResolutionClock(Config config) {
+    final MetricsConfig metricsConfig = new MetricsConfig(config);
+    return metricsConfig.getMetricsTimerEnabled() ? System::nanoTime : () -> 0;
+  }
 }

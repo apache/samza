@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
 import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.StorageConfig._
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
@@ -34,7 +33,7 @@ import org.apache.samza.util._
 
 object KafkaSystemFactory extends Logging {
   @VisibleForTesting
-  def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
+  def getInjectedProducerProperties(systemName: String, config: Config) = if (new StorageConfig(config).isChangelogSystem(systemName)) {
     warn("System name '%s' is being used as a changelog. Disabling compression since Kafka does not support compression for log compacted topics." format systemName)
     Map[String, String]("compression.type" -> "none")
   } else {
@@ -99,9 +98,11 @@ class KafkaSystemFactory extends SystemFactory with Logging {
 
   def getCoordinatorTopicProperties(config: Config) = {
     val segmentBytes = config.getCoordinatorSegmentBytes
+    val maxMessageBytes = config.getCoordinatorMaxMessageByte
     (new Properties /: Map(
       "cleanup.policy" -> "compact",
-      "segment.bytes" -> segmentBytes)) { case (props, (k, v)) => props.put(k, v); props }
+      "segment.bytes" -> segmentBytes,
+      "max.message.bytes" -> maxMessageBytes)) { case (props, (k, v)) => props.put(k, v); props }
   }
 
   def getIntermediateStreamProperties(config: Config): Map[String, Properties] = {

@@ -16,28 +16,49 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
 
-import org.apache.samza.system.SystemStreamPartition;
+package org.apache.samza.table.batching;
+
+import com.google.common.base.Preconditions;
 
 
 /**
- * A {@link Startpoint} that represents a custom startpoint. This is for systems that have a non-generic option
- * for setting offsets. Startpoints are serialized to JSON in the {@link org.apache.samza.metadatastore.MetadataStore}
- * and it is recommended to maintain the subclass of this {@link StartpointCustom} as a simple POJO.
+ * Delete operation.
+ *
+ * @param <K> The type of the key.
  */
-public abstract class StartpointCustom extends Startpoint {
+public class DeleteOperation<K, V> implements Operation<K, V> {
+  final K key;
+  final Object[] args;
 
-  StartpointCustom() {
-    super();
+  public DeleteOperation(K key, Object ... args) {
+    Preconditions.checkNotNull(key);
+
+    this.key = key;
+    this.args = args;
   }
 
-  StartpointCustom(long creationTimestamp) {
-    super(creationTimestamp);
-  }
-
+  /**
+   * @return The key to be deleted.
+   */
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
+  public K getKey() {
+    return key;
+  }
+
+  /**
+   * @return null.
+   */
+  @Override
+  public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return The extra arguments associated with the table.
+   */
+  @Override
+  public Object[] getArgs() {
+    return args;
   }
 }

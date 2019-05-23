@@ -96,24 +96,25 @@ Samza Table supports both synchronous and asynchronous API. Below is an example 
 the **`get`** operation.
 
 {% highlight java %}
- /**
+  /**
    * Gets the value associated with the specified {@code key}.
    *
    * @param key the key with which the associated value is to be fetched.
-   * @return if found, the value associated with the specified {@code key}; 
-   * otherwise, {@code null}.
+   * @param args additional arguments
+   * @return if found, the value associated with the specified {@code key}; otherwise, {@code null}.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  V get(K key);
+  V get(K key, Object ... args);
 
- /**
+  /**
    * Asynchronously gets the value associated with the specified {@code key}.
    *
    * @param key the key with which the associated value is to be fetched.
+   * @param args additional arguments
    * @return completableFuture for the requested value
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  CompletableFuture<V> getAsync(K key);
+  CompletableFuture<V> getAsync(K key, Object ... args);
 {% endhighlight %}
 
 
@@ -244,11 +245,15 @@ The table below summarizes table metrics:
 
 | Metrics | Class | Description |
 |---------|-------|-------------|
+|`num-batches`|`AsyncBatchingTable`|Number of batch operations|
+|`batch-ns`|`AsyncBatchingTable`|Time interval between opening and closing a batch|
 |`get-ns`|`ReadableTable`|Average latency of `get/getAsync()` operations|
 |`getAll-ns`|`ReadableTable`|Average latency of `getAll/getAllAsync()` operations|
 |`num-gets`|`ReadableTable`|Count of `get/getAsync()` operations
 |`num-getAlls`|`ReadableTable`|Count of `getAll/getAllAsync()` operations
 |`num-missed-lookups`|`ReadableTable`|Count of missed get/getAll() operations
+|`read-ns`|`ReadableTable`|Average latency of `readAsync()` operations|
+|`num-reads`|`ReadableTable`|Count of `readAsync()` operations
 |`put-ns`|`ReadWriteTable`|Average latency of `put/putAsync()` operations
 |`putAll-ns`|`ReadWriteTable`|Average latency of `putAll/putAllAsync()` operations
 |`num-puts`|`ReadWriteTable`|Count of `put/putAsync()` operations
@@ -257,6 +262,8 @@ The table below summarizes table metrics:
 |`deleteAll-ns`|`ReadWriteTable`|Average latency of `deleteAll/deleteAllAsync()` operations
 |`delete-num`|`ReadWriteTable`|Count of `delete/deleteAsync()` operations
 |`deleteAll-num`|`ReadWriteTable`|Count of `deleteAll/deleteAllAsync()` operations
+|`num-writes`|`ReadWriteTable`|Count of `writeAsync()` operations
+|`write-ns`|`ReadWriteTable`|Average latency of `writeAsync()` operations
 |`flush-ns`|`ReadWriteTable`|Average latency of flush operations
 |`flush-num`|`ReadWriteTable`|Count of flush operations
 |`hit-rate`|`CachingTable`|Cache hit rate (%)
@@ -295,6 +302,29 @@ All configuration options of a Remote Table can be found in the
 Couchbase is supported as remote table. See
 [`CouchbaseTableReadFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableReadFunction.java) and 
 [`CouchbaseTableWriteFunction`](https://github.com/apache/samza/blob/master/samza-kv-couchbase/src/main/java/org/apache/samza/table/remote/couchbase/CouchbaseTableWriteFunction.java).
+
+### Batching
+
+Remote Table has built-in client-side batching support for its async executions.
+This is useful when a remote data store supports batch processing and is not sophisticated enough
+to handle heavy inbound requests. 
+
+#### Configuration
+
+Batching can be enabled with [`RemoteTableDescriptor`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteTableDescriptor.java)
+by providing a [`BatchProvider`](https://github.com/apache/samza/samza-api/src/main/java/org/apache/samza/table/batching/BatchProvider.java)
+The user can choose:
+ 
+1. A [`CompactBatchProvider`](https://github.com/apache/samza/samza-core/src/main/java/org/apache/samza/table/batching/CompactBatchProvider.java) which provides a batch such that
+   the operations are compacted by the key. For update operations, the latter update will override the value of the previous one when they have the same key. For query operations,
+   the operations will be combined as a single operation when they have the same key. 
+2. A [`CompleteBatchProvider`](https://github.com/apache/samza/samza-core/src/main/java/org/apache/samza/table/batching/CompleteBatchProvider.java) which provides a batch such that
+   all the operations will be visible to the remote store regardless of the keys.
+3. A user-defined instance of [`BatchProvider`].
+
+For each [`BatchProvider`], the user can config the following:
+1. Specify the max size the batch can grow before being closed by `withmaxBatchSize(int)`
+2. Specify the max time the batch can last before being closed by `withmaxBatchDelay(Duration)`
 
 ### Rate Limiting
 
@@ -342,6 +372,66 @@ per-request basis such that each individual request is retried independently.
 Lastly, Remote Table retry provides a set of standard metrics for monitoring. 
 They can be found in 
 [`RetryMetrics`] (https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/retry/RetryMetrics.java).
+
+
+### Supporting Additional Operations
+
+Remote Table allows invoking additional operations on remote store that are not directly
+supported through the Get/Put/Delete methods. Two categories of operations are supported
+
+* Get/Put/Delete operations with additional arguments
+* Arbitrary operations through readAsync() and writeAsync()  
+
+We only mandate implementers of table functions to provide implementation for Get/Put/Delete 
+without additional arguments. End users can subclass a table function, and invoke operations
+on remote store directly, if they are not supported by a table function.
+
+{% highlight java %}
+ 1  public class MyCouchbaseTableWriteFunction<V> extends CouchbaseTableWriteFunction<V> {
+ 2
+ 3    public static final int OP_COUNTER = 1;
+ 4
+ 5    @Override
+ 6    public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
+ 7      if (OP_COUNTER == opId) {
+ 8        String id = (String) args[0];
+ 9        Long delta = Long.valueOf(args[1].toString());
+10        return convertToFuture(bucket.async().counter(id, delta));
+11      }
+12      throw new SamzaException("Unknown opId" + opId);
+13    }
+14
+15    public CompletableFuture<Long> counterAsync(String id, long delta) {
+16      return table.writeAsync(OP_COUNTER, id, delta);
+17    }
+18  }
+19
+20  public class MyMapFunc implements MapFunction { 
+21
+22    AsyncReadWriteTable table;
+23    MyCouchbaseTableWriteFunction writeFunc;
+24
+25    @Override
+26    public void init(Context context) {
+27      table = context.getTaskContext().getTable(...);
+28      writeFunc = (MyCouchbaseTableWriteFunction) ((RemoteTable) table).getWriteFunction();
+29    }
+30
+31    @Override
+32    public Object apply(Object message) {
+33      return writeFunc.counterAsync(“id”, 100);
+34    }
+35  }
+{% endhighlight %}
+  
+The code above illustrates an example of invoking counter() operation on Couchbase. 
+
+1. Line  5-13: method writeAsync() is implemented to invoke counter(). 
+2. Line 15-16: it is then wrapped by a convenience method. Notice here we invoke writeAsync()
+               on the table, so that other value-added features such as rate limiting,
+               retry and batching can participate in this call.
+3. Line 27-28: references to the table and read function are obtained
+4. Line    33: the actual invocation.   
 
 ## Local Table
 
@@ -542,6 +632,11 @@ We recommend:
    intent of the current design of Samza Remote Table API is to handle 
    retries at a higher and more abstract Remote Table level, which implies 
    retrying is not a responsibility of I/O functions.
+
+### Batching
+
+Samza Remote Table API can be configured to utilize user-supplied bath providers. 
+You may refer to the [Batching](#batching) section under Remote Table for more details.
 
 ### Caching
 

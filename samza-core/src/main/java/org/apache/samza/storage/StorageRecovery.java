@@ -23,11 +23,12 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
@@ -145,23 +146,23 @@ public class StorageRecovery extends CommandLine {
    * and put them into the maps
    */
   private void getChangeLogSystemStreamsAndStorageFactories() {
-    JavaStorageConfig config = new JavaStorageConfig(jobConfig);
+    StorageConfig config = new StorageConfig(jobConfig);
     List<String> storeNames = config.getStoreNames();
 
     LOG.info("Got store names: " + storeNames.toString());
 
     for (String storeName : storeNames) {
-      String streamName = config.getChangelogStream(storeName);
+      Optional<String> streamName = config.getChangelogStream(storeName);
 
-      LOG.info("stream name for " + storeName + " is " + streamName);
+      LOG.info("stream name for " + storeName + " is " + streamName.orElse(null));
 
-      if (streamName != null) {
-        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName));
+      if (streamName.isPresent()) {
+        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName.get()));
       }
 
-      String factoryClass = config.getStorageFactoryClassName(storeName);
-      if (factoryClass != null) {
-        storageEngineFactories.put(storeName, Util.getObj(factoryClass, StorageEngineFactory.class));
+      Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
+      if (factoryClass.isPresent()) {
+        storageEngineFactories.put(storeName, Util.getObj(factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }

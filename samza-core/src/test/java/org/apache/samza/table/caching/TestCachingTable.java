@@ -286,6 +286,7 @@ public class TestCachingTable {
         tableId + "-remote", readFn, writeFn,
         rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
+        null, null,
         Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
@@ -293,15 +294,15 @@ public class TestCachingTable {
 
     initTables(cachingTable, guavaTable, remoteTable);
 
-    // 3 per readable table (9)
-    // 5 per read/write table (15)
-    verify(metricsRegistry, times(24)).newCounter(any(), anyString());
+    // 4 per readable table (12)
+    // 6 per read/write table (18)
+    verify(metricsRegistry, times(30)).newCounter(any(), anyString());
 
-    // 2 per readable table (6)
-    // 5 per read/write table (15)
+    // 3 per readable table (9)
+    // 6 per read/write table (18)
     // 1 per remote readable table (1)
     // 1 per remote read/write table (1)
-    verify(metricsRegistry, times(23)).newTimer(any(), anyString());
+    verify(metricsRegistry, times(29)).newTimer(any(), anyString());
 
     // 1 per guava table (1)
     // 3 per caching table (2)
@@ -407,6 +408,7 @@ public class TestCachingTable {
         tableId, readFn, writeFn,
         rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
+        null, null,
         Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(

@@ -34,6 +34,8 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.batching.BatchProvider;
+import org.apache.samza.table.batching.AsyncBatchingTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
 import org.apache.samza.table.retry.AsyncRetriableTable;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -74,8 +76,8 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
-    implements ReadWriteTable<K, V> {
+public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
+    implements ReadWriteTable<K, V>, AsyncReadWriteTable<K, V> {
 
   // Read/write functions
   protected final TableReadFunction<K, V> readFn;
@@ -88,6 +90,10 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   protected final TableRetryPolicy readRetryPolicy;
   protected final TableRetryPolicy writeRetryPolicy;
   protected final ScheduledExecutorService retryExecutor;
+  // batch
+  protected final BatchProvider<K, V> batchProvider;
+  protected final ScheduledExecutorService batchExecutor;
+
   // Other
   protected final ExecutorService callbackExecutor;
 
@@ -105,6 +111,8 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
    * @param readRetryPolicy read retry policy
    * @param writeRetryPolicy write retry policy
    * @param retryExecutor executor for invoking retries
+   * @param batchProvider batch provider to create a batch instance
+   * @param batchExecutor scheduled executor for batch
    * @param callbackExecutor executor for invoking async callbacks
    */
   public RemoteTable(
@@ -117,6 +125,8 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
       TableRetryPolicy readRetryPolicy,
       TableRetryPolicy writeRetryPolicy,
       ScheduledExecutorService retryExecutor,
+      BatchProvider<K, V> batchProvider,
+      ScheduledExecutorService batchExecutor,
       ExecutorService callbackExecutor) {
 
     super(tableId);
@@ -131,6 +141,8 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     this.writeRetryPolicy = writeRetryPolicy;
     this.callbackExecutor = callbackExecutor;
     this.retryExecutor = retryExecutor;
+    this.batchProvider = batchProvider;
+    this.batchExecutor = batchExecutor;
 
     AsyncReadWriteTable table = new AsyncRemoteTable(readFn, writeFn);
     if (readRateLimiter != null || writeRateLimiter != null) {
@@ -139,23 +151,26 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     if (readRetryPolicy != null || writeRetryPolicy != null) {
       table = new AsyncRetriableTable(tableId, table, readRetryPolicy, writeRetryPolicy, retryExecutor, readFn, writeFn);
     }
+    if (batchProvider != null) {
+      table = new AsyncBatchingTable(tableId, table, batchProvider, batchExecutor);
+    }
 
     asyncTable = table;
   }
 
   @Override
-  public V get(K key) {
+  public V get(K key, Object ... args) {
     try {
-      return getAsync(key).get();
+      return getAsync(key, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletableFuture<V> getAsync(K key, Object ... args) {
     Preconditions.checkNotNull(key, "null key");
-    return instrument(() -> asyncTable.getAsync(key), metrics.numGets, metrics.getNs)
+    return instrument(() -> asyncTable.getAsync(key, args), metrics.numGets, metrics.getNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + key, e);
@@ -168,21 +183,21 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public Map<K, V> getAll(List<K> keys) {
+  public Map<K, V> getAll(List<K> keys, Object ... args) {
     try {
-      return getAllAsync(keys).get();
+      return getAllAsync(keys, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
     Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
-    return instrument(() -> asyncTable.getAllAsync(keys), metrics.numGetAlls, metrics.getAllNs)
+    return instrument(() -> asyncTable.getAllAsync(keys, args), metrics.numGetAlls, metrics.getAllNs)
         .handle((result, e) -> {
             if (e != null) {
               throw new SamzaException("Failed to get the records for " + keys, e);
@@ -193,39 +208,56 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void put(K key, V value) {
+  public <T> T read(int opId, Object ... args) {
     try {
-      putAsync(key, value).get();
+      return (T) readAsync(opId, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
+    return (CompletableFuture<T>) instrument(() -> asyncTable.readAsync(opId, args), metrics.numReads, metrics.readNs)
+        .exceptionally(e -> {
+            throw new SamzaException(String.format("Failed to read, opId=%d", opId), e);
+          });
+  }
+
+  @Override
+  public void put(K key, V value, Object ... args) {
+    try {
+      putAsync(key, value, args).get();
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
     if (value == null) {
-      return deleteAsync(key);
+      return deleteAsync(key, args);
     }
 
-    return instrument(() -> asyncTable.putAsync(key, value), metrics.numPuts, metrics.putNs)
+    return instrument(() -> asyncTable.putAsync(key, value, args), metrics.numPuts, metrics.putNs)
         .exceptionally(e -> {
             throw new SamzaException("Failed to put a record with key=" + key, (Throwable) e);
           });
   }
 
   @Override
-  public void putAll(List<Entry<K, V>> entries) {
+  public void putAll(List<Entry<K, V>> entries, Object ... args) {
     try {
-      putAllAsync(entries).get();
+      putAllAsync(entries, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records) {
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> records, Object ... args) {
 
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(records, "null records");
@@ -241,12 +273,12 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
     CompletableFuture<Void> deleteFuture = deleteKeys.isEmpty()
         ? CompletableFuture.completedFuture(null)
-        : deleteAllAsync(deleteKeys);
+        : deleteAllAsync(deleteKeys, args);
 
     // Return the combined future
     return CompletableFuture.allOf(
         deleteFuture,
-        instrument(() -> asyncTable.putAllAsync(putRecords), metrics.numPutAlls, metrics.putAllNs))
+        instrument(() -> asyncTable.putAllAsync(putRecords, args), metrics.numPutAlls, metrics.putAllNs))
         .exceptionally(e -> {
             String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
             throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
@@ -254,44 +286,61 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   }
 
   @Override
-  public void delete(K key) {
+  public void delete(K key, Object ... args) {
     try {
-      deleteAsync(key).get();
+      deleteAsync(key, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
-    return instrument(() -> asyncTable.deleteAsync(key), metrics.numDeletes, metrics.deleteNs)
+    return instrument(() -> asyncTable.deleteAsync(key, args), metrics.numDeletes, metrics.deleteNs)
         .exceptionally(e -> {
             throw new SamzaException(String.format("Failed to delete the record for " + key), (Throwable) e);
           });
   }
 
   @Override
-  public void deleteAll(List<K> keys) {
+  public void deleteAll(List<K> keys, Object ... args) {
     try {
-      deleteAllAsync(keys).get();
+      deleteAllAsync(keys, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(keys, "null keys");
     if (keys.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
 
-    return instrument(() -> asyncTable.deleteAllAsync(keys), metrics.numDeleteAlls, metrics.deleteAllNs)
+    return instrument(() -> asyncTable.deleteAllAsync(keys, args), metrics.numDeleteAlls, metrics.deleteAllNs)
         .exceptionally(e -> {
-            throw new SamzaException(String.format("Failed to delete records for " + keys), (Throwable) e);
+            throw new SamzaException(String.format("Failed to delete records for " + keys), e);
+          });
+  }
+
+  @Override
+  public <T> T write(int opId, Object ... args) {
+    try {
+      return (T) writeAsync(opId, args).get();
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
+    return (CompletableFuture<T>) instrument(() -> asyncTable.writeAsync(opId, args), metrics.numWrites, metrics.writeNs)
+        .exceptionally(e -> {
+            throw new SamzaException(String.format("Failed to write, opId=%d", opId), e);
           });
   }
 
@@ -299,6 +348,10 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   public void init(Context context) {
     super.init(context);
     asyncTable.init(context);
+    readFn.init(context, this);
+    if (writeFn != null) {
+      writeFn.init(context, this);
+    }
   }
 
   @Override
@@ -318,6 +371,14 @@ public class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   @Override
   public void close() {
     asyncTable.close();
+  }
+
+  public TableReadFunction<K, V> getReadFunction() {
+    return readFn;
+  }
+
+  public TableWriteFunction<K, V> getWriteFunction() {
+    return writeFn;
   }
 
   protected <T> CompletableFuture<T> instrument(Func1<T> func, Counter counter, Timer timer) {
