@@ -85,14 +85,14 @@ public class TestReflectionUtil {
   }
 
   @Test
-  public void testCreateInstanceOrNull() {
+  public void testGetObjWithArgsOrNull() {
     assertEquals(new WithTwoArgConstructor("hello", "world"),
         ReflectionUtil.getObjWithArgsOrNull(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
             "hello", "world"));
   }
 
   @Test
-  public void testCreateInstanceOrNullInvalid() {
+  public void testGetObjWithArgsOrNullInvalid() {
     // no class exists (also verifies classloader passed as argument gets used)
     assertNull(
         ReflectionUtil.getObjWithArgsOrNull(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class, 10));
