@@ -66,7 +66,7 @@ public class JobCoordinatorConfig extends MapConfig {
     // load the class
     String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
 
-    return ReflectionUtil.getObj(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class, classLoader);
+    return ReflectionUtil.getObj(classLoader, coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
   }
 
   public String getJobCoordinatorFactoryClassName() {

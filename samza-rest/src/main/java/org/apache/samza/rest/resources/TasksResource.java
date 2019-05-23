@@ -60,7 +60,7 @@ public class TasksResource {
                                 String.format("Missing config: %s", TaskResourceConfig.CONFIG_TASK_PROXY_FACTORY));
     try {
       TaskProxyFactory factory =
-          ReflectionUtil.getObj(taskProxyFactoryClassName, TaskProxyFactory.class, getClass().getClassLoader());
+          ReflectionUtil.getObj(getClass().getClassLoader(), taskProxyFactoryClassName, TaskProxyFactory.class);
       taskProxy = factory.getTaskProxy(config);
     } catch (Exception e) {
       LOG.error(String.format("Exception in building TasksResource with config: %s.", config), e);

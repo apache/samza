@@ -518,9 +518,9 @@ public class ContainerStorageManager {
                 .orElseThrow(() -> new SamzaException(
                     String.format("Could not find side inputs processor factory for store: %s", storeName)));
             sideInputStoresToProcessors.get(taskName)
-                .put(storeName,
-                    ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class,
-                        classLoader).getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry()));
+                .put(storeName, ReflectionUtil.getObj(classLoader, sideInputsProcessorFactoryClassName,
+                    SideInputsProcessorFactory.class)
+                    .getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry()));
           }
         }
       });

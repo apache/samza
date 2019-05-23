@@ -20,7 +20,7 @@ package org.apache.samza.monitor;
 
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.util.ReflectionUtil;
-import org.apache.samza.util.Util;
+
 
 /**
  * Helper class that instantiates the Monitor.
@@ -32,7 +32,7 @@ public class MonitorLoader {
       throws InstantiationException {
       String factoryClass = monitorConfig.getMonitorFactoryClass();
       try {
-        MonitorFactory monitorFactory = ReflectionUtil.getObj(factoryClass, MonitorFactory.class, classLoader);
+        MonitorFactory monitorFactory = ReflectionUtil.getObj(classLoader, factoryClass, MonitorFactory.class);
         return monitorFactory.getMonitorInstance(monitorName, monitorConfig, metricsRegistry);
       } catch (Exception e) {
         throw (InstantiationException)

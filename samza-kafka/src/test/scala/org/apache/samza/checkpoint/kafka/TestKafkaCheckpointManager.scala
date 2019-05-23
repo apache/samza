@@ -214,7 +214,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
-    val systemFactory = ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory], getClass.getClassLoader)
+    val systemFactory = ReflectionUtil.getObj(getClass.getClassLoader, systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
     new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)

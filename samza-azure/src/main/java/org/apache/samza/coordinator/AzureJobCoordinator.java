@@ -299,7 +299,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     JobConfig jobConfig = new JobConfig(config);
     String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
     SystemStreamPartitionGrouper grouper =
-        ReflectionUtil.getObj(factoryString, SystemStreamPartitionGrouperFactory.class, getClass().getClassLoader())
+        ReflectionUtil.getObj(getClass().getClassLoader(), factoryString, SystemStreamPartitionGrouperFactory.class)
             .getSystemStreamPartitionGrouper(jobConfig);
     return grouper;
   }

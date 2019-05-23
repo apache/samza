@@ -243,7 +243,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   private CommandBuilder getCommandBuilder(String processorId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
     CommandBuilder cmdBuilder =
-        ReflectionUtil.getObj(cmdBuilderClassName, CommandBuilder.class, this.classLoaderForConfigObjects);
+        ReflectionUtil.getObj(this.classLoaderForConfigObjects, cmdBuilderClassName, CommandBuilder.class);
 
     cmdBuilder.setConfig(config).setId(processorId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;

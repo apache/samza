@@ -117,8 +117,9 @@ public class SamzaTaskProxy implements TaskProxy {
   private Config getCoordinatorSystemConfig(JobInstance jobInstance) {
     try {
       InstallationRecord record = installFinder.getAllInstalledJobs().get(jobInstance);
-      ConfigFactory configFactory = ReflectionUtil.getObj(taskResourceConfig.getJobConfigFactory(), ConfigFactory.class,
-          getClass().getClassLoader());
+      ConfigFactory configFactory =
+          ReflectionUtil.getObj(getClass().getClassLoader(), taskResourceConfig.getJobConfigFactory(),
+              ConfigFactory.class);
       Config config = configFactory.getConfig(new URI(String.format("file://%s", record.getConfigFilePath())));
       Map<String, String> configMap = ImmutableMap.of(JobConfig.JOB_ID(), jobInstance.getJobId(),
                                                       JobConfig.JOB_NAME(), jobInstance.getJobName());

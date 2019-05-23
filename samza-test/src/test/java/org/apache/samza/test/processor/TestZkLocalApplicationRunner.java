@@ -719,8 +719,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
   private MapConfig getConfigFromCoordinatorStream(Config config) {
     MetadataStoreFactory metadataStoreFactory =
-        ReflectionUtil.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class,
-            getClass().getClassLoader());
+        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getMetadataStoreFactory(),
+            MetadataStoreFactory.class);
     MetadataStore metadataStore = metadataStoreFactory.getMetadataStore("set-config", config, new MetricsRegistryMap());
     metadataStore.init();
     Map<String, String> configMap = new HashMap<>();
