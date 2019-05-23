@@ -92,8 +92,13 @@ public class ReflectionUtil {
   }
 
   /**
-   * Same as {@link #getObjWithArgs(ClassLoader, String, Class, Object...)}, except that it will return null if there
-   * was an exception instead of throwing an exception.
+   * Create an instance of the specified class with constructor matching the argument array.
+   *
+   * Possible recommendations for the classloader to use:
+   * 1) If there is a custom classloader being passed to the caller, consider using that one.
+   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
+   * loaded the caller instance.
+   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
    *
    * @param <T> type of the object to return
    * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
@@ -103,7 +108,7 @@ public class ReflectionUtil {
    * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
    * @return instance of the class, or null if an exception was thrown while trying to create the instance
    */
-  public static <T> T getObjWithArgsOrNull(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
+  public static <T> T createInstanceOrNull(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
     try {
       return doGetObjWithArgs(classLoader, className, clazz, args);
     } catch (Exception e) {
