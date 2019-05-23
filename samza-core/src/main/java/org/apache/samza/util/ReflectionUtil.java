@@ -19,7 +19,6 @@
 package org.apache.samza.util;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.stream.IntStream;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
@@ -54,13 +53,7 @@ public class ReflectionUtil {
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
   public static <T> T getObj(ClassLoader classLoader, String className, Class<T> clazz) {
-    try {
-      return doGetObjWithArgs(classLoader, className, clazz);
-    } catch (Exception e) {
-      String errorMessage = String.format("Unable to create instance for class: %s", className);
-      LOG.error(errorMessage, e);
-      throw new SamzaException(errorMessage, e);
-    }
+    return doGetObjWithArgs(classLoader, className, clazz);
   }
 
   /**
@@ -82,34 +75,7 @@ public class ReflectionUtil {
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
   public static <T> T getObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
-    try {
-      return doGetObjWithArgs(classLoader, className, clazz, args);
-    } catch (Exception e) {
-      String errorMessage = String.format("Unable to create instance for class: %s", className);
-      LOG.error(errorMessage, e);
-      throw new SamzaException(errorMessage, e);
-    }
-  }
-
-  /**
-   * Same as {@link #getObjWithArgs(ClassLoader, String, Class, Object...)}, except that it will return null if there
-   * was an exception instead of throwing an exception.
-   *
-   * @param <T> type of the object to return
-   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
-   * {@link Class#forName(String, boolean, ClassLoader)}
-   * @param className name of the class
-   * @param clazz type of object to return
-   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
-   * @return instance of the class, or null if an exception was thrown while trying to create the instance
-   */
-  public static <T> T getObjWithArgsOrNull(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
-    try {
-      return doGetObjWithArgs(classLoader, className, clazz, args);
-    } catch (Exception e) {
-      LOG.warn(String.format("Unable to create instance for class: %s", className), e);
-      return null;
-    }
+    return doGetObjWithArgs(classLoader, className, clazz, args);
   }
 
   /**
@@ -123,21 +89,26 @@ public class ReflectionUtil {
    * @param clazz type of object to return
    * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
    * @return instance of the class
+   * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args)
-      throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
-             InstantiationException {
+  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
     Validate.notNull(className, "Null class name");
 
-    //noinspection unchecked
-    Class<T> classObj = (Class<T>) Class.forName(className, true, classLoader);
-    if (args.length == 0) {
-      return classObj.newInstance();
-    } else {
-      Class<?>[] argTypes = new Class<?>[args.length];
-      IntStream.range(0, args.length).forEach(i -> argTypes[i] = args[i].getClass());
-      Constructor<T> constructor = classObj.getDeclaredConstructor(argTypes);
-      return constructor.newInstance(args);
+    try {
+      //noinspection unchecked
+      Class<T> classObj = (Class<T>) Class.forName(className, true, classLoader);
+      if (args.length == 0) {
+        return classObj.newInstance();
+      } else {
+        Class<?>[] argTypes = new Class<?>[args.length];
+        IntStream.range(0, args.length).forEach(i -> argTypes[i] = args[i].getClass());
+        Constructor<T> constructor = classObj.getDeclaredConstructor(argTypes);
+        return constructor.newInstance(args);
+      }
+    } catch (Exception e) {
+      String errorMessage = String.format("Unable to create instance for class: %s", className);
+      LOG.error(errorMessage, e);
+      throw new SamzaException(errorMessage, e);
     }
   }
 }
