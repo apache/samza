@@ -31,7 +31,8 @@ import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StoreProperties}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
-import org.apache.samza.util.HighResolutionClock
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
+import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
 
 /**
   * A key value storage engine factory implementation
@@ -83,23 +84,25 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode : StoreMode): StorageEngine = {
-    val storageConfig = jobContext.getConfig.subset("stores." + storeName + ".", true)
-    val storeFactory = storageConfig.get("factory")
+    val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
+    val storageConfig = new StorageConfig(jobContext.getConfig)
+    val storeFactory = JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
-    val accessLog = storageConfig.getBoolean("accesslog.enabled", false)
+    val accessLog = storageConfig.getAccessLogEnabled(storeName)
+
     val maxMessageSize = storageConfig.getInt(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES)
     val largeMessagesExpected = storageConfig.getBoolean(StorageConfig.EXPECT_LARGE_MESSAGES, StorageConfig.DEFAULT_EXPECT_LARGE_MESSAGES)
     val dropLargeMessage = storageConfig.getBoolean(StorageConfig.DROP_LARGE_MESSAGES, StorageConfig.DEFAULT_DROP_LARGE_MESSAGES)
 
-    if (storeFactory == null) {
+    if (storeFactory.isEmpty) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
     }
-    if (!storeFactory.equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
+    if (!storeFactory.get.equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder = storePropertiesBuilder.setPersistedToDisk(true)
     }
 
-    val batchSize = storageConfig.getInt("write.batch.size", 500)
-    val cacheSize = storageConfig.getInt("object.cache.size", math.max(batchSize, 1000))
+    val batchSize = storageConfigSubset.getInt("write.batch.size", 500)
+    val cacheSize = storageConfigSubset.getInt("object.cache.size", math.max(batchSize, 1000))
     val enableCache = cacheSize > 0
 
     if (cacheSize > 0 && cacheSize < batchSize) {

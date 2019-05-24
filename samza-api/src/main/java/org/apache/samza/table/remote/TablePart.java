@@ -43,5 +43,4 @@ public interface TablePart {
   default Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
     return Collections.emptyMap();
   }
-
 }

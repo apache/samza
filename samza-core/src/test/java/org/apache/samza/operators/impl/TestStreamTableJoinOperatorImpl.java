@@ -46,6 +46,7 @@ public class TestStreamTableJoinOperatorImpl {
 
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
     when(mockJoinOpSpec.getTableId()).thenReturn(tableId);
+    when(mockJoinOpSpec.getArgs()).thenReturn(new Object[0]);
     when(mockJoinOpSpec.getJoinFn()).thenReturn(
         new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
           @Override

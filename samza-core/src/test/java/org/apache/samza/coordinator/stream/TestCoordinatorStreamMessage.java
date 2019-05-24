@@ -62,6 +62,14 @@ public class TestCoordinatorStreamMessage {
   }
 
   @Test
+  public void testGetConfigValueShouldReturnNullForDeletedConfigs() {
+    // Null in passed in the message map to indicate that the message has been deleted.
+    CoordinatorStreamMessage message = new CoordinatorStreamMessage(new Object[] {Integer.valueOf(0), SetConfig.TYPE, "random-key"}, null);
+    SetConfig setConfig = new SetConfig(message);
+    assertEquals(null, setConfig.getConfigValue());
+  }
+
+  @Test
   public void testDelete() {
     Delete delete = new Delete("source2", "key", "delete-type");
     assertEquals("delete-type", delete.getType());

@@ -284,7 +284,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     // Store factory configuration
-    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+    tableConfig.put(String.format(StorageConfig.FACTORY, tableId),
         RocksDbKeyValueStorageEngineFactory.class.getName());
 
     if (writeBatchSize != null) {

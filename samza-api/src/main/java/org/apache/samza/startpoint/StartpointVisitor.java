@@ -18,54 +18,52 @@
  */
 package org.apache.samza.startpoint;
 
-import org.apache.samza.system.SystemStreamPartition;
-
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.system.SystemAdmin;
 
 /**
- * Visitor interface for system consumers to implement to support {@link Startpoint}s.
+ * A {@link SystemAdmin} implementation should implement this abstraction to support {@link Startpoint}.
  */
-public interface StartpointVisitor {
+@InterfaceStability.Evolving
+public interface StartpointVisitor<IN, OUT> {
 
   /**
-   * Seek to specific offset represented by {@link StartpointSpecific}
-   * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointSpecific The {@link Startpoint} that represents the specific offset.
+   * Performs a sequence of operations using the {@link IN} and {@link StartpointSpecific} and returns the result of the execution.
+   * @param input the input metadata about the startpoint.
+   * @param startpointSpecific the {@link Startpoint} that represents the specific offset.
+   * @return the result of executing the operations defined by the visit method.
    */
-  void visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific);
+  default OUT visit(IN input, StartpointSpecific startpointSpecific) {
+    throw new UnsupportedOperationException("StartpointSpecific is not supported.");
+  }
 
   /**
-   * Seek to timestamp offset represented by {@link StartpointTimestamp}
-   * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointTimestamp The {@link Startpoint} that represents the timestamp offset.
+   * Performs a sequence of operations using the {@link IN} and {@link StartpointTimestamp} and returns the result of the execution.
+   * @param input the input metadata about the startpoint.
+   * @param startpointTimestamp the {@link Startpoint} that represents the timestamp.
+   * @return the result of executing the operations defined by the visit method.
    */
-  default void visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+  default OUT visit(IN input, StartpointTimestamp startpointTimestamp) {
     throw new UnsupportedOperationException("StartpointTimestamp is not supported.");
   }
 
   /**
-   * Seek to earliest offset represented by {@link StartpointOldest}
-   * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointOldest The {@link Startpoint} that represents the earliest offset.
+   * Performs a sequence of operations using the {@link IN} and {@link StartpointOldest} and returns the result of the execution.
+   * @param input the input metadata about the startpoint.
+   * @param startpointOldest the {@link Startpoint} that represents the earliest offset.
+   * @return the result of executing the operations defined by the visit method.
    */
-  default void visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+  default OUT visit(IN input, StartpointOldest startpointOldest) {
     throw new UnsupportedOperationException("StartpointOldest is not supported.");
   }
 
   /**
-   * Seek to latest offset represented by {@link StartpointUpcoming}
-   * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointUpcoming The {@link Startpoint} that represents the latest offset.
+   * Performs a sequence of operations using the {@link IN} and {@link StartpointUpcoming} and returns the result of the execution.
+   * @param input the input metadata about the startpoint.
+   * @param startpointUpcoming the {@link Startpoint} that represents the latest offset.
+   * @return the result of executing the operations defined by the visit method.
    */
-  default void visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+  default OUT visit(IN input, StartpointUpcoming startpointUpcoming) {
     throw new UnsupportedOperationException("StartpointUpcoming is not supported.");
-  }
-
-  /**
-   * Bootstrap signal represented by {@link StartpointCustom}
-   * @param systemStreamPartition The {@link SystemStreamPartition} to seek the offset to.
-   * @param startpointCustom The {@link Startpoint} that represents the bootstrap signal.
-   */
-  default void visit(SystemStreamPartition systemStreamPartition, StartpointCustom startpointCustom) {
-    throw new UnsupportedOperationException(String.format("%s is not supported.", startpointCustom.getClass().getSimpleName()));
   }
 }

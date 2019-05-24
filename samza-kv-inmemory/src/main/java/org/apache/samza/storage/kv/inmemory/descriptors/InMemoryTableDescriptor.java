@@ -55,7 +55,7 @@ public class InMemoryTableDescriptor<K, V> extends LocalTableDescriptor<K, V, In
   public Map<String, String> toConfig(Config jobConfig) {
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
     // Store factory configuration
-    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+    tableConfig.put(String.format(StorageConfig.FACTORY, tableId),
         InMemoryKeyValueStorageEngineFactory.class.getName());
     return Collections.unmodifiableMap(tableConfig);
   }

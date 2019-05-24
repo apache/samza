@@ -21,10 +21,14 @@ package org.apache.samza.table.retry;
 
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.config.Config;
 import org.apache.samza.table.remote.TablePart;
+import org.apache.samza.table.utils.SerdeUtils;
 
 
 /**
@@ -255,5 +259,13 @@ public class TableRetryPolicy implements TablePart, Serializable {
    */
   public RetryPredicate getRetryPredicate() {
     return retryPredicate;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Map<String, String> toConfig(Config jobConfig, Config tableConfig) {
+    return Collections.singletonMap(this.getClass().getSimpleName(), SerdeUtils.toJson("table retry policy", this));
   }
 }

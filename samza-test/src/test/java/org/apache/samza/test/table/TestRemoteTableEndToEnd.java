@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,11 +43,14 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
+import org.apache.samza.operators.TableImpl;
+import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -54,6 +58,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
+import org.apache.samza.table.remote.BaseTableFunction;
 import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -74,20 +79,21 @@ import static org.apache.samza.test.table.TestTableData.generateProfiles;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.withSettings;
+import static org.mockito.Mockito.*;
 
 
 public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
 
+  static Map<String, AtomicInteger> counters = new HashMap<>();
   static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
 
-  static class InMemoryReadFunction implements TableReadFunction<Integer, Profile> {
+  static class InMemoryProfileReadFunction extends BaseTableFunction
+      implements TableReadFunction<Integer, Profile> {
+
     private final String serializedProfiles;
     private transient Map<Integer, Profile> profileMap;
 
-    private InMemoryReadFunction(String profiles) {
+    private InMemoryProfileReadFunction(String profiles) {
       this.serializedProfiles = profiles;
     }
 
@@ -103,20 +109,32 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     }
 
     @Override
+    public CompletableFuture<Profile> getAsync(Integer key, Object ... args) {
+      Profile profile = profileMap.get(key);
+      boolean append = (boolean) args[0];
+      if (append) {
+        profile = new Profile(profile.memberId, profile.company + "-r");
+      }
+      return CompletableFuture.completedFuture(profile);
+    }
+
+    @Override
     public boolean isRetriable(Throwable exception) {
       return false;
     }
 
-    static InMemoryReadFunction getInMemoryReadFunction(String serializedProfiles) {
-      return new InMemoryReadFunction(serializedProfiles);
+    static InMemoryProfileReadFunction getInMemoryReadFunction(String testName, String serializedProfiles) {
+      return new InMemoryProfileReadFunction(serializedProfiles);
     }
   }
 
-  static class InMemoryWriteFunction implements TableWriteFunction<Integer, EnrichedPageView> {
-    private transient List<EnrichedPageView> records;
-    private String testName;
+  static class InMemoryEnrichedPageViewWriteFunction extends BaseTableFunction
+      implements TableWriteFunction<Integer, EnrichedPageView> {
 
-    public InMemoryWriteFunction(String testName) {
+    private String testName;
+    private transient List<EnrichedPageView> records;
+
+    public InMemoryEnrichedPageViewWriteFunction(String testName) {
       this.testName = testName;
     }
 
@@ -130,6 +148,17 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
 
     @Override
     public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record) {
+      System.out.println("==> " + testName + " writing " + record.getPageKey());
+      records.add(record);
+      return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record, Object ... args) {
+      boolean append = (boolean) args[0];
+      if (append) {
+        record = new EnrichedPageView(record.pageKey, record.memberId, record.company + "-w");
+      }
       records.add(record);
       return CompletableFuture.completedFuture(null);
     }
@@ -146,7 +175,153 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     }
   }
 
-  private <K, V> Table<KV<K, V>> getCachingTable(TableDescriptor<K, V, ?> actualTableDesc, boolean defaultCache, String id, StreamApplicationDescriptor appDesc) {
+  static class InMemoryCounterReadFunction extends BaseTableFunction
+      implements TableReadFunction {
+
+    private final String testName;
+
+    private InMemoryCounterReadFunction(String testName) {
+      this.testName = testName;
+    }
+
+    @Override
+    public CompletableFuture readAsync(int opId, Object... args) {
+      if (1 == opId) {
+        boolean shouldReturnValue = (boolean) args[0];
+        AtomicInteger counter = counters.get(testName);
+        Integer result = shouldReturnValue ? counter.get() : null;
+        return CompletableFuture.completedFuture(result);
+      } else {
+        throw new SamzaException("Invalid opId: " + opId);
+      }
+    }
+
+    @Override
+    public CompletableFuture getAsync(Object key) {
+      throw new SamzaException("Not supported");
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+  }
+
+  static class InMemoryCounterWriteFunction extends BaseTableFunction
+      implements TableWriteFunction {
+
+    private final String testName;
+
+    private InMemoryCounterWriteFunction(String testName) {
+      this.testName = testName;
+    }
+
+    @Override
+    public CompletableFuture<Void> putAsync(Object key, Object record) {
+      throw new SamzaException("Not supported");
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAsync(Object key) {
+      throw new SamzaException("Not supported");
+    }
+
+    @Override
+    public CompletableFuture writeAsync(int opId, Object... args) {
+      Integer result;
+      AtomicInteger counter = counters.get(testName);
+      boolean shouldModify = (boolean) args[0];
+      switch (opId) {
+        case 1:
+          result = shouldModify ? counter.incrementAndGet() : counter.get();
+          break;
+        case 2:
+          result = shouldModify ? counter.decrementAndGet() : counter.get();
+          break;
+        default:
+          throw new SamzaException("Invalid opId: " + opId);
+      }
+      return CompletableFuture.completedFuture(result);
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+  }
+
+  static class DummyReadFunction extends BaseTableFunction
+      implements TableReadFunction {
+
+    @Override
+    public CompletableFuture getAsync(Object key) {
+      throw new SamzaException("Not supported");
+    }
+
+    @Override
+    public boolean isRetriable(Throwable exception) {
+      return false;
+    }
+  }
+
+  static private class TestReadWriteMapFunction implements MapFunction<PageView, PageView> {
+
+    private final String counterTableName;
+    private ReadWriteTable counterTable;
+
+    private TestReadWriteMapFunction(String counterTableName) {
+      this.counterTableName = counterTableName;
+    }
+
+    @Override
+    public void init(Context context) {
+      counterTable = context.getTaskContext().getTable(counterTableName);
+    }
+
+    @Override
+    public PageView apply(PageView pageView) {
+      try {
+        // Counter manipulation
+        badOpId();
+        Assert.assertNull(getCounterValue(false));
+        Integer beforeValue = getCounterValue(true);
+        Assert.assertEquals(beforeValue, incCounterValue(false));
+        Assert.assertEquals(beforeValue, decCounterValue(false));
+        Assert.assertEquals(Integer.valueOf(beforeValue + 1), incCounterValue(true));
+        Assert.assertEquals(beforeValue, decCounterValue(true));
+        Assert.assertEquals(beforeValue, getCounterValue(true));
+        incCounterValue(true);
+        return pageView;
+      } catch (Exception ex) {
+        throw new SamzaException(ex);
+      }
+    }
+
+    private Integer getCounterValue(boolean shouldReturn) {
+      return (Integer) counterTable.readAsync(1, shouldReturn).join();
+    }
+
+    private Integer incCounterValue(boolean shouldModifdy) {
+      return (Integer) counterTable.writeAsync(1, shouldModifdy).join();
+    }
+
+    private Integer decCounterValue(boolean shouldModifdy) {
+      return (Integer) counterTable.writeAsync(2, shouldModifdy).join();
+    }
+
+    private void badOpId() {
+      try {
+        counterTable.readAsync(0).join();
+        Assert.fail("Shouldn't reach here");
+      } catch (SamzaException ex) {
+        // Expected exception
+      }
+    }
+  }
+
+  private <K, V> Table<KV<K, V>> getCachingTable(TableDescriptor<K, V, ?> actualTableDesc, boolean defaultCache,
+      StreamApplicationDescriptor appDesc) {
+    String id = actualTableDesc.getTableId();
     CachingTableDescriptor<K, V> cachingDesc;
     if (defaultCache) {
       cachingDesc = new CachingTableDescriptor<>("caching-table-" + id, actualTableDesc);
@@ -161,91 +336,122 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     return appDesc.getTable(cachingDesc);
   }
 
-  static class MyReadFunction implements TableReadFunction {
-    @Override
-    public CompletableFuture getAsync(Object key) {
-      return null;
-    }
-
-    @Override
-    public boolean isRetriable(Throwable exception) {
-      return false;
-    }
-  }
-
-  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, String testName) throws Exception {
-    final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
+  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, boolean withArgs, String testName)
+      throws Exception {
 
     writtenRecords.put(testName, new ArrayList<>());
 
     int count = 10;
-    PageView[] pageViews = generatePageViews(count);
-    String profiles = Base64Serializer.serialize(generateProfiles(count));
+    final PageView[] pageViews = generatePageViews(count);
+    final String profiles = Base64Serializer.serialize(generateProfiles(count));
 
-    int partitionCount = 4;
-    Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
-
+    final int partitionCount = 4;
+    final Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
-    final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
     final StreamApplication app = appDesc -> {
-      RemoteTableDescriptor<Integer, TestTableData.Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
-      inputTableDesc
-          .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(profiles))
-          .withRateLimiter(readRateLimiter, null, null);
 
-      // dummy reader
-      TableReadFunction readFn = new MyReadFunction();
+      final RemoteTableDescriptor joinTableDesc =
+              new RemoteTableDescriptor<Integer, TestTableData.Profile>("profile-table-1")
+          .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(testName, profiles))
+          .withRateLimiter(readRateLimiter, creditFunction, null);
 
-      RemoteTableDescriptor<Integer, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
-      outputTableDesc
-          .withReadFunction(readFn)
-          .withWriteFunction(writer)
-          .withRateLimiter(writeRateLimiter, null, null);
+      final RemoteTableDescriptor outputTableDesc =
+              new RemoteTableDescriptor<Integer, EnrichedPageView>("enriched-page-view-table-1")
+          .withReadFunction(new DummyReadFunction())
+          .withReadRateLimiterDisabled()
+          .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction(testName))
+          .withWriteRateLimit(1000);
 
-      Table<KV<Integer, EnrichedPageView>> outputTable = withCache
-          ? getCachingTable(outputTableDesc, defaultCache, "output", appDesc)
+      final Table<KV<Integer, EnrichedPageView>> outputTable = withCache
+          ? getCachingTable(outputTableDesc, defaultCache, appDesc)
           : appDesc.getTable(outputTableDesc);
 
-      Table<KV<Integer, Profile>> inputTable = withCache
-          ? getCachingTable(inputTableDesc, defaultCache, "input", appDesc)
-          : appDesc.getTable(inputTableDesc);
+      final Table<KV<Integer, Profile>> joinTable = withCache
+          ? getCachingTable(joinTableDesc, defaultCache, appDesc)
+          : appDesc.getTable(joinTableDesc);
 
-      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
-      GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      appDesc.getInputStream(isd)
-          .map(pv -> new KV<>(pv.getMemberId(), pv))
-          .join(inputTable, new PageViewToProfileJoinFunction())
-          .map(m -> new KV(m.getMemberId(), m))
-          .sendTo(outputTable);
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      if (!withArgs) {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), m))
+            .sendTo(outputTable);
+
+      } else {
+        counters.put(testName, new AtomicInteger());
+
+        final RemoteTableDescriptor counterTableDesc =
+            new RemoteTableDescriptor("counter-table-1")
+                .withReadFunction(new InMemoryCounterReadFunction(testName))
+                .withWriteFunction(new InMemoryCounterWriteFunction(testName))
+                .withRateLimiterDisabled();
+
+        final Table counterTable = withCache
+            ? getCachingTable(counterTableDesc, defaultCache, appDesc)
+            : appDesc.getTable(counterTableDesc);
+
+        final String counterTableName = ((TableImpl) counterTable).getTableId();
+        appDesc.getInputStream(isd)
+            .map(new TestReadWriteMapFunction(counterTableName))
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction(), true)
+            .map(m -> new KV(m.getMemberId(), m))
+            .sendTo(outputTable, true);
+      }
     };
 
-    Config config = new MapConfig(configs);
+    final Config config = new MapConfig(configs);
     final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
     executeRun(runner, config);
     runner.waitForFinish();
 
-    int numExpected = count * partitionCount;
+    final int numExpected = count * partitionCount;
     Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
     Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
+    if (!withArgs) {
+      writtenRecords.get(testName).forEach(epv -> Assert.assertFalse(epv.company.contains("-")));
+    } else {
+      writtenRecords.get(testName).forEach(epv -> Assert.assertTrue(epv.company.endsWith("-r-w")));
+      Assert.assertEquals(numExpected, counters.get(testName).get());
+    }
   }
 
   @Test
   public void testStreamTableJoinRemoteTable() throws Exception {
-    doTestStreamTableJoinRemoteTable(false, false, "testStreamTableJoinRemoteTable");
+    doTestStreamTableJoinRemoteTable(false, false, false, "testStreamTableJoinRemoteTable");
   }
 
   @Test
   public void testStreamTableJoinRemoteTableWithCache() throws Exception {
-    doTestStreamTableJoinRemoteTable(true, false, "testStreamTableJoinRemoteTableWithCache");
+    doTestStreamTableJoinRemoteTable(true, false, false, "testStreamTableJoinRemoteTableWithCache");
   }
 
   @Test
   public void testStreamTableJoinRemoteTableWithDefaultCache() throws Exception {
-    doTestStreamTableJoinRemoteTable(true, true, "testStreamTableJoinRemoteTableWithDefaultCache");
+    doTestStreamTableJoinRemoteTable(true, true, false, "testStreamTableJoinRemoteTableWithDefaultCache");
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableWithArgs() throws Exception {
+    doTestStreamTableJoinRemoteTable(false, false, true, "testStreamTableJoinRemoteTableWithArgs");
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableWithCacheWithArgs() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, false, true, "testStreamTableJoinRemoteTableWithCacheWithArgs");
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableWithDefaultCacheWithArgs() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, true, true, "testStreamTableJoinRemoteTableWithDefaultCacheWithArgs");
   }
 
   private Context createMockContext() {
@@ -298,19 +504,19 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
         null, null, null,
         null);
     table.init(createMockContext());
-    int failureCount = 0;
     try {
       table.put("abc", "efg");
+      Assert.fail();
     } catch (SamzaException ex) {
-      ++failureCount;
+      // Ignore
     }
     try {
       table.delete("abc");
+      Assert.fail();
     } catch (SamzaException ex) {
-      ++failureCount;
+      // Ignore
     }
     table.flush();
     table.close();
-    Assert.assertEquals(2, failureCount);
   }
 }

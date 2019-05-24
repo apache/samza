@@ -191,7 +191,11 @@ public class CoordinatorStreamMessage {
   }
 
   protected String getMessageValue(String key) {
-    return getMessageValues().get(key);
+    if (isDelete) {
+      return null;
+    } else {
+      return getMessageValues().get(key);
+    }
   }
 
   /**

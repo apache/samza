@@ -19,10 +19,12 @@
 package org.apache.samza.table.ratelimit;
 
 import com.google.common.base.Preconditions;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
@@ -30,6 +32,8 @@ import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
+import static org.apache.samza.table.BaseReadWriteTable.Func0;
+import static org.apache.samza.table.BaseReadWriteTable.Func1;
 
 /**
  * A composable read and/or write rate limited asynchronous table implementation
@@ -60,57 +64,59 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
-    return isReadRateLimited()
-      ? CompletableFuture
-          .runAsync(() -> readRateLimiter.throttle(key), rateLimitingExecutor)
-          .thenCompose((r) -> table.getAsync(key))
-      : table.getAsync(key);
+  public CompletableFuture<V> getAsync(K key, Object ... args) {
+    return doRead(
+        () -> readRateLimiter.throttle(key, args),
+        () -> table.getAsync(key, args));
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
-    return isReadRateLimited()
-      ? CompletableFuture
-          .runAsync(() -> readRateLimiter.throttle(keys), rateLimitingExecutor)
-          .thenCompose((r) -> table.getAllAsync(keys))
-      : table.getAllAsync(keys);
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
+    return doRead(
+        () -> readRateLimiter.throttle(keys, args),
+        () -> table.getAllAsync(keys, args));
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
-    return isWriteRateLimited()
-        ? CompletableFuture
-            .runAsync(() -> writeRateLimiter.throttle(key, value), rateLimitingExecutor)
-            .thenCompose((r) -> table.putAsync(key, value))
-        : table.putAsync(key, value);
+  public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
+    return doRead(
+        () -> readRateLimiter.throttle(opId, args),
+        () -> table.readAsync(opId, args));
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
-    return isWriteRateLimited()
-      ? CompletableFuture
-          .runAsync(() -> writeRateLimiter.throttleRecords(entries), rateLimitingExecutor)
-          .thenCompose((r) -> table.putAllAsync(entries))
-      : table.putAllAsync(entries);
+  public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
+    return doWrite(
+        () -> writeRateLimiter.throttle(key, value, args),
+        () -> table.putAsync(key, value, args));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
-    return isWriteRateLimited()
-      ? CompletableFuture
-          .runAsync(() -> writeRateLimiter.throttle(key), rateLimitingExecutor)
-          .thenCompose((r) -> table.deleteAsync(key))
-      : table.deleteAsync(key);
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
+    return doWrite(
+        () -> writeRateLimiter.throttleRecords(entries),
+        () -> table.putAllAsync(entries, args));
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
-    return isWriteRateLimited()
-      ? CompletableFuture
-          .runAsync(() -> writeRateLimiter.throttle(keys), rateLimitingExecutor)
-          .thenCompose((r) -> table.deleteAllAsync(keys))
-      : table.deleteAllAsync(keys);
+  public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
+    return doWrite(
+        () -> writeRateLimiter.throttle(key, args),
+        () -> table.deleteAsync(key, args));
+  }
+
+  @Override
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
+    return doWrite(
+        () -> writeRateLimiter.throttle(keys, args),
+        () -> table.deleteAllAsync(keys, args));
+  }
+
+  @Override
+  public <T> CompletableFuture<T> writeAsync(int opId, Object ... args) {
+    return doWrite(
+        () -> writeRateLimiter.throttle(opId, args),
+        () -> table.writeAsync(opId, args));
   }
 
   @Override
@@ -145,4 +151,21 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
   private boolean isWriteRateLimited() {
     return writeRateLimiter != null;
   }
+
+  private <T> CompletableFuture<T> doRead(Func0 throttleFunc, Func1<T> func) {
+    return isReadRateLimited()
+        ? CompletableFuture
+            .runAsync(() -> throttleFunc.apply(), rateLimitingExecutor)
+            .thenCompose((r) -> func.apply())
+        : func.apply();
+  }
+
+  private <T> CompletableFuture<T> doWrite(Func0 throttleFunc, Func1<T> func) {
+    return isWriteRateLimited()
+        ? CompletableFuture
+            .runAsync(() -> throttleFunc.apply(), rateLimitingExecutor)
+            .thenCompose((r) -> func.apply())
+        : func.apply();
+  }
+
 }

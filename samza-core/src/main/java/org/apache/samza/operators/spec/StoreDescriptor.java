@@ -18,7 +18,6 @@
  */
 package org.apache.samza.operators.spec;
 
-import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.Serde;
@@ -59,12 +58,12 @@ public class StoreDescriptor {
     return msgSerde;
   }
 
-  public JavaStorageConfig getStorageConfigs() {
+  public StorageConfig getStorageConfigs() {
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(String.format(StorageConfig.FACTORY(), this.getStoreName()), this.getStoreFactory());
-    configs.put(String.format(StorageConfig.CHANGELOG_STREAM(), this.getStoreName()), this.getChangelogStream());
+    configs.put(String.format(StorageConfig.FACTORY, this.getStoreName()), this.getStoreFactory());
+    configs.put(String.format(StorageConfig.CHANGELOG_STREAM, this.getStoreName()), this.getChangelogStream());
     configs.putAll(this.getOtherProperties());
-    return new JavaStorageConfig(new MapConfig(configs));
+    return new StorageConfig(new MapConfig(configs));
   }
 
   private String getStoreFactory() {
