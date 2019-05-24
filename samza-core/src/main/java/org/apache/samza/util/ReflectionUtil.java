@@ -42,7 +42,7 @@ public class ReflectionUtil {
    * 1) If there is a custom classloader being passed to the caller, consider using that one.
    * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
    * loaded the caller instance.
-   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
+   * 3) If within a static scope, the Class object of the caller (e.g. MyClass.class) can be used.
    *
    * @param <T> type of the object to return
    * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
@@ -63,7 +63,7 @@ public class ReflectionUtil {
    * 1) If there is a custom classloader being passed to the caller, consider using that one.
    * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
    * loaded the caller instance.
-   * 3) If within a static/constructor scope, the Class object of the caller (e.g. MyClass.class) can be used.
+   * 3) If within a static scope, the Class object of the caller (e.g. MyClass.class) can be used.
    *
    * @param <T> type of the object to return
    * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
