@@ -38,6 +38,12 @@ object StorageConfig {
   val ACCESSLOG_SAMPLING_RATIO = "stores.%s.accesslog.sampling.ratio"
   val ACCESSLOG_ENABLED = "stores.%s.accesslog.enabled"
   val DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50
+  val CHANGELOG_MAX_MSG_SIZE_BYTES = "stores.%s.changelog.max.message.size.bytes"
+  val DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1000000 // slightly less than 1 MB
+  val EXPECT_LARGE_MESSAGES = "stores.%s.expect.large.messages"
+  val DEFAULT_EXPECT_LARGE_MESSAGES = false
+  val DROP_LARGE_MESSAGES = "stores.%s.drop.large.messages"
+  val DEFAULT_DROP_LARGE_MESSAGES = false
 
 
   implicit def Config2Storage(config: Config) = new StorageConfig(config)

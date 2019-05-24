@@ -1696,6 +1696,50 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="stores-changelog-max-message-size-bytes">stores.<span class="store">store-name</span>.changelog.max.message.size.bytes</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property sets the maximum size of the messages allowed in the changelog.
+                        The maximum allowed value and the default value both are 1 MB.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-expect-large-messages">stores.<span class="store">store-name</span>.expect.large.messages</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property, when turned on, tells the system to expect large messages to be put in the stores.
+                        It will then look out for any large messages greater than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        and throw a SamzaException when it finds one, stating that the record is too large.
+                        In the case of using CachedStore, it will serialize the message first, validate
+                        its size and then cache it if the size is of permissible limit.
+                        This particular case of using CachedStore causes a performance degradation since
+                        we end up serializing every time before putting the values in the cache.
+                        When this property is turned on, we ignore the value of
+                        <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>.
+                        The default value for this config is false. When this property is not set,
+                        <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>
+                        defines the behaviour to be executed.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-drop-large-messages">stores.<span class="store">store-name</span>.drop.large.messages</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        This property, when turned on, tells the system to drop any large messages instead of
+                        attempting to put them in the stores. It drops all large messages greater than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        and continues to function as if it did not receive any large messages.
+                        No exception is thrown. In the case of using CachedStore, when this config is
+                        turned on, the large message is stored in the Cache but is not written to the
+                        changelog and underlying store, resulting in an inconsistent state temporarily.
+                        When this property is turned off, the system will not be able to handle large messages of any type.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="keyvalue-rocksdb">
                         Using RocksDB for key-value storage<br>
                         <span class="subtitle">
