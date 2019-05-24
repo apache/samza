@@ -20,6 +20,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -127,8 +128,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     AbstractContainerAllocator allocator =
         (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
@@ -149,8 +149,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     allocator =
         (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
@@ -170,8 +169,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -214,8 +212,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager.start();
 
     Thread allocatorThread = (Thread) getPrivateFieldFromTaskManager("allocatorThread", taskManager).get(taskManager);
@@ -240,8 +237,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -290,8 +286,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -369,8 +364,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -415,8 +409,7 @@ public class TestContainerProcessManager {
         new MapConfig(config),
         state);
 
-    ContainerProcessManager manager = new ContainerProcessManager(config, state, new MetricsRegistryMap(), allocator,
-        clusterResourceManager);
+    ContainerProcessManager manager = new ContainerProcessManager(config, state, new MetricsRegistryMap(), clusterResourceManager, Optional.of(allocator));
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
@@ -443,8 +436,7 @@ public class TestContainerProcessManager {
         cfg,
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockHostAwareContainerAllocator allocator = new MockHostAwareContainerAllocator(
         clusterResourceManager,
@@ -510,8 +502,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -586,8 +577,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -675,8 +665,7 @@ public class TestContainerProcessManager {
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager.start();
     SamzaResource container2 = new SamzaResource(1, 1024, "", "id0");
     assertFalse(taskManager.shouldShutdown());
@@ -689,8 +678,7 @@ public class TestContainerProcessManager {
         new MapConfig(config),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager1.start();
     taskManager1.onResourceAllocated(container2);
   }

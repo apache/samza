@@ -223,7 +223,7 @@ _Gauges_ are useful when measuring the magnitude of a certain system property, e
 
 _Counters_ are useful in measuring metrics that are cumulative values, e.g., the number of messages processed since container startup. Certain counters are also useful when visualized with their rate-of-change, e.g., the rate of message processing.
 
-_Timers_ are useful for storing and reporting a sliding-window of timing values. Samza also supports a ListGauge type metric, which can be used to store and report a list of any primitive-type such as strings.
+_Timers_ are useful for storing and reporting a sliding-window of timing values. 
 
 ## <a name="userdefinedmetrics"></a> C. Adding User-Defined Metrics
 

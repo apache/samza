@@ -26,16 +26,14 @@ import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
-import org.apache.samza.metrics.ListGauge;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Provides an in-memory appender that parses LogEvents to filter events relevant to diagnostics.
- * Currently, filters exception related events and update an exception metric ({@link ListGauge}) in
- * {@link SamzaContainerMetrics}.
+ * Currently, filters exception related events and updates the {@link DiagnosticsManager}.
  *
  * When used inconjunction with {@link org.apache.samza.metrics.reporter.MetricsSnapshotReporter} provides a
  * stream of diagnostics-related events.
@@ -45,11 +43,11 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
 
   // simple object to synchronize root logger attachment
   private static final Object SYNCHRONIZATION_OBJECT = new Object();
-  protected final ListGauge<DiagnosticsExceptionEvent> samzaContainerExceptionMetric;
+  protected final DiagnosticsManager diagnosticsManager;
 
-  public SimpleDiagnosticsAppender(SamzaContainerMetrics samzaContainerMetrics) {
+  public SimpleDiagnosticsAppender(DiagnosticsManager diagnosticsManager) {
     super(SimpleDiagnosticsAppender.class.getName(), null, null);
-    this.samzaContainerExceptionMetric = samzaContainerMetrics.exceptions();
+    this.diagnosticsManager = diagnosticsManager;
 
     synchronized (SYNCHRONIZATION_OBJECT) {
       attachAppenderToLoggers(this);
@@ -82,7 +80,7 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
             new DiagnosticsExceptionEvent(logEvent.getTimeMillis(), logEvent.getThrown(),
                 logEvent.getContextData().toMap());
 
-        samzaContainerExceptionMetric.add(diagnosticsExceptionEvent);
+        diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent);
         LOG.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
       } else {
         LOG.debug("Received non-exception event with message " + logEvent.getMessage());

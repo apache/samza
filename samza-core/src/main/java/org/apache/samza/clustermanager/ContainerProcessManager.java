@@ -19,20 +19,29 @@
 package org.apache.samza.clustermanager;
 
 import java.util.Optional;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
+import org.apache.samza.metrics.JvmMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import scala.Option;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -55,6 +64,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ContainerProcessManager implements ClusterResourceManager.Callback   {
 
   private static final Logger log = LoggerFactory.getLogger(ContainerProcessManager.class);
+
+  /**
+   * Metrics for the {@link ContainerProcessManager}
+   */
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
+  private final static String EXEC_ENV_CONTAINER_ID_SYS_PROPERTY = "CONTAINER_ID";
+
 
   /**
    * Does this Samza Job need hostAffinity when containers are allocated.
@@ -81,6 +97,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   // The StandbyContainerManager manages standby-aware allocation and failover of containers
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
+  private final Option<DiagnosticsManager> diagnosticsManager;
+
   /**
    * A standard interface to request resources.
    */
@@ -102,11 +120,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * value is the {@link ProcessorFailure} object that has a count of failures.
    */
   private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
-
-  /**
-   * Metrics for the {@link ContainerProcessManager}
-   */
-  private final ContainerProcessManagerMetrics metrics;
+  private ContainerProcessManagerMetrics containerProcessManagerMetrics;
+  private JvmMetrics jvmMetrics;
+  private Map<String, MetricsReporter> metricsReporters;
 
   public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry) {
     this.state = state;
@@ -117,8 +133,30 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
 
+    // Initialize metrics
+    this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.jvmMetrics = new JvmMetrics(registry);
+    this.metricsReporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), METRICS_SOURCE_NAME);
+
+    // Creating diagnostics manager and reporter, and wiring it respectively
+    String jobName = new JobConfig(config).getName().get();
+    String jobId = new JobConfig(config).getJobId();
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(EXEC_ENV_CONTAINER_ID_SYS_PROPERTY));
+    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
+
+    if (diagnosticsManagerReporterPair.isPresent()) {
+      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
+      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+    } else {
+      diagnosticsManager = Option.empty();
+    }
+
+    // Wire all metrics to all reporters
+    this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
+
+    // Enable standby container manager if required
     if (jobConfig.getStandbyTasksEnabled()) {
       this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
     } else {
@@ -135,23 +173,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     log.info("Finished container process manager initialization.");
   }
 
-  //for testing
-  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      AbstractContainerAllocator allocator, ClusterResourceManager manager) {
-    this.state = state;
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
-    this.jobConfig = new JobConfig(config);
-    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
-    this.clusterResourceManager = manager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
-    this.containerAllocator = allocator;
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    this.standbyContainerManager = Optional.empty();
-  }
-
   //package private, used only in tests
   ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      ClusterResourceManager resourceManager) {
+      ClusterResourceManager resourceManager, Optional<AbstractContainerAllocator> allocator) {
     JobModelManager jobModelManager = state.jobModelManager;
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
@@ -160,10 +184,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
     this.standbyContainerManager = Optional.empty();
+    this.diagnosticsManager = Option.empty();
 
-    if (this.hostAffinityEnabled) {
+    if (allocator.isPresent()) {
+      this.containerAllocator = allocator.get();
+    } else if (this.hostAffinityEnabled) {
       this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
     } else {
       this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
@@ -186,7 +212,18 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   public void start() {
     log.info("Starting the container process manager");
-    metrics.start();
+
+    if (jvmMetrics != null) {
+      jvmMetrics.start();
+    }
+
+    if (this.metricsReporters != null) {
+      this.metricsReporters.values().forEach(reporter -> reporter.start());
+    }
+
+    if (this.diagnosticsManager.isDefined()) {
+      this.diagnosticsManager.get().start();
+    }
 
     log.info("Starting the cluster resource manager");
     clusterResourceManager.start();
@@ -217,13 +254,27 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       Thread.currentThread().interrupt();
     }
 
-    if (metrics != null) {
+    if (this.diagnosticsManager.isDefined()) {
       try {
-        metrics.stop();
-        log.info("Stopped metrics reporters");
-      } catch (Throwable e) {
-        log.error("Exception while stopping metrics", e);
+        this.diagnosticsManager.get().stop();
+      } catch (InterruptedException e) {
+        log.error("InterruptedException while stopping diagnosticsManager", e);
       }
+    }
+
+    try {
+
+      if (this.metricsReporters != null) {
+        this.metricsReporters.values().forEach(reporter -> reporter.stop());
+      }
+
+      if (this.jvmMetrics != null) {
+        jvmMetrics.stop();
+      }
+
+      log.info("Stopped containerProcessManagerMetrics reporters");
+    } catch (Throwable e) {
+      log.error("Exception while stopping containerProcessManagerMetrics", e);
     }
 
     try {
