@@ -34,6 +34,8 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.batching.BatchProvider;
+import org.apache.samza.table.batching.AsyncBatchingTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
 import org.apache.samza.table.retry.AsyncRetriableTable;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -88,6 +90,10 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   protected final TableRetryPolicy readRetryPolicy;
   protected final TableRetryPolicy writeRetryPolicy;
   protected final ScheduledExecutorService retryExecutor;
+  // batch
+  protected final BatchProvider<K, V> batchProvider;
+  protected final ScheduledExecutorService batchExecutor;
+
   // Other
   protected final ExecutorService callbackExecutor;
 
@@ -105,6 +111,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
    * @param readRetryPolicy read retry policy
    * @param writeRetryPolicy write retry policy
    * @param retryExecutor executor for invoking retries
+   * @param batchProvider batch provider to create a batch instance
+   * @param batchExecutor scheduled executor for batch
    * @param callbackExecutor executor for invoking async callbacks
    */
   public RemoteTable(
@@ -117,6 +125,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
       TableRetryPolicy readRetryPolicy,
       TableRetryPolicy writeRetryPolicy,
       ScheduledExecutorService retryExecutor,
+      BatchProvider<K, V> batchProvider,
+      ScheduledExecutorService batchExecutor,
       ExecutorService callbackExecutor) {
 
     super(tableId);
@@ -131,6 +141,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     this.writeRetryPolicy = writeRetryPolicy;
     this.callbackExecutor = callbackExecutor;
     this.retryExecutor = retryExecutor;
+    this.batchProvider = batchProvider;
+    this.batchExecutor = batchExecutor;
 
     AsyncReadWriteTable table = new AsyncRemoteTable(readFn, writeFn);
     if (readRateLimiter != null || writeRateLimiter != null) {
@@ -138,6 +150,9 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     }
     if (readRetryPolicy != null || writeRetryPolicy != null) {
       table = new AsyncRetriableTable(tableId, table, readRetryPolicy, writeRetryPolicy, retryExecutor, readFn, writeFn);
+    }
+    if (batchProvider != null) {
+      table = new AsyncBatchingTable(tableId, table, batchProvider, batchExecutor);
     }
 
     asyncTable = table;

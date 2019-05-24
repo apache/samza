@@ -21,40 +21,41 @@ package org.apache.samza.metrics;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
+import org.apache.samza.diagnostics.BoundedList;
 import org.junit.Assert;
 import org.junit.Test;
 
 
 /**
- * Class to encapsulate test-cases for {@link org.apache.samza.metrics.ListGauge}
+ * Class to encapsulate test-cases for {@link BoundedList}
  */
-public class TestListGauge {
+public class TestBoundedList {
 
   private final static Duration THREAD_TEST_TIMEOUT = Duration.ofSeconds(10);
 
-  private <T> ListGauge<T> getListGaugeForTest() {
-    return new ListGauge<T>("sampleListGauge", 10, Duration.ofSeconds(60));
+  private <T> BoundedList<T> getBoundedListForTest() {
+    return new BoundedList<T>("sampleListGauge", 10, Duration.ofSeconds(60));
   }
 
   @Test
   public void basicTest() {
-    ListGauge<String> listGauge = getListGaugeForTest();
-    listGauge.add("sampleValue");
-    Assert.assertEquals("Names should be the same", listGauge.getName(), "sampleListGauge");
-    Assert.assertEquals("List sizes should match", listGauge.getValues().size(), 1);
-    Assert.assertEquals("ListGauge should contain sampleGauge", listGauge.getValues().contains("sampleValue"), true);
+    BoundedList<String> boundedList = getBoundedListForTest();
+    boundedList.add("sampleValue");
+    Assert.assertEquals("Names should be the same", boundedList.getName(), "sampleListGauge");
+    Assert.assertEquals("List sizes should match", boundedList.getValues().size(), 1);
+    Assert.assertEquals("BoundedList should contain sampleGauge", boundedList.getValues().contains("sampleValue"), true);
   }
 
   @Test
   public void testSizeEnforcement() {
-    ListGauge listGauge = getListGaugeForTest();
+    BoundedList boundedList = getBoundedListForTest();
     for (int i = 15; i > 0; i--) {
-      listGauge.add("v" + i);
+      boundedList.add("v" + i);
     }
-    Assert.assertEquals("List sizes should be as configured at creation time", listGauge.getValues().size(), 10);
+    Assert.assertEquals("List sizes should be as configured at creation time", boundedList.getValues().size(), 10);
 
     int valueIndex = 10;
-    Collection<String> currentList = listGauge.getValues();
+    Collection<String> currentList = boundedList.getValues();
     Iterator iterator = currentList.iterator();
     while (iterator.hasNext()) {
       String gaugeValue = (String) iterator.next();
@@ -65,13 +66,13 @@ public class TestListGauge {
 
   @Test
   public void testThreadSafety() throws InterruptedException {
-    ListGauge<Integer> listGauge = getListGaugeForTest();
+    BoundedList<Integer> boundedList = getBoundedListForTest();
 
     Thread thread1 = new Thread(new Runnable() {
       @Override
       public void run() {
         for (int i = 1; i <= 100; i++) {
-          listGauge.add(i);
+          boundedList.add(i);
         }
       }
     });
@@ -80,7 +81,7 @@ public class TestListGauge {
       @Override
       public void run() {
         for (int i = 1; i <= 100; i++) {
-          listGauge.add(i);
+          boundedList.add(i);
         }
       }
     });
@@ -91,8 +92,8 @@ public class TestListGauge {
     thread1.join(THREAD_TEST_TIMEOUT.toMillis());
     thread2.join(THREAD_TEST_TIMEOUT.toMillis());
 
-    Assert.assertTrue("ListGauge should have the last 10 values", listGauge.getValues().size() == 10);
-    for (Integer gaugeValue : listGauge.getValues()) {
+    Assert.assertTrue("BoundedList should have the last 10 values", boundedList.getValues().size() == 10);
+    for (Integer gaugeValue : boundedList.getValues()) {
       Assert.assertTrue("Values should have the last 10 range", gaugeValue <= 100 && gaugeValue > 90);
     }
   }

@@ -19,11 +19,16 @@
 
 package org.apache.samza.runtime;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
@@ -36,20 +41,20 @@ import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 
 public class ContainerLaunchUtil {
   private static final Logger log = LoggerFactory.getLogger(ContainerLaunchUtil.class);
@@ -64,18 +69,21 @@ public class ContainerLaunchUtil {
    */
   public static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
-      String containerId,
+      String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
 
     Config config = jobModel.getConfig();
-    run(appDesc, containerId, jobModel, config, buildExternalContext(config));
+    run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));
 
     System.exit(0);
   }
 
   private static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
+      String jobName,
+      String jobId,
       String containerId,
+      Optional<String> execEnvContainerId,
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
@@ -90,15 +98,24 @@ public class ContainerLaunchUtil {
         startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
       }
 
+      Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
+
+      // Creating diagnostics manager and reporter, and wiring it respectively
+      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, containerId, execEnvContainerId, config);
+      Option<DiagnosticsManager> diagnosticsManager = Option.empty();
+      if (diagnosticsManagerReporterPair.isPresent()) {
+        diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
+        metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+      }
+
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
-          containerId,
-          jobModel,
-          ScalaJavaUtil.toScalaMap(loadMetricsReporters(appDesc, containerId, config)),
+          containerId, jobModel,
+          ScalaJavaUtil.toScalaMap(metricsReporters),
           taskFactory,
           JobContextImpl.fromConfigWithDefaults(config),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null));
+          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null), diagnosticsManager);
 
       ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);

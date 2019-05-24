@@ -39,24 +39,30 @@ object KafkaConfig {
   val TOPIC_REPLICATION_FACTOR = "replication.factor"
   val TOPIC_DEFAULT_REPLICATION_FACTOR = "2"
 
-
   val SEGMENT_BYTES = "segment.bytes"
+  val MAX_MESSAGE_BYTES = "max.message.bytes"
+
+  // The default max message bytes for log compact topic
+  val DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES = "1000012"
 
   val CHECKPOINT_SYSTEM = "task.checkpoint.system"
   val CHECKPOINT_REPLICATION_FACTOR = "task.checkpoint." + TOPIC_REPLICATION_FACTOR
   val CHECKPOINT_SEGMENT_BYTES = "task.checkpoint." + SEGMENT_BYTES
+  val CHECKPOINT_MAX_MESSAGE_BYTES = "task.checkpoint." + MAX_MESSAGE_BYTES
 
   val CHANGELOG_STREAM_REPLICATION_FACTOR = "stores.%s.changelog." + TOPIC_REPLICATION_FACTOR
   val DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR = CHANGELOG_STREAM_REPLICATION_FACTOR format "default"
   val CHANGELOG_STREAM_KAFKA_SETTINGS = "stores.%s.changelog.kafka."
   // The default segment size to use for changelog topics
   val CHANGELOG_DEFAULT_SEGMENT_SIZE = "536870912"
+  val CHANGELOG_MAX_MESSAGE_BYTES = "stores.%s.changelog." + MAX_MESSAGE_BYTES
 
   // Helper regular expression definitions to extract/match configurations
   val CHANGELOG_STREAM_NAMES_REGEX = "stores\\.(.*)\\.changelog$"
 
   val JOB_COORDINATOR_REPLICATION_FACTOR = "job.coordinator." + TOPIC_REPLICATION_FACTOR
   val JOB_COORDINATOR_SEGMENT_BYTES = "job.coordinator." + SEGMENT_BYTES
+  val JOB_COORDINATOR_MAX_MESSAGE_BYTES = "job.coordinator." + MAX_MESSAGE_BYTES
 
   val CONSUMER_CONFIGS_CONFIG_KEY = "systems.%s.consumer.%s"
   val PRODUCER_BOOTSTRAP_SERVERS_CONFIG_KEY = "systems.%s.producer.bootstrap.servers"
@@ -117,6 +123,20 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   /**
+    * Gets the max message bytes for the checkpoint topic. Uses the following precedence.
+    *
+    * 1. If task.checkpoint.max.message.bytes is configured, that value is used.
+    * 2. If systems.checkpoint-system.default.stream.max.message.bytes is configured, that value is used.
+    * 3. 1000012
+    *
+    * Note that the checkpoint-system has a similar precedence. See [[getCheckpointSystem]]
+    */
+  def getCheckpointMaxMessageBytes() = {
+    val defaultmessageBytes = new SystemConfig(config).getDefaultStreamProperties(getCheckpointSystem.orNull).getInt(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES.toInt)
+    getInt(KafkaConfig.CHECKPOINT_MAX_MESSAGE_BYTES, defaultmessageBytes)
+  }
+
+  /**
     * Gets the segment bytes for the checkpoint topic. Uses the following precedence.
     *
     * 1. If task.checkpoint.segment.bytes is configured, that value is used.
@@ -128,6 +148,23 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getCheckpointSegmentBytes() = {
     val defaultsegBytes = new SystemConfig(config).getDefaultStreamProperties(getCheckpointSystem.orNull).getInt(KafkaConfig.SEGMENT_BYTES, KafkaConfig.DEFAULT_CHECKPOINT_SEGMENT_BYTES)
     getInt(KafkaConfig.CHECKPOINT_SEGMENT_BYTES, defaultsegBytes)
+  }
+
+  /**
+    * Gets the max message bytes for the coordinator topic. Uses the following precedence.
+    *
+    * 1. If job.coordinator.max.message.bytes is configured, that value is used.
+    * 2. If systems.coordinator-system.default.stream.max.message.bytes is configured, that value is used.
+    * 3. 1000012
+    *
+    * Note that the coordinator-system has a similar precedence. See [[JobConfig.getCoordinatorSystemName]]
+    */
+  def getCoordinatorMaxMessageByte = getOption(KafkaConfig.JOB_COORDINATOR_MAX_MESSAGE_BYTES) match {
+    case Some(maxMessageBytes) => maxMessageBytes
+    case _ =>
+      val coordinatorSystem = new JobConfig(config).getCoordinatorSystemNameOrNull
+      val systemMaxMessageBytes = new SystemConfig(config).getDefaultStreamProperties(coordinatorSystem).getOrDefault(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
+      systemMaxMessageBytes
   }
 
   /**
@@ -224,6 +261,23 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
   }
 
+  /**
+    * Gets the max message bytes for the changelog topics. Uses the following precedence.
+    *
+    * 1. If stores.myStore.changelog.max.message.bytes is configured, that value is used.
+    * 2. If systems.changelog-system.default.stream.max.message.bytes is configured, that value is used.
+    * 3. 1000012
+    *
+    * Note that the changelog-system has a similar precedence. See [[StorageConfig]]
+    */
+  def getChangelogStreamMaxMessageByte(name: String) = getOption(KafkaConfig.CHANGELOG_MAX_MESSAGE_BYTES format name) match {
+    case Some(maxMessageBytes) => maxMessageBytes
+    case _ =>
+      val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
+      val systemMaxMessageBytes = new SystemConfig(config).getDefaultStreamProperties(changelogSystem).getOrDefault(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
+      systemMaxMessageBytes
+  }
+
   // The method returns a map of storenames to changelog topic names, which are configured to use kafka as the changelog stream
   def getKafkaChangelogEnabledStores() = {
     val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
@@ -267,6 +321,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
         }
       case _ =>
         kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+        kafkaChangeLogProperties.setProperty("max.message.bytes", getChangelogStreamMaxMessageByte(name))
     }
 
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
@@ -281,6 +336,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   // topic.
   def getCheckpointTopicProperties() = {
     val segmentBytes: Int = getCheckpointSegmentBytes()
+    val maxMessageBytes: Int = getCheckpointMaxMessageBytes()
     val appConfig = new ApplicationConfig(config)
     val isStreamMode = appConfig.getAppMode == ApplicationMode.STREAM
     val properties = new Properties()
@@ -288,12 +344,14 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     if (isStreamMode) {
       properties.putAll(ImmutableMap.of(
         "cleanup.policy", "compact",
-        "segment.bytes", String.valueOf(segmentBytes)))
+        "segment.bytes", String.valueOf(segmentBytes),
+        "max.message.bytes", String.valueOf(maxMessageBytes)))
     } else {
       properties.putAll(ImmutableMap.of(
         "cleanup.policy", "compact,delete",
         "retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH),
-        "segment.bytes", String.valueOf(segmentBytes)))
+        "segment.bytes", String.valueOf(segmentBytes),
+        "max.message.bytes", String.valueOf(maxMessageBytes)))
     }
     properties
   }

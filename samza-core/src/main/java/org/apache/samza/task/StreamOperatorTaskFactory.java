@@ -16,24 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package org.apache.samza.coordinator;
-
-import java.util.concurrent.TimeUnit;
+package org.apache.samza.task;
 
 
-public interface DistributedLock {
-
-  /**
-   * Tries to acquire the lock
-   * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if it times out.
-   */
-  boolean lock(long timeout, TimeUnit unit);
-
-  /**
-   * Releases the lock
-   */
-  void unlock();
+/**
+ * Build {@link StreamOperatorTask} instances.
+ * <p>
+ * Implementations should return a new instance of {@link StreamOperatorTask} for each {@link #createInstance()} invocation.
+ * Note: It is not part of samza-api as it is a temporary hack introduced for SAMZA-2172. It will eventually
+ * go away with SAMZA-2203
+ */
+interface StreamOperatorTaskFactory extends TaskFactory<AsyncStreamTask> {
 }
