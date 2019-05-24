@@ -19,11 +19,13 @@
 
 package org.apache.samza.runtime;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
@@ -46,10 +48,6 @@ import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 
 public class ContainerLaunchUtil {
   private static final Logger log = LoggerFactory.getLogger(ContainerLaunchUtil.class);
