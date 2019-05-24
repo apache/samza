@@ -461,24 +461,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
   @Override
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
-    final String REPL_FACTOR = "replication.factor";
 
     KafkaStreamSpec kSpec = toKafkaSpec(streamSpec);
     String topicName = kSpec.getPhysicalName();
 
     // create topic.
     NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
-
-    // specify the configs
-    Map<String, String> streamConfig = new HashMap<>(streamSpec.getConfig());
-    // HACK - replication.factor is invalid config for AdminClient.createTopics
-    if (streamConfig.containsKey(REPL_FACTOR)) {
-      String repl = streamConfig.get(REPL_FACTOR);
-      LOG.warn("Configuration {}={} for topic={} is invalid. Using kSpec repl factor {}",
-          REPL_FACTOR, repl, kSpec.getPhysicalName(), kSpec.getReplicationFactor());
-      streamConfig.remove(REPL_FACTOR);
-    }
-    newTopic.configs(new MapConfig(streamConfig));
+    newTopic.configs(KafkaStreamSpec.filterUnsupportedProperties(kSpec.getConfig()));
     CreateTopicsResult result = adminClient.createTopics(ImmutableSet.of(newTopic));
     try {
       result.all().get(KAFKA_ADMIN_OPS_TIMEOUT_MS, TimeUnit.MILLISECONDS);
