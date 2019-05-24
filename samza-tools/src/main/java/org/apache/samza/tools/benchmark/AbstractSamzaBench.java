@@ -125,10 +125,7 @@ public abstract class AbstractSamzaBench {
     String systemFactory = config.get(String.format(CFG_SYSTEM_FACTORY, systemName));
     physicalStreamName = config.get(String.format(CFG_PHYSICAL_STREAM_NAME, streamId));
 
-    factory = ReflectionUtil.getObjWithArgsOrNull(getClass().getClassLoader(), systemFactory, SystemFactory.class);
-    if (factory == null) {
-      throw new RuntimeException("Cannot instantiate systemfactory " + systemFactory);
-    }
+    factory = ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), systemFactory, SystemFactory.class);
   }
 
   /**

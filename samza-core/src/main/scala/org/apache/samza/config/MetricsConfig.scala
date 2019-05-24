@@ -49,7 +49,7 @@ class MetricsConfig(config: Config) extends ScalaMapConfig(config) {
 
   def getMetricsSnapshotReporterStream(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM format name)
 
-  def getMetricsSnapshotReporterInterval(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL format name)
+  def getMetricsSnapshotReporterInterval(name: String): Int = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL format name).getOrElse("60").toInt
 
   def getMetricsSnapshotReporterBlacklist(name: String): Option[String] = getOption(MetricsConfig.METRICS_SNAPSHOT_REPORTER_BLACKLIST format name)
 

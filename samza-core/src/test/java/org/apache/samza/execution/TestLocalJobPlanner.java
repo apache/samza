@@ -30,8 +30,10 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
-import org.apache.samza.coordinator.DistributedLockWithState;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.system.StreamSpec;
+import org.apache.samza.zk.ZkMetadataStore;
+import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -42,7 +44,6 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -58,7 +59,7 @@ import static org.mockito.Mockito.when;
  * TODO: consolidate this with unit tests for ExecutionPlanner after SAMZA-1811
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({LocalJobPlanner.class, JobCoordinatorConfig.class})
+@PrepareForTest({LocalJobPlanner.class, JobCoordinatorConfig.class, ZkMetadataStoreFactory.class})
 public class TestLocalJobPlanner {
 
   private static final String PLAN_JSON =
@@ -73,7 +74,9 @@ public class TestLocalJobPlanner {
   @Test
   public void testStreamCreation()
       throws Exception {
-    localPlanner = createLocalJobPlanner(mock(StreamApplicationDescriptorImpl.class));
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    doReturn(mock(Config.class)).when(appDesc).getConfig();
+    localPlanner = createLocalJobPlanner(appDesc);
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
@@ -102,7 +105,9 @@ public class TestLocalJobPlanner {
   @Test
   public void testStreamCreationWithCoordination()
       throws Exception {
-    localPlanner = createLocalJobPlanner(mock(StreamApplicationDescriptorImpl.class));
+    StreamApplicationDescriptorImpl appDesc = mock(StreamApplicationDescriptorImpl.class);
+    doReturn(mock(Config.class)).when(appDesc).getConfig();
+    localPlanner = createLocalJobPlanner(appDesc);
     StreamManager streamManager = mock(StreamManager.class);
     doReturn(streamManager).when(localPlanner).buildAndStartStreamManager(any(Config.class));
 
@@ -118,9 +123,9 @@ public class TestLocalJobPlanner {
     when(mockJcConfig.getCoordinationUtilsFactory(getClass().getClassLoader())).thenReturn(coordinationUtilsFactory);
     PowerMockito.whenNew(JobCoordinatorConfig.class).withAnyArguments().thenReturn(mockJcConfig);
 
-    DistributedLockWithState lock = mock(DistributedLockWithState.class);
-    when(lock.lockIfNotSet(anyLong(), anyObject())).thenReturn(true);
-    when(coordinationUtils.getLockWithState(anyString())).thenReturn(lock);
+    DistributedLock lock = mock(DistributedLock.class);
+    when(lock.lock(anyObject())).thenReturn(true);
+    when(coordinationUtils.getLock(anyString())).thenReturn(lock);
     when(coordinationUtilsFactory.getCoordinationUtils(anyString(), anyString(), anyObject()))
         .thenReturn(coordinationUtils);
 
@@ -191,8 +196,17 @@ public class TestLocalJobPlanner {
         planIdBeforeShuffle.equals(getExecutionPlanId(updatedStreamSpecs)));
   }
 
-  private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
-    return spy(new LocalJobPlanner(appDesc));
+  private LocalJobPlanner createLocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) throws  Exception {
+    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+    DistributedLock distributedLock = mock(DistributedLock.class);
+    when(distributedLock.lock(anyObject())).thenReturn(true);
+    when(coordinationUtils.getLock(anyString())).thenReturn(distributedLock);
+
+    ZkMetadataStore zkMetadataStore = mock(ZkMetadataStore.class);
+    when(zkMetadataStore.get(any())).thenReturn(null);
+    PowerMockito.whenNew(ZkMetadataStore.class).withAnyArguments().thenReturn(zkMetadataStore);
+
+    return spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
   }
 
   private String getExecutionPlanId(List<StreamSpec> updatedStreamSpecs) {

@@ -474,7 +474,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     RemoteTable<String, String> table = new RemoteTable<>("table1", reader, null,
         rateLimitHelper, null, Executors.newSingleThreadExecutor(),
         null, null, null,
-        null);
+        null, null, null);
     table.init(createMockContext());
     table.get("abc");
   }
@@ -490,7 +490,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, writer,
         rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
-        null);
+        null, null, null);
     table.init(createMockContext());
     table.put("abc", "efg");
   }
@@ -502,7 +502,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, null,
         rateLimitHelper, null, Executors.newSingleThreadExecutor(),
         null, null, null,
-        null);
+        null, null, null);
     table.init(createMockContext());
     try {
       table.put("abc", "efg");

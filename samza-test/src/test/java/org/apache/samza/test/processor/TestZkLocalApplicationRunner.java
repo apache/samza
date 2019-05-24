@@ -65,6 +65,7 @@ import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.test.harness.IntegrationTestHarness;
@@ -189,38 +190,46 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     }
   }
 
-  private Map<String, String> buildStreamApplicationConfigMap(List<String> inputTopics, String appName, String appId) {
+  private Map<String, String> buildStreamApplicationConfigMap(List<String> inputTopics, String appName, String appId, boolean isBatch) {
     List<String> inputSystemStreams = inputTopics.stream()
                                                  .map(topic -> String.format("%s.%s", TestZkLocalApplicationRunner.TEST_SYSTEM, topic))
                                                  .collect(Collectors.toList());
     String coordinatorSystemName = "coordinatorSystem";
-    Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder()
-        .put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS)
-        .put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputSystemStreams))
-        .put(JobConfig.JOB_DEFAULT_SYSTEM(), TestZkLocalApplicationRunner.TEST_SYSTEM)
-        .put(TaskConfig.IGNORED_EXCEPTIONS(), "*")
-        .put(ZkConfig.ZK_CONNECT, zkConnect())
-        .put(JobConfig.SSP_GROUPER_FACTORY(), TEST_SSP_GROUPER_FACTORY)
-        .put(TaskConfig.GROUPER_FACTORY(), TEST_TASK_GROUPER_FACTORY)
-        .put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY)
-        .put(ApplicationConfig.APP_NAME, appName)
-        .put(ApplicationConfig.APP_ID, appId)
-        .put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner")
-        .put(String.format("systems.%s.samza.factory", TestZkLocalApplicationRunner.TEST_SYSTEM), TEST_SYSTEM_FACTORY)
-        .put(JobConfig.JOB_NAME(), appName)
-        .put(JobConfig.JOB_ID(), appId)
-        .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
-        .put(TaskConfig.DROP_PRODUCER_ERRORS(), "true")
-        .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
-        .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
-        .put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true")
-        .put("job.coordinator.system", coordinatorSystemName)
-        .put("job.coordinator.replication.factor", "1")
-        .build();
+    Map<String, String> config = new HashMap<>();
+    config.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS);
+    config.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputSystemStreams));
+    config.put(JobConfig.JOB_DEFAULT_SYSTEM(), TestZkLocalApplicationRunner.TEST_SYSTEM);
+    config.put(TaskConfig.IGNORED_EXCEPTIONS(), "*");
+    config.put(ZkConfig.ZK_CONNECT, zkConnect());
+    config.put(JobConfig.SSP_GROUPER_FACTORY(), TEST_SSP_GROUPER_FACTORY);
+    config.put(TaskConfig.GROUPER_FACTORY(), TEST_TASK_GROUPER_FACTORY);
+    config.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY);
+    config.put(ApplicationConfig.APP_NAME, appName);
+    config.put(ApplicationConfig.APP_ID, appId);
+    config.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    config.put(String.format("systems.%s.samza.factory", TestZkLocalApplicationRunner.TEST_SYSTEM), TEST_SYSTEM_FACTORY);
+    config.put(JobConfig.JOB_NAME(), appName);
+    config.put(JobConfig.JOB_ID(), appId);
+    config.put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
+    config.put(TaskConfig.DROP_PRODUCER_ERRORS(), "true");
+    config.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS);
+    config.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000");
+    config.put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true");
+    config.put("job.coordinator.system", coordinatorSystemName);
+    config.put("job.coordinator.replication.factor", "1");
+    if (isBatch) {
+      config.put(ApplicationConfig.APP_MODE, "BATCH");
+      config.put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "false");
+    }
+    Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder().putAll(config).build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
     applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(coordinatorSystemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
     applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(TestZkLocalApplicationRunner.TEST_SYSTEM, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
     return applicationConfig;
+  }
+
+  private Map<String, String> buildStreamApplicationConfigMap(List<String> inputTopics, String appName, String appId) {
+    return buildStreamApplicationConfigMap(inputTopics, appName, appId, false);
   }
 
   /**
@@ -982,6 +991,270 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     }
     return taskAssignments;
   }
+
+  /**
+   * Test if two processors coming up at the same time agree on a single runid
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. check if first processor run.id matches that of second processor
+   */
+  @Test
+  public void testAgreeingOnSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+  }
+
+
+  /**
+   * Test if a new processors joining an existing qurorum get the same runid
+   * 1. bring up two processors
+   * 2. wait till they start consuming messages
+   * 3. bring up a third processor
+   * 4. wait till third processor starts consuming messsages
+   * 5. check if third processor run.id matches that of first twp
+   */
+  @Test
+  public void testNewProcessorGetsSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor's runId matches that of the older processors
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+    assertEquals("RunId of the new processor does not match that of old processor", localApplicationRunner3.getRunId(), localApplicationRunner1.getRunId());
+
+
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
+
+  /**
+   * Test one group of processors dying and a new processor coming up generates new run.id
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. kill and shutdown neatly both the processors
+   * 4. bring up a new processor
+   * 5. wait till new processor starts consuming messages
+   * 6. check if new processor has new runid different from shutdown processors
+   */
+  @Test
+  public void testAllProcesssorDieNewProcessorGetsNewRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    String oldRunId = localApplicationRunner1.getRunId().get();
+
+    // shut down both the processors
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor's runId matches that of the older processors
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+
+    assertNotEquals("RunId of the new processor same as that of old stopped processors", oldRunId, localApplicationRunner3.getRunId());
+
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
+
+  /**
+   * Test if first processor dying changes the runid for new processors joining
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. kill and shutdown first processor
+   * 4. bring up a new processor
+   * 5. wait till new processor starts consuming messages
+   * 6. check if new processor gets same run.id
+   */
+  @Test
+  public void testFirstProcessorDiesButSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    executeRun(appRunner1, applicationConfig1);
+
+    // firt processor is up and running
+    processedMessagesLatch1.await();
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+
+    // bring up second processor
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+    executeRun(appRunner2, applicationConfig2);
+
+    // second processor is up and running
+    processedMessagesLatch2.await();
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    // shut down first processor
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor runid matches the old ones
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+    assertEquals("RunId of the new processor is not the same as that of earlier processors", localApplicationRunner2.getRunId(), localApplicationRunner3.getRunId());
+
+
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
 
   private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
     System.out.println(jobModel);

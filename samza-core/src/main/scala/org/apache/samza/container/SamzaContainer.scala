@@ -42,6 +42,7 @@ import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
+import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
 import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
@@ -135,11 +136,14 @@ object SamzaContainer extends Logging {
     externalContextOption: Option[ExternalContext],
     classLoader: ClassLoader,
     localityManager: LocalityManager = null,
-    startpointManager: StartpointManager = null) = {
+    startpointManager: StartpointManager = null,
+    diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
     val config = jobContext.getConfig
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
+    val jobName = config.getName.get
+    val jobId = config.getJobId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
@@ -667,7 +671,8 @@ object SamzaContainer extends Logging {
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
       externalContextOption = externalContextOption,
-      containerStorageManager = containerStorageManager)
+      containerStorageManager = containerStorageManager,
+      diagnosticsManager = diagnosticsManager)
   }
 
   /**
@@ -705,9 +710,10 @@ class SamzaContainer(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   externalContextOption: Option[ExternalContext],
-  containerStorageManager: ContainerStorageManager) extends Runnable with Logging {
+  containerStorageManager: ContainerStorageManager,
+  diagnosticsManager: Option[DiagnosticsManager] = Option.empty) extends Runnable with Logging {
 
-  val shutdownMs = config.getShutdownMs.getOrElse(TaskConfigJava.DEFAULT_TASK_SHUTDOWN_MS)
+  val shutdownMs = new TaskConfigJava(config).getShutdownMs
   var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
@@ -791,6 +797,7 @@ class SamzaContainer(
       shutdownHostStatisticsMonitor
       shutdownProducers
       shutdownOffsetManager
+      shutdownDiagnostics
       shutdownMetrics
       shutdownSecurityManger
       shutdownAdmins
@@ -883,25 +890,9 @@ class SamzaContainer(
   }
 
   def startDiagnostics {
-    if (config.getDiagnosticsEnabled) {
-      info("Starting diagnostics.")
-
-      try {
-        var diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
-        info("Attached log4j diagnostics appender.")
-      }
-      catch {
-        case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
-          try {
-            val diagnosticsAppender = Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender", (classOf[SamzaContainerMetrics], this.metrics))
-            info("Attached log4j2 diagnostics appender.")
-          } catch {
-            case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
-              warn("Failed to instantiate neither diagnostic appender for sending error information to diagnostics stream", e)
-            }
-          }
-        }
-      }
+    if (diagnosticsManager.isDefined) {
+      info("Starting diagnostics manager.")
+      diagnosticsManager.get.start()
     }
   }
 
@@ -1090,6 +1081,13 @@ class SamzaContainer(
     info("Shutting down offset manager.")
 
     offsetManager.stop
+  }
+
+  def shutdownDiagnostics {
+    if (diagnosticsManager.isDefined) {
+      info("Shutting down diagnostics manager.")
+      diagnosticsManager.get.stop()
+    }
   }
 
   def shutdownMetrics {

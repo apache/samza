@@ -114,6 +114,10 @@ object JobConfig {
   val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1
   val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
 
+  // Naming format and directory for container.metadata file
+  private val CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata" // Filename: <containerID>.metadata
+  private val CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir"
+
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
   /**
@@ -131,6 +135,18 @@ object JobConfig {
       fwkPath = fwkPath + File.separator  + fwkVersion
     }
     fwkPath
+  }
+
+  /** The metadata file is written in a <exec-env-container-id>.metadata file in the log-dir of the container.
+   Here the <exec-env-container-id> refers to the ID assigned by the cluster manager (e.g., YARN) to the container,
+   which uniquely identifies a container's lifecycle.*/
+  def getMetadataFile(execEnvContainerId: Option[String]): Option[File] = {
+    val dir = System.getProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY)
+    if (dir == null || execEnvContainerId.isEmpty) {
+      None
+    } else {
+      Option.apply(new File(dir, String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId.get)))
+    }
   }
 }
 
@@ -206,8 +222,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
 
   def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
-
-
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 

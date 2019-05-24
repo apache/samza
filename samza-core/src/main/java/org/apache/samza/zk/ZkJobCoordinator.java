@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -49,11 +51,13 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
@@ -287,16 +291,15 @@ public class ZkJobCoordinator implements JobCoordinator {
   /**
    * Stores the configuration of the job in the coordinator stream.
    */
-  private void loadMetadataResources(JobModel jobModel) {
+  @VisibleForTesting
+  void loadMetadataResources(JobModel jobModel) {
     CoordinatorStreamStore coordinatorStreamStore = null;
     try {
       // Creates the coordinator stream if it does not exists.
-      createCoordinatorStream();
-      coordinatorStreamStore = new CoordinatorStreamStore(config, metrics.getMetricsRegistry());
+      coordinatorStreamStore = createCoordinatorStreamStore();
       coordinatorStreamStore.init();
 
-      MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), getClass().getClassLoader());
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader());
       metadataResourceUtil.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
@@ -306,6 +309,17 @@ public class ZkJobCoordinator implements JobCoordinator {
         byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
         configStore.put(entry.getKey(), serializedValue);
       }
+
+      // fan out the startpoints
+      StartpointManager startpointManager = createStartpointManager(coordinatorStreamStore);
+      startpointManager.start();
+      try {
+        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+      } finally {
+        startpointManager.stop();
+      }
+    } catch (IOException ex) {
+      throw new SamzaException(String.format("IO exception while loading metadata resources."), ex);
     } finally {
       if (coordinatorStreamStore != null) {
         LOG.info("Stopping the coordinator stream metadata store.");
@@ -314,19 +328,27 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
   }
 
+  @VisibleForTesting
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader);
+  }
+
   /**
    * Creates a coordinator stream kafka topic.
    */
-  private void createCoordinatorStream() {
+  @VisibleForTesting
+  CoordinatorStreamStore createCoordinatorStreamStore() {
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
     CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin);
+    return new CoordinatorStreamStore(config, metrics.getMetricsRegistry());
   }
 
   /**
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
-  private JobModel generateNewJobModel(List<ProcessorNode> processorNodes) {
+  @VisibleForTesting
+  JobModel generateNewJobModel(List<ProcessorNode> processorNodes) {
     String zkJobModelVersion = zkUtils.getJobModelVersion();
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
@@ -358,6 +380,11 @@ public class ZkJobCoordinator implements JobCoordinator {
           debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
         }
       });
+  }
+
+  @VisibleForTesting
+  StartpointManager createStartpointManager(CoordinatorStreamStore metadataStore) {
+    return new StartpointManager(metadataStore);
   }
 
   /**

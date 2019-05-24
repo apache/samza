@@ -27,7 +27,6 @@ import org.apache.samza.SamzaException;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 
@@ -41,7 +40,8 @@ public class TestReflectionUtil {
         ReflectionUtil.getObj(getClass().getClassLoader(), ArrayList.class.getName(), List.class));
 
     // using custom classloader
-    assertTrue(ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(), List.class) instanceof ArrayList);
+    assertTrue(ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(),
+        List.class) instanceof ArrayList);
     assertEquals(new ArrayList<>(),
         ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(), List.class));
   }
@@ -64,8 +64,14 @@ public class TestReflectionUtil {
   @Test
   public void testGetObjWithArgs() {
     assertEquals(new WithTwoArgConstructor("hello", "world"),
-        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
-            "hello", "world"));
+        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(),
+            WithTwoArgConstructor.class, "hello", "world"));
+
+    // should still work if pass no args, since should use empty constructor
+    assertTrue(ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), ArrayList.class.getName(),
+        List.class) instanceof ArrayList);
+    assertEquals(new ArrayList<>(),
+        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), ArrayList.class.getName(), List.class));
   }
 
   /**
@@ -84,22 +90,14 @@ public class TestReflectionUtil {
         "hello world");
   }
 
-  @Test
-  public void testCreateInstanceOrNull() {
-    assertEquals(new WithTwoArgConstructor("hello", "world"),
-        ReflectionUtil.getObjWithArgsOrNull(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), WithTwoArgConstructor.class,
-            "hello", "world"));
+  @Test(expected = SamzaException.class)
+  public void testGetObjWithArgsZeroArgsNoClass() {
+    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class);
   }
 
-  @Test
-  public void testCreateInstanceOrNullInvalid() {
-    // no class exists (also verifies classloader passed as argument gets used)
-    assertNull(
-        ReflectionUtil.getObjWithArgsOrNull(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class, 10));
-
-    // class doesn't have a matching constructor
-    assertNull(ReflectionUtil.getObjWithArgsOrNull(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
-        "hello world"));
+  @Test(expected = SamzaException.class)
+  public void testGetObjWithArgsZeroArgsNoClassInvalidConstructor() {
+    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class);
   }
 
   private static class WithTwoArgConstructor {

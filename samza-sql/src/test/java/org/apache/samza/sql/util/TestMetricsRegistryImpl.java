@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.ListGauge;
 import org.apache.samza.metrics.Timer;
 
 
@@ -36,7 +35,6 @@ public class TestMetricsRegistryImpl implements org.apache.samza.metrics.Metrics
   private Map<String, List<Counter>> counters = new HashMap<>();
   private Map<String, List<Timer>> timers = new HashMap<>();
   private Map<String, List<Gauge<?>>> gauges = new HashMap<>();
-  private Map<String, List<ListGauge>> listGauges = new HashMap<>();
 
   @Override
   public Counter newCounter(String group, String name) {
@@ -107,11 +105,5 @@ public class TestMetricsRegistryImpl implements org.apache.samza.metrics.Metrics
     return gauges;
   }
 
-  @Override
-  public ListGauge newListGauge(String group, ListGauge listGauge) {
-    listGauges.putIfAbsent(group, new ArrayList());
-    listGauges.get(group).add(listGauge);
-    return listGauge;
-  }
 
 }
