@@ -39,7 +39,7 @@ import org.apache.samza.table.remote.TableWriteFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import rx.Single;
+import rx.Observable;
 import rx.SingleSubscriber;
 
 /**
@@ -76,29 +76,40 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
     Preconditions.checkArgument(StringUtils.isNotBlank(key), "key must not be null, empty or blank");
     Preconditions.checkArgument(!key.contains(" "), String.format("key should not contain spaces: %s", key));
     Preconditions.checkNotNull(record);
-    Document<?> document =
-        record instanceof JsonObject ? JsonDocument.create(key, (int) ttl.getSeconds(), (JsonObject) record)
-            : BinaryDocument.create(key, (int) ttl.getSeconds(), Unpooled.copiedBuffer(valueSerde.toBytes(record)));
-    return asyncWriteHelper(bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
+    Document<?> document = record instanceof JsonObject
+        ? JsonDocument.create(key, (int) ttl.getSeconds(), (JsonObject) record)
+        : BinaryDocument.create(key, (int) ttl.getSeconds(), Unpooled.copiedBuffer(valueSerde.toBytes(record)));
+    return asyncWriteHelper(
+        bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS),
         String.format("Failed to insert key %s into bucket %s", key, bucketName));
   }
 
   @Override
   public CompletableFuture<Void> deleteAsync(String key) {
     Preconditions.checkArgument(StringUtils.isNotBlank(key), "key must not be null, empty or blank");
-    return asyncWriteHelper(bucket.async().remove(key, timeout.toMillis(), TimeUnit.MILLISECONDS).toSingle(),
+    return asyncWriteHelper(
+        bucket.async().remove(key, timeout.toMillis(), TimeUnit.MILLISECONDS),
         String.format("Failed to delete key %s from bucket %s.", key, bucketName));
   }
 
   /*
    * Helper method for putAsync and deleteAsync to convert Single to CompletableFuture.
    */
-  protected CompletableFuture<Void> asyncWriteHelper(Single<? extends Document<?>> single, String errorMessage) {
-    CompletableFuture<Void> future = new CompletableFuture<>();
-    single.subscribe(new SingleSubscriber<Document>() {
+  protected CompletableFuture<Void>  asyncWriteHelper(Observable<? extends Document> observable, String errorMessage) {
+    return asyncWriteHelper(observable, errorMessage, true);
+  }
+
+  protected <T> CompletableFuture<T>  asyncWriteHelper(Observable<? extends Document> observable, String errorMessage,
+      boolean isVoid) {
+    CompletableFuture<T> future = new CompletableFuture<>();
+    observable.toSingle().subscribe(new SingleSubscriber<Document>() {
       @Override
-      public void onSuccess(Document v) {
-        future.complete(null);
+      public void onSuccess(Document document) {
+        if (isVoid) {
+          future.complete(null);
+        } else {
+          future.complete((T) document.content());
+        }
       }
 
       @Override
@@ -108,4 +119,5 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
     });
     return future;
   }
+
 }
