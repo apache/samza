@@ -276,7 +276,7 @@ public class TestLocalApplicationRunner {
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
-    doReturn(localPlanner).when(runner).getPlanner();
+    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
   }
 
   /**
@@ -349,7 +349,7 @@ public class TestLocalApplicationRunner {
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
-    doReturn(localPlanner).when(runner).getPlanner();
+    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
     StreamProcessor sp = mock(StreamProcessor.class);
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject());
   }

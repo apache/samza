@@ -95,7 +95,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   public LocalApplicationRunner(SamzaApplication app, Config config) {
     this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    coordinationUtils = getCoordinationUtils(config);
+    coordinationUtils = getCoordinationUtils(config, getClass().getClassLoader());
   }
 
   /**
@@ -108,12 +108,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
     this.coordinationUtils = coordinationUtils;
   }
 
-  private Optional<CoordinationUtils> getCoordinationUtils(Config config) {
+  private Optional<CoordinationUtils> getCoordinationUtils(Config config, ClassLoader classLoader) {
     if (!isAppModeBatch) {
       return Optional.empty();
     }
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
-    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
+    CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory(classLoader)
+        .getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
     return Optional.ofNullable(coordinationUtils);
   }
 
@@ -121,10 +122,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @return LocalJobPlanner created
    */
   @VisibleForTesting
-  LocalJobPlanner getPlanner() {
+  LocalJobPlanner getPlanner(ClassLoader classLoader) {
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!isAppModeBatch) {
-      return new LocalJobPlanner(appDesc, PROCESSOR_ID);
+      return new LocalJobPlanner(appDesc, PROCESSOR_ID, classLoader);
     }
     CoordinationUtils coordinationUtils = this.coordinationUtils.orElse(null);
     String runId = this.runId.orElse(null);
@@ -160,7 +161,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   public void run(ExternalContext externalContext) {
     initializeRunId();
 
-    LocalJobPlanner planner = getPlanner();
+    LocalJobPlanner planner = getPlanner(getClass().getClassLoader());
 
     try {
       List<JobConfig> jobConfigs = planner.prepareJobs();

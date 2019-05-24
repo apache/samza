@@ -149,7 +149,8 @@ public class TestClusterBasedJobCoordinator {
     // ClusterBasedJobCoordinator will need to be refactored for better mock support.
     doThrow(stopException).when(mockStartpointManager).stop();
 
-    doReturn(mockContainerProcessManager).when(clusterCoordinator).createContainerProcessManager();
+    doReturn(mockContainerProcessManager).when(clusterCoordinator)
+        .createContainerProcessManager(getClass().getClassLoader());
     doReturn(mockStartpointManager).when(clusterCoordinator).createStartpointManager();
     try {
       clusterCoordinator.run();
