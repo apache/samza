@@ -95,16 +95,16 @@ public class TestTableRateLimiter {
     rateLimitHelper.setTimerMetric(timer);
     int times = 0;
     rateLimitHelper.throttle("foo");
-    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
     verify(timer, times(times)).update(anyLong());
     rateLimitHelper.throttle("foo", "bar");
-    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
     verify(timer, times(times)).update(anyLong());
     rateLimitHelper.throttle(Arrays.asList("foo", "bar"));
-    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
     verify(timer, times(times)).update(anyLong());
     rateLimitHelper.throttle(1, 2);
-    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
     verify(timer, times(times)).update(anyLong());
   }
 

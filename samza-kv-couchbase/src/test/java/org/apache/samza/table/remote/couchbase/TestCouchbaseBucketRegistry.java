@@ -51,13 +51,13 @@ public class TestCouchbaseBucketRegistry {
   public void testOpenBuckets() {
     String bucketName1 = "bucket1";
     String bucketName2 = "bucket2";
-    List<String> clusterNodes = new ArrayList<>(Arrays.asList("cluster"));
+    List<String> clusterNodes = Arrays.asList("cluster");
     CouchbaseEnvironmentConfigs configs = new CouchbaseEnvironmentConfigs();
     CouchbaseCluster cluster = mock(CouchbaseCluster.class);
     when(cluster.openBucket(bucketName1)).thenReturn(mock(Bucket.class));
     when(cluster.openBucket(bucketName2)).thenReturn(mock(Bucket.class));
     mockStatic(CouchbaseCluster.class);
-    when(CouchbaseCluster.create(any(CouchbaseEnvironment.class), any(List.class))).thenReturn(cluster);
+    when(CouchbaseCluster.create(any(CouchbaseEnvironment.class), anyListOf(String.class))).thenReturn(cluster);
     CouchbaseBucketRegistry registry = new CouchbaseBucketRegistry();
     Bucket bucket1 = registry.getBucket(bucketName1, clusterNodes, configs);
     Bucket bucket1_copy = registry.getBucket(bucketName1, clusterNodes, configs);
@@ -73,8 +73,8 @@ public class TestCouchbaseBucketRegistry {
   @Test
   public void testOpenSameBucketNameFromDifferentClusters() {
     String bucketName = "bucket";
-    List<String> clusterNodes1 = new ArrayList<>(Arrays.asList("cluster1"));
-    List<String> clusterNodes2 = new ArrayList<>(Arrays.asList("cluster2"));
+    List<String> clusterNodes1 = Arrays.asList("cluster1");
+    List<String> clusterNodes2 = Arrays.asList("cluster2");
     CouchbaseEnvironmentConfigs configs = new CouchbaseEnvironmentConfigs();
     CouchbaseCluster cluster1 = mock(CouchbaseCluster.class);
     CouchbaseCluster cluster2 = mock(CouchbaseCluster.class);
@@ -97,7 +97,7 @@ public class TestCouchbaseBucketRegistry {
   @Test
   public void testCloseBucket() {
     String bucketName = "bucket";
-    List<String> clusterNodes = new ArrayList<>(Arrays.asList("cluster"));
+    List<String> clusterNodes = Arrays.asList("cluster");
     CouchbaseEnvironmentConfigs configs = new CouchbaseEnvironmentConfigs();
     CouchbaseCluster cluster = mock(CouchbaseCluster.class);
     Bucket bucket = mock(Bucket.class);
@@ -128,7 +128,7 @@ public class TestCouchbaseBucketRegistry {
   public void testCloseTwoBucketsInSameCluster() {
     String bucketName1 = "bucket1";
     String bucketName2 = "bucket2";
-    List<String> clusterNodes = new ArrayList<>(Arrays.asList("cluster"));
+    List<String> clusterNodes = Arrays.asList("cluster");
     CouchbaseEnvironmentConfigs configs = new CouchbaseEnvironmentConfigs();
     CouchbaseCluster cluster = mock(CouchbaseCluster.class);
     Bucket bucket1 = mock(Bucket.class);

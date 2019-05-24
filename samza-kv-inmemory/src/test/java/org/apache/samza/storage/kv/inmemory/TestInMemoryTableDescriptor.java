@@ -39,7 +39,7 @@ public class TestInMemoryTableDescriptor {
 
   @Test
   public void testMinimal() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
     Assert.assertEquals(2, tableConfig.size());
@@ -47,7 +47,7 @@ public class TestInMemoryTableDescriptor {
 
   @Test
   public void testTableProviderFactoryConfig() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
@@ -61,7 +61,7 @@ public class TestInMemoryTableDescriptor {
   }
 
   private InMemoryTableDescriptor createTableDescriptor() {
-    return new InMemoryTableDescriptor(TABLE_ID,
-        new KVSerde(new NoOpSerde(), new NoOpSerde()));
+    return new InMemoryTableDescriptor<>(TABLE_ID,
+        KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
   }
 }

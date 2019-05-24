@@ -32,7 +32,6 @@ import com.couchbase.mock.CouchbaseMock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.Config;
@@ -46,8 +45,7 @@ import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
-import org.apache.samza.table.remote.BaseTableFunction;
-import org.apache.samza.table.remote.TableReadFunction;
+import org.apache.samza.table.remote.DummyTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableWriteFunction;
 import org.apache.samza.test.harness.IntegrationTestHarness;
@@ -153,7 +151,8 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
       Table<KV<String, String>> inputTable = appDesc.getTable(inputTableDesc);
 
       RemoteTableDescriptor outputTableDesc = new RemoteTableDescriptor<String, JsonObject>("output-table")
-          .withReadFunction(new DummyReadFunction<>()).withWriteFunction(writeFunction)
+          .withReadFunction(new DummyTableReadFunction<>())
+          .withWriteFunction(writeFunction)
           .withRateLimiterDisabled();
       Table<KV<String, JsonObject>> outputTable = appDesc.getTable(outputTableDesc);
 
@@ -194,15 +193,4 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
     }
   }
 
-  static class DummyReadFunction<K, V> extends BaseTableFunction implements TableReadFunction<K, V> {
-    @Override
-    public CompletableFuture<V> getAsync(K key) {
-      return null;
-    }
-
-    @Override
-    public boolean isRetriable(Throwable exception) {
-      return false;
-    }
-  }
 }
