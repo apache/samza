@@ -22,6 +22,7 @@ package org.apache.samza.checkpoint
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -193,6 +194,7 @@ class OffsetManager(
     stripResetStreams
     loadStartingOffsets
     loadStartpoints
+    resolveStartpointsToStartingOffsets
     loadDefaults
 
     info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
@@ -538,6 +540,47 @@ class OffsetManager(
       }
     }
   }
+
+  /**
+    * Overwrite starting offsets with resolved offsets from startpoints
+    */
+  private def resolveStartpointsToStartingOffsets: Unit = {
+    if (startpoints.isEmpty) {
+      return
+    }
+
+    startpoints.foreach {
+      case (taskName, sspToStartpoint) => {
+        var resolvedOffsets: Map[SystemStreamPartition, String] = Map()
+        sspToStartpoint.foreach {
+          case (ssp, startpoint) => {
+            try {
+              val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem)
+              val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(ssp, startpoint)
+              if (StringUtils.isNotBlank(resolvedOffset)) {
+                resolvedOffsets += ssp -> resolvedOffset
+                info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint, ssp, resolvedOffset))
+              }
+            } catch {
+              case e: Exception => {
+                error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, ssp), e)
+              }
+            }
+          }
+        }
+
+        // copy starting offsets and overwrite with resolved offsets
+        var mergedOffsets: Map[SystemStreamPartition, String] = startingOffsets.getOrElse(taskName, Map())
+        resolvedOffsets.foreach {
+          case (ssp, resolvedOffset) => {
+            mergedOffsets += ssp -> resolvedOffset
+          }
+        }
+        startingOffsets += taskName -> mergedOffsets
+      }
+    }
+  }
+
   /**
    * Use defaultOffsets to get a next offset for every SystemStreamPartition
    * that was registered, but has no offset.
