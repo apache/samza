@@ -178,8 +178,7 @@ public class SamzaSqlApplicationConfig {
     Config pluginConfig = staticConfig.subset(pluginDomain);
     String factoryName = pluginConfig.getOrDefault(CFG_FACTORY, "");
     Validate.notEmpty(factoryName, String.format("Factory is not set for %s", plugin));
-    Object factory =
-        ReflectionUtil.getObjWithArgs(SamzaSqlApplicationConfig.class.getClassLoader(), factoryName, Object.class);
+    Object factory = ReflectionUtil.getObj(SamzaSqlApplicationConfig.class.getClassLoader(), factoryName, Object.class);
     LOG.info("Instantiating {} using factory {} with props {}", pluginName, factoryName, pluginConfig);
     return factoryInvoker.apply(factory, pluginConfig);
   }

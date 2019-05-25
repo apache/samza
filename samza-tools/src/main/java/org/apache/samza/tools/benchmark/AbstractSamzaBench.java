@@ -125,7 +125,7 @@ public abstract class AbstractSamzaBench {
     String systemFactory = config.get(String.format(CFG_SYSTEM_FACTORY, systemName));
     physicalStreamName = config.get(String.format(CFG_PHYSICAL_STREAM_NAME, streamId));
 
-    factory = ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), systemFactory, SystemFactory.class);
+    factory = ReflectionUtil.getObj(getClass().getClassLoader(), systemFactory, SystemFactory.class);
   }
 
   /**

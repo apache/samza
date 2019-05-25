@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
 
@@ -63,9 +64,10 @@ public class TestReflectionUtil {
 
   @Test
   public void testGetObjWithArgs() {
-    assertEquals(new WithTwoArgConstructor("hello", "world"),
+    assertEquals(new WithTwoArgConstructor("hello", ImmutableList.of("hello", "world")),
         ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(),
-            WithTwoArgConstructor.class, "hello", "world"));
+            WithTwoArgConstructor.class, ReflectionUtil.constructorArgument("hello", String.class),
+            ReflectionUtil.constructorArgument(ImmutableList.of("hello", "world"), List.class)));
 
     // should still work if pass no args, since should use empty constructor
     assertTrue(ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), ArrayList.class.getName(),
@@ -81,13 +83,21 @@ public class TestReflectionUtil {
    */
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsNoClass() {
-    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class, 10);
+    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class,
+        ReflectionUtil.constructorArgument(10, Integer.class));
   }
 
   @Test(expected = SamzaException.class)
-  public void testGetObjWithArgsInvalidConstructor() {
+  public void testGetObjWithArgsWrongArgumentCount() {
     ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
-        "hello world");
+        ReflectionUtil.constructorArgument("hello world", String.class));
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testGetObjWithArgsWrongArgumentTypes() {
+    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
+        ReflectionUtil.constructorArgument("hello world", String.class),
+        ReflectionUtil.constructorArgument(ImmutableList.of("hello", "world"), ImmutableList.class));
   }
 
   @Test(expected = SamzaException.class)
@@ -101,13 +111,13 @@ public class TestReflectionUtil {
   }
 
   private static class WithTwoArgConstructor {
-    private final String s0;
-    private final String s1;
+    private final String string;
+    private final List<String> list;
 
-    WithTwoArgConstructor(String s0, String s1) {
+    WithTwoArgConstructor(String string, List<String> list) {
       // just need some constructor so that there is no default constructor
-      this.s0 = s0;
-      this.s1 = s1;
+      this.string = string;
+      this.list = list;
     }
 
     @Override
@@ -119,12 +129,12 @@ public class TestReflectionUtil {
         return false;
       }
       WithTwoArgConstructor that = (WithTwoArgConstructor) o;
-      return Objects.equals(s0, that.s0) && Objects.equals(s1, that.s1);
+      return Objects.equals(string, that.string) && Objects.equals(list, that.list);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(s0, s1);
+      return Objects.hash(string, list);
     }
   }
 

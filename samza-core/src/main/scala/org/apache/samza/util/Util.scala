@@ -93,8 +93,8 @@ object Util extends Logging {
   /**
     * Instantiate an object from given className, and given constructor parameters.
     *
-    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, Object...)]] instead. See javadocs for
-    * that method for recommendations of classloaders to use.
+    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, ConstructorArgument...)]] instead. See
+    * javadocs for that method for recommendations of classloaders to use.
     */
   @Deprecated
   @throws[ClassNotFoundException]
