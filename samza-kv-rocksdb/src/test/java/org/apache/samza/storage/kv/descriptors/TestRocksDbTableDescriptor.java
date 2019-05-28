@@ -40,7 +40,7 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testMinimal() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
     Assert.assertEquals(2, tableConfig.size());
@@ -48,7 +48,7 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testTableProviderFactoryConfig() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
@@ -60,7 +60,7 @@ public class TestRocksDbTableDescriptor {
   @Test
   public void testRocksDbConfig() {
 
-    Map<String, String> tableConfig = new RocksDbTableDescriptor<Integer, String>(
+    Map tableConfig = new RocksDbTableDescriptor<Integer, String>(
             TABLE_ID, KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withBlockSize(1)
         .withCacheSize(2)
@@ -93,7 +93,7 @@ public class TestRocksDbTableDescriptor {
     Assert.assertEquals("xyz", tableConfig.get("abc"));
   }
 
-  private void assertEquals(String expectedValue, String key, Map<String, String> config) {
+  private void assertEquals(String expectedValue, String key, Map config) {
     String realKey = String.format("stores.%s.%s", TABLE_ID, key);
     Assert.assertEquals(expectedValue, config.get(realKey));
   }
@@ -103,7 +103,7 @@ public class TestRocksDbTableDescriptor {
   }
 
   private RocksDbTableDescriptor createTableDescriptor() {
-    return new RocksDbTableDescriptor(TABLE_ID,
-        new KVSerde(new NoOpSerde(), new NoOpSerde()));
+    return new RocksDbTableDescriptor<>(TABLE_ID,
+        KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
   }
 }

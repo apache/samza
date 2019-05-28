@@ -65,6 +65,7 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
    * @param tableId The id of the table.
    * @param table The target table that serves the batch operations.
    * @param batchProvider Batch provider to create a batch instance.
+   * @param batchTimerExecutorService Executor service for batch timer.
    */
   public AsyncBatchingTable(String tableId, AsyncReadWriteTable table, BatchProvider<K, V> batchProvider,
       ScheduledExecutorService batchTimerExecutorService) {
