@@ -24,7 +24,7 @@ package org.apache.samza.task;
  * callback events. If the callback completes with success, onComplete() will be fired.
  * If the callback fails, onFailure() will be fired.
  */
-interface TaskCallbackListener {
+public interface TaskCallbackListener {
   void onComplete(TaskCallback callback);
   void onFailure(TaskCallback callback, Throwable t);
 }
