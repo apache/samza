@@ -32,9 +32,6 @@ import org.apache.samza.system.elasticsearch.indexrequest.IndexRequestFactory;
 import org.apache.samza.util.ReflectionUtil;
 import org.elasticsearch.client.Client;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-
 /**
  * A {@link SystemFactory} for Elasticsearch.
  *
@@ -51,10 +48,11 @@ public class ElasticsearchSystemFactory implements SystemFactory {
   @Override
   public SystemProducer getProducer(String name, Config config, MetricsRegistry metricsRegistry) {
     ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig(name, config);
+    ClassLoader classLoader = getClass().getClassLoader();
     return new ElasticsearchSystemProducer(name,
                                            getBulkProcessorFactory(elasticsearchConfig),
-                                           getClient(elasticsearchConfig),
-                                           getIndexRequestFactory(elasticsearchConfig, getClass().getClassLoader()),
+                                           getClient(elasticsearchConfig, classLoader),
+                                           getIndexRequestFactory(elasticsearchConfig, classLoader),
                                            new ElasticsearchSystemProducerMetrics(name, metricsRegistry));
   }
 
@@ -68,16 +66,9 @@ public class ElasticsearchSystemFactory implements SystemFactory {
     return new BulkProcessorFactory(config);
   }
 
-  protected static Client getClient(ElasticsearchConfig config) {
-    String name = config.getClientFactoryClassName();
-    try {
-      Constructor c = Class.forName(name).getConstructor(ElasticsearchConfig.class);
-
-      return ((ClientFactory) c.newInstance(config)).getClient();
-    } catch (InvocationTargetException | NoSuchMethodException | InstantiationException
-        | IllegalAccessException | ClassNotFoundException e) {
-      throw new RuntimeException(String.format("Could not instantiate class %s", name));
-    }
+  protected static Client getClient(ElasticsearchConfig config, ClassLoader classLoader) {
+    return ReflectionUtil.getObjWithArgs(classLoader, config.getClientFactoryClassName(), ClientFactory.class,
+        ReflectionUtil.constructorArgument(config, ElasticsearchConfig.class)).getClient();
   }
 
   protected static IndexRequestFactory getIndexRequestFactory(ElasticsearchConfig config,
@@ -89,5 +80,4 @@ public class ElasticsearchSystemFactory implements SystemFactory {
       return new DefaultIndexRequestFactory();
     }
   }
-
 }

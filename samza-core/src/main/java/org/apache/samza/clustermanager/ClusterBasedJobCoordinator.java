@@ -231,12 +231,13 @@ public class ClusterBasedJobCoordinator {
       String jobName = new JobConfig(config).getName().get();
       String jobId = new JobConfig(config).getJobId();
       Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
-      DiagnosticsUtil.writeMetadataFile(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
+      ClassLoader classLoader = getClass().getClassLoader();
+      DiagnosticsUtil.writeMetadataFile(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config, classLoader);
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader());
+          new MetadataResourceUtil(jobModel, this.metrics, classLoader);
       metadataResourceUtil.createResources();
 
       // fan out the startpoints

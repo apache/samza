@@ -52,7 +52,7 @@ public class DiagnosticsUtil {
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
-      Optional<String> execEnvContainerId, Config config) {
+      Optional<String> execEnvContainerId, Config config, ClassLoader classLoader) {
 
     Option<File> metadataFile = JobConfig.getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
 
@@ -62,7 +62,7 @@ public class DiagnosticsUtil {
       metadata.append(System.lineSeparator());
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
-              Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
+              Util.getTaskClassVersion(config, classLoader), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
               System.currentTimeMillis(), System.currentTimeMillis());
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
@@ -80,8 +80,8 @@ public class DiagnosticsUtil {
    * if diagnostics is enabled.
    * execEnvContainerId is the ID assigned to the container by the cluster manager (e.g., YARN).
    */
-  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName, String jobId,
-      String containerId, Optional<String> execEnvContainerId, Config config) {
+  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
+      String jobId, String containerId, Optional<String> execEnvContainerId, Config config, ClassLoader classLoader) {
 
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
@@ -90,7 +90,7 @@ public class DiagnosticsUtil {
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
       Integer publishInterval = new MetricsConfig(config).getMetricsSnapshotReporterInterval(diagnosticsReporterName);
-      String taskClassVersion = Util.getTaskClassVersion(config);
+      String taskClassVersion = Util.getTaskClassVersion(config, classLoader);
       String samzaVersion = Util.getSamzaVersion();
       String hostName = Util.getLocalHost().getHostName();
       Option<String> blacklist = new MetricsConfig(config).getMetricsSnapshotReporterBlacklist(diagnosticsReporterName);

@@ -59,7 +59,7 @@ public class ApplicationRunners {
   public static final ApplicationRunner getApplicationRunner(SamzaApplication userApp, Config config) {
     String appRunnerClassName = getAppRunnerClass(config);
     try {
-      Class<?> runnerClass = Class.forName(appRunnerClassName);
+      Class<?> runnerClass = Class.forName(appRunnerClassName, true, ApplicationRunners.class.getClassLoader());
       if (!ApplicationRunner.class.isAssignableFrom(runnerClass)) {
         throw new ConfigException(
             String.format("Class %s does not extend ApplicationRunner properly", appRunnerClassName));

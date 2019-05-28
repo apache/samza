@@ -29,7 +29,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.{StreamSpec, SystemAdmins}
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, ReflectionUtil, StreamUtil, Util}
 
 import scala.collection.JavaConverters._
 
@@ -165,8 +165,8 @@ class JobRunner(config: Config) extends Logging {
       case Some(factoryClass) => factoryClass
       case _ => throw new SamzaException("no job factory class defined")
     }
-    val jobFactory = Class.forName(jobFactoryClass).newInstance.asInstanceOf[StreamJobFactory]
-    info("job factory: %s" format (jobFactoryClass))
+    val jobFactory = ReflectionUtil.getObj(getClass.getClassLoader, jobFactoryClass, classOf[StreamJobFactory])
+    info("job factory: %s" format jobFactoryClass)
     jobFactory
   }
 }

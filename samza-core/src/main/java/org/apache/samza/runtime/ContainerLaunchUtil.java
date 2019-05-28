@@ -97,9 +97,11 @@ public class ContainerLaunchUtil {
       StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
 
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
+      ClassLoader classLoader = ContainerLaunchUtil.class.getClassLoader();
 
       // Creating diagnostics manager and reporter, and wiring it respectively
-      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, containerId, execEnvContainerId, config);
+      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+          DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, containerId, execEnvContainerId, config, classLoader);
       Option<DiagnosticsManager> diagnosticsManager = Option.empty();
       if (diagnosticsManagerReporterPair.isPresent()) {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
@@ -114,7 +116,7 @@ public class ContainerLaunchUtil {
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
           Option.apply(externalContextOptional.orElse(null)),
-          ContainerLaunchUtil.class.getClassLoader(),
+          classLoader,
           localityManager,
           startpointManager,
           diagnosticsManager);

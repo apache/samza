@@ -21,24 +21,20 @@ package org.apache.samza.system.hdfs.writer
 
 
 import org.apache.samza.system.hdfs.HdfsConfig
-import org.apache.samza.config.Config
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.samza.util.ReflectionUtil
 
 
 object Bucketer {
-
   /**
    * Factory for the Bucketer subclass the user configured in the job properties file.
    */
-  def getInstance(systemName: String, samzaConfig: HdfsConfig): Bucketer = {
-    Class.forName(samzaConfig.getHdfsBucketerClassName(systemName))
-      .getConstructor(classOf[String], classOf[HdfsConfig])
-      .newInstance(systemName, samzaConfig)
-      .asInstanceOf[Bucketer]
+  def getInstance(systemName: String, samzaConfig: HdfsConfig, classLoader: ClassLoader): Bucketer = {
+    ReflectionUtil.getObjWithArgs(classLoader, samzaConfig.getHdfsBucketerClassName(systemName), classOf[Bucketer],
+      ReflectionUtil.constructorArgument(systemName, classOf[String]),
+      ReflectionUtil.constructorArgument(samzaConfig, classOf[HdfsConfig]))
   }
-
 }
-
 
 /**
  * Utility for plugging in various methods of bucketing. Used by HdfsWriters

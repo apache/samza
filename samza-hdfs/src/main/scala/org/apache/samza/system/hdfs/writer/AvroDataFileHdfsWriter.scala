@@ -37,7 +37,7 @@ class AvroDataFileHdfsWriter (dfs: FileSystem, systemName: String, config: HdfsC
   extends HdfsWriter[DataFileWriter[Object]](dfs, systemName, config) {
 
   val batchSize = config.getWriteBatchSizeRecords(systemName)
-  val bucketer = Some(Bucketer.getInstance(systemName, config))
+  val bucketer = Some(Bucketer.getInstance(systemName, config, getClass.getClassLoader))
   var recordsWritten = 0L
 
   override def flush: Unit = writer.map { _.flush }

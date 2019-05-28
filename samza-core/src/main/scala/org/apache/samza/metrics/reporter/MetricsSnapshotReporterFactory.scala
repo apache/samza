@@ -99,7 +99,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       jobName,
       jobId,
       containerName,
-      Util.getTaskClassVersion(config),
+      Util.getTaskClassVersion(config, getClass.getClassLoader),
       Util.getSamzaVersion(),
       Util.getLocalHost.getHostName,
       serde, blacklist)

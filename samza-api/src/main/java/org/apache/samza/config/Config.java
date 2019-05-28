@@ -169,11 +169,20 @@ public abstract class Config implements Map<String, String>, Serializable {
     return getList(k, null);
   }
 
+  /**
+   * Important: If an application is using this with application master isolation enabled, then this will not be able
+   * to find a class on the application classpath. Instead, use {@link Class#forName(String)} directly in order to do
+   * reflection.
+   *
+   * Deprecated: If an application needs to use reflection, then it should call {@link Class#forName(String)} directly.
+   * This allows better classloader control for applications.
+   */
+  @Deprecated
   @SuppressWarnings("unchecked")
   public <T> Class<T> getClass(String k) {
     if (containsKey(k)) {
       try {
-        return (Class<T>) Class.forName(get(k));
+        return (Class<T>) Class.forName(get(k), true, getClass().getClassLoader());
       } catch (Exception e) {
         throw new ConfigException("Unable to find class.", e);
       }
@@ -182,6 +191,16 @@ public abstract class Config implements Map<String, String>, Serializable {
     }
   }
 
+  /**
+   * Important: If an application is using this with application master isolation enabled, then this will not be able
+   * to find a class on the application classpath. Instead, use {@link Class#forName(String)} and
+   * {@link Class#newInstance()} directly in order to do reflection.
+   *
+   * Deprecated: If an application needs to use reflection, then it should call {@link Class#forName(String)} and
+   * {@link Class#newInstance()} to create an instance directly.
+   * This allows better classloader control for applications.
+   */
+  @Deprecated
   @SuppressWarnings("unchecked")
   public <T> T getNewInstance(String k) {
     try {

@@ -340,8 +340,9 @@ public class StreamProcessor {
     // Creating diagnostics manager and reporter, and wiring it respectively
     String jobName = new JobConfig(config).getName().get();
     String jobId = new JobConfig(config).getJobId();
+    ClassLoader classLoader = getClass().getClassLoader();
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
-        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, processorId, Optional.empty(), config);
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, processorId, Optional.empty(), config, classLoader);
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
@@ -352,7 +353,7 @@ public class StreamProcessor {
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), getClass().getClassLoader(), null, null,
+        Option.apply(this.externalContextOptional.orElse(null)), classLoader, null, null,
         diagnosticsManager);
   }
 

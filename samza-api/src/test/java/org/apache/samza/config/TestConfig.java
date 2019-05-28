@@ -19,31 +19,22 @@
 
 package org.apache.samza.config;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import org.junit.Test;
-
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import com.google.common.collect.ImmutableMap;
+import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 
 public class TestConfig {
-  /**
-   * Utility methods to make it easier to tell the class of a primitive via
-   * overloaded args
-   */
-  Class getClass(long l) {
-    return Long.class;
-  }
-
-  Class getClass(short s) {
-    return Short.class;
-  }
-
   @Test
-  public void testgetShortAndLong() {
+  public void testGetShortAndLong() {
     Map<String, String> m = new HashMap<String, String>() {
       {
         put("testkey", "11");
@@ -125,5 +116,68 @@ public class TestConfig {
 
     list = config.getList("UndefinedKey", Collections.<String>emptyList());
     assertEquals(0, list.size());
+  }
+
+  @Test
+  public void testGetClass() {
+    Config config = new MapConfig(ImmutableMap.of("testkey", ArrayList.class.getName()));
+    assertEquals(ArrayList.class, config.getClass("testkey"));
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testGetClassNoEntry() {
+    Config config = new MapConfig();
+    config.getClass("not a key");
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testGetClassNoClassFound() {
+    Config config = new MapConfig(ImmutableMap.of("testkey", "not a class"));
+    config.getClass("testkey");
+  }
+
+  @Test
+  public void testGetNewInstance() {
+    Config config = new MapConfig(ImmutableMap.of("testkey", ArrayList.class.getName()));
+    assertTrue(config.getNewInstance("testkey") instanceof ArrayList);
+    assertEquals(new ArrayList<>(), config.getNewInstance("testkey"));
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testGetNewInstanceNoEntry() {
+    Config config = new MapConfig();
+    config.getNewInstance("not a key");
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testGetNewInstanceNoClassFound() {
+    Config config = new MapConfig(ImmutableMap.of("testkey", "not a class"));
+    config.getNewInstance("testkey");
+  }
+
+  /**
+   * Utility methods to make it easier to tell the class of a primitive via
+   * overloaded args
+   */
+  private Class getClass(long l) {
+    return Long.class;
+  }
+
+  private Class getClass(short s) {
+    return Short.class;
+  }
+
+  /**
+   * Only loads ArrayList. Throws ClassNotFoundException otherwise.
+   */
+  private static class ArrayListOnlyClassLoader extends ClassLoader {
+    @Override
+    public Class<?> loadClass(String name) throws ClassNotFoundException {
+      if (ArrayList.class.getName().equals(name)) {
+        return ArrayList.class;
+      } else {
+        throw new ClassNotFoundException();
+      }
+    }
   }
 }

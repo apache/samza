@@ -141,7 +141,7 @@ class ExecutionPlannerTestBase {
   }
 
   TaskApplication getLegacyTaskApplication() {
-    return new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    return new LegacyTaskApplication(IdentityStreamTask.class.getName(), getClass().getClassLoader());
   }
 
   StreamApplication getBroadcastOnlyStreamApplication(Serde serde) {

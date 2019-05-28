@@ -26,13 +26,15 @@ import org.apache.samza.task.TaskFactoryUtil;
  */
 public final class LegacyTaskApplication implements TaskApplication {
   private final String taskClassName;
+  private final ClassLoader classLoader;
 
-  public LegacyTaskApplication(String taskClassName) {
+  public LegacyTaskApplication(String taskClassName, ClassLoader classLoader) {
     this.taskClassName = taskClassName;
+    this.classLoader = classLoader;
   }
 
   @Override
   public void describe(TaskApplicationDescriptor appDescriptor) {
-    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName));
+    appDescriptor.withTaskFactory(TaskFactoryUtil.getTaskFactory(taskClassName, this.classLoader));
   }
 }

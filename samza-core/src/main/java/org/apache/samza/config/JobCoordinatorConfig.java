@@ -38,7 +38,21 @@ public class JobCoordinatorConfig extends MapConfig {
     super(config);
   }
 
-  public String getJobCoordinationUtilsFactoryClassName() {
+  public CoordinationUtilsFactory getCoordinationUtilsFactory(ClassLoader classLoader) {
+    String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
+    return ReflectionUtil.getObj(classLoader, coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
+  }
+
+  public String getJobCoordinatorFactoryClassName() {
+    String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
+    if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
+      return ZkJobCoordinatorFactory.class.getName();
+    } else {
+      return jobCoordinatorFactoryClassName;
+    }
+  }
+
+  private String getJobCoordinationUtilsFactoryClassName() {
     String coordinatorFactory = get(JOB_COORDINATOR_FACTORY, DEFAULT_COORDINATOR_FACTORY);
 
     String coordinationUtilsFactory;
@@ -52,29 +66,6 @@ public class JobCoordinatorConfig extends MapConfig {
       throw new SamzaException(String.format("Coordination factory: %s defined by the config: %s is invalid.", coordinatorFactory, JOB_COORDINATOR_FACTORY));
     }
 
-    try {
-      Class.forName(coordinationUtilsFactory);
-    } catch (ClassNotFoundException e) {
-      throw new SamzaException(
-          "Failed to validate config value for " + JOB_COORDINATOR_FACTORY + " = " + coordinationUtilsFactory, e);
-    }
-
     return coordinationUtilsFactory;
-  }
-
-  public CoordinationUtilsFactory getCoordinationUtilsFactory(ClassLoader classLoader) {
-    // load the class
-    String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
-
-    return ReflectionUtil.getObj(classLoader, coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
-  }
-
-  public String getJobCoordinatorFactoryClassName() {
-    String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
-    if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
-      return ZkJobCoordinatorFactory.class.getName();
-    } else {
-      return jobCoordinatorFactoryClassName;
-    }
   }
 }

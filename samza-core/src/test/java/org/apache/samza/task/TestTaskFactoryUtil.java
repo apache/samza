@@ -41,12 +41,13 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testStreamTaskClass() {
-    TaskFactory retFactory = TaskFactoryUtil.getTaskFactory(MockStreamTask.class.getName());
+    TaskFactory retFactory =
+        TaskFactoryUtil.getTaskFactory(MockStreamTask.class.getName(), getClass().getClassLoader());
     assertTrue(retFactory instanceof StreamTaskFactory);
     assertTrue(((StreamTaskFactory) retFactory).createInstance() instanceof MockStreamTask);
 
     try {
-      TaskFactoryUtil.getTaskFactory("no.such.class");
+      TaskFactoryUtil.getTaskFactory("no.such.class", getClass().getClassLoader());
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected
@@ -55,12 +56,13 @@ public class TestTaskFactoryUtil {
 
   @Test
   public void testAsyncStreamTask() {
-    TaskFactory retFactory = TaskFactoryUtil.getTaskFactory(MockAsyncStreamTask.class.getName());
+    TaskFactory retFactory =
+        TaskFactoryUtil.getTaskFactory(MockAsyncStreamTask.class.getName(), getClass().getClassLoader());
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof MockAsyncStreamTask);
 
     try {
-      TaskFactoryUtil.getTaskFactory("no.such.class");
+      TaskFactoryUtil.getTaskFactory("no.such.class", getClass().getClassLoader());
       fail("Should have failed w/ no.such.class");
     } catch (ConfigException cfe) {
       // expected

@@ -283,7 +283,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       RateLimiter defaultRateLimiter;
       try {
         @SuppressWarnings("unchecked")
-        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Class<? extends RateLimiter> clazz =
+            (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME, true,
+                getClass().getClassLoader());
         Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
         defaultRateLimiter = ctor.newInstance(tagCreditsMap);
       } catch (Exception ex) {

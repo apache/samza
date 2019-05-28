@@ -54,7 +54,7 @@ class HdfsSystemProducer(
       "call for system: " + systemName + ", client: " + clientId)
 
     lock.synchronized {
-      writers += (source -> HdfsWriter.getInstance(dfs, systemName, config))
+      writers += (source -> HdfsWriter.getInstance(dfs, systemName, config, getClass.getClassLoader))
     }
   }
 

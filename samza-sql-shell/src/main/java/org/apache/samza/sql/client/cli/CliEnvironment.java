@@ -26,12 +26,11 @@ import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.apache.samza.sql.client.util.Pair;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +63,7 @@ class CliEnvironment {
   int setEnvironmentVariable(String name, String value) throws ExecutorException{
     name = name.toLowerCase();
     if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
-      createShellExecutor(value);
+      createShellExecutor(value, getClass().getClassLoader());
       activeExecutorClassName = value;
       executorEnvHandler = executor.getEnvironmentVariableHandler();
       return 0;
@@ -136,7 +135,7 @@ class CliEnvironment {
   public void finishInitialization() {
     if(executor == null) {
       try {
-        createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS);
+        createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS, getClass().getClassLoader());
         activeExecutorClassName = CliConstants.DEFAULT_EXECUTOR_CLASS;
         executorEnvHandler = executor.getEnvironmentVariableHandler();
         if (delayedExecutorVars != null) {
@@ -174,13 +173,10 @@ class CliEnvironment {
     return executor;
   }
 
-  private void createShellExecutor(String executorClassName) throws ExecutorException {
+  private void createShellExecutor(String executorClassName, ClassLoader classLoader) throws ExecutorException {
     try {
-      Class<?> clazz = Class.forName(executorClassName);
-      Constructor<?> ctor = clazz.getConstructor();
-      executor = (SqlExecutor) ctor.newInstance();
-    } catch (ClassNotFoundException | NoSuchMethodException
-            | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+      executor = ReflectionUtil.getObj(classLoader, executorClassName, SqlExecutor.class);
+    } catch (Exception e) {
       throw new ExecutorException(e);
     }
   }

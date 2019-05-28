@@ -34,7 +34,7 @@ abstract class SequenceFileHdfsWriter(dfs: FileSystem, systemName: String, confi
   extends HdfsWriter[SequenceFile.Writer](dfs, systemName, config) {
 
   val batchSize = config.getWriteBatchSizeBytes(systemName)
-  val bucketer = Some(Bucketer.getInstance(systemName, config))
+  val bucketer = Some(Bucketer.getInstance(systemName, config, getClass.getClassLoader))
 
   var bytesWritten = 0L
 
@@ -82,7 +82,7 @@ abstract class SequenceFileHdfsWriter(dfs: FileSystem, systemName: String, confi
 
   override def write(outgoing: OutgoingMessageEnvelope): Unit = {
     if (shouldStartNewOutputFile) {
-      close 
+      close
       writer = getNextWriter
     }
 

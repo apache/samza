@@ -65,7 +65,7 @@ public class SamzaRestApplication extends ResourceConfig {
 
       for (String resourceClassName : config.getResourceClassNames()) {
         log.info("Using resource class {}", resourceClassName);
-        register(Class.forName(resourceClassName));
+        register(Class.forName(resourceClassName, true, getClass().getClassLoader()));
       }
     } catch (Throwable t) {
       throw new SamzaException(t);

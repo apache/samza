@@ -62,6 +62,13 @@ public class TestApplicationUtil {
     assertTrue(app instanceof MockTaskApplication);
   }
 
+  @Test(expected = ConfigException.class)
+  public void testAppClassNotAClass() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(ApplicationConfig.APP_CLASS, "not a class");
+    ApplicationUtil.fromConfig(new MapConfig(configMap));
+  }
+
   @Test
   public void testTaskClassOnly() {
     Map<String, String> configMap = new HashMap<>();

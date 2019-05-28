@@ -26,6 +26,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,16 +61,17 @@ public class TaskFactoryUtil {
    * <p>
    * This should only be used to create {@link TaskFactory} defined in task.class
    *
-   * @param taskClassName  the task class name for this job
+   * @param taskClassName the task class name for this job
+   * @param classLoader classloader to use to load the taskClassName class
    * @return  a {@link TaskFactory} object, either a instance of {@link StreamTaskFactory} or {@link AsyncStreamTaskFactory}
    */
-  public static TaskFactory getTaskFactory(String taskClassName) {
+  public static TaskFactory getTaskFactory(String taskClassName, ClassLoader classLoader) {
     Preconditions.checkArgument(StringUtils.isNotBlank(taskClassName), "task.class cannot be empty");
     log.info("Got task class name: {}", taskClassName);
 
     boolean isAsyncTaskClass;
     try {
-      isAsyncTaskClass = AsyncStreamTask.class.isAssignableFrom(Class.forName(taskClassName));
+      isAsyncTaskClass = AsyncStreamTask.class.isAssignableFrom(Class.forName(taskClassName, true, classLoader));
     } catch (Throwable t) {
       throw new ConfigException(String.format("Invalid configuration for AsyncStreamTask class: %s", taskClassName), t);
     }
@@ -77,7 +79,7 @@ public class TaskFactoryUtil {
     if (isAsyncTaskClass) {
       return (AsyncStreamTaskFactory) () -> {
         try {
-          return (AsyncStreamTask) Class.forName(taskClassName).newInstance();
+          return ReflectionUtil.getObj(classLoader, taskClassName, AsyncStreamTask.class);
         } catch (Throwable t) {
           log.error("Error loading AsyncStreamTask class: {}. error: {}", taskClassName, t);
           throw new SamzaException(String.format("Error loading AsyncStreamTask class: %s", taskClassName), t);
@@ -87,7 +89,7 @@ public class TaskFactoryUtil {
 
     return (StreamTaskFactory) () -> {
       try {
-        return (StreamTask) Class.forName(taskClassName).newInstance();
+        return ReflectionUtil.getObj(classLoader, taskClassName, StreamTask.class);
       } catch (Throwable t) {
         log.error("Error loading StreamTask class: {}. error: {}", taskClassName, t);
         throw new SamzaException(String.format("Error loading StreamTask class: %s", taskClassName), t);

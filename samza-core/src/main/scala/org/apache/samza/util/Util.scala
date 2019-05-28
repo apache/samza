@@ -77,11 +77,11 @@ object Util extends Logging {
       })
   }
 
-  def getTaskClassVersion(config: Config): String = {
+  def getTaskClassVersion(config: Config, classLoader: ClassLoader): String = {
     try {
       val taskClass = Option(new ApplicationConfig(config).getAppClass())
         .orElse(new TaskConfig(config).getTaskClass).get
-      Class.forName(taskClass).getPackage.getImplementationVersion
+      Class.forName(taskClass, true, classLoader).getPackage.getImplementationVersion
     } catch {
       case e: Exception => {
         warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")

@@ -21,23 +21,19 @@ package org.apache.samza.system.hdfs.writer
 
 
 import org.apache.hadoop.fs.FileSystem
-
-import org.apache.samza.config.Config
 import org.apache.samza.system.hdfs.HdfsConfig
-import org.apache.samza.system.hdfs.HdfsConfig._
 import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.util.ReflectionUtil
 
 
 object HdfsWriter {
-
-  def getInstance(dfs: FileSystem, systemName: String, samzaConfig: HdfsConfig): HdfsWriter[_] = {
+  def getInstance(dfs: FileSystem, systemName: String, samzaConfig: HdfsConfig, classLoader: ClassLoader): HdfsWriter[_] = {
     // instantiate whatever subclass the user configured the system to use
-    Class.forName(samzaConfig.getHdfsWriterClassName(systemName))
-      .getConstructor(classOf[FileSystem], classOf[String], classOf[HdfsConfig])
-      .newInstance(dfs, systemName, samzaConfig)
-      .asInstanceOf[HdfsWriter[_]]
+    ReflectionUtil.getObjWithArgs(classLoader, samzaConfig.getHdfsWriterClassName(systemName), classOf[HdfsWriter[_]],
+      ReflectionUtil.constructorArgument(dfs, classOf[FileSystem]),
+      ReflectionUtil.constructorArgument(systemName, classOf[String]),
+      ReflectionUtil.constructorArgument(samzaConfig, classOf[HdfsConfig]))
   }
-
 }
 
 /**

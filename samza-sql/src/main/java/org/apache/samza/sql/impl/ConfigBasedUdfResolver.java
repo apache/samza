@@ -63,7 +63,7 @@ public class ConfigBasedUdfResolver implements UdfResolver {
     Class<?> udfClass;
     for (String udfClassName : udfClasses) {
       try {
-        udfClass = Class.forName(udfClassName);
+        udfClass = Class.forName(udfClassName, true, getClass().getClassLoader());
       } catch (ClassNotFoundException e) {
         String msg = String.format("Couldn't load the udf class %s", udfClassName);
         LOG.error(msg, e);

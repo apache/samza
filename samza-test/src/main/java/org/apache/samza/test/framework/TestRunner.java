@@ -132,7 +132,7 @@ public class TestRunner {
     this();
     Preconditions.checkNotNull(taskClass);
     configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
-    this.app = new LegacyTaskApplication(taskClass.getName());
+    this.app = new LegacyTaskApplication(taskClass.getName(), getClass().getClassLoader());
   }
 
   /**

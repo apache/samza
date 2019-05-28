@@ -23,6 +23,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.util.ReflectionUtil;
 import scala.Option;
 
 
@@ -39,14 +40,15 @@ public class ApplicationUtil {
    */
   public static SamzaApplication fromConfig(Config config) {
     String appClassName = new ApplicationConfig(config).getAppClass();
+    ClassLoader classLoader = ApplicationUtil.class.getClassLoader();
     if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
       try {
-        Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName);
-        if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
-          return appClass.newInstance();
+        SamzaApplication samzaApplication = ReflectionUtil.getObj(classLoader, appClassName, SamzaApplication.class);
+        if (samzaApplication instanceof StreamApplication || samzaApplication instanceof TaskApplication) {
+          return samzaApplication;
         }
-      } catch (IllegalAccessException | InstantiationException | ClassNotFoundException e) {
+      } catch (Exception e) {
         throw new ConfigException(String.format("Loading app.class %s failed. The user application has to implement "
             + "StreamApplication or TaskApplication.", appClassName), e);
       }
@@ -57,6 +59,6 @@ public class ApplicationUtil {
       // no task.class defined either. This is wrong.
       throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
     }
-    return new LegacyTaskApplication(taskClassOption.get());
+    return new LegacyTaskApplication(taskClassOption.get(), classLoader);
   }
 }

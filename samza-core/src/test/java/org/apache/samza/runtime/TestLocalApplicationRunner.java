@@ -90,7 +90,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.APP_NAME, "test-app");
     cfgs.put(ApplicationConfig.APP_ID, "test-appId");
     config = new MapConfig(cfgs);
-    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName(), getClass().getClassLoader());
     prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
@@ -123,7 +123,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.APP_NAME, "test-app");
     cfgs.put(ApplicationConfig.APP_ID, "test-appId");
     config = new MapConfig(cfgs);
-    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName(), getClass().getClassLoader());
     prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
@@ -293,7 +293,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
     cfgs.put(JobConfig.JOB_ID(), "jobId");
     config = new MapConfig(cfgs);
-    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName(), getClass().getClassLoader());
 
     prepareTestForRunId();
     runner.run();
@@ -317,7 +317,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
     cfgs.put(JobConfig.JOB_ID(), "jobId");
     config = new MapConfig(cfgs);
-    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName(), getClass().getClassLoader());
 
     prepareTestForRunId();
 
