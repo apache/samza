@@ -51,6 +51,7 @@ public class BatchProcessor<K, V> {
   private long batchOpenTimestamp;
 
   /**
+   * @param batchMetrics Batch metrics.
    * @param batchHandler Defines how each batch will be processed.
    * @param batchProvider The batch provider to create a batch instance.
    * @param clock A clock used to get the timestamp.

@@ -57,7 +57,9 @@ public class ReflectionUtil {
   }
 
   /**
-   * Create an instance of the specified class with constructor matching the argument array.
+   * Create an instance of the specified class with constructor matching the arguments. Make sure that the types passed
+   * using {@link ConstructorArgument} match the compile-time types of the arguments of the constructor that should be
+   * used.
    *
    * Possible recommendations for the classloader to use:
    * 1) If there is a custom classloader being passed to the caller, consider using that one.
@@ -70,28 +72,39 @@ public class ReflectionUtil {
    * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
-   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
+   * @param args arguments with types for finding and calling desired constructor to create an instance of className
    * @return instance of the class
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  public static <T> T getObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
+  public static <T> T getObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz,
+      ConstructorArgument<?>... args) {
     return doGetObjWithArgs(classLoader, className, clazz, args);
   }
 
   /**
+   * Use this to create arguments for when calling
+   * {@link #doGetObjWithArgs(ClassLoader, String, Class, ConstructorArgument[])}
+   */
+  public static <T> ConstructorArgument<T> constructorArgument(T value, Class<T> clazz) {
+    return new ConstructorArgument<>(value, clazz);
+  }
+
+  /**
    * Create an instance of the specified class with constructor matching the argument array. If there are no args, then
-   * this will use the empty constructor.
+   * this will use the empty constructor. Make sure that the types passed using {@link ConstructorArgument} match the
+   * compile-time types of the arguments of the constructor that should be used.
    *
    * @param <T> type of the object to return
    * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
    * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
-   * @param args arguments to use when calling the constructor for className which corresponds to the types of the args
+   * @param args arguments with types for finding and calling desired constructor to create an instance of className
    * @return instance of the class
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz, Object... args) {
+  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz,
+      ConstructorArgument<?>... args) {
     Validate.notNull(className, "Null class name");
 
     try {
@@ -100,15 +113,43 @@ public class ReflectionUtil {
       if (args.length == 0) {
         return classObj.newInstance();
       } else {
-        Class<?>[] argTypes = new Class<?>[args.length];
-        IntStream.range(0, args.length).forEach(i -> argTypes[i] = args[i].getClass());
-        Constructor<T> constructor = classObj.getDeclaredConstructor(argTypes);
-        return constructor.newInstance(args);
+        // can't just use getClass on argument values since runtime types might not exactly match constructor signatures
+        Class<?>[] argClasses = new Class<?>[args.length];
+        Object[] argValues = new Object[args.length];
+        IntStream.range(0, args.length).forEach(i -> {
+            ConstructorArgument<?> constructorArgument = args[i];
+            argClasses[i] = constructorArgument.getClazz();
+            argValues[i] = constructorArgument.getValue();
+          });
+        Constructor<T> constructor = classObj.getDeclaredConstructor(argClasses);
+        return constructor.newInstance(argValues);
       }
     } catch (Exception e) {
       String errorMessage = String.format("Unable to create instance for class: %s", className);
       LOG.error(errorMessage, e);
       throw new SamzaException(errorMessage, e);
+    }
+  }
+
+  /**
+   * This is public because the compiler complains when using a non-visible modifier with varargs.
+   * Use {@link #constructorArgument(Object, Class)} to build an instance of this.
+   */
+  public static class ConstructorArgument<T> {
+    private final T value;
+    private final Class<T> clazz;
+
+    private ConstructorArgument(T value, Class<T> clazz) {
+      this.value = value;
+      this.clazz = clazz;
+    }
+
+    private T getValue() {
+      return value;
+    }
+
+    private Class<T> getClazz() {
+      return clazz;
     }
   }
 }

@@ -69,7 +69,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
   public ScalarUdf createInstance(String clazz, String udfName) {
     // Configs should be same for all the UDF methods within a UDF. Hence taking the first one.
     Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
-    ScalarUdf scalarUdf = ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), clazz, ScalarUdf.class);
+    ScalarUdf scalarUdf = ReflectionUtil.getObj(getClass().getClassLoader(), clazz, ScalarUdf.class);
     scalarUdf.init(udfConfig);
     return scalarUdf;
   }
