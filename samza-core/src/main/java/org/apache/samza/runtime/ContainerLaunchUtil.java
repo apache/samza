@@ -27,7 +27,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
@@ -93,10 +92,9 @@ public class ContainerLaunchUtil {
     try {
       TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
       LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
-      Optional<StartpointManager> startpointManager = Optional.empty();
-      if (new JobConfig(config).getStartpointMetadataStoreFactory() != null) {
-        startpointManager = Optional.of(new StartpointManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, StartpointManager.NAMESPACE)));
-      }
+
+      // StartpointManager wraps the coordinatorStreamStore in the namespaces internally
+      StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
 
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 
@@ -115,7 +113,7 @@ public class ContainerLaunchUtil {
           JobContextImpl.fromConfigWithDefaults(config),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager.orElse(null), diagnosticsManager);
+          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager, diagnosticsManager);
 
       ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);
