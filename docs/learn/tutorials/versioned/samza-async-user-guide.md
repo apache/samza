@@ -109,7 +109,7 @@ task.callback.timeout.ms=5000
 
 ### Asynchronous Process in High Level API
 
-If your application is asynchronous, e.g. making non-blocking remote IO calls, [AsyncFlatMapFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/AsyncFlatMapFunction.html) provides support for it. The following example illustrates an application that processes Wikipedia feed updates and invokes a remote service to standardize the updates and sends the standardized events to Wikipedia.
+If your processing logic is asynchronous, e.g. it makes non-blocking remote calls, you can implement it using the [AsyncFlatMapFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/AsyncFlatMapFunction.html). The following example illustrates an application that processes Wikipedia feed updates and invokes a remote service to standardize the updates and sends the standardized events to Wikipedia.
 
 {% highlight java %}
 
@@ -159,21 +159,21 @@ public class WikipediaAsyncStandardizer implements StreamApplication {
 }
 {% endhighlight %}
 
-In the above example, the messages are not sent to Wikipedia after `AsyncStandardizerFunction` returns. The framework keeps track of the future returned by the function and propagates the standardized result to downstream operator (in this case sendTo) only when the future completes. Samza has a timeout for the future to complete and can be configured through the following property:
+In the above example, the results from the `AsyncStandardizerFunction` are propagated to downstream operator once the future is complete. There is an overall timeout for each to message to be processed and you can tune it using:
 
 {% highlight jproperties %}
-# Timeout for the future to complete. When the timeout elapses, the framework will throw a TaskCallbackTimeoutException and shut down the container.
+# Timeout for the message to processed. When the timeout elapses, the container shuts down.
 task.callback.timeout.ms
 {% endhighlight %}
 
-For remote IO libraries that don't support Futures/Promises and use callbacks, it should be straightforward to adapt the callbacks to Future pattern. The following code snippet illustrates it
+If IO library accepts callbacks instead of returning a Future, the callback can be adapted to a Future in the following way:
 
 {% highlight java %}
 
   public CompletionStage<Collection<StandardizedWikipediaFeedEvent>> apply(WikipediaFeedEvent wikipediaFeedEvent) {
-    Request<StandardizerRequest> standardizedRequest = buildStandardizedRequest(wikipediaFeedEvent);
+    Request<StandardizerRequest> standardizationRequest = buildStandardizedRequest(wikipediaFeedEvent);
     CompletableFuture<Collection<StandardizedWikipediaFeedEvent>> standardizedFuture = new CompletableFuture<>();
-    client.async().get(standardizedRequest, new InvocationCallback<Response>() {
+    client.async().get(standardizationRequest, new InvocationCallback<Response>() {
           @Override
           public void completed(ResStandardizerResponseponse response) {
             standardizedFuture.complete(extractStandardizedWikipediaFeedEvent(response));
@@ -196,7 +196,7 @@ In all cases above, Samza supports in-order process by default. Further parallel
 task.max.concurrency=4
 {% endhighlight %}
 
-**NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can go out of order. In case of StreamTask and StreamApplication with concurrency, process() can run out-of-order since they are dispatched to a thread pool. This option should **NOT** be used when strict ordering of the output is required.
+**NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can happen out of order. In case of StreamTask and High level API applications with task.max.concurrency &gt; 1, delivery can be out-of-order. This option should **NOT** be used when strict ordering of the output is required.
 
 ### Guaranteed Semantics
 
