@@ -26,7 +26,6 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
@@ -180,7 +179,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       ClusterResourceManager resourceManager,
       Optional<AbstractContainerAllocator> allocator,
       ClassLoader classLoader) {
-    JobModelManager jobModelManager = state.jobModelManager;
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -190,16 +188,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = resourceManager;
     this.standbyContainerManager = Optional.empty();
     this.diagnosticsManager = Option.empty();
-
-    if (allocator.isPresent()) {
-      this.containerAllocator = allocator.get();
-    } else if (this.hostAffinityEnabled) {
-      this.containerAllocator =
-          new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(),
-              config, this.standbyContainerManager, state, classLoader);
-    } else {
-      this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state, classLoader);
-    }
+    this.containerAllocator = allocator.orElseGet(
+        () -> buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
+            config, this.standbyContainerManager, state, classLoader));
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     log.info("Finished container process manager initialization");
