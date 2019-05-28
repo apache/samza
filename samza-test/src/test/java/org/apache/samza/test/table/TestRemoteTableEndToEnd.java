@@ -59,7 +59,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.remote.BaseTableFunction;
-import org.apache.samza.table.remote.DummyTableReadFunction;
+import org.apache.samza.table.remote.NoOpTableReadFunction;
 import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -349,7 +349,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
 
       final RemoteTableDescriptor outputTableDesc =
               new RemoteTableDescriptor<Integer, EnrichedPageView>("enriched-page-view-table-1")
-          .withReadFunction(new DummyTableReadFunction<>())
+          .withReadFunction(new NoOpTableReadFunction<>())
           .withReadRateLimiterDisabled()
           .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction(testName))
           .withWriteRateLimit(1000);

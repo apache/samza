@@ -23,9 +23,9 @@ import org.apache.samza.SamzaException;
 
 
 /**
- * A dummy table read function
+ * A no-op table read function
  */
-public class DummyTableReadFunction<K, V> extends BaseTableFunction implements TableReadFunction<K, V> {
+public class NoOpTableReadFunction<K, V> extends BaseTableFunction implements TableReadFunction<K, V> {
 
   @Override
   public CompletableFuture<V> getAsync(K key) {

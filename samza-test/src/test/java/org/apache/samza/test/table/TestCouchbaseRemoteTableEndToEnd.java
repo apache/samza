@@ -45,7 +45,7 @@ import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
-import org.apache.samza.table.remote.DummyTableReadFunction;
+import org.apache.samza.table.remote.NoOpTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableWriteFunction;
 import org.apache.samza.test.harness.IntegrationTestHarness;
@@ -151,7 +151,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
       Table<KV<String, String>> inputTable = appDesc.getTable(inputTableDesc);
 
       RemoteTableDescriptor outputTableDesc = new RemoteTableDescriptor<String, JsonObject>("output-table")
-          .withReadFunction(new DummyTableReadFunction<>())
+          .withReadFunction(new NoOpTableReadFunction<>())
           .withWriteFunction(writeFunction)
           .withRateLimiterDisabled();
       Table<KV<String, JsonObject>> outputTable = appDesc.getTable(outputTableDesc);
