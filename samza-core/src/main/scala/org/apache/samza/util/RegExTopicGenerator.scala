@@ -17,17 +17,16 @@
  * under the License.
  */
 
-package org.apache.samza.config
+package org.apache.samza.util
 
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
 import org.apache.samza.SamzaException
-import org.apache.samza.util.{Logging, StreamUtil, SystemClock}
-
-import collection.JavaConverters._
-import scala.collection._
+import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
 import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.{Config, ConfigRewriter, JobConfig, MapConfig, TaskConfig}
 import org.apache.samza.system.{StreamMetadataCache, SystemAdmins, SystemStream}
+
+import scala.collection.JavaConverters._
+import scala.collection._
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -43,16 +42,17 @@ import org.apache.samza.system.{StreamMetadataCache, SystemAdmins, SystemStream}
  * task.inputs=kafka.somestream
  * systems.kafka.streams.somestream.foo=bar
  *
- * @see samza.config.KafkaConfig.getRegexResolvedStreams
+ * @see samza.config.JobConfig.getRegexResolvedStreams
  *
  */
 class RegExTopicGenerator extends ConfigRewriter with Logging {
 
   def rewrite(rewriterName: String, config: Config): Config = {
-    val regex = config
+    val jobConfig = new JobConfig(config)
+    val regex = jobConfig
       .getRegexResolvedStreams(rewriterName)
       .getOrElse(throw new SamzaException("No %s defined in config" format REGEX_RESOLVED_STREAMS))
-    val systemName = config
+    val systemName = jobConfig
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
     val topics = getTopicsFromStreamMetadataCache(rewriterName, config)
@@ -77,7 +77,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       newInputStreams.add(m)
 
       // For each topic that matched, generate all the specified configs
-      config
+      jobConfig
         .getRegexResolvedInheritedConfig(rewriterName)
         .asScala
         .foreach(kv => keysAndValsToAdd.put("systems." + m.getSystem + ".streams." + m.getStream + "." + kv._1, kv._2))
@@ -96,7 +96,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
   }
 
   def getTopicsFromStreamMetadataCache(rewriterName: String, config: Config): Seq[String] = {
-    val systemName = config
+    val systemName = new JobConfig(config)
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
 

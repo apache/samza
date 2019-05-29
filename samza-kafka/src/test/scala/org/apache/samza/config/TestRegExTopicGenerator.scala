@@ -20,11 +20,10 @@
 package org.apache.samza.config
 
 import collection.JavaConverters._
-
 import org.junit.Assert._
 import org.junit.Test
-
 import JobConfig._
+import org.apache.samza.util.RegExTopicGenerator
 
 class TestRegExTopicGenerator {
 

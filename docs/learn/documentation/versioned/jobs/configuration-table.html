@@ -269,7 +269,7 @@
                         <a href="../api/javadocs/org/apache/samza/config/ConfigRewriter.html">ConfigRewriter</a>.
                         Samza ships with these rewriters by default:
                         <dl>
-                            <dt><code>org.apache.samza.config.RegExTopicGenerator</code></dt>
+                            <dt><code>org.apache.samza.util.RegExTopicGenerator</code></dt>
                             <dd>When consuming from Kafka, this allows you to consume all Kafka topics that match
                                 some regular expression (rather than having to list each topic explicitly).
                                 This rewriter has <a href="#regex-rewriter">additional configuration</a>.</dd>
@@ -1591,7 +1591,7 @@
                         <span class="subtitle">
                             (This section applies if you have set
                             <a href="#job-config-rewriter-class" class="property">job.config.rewriter.*.class</a>
-                            <code>= org.apache.samza.config.RegExTopicGenerator</code>)
+                            <code>= org.apache.samza.util.RegExTopicGenerator</code>)
                         </span>
                     </th>
                 </tr>

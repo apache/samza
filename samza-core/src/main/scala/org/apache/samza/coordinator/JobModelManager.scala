@@ -48,8 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{Logging, RegExTopicGenerator, Util}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -267,7 +266,7 @@ object JobModelManager extends Logging {
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-    val inputSystemStreams = Util.rewriteConfig(config).getInputStreams
+    val inputSystemStreams = Util.runRegexTopicGenerator(config).getInputStreams
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
