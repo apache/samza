@@ -20,8 +20,11 @@
 package org.apache.samza.serializers.model;
 
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.system.SystemStreamPartition;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
@@ -49,5 +52,8 @@ public abstract class JsonContainerModelMixIn {
 
   @JsonProperty(TASKS_KEY)
   abstract Map<TaskName, TaskModel> getTasks();
+
+  @JsonIgnore
+  abstract Set<SystemStreamPartition> getSystemStreamPartitions();
 }
 
