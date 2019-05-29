@@ -151,7 +151,7 @@ Applies the provided 1:n [AsyncFlatMapFunction](javadocs/org/apache/samza/operat
     RestClient restClient = ...
     MessageStream<String> words = ...
     // Transform each incoming word into its meaning using a dictionary look up service
-    MessageStream<String> meanings = words.asynFlatMap(word -> {
+    MessageStream<String> meanings = words.asyncFlatMap(word -> {
        // Builds a look up request to the dictionary service
        Request<String> dictionaryRequest = buildDictionaryRequest(word);
        CompletableFuture<DictionaryResponse> dictionaryResponseFuture = restClient.sendRequest(dictionaryRequest);
