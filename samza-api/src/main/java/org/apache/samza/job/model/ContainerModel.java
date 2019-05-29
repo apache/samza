@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.Map;
 import org.apache.samza.container.TaskName;
 
-
 /**
  * This contains metadata about a Samza container, such as which tasks a Samza container should process.
  * <p>
