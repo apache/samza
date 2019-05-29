@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -193,7 +192,7 @@ public class ClusterBasedJobCoordinator {
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
 
-    Set<SystemStream> inputSystemStreams = jobModelManager.jobModel().getSystemStreamPartitions().stream().map(ssp -> ssp.getSystemStream()).collect(Collectors.toSet());
+    Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
     inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
 
     clusterManagerConfig = new ClusterManagerConfig(config);

@@ -22,12 +22,9 @@ package org.apache.samza.job.model;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
@@ -143,15 +140,6 @@ public class JobModel {
 
   public Map<String, ContainerModel> getContainers() {
     return containers;
-  }
-
-  /**
-   * Returns the {@link SystemStreamPartition}s that this job is responsible for consuming.
-   * @return {@link SystemStreamPartition}s for this job
-   */
-  public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return this.containers.values().stream().map(containerModel -> containerModel.getSystemStreamPartitions()).
-        flatMap(containerSSPs -> containerSSPs.stream()).collect(Collectors.toSet());
   }
 
   @Override

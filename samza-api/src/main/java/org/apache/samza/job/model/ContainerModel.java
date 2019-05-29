@@ -21,10 +21,7 @@ package org.apache.samza.job.model;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
@@ -56,15 +53,6 @@ public class ContainerModel {
    */
   public Map<TaskName, TaskModel> getTasks() {
     return tasks;
-  }
-
-  /**
-   * Returns the {@link SystemStreamPartition}s that this container is responsible for consuming.
-   * @return {@link SystemStreamPartition}s for this container
-   */
-  public Set<SystemStreamPartition> getSystemStreamPartitions() {
-    return this.tasks.values().stream().map(taskModel -> taskModel.getSystemStreamPartitions()).
-        flatMap(taskSSPs -> taskSSPs.stream()).collect(Collectors.toSet());
   }
 
   @Override

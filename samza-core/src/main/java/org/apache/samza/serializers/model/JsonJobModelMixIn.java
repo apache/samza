@@ -20,12 +20,9 @@
 package org.apache.samza.serializers.model;
 
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.system.SystemStreamPartition;
 import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -43,7 +40,4 @@ public abstract class JsonJobModelMixIn {
 
   @JsonProperty("containers")
   abstract Map<String, ContainerModel> getContainers();
-
-  @JsonIgnore
-  abstract Set<SystemStreamPartition> getSystemStreamPartitions();
 }

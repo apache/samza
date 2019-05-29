@@ -23,7 +23,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 /**
@@ -53,6 +55,11 @@ public class JobModelUtil {
       }
     }
     return taskToSSPs;
+  }
+
+  public static Set<SystemStream> getSystemStreams(JobModel jobModel) {
+    Map<TaskName, Set<SystemStreamPartition>> taskToSSPs = getTaskToSystemStreamPartitions(jobModel);
+    return taskToSSPs.values().stream().flatMap(taskSSPs -> taskSSPs.stream().map(ssp -> ssp.getSystemStream())).collect(Collectors.toSet());
   }
 
   private JobModelUtil() { }
