@@ -267,7 +267,7 @@ object JobModelManager extends Logging {
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-    val inputSystemStreams = config.getInputStreams
+    val inputSystemStreams = Util.rewriteConfig(config).getInputStreams
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache

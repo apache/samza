@@ -19,17 +19,15 @@
 
 package org.apache.samza.config
 
-import org.I0Itec.zkclient.ZkClient
-import kafka.utils.ZkUtils
-import org.apache.samza.config.KafkaConfig.{Config2Kafka}
-import org.apache.samza.config.JobConfig.{REGEX_RESOLVED_STREAMS}
+import org.apache.samza.config.KafkaConfig.Config2Kafka
+import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
 import org.apache.samza.SamzaException
-import org.apache.samza.util.{Logging, StreamUtil}
+import org.apache.samza.util.{Logging, StreamUtil, SystemClock}
 
 import collection.JavaConverters._
 import scala.collection._
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.system.SystemStream
+import org.apache.samza.system.{StreamMetadataCache, SystemAdmins, SystemStream}
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -57,7 +55,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     val systemName = config
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
-    val topics = getTopicsFromZK(rewriterName, config)
+    val topics = getTopicsFromStreamMetadataCache(rewriterName, config)
     val existingInputStreams = config.getInputStreams
     val newInputStreams = new mutable.HashSet[SystemStream]
     val keysAndValsToAdd = new mutable.HashMap[String, String]
@@ -97,19 +95,13 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     new MapConfig(((keysAndValsToAdd ++ config.asScala) += inputStreams).asJava)
   }
 
-  def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = {
+  def getTopicsFromStreamMetadataCache(rewriterName: String, config: Config): Seq[String] = {
     val systemName = config
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "")
-    val zkConnect = Option(consumerConfig.getZkConnect)
-      .getOrElse(throw new SamzaException("No zookeeper.connect for system %s defined in config." format systemName))
-    val zkClient = new ZkClient(zkConnect, 6000, 6000)
 
-    try {
-      ZkUtils(zkClient, isZkSecurityEnabled = false).getAllTopics()
-    } finally {
-      zkClient.close()
-    }
+    val systemAdmins = new SystemAdmins(config)
+    val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance)
+    streamMetadataCache.getAllSystemStreams(systemName).map(systemStream => systemStream.getStream).toSeq
   }
 }
