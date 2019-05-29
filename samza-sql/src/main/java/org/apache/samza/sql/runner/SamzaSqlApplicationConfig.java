@@ -56,8 +56,8 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.util.JsonUtil;
-import org.apache.samza.sql.util.ReflectionUtils;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
+import org.apache.samza.util.ReflectionUtil;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -178,8 +178,7 @@ public class SamzaSqlApplicationConfig {
     Config pluginConfig = staticConfig.subset(pluginDomain);
     String factoryName = pluginConfig.getOrDefault(CFG_FACTORY, "");
     Validate.notEmpty(factoryName, String.format("Factory is not set for %s", plugin));
-    Object factory = ReflectionUtils.createInstance(factoryName);
-    Validate.notNull(factory, String.format("Factory creation failed for %s", plugin));
+    Object factory = ReflectionUtil.getObj(SamzaSqlApplicationConfig.class.getClassLoader(), factoryName, Object.class);
     LOG.info("Instantiating {} using factory {} with props {}", pluginName, factoryName, pluginConfig);
     return factoryInvoker.apply(factory, pluginConfig);
   }

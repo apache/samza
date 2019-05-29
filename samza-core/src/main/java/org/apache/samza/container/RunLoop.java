@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.task;
+package org.apache.samza.container;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -34,13 +34,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.container.SamzaContainerMetrics;
-import org.apache.samza.container.TaskInstance;
-import org.apache.samza.container.TaskInstanceMetrics;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.CoordinatorRequests;
+import org.apache.samza.scheduler.EpochTimeScheduler;
+import org.apache.samza.task.ReadableCoordinator;
+import org.apache.samza.task.TaskCallback;
+import org.apache.samza.task.TaskCallbackFactory;
+import org.apache.samza.task.TaskCallbackImpl;
+import org.apache.samza.task.TaskCallbackListener;
+import org.apache.samza.task.TaskCallbackManager;
+import org.apache.samza.task.TaskCoordinator;
 import org.apache.samza.util.HighResolutionClock;
 import org.apache.samza.util.Throttleable;
 import org.apache.samza.util.ThrottlingScheduler;
@@ -50,7 +55,13 @@ import scala.collection.JavaConverters;
 
 
 /**
- * The RunLoop supports multithreading execution of Samza {@link AsyncStreamTask}s.
+ * The run loop supports both single-threaded and multi-threaded execution models.
+ *    <p>
+ *      If job.container.thread.pool.size &gt; 1 (multi-threaded), operations like commit, window and timer for all tasks within a container
+ *      happens on a thread pool.
+ *      If job.container.thread.pool.size &lt; 1 (single-threaded), operations for all tasks are multiplexed onto one execution thread.
+ *    </p>.
+ *    Note: In both models, process/processAsync for all tasks is invoked on the run loop thread.
  */
 public class RunLoop implements Runnable, Throttleable {
   private static final Logger log = LoggerFactory.getLogger(RunLoop.class);
@@ -340,7 +351,7 @@ public class RunLoop implements Runnable, Throttleable {
   }
 
   /**
-   * The AsyncTaskWorker encapsulates the states of an {@link AsyncStreamTask}. If the task becomes ready, it
+   * The AsyncTaskWorker encapsulates the states of an {@link org.apache.samza.task.AsyncStreamTask}. If the task becomes ready, it
    * will run the task asynchronously. It runs window and commit in the provided thread pool.
    */
   private class AsyncTaskWorker implements TaskCallbackListener {
@@ -596,7 +607,7 @@ public class RunLoop implements Runnable, Throttleable {
      */
     @Override
     public void onComplete(final TaskCallback callback) {
-      long workNanos = clock.nanoTime() - ((TaskCallbackImpl) callback).timeCreatedNs;
+      long workNanos = clock.nanoTime() - ((TaskCallbackImpl) callback).getTimeCreatedNs();
       callbackExecutor.schedule(new Runnable() {
         @Override
         public void run() {
@@ -604,20 +615,20 @@ public class RunLoop implements Runnable, Throttleable {
             state.doneProcess();
             state.taskMetrics.asyncCallbackCompleted().inc();
             TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
-            containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.timeCreatedNs);
+            containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.getTimeCreatedNs());
             log.trace("Got callback complete for task {}, ssp {}",
-                callbackImpl.taskName, callbackImpl.envelope.getSystemStreamPartition());
+                callbackImpl.getTaskName(), callbackImpl.getEnvelope().getSystemStreamPartition());
 
             List<TaskCallbackImpl> callbacksToUpdate = callbackManager.updateCallback(callbackImpl);
             for (TaskCallbackImpl callbackToUpdate : callbacksToUpdate) {
-              IncomingMessageEnvelope envelope = callbackToUpdate.envelope;
+              IncomingMessageEnvelope envelope = callbackToUpdate.getEnvelope();
               log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update offset
               task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update coordinator
-              coordinatorRequests.update(callbackToUpdate.coordinator);
+              coordinatorRequests.update(callbackToUpdate.getCoordinator());
             }
           } catch (Throwable t) {
             log.error("Error marking process as complete.", t);
@@ -641,7 +652,7 @@ public class RunLoop implements Runnable, Throttleable {
         abort(t);
         // update pending count, but not offset
         TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
-        log.error("Got callback failure for task {}", callbackImpl.taskName, t);
+        log.error("Got callback failure for task {}", callbackImpl.getTaskName(), t);
       } catch (Throwable e) {
         log.error("Error marking process as failed.", e);
       } finally {
