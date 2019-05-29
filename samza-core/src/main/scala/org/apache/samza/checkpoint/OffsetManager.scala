@@ -111,14 +111,15 @@ object OffsetManager extends Logging {
  * OffsetManager does several things:
  *
  * <ul>
- * <li>Loads last checkpointed offset for all input SystemStreamPartitions in a
- * SamzaContainer.</li>
- * <li>Uses last checkpointed offset to figure out the next offset to start
- * reading from for each input SystemStreamPartition in a SamzaContainer</li>
+ * <li>Loads last checkpointed offset and startpoints for all input SystemStreamPartitions in a
+ * SamzaContainer. See SEP-18 for details.</li>
+ * <li>Uses last checkpointed offset or startpoint to figure out the next offset to start
+ * reading from for each input SystemStreamPartition in a SamzaContainer. Startpoints have a higher precedence than
+ * checkpoints.</li>
  * <li>Keep track of the last processed offset for each SystemStreamPartitions
  * in a SamzaContainer.</li>
  * <li>Checkpoints the last processed offset for each SystemStreamPartitions
- * in a SamzaContainer periodically to the CheckpointManager.</li>
+ * in a SamzaContainer periodically to the CheckpointManager and deletes any associated startpoints.</li>
  * </ul>
  *
  * All partitions must be registered before start is called, and start must be
@@ -138,7 +139,7 @@ class OffsetManager(
   val checkpointManager: CheckpointManager = null,
 
   /**
-    * Optional startpoint manager for overrided offsets.
+    * Optional startpoint manager for overridden offsets.
     */
   val startpointManager: StartpointManager = null,
 
