@@ -146,19 +146,21 @@ object Util extends Logging {
     }
   }
 
-  private def rewrite(c: Config, rewriterName: String): Config = {
-    val rewriterClassName = c
+  private def rewrite(config: Config, rewriterName: String): Config = {
+    val rewriterClassName = config
       .getConfigRewriterClass(rewriterName)
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
     val rewriter = Util.getObj(rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)
-    rewriter.rewrite(rewriterName, c)
+    rewriter.rewrite(rewriterName, config)
   }
 
   def runRegexTopicGenerator(config: Config): Config = {
     config.getConfigRewriters match {
       case Some(rewriters) => rewriters.split(",").
-        filter(rewriterName => config.getConfigRewriterClass(rewriterName).eq(classOf[RegExTopicGenerator].getName)).
+        filter(rewriterName => config.getConfigRewriterClass(rewriterName)
+          .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+          .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
         foldLeft(config)(rewrite(_, _))
       case _ => config
     }
