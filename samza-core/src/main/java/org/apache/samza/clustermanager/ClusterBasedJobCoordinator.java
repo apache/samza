@@ -193,8 +193,8 @@ public class ClusterBasedJobCoordinator {
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
 
-    Set<SystemStream> inputSSs = jobModelManager.jobModel().getSystemStreamPartitions().stream().map(x -> x.getSystemStream()).collect(Collectors.toSet());
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSSs);
+    Set<SystemStream> inputSystemStreams = jobModelManager.jobModel().getSystemStreamPartitions().stream().map(ssp -> ssp.getSystemStream()).collect(Collectors.toSet());
+    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
 
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
