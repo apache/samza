@@ -48,7 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, RegExTopicGenerator, Util}
+import org.apache.samza.util.{Logging, Util}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._

@@ -17,13 +17,13 @@
  * under the License.
  */
 
-package org.apache.samza.util
+package org.apache.samza.config
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
 import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.config.{Config, ConfigRewriter, JobConfig, MapConfig, TaskConfig}
 import org.apache.samza.system.{StreamMetadataCache, SystemAdmins, SystemStream}
+import org.apache.samza.util.{Logging, StreamUtil, SystemClock}
 
 import scala.collection.JavaConverters._
 import scala.collection._
