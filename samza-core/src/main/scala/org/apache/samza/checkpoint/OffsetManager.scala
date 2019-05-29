@@ -194,7 +194,6 @@ class OffsetManager(
     stripResetStreams
     loadStartingOffsets
     loadStartpoints
-    resolveStartpointsToStartingOffsets
     loadDefaults
 
     info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
@@ -537,6 +536,7 @@ class OffsetManager(
         startpoints
           .foreach(taskMap => taskMap._2
             .foreach(sspMap => info("Loaded startpoint: %s for SSP: %s and task: %s" format (sspMap._2, sspMap._1, taskMap._1))))
+        resolveStartpointsToStartingOffsets
       }
     }
   }
@@ -545,10 +545,6 @@ class OffsetManager(
     * Overwrite starting offsets with resolved offsets from startpoints
     */
   private def resolveStartpointsToStartingOffsets: Unit = {
-    if (startpoints.isEmpty) {
-      return
-    }
-
     startpoints.foreach {
       case (taskName, sspToStartpoint) => {
         var resolvedOffsets: Map[SystemStreamPartition, String] = Map()
