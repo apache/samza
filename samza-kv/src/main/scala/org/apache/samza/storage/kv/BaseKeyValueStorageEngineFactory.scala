@@ -90,9 +90,9 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getAccessLogEnabled(storeName)
 
-    val maxMessageSize = storageConfig.getInt(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES)
-    val largeMessagesExpected = storageConfig.getBoolean(StorageConfig.EXPECT_LARGE_MESSAGES, StorageConfig.DEFAULT_EXPECT_LARGE_MESSAGES)
-    val dropLargeMessage = storageConfig.getBoolean(StorageConfig.DROP_LARGE_MESSAGES, StorageConfig.DEFAULT_DROP_LARGE_MESSAGES)
+    val maxMessageSize = storageConfigSubset.getInt(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES)
+    val largeMessagesExpected = storageConfigSubset.getBoolean(StorageConfig.EXPECT_LARGE_MESSAGES, StorageConfig.DEFAULT_EXPECT_LARGE_MESSAGES)
+    val dropLargeMessage = storageConfigSubset.getBoolean(StorageConfig.DROP_LARGE_MESSAGES, StorageConfig.DEFAULT_DROP_LARGE_MESSAGES)
 
     if (storeFactory.isEmpty) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
