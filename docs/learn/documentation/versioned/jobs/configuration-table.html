@@ -1689,7 +1689,7 @@
 
                 <tr>
                     <td class="property" id="stores-changelog-max-message-size-bytes">stores.<span class="store">store-name</span>.changelog.max.message.size.bytes</td>
-                    <td class="default"></td>
+                    <td class="default">1000000</td>
                     <td class="description">
                         This property sets the maximum size of the messages allowed in the changelog.
                         The maximum allowed value and the default value both are 1 MB.
@@ -1698,7 +1698,7 @@
 
                 <tr>
                     <td class="property" id="stores-expect-large-messages">stores.<span class="store">store-name</span>.expect.large.messages</td>
-                    <td class="default"></td>
+                    <td class="default">false</td>
                     <td class="description">
                         This property, when turned on, tells the system to expect large messages to be put in the stores.
                         It will then look out for any large messages greater than
@@ -1718,7 +1718,7 @@
 
                 <tr>
                     <td class="property" id="stores-drop-large-messages">stores.<span class="store">store-name</span>.drop.large.messages</td>
-                    <td class="default"></td>
+                    <td class="default">false</td>
                     <td class="description">
                         This property, when turned on, tells the system to drop any large messages instead of
                         attempting to put them in the stores. It drops all large messages greater than

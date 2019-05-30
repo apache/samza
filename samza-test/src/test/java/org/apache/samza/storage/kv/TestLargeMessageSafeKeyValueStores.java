@@ -60,8 +60,6 @@ public class TestLargeMessageSafeKeyValueStores {
   private static Serde<String> stringSerde = new StringSerde();
   private static String storeName = "testStore";
   private static SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
-  private static MessageCollector collector = envelope -> {
-  };
   private static MetricsRegistry metricsRegistry = new MetricsRegistryMap();
   private static LoggedStoreMetrics loggedStoreMetrics = new LoggedStoreMetrics(storeName, metricsRegistry);
   private static KeyValueStoreMetrics keyValueStoreMetrics = new KeyValueStoreMetrics(storeName, metricsRegistry);
@@ -91,12 +89,14 @@ public class TestLargeMessageSafeKeyValueStores {
         {"inmemory", "serde", "true"},
         {"inmemory", "serde", "false"},
         {"inmemory", "cache-then-serde", "true"},
+        {"inmemory", "cache-then-serde", "false"},
         {"inmemory", "serde-then-cache", "false"},
         {"inmemory", "serde-then-cache", "true"},
         //RocksDB
         {"rocksdb", "serde", "true"},
         {"rocksdb", "serde", "false"},
         {"rocksdb", "cache-then-serde", "true"},
+        {"rocksdb", "cache-then-serde", "false"},
         {"rocksdb", "serde-then-cache", "false"},
         {"rocksdb", "serde-then-cache", "true"}
     });
@@ -121,6 +121,13 @@ public class TestLargeMessageSafeKeyValueStores {
         throw new IllegalArgumentException("Type of store undefined: " + typeOfStore);
     }
 
+    MessageCollector collector = envelope -> {
+      int messageLength = ((byte[]) envelope.getMessage()).length;
+      if (messageLength > maxMessageSize) {
+        throw new SamzaException("Logged store message size " + messageLength + " for store " + storeName
+            + " was larger than the maximum allowed message size " + maxMessageSize + ".");
+      }
+    };
     loggedStore = new LoggedStore<>(kvStore, systemStreamPartition, collector, loggedStoreMetrics);
 
     switch (storeConfig) {
@@ -132,13 +139,17 @@ public class TestLargeMessageSafeKeyValueStores {
         break;
       }
       case "cache-then-serde" : {
-        KeyValueStore<byte[], byte[]> toBeSerializedStore =
-            new LargeMessageSafeStore(loggedStore, storeName, dropLargeMessage, maxMessageSize);
+        KeyValueStore<byte[], byte[]> toBeSerializedStore = loggedStore;
+        if (dropLargeMessage) {
+          toBeSerializedStore = new LargeMessageSafeStore(loggedStore, storeName, dropLargeMessage, maxMessageSize);
+        }
         KeyValueStore<String, String> serializedStore =
             new SerializedKeyValueStore<>(toBeSerializedStore, stringSerde, stringSerde, serializedKeyValueStoreMetrics);
         store = new CachedStore<>(serializedStore, cacheSize, batchSize, cachedStoreMetrics);
         break;
       }
+      //For this case, the value of dropLargeMessage doesn't matter since we are testing the case when
+      // large messages are expected and StorageConfig.EXPECT_LARGE_MESSAGES is true.
       case "serde-then-cache" : {
         KeyValueStore<byte[], byte[]> cachedStore =
             new CachedStore<>(loggedStore, cacheSize, batchSize, cachedStoreMetrics);
@@ -156,7 +167,11 @@ public class TestLargeMessageSafeKeyValueStores {
 
   @After
   public void teardown() {
-    store.close();
+    try {
+      store.close();
+    } catch (SamzaException e) {
+      loggedStore.close();
+    }
     if (dir != null && dir.listFiles() != null) {
       for (File file : dir.listFiles())
         file.delete();
@@ -175,9 +190,9 @@ public class TestLargeMessageSafeKeyValueStores {
     } else {
       try {
         store.put(key, largeMessage);
-        Assert.fail("Failure since putAll() method invocation incorrectly completed.");
+        Assert.fail("Failure since put() method invocation incorrectly completed.");
       } catch (SamzaException e) {
-        Assert.assertNull("The large message was stored while it shouldn't have been.", store.get(key));
+        Assert.assertNull("The large message was stored while it shouldn't have been.", loggedStore.get(stringSerde.toBytes(key)));
       }
     }
   }
@@ -197,7 +212,7 @@ public class TestLargeMessageSafeKeyValueStores {
         store.putAll(entries);
         Assert.fail("Failure since putAll() method invocation incorrectly completed.");
       } catch (SamzaException e) {
-        Assert.assertNull("The large message was stored while it shouldn't have been.", store.get(key));
+        Assert.assertNull("The large message was stored while it shouldn't have been.", loggedStore.get(stringSerde.toBytes(key)));
       }
     }
   }
