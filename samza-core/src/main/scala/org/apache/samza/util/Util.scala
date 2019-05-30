@@ -149,28 +149,24 @@ object Util extends Logging {
    */
   def rewriteConfig(config: Config): Config = {
     config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
+      case Some(rewriters) => rewriters.split(",").foldLeft(config)(applyRewriter(_, _))
       case _ => config
     }
   }
 
-  private def rewrite(config: Config, rewriterName: String): Config = {
+  /**
+    * Re-writes configuration using a ConfigRewriter, defined with the given rewriterName in config.
+    * @param config the config to re-write
+    * @param rewriterName the name of the rewriter to apply
+    * @return the rewritten config
+    */
+  def applyRewriter(config: Config, rewriterName: String): Config = {
     val rewriterClassName = config
       .getConfigRewriterClass(rewriterName)
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-    val rewriter = Util.getObj(rewriterClassName, classOf[ConfigRewriter])
+    val rewriter = ReflectionUtil.getObj(this.getClass.getClassLoader, rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)
     rewriter.rewrite(rewriterName, config)
   }
 
-  def runRegexTopicGenerator(config: Config): Config = {
-    config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").
-        filter(rewriterName => config.getConfigRewriterClass(rewriterName)
-          .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-          .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-        foldLeft(config)(rewrite(_, _))
-      case _ => config
-    }
-  }
 }

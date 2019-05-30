@@ -100,8 +100,10 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
 
-    val systemAdmins = new SystemAdmins(config)
-    val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance)
-    streamMetadataCache.getAllSystemStreams(systemName).map(systemStream => systemStream.getStream).toSeq
+    val systemAdmin = new SystemConfig(config).getSystemAdmin(systemName)
+    systemAdmin.start()
+    val systemStreams = systemAdmin.getAllSystemStreams.asScala.map(systemStream => systemStream.getStream).toSeq
+    systemAdmin.stop()
+    systemStreams
   }
 }
