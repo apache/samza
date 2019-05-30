@@ -22,6 +22,7 @@ package org.apache.samza.checkpoint
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
 import org.apache.samza.config.StreamConfig.Config2Stream
@@ -110,14 +111,15 @@ object OffsetManager extends Logging {
  * OffsetManager does several things:
  *
  * <ul>
- * <li>Loads last checkpointed offset for all input SystemStreamPartitions in a
- * SamzaContainer.</li>
- * <li>Uses last checkpointed offset to figure out the next offset to start
- * reading from for each input SystemStreamPartition in a SamzaContainer</li>
+ * <li>Loads last checkpointed offset and startpoints for all input SystemStreamPartitions in a
+ * SamzaContainer. See SEP-18 for details.</li>
+ * <li>Uses last checkpointed offset or startpoint to figure out the next offset to start
+ * reading from for each input SystemStreamPartition in a SamzaContainer. Startpoints have a higher precedence than
+ * checkpoints.</li>
  * <li>Keep track of the last processed offset for each SystemStreamPartitions
  * in a SamzaContainer.</li>
  * <li>Checkpoints the last processed offset for each SystemStreamPartitions
- * in a SamzaContainer periodically to the CheckpointManager.</li>
+ * in a SamzaContainer periodically to the CheckpointManager and deletes any associated startpoints.</li>
  * </ul>
  *
  * All partitions must be registered before start is called, and start must be
@@ -137,7 +139,7 @@ class OffsetManager(
   val checkpointManager: CheckpointManager = null,
 
   /**
-    * Optional startpoint manager for overrided offsets.
+    * Optional startpoint manager for overridden offsets.
     */
   val startpointManager: StartpointManager = null,
 
@@ -535,9 +537,47 @@ class OffsetManager(
         startpoints
           .foreach(taskMap => taskMap._2
             .foreach(sspMap => info("Loaded startpoint: %s for SSP: %s and task: %s" format (sspMap._2, sspMap._1, taskMap._1))))
+        resolveStartpointsToStartingOffsets
       }
     }
   }
+
+  /**
+    * Overwrite starting offsets with resolved offsets from startpoints
+    */
+  private def resolveStartpointsToStartingOffsets: Unit = {
+    startpoints.foreach {
+      case (taskName, sspToStartpoint) => {
+        var resolvedOffsets: Map[SystemStreamPartition, String] = Map()
+        sspToStartpoint.foreach {
+          case (ssp, startpoint) => {
+            try {
+              val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem)
+              val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(ssp, startpoint)
+              if (StringUtils.isNotBlank(resolvedOffset)) {
+                resolvedOffsets += ssp -> resolvedOffset
+                info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint, ssp, resolvedOffset))
+              }
+            } catch {
+              case e: Exception => {
+                error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, ssp), e)
+              }
+            }
+          }
+        }
+
+        // copy starting offsets and overwrite with resolved offsets
+        var mergedOffsets: Map[SystemStreamPartition, String] = startingOffsets.getOrElse(taskName, Map())
+        resolvedOffsets.foreach {
+          case (ssp, resolvedOffset) => {
+            mergedOffsets += ssp -> resolvedOffset
+          }
+        }
+        startingOffsets += taskName -> mergedOffsets
+      }
+    }
+  }
+
   /**
    * Use defaultOffsets to get a next offset for every SystemStreamPartition
    * that was registered, but has no offset.

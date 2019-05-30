@@ -22,9 +22,10 @@ package org.apache.samza.checkpoint
 import java.util
 import java.util.function.BiConsumer
 
+import com.google.common.collect.ImmutableMap
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container.TaskName
-import org.apache.samza.startpoint.{StartpointManagerTestUtil, StartpointOldest, StartpointUpcoming}
+import org.apache.samza.startpoint.{Startpoint, StartpointManagerTestUtil, StartpointOldest, StartpointSpecific, StartpointUpcoming}
 import org.apache.samza.system.SystemStreamMetadata.{OffsetType, SystemStreamPartitionMetadata}
 import org.apache.samza.system._
 import org.apache.samza.{Partition, SamzaException}
@@ -132,6 +133,81 @@ class TestOffsetManager {
     assertEquals(Option(startpoint1), offsetManager.getStartpoint(taskName1, systemStreamPartition))
     assertEquals(Option(startpoint2), offsetManager.getStartpoint(taskName2, systemStreamPartition))
     startpointManagerUtil.stop
+  }
+
+  @Test
+  def testGetStartingOffsetWhenResolvedFromStartpoint: Unit = {
+    val taskName1 = new TaskName("c")
+    val taskName2 = new TaskName("d")
+    val systemStream1 = new SystemStream("test-system", "test-stream")
+    val partition = new Partition(0)
+    val systemStreamPartition = new SystemStreamPartition(systemStream1, partition)
+    val testStreamMetadata = new SystemStreamMetadata(systemStream1.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "51", "52")).asJava)
+    val systemStreamMetadata = Map(systemStream1 -> testStreamMetadata)
+    val config = new MapConfig
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName1)
+    val startpointManagerUtil = getStartpointManagerUtil()
+    val systemAdmins = mock(classOf[SystemAdmins])
+    val systemAdmin = mock(classOf[SystemAdmin])
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    val testStartpoint = new StartpointSpecific("23")
+    Mockito.doReturn(testStartpoint.getSpecificOffset).when(systemAdmin).resolveStartpointToOffset(refEq(systemStreamPartition), refEq(testStartpoint))
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, startpointManagerUtil.getStartpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+
+    offsetManager.register(taskName1, Set(systemStreamPartition))
+    val startpointManager = startpointManagerUtil.getStartpointManager
+    startpointManager.writeStartpoint(systemStreamPartition, testStartpoint)
+    startpointManager.fanOut(asTaskToSSPMap(taskName1, systemStreamPartition))
+    offsetManager.start
+    assertEquals(testStartpoint.getSpecificOffset, offsetManager.getStartingOffset(taskName1, systemStreamPartition).get)
+  }
+
+  @Test
+  def testGetStartingOffsetWhenResolveStartpointToOffsetIsNull: Unit = {
+    val taskName1 = new TaskName("c")
+    val taskName2 = new TaskName("d")
+    val systemStream1 = new SystemStream("test-system", "test-stream")
+    val partition = new Partition(0)
+    val systemStreamPartition = new SystemStreamPartition(systemStream1, partition)
+    val testStreamMetadata = new SystemStreamMetadata(systemStream1.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "51", "52")).asJava)
+    val systemStreamMetadata = Map(systemStream1 -> testStreamMetadata)
+    val config = new MapConfig
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName1)
+    val startpointManagerUtil = getStartpointManagerUtil()
+    val systemAdmins = mock(classOf[SystemAdmins])
+    val systemAdmin = mock(classOf[SystemAdmin])
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    Mockito.doReturn(null).when(systemAdmin).resolveStartpointToOffset(refEq(systemStreamPartition), refEq(null))
+    Mockito.doReturn(ImmutableMap.of(systemStreamPartition, "46")).when(systemAdmin).getOffsetsAfter(any[util.Map[SystemStreamPartition, String]])
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, startpointManagerUtil.getStartpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    offsetManager.register(taskName1, Set(systemStreamPartition))
+    val startpointManager = startpointManagerUtil.getStartpointManager
+    offsetManager.start
+    assertEquals("46", offsetManager.getStartingOffset(taskName1, systemStreamPartition).get)
+  }
+
+  @Test
+  def testGetStartingOffsetWhenResolveStartpointToOffsetThrows: Unit = {
+    val taskName1 = new TaskName("c")
+    val taskName2 = new TaskName("d")
+    val systemStream1 = new SystemStream("test-system", "test-stream")
+    val partition = new Partition(0)
+    val systemStreamPartition = new SystemStreamPartition(systemStream1, partition)
+    val testStreamMetadata = new SystemStreamMetadata(systemStream1.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "51", "52")).asJava)
+    val systemStreamMetadata = Map(systemStream1 -> testStreamMetadata)
+    val config = new MapConfig
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName1)
+    val startpointManagerUtil = getStartpointManagerUtil()
+    val systemAdmins = mock(classOf[SystemAdmins])
+    val systemAdmin = mock(classOf[SystemAdmin])
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(systemAdmin)
+    Mockito.doThrow(new RuntimeException("mock startpoint resolution exception")).when(systemAdmin).resolveStartpointToOffset(refEq(systemStreamPartition), refEq(null))
+    Mockito.doReturn(ImmutableMap.of(systemStreamPartition, "46")).when(systemAdmin).getOffsetsAfter(any[util.Map[SystemStreamPartition, String]])
+    val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, startpointManagerUtil.getStartpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    offsetManager.register(taskName1, Set(systemStreamPartition))
+    val startpointManager = startpointManagerUtil.getStartpointManager
+    offsetManager.start
+    assertEquals("46", offsetManager.getStartingOffset(taskName1, systemStreamPartition).get)
   }
 
   @Test
