@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 @SamzaSqlUdf(name = "MyTestObj", description = "Test UDF.")
 public class MyTestObjUdf implements ScalarUdf {
 
-  private static final Logger LOG = LoggerFactory.getLogger(MyTestUdf.class);
+  private static final Logger LOG = LoggerFactory.getLogger(MyTestObjUdf.class);
 
   @SamzaSqlUdfMethod(params = SamzaSqlFieldType.INT32)
   public Object execute(Integer value) {
