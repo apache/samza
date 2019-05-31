@@ -39,11 +39,10 @@ public class MyTestPolyUdf implements ScalarUdf {
     return value * 2;
   }
 
-  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY)
+  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.STRING)
   public Integer execute(String value) {
     return value.length() * 2;
   }
-
 
   @Override
   public void init(Config udfConfig) {
