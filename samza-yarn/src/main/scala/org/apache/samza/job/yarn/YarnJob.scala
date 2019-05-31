@@ -71,8 +71,16 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
       )
     } catch {
       case e: Throwable =>
-        client.cleanupStagingDir
-        throw e
+        logger.error("Exception submitting yarn job.", e )
+        try {
+          // try to clean up. this may throw an exception depending on how far into launching the job we got.
+          // we don't want to mask the original problem by throwing this.
+          client.cleanupStagingDir
+        } catch {
+          case ce: Throwable => logger.warn("Exception cleaning Staging Directory after failed launch attempt.", ce)
+        } finally {
+          throw e
+        }
     }
 
     this
