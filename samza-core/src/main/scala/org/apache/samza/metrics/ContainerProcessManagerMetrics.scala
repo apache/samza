@@ -38,7 +38,7 @@ class ContainerProcessManagerMetrics(val config: Config,
   val mCompletedContainers = newGauge("completed-containers", () => state.completedProcessors.get())
   val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
   val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
-  val mContainers = newGauge("container-count", () => state.processorCount)
+  val mContainers = newGauge("container-count", () => state.processorCount.get())
   val mRedundantNotifications = newGauge("redundant-notifications", () => state.redundantNotifications.get())
   val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
   val mPreferredHostRequests = newGauge("preferred-host-requests", () => state.preferredHostRequests.get())
