@@ -20,6 +20,7 @@
 package org.apache.samza.sql.udfs;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 
 
 /**
@@ -34,6 +35,7 @@ public interface ScalarUdf {
   /**
    * Udfs can implement this method to perform any initialization that they may need.
    * @param udfConfig Config specific to the udf.
+   * @param context Samza application and framework context
    */
-  void init(Config udfConfig);
+  void init(Config udfConfig, Context context);
 }

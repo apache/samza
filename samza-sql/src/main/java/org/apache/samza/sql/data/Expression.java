@@ -20,6 +20,7 @@
 package org.apache.samza.sql.data;
 
 import org.apache.calcite.DataContext;
+import org.apache.samza.context.Context;
 
 
 /**
@@ -29,10 +30,10 @@ import org.apache.calcite.DataContext;
 public interface Expression {
   /**
    * This method is used to implement the expressions that takes in columns as input and returns multiple values.
-   * @param context the context
+   * @param context SamzaSqlExecution context
    * @param root the root
    * @param inputValues All the relational columns for the particular row
    * @param results the results Result values after executing the java code corresponding to the relational expression.
    */
-  void execute(SamzaSqlExecutionContext context, DataContext root, Object[] inputValues, Object[] results);
+  void execute(SamzaSqlExecutionContext sqlContext, Context context, DataContext root, Object[] inputValues, Object[] results);
 }

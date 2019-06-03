@@ -143,6 +143,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
         new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
+    Context context = mock(Context.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
@@ -153,7 +154,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
     assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
@@ -302,6 +303,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
         new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
+    Context context = mock(Context.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
     Object[] result = new Object[1];
@@ -311,7 +313,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
       Object[] retValue = invocation.getArgumentAt(3, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
     assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),

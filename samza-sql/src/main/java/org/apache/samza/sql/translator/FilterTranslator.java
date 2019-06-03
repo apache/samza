@@ -69,6 +69,7 @@ class FilterTranslator {
     private final int queryId;
     private final int filterId;
     private final String logicalOpId;
+    private Context context;
 
     FilterTranslatorFunction(int filterId, int queryId, String logicalOpId) {
       this.filterId = filterId;
@@ -78,6 +79,7 @@ class FilterTranslator {
 
     @Override
     public void init(Context context) {
+      this.context = context;
       this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.filter = (LogicalFilter) this.translatorContext.getRelNode(filterId);
       this.expr = this.translatorContext.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
@@ -96,7 +98,7 @@ class FilterTranslator {
     public boolean apply(SamzaSqlRelMessage message) {
       Instant startProcessing = Instant.now();
       Object[] result = new Object[1];
-      expr.execute(translatorContext.getExecutionContext(), translatorContext.getDataContext(),
+      expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
           message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
       if (result.length > 0 && result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
