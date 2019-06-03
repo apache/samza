@@ -23,8 +23,8 @@ package org.apache.samza.task;
  * Build {@link AsyncStreamTask} instances.
  * <p>
  * Implementations should return a new instance of {@link AsyncStreamTask} for each {@link #createInstance()} invocation.
- * Note: It is not part of samza-api as it is a temporary hack introduced for SAMZA-2172. It will eventually
- * go away with SAMZA-2203
+ * Note: It returns an {@link AsyncStreamTask} since <code>StreamOperatorTask</code> is not part of samza-api. It is
+ * a temporary hack introduced for SAMZA-2172 and will eventually go away with SAMZA-2203
  */
 public interface StreamOperatorTaskFactory extends TaskFactory<AsyncStreamTask> {
 }
