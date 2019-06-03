@@ -55,7 +55,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     val systemName = jobConfig
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
-    val topics = getTopicsFromStreamMetadataCache(rewriterName, config)
+    val topics = getTopicsFromSystemAdmin(rewriterName, config)
     val existingInputStreams = config.getInputStreams
     val newInputStreams = new mutable.HashSet[SystemStream]
     val keysAndValsToAdd = new mutable.HashMap[String, String]
@@ -95,15 +95,20 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     new MapConfig(((keysAndValsToAdd ++ config.asScala) += inputStreams).asJava)
   }
 
-  def getTopicsFromStreamMetadataCache(rewriterName: String, config: Config): Seq[String] = {
+  def getTopicsFromSystemAdmin(rewriterName: String, config: Config): Seq[String] = {
     val systemName = new JobConfig(config)
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
 
+    var systemStreams = Seq.empty[String]
     val systemAdmin = new SystemConfig(config).getSystemAdmin(systemName)
-    systemAdmin.start()
-    val systemStreams = systemAdmin.getAllSystemStreams.asScala.map(systemStream => systemStream.getStream).toSeq
-    systemAdmin.stop()
+    try {
+      systemAdmin.start()
+      systemStreams =
+        systemStreams ++ systemAdmin.getAllSystemStreams.asScala.map(systemStream => systemStream.getStream).toSeq
+    } finally {
+      systemAdmin.stop();
+    }
     systemStreams
   }
 }
