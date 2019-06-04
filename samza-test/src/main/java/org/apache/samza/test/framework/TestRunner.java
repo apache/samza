@@ -373,11 +373,15 @@ public class TestRunner {
       Map<Integer, Iterable<StreamMessageType>> partitionData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    if (configs.containsKey(TaskConfig.INPUT_STREAMS)) {
-      configs.put(TaskConfig.INPUT_STREAMS,
-          configs.get(TaskConfig.INPUT_STREAMS).concat("," + systemName + "." + streamName));
-    } else {
-      configs.put(TaskConfig.INPUT_STREAMS, systemName + "." + streamName);
+    if (this.app instanceof LegacyTaskApplication) {
+      // task.inputs is generated using descriptors for Task/StreamApplication, but needs to be generated here
+      // for legacy applications that only specify task.class
+      if (configs.containsKey(TaskConfig.INPUT_STREAMS)) {
+        configs.put(TaskConfig.INPUT_STREAMS,
+            configs.get(TaskConfig.INPUT_STREAMS).concat("," + systemName + "." + streamName));
+      } else {
+        configs.put(TaskConfig.INPUT_STREAMS, systemName + "." + streamName);
+      }
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
