@@ -238,12 +238,6 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
       }.toMap
   }
 
-  // regex resolver
-  def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
-
-  def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
-
-  def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((JobConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
 
   /**
     * Gets the replication factor for the changelog topics. Uses the following precedence.

@@ -191,7 +191,10 @@ public class ClusterBasedJobCoordinator {
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins);
+
+    Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
+    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
+
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
 
@@ -333,7 +336,7 @@ public class ClusterBasedJobCoordinator {
       }));
   }
 
-  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
 
     // if input regex monitor is not enabled return empty
     if (new JobConfig(config).getMonitorRegexEnabled()) {
@@ -342,7 +345,6 @@ public class ClusterBasedJobCoordinator {
     }
 
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
     }

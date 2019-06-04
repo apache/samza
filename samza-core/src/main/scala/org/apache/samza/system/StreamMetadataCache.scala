@@ -88,7 +88,6 @@ class StreamMetadataCache (
   /**
     * Returns the list of System Streams for this system.
     * @param systemName
-    * @param pattern
     */
   def getAllSystemStreams(systemName: String): mutable.Set[SystemStream] = {
     val systemAdmin = systemAdmins.getSystemAdmin(systemName)
