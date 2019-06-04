@@ -31,7 +31,6 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import kafka.producer.ProducerClosedException;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
@@ -100,13 +99,13 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   private RecordMetadata getRecordMetadata(ProducerRecord record) {
-    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get(), -1L, -1, -1, -1);
+    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get(), -1L, -1L, -1, -1);
   }
 
   @Override
   public Future<RecordMetadata> send(final ProducerRecord record, final Callback callback) {
     if (closed) {
-      throw new ProducerClosedException();
+      throw new IllegalStateException("Cannot perform operation after producer has been closed");
     }
     if (errorNext) {
       if (!errorInCallback) {
@@ -253,7 +252,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
     public FutureSuccess(ProducerRecord record, int offset) {
       this.record = record;
-      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, RecordBatch.NO_TIMESTAMP, -1, -1, -1);
+      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, RecordBatch.NO_TIMESTAMP, -1L, -1, -1);
     }
 
     @Override

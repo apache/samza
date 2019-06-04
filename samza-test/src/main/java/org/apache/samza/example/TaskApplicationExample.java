@@ -21,6 +21,8 @@ package org.apache.samza.example;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
@@ -60,18 +62,19 @@ public class TaskApplicationExample implements TaskApplication {
   }
 
   @Override
-  public void describe(TaskApplicationDescriptor appDesc) {
+  public void describe(TaskApplicationDescriptor appDescriptor) {
     // add input and output streams
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("tracking");
     KafkaInputDescriptor<String> isd = ksd.getInputDescriptor("myinput", new StringSerde());
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor("myout", new StringSerde());
-    TableDescriptor td = new RocksDbTableDescriptor("mytable");
+    TableDescriptor td = new RocksDbTableDescriptor("mytable",
+        new KVSerde(new NoOpSerde(), new NoOpSerde()));
 
-    appDesc.addInputStream(isd);
-    appDesc.addOutputStream(osd);
-    appDesc.addTable(td);
-    // create the task factory based on configuration
-    appDesc.setTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
+    appDescriptor
+        .withInputStream(isd)
+        .withOutputStream(osd)
+        .withTable(td)
+        .withTaskFactory((StreamTaskFactory) () -> new MyStreamTask());
   }
 
 }

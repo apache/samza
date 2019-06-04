@@ -142,6 +142,34 @@ public class TestInMemorySystem {
     assertTrue(results.get(0).isEndOfStream());
   }
 
+  @Test
+  public void testNullMessageWithValidMessageKey() {
+    final String messageKey = "validKey";
+    SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, config, mockRegistry);
+    systemProducer.send(SOURCE, new OutgoingMessageEnvelope(SYSTEM_STREAM, messageKey, null));
+
+    SystemConsumer consumer = systemFactory.getConsumer(SYSTEM_NAME, config, mockRegistry);
+
+    Set<SystemStreamPartition> sspsToPoll = IntStream.range(0, PARTITION_COUNT)
+        .mapToObj(partition -> new SystemStreamPartition(SYSTEM_STREAM, new Partition(partition)))
+        .collect(Collectors.toSet());
+
+    // register the consumer for ssps
+    for (SystemStreamPartition ssp : sspsToPoll) {
+      consumer.register(ssp, "0");
+    }
+
+    List<IncomingMessageEnvelope> results = consumeRawMessages(consumer, sspsToPoll);
+    assertEquals(1, results.size());
+    assertEquals(results.get(0).getKey(), messageKey);
+    assertNull(results.get(0).getMessage());
+  }
+
+  @Test(expected = NullPointerException.class)
+  public void testNullMessageWithNullKey() {
+    SystemProducer systemProducer = systemFactory.getProducer(SYSTEM_NAME, config, mockRegistry);
+    systemProducer.send(SOURCE, new OutgoingMessageEnvelope(SYSTEM_STREAM, null));
+  }
 
   private <T> List<T> consumeMessages(Set<SystemStreamPartition> sspsToPoll) {
     SystemConsumer systemConsumer = systemFactory.getConsumer(SYSTEM_NAME, config, mockRegistry);

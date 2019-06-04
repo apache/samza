@@ -27,18 +27,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Group the SSP taskNames by dividing the number of taskNames into the number
@@ -51,19 +44,21 @@ import org.slf4j.LoggerFactory;
  * TODO: SAMZA-1197 - need to modify balance to work with processorId strings
  */
 public class GroupByContainerCount implements BalancingTaskNameGrouper {
-  private static final Logger log = LoggerFactory.getLogger(GroupByContainerCount.class);
+  private static final Logger LOG = LoggerFactory.getLogger(GroupByContainerCount.class);
   private final int containerCount;
-  private final Config config;
 
-  public GroupByContainerCount(Config config) {
-    this.containerCount = new JobConfig(config).getContainerCount();
-    this.config = config;
-    if (containerCount <= 0) throw new IllegalArgumentException("Must have at least one container");
+  public GroupByContainerCount(int containerCount) {
+    if (containerCount <= 0) {
+      throw new IllegalArgumentException("Must have at least one container");
+    }
+    this.containerCount = containerCount;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Set<ContainerModel> group(Set<TaskModel> tasks) {
-
     validateTasks(tasks);
 
     // Sort tasks by taskName.
@@ -89,99 +84,68 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     return Collections.unmodifiableSet(containerModels);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
-  public Set<ContainerModel> balance(Set<TaskModel> tasks, LocalityManager localityManager) {
-
+  public Set<ContainerModel> group(Set<TaskModel> tasks, GrouperMetadata grouperMetadata) {
     validateTasks(tasks);
 
-    if (localityManager == null) {
-      log.info("Locality manager is null. Cannot read or write task assignments. Invoking grouper.");
+    List<TaskGroup> containers = getPreviousContainers(grouperMetadata, tasks.size());
+    if (containers == null || containers.size() == 1 || containerCount == 1) {
+      LOG.info("Balancing does not apply. Invoking grouper.");
       return group(tasks);
     }
 
-    TaskAssignmentManager taskAssignmentManager =  new TaskAssignmentManager(config, new MetricsRegistryMap());
-    taskAssignmentManager.init();
-    try {
-      List<TaskGroup> containers = getPreviousContainers(taskAssignmentManager, tasks.size());
-      if (containers == null || containers.size() == 1 || containerCount == 1) {
-        log.info("Balancing does not apply. Invoking grouper.");
-        Set<ContainerModel> models = group(tasks);
-        saveTaskAssignments(models, taskAssignmentManager);
-        return models;
-      }
-
-      int prevContainerCount = containers.size();
-      int containerDelta = containerCount - prevContainerCount;
-      if (containerDelta == 0) {
-        log.info("Container count has not changed. Reusing previous container models.");
-        return buildContainerModels(tasks, containers);
-      }
-      log.info("Container count changed from {} to {}. Balancing tasks.", prevContainerCount, containerCount);
-
-      // Calculate the expected task count per container
-      int[] expectedTaskCountPerContainer = calculateTaskCountPerContainer(tasks.size(), prevContainerCount, containerCount);
-
-      // Collect excess tasks from over-assigned containers
-      List<String> taskNamesToReassign = new LinkedList<>();
-      for (int i = 0; i < prevContainerCount; i++) {
-        TaskGroup taskGroup = containers.get(i);
-        while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
-          taskNamesToReassign.add(taskGroup.removeTask());
-        }
-      }
-
-      // Assign tasks to the under-assigned containers
-      if (containerDelta > 0) {
-        List<TaskGroup> newContainers = createContainers(prevContainerCount, containerCount);
-        containers.addAll(newContainers);
-      } else {
-        containers = containers.subList(0, containerCount);
-      }
-      assignTasksToContainers(expectedTaskCountPerContainer, taskNamesToReassign, containers);
-
-      // Transform containers to containerModel
-      Set<ContainerModel> models = buildContainerModels(tasks, containers);
-
-      // Save the results
-      saveTaskAssignments(models, taskAssignmentManager);
-
-      return models;
-    } finally {
-      taskAssignmentManager.close();
+    int prevContainerCount = containers.size();
+    int containerDelta = containerCount - prevContainerCount;
+    if (containerDelta == 0) {
+      LOG.info("Container count has not changed. Reusing previous container models.");
+      return TaskGroup.buildContainerModels(tasks, containers);
     }
+    LOG.info("Container count changed from {} to {}. Balancing tasks.", prevContainerCount, containerCount);
+
+    // Calculate the expected task count per container
+    int[] expectedTaskCountPerContainer = calculateTaskCountPerContainer(tasks.size(), prevContainerCount, containerCount);
+
+    // Collect excess tasks from over-assigned containers
+    List<String> taskNamesToReassign = new LinkedList<>();
+    for (int i = 0; i < prevContainerCount; i++) {
+      TaskGroup taskGroup = containers.get(i);
+      while (taskGroup.size() > expectedTaskCountPerContainer[i]) {
+        taskNamesToReassign.add(taskGroup.removeLastTaskName());
+      }
+    }
+
+    // Assign tasks to the under-assigned containers
+    if (containerDelta > 0) {
+      List<TaskGroup> newContainers = createContainers(prevContainerCount, containerCount);
+      containers.addAll(newContainers);
+    } else {
+      containers = containers.subList(0, containerCount);
+    }
+
+    assignTasksToContainers(expectedTaskCountPerContainer, taskNamesToReassign, containers);
+
+    return TaskGroup.buildContainerModels(tasks, containers);
   }
 
   /**
-   * Reads the task-container mapping from the provided {@link TaskAssignmentManager} and returns a
+   * Reads the task-container mapping from the provided {@link GrouperMetadata} and returns a
    * list of TaskGroups, ordered ascending by containerId.
    *
-   * @param taskAssignmentManager the {@link TaskAssignmentManager} that will be used to retrieve the previous mapping.
-   * @param taskCount             the number of tasks, for validation against the persisted tasks.
-   * @return                      a list of TaskGroups, ordered ascending by containerId or {@code null}
-   *                              if the previous mapping doesn't exist or isn't usable.
+   * @param grouperMetadata  the {@link GrouperMetadata} will be used to retrieve the previous task to container assignments.
+   * @param taskCount       the number of tasks, for validation against the persisted tasks.
+   * @return                a list of TaskGroups, ordered ascending by containerId or {@code null}
+   *                        if the previous mapping doesn't exist or isn't usable.
    */
-  private List<TaskGroup> getPreviousContainers(TaskAssignmentManager taskAssignmentManager, int taskCount) {
-    Map<String, String> taskToContainerId = taskAssignmentManager.readTaskAssignment();
-    taskToContainerId.values().forEach(id -> {
-        try {
-          int intId = Integer.parseInt(id);
-        } catch (NumberFormatException nfe) {
-          throw new SamzaException("GroupByContainerCount cannot handle non-integer processorIds!", nfe);
-        }
-      });
+  private List<TaskGroup> getPreviousContainers(GrouperMetadata grouperMetadata, int taskCount) {
+    Map<TaskName, String> taskToContainerId = grouperMetadata.getPreviousTaskToProcessorAssignment();
+
     if (taskToContainerId.isEmpty()) {
-      log.info("No task assignment map was saved.");
+      LOG.info("No task assignment map was saved.");
       return null;
     } else if (taskCount != taskToContainerId.size()) {
-      log.warn(
-          "Current task count {} does not match saved task count {}. Stateful jobs may observe misalignment of keys!",
-          taskCount, taskToContainerId.size());
-      // If the tasks changed, then the partition-task grouping is also likely changed and we can't handle that
-      // without a much more complicated mapping. Further, the partition count may have changed, which means
-      // input message keys are likely reshuffled w.r.t. partitions, so the local state may not contain necessary
-      // data associated with the incoming keys. Warn the user and default to grouper
-      // In this scenario the tasks may have been reduced, so we need to delete all the existing messages
-      taskAssignmentManager.deleteTaskContainerMappings(taskToContainerId.keySet());
       return null;
     }
 
@@ -189,24 +153,10 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     try {
       containers = getOrderedContainers(taskToContainerId);
     } catch (Exception e) {
-      log.error("Exception while parsing task mapping", e);
+      LOG.error("Exception while parsing task mapping", e);
       return null;
     }
     return containers;
-  }
-
-  /**
-   * Saves the task assignments specified by containers using the provided TaskAssignementManager.
-   *
-   * @param containers            the set of containers from which the task assignments will be saved.
-   * @param taskAssignmentManager the {@link TaskAssignmentManager} that will be used to save the mappings.
-   */
-  private void saveTaskAssignments(Set<ContainerModel> containers, TaskAssignmentManager taskAssignmentManager) {
-    for (ContainerModel container : containers) {
-      for (TaskName taskName : container.getTasks().keySet()) {
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName(), container.getId());
-      }
-    }
   }
 
   /**
@@ -218,11 +168,14 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     if (tasks.size() <= 0)
       throw new IllegalArgumentException("No tasks found. Likely due to no input partitions. Can't run a job with no tasks.");
 
-    if (tasks.size() < containerCount)
-      throw new IllegalArgumentException(String.format(
+    if (tasks.size() < containerCount) {
+      String msg = String.format(
           "Your container count (%s) is larger than your task count (%s). Can't have containers with nothing to do, so aborting.",
-          containerCount,
-          tasks.size()));
+          containerCount, tasks.size());
+      LOG.error(msg);
+      LOG.info("List of all task models: {}", tasks);
+      throw new IllegalArgumentException(msg);
+    }
   }
 
   /**
@@ -252,13 +205,12 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
    * @param containers            the containers (as {@link TaskGroup}) to which the tasks will be assigned.
    */
   // TODO: Change logic from using int arrays to a Map<String, Integer> (id -> taskCount)
-  private void assignTasksToContainers(int[] taskCountPerContainer, List<String> taskNamesToAssign,
-      List<TaskGroup> containers) {
+  private void assignTasksToContainers(int[] taskCountPerContainer, List<String> taskNamesToAssign, List<TaskGroup> containers) {
     for (TaskGroup taskGroup : containers) {
       for (int j = taskGroup.size(); j < taskCountPerContainer[Integer.valueOf(taskGroup.getContainerId())]; j++) {
         String taskName = taskNamesToAssign.remove(0);
         taskGroup.addTaskName(taskName);
-        log.info("Assigned task {} to container {}", taskName, taskGroup.getContainerId());
+        LOG.info("Assigned task {} to container {}", taskName, taskGroup.getContainerId());
       }
     }
   }
@@ -288,53 +240,20 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
   }
 
   /**
-   * Translates the list of TaskGroup instances to a set of ContainerModel instances, using the
-   * set of TaskModel instances.
-   *
-   * @param tasks             the TaskModels to assign to the ContainerModels.
-   * @param containerTasks    the TaskGroups defining how the tasks should be grouped.
-   * @return                  a mutable set of ContainerModels.
-   */
-  private Set<ContainerModel> buildContainerModels(Set<TaskModel> tasks, List<TaskGroup> containerTasks) {
-    // Map task names to models
-    Map<String, TaskModel> taskNameToModel = new HashMap<>();
-    for (TaskModel model : tasks) {
-      taskNameToModel.put(model.getTaskName().getTaskName(), model);
-    }
-
-    // Build container models
-    Set<ContainerModel> containerModels = new HashSet<>();
-    for (TaskGroup container : containerTasks) {
-      Map<TaskName, TaskModel> containerTaskModels = new HashMap<>();
-      for (String taskName : container.taskNames) {
-        TaskModel model = taskNameToModel.get(taskName);
-        containerTaskModels.put(model.getTaskName(), model);
-      }
-      containerModels.add(
-          new ContainerModel(container.containerId, containerTaskModels));
-    }
-    return Collections.unmodifiableSet(containerModels);
-  }
-
-  /**
    * Converts the task->containerId map to an ordered list of {@link TaskGroup} instances.
    *
    * @param taskToContainerId a map from each task name to the containerId to which it is assigned.
    * @return                  a list of TaskGroups ordered ascending by containerId.
    */
-  private List<TaskGroup> getOrderedContainers(Map<String, String> taskToContainerId) {
-    log.debug("Got task to container map: {}", taskToContainerId);
+  private List<TaskGroup> getOrderedContainers(Map<TaskName, String> taskToContainerId) {
+    LOG.debug("Got task to container map: {}", taskToContainerId);
 
     // Group tasks by container Id
-    HashMap<String, List<String>> containerIdToTaskNames = new HashMap<>();
-    for (Map.Entry<String, String> entry : taskToContainerId.entrySet()) {
-      String taskName = entry.getKey();
+    Map<String, List<String>> containerIdToTaskNames = new HashMap<>();
+    for (Map.Entry<TaskName, String> entry : taskToContainerId.entrySet()) {
+      String taskName = entry.getKey().getTaskName();
       String containerId = entry.getValue();
-      List<String> taskNames = containerIdToTaskNames.get(containerId);
-      if (taskNames == null) {
-        taskNames = new ArrayList<>();
-        containerIdToTaskNames.put(containerId, taskNames);
-      }
+      List<String> taskNames = containerIdToTaskNames.computeIfAbsent(containerId, k -> new ArrayList<>());
       taskNames.add(taskName);
     }
 
@@ -346,37 +265,5 @@ public class GroupByContainerCount implements BalancingTaskNameGrouper {
     }
 
     return containerTasks;
-  }
-
-  /**
-   * A mutable group of tasks and an associated container id.
-   *
-   * Used as a temporary mutable container until the final ContainerModel is known.
-   */
-  private static class TaskGroup {
-    private final List<String> taskNames = new LinkedList<>();
-    private final String containerId;
-
-    private TaskGroup(String containerId, List<String> taskNames) {
-      this.containerId = containerId;
-      Collections.sort(taskNames);        // For consistency because the taskNames came from a Map
-      this.taskNames.addAll(taskNames);
-    }
-
-    public String getContainerId() {
-      return containerId;
-    }
-
-    public void addTaskName(String taskName) {
-      taskNames.add(taskName);
-    }
-
-    public String removeTask() {
-      return taskNames.remove(taskNames.size() - 1);
-    }
-
-    public int size() {
-      return taskNames.size();
-    }
   }
 }

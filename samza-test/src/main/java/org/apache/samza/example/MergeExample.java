@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
@@ -39,7 +40,7 @@ import org.apache.samza.util.CommandLine;
 public class MergeExample implements StreamApplication {
 
   // local execution mode
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new MergeExample(), config);
@@ -49,7 +50,7 @@ public class MergeExample implements StreamApplication {
   }
 
   @Override
-  public void describe(StreamApplicationDescriptor appDesc) {
+  public void describe(StreamApplicationDescriptor appDescriptor) {
     KVSerde<String, PageViewEvent> serde = KVSerde.of(new StringSerde("UTF-8"), new JsonSerdeV2<>(PageViewEvent.class));
     KafkaSystemDescriptor trackingSystem = new KafkaSystemDescriptor("tracking");
 
@@ -64,12 +65,7 @@ public class MergeExample implements StreamApplication {
         trackingSystem.getOutputDescriptor("mergedStream", serde);
 
     MessageStream
-        .mergeAll(ImmutableList.of(appDesc.getInputStream(isd1), appDesc.getInputStream(isd2), appDesc.getInputStream(isd3)))
-        .sendTo(appDesc.getOutputStream(osd));
-  }
-
-  class PageViewEvent {
-    String pageId;
-    long viewTimestamp;
+        .mergeAll(ImmutableList.of(appDescriptor.getInputStream(isd1), appDescriptor.getInputStream(isd2), appDescriptor.getInputStream(isd3)))
+        .sendTo(appDescriptor.getOutputStream(osd));
   }
 }

@@ -53,9 +53,11 @@ public class StreamEdge {
   StreamEdge(StreamSpec streamSpec, boolean isIntermediate, boolean isBroadcast, Config config) {
     this.streamSpec = streamSpec;
     this.isIntermediate = isIntermediate;
-    this.isBroadcast = isBroadcast;
+    // broadcast can be configured either by an operator or via the configs
+    this.isBroadcast =
+          isBroadcast || new StreamConfig(config).getBroadcastEnabled(streamSpec.toSystemStream());
     this.config = config;
-    if (isBroadcast) {
+    if (isBroadcast && isIntermediate) {
       partitions = 1;
     }
     this.name = StreamUtil.getNameFromSystemStream(getSystemStream());
@@ -73,7 +75,12 @@ public class StreamEdge {
     StreamSpec spec = (partitions == PARTITIONS_UNKNOWN) ?
         streamSpec : streamSpec.copyWithPartitionCount(partitions);
 
-    if (isIntermediate) {
+    // For intermediate stream that physical name is the same as id,
+    // meaning the physical name is auto-generated, and not overrided
+    // by user or batch processing.
+    if (isIntermediate && spec.getId().equals(spec.getPhysicalName())) {
+      // Append unique id to the batch intermediate streams
+      // Note this will only happen for batch processing
       String physicalName = StreamManager.createUniqueNameForBatch(spec.getPhysicalName(), config);
       if (!physicalName.equals(spec.getPhysicalName())) {
         spec = spec.copyWithPhysicalName(physicalName);
@@ -111,20 +118,21 @@ public class StreamEdge {
   }
 
   Config generateConfig() {
-    Map<String, String> config = new HashMap<>();
+    Map<String, String> streamConfig = new HashMap<>();
     StreamSpec spec = getStreamSpec();
-    config.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
-    config.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
+    streamConfig.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
+    streamConfig.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
     if (isIntermediate()) {
-      config.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), spec.getId()), "true");
-      config.put(String.format(StreamConfig.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), spec.getId()), "true");
-      config.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), spec.getId()), "oldest");
-      config.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), String.valueOf(Integer.MAX_VALUE));
+      streamConfig.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), spec.getId()), "true");
+      streamConfig.put(String.format(StreamConfig.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), spec.getId()), "true");
+      streamConfig.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), spec.getId()), "oldest");
+      streamConfig.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), String.valueOf(Integer.MAX_VALUE));
     }
     spec.getConfig().forEach((property, value) -> {
-        config.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
+        streamConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
       });
-    return new MapConfig(config);
+
+    return new MapConfig(streamConfig);
   }
 
   public boolean isBroadcast() {

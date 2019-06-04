@@ -52,10 +52,14 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS = 5000;
 
   /**
-   * Flag to indicate if host-affinity is enabled for the job or not
+   * NOTE: This field is deprecated.
    */
   public static final String HOST_AFFINITY_ENABLED = "yarn.samza.host-affinity.enabled";
-  public static final String CLUSTER_MANAGER_HOST_AFFINITY_ENABLED = "job.host-affinity.enabled";
+
+  /**
+   * Flag to indicate if host-affinity is enabled for the job or not
+   */
+  public static final String JOB_HOST_AFFINITY_ENABLED = "job.host-affinity.enabled";
 
   /**
    * Number of CPU cores to request from the cluster manager per container
@@ -86,18 +90,26 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
 
   /**
-   * Determines whether a JMX server should be started on the job coordinator
-   * Default: true
-   */
-  public static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
-  public static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
-
-  /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
    * The sleep interval of the cluster managed job coordinator.
    */
   public static final String CLUSTER_MANAGER_SLEEP_MS = "cluster-manager.jobcoordinator.sleep.interval.ms";
   private static final int DEFAULT_CLUSTER_MANAGER_SLEEP_MS = 1000;
+
+  /**
+   * Determines whether a JMX server should be started on JobCoordinator and SamzaContainer
+   * Default: true
+   */
+  private static final String JOB_JMX_ENABLED = "job.jmx.enabled";
+
+  /**
+   * Determines whether a JMX server should be started on the job coordinator
+   * Default: true
+   *
+   * @deprecated use {@code JOB_JMX_ENABLED} instead
+   */
+  private static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
+  private static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
   public ClusterManagerConfig(Config config) {
       super(config);
@@ -137,10 +149,10 @@ public class ClusterManagerConfig extends MapConfig {
   }
 
   public boolean getHostAffinityEnabled() {
-    if (containsKey(CLUSTER_MANAGER_HOST_AFFINITY_ENABLED)) {
-      return getBoolean(CLUSTER_MANAGER_HOST_AFFINITY_ENABLED);
+    if (containsKey(JOB_HOST_AFFINITY_ENABLED)) {
+      return getBoolean(JOB_HOST_AFFINITY_ENABLED);
     } else if (containsKey(HOST_AFFINITY_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", HOST_AFFINITY_ENABLED, CLUSTER_MANAGER_HOST_AFFINITY_ENABLED);
+      log.warn("Configuration {} is deprecated. Please use {}", HOST_AFFINITY_ENABLED, JOB_HOST_AFFINITY_ENABLED);
       return getBoolean(HOST_AFFINITY_ENABLED);
     } else {
       return false;
@@ -189,12 +201,15 @@ public class ClusterManagerConfig extends MapConfig {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
   }
 
-  public boolean getJmxEnabled() {
+  public boolean getJmxEnabledOnJobCoordinator() {
     if (containsKey(CLUSTER_MANAGER_JMX_ENABLED)) {
+      log.warn("Configuration {} is deprecated. Please use {}", CLUSTER_MANAGER_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(CLUSTER_MANAGER_JMX_ENABLED);
     } else if (containsKey(AM_JMX_ENABLED)) {
-      log.info("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, CLUSTER_MANAGER_JMX_ENABLED);
+      log.warn("Configuration {} is deprecated. Please use {}", AM_JMX_ENABLED, JOB_JMX_ENABLED);
       return getBoolean(AM_JMX_ENABLED);
+    } else if (containsKey(JOB_JMX_ENABLED)) {
+      return getBoolean(JOB_JMX_ENABLED);
     } else {
       return true;
     }

@@ -19,9 +19,11 @@
 
 package org.apache.samza.system
 
-import org.apache.samza.util.{Logging, Clock, SystemClock}
+import org.apache.samza.util.{Clock, Logging, SystemClock}
 import org.apache.samza.SamzaException
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
  * Caches requests to SystemAdmin.getSystemStreamMetadata for a short while (by default
@@ -62,8 +64,8 @@ class StreamMetadataCache (
       .flatMap {
         case (systemName, systemStreams) =>
           val systemAdmin = systemAdmins.getSystemAdmin(systemName)
-          val streamToMetadata = if (partitionsMetadataOnly && systemAdmin.isInstanceOf[ExtendedSystemAdmin]) {
-            systemAdmin.asInstanceOf[ExtendedSystemAdmin].getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
+          val streamToMetadata = if (partitionsMetadataOnly) {
+            systemAdmin.getSystemStreamPartitionCounts(systemStreams.map(_.getStream).asJava, cacheTTLms)
           } else {
             systemAdmin.getSystemStreamMetadata(systemStreams.map(_.getStream).asJava)
           }
@@ -81,6 +83,16 @@ class StreamMetadataCache (
       cacheMisses.foreach { case (stream, metadata) => addToCache(stream, metadata, time) }
     }
     allResults
+  }
+
+  /**
+    * Returns the list of System Streams for this system.
+    * @param systemName
+    * @param pattern
+    */
+  def getAllSystemStreams(systemName: String): mutable.Set[SystemStream] = {
+    val systemAdmin = systemAdmins.getSystemAdmin(systemName)
+    systemAdmin.getAllSystemStreams().asScala
   }
 
   /**

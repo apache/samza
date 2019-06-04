@@ -23,9 +23,9 @@ import org.apache.samza.annotation.InterfaceStability;
 
 
 /**
- * The interface for all task factories (i.e. {@link StreamTaskFactory} and {@link AsyncStreamTaskFactory}
+ * The base interface for all task factories (i.e. {@link StreamTaskFactory} and {@link AsyncStreamTaskFactory})
  *
- * @param <T> the type of task instances
+ * @param <T> the type of task instances created by the factory
  */
 @InterfaceStability.Stable
 public interface TaskFactory<T> extends Serializable {

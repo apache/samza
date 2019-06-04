@@ -26,6 +26,7 @@ import org.apache.samza.container._
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.storage.ContainerStorageManager
 import org.apache.samza.system._
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
@@ -40,7 +41,7 @@ object StreamProcessorTestUtils {
     val adminMultiplexer = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
-      Map[String, SystemConsumer]())
+      Map[String, SystemConsumer](), SystemAdmins.empty())
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
       new SerdeManager)
@@ -56,18 +57,22 @@ object StreamProcessorTestUtils {
       jobContext = Mockito.mock(classOf[JobContext]),
       containerContext = containerContext,
       applicationContainerContextOption = None,
-      applicationTaskContextFactoryOption = None)
+      applicationTaskContextFactoryOption = None,
+      externalContextOption = None)
 
     val container = new SamzaContainer(
       config = config,
       taskInstances = Map(taskName -> taskInstance),
+      taskInstanceMetrics = Map(taskName -> new TaskInstanceMetrics),
       runLoop = mockRunloop,
       systemAdmins = adminMultiplexer,
       consumerMultiplexer = consumerMultiplexer,
       producerMultiplexer = producerMultiplexer,
       metrics = new SamzaContainerMetrics,
       containerContext = containerContext,
-      applicationContainerContextOption = None)
+      applicationContainerContextOption = None,
+      externalContextOption = None,
+      containerStorageManager = Mockito.mock(classOf[ContainerStorageManager]))
     container
   }
 }

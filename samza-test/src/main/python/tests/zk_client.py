@@ -31,8 +31,9 @@ class ZkClient:
     Instantiates a kazoo client to connect to zookeeper server at :param zookeeper_host::param zookeeper_port.
     """
     def __init__(self, zookeeper_host, zookeeper_port, app_name, app_id):
+        self.protocol_version = "1.0"
         self.kazoo_client = KazooClient(hosts='{0}:{1}'.format(zookeeper_host, zookeeper_port))
-        self.zk_base_node = 'app-{0}-{1}/{2}-{3}-coordinationData'.format(app_name, app_id, app_name, app_id)
+        self.zk_base_node = 'app-{0}-{1}/{2}-{3}-{4}-coordinationData'.format(app_name, app_id, app_name, app_id, self.protocol_version)
 
     def start(self):
         """
@@ -47,8 +48,8 @@ class ZkClient:
         self.kazoo_client.stop()
 
     def watch_job_model(self, watch_function):
-        self.kazoo_client.ensure_path('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node))
-        self.kazoo_client.get_children('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node), watch=watch_function)
+        self.kazoo_client.ensure_path('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node))
+        self.kazoo_client.get_children('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node), watch=watch_function)
 
     def get_latest_job_model(self):
         """
@@ -56,12 +57,12 @@ class ZkClient:
         """
         job_model_dict = {}
         try:
-            childZkNodes = self.kazoo_client.get_children('{0}/JobModelGeneration/jobModels/'.format(self.zk_base_node))
+            childZkNodes = self.kazoo_client.get_children('{0}/jobModelGeneration/jobModels/'.format(self.zk_base_node))
             if len(childZkNodes) > 0:
                 childZkNodes.sort()
                 childZkNodes.reverse()
 
-                job_model_generation_path = '{0}/JobModelGeneration/jobModels/{1}/'.format(self.zk_base_node, childZkNodes[0])
+                job_model_generation_path = '{0}/jobModelGeneration/jobModels/{1}/'.format(self.zk_base_node, childZkNodes[0])
                 job_model, _ = self.kazoo_client.get(job_model_generation_path)
 
                 """

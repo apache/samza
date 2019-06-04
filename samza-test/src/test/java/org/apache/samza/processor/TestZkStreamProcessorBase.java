@@ -34,8 +34,6 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -47,6 +45,7 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -56,8 +55,8 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.util.Util;
 import org.apache.samza.zk.TestZkUtils;
 import org.apache.zookeeper.ZooKeeper;
@@ -67,8 +66,7 @@ import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness {
+public class TestZkStreamProcessorBase extends IntegrationTestHarness {
   private static final String TASK_SHUTDOWN_MS = "2000";
   private static final String JOB_DEBOUNCE_TIME_MS = "2000";
   private static final String BARRIER_TIMEOUT_MS = "2000";
@@ -131,10 +129,9 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
   protected StreamProcessor createStreamProcessor(final String pId, Map<String, String> map, final CountDownLatch waitStart,
       final CountDownLatch waitStop) {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
-
     Config config = new MapConfig(map);
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
-    JobCoordinator jobCoordinator = Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(config);
+    JobCoordinator jobCoordinator = Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(pId, config, new MetricsRegistryMap());
 
     ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
       @Override
@@ -167,14 +164,14 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     };
 
     StreamProcessor processor =
-        new StreamProcessor(config, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
+        new StreamProcessor(pId, config, new HashMap<>(), (StreamTaskFactory) TestStreamTask::new, listener, jobCoordinator);
 
     return processor;
   }
 
   protected void createTopics(String inputTopic, String outputTopic) {
-    TestUtils.createTopic(zkUtils(), inputTopic, 5, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), outputTopic, 5, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), inputTopic, 5, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), outputTopic, 5, 1, servers(), new Properties());
   }
 
   protected Map<String, String> createConfigs(String testSystem, String inputTopic, String outputTopic,
@@ -189,6 +186,8 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
     configs.put("app.messageCount", String.valueOf(messageCount));
     configs.put("app.outputTopic", outputTopic);
     configs.put("app.outputSystem", testSystem);
+    configs.put("job.coordinator.system", testSystem);
+    configs.put("job.coordinator.replication.factor", "1");
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
 
     configs.put("job.systemstreampartition.grouper.factory",
@@ -209,7 +208,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
    * Produces the provided number of messages to the topic.
    */
   protected void produceMessages(final int start, String topic, int numMessages) {
-    KafkaProducer producer = getKafkaProducer();
     for (int i = start; i < numMessages + start; i++) {
       try {
         LOG.info("producing " + i);
@@ -266,7 +264,6 @@ public class TestZkStreamProcessorBase extends StandaloneIntegrationTestHarness 
    * and asserts that the number of consumed messages is as expected.
    */
   protected void verifyNumMessages(String topic, final Map<Integer, Boolean> expectedValues, int expectedNumMessages) {
-    KafkaConsumer consumer = getKafkaConsumer();
     consumer.subscribe(Collections.singletonList(topic));
 
     Map<Integer, Boolean> map = new HashMap<>(expectedValues);

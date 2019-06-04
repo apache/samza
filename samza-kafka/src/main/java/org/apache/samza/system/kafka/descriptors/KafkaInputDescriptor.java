@@ -27,12 +27,14 @@ import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.system.descriptors.InputTransformer;
 import org.apache.samza.serializers.Serde;
 
+
 /**
- * A descriptor for a kafka input stream.
+ * A {@link KafkaInputDescriptor} can be used for specifying Samza and Kafka-specific properties of Kafka
+ * input streams.
  * <p>
- * An instance of this descriptor may be obtained from an appropriately configured {@link KafkaSystemDescriptor}.
+ * Use {@link KafkaSystemDescriptor#getInputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream.
  */
@@ -69,7 +71,7 @@ public class KafkaInputDescriptor<StreamMessageType>
    * @return this input descriptor
    */
   public KafkaInputDescriptor<StreamMessageType> withConsumerAutoOffsetReset(String consumerAutoOffsetReset) {
-    this.consumerAutoOffsetResetOptional = Optional.of(StringUtils.stripToNull(consumerAutoOffsetReset));
+    this.consumerAutoOffsetResetOptional = Optional.ofNullable(StringUtils.stripToNull(consumerAutoOffsetReset));
     return this;
   }
 
@@ -92,7 +94,7 @@ public class KafkaInputDescriptor<StreamMessageType>
 
   @Override
   public Map<String, String> toConfig() {
-    HashMap<String, String> configs = new HashMap<>(super.toConfig());
+    Map<String, String> configs = new HashMap<>(super.toConfig());
     // Note: Kafka configuration needs the topic's physical name, not the stream-id.
     // We won't have that here if user only specified it in configs, or if it got rewritten
     // by the planner to something different than what's in this descriptor.

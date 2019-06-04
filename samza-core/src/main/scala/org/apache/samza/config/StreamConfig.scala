@@ -39,6 +39,7 @@ object StreamConfig {
   val IS_INTERMEDIATE =         SAMZA_PROPERTY + "intermediate"
   val DELETE_COMMITTED_MESSAGES = SAMZA_PROPERTY + "delete.committed.messages"
   val IS_BOUNDED =              SAMZA_PROPERTY + "bounded"
+  val BROADCAST =            SAMZA_PROPERTY + "broadcast"
 
   // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
   private val STREAMS_PREFIX = "streams."
@@ -53,6 +54,7 @@ object StreamConfig {
   val PRIORITY_FOR_STREAM_ID = STREAM_ID_PREFIX + PRIORITY
   val CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID = STREAM_ID_PREFIX + CONSUMER_OFFSET_DEFAULT
   val BOOTSTRAP_FOR_STREAM_ID = STREAM_ID_PREFIX + BOOTSTRAP
+  val BROADCAST_FOR_STREAM_ID = STREAM_ID_PREFIX + BROADCAST
 
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
@@ -84,6 +86,9 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getBootstrapEnabled(systemStream: SystemStream) =
     java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BOOTSTRAP))
+
+  def getBroadcastEnabled(systemStream: SystemStream) =
+    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BROADCAST))
 
   def getPriority(systemStream: SystemStream) =
     java.lang.Integer.parseInt(getSamzaProperty(systemStream, StreamConfig.PRIORITY, "-1"))
@@ -268,7 +273,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     if (systemName == null) {
       Map()
     }
-    val systemConfig = new JavaSystemConfig(config)
+    val systemConfig = new SystemConfig(config)
     val defaults = systemConfig.getDefaultStreamProperties(systemName)
     val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
     new MapConfig(defaults, explicitConfigs)

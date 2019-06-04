@@ -46,7 +46,7 @@ public class MultiFileHdfsReader {
 
   private final HdfsReaderFactory.ReaderType readerType;
   private final SystemStreamPartition systemStreamPartition;
-  private List<String> filePaths;
+  private final List<String> filePaths;
   private SingleFileHdfsReader curReader;
   private int curFileIndex = 0;
   private String curSingleFileOffset;
@@ -127,7 +127,7 @@ public class MultiFileHdfsReader {
     this.filePaths = partitionDescriptors;
     this.numMaxRetries = numMaxRetries;
     this.numRetries = 0;
-    if (partitionDescriptors.size() <= 0) {
+    if (partitionDescriptors.isEmpty()) {
       throw new SamzaException(
         "Invalid number of files based on partition descriptors: " + partitionDescriptors.size());
     }
@@ -160,7 +160,8 @@ public class MultiFileHdfsReader {
     IncomingMessageEnvelope messageEnvelope = curReader.readNext();
     // Copy everything except for the offset. Turn the single-file style offset into a multi-file one
     return new IncomingMessageEnvelope(messageEnvelope.getSystemStreamPartition(), getCurOffset(),
-      messageEnvelope.getKey(), messageEnvelope.getMessage(), messageEnvelope.getSize());
+      messageEnvelope.getKey(), messageEnvelope.getMessage(), messageEnvelope.getSize(),
+      messageEnvelope.getEventTime(), messageEnvelope.getArrivalTime());
   }
 
   /**

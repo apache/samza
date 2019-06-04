@@ -67,6 +67,9 @@
           <a class="button" href="/case-studies/">
             Case studies
           </a>
+          <a class="button" href="https://www.youtube.com/playlist?list=PLZDyxA22zzGyNgtBMUIXAgIaO5Ok3PR-x" target="_blank">
+            Video Tutorial
+          </a>
         </div>
       </div>
 
@@ -132,7 +135,7 @@
           High performance
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Samza provides extremely low latencies and high throughput to analyze your data instantly</div>
+          <div class="section__item-feature">Samza provides extremely low latencies and <a href="https://engineering.linkedin.com/performance/benchmarking-apache-samza-12-million-messages-second-single-node">high throughput</a> to analyze your data instantly</div>
         </div>
       </div>
 
@@ -143,7 +146,7 @@
           Horizontally scalable
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Scales to several terabytes of state with features like incremental checkpoints and host-affinity</div>
+          <div class="section__item-feature">Scales to several terabytes of state with features like incremental checkpoints and <a href="/learn/documentation/latest/architecture/architecture-overview.html#host-affinity">host-affinity</a></div>
         </div>
       </div>
 
@@ -153,7 +156,7 @@
           Easy to Operate
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Samza is easy to operate with flexible deployment options - YARN, Kubernetes or standalone</div>
+          <div class="section__item-feature">Samza is easy to operate with <a href="/learn/documentation/latest/deployment/deployment-model.html">flexible</a> deployment options - YARN, Kubernetes or standalone</div>
         </div>
       </div>
 
@@ -163,7 +166,7 @@
           Powerful APIs
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Rich APIs to build your applications: Choose from low-level, Streams DSL, Samza SQL and Apache BEAM APIs</div>
+          <div class="section__item-feature">Rich APIs to build your applications: Choose from <a href="/learn/documentation/latest/api/low-level-api.html">low-level </a>, <a href="/learn/documentation/latest/api/high-level-api.html">Streams DSL </a>, <a href="/learn/documentation/latest/api/samza-sql.html">Samza SQL</a> and Apache BEAM APIs</div>
         </div>
       </div>
 
@@ -183,7 +186,7 @@
           Pluggable architecture
         </div>
         <div class="section__item-features">
-          <div class="section__item-feature">Integrates with several sources including Kafka, HDFS, AWS Kinesis, Azure Eventhubs, K-V stores and ElasticSearch</div>
+          <div class="section__item-feature">Integrates with several sources including <a href="/learn/documentation/latest/connectors/kafka.html">Kafka</a>, <a href="/learn/documentation/latest/connectors/hdfs.html">HDFS</a>, <a href="/learn/documentation/latest/connectors/kinesis.html">AWS Kinesis</a>, <a href="/learn/documentation/latest/connectors/eventhubs.html">Azure Eventhubs</a>, K-V stores and ElasticSearch</div>
         </div>
       </div>
 
@@ -196,7 +199,7 @@
       Case Studies
     </div>
 
-    <div class="section__items js-flickity" data-flickity-options='{ "wrapAround": true, "autoPlay": 1500 }'>
+    <div class="section__items" >
     {% assign case-studies_sorted = site.case-studies | sort: 'priority' %}
     {% for study in case-studies_sorted %}
 
@@ -206,7 +209,11 @@
 
       <div class="section__item">
         <a class="section__item-logo" href="{{ study.url }}" title="{{ study.menu_title }}">
+        {% if study.logo_url %}
+          <div class="section__item-logo-bg" style="background-image: url('{{ study.logo_url }}');"></div>
+        {% else %}
           <div class="section__item-logo-bg" style="background-image: url('https://logo.clearbit.com/{{ study.study_domain}}?size=256');"></div>
+        {% endif %}
         </a>
       </div>
 
@@ -219,8 +226,6 @@
   <!-- footer starts here -->
 
   {% include footer.html %}
-
-  <script type="text/javascript" src="/js/flickity.js"></script>
 
 </body>
 

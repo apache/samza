@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -50,7 +52,8 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
+import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.Util;
@@ -68,17 +71,38 @@ import org.slf4j.LoggerFactory;
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    validateJobConfigs(originalConfig, generatedConfig);
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
+
     originalConfig.forEach((k, v) -> {
-        if (generatedConfig.containsKey(k) &&
-            !Objects.equals(generatedConfig.get(k), v)) {
-          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}",
-              k, generatedConfig.get(k), v);
+        if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
+          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
         }
         mergedConfig.put(k, v);
       });
 
     return Util.rewriteConfig(new MapConfig(mergedConfig));
+  }
+
+  static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID());
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME());
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID());
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME());
+
+    if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
+        userConfiguredJobName)) {
+      throw new SamzaException(String.format(
+          "Generated job.name = %s from app.name = %s does not match user configured job.name = %s, please configure job.name same as app.name",
+          generatedJobName, originalConfig.get(ApplicationConfig.APP_NAME), userConfiguredJobName));
+    }
+
+    if (generatedJobId != null && userConfiguredJobId != null && !StringUtils.equals(generatedJobId,
+        userConfiguredJobId)) {
+      throw new SamzaException(String.format(
+          "Generated job.id = %s from app.id = %s does not match user configured job.id = %s, please configure job.id same as app.id",
+          generatedJobId, originalConfig.get(ApplicationConfig.APP_ID), userConfiguredJobId));
+    }
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
@@ -95,7 +119,7 @@ import org.slf4j.LoggerFactory;
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
     Collection<OperatorSpec> reachableOperators = jobNode.getReachableOperators();
     List<StoreDescriptor> stores = getStoreDescriptors(reachableOperators);
-    Map<String, TableSpec> reachableTables = getReachableTables(reachableOperators, jobNode);
+    Map<String, TableDescriptor> reachableTables = getReachableTables(reachableOperators, jobNode);
 
     // config passed by the JobPlanner. user-provided + system-stream descriptor config + misc. other config
     Config originalConfig = jobNode.getConfig();
@@ -106,7 +130,11 @@ import org.slf4j.LoggerFactory;
     for (StreamEdge inEdge : inEdges.values()) {
       String formattedSystemStream = inEdge.getName();
       if (inEdge.isBroadcast()) {
-        broadcastInputs.add(formattedSystemStream + "#0");
+        if (inEdge.getPartitionCount() > 1) {
+          broadcastInputs.add(formattedSystemStream + "#[0-" + (inEdge.getPartitionCount() - 1) + "]");
+        } else {
+          broadcastInputs.add(formattedSystemStream + "#0");
+        }
       } else {
         inputs.add(formattedSystemStream);
       }
@@ -143,7 +171,7 @@ import org.slf4j.LoggerFactory;
     return new JobConfig(mergeConfig(originalConfig, generatedConfig));
   }
 
-  private Map<String, TableSpec> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
+  private Map<String, TableDescriptor> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
     // TODO: Fix this in SAMZA-1893. For now, returning all tables for single-job execution plan
     return jobNode.getTables();
   }
@@ -209,22 +237,25 @@ import org.slf4j.LoggerFactory;
   }
 
   private void configureTables(Map<String, String> generatedConfig, Config originalConfig,
-      Map<String, TableSpec> tables, Set<String> inputs) {
+      Map<String, TableDescriptor> tables, Set<String> inputs) {
     generatedConfig.putAll(
-        TableConfigGenerator.generateConfigsForTableSpecs(
+        TableConfigGenerator.generate(
             new MapConfig(generatedConfig), new ArrayList<>(tables.values())));
 
     // Add side inputs to the inputs and mark the stream as bootstrap
-    tables.values().forEach(tableSpec -> {
-        List<String> sideInputs = tableSpec.getSideInputs();
-        if (sideInputs != null && !sideInputs.isEmpty()) {
-          sideInputs.stream()
-              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
-              .forEach(systemStream -> {
-                  inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                  generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
-                      systemStream.getSystem(), systemStream.getStream()), "true");
-                });
+    tables.values().forEach(tableDescriptor -> {
+        if (tableDescriptor instanceof LocalTableDescriptor) {
+          LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+          List<String> sideInputs = localTableDescriptor.getSideInputs();
+          if (sideInputs != null && !sideInputs.isEmpty()) {
+            sideInputs.stream()
+                .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
+                .forEach(systemStream -> {
+                    inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
+                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                        systemStream.getSystem(), systemStream.getStream()), "true");
+                  });
+          }
         }
       });
   }
@@ -297,23 +328,23 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     // set key and msg serdes for stores to the serde names generated above
     tableKeySerdes.forEach((tableId, serde) -> {
-        String keySerdeConfigKey = String.format(JavaTableConfig.TABLE_KEY_SERDE, tableId);
+        String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     tableMsgSerdes.forEach((tableId, serde) -> {
-        String valueSerdeConfigKey = String.format(JavaTableConfig.TABLE_VALUE_SERDE, tableId);
+        String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
         configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
   }

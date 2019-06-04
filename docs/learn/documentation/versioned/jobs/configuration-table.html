@@ -228,6 +228,15 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-coordinator-max-message-bytes">job.coordinator.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this sets the largest record size for the checkpoint
+                        topic.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
@@ -406,14 +415,6 @@
                         container, and the maximum number of containers is the number of task instances (usually the
                         <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
                         Task instances are evenly distributed across the number of containers that you specify.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="job-container-single-thread-mode">job.container.single.thread.mode</td>
-                    <td class="default">false</td>
-                    <td class="description">
-                        If set to true, samza will fallback to legacy single-threaded event loop. Default is false, which enables the <a href="../container/event-loop.html">multithreading execution</a>.
                     </td>
                 </tr>
 
@@ -1180,6 +1181,13 @@
                     </td>
                 </tr>
 
+                    <td class="property" id="streams-samza-broadcast">streams.<span class="stream">stream-id</span>.<br>samza.broadcast</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to <code>true</code>, this stream will be broadcasted to all the tasks.
+                    </td>
+                </tr>
+
                 <tr>
                     <td class="property" id="streams-properties">streams.<span class="stream">stream-id</span>.*</td>
                     <td class="default"></td>
@@ -1539,6 +1547,15 @@
                         If you are using Kafka for checkpoints, this is the segment size to be used for the checkpoint
                         topic's log segments. Keeping this number small is useful because it increases the frequency
                         that Kafka will garbage collect old checkpoints.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-max-message-bytes">task.checkpoint.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for checkpoints, this sets the largest record size for the checkpoint
+                        topic.
                     </td>
                 </tr>
 
@@ -2237,6 +2254,23 @@
                         consecutive metric reporting. This value is in seconds, and should be a positive integer value.
                         This property is optional and set to 60 by default, which means metrics will be reported every
                         60 seconds.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="metrics-timer-enabled">metrics.timer.enabled</td>
+                    <td class="default">true</td>
+                    <td class="description">
+                        This setting enables the common timer metrics for your job, which include container metrics
+                        such as process-ns, window-ns, commit-ns, and block-ns, as well as key-value storage engine
+                        metrics such as get-ns, put-ns and range-ns.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="property" id="metrics-timer-debug-eanbled">metrics.timer.debug.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This setting enables the additional timer metrics for debugging of your job. These metrics
+                        include operator metrics such as handle-message-ns and handle-timer-ns.
                     </td>
                 </tr>
 

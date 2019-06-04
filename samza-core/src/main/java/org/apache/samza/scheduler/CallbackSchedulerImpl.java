@@ -18,9 +18,6 @@
  */
 package org.apache.samza.scheduler;
 
-import org.apache.samza.task.EpochTimeScheduler;
-
-
 /**
  * Delegates to {@link EpochTimeScheduler}. This is useful because it provides a write-only interface for user-facing
  * purposes.

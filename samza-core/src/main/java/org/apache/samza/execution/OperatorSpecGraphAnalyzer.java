@@ -22,6 +22,7 @@ package org.apache.samza.execution;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,7 +34,6 @@ import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -56,7 +56,7 @@ import org.apache.samza.table.TableSpec;
     Multimap<OperatorSpec, InputOperatorSpec> joinToInputOpSpecs = HashMultimap.create();
 
     // Create a getNextOpSpecs() function that emulates connections between every SendToTableOperatorSpec
-    // — which are terminal OperatorSpecs — and all StreamTableJoinOperatorSpecs referencing the same TableSpec.
+    // — which are terminal OperatorSpecs — and all StreamTableJoinOperatorSpecs referencing the same table.
     //
     // This is necessary to support Stream-Table Join scenarios because it allows us to associate streams behind
     // SendToTableOperatorSpecs with streams participating in Stream-Table Joins, a connection that would not be
@@ -85,9 +85,17 @@ import org.apache.samza.table.TableSpec;
    */
   private static void traverse(OperatorSpec startOpSpec, Consumer<OperatorSpec> visitor,
       Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs) {
+    traverseHelper(startOpSpec, visitor, getNextOpSpecs, new HashSet<>(Arrays.asList(startOpSpec)));
+  }
+
+  private static void traverseHelper(OperatorSpec startOpSpec, Consumer<OperatorSpec> visitor,
+      Function<OperatorSpec, Iterable<OperatorSpec>> getNextOpSpecs, Set<OperatorSpec> visitedOpSpecs) {
     visitor.accept(startOpSpec);
     for (OperatorSpec nextOpSpec : getNextOpSpecs.apply(startOpSpec)) {
-      traverse(nextOpSpec, visitor, getNextOpSpecs);
+      // Make sure we do not end up endlessly traversing cycles.
+      if (visitedOpSpecs.add(nextOpSpec)) {
+        traverseHelper(nextOpSpec, visitor, getNextOpSpecs, visitedOpSpecs);
+      }
     }
   }
 
@@ -96,14 +104,14 @@ import org.apache.samza.table.TableSpec;
    * {@code operatorSpecGraph}.
    *
    * Calling the returned function with any {@link SendToTableOperatorSpec} will return a collection of all
-   * {@link StreamTableJoinOperatorSpec}s that reference the same {@link TableSpec} as the specified
+   * {@link StreamTableJoinOperatorSpec}s that reference the same table as the specified
    * {@link SendToTableOperatorSpec}, as if they were actually connected.
    */
   private static Function<OperatorSpec, Iterable<OperatorSpec>> getCustomGetNextOpSpecs(
       Iterable<InputOperatorSpec> inputOpSpecs) {
 
     // Traverse operatorSpecGraph to create mapping between every SendToTableOperatorSpec and all
-    // StreamTableJoinOperatorSpecs referencing the same TableSpec.
+    // StreamTableJoinOperatorSpecs referencing the same table.
     TableJoinVisitor tableJoinVisitor = new TableJoinVisitor();
     for (InputOperatorSpec inputOpSpec : inputOpSpecs) {
       traverse(inputOpSpec, tableJoinVisitor, opSpec -> opSpec.getRegisteredOperatorSpecs());
@@ -113,7 +121,7 @@ import org.apache.samza.table.TableSpec;
         tableJoinVisitor.getSendToTableOpSpecToStreamTableJoinOpSpecs();
 
     return operatorSpec -> {
-      // If this is a SendToTableOperatorSpec, return all StreamTableJoinSpecs referencing the same TableSpec.
+      // If this is a SendToTableOperatorSpec, return all StreamTableJoinSpecs referencing the same table.
       // For all other types of operator specs, return the next registered operator specs.
       if (operatorSpec instanceof SendToTableOperatorSpec) {
         SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) operatorSpec;
@@ -145,21 +153,21 @@ import org.apache.samza.table.TableSpec;
 
   /**
    * An {@link OperatorSpec} visitor that records associations between every {@link SendToTableOperatorSpec}
-   * and all {@link StreamTableJoinOperatorSpec}s that reference the same {@link TableSpec}.
+   * and all {@link StreamTableJoinOperatorSpec}s that reference the same table.
    */
   private static class TableJoinVisitor implements Consumer<OperatorSpec> {
-    private final Multimap<TableSpec, SendToTableOperatorSpec> tableSpecToSendToTableOpSpecs = HashMultimap.create();
-    private final Multimap<TableSpec, StreamTableJoinOperatorSpec> tableSpecToStreamTableJoinOpSpecs = HashMultimap.create();
+    private final Multimap<String, SendToTableOperatorSpec> tableToSendToTableOpSpecs = HashMultimap.create();
+    private final Multimap<String, StreamTableJoinOperatorSpec> tableToStreamTableJoinOpSpecs = HashMultimap.create();
 
     @Override
     public void accept(OperatorSpec opSpec) {
-      // Record all SendToTableOperatorSpecs, StreamTableJoinOperatorSpecs, and their corresponding TableSpecs.
+      // Record all SendToTableOperatorSpecs, StreamTableJoinOperatorSpecs, and their corresponding tables.
       if (opSpec instanceof SendToTableOperatorSpec) {
         SendToTableOperatorSpec sendToTableOperatorSpec = (SendToTableOperatorSpec) opSpec;
-        tableSpecToSendToTableOpSpecs.put(sendToTableOperatorSpec.getTableSpec(), sendToTableOperatorSpec);
+        tableToSendToTableOpSpecs.put(sendToTableOperatorSpec.getTableId(), sendToTableOperatorSpec);
       } else if (opSpec instanceof StreamTableJoinOperatorSpec) {
         StreamTableJoinOperatorSpec streamTableJoinOpSpec = (StreamTableJoinOperatorSpec) opSpec;
-        tableSpecToStreamTableJoinOpSpecs.put(streamTableJoinOpSpec.getTableSpec(), streamTableJoinOpSpec);
+        tableToStreamTableJoinOpSpecs.put(streamTableJoinOpSpec.getTableId(), streamTableJoinOpSpec);
       }
     }
 
@@ -167,11 +175,11 @@ import org.apache.samza.table.TableSpec;
       Multimap<SendToTableOperatorSpec, StreamTableJoinOperatorSpec> sendToTableOpSpecToStreamTableJoinOpSpecs =
           HashMultimap.create();
 
-      // Map every SendToTableOperatorSpec to all StreamTableJoinOperatorSpecs referencing the same TableSpec.
-      for (TableSpec tableSpec : tableSpecToSendToTableOpSpecs.keySet()) {
-        Collection<SendToTableOperatorSpec> sendToTableOpSpecs = tableSpecToSendToTableOpSpecs.get(tableSpec);
+      // Map every SendToTableOperatorSpec to all StreamTableJoinOperatorSpecs referencing the same table.
+      for (String tableId : tableToSendToTableOpSpecs.keySet()) {
+        Collection<SendToTableOperatorSpec> sendToTableOpSpecs = tableToSendToTableOpSpecs.get(tableId);
         Collection<StreamTableJoinOperatorSpec> streamTableJoinOpSpecs =
-            tableSpecToStreamTableJoinOpSpecs.get(tableSpec);
+            tableToStreamTableJoinOpSpecs.get(tableId);
 
         for (SendToTableOperatorSpec sendToTableOpSpec : sendToTableOpSpecs) {
           sendToTableOpSpecToStreamTableJoinOpSpecs.putAll(sendToTableOpSpec, streamTableJoinOpSpecs);

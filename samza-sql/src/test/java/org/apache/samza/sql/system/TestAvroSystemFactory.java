@@ -42,6 +42,7 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
+import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
@@ -49,6 +50,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +60,7 @@ public class TestAvroSystemFactory implements SystemFactory {
 
   public static final String CFG_NUM_MESSAGES = "numMessages";
   public static final String CFG_INCLUDE_NULL_FOREIGN_KEYS = "includeNullForeignKeys";
+  public static final String CFG_INCLUDE_NULL_SIMPLE_RECORDS = "includeNullSimpleRecords";
   public static final String CFG_SLEEP_BETWEEN_POLLS_MS = "sleepBetweenPollsMs";
 
   private static final String[] profileNames = {"John", "Mike", "Mary", "Joe", "Brad", "Jennifer"};
@@ -69,6 +72,7 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
   public static final byte[] DEFAULT_TRACKING_ID_BYTES =
       {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+  public static final int NULL_RECORD_FREQUENCY = 5;
 
 
   public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
@@ -140,17 +144,20 @@ public class TestAvroSystemFactory implements SystemFactory {
     public static final int DEFAULT_NUM_EVENTS = 10;
     private final int numMessages;
     private final boolean includeNullForeignKeys;
+    private final boolean includeNullSimpleRecords;
     private final long sleepBetweenPollsMs;
-    private final Set<SystemStreamPartition> simpleRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> profileRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> companyRecordMap = new HashSet<>();
-    private final Set<SystemStreamPartition> pageViewRecordMap = new HashSet<>();
+    private final Set<SystemStreamPartition> simpleRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> profileRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> companyRecordSsps = new HashSet<>();
+    private final Set<SystemStreamPartition> pageViewRecordSsps = new HashSet<>();
     private final Map<SystemStreamPartition, Integer> curMessagesPerSsp = new HashMap<>();
 
     public TestAvroSystemConsumer(String systemName, Config config) {
       numMessages = config.getInt(String.format("systems.%s.%s", systemName, CFG_NUM_MESSAGES), DEFAULT_NUM_EVENTS);
       includeNullForeignKeys = config.getBoolean(String.format("systems.%s.%s", systemName,
           CFG_INCLUDE_NULL_FOREIGN_KEYS), false);
+      includeNullSimpleRecords = config.getBoolean(String.format("systems.%s.%s", systemName,
+          CFG_INCLUDE_NULL_SIMPLE_RECORDS), false);
       sleepBetweenPollsMs = config.getLong(String.format("systems.%s.%s", systemName, CFG_SLEEP_BETWEEN_POLLS_MS), 0);
     }
 
@@ -164,17 +171,28 @@ public class TestAvroSystemFactory implements SystemFactory {
 
     @Override
     public void register(SystemStreamPartition systemStreamPartition, String offset) {
-      if (systemStreamPartition.getStream().toLowerCase().contains("simple1")) {
-        simpleRecordMap.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("profile")) {
-        profileRecordMap.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("company")) {
-        companyRecordMap.add(systemStreamPartition);
-      }
-      if (systemStreamPartition.getStream().toLowerCase().contains("pageview")) {
-        pageViewRecordMap.add(systemStreamPartition);
+      switch (systemStreamPartition.getStream().toLowerCase()) {
+        case "simple1":
+          simpleRecordSsps.add(systemStreamPartition);
+          break;
+        case "profile":
+          profileRecordSsps.add(systemStreamPartition);
+          break;
+        case "company":
+          companyRecordSsps.add(systemStreamPartition);
+          break;
+        case "pageview":
+          pageViewRecordSsps.add(systemStreamPartition);
+          break;
+        case "complex1":
+          break;
+        case "simple2":
+          break;
+        case "simple3":
+          break;
+        default:
+          Assert.assertTrue(String.format("ssp %s is not recognized", systemStreamPartition), false);
+          break;
       }
       curMessagesPerSsp.put(systemStreamPartition, 0);
     }
@@ -188,7 +206,7 @@ public class TestAvroSystemFactory implements SystemFactory {
         // We send num Messages and an end of stream message following that.
         List<IncomingMessageEnvelope> envelopes =
             IntStream.range(curMessages, curMessages + numMessages/4)
-                .mapToObj(i -> i < numMessages ? new IncomingMessageEnvelope(ssp, null, "key" + i,
+                .mapToObj(i -> i < numMessages ? new IncomingMessageEnvelope(ssp, null, getKey(i, ssp),
                     getData(i, ssp)) : IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp))
                 .collect(Collectors.toList());
         envelopeMap.put(ssp, envelopes);
@@ -201,21 +219,32 @@ public class TestAvroSystemFactory implements SystemFactory {
       return envelopeMap;
     }
 
+    private Object getKey(int index, SystemStreamPartition ssp) {
+      if (profileRecordSsps.contains(ssp) || companyRecordSsps.contains(ssp)) {
+        return index; // Keep this value the same as the profile/company record's "id" field.
+      }
+      return "key" + index;
+    }
+
     private Object getData(int index, SystemStreamPartition ssp) {
-      if (simpleRecordMap.contains(ssp)) {
-        return createSimpleRecord(index);
-      } else if (profileRecordMap.contains(ssp)) {
+      if (simpleRecordSsps.contains(ssp)) {
+        return createSimpleRecord(index, includeNullSimpleRecords);
+      } else if (profileRecordSsps.contains(ssp)) {
         return createProfileRecord(index);
-      } else if (companyRecordMap.contains(ssp)) {
+      } else if (companyRecordSsps.contains(ssp)) {
         return createCompanyRecord(index);
-      } else if (pageViewRecordMap.contains(ssp)) {
+      } else if (pageViewRecordSsps.contains(ssp)) {
         return createPageViewRecord(index);
       } else {
         return createComplexRecord(index);
       }
     }
 
-    private Object createSimpleRecord(int index) {
+    private Object createSimpleRecord(int index, boolean includeNullRecords) {
+      if (includeNullRecords && index % NULL_RECORD_FREQUENCY == 0) {
+        return null;
+      }
+
       GenericRecord record = new GenericData.Record(SimpleRecord.SCHEMA$);
       record.put("id", index);
       record.put("name", "Name" + index);
@@ -291,6 +320,7 @@ public class TestAvroSystemFactory implements SystemFactory {
     }
 
     private Object createComplexRecord(int index) {
+
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
@@ -298,10 +328,19 @@ public class TestAvroSystemFactory implements SystemFactory {
       MyFixed myFixedVar = new MyFixed();
       myFixedVar.bytes(DEFAULT_TRACKING_ID_BYTES);
       record.put("fixed_value", myFixedVar);
+      record.put("bool_value", index % 2 == 0);
       GenericData.Array<String> arrayValues =
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));
       record.put("array_values", arrayValues);
+//      record.put("union_value", "unionStrValue");
+      GenericRecord subRecord = new GenericData.Record(SubRecord.SCHEMA$);
+      subRecord.put("id", index);
+      subRecord.put("sub_values", arrayValues);
+      record.put("union_value", subRecord);
+      Map<String, String> mapValues = new HashMap<>();
+      mapValues.put("key0", "value0");
+      record.put("map_values", mapValues);
       return record;
     }
   }

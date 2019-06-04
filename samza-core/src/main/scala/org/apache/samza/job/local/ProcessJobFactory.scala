@@ -20,16 +20,21 @@
 package org.apache.samza.job.local
 
 import java.util
+
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
 import org.apache.samza.config.TaskConfig._
+import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
+import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.util.{Logging, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
+
 import scala.collection.JavaConversions._
 
 /**
@@ -44,13 +49,14 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry)
-    coordinatorStreamManager.register(getClass.getSimpleName)
-    coordinatorStreamManager.start
-    coordinatorStreamManager.bootstrap
-    val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
+    val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())
+    coordinatorStreamStore.init()
 
-    val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
+    val configFromCoordinatorStream: Config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
+
+    val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
+
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
@@ -61,14 +67,19 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     }
 
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
-    coordinatorStreamManager.stop()
 
     //create necessary checkpoint and changelog streams
-    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
-    if (checkpointManager != null) {
-      checkpointManager.createResources()
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    metadataResourceUtil.createResources()
+
+    // fan out the startpoints
+    val startpointManager = new StartpointManager(coordinatorStreamStore)
+    startpointManager.start()
+    try {
+      startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel))
+    } finally {
+      startpointManager.stop()
     }
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerModel = coordinator.jobModel.getContainers.get(0)
 
@@ -92,10 +103,10 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinator.start
 
     commandBuilder
-            .setConfig(config)
-            .setId("0")
-            .setUrl(coordinator.server.getUrl)
-            .setCommandPath(fwkPath)
+      .setConfig(config)
+      .setId("0")
+      .setUrl(coordinator.server.getUrl)
+      .setCommandPath(fwkPath)
 
     new ProcessJob(commandBuilder, coordinator)
   }

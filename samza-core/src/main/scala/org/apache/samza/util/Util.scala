@@ -20,21 +20,22 @@
 package org.apache.samza.util
 
 
+import java.lang.reflect.InvocationTargetException
+
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.SamzaException
-import java.lang.management.ManagementFactory
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
+
 
 import scala.collection.JavaConverters._
 
 
 object Util extends Logging {
   val Random = new Random
-  val ThreadMxBean = ManagementFactory.getThreadMXBean
 
   /**
    * Make an environment variable string safe to pass.
@@ -49,7 +50,11 @@ object Util extends Logging {
 
   /**
    * Instantiate an object of type T from a given className.
+   *
+   * Deprecated: Use [[ReflectionUtil.getObj(ClassLoader, String, Class)]] instead. See javadocs for that method for
+   * recommendations of classloaders to use.
    */
+  @Deprecated
   def getObj[T](className: String, clazz: Class[T]) = {
     try {
       Class
@@ -59,6 +64,49 @@ object Util extends Logging {
     } catch {
       case e: Throwable => {
         error("Unable to create an instance for class %s." format className, e)
+        throw e
+      }
+    }
+  }
+
+  def getSamzaVersion(): String = {
+    Option(this.getClass.getPackage.getImplementationVersion)
+      .getOrElse({
+        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
+        "0.0.1"
+      })
+  }
+
+  def getTaskClassVersion(config: Config): String = {
+    try {
+      val taskClass = Option(new ApplicationConfig(config).getAppClass())
+        .orElse(new TaskConfig(config).getTaskClass).get
+      Class.forName(taskClass).getPackage.getImplementationVersion
+    } catch {
+      case e: Exception => {
+        warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
+        "0.0.1"
+      }
+    }
+  }
+
+  /**
+    * Instantiate an object from given className, and given constructor parameters.
+    *
+    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, ConstructorArgument...)]] instead. See
+    * javadocs for that method for recommendations of classloaders to use.
+    */
+  @Deprecated
+  @throws[ClassNotFoundException]
+  @throws[InstantiationException]
+  @throws[InvocationTargetException]
+  def getObj(className: String, constructorParams: (Class[_], Object)*) = {
+    try {
+      Class.forName(className).getDeclaredConstructor(constructorParams.map(x => x._1): _*)
+        .newInstance(constructorParams.map(x => x._2): _*)
+    } catch {
+      case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
+        warn("Could not instantiate an instance for class %s." format className, e)
         throw e
       }
     }
@@ -112,21 +160,6 @@ object Util extends Logging {
     config.getConfigRewriters match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite(_, _))
       case _ => config
-    }
-  }
-
-  def logThreadDump(message: String): Unit = {
-    try {
-      val threadInfo = ThreadMxBean.dumpAllThreads(true, true)
-      val sb = new StringBuilder
-      sb.append(message).append("\n")
-      for (ti <- threadInfo) {
-        sb.append(ti.toString).append("\n")
-      }
-      info(sb)
-    } catch {
-      case e: Exception =>
-        info("Could not get and log a thread dump", e)
     }
   }
 }

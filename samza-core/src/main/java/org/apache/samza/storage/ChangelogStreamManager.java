@@ -19,18 +19,20 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
@@ -38,58 +40,73 @@ import org.apache.samza.util.StreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
- * The Changelog manager creates the changelog stream. If a coordinator stream manager is provided,
- * it can be used to read, write and update the changelog stream partition-to-task mapping.
+ * Responsible for creating the changelog stream. Used for reading, writing
+ * and updating the task to changelog stream partition association in metadata store.
  */
 public class ChangelogStreamManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ChangelogStreamManager.class);
-  // This is legacy for changelog. Need to investigate what happens if you use a different source name
-  private static final String SOURCE = "JobModelManager";
 
-  private final CoordinatorStreamManager coordinatorStreamManager;
+  private final MetadataStore metadataStore;
+  private final CoordinatorStreamValueSerde valueSerde;
 
   /**
-   * Construct changelog manager with a bootstrapped coordinator stream.
+   * Builds the ChangelogStreamManager based upon the provided {@link MetadataStore} that is instantiated.
+   * Setting up a metadata store instance is expensive which requires opening multiple connections
+   * and reading tons of information. Fully instantiated metadata store is taken as a constructor argument
+   * to reuse it across different utility classes. Uses the {@link CoordinatorStreamValueSerde} to serialize
+   * messages before reading/writing into metadata store.
    *
-   * @param coordinatorStreamManager Coordinator stream manager.
+   * @param metadataStore an instance of {@link MetadataStore} to read/write the container locality.
    */
-  public ChangelogStreamManager(CoordinatorStreamManager coordinatorStreamManager) {
-    this.coordinatorStreamManager = coordinatorStreamManager;
+  public ChangelogStreamManager(MetadataStore metadataStore) {
+    this.metadataStore = metadataStore;
+    this.valueSerde = new CoordinatorStreamValueSerde(SetChangelogMapping.TYPE);
   }
 
   /**
-   * Read the taskName to partition mapping that is being maintained by this ChangelogManager
+   * Reads the taskName to changelog partition assignments from the {@link MetadataStore}.
+   *
    * @return TaskName to change LOG partition mapping, or an empty map if there were no messages.
    */
   public Map<TaskName, Integer> readPartitionMapping() {
     LOG.debug("Reading changelog partition information");
-    final HashMap<TaskName, Integer> changelogMapping = new HashMap<>();
-    for (CoordinatorStreamMessage coordinatorStreamMessage : coordinatorStreamManager.getBootstrappedStream(SetChangelogMapping.TYPE)) {
-      SetChangelogMapping changelogMapEntry = new SetChangelogMapping(coordinatorStreamMessage);
-      changelogMapping.put(new TaskName(changelogMapEntry.getTaskName()), changelogMapEntry.getPartition());
-      LOG.debug("TaskName: {} is mapped to {}", changelogMapEntry.getTaskName(), changelogMapEntry.getPartition());
-    }
+    final Map<TaskName, Integer> changelogMapping = new HashMap<>();
+    metadataStore.all().forEach((taskName, partitionIdAsBytes) -> {
+        String partitionId = valueSerde.fromBytes(partitionIdAsBytes);
+        LOG.debug("TaskName: {} is mapped to {}", taskName, partitionId);
+        if (StringUtils.isNotBlank(partitionId)) {
+          changelogMapping.put(new TaskName(taskName), Integer.valueOf(partitionId));
+        }
+      });
     return changelogMapping;
   }
 
   /**
-   * Write the taskName to partition mapping.
-   * @param changelogEntries The entries that needs to be written to the coordinator stream, the map takes the taskName
-   *                         and it's corresponding changelog partition.
+   * Writes the taskName to changelog partition assignments to the {@link MetadataStore}.
+   * @param changelogEntries a map of the taskName to the changelog partition to be written to
+   *                         metadata store.
    */
   public void writePartitionMapping(Map<TaskName, Integer> changelogEntries) {
     LOG.debug("Updating changelog information with: ");
     for (Map.Entry<TaskName, Integer> entry : changelogEntries.entrySet()) {
-      LOG.debug("TaskName: {} to Partition: {}", entry.getKey().getTaskName(), entry.getValue());
-      coordinatorStreamManager.send(new SetChangelogMapping(SOURCE, entry.getKey().getTaskName(), entry.getValue()));
+      Preconditions.checkNotNull(entry.getKey());
+      String taskName = entry.getKey().getTaskName();
+      if (entry.getValue() != null) {
+        String changeLogPartitionId = String.valueOf(entry.getValue());
+        LOG.debug("TaskName: {} to Partition: {}", taskName, entry.getValue());
+        metadataStore.put(taskName, valueSerde.toBytes(changeLogPartitionId));
+      } else {
+        LOG.debug("Deleting the TaskName: {}", taskName);
+        metadataStore.delete(taskName);
+      }
     }
   }
 
   /**
-   * Merge previous and new taskName to partition mapping and write it.
+   * Merges the previous and the new taskName to changelog partition mapping.
+   * Writes the merged taskName to partition mapping to {@link MetadataStore}.
    * @param prevChangelogEntries The previous map of taskName to changelog partition.
    * @param newChangelogEntries The new map of taskName to changelog partition.
    */
@@ -101,22 +118,25 @@ public class ChangelogStreamManager {
   }
 
   /**
-   * Utility method to create and validate changelog streams. The method is static because it does not require an
-   * instance of the {@link CoordinatorStreamManager}
-   * @param config Config with changelog info
-   * @param maxChangeLogStreamPartitions Maximum changelog stream partitions to create
+   * Creates and validates the changelog streams of a samza job.
+   *
+   * @param config the configuration with changelog info.
+   * @param maxChangeLogStreamPartitions the maximum number of changelog stream partitions to create.
    */
   public static void createChangelogStreams(Config config, int maxChangeLogStreamPartitions) {
     // Get changelog store config
-    JavaStorageConfig storageConfig = new JavaStorageConfig(config);
-    Map<String, SystemStream> storeNameSystemStreamMapping = storageConfig.getStoreNames()
-        .stream()
-        .filter(name -> StringUtils.isNotBlank(storageConfig.getChangelogStream(name)))
-        .collect(Collectors.toMap(name -> name,
-            name -> StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(name))));
+    StorageConfig storageConfig = new StorageConfig(config);
+    ImmutableMap.Builder<String, SystemStream> storeNameSystemStreamMapBuilder = new ImmutableMap.Builder<>();
+    storageConfig.getStoreNames().forEach(storeName -> {
+        Optional<String> changelogStream = storageConfig.getChangelogStream(storeName);
+        if (changelogStream.isPresent() && StringUtils.isNotBlank(changelogStream.get())) {
+          storeNameSystemStreamMapBuilder.put(storeName, StreamUtil.getSystemStreamFromNames(changelogStream.get()));
+        }
+      });
+    Map<String, SystemStream> storeNameSystemStreamMapping = storeNameSystemStreamMapBuilder.build();
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
-    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
         // Load system admin for this system.
         SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());

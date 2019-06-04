@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Run on YARN.
+title: Run on YARN
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -20,11 +20,10 @@ title: Run on YARN.
 -->
 
 - [Introduction](#introduction)
-- [Starting your application on YARN](#starting-your-application-on-yarn)
+- [Running on YARN: Quickstart](#starting-your-application-on-yarn)
     - [Setting up a single node YARN cluster](#setting-up-a-single-node-yarn-cluster-optional)
     - [Submitting the application to YARN](#submitting-the-application-to-yarn)
 - [Application Master UI](#application-master-ui)
-- [Viewing logs](#viewing-logs)
 - [Configuration](#configuration)
     - [Configuring parallelism](#configuring-parallelism)
     - [Configuring resources](#configuring-resources)
@@ -45,44 +44,42 @@ title: Run on YARN.
 - [Coordinator Internals](#coordinator-internals)
 
 
-# Introduction
+### Introduction
 
-YARN (Yet Another Resource Negotiator) is part of the Hadoop project and provides the ability to run distributed applications on a cluster. A YARN cluster minimally consists of a Resource Manager (RM) and multiple Node Managers (NM). The RM is responsible for coordinating allocations and tracks resources available on the NMs. The NM is an agent that executes on each node in the cluster and is responsible for running containers (user processes), monitoring their resource usage and reporting the same to the ResourceManager. Applications are run on the cluster by implementing a coordinator called an ApplicationMaster (AM). The AM is responsible for requesting resources (CPU, Memory etc) from the Resource Manager (RM) on behalf of the application. The RM allocates the requested resources on one or more NMs that   can accomodate the request made.
+Apache YARN is part of the Hadoop project and provides the ability to run distributed applications on a cluster. A YARN cluster minimally consists of a Resource Manager (RM) and multiple Node Managers (NM). The RM is responsible for managing the resources in the cluster and allocating them to applications. Every node in the cluster has an NM (Node Manager), which is responsible for managing containers on that node - starting them, monitoring their resource usage and reporting the same to the RM. 
 
-Samza provides an implementation of the AM in order to run a jobs alongside other application deployed on YARN. The AM makes decisions such as requesting allocation of containers, which machines a Samza job’s containers should run on, what to do when a container fails etc.
+Applications are run on the cluster by implementing a coordinator called an ApplicationMaster (AM). The AM is responsible for requesting resources including CPU, memory from the Resource Manager (RM) on behalf of the application. Samza provides its own implementation of the AM for each job.
 
+### Running on YARN: Quickstart
 
-# Starting your application on YARN
-
-## Setting up a single node YARN cluster (optional)
-
-If you already have a YARN cluster setup to deploy jobs, please jump to [Submitting the application to YARN](#submitting-the-application-to-yarn). If not the following section will help set up a single node cluster to test a Samza job deploy.
-
-We can use the `grid` script which is part of the [hello-samza](https://github.com/apache/samza-hello-samza/) repository to setup a single node YARN cluster (and optionally a Zookeeper and Kafka cluster as well).
-
-Run the following to setup a single node YARN cluster:
+We will demonstrate running a Samza application on YARN by using the `hello-samza` example. Lets first checkout our repository.
 
 ```bash
-./grid install yarn
-./grid start yarn
+git clone https://github.com/apache/samza-hello-samza.git
+cd samza-hello-samza
+git checkout latest
 ```
 
-## Submitting the application to YARN
+#### Set up a single node YARN cluster
 
-Assuming you have a YARN cluster setup, let us take a look at building your application and deploying it to YARN. Samza provides shell scripts as part of the `samza-shell` module that help in submitting the application to YARN and you should include it as part of your dependencies jobs dependencies.
+You can use the `grid` script included as part of the [hello-samza](https://github.com/apache/samza-hello-samza/) repository to setup a single-node cluster. The script also starts Zookeeper and Kafka locally.
 
-```xml
-<dependency>
-    <groupId>org.apache.samza</groupId>
-    <artifactId>samza-shell</artifactId>
-    <version>${samza.version}</version>
-</dependency>
+```
+./bin/grid bootstrap
 ```
 
-Samza jobs are usually deployed in a tarball and archive should contain the following as top-level directories.
+### Submitting the application to YARN
+
+Now that we have a YARN cluster ready, lets build our application. The below command does a maven-build and generates an archive in the `./target` folder. 
 
 ```bash
-samza-job-artifact-folder
+./bin/build-package.sh
+```
+
+You can inspect the structure of the generated archive. To run on YARN, Samza jobs should be packaged with the following structure.
+
+```bash
+samza-job-name-folder
 ├── bin
 │   ├── run-app.sh
 │   ├── run-class.sh
@@ -96,94 +93,81 @@ samza-job-artifact-folder
     ├── samza-yarn_2.11-0.14.0.jar
     └── ...
 ```
-The scripts in the `samza-shell` module make the assumption that the built artifact (tarball) has the exact directory structure as seen above. The scripts in the samza-shell module should be copied to a bin directory and all jars need to be part of lib as seen above. The hello-samza project is a good example on setting the structure of your application’s build.
 
-Once the job is built, the `run-app.sh` script can be used to submit the application to the Resource Manager. The script takes 2 CLI parameters - the config factory and the config file for the application. It can be invoked as follows:
+Once the archive is built, the `run-app.sh` script can be used to submit the application to YARN's resource manager. The script takes 2 CLI parameters - the config factory and the config file for the application. As an example, lets run our [FilterExample](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) on YARN as follows:
 
 ```bash
-$ /path/to/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://path/to/config/application.properties
+$ ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path ./deploy/samza/config/filter-example.properties
 ```
 
-Make sure that the following configurations are set in your configs.
+Congratulations, you've successfully submitted your first job to YARN! You can view the YARN Web UI to view its status. 
 
-```properties
-job.factory.class=org.apache.samza.job.yarn.YarnJobFactory
-yarn.package.path=https://url/to/artifact/artifact-version-dist.tar.gz
-```
 
-# Application Master UI
+### Application Master UI
 
-The AM implementation in Samza exposes metadata about the job via both a JSON REST interface and a Web UI.
-This Web UI can be accessed by clicking the Tracking UI (*ApplicationMaster*) link on the YARN RM dashboard.
-
+The YARN RM provides a Web UI to view the status of applications in the cluster, their containers and logs. By default, it can be accessed from `localhost:8088` on the RM host. 
 ![diagram-medium](/img/{{site.version}}/learn/documentation/yarn/yarn-am-ui.png)
 
-The Application Master UI provides you the ability to view:
+In addition to YARN's UI, Samza also offers a REST end-point and a web interface for its ApplicationMaster. To access it, simply click on the Tracking UI link corresponding to your application. 
+Samza's Application Master UI provides you the ability to view:
 
- - Job level runtime metadata
+ - Job-level runtime metadata - eg: JMX endpoints, running JVM version
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-runtime-metadata.png)
 
 
- - Container information
+ - Information about individual containers eg: their uptime, status and logs
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-container-info.png)
 
- - Job model (SystemStreamPartition to Task and Container mapping)
+ - Task Groups eg: Information on individual tasks, where they run and which partitions are consumed from what host
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-job-model.png)
 
 
-- Runtime configs
+ - Runtime configs for your application
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/am-runtime-configs.png)
 
 
-# Viewing logs
+### Configuration
 
-Each container produces logs and they can be easily accessed via the Container information page in ApplicationMaster UI described in the previous section. Clicking on the container name under the Running or Failed container section will take you to the logs page that corresponds to that specific container.
+In this section, we'll look at configuring your jobs when running on YARN.
 
-If there is a need to analyze logs across containers, it is recommended to set up a centralized logging system like ELK (Elasticsearch, Logstash and Kibana). Samza provides a StreamAppender that supports emitting your logs to Kafka for this purpose. The logs written to the stream can then be ingested by service like Logstash and indexed in Elasticsearch.
+#### Configuring parallelism
 
+[Recall](/learn/documentation/{{site.version}}/architecture/architecture-overview.html#container) that Samza scales your applications by breaking them into multiple tasks. On YARN, these tasks are executed on one or more containers, each of which is a Java process. You can control the number of containers allocated to your application by configuring `cluster-manager.container.count`. For example, if we are consuming from an input topic with 5 partitions, Samza will create 5 tasks, each of which process one partition. Tasks are equally distributed among available containers. The number of containers can be utmost the number of tasks - since, we cannot have idle containers without any tasks assigned to them. 
 
-# Configuration
+#### Configuring resources
 
-In the following section let's take a look at the different tunables that exist as part of Samza to control your deployment on YARN
+Samza jobs on YARN run on a multi-tenant cluster and should be isolated from each other. YARN implements isolation by enforcing limits on memory and CPU each application can use.
 
-## Configuring parallelism
+##### Memory
 
-As a refresher, Samza scales your applications by breaking them into multiple tasks. On YARN, these tasks are executed on one or more containers, each of which is a Java process. You can control the number of containers allocated to your job by configuring `cluster-manager.container.count`. For example If we had 2 input topics with 10 partitions each processor would consist of 10 Tasks, each processing 2 partitions each. Setting `cluster-manager.container.count` to 1 would run all 10 tasks in one JVM process, setting it to 2 will distribute the tasks equally among 2 JVM processes and so on.
-
-Please note that it is not possible to distribute 10 tasks across more than 10 containers, therefore the upper bound for `cluster-manager.container.count` is less than or equal to the number of Tasks in your job (or more generally the max of number of partitions among all input streams).
-
-
-## Configuring resources
-
-When running Samza jobs in a shared environment, the stream processors can have an impact on each other’s performance. YARN prevents these issues by providing isolation when running applications on the cluster by enforcing strict limits on resources that each application is allowed to use. YARN (2.7.*) currently supports resource management for memory and CPU.
-
-### Memory
-
-All containers requests by the Application Master will have a max-memory size defined when they’re created. Samza supports configuring these memory limits using `cluster-manager.container.memory.mb` and `yarn.am.container.memory.mb`. If your container exceeds the configured memory-limits, it is automatically killed by YARN. Keep in mind that this is the maximum memory YARN will allow a Samza Container or ApplicationMaster to have and you will still need to configure your heap settings appropriately using `task.opts`, when using the JVM.
-
-As a cluster administrator if you are running other processes on the same box as the Node Managers (eg: samza-rest) you will want to reserve appropriate amount of memory by configuring `yarn.nodemanager.resource.system-reserved-memory-mb`. Another behaviour to keep in mind is that the Resource Manager allocates resource on the cluster in increments of `yarn.scheduler.minimum-allocation-mb` and `yarn.scheduler.minimum-allocation-vcores`, therefore requesting allocations that are not multiples of the above configs can lead to resource fragmentation.
+You can configure the memory-limit per-container using `cluster-manager.container.memory.mb` and memory-limit for the AM using `yarn.am.container.memory.mb`. If your container process exceeds its configured memory-limits, it is automatically killed by YARN. 
 
 
-### CPU
-Similar to memory configurations all containers also are CPU bound to a max number of vCores (Virtual cores) on a NM that they are configured to use. YARN has the concept of a virtual core which is generally set to the number of physical cores on the NMs, but can be bump to a higher number if you want to over-provision the NMs with respect to the CPU. Samza supports configuring the vCore of each container by setting `cluster-manager.container.cpu.cores`.
+##### CPU
 
-Unlike memory, which YARN can enforce limits by itself (by looking at the /proc folder), YARN can’t enforce CPU isolation, since this must be done at the Linux kernel level. One of YARN’s features is its support for Linux CGroups (used to control process utilization at the kernel level in Linux). If YARN is setup to use CGroups, then it will guarantee that a container will get at least the amount of CPU that it requires. Currently, by default YARN will give you more CPU to the container, if it’s available. If enforcing “at most” CPU usage for more predictable performance by your container at the cost of underutilization you can set `yarn.nodemanager.linux-container-executor.cgroups.strict-resource-usage` to `true`, see [this article](https://hortonworks.com/blog/apache-hadoop-yarn-in-hdp-2-2-isolation-of-cpu-resources-in-your-hadoop-yarn-clusters/) for more details. For an indepth look at using YARN with CGroups take a look at [this blog post](http://riccomini.name/posts/hadoop/2013-06-14-yarn-with-cgroups/).
+Similar to configuring memory-limits, you can configure the maximum number of vCores (virtual cores) each container can use by setting `cluster-manager.container.cpu.cores`. A _vCore_ is YARN's abstraction over a physical core on a NodeManager which allows for over-provisioning. YARN supports [isolation]((http://riccomini.name/posts/hadoop/2013-06-14-yarn-with-cgroups/)) of cpu cores using Linux CGroups.
 
-## Configuring retries
 
-Failures are common when running a distributed system and the AM is used to handle Samza Container failures gracefully by automatically restarting containers on failure.
-It should also be noted that if a Samza Container keeps failing constantly it could indicate a deeper problem and we should kill the job rather than having the AM restart it indefinitely. `cluster-manager.container.retry.count` can be used to set the maximum number of times a failed container will be restarted within a time window (configured with `cluster-manager.container.retry.window.ms`), before shutting down the job.
-YARN also provides us a way to automatically restart the job if the AM process fails due to external issues (network partitions, hardware failures etc). By configuring the value of `yarn.resourcemanager.am.max-attempts` YARN will automatically restart the AM process for a fixed number of times before requiring manual intervention to start the job again.
+#### Configuring retries
 
-## Configuring RM high-availability and NM work-preserving recovery
+Failures are common when running any distributed system and should be handled gracefully. The Samza AM automatically restarts containers during a failure. The following properties govern this behavior.
 
-Although this section is not Samza specific, it talks about some of the best practices for running a YARN cluster in production specifically around running a highly-available Resource Manager and NodeManager work preserving recovery.
+`cluster-manager.container.retry.count`: This property determines the maximum number of times Samza will attempt to restart a failed container within a time window. If this property is set to 0, any failed container immediately causes the whole job to fail. If it is set to a negative number, there is no limit on the number of retries.
+
+
+`cluster-manager.container.retry.window.ms`:  This property determines how frequently a container is allowed to fail before we give up and fail the job. If the same container has failed more than cluster-manager.container.retry.count times and the time between failures is less than this property, then Samza terminates the job. There is no limit to the number of times we restart a container, if the time between failures is greater than cluster-manager.container.retry.window.ms.
+
+
+## YARN - Operations Best practices
+
+Although this section is not Samza specific, it describes some best practices for running a YARN cluster in production.
+
 
 ### Resource Manager high-availability
 
-The Resource Manager (RM) component of a YARN cluster is the source of truth regarding resource utilization and resource scheduling in the cluster. Losing the host running the RM process would kill every single application running on the cluster - making it a single point of failure. The High Availability feature introduced in Hadoop 2.4 adds redundancy in the form of standby Resource Managers to remove this single point of failure.
+The Resource Manager (RM) provides services like scheduling, heartbeats, liveness monitoring to all applications running in the YARN cluster. Losing the host running the RM would kill every application running on the cluster - making it a single point of failure. The High Availability feature introduced in Hadoop 2.4 adds redundancy by allowing multiple stand-by RMs.
 
-In order to configure YARN to run the highly available Resource Manager process set your yarn-site.xml file with the following configs:
+To configure YARN's ResourceManager to be highly available Resource Manager, set your yarn-site.xml file with the following configs:
 
 ```xml
 <property>
@@ -220,108 +204,84 @@ In order to configure YARN to run the highly available Resource Manager process 
 </property>
 ```
 
+### Reserving memory for other services
+
+Often, other services including monitoring daemons like Samza-REST run on the same nodes in the YARN cluster. You can configure `yarn.nodemanager.resource.system-reserved-memory-mb` to control the amount of physical memory reserved for non-YARN processes.
+
+Another behaviour to keep in mind is that the Resource Manager allocates memory and cpu on the cluster in increments of `yarn.scheduler.minimum-allocation-mb` and `yarn.scheduler.minimum-allocation-vcores`. Hence, requesting allocations that are not multiples of the above configs will cause internal fragmentation.
+
+
 ### NodeManager work-preserving recovery
 
-Turning on work-preserving recovery for the NM gives you the ability to perform maintenance on the cluster (kill NM process for a short duration) without having the containers that run on the node also get killed. You can turn on this feature by setting `yarn.nodemanager.recovery.enabled` to `true` in `yarn-site.xml`
+Often, NMs have to be bounced in the cluster for upgrades or maintenance reasons. By default, bouncing a Node Manager kills all containers running on its host. Work-preserving NM Restart enables NodeManagers to be restarted without losing active containers running on the node. You can turn on this feature by setting `yarn.nodemanager.recovery.enabled` to `true` in `yarn-site.xml`. You should also set `yarn.nodemanager.recovery.dir` to a directory where the NM should store its state needed for recovery.
 
-It is also recommended that you change the value of `yarn.nodemanager.recovery.dir` as by default this directory is set to `${hadoop.tmp.dir}/yarn-nm-recovery` where `hadoop.tmp.dir` is set to `/tmp/hadoop-${user.name}` and usually the contents of the `/tmp` directory are not preserved across a reboots.
+### Configuring state-store directories
 
+When a stateful Samza job is deployed in YARN, the state stores for the tasks are located in the current working directory of YARN’s attempt. YARN's DeletionService cleans up the working directories after an application exits. To ensure durability of Samza's state, its stores need to be persisted outside the scope of YARN's DeletionService. You can set this location by configuring an environment variable named `LOGGED_STORE_BASE_DIR` across the cluster.
 
-## Configuring host-affinity
+To manage disk space and clean-up state stores that are no longer necessary, Samza-REST supports periodic, long-running tasks named [monitors](/learn/documentation/{{site.version}}/rest/monitors.html).
 
-When a stateful Samza job is deployed in YARN, the state stores for the tasks are co-located in the current working directory of YARN’s application attempt.
+### Configuring security
 
-```properties
-container_working_dir=${yarn.nodemanager.local-dirs}/usercache/${user}/appcache/application_${appid}/container_${contid}/
-# Data Stores
-ls ${container_working_dir}/state/${store-name}/${task_name}/
-```
-
-This allows the Node Manager’s (NM) DeletionService to clean-up the working directory once the application completes or fails. In order to re-use local state store, the state store needs to be persisted outside the scope of NM’s deletion service. The cluster administrator should set this location as an environment variable in YARN  ( `LOGGED_STORE_BASE_DIR`).
-
-Since we store the state stores outside of the container’s working directory it is necessary to periodically clean-up unused or orphaned state stores on the machines to manage disk-space. This can be done by running a clean up periodically from the samza-rest service (*LocalStoreMonitor*) that is meant to be deployed on all Node Manager hosts.
+You can run Samza jobs on a secure YARN cluster. YARN uses Kerberos as its authentication and authorization mechanism. See [this article](https://www.cloudera.com/documentation/enterprise/5-7-x/topics/cdh_sg_yarn_security.html) for details on operating Hadoop in secure mode.
 
 
-## Configuring security
+#### Management of Kerberos tokens
 
-You can run a Samza job on a secure YARN cluster. YARN uses Kerberos as its authentication and authorization mechanism. Take a look at the official YARN [documentation](https://hadoop.apache.org/docs/r2.7.4/hadoop-project-dist/hadoop-common/SecureMode.html) page for more details.
-
-### Delegation token management strategy
-
-One of the challenges for long-lived applications running on a secure YARN cluster is its token renewal strategy. Samza handles this by having the AM periodically re-authenticate itself with the given principal and keytab. It periodically creates new delegation tokens and stores them in a job specific staging directory on HDFS accessible only by the AM and its Containers. In this process each running container will get new delegation tokens from the credentials file on HDFS before the current ones expire. The AM and Containers don’t need to communicate with each other in this process and each side proceeds independently by accessing the tokens on HDFS.
-
-By default, any HDFS delegation token has a maximum life of 7 days (configured by `dfs.namenode.delegation.token.max-lifetime` in `hdfs-site.xml`) and the token is normally renewed every 24 hours (configured by `dfs.namenode.delegation.token.renew-interval` in `hdfs-site.xml`). What if the Application Master dies and needs restarts after 7 days? The original HDFS delegation token stored in the launcher context will be invalid no matter what. Luckily, Samza can rely on Resource Manager to handle this scenario. See the Configuration section below for details.
-
-### Security Components
-
-#### SecurityManager
-
-When ApplicationMaster starts, it spawns `SamzaAppMasterSecurityManager`, which runs on its separate thread. The `SamzaAppMasterSecurityManager` is responsible for periodically logging in through the given Kerberos keytab and regenerates the HDFS delegation tokens regularly. After each run, it writes new tokens on a pre-defined job specific directory on HDFS. The frequency of this process is determined by `yarn.token.renewal.interval.seconds`.
-
-Each container, upon start, runs a `SamzaContainerSecurityManager`. It reads from the credentials file on HDFS and refreshes its delegation tokens at the same interval.
-
-### Security configuration
-
-For the Samza job, the following job configurations are required on a YARN cluster with security enabled.
-
-#### Job
+One challenge for long-running applications on YARN is how they periodically renew their Kerberos tokens. Samza handles this by having the AM periodically create tokens and refresh them in a staging directory on HDFS. This directory is accessible only by the containers of your job. You can set your Kerberos principal and kerberos keytab file as follows:
 
 ```properties
+# Use the SamzaYarnSecurityManagerFactory, which fetches and renews the Kerberos delegation tokens when the job is running in a secure environment.
 job.security.manager.factory=org.apache.samza.job.yarn.SamzaYarnSecurityManagerFactory
+
+# Kerberos principal
+yarn.kerberos.principal=your-principal-name
+
+# Path of the keytab file (local path)
+yarn.kerberos.keytab=/tmp/keytab
 ```
 
-#### YARN
-
-```properties
-yarn.kerberos.principal=user/localhost
-yarn.kerberos.keytab=/etc/krb5.keytab.user
-yarn.token.renewal.interval.seconds=86400
-```
-Configure the Hadoop cluster to enable Resource Manager to recreate and renew the delegation token on behalf of the application user. This will address the following 2 scenarios.
-
-- When Application Master dies unexpectedly and needs a restart after 7 days (the default maximum lifespan a delegation token can be renewed).
-- When the Samza job terminates and log aggregation is turned on for the job. Node managers need to be able to upload all the local application logs to HDFS.
-
-Enable the resource manager as a privileged user in yarn-site.xml.
+By default, Kerberos tokens on YARN have a maximum life-time of 7 days, beyond which they auto-expire. Often streaming applications are long-running and don't terminate within this life-time. To get around this, you can configure YARN's Resource Manager to automatically re-create tokens on your behalf by setting these configs in your `yarn-site.xml` file. 
 
 ```xml
 <property>
-    <name>yarn.resourcemanager.proxy-user-privileges.enabled</name>
-    <value>true</value>
+<name>hadoop.proxyuser.yarn.hosts</name>
+<value>*</value>
+</property>
+
+<property>
+<name>hadoop.proxyuser.yarn.groups</name>
+<value>*</value>
 </property>
 ```
+# Samza Coordinator Internals
 
-Make `yarn` as a proxy user, in `core-site.xml`
+In this section, we will discuss some of implementation internals of the Samza ApplicationMaster (AM). 
 
-```xml
-<property>
-    <name>hadoop.proxyuser.yarn.hosts</name>
-    <value>*</value>
-</property>
-<property>
-    <name>hadoop.proxyuser.yarn.groups</name>
-    <value>*</value>
-</property>
-```
+The Samza AM is the control-hub for a Samza application running on a YARN cluster. It is responsible for coordinating work assignment across individual containers. It includes the following componeents:
 
-# Coordinator Internals
+- YARNClusterResourceManager, which handles interactions with YARN and provides APIs for requesting resources and starting containers.
+- ContainerProcessManager, which uses the above APIs to manage Samza containers - including restarting them on failure, ensuring they stay in a healthy state.
 
-The `ClusterBasedJobCoordinator` is used as the control hub for a running Samza job in a cluster like YARN. Among other things it is responsible for bootstrapping configs from the Coordinator Stream on job startup, constructing the JobModel, managing container allocations and handling callbacks from the cluster manager (in YARN’s case the Resource Manager). Just like most other components in the framework, Samza has a plugable interface for managing container allocations and is configured using the key `samza.cluster-manager.factory`.
-
-
-The `ClusterBasedJobCoordinator` contains a component called the `ContainerProcessManager` to handle metadata regarding container allocations. It uses the information (eg: host affinity) obtained from configs and the `CoordinatorStream` in order to make container allocation requests to the cluster manager (RM). In the case of YARN the config for `samza.cluster-manager.factory` which encapsulates the Application Master, is configured to `org.apache.samza.job.yarn.YarnResourceManagerFactory` and the `ContainerProcessManager` uses `YarnResourceManager` to interact with the RM.
 
 ![diagram-small](/img/{{site.version}}/learn/documentation/yarn/coordinator-internals.png)
 
+Here's a life-cycle of a Samza job submitted to YARN:
 
-The following is a walkthrough of the different actions taken when the `run-job.sh` script is run:
-- When the job is submitted using `run-app.sh` the JobRunner invoked as part of this script first writes all the configs to the coordinator stream.
-- The JobRunner then uses the configured StreamJob (YarnJob) to submit the request to start the AM to the RM.
-- The ResourceManager allocates the AM on an available NM and starts the ClusterBasedJobCoordinator.
-- The ClusterBasedJobCoordinator bootstraps the configs written to the Coordinator Stream in step (1) and constructs the JobModel, check for host-affinity if configured and instantiates the ClusterResourceManager (YarnClusterResourceManager).
-- The YarnClusterResourceManager is then used to make requests to the RM to start job.container.count number of containers. The RM then issues callbacks to the process when the containers are allocated.
-- When the containers are returned by the RM, the YarnClusterResourceManager allocates a SamzaContainer ID to the YARN containers to indicate which subset of tasks in the JobModel the YARN container should process on startup.
-- When the containers start up, they read the configs and the JobModel from the configs and use their own SamzaContainer ID and the JobModel to pick specific tasks and start message processing.
+- The `run-app.sh` script is started providing the location of your application's binaries and its config file. The script instantiates an ApplicationRunner, which is the main entry-point responsible for running your application.
 
+- The ApplicationRunner parses your configs and writes them to a special Kafka topic named - the coordinator stream for distributing them. It proceeds to submit a request to YARN to launch your application. 
 
-During the course of processing message all container failures will result in a callback from the RM to the YarnClusterResourceManager. These callbacks can then be used to request for a new container and restart processing from the last checkpoint, thus making YARN deployments resilient to container failures.
+- The first step in launching any YARN application is starting its Application Master (AM).
+
+- The ResourceManager allocates an available host and starts the Samza AM. 
+
+- The Samza AM is then responsible for managing the overall application. It reads configs from the Coordinator Stream and computes work-assignments for individual containers. 
+
+- It also determines the hosts each container should run on taking data-locality into account. It proceeds to request resources on those nodes using the `YARNClusterResourceManager` APIs.
+
+- Once resources have been allocated, it proceeds to start the containers on the allocated hosts.
+
+- When it is started, each container first queries the Samza AM to determine its work-assignments and configs. It then proceeds to execute its assigned tasks. 
+
+- The Samza AM periodically monitors each container using heartbeats and ensure they stay alive. 

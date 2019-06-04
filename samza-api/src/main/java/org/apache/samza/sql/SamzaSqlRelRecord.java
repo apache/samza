@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql;
 
+import com.google.common.base.Joiner;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,7 @@ public class SamzaSqlRelRecord implements Serializable {
   private final ArrayList<String> fieldNames;
   @JsonProperty("fieldValues")
   private final ArrayList<Object> fieldValues;
+  private final int hashCode;
 
   /**
    * Creates a {@link SamzaSqlRelRecord} from the list of relational fields and values.
@@ -59,6 +61,8 @@ public class SamzaSqlRelRecord implements Serializable {
 
     this.fieldNames.addAll(fieldNames);
     this.fieldValues.addAll(fieldValues);
+
+    hashCode = Objects.hash(fieldNames, fieldValues);
   }
 
   /**
@@ -85,10 +89,9 @@ public class SamzaSqlRelRecord implements Serializable {
    * @return returns the value of the field.
    */
   public Optional<Object> getField(String name) {
-    for (int index = 0; index < fieldNames.size(); index++) {
-      if (fieldNames.get(index).equals(name)) {
-        return Optional.ofNullable(fieldValues.get(index));
-      }
+    int index = fieldNames.indexOf(name);
+    if (index != -1) {
+      return Optional.ofNullable(fieldValues.get(index));
     }
 
     return Optional.empty();
@@ -96,7 +99,7 @@ public class SamzaSqlRelRecord implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(fieldNames, fieldValues);
+    return hashCode;
   }
 
   @Override
@@ -109,5 +112,16 @@ public class SamzaSqlRelRecord implements Serializable {
       return false;
     SamzaSqlRelRecord other = (SamzaSqlRelRecord) obj;
     return Objects.equals(fieldNames, other.fieldNames) && Objects.equals(fieldValues, other.fieldValues);
+  }
+
+  @Override
+  public String toString() {
+    String nameStr = Joiner.on(",").join(fieldNames);
+    String valueStr = Joiner.on(",").useForNull("null").join(fieldValues);
+    return "[Names:{" + nameStr + "} Values:{" + valueStr + "}]";
+  }
+
+  public boolean containsField(String name) {
+    return fieldNames.indexOf(name) != -1;
   }
 }

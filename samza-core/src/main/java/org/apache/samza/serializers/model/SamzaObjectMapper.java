@@ -29,6 +29,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -81,10 +82,13 @@ public class SamzaObjectMapper {
     module.addSerializer(SystemStreamPartition.class, new SystemStreamPartitionSerializer());
     module.addKeySerializer(SystemStreamPartition.class, new SystemStreamPartitionKeySerializer());
     module.addSerializer(TaskName.class, new TaskNameSerializer());
+    module.addSerializer(TaskMode.class, new TaskModeSerializer());
+    module.addDeserializer(TaskName.class, new TaskNameDeserializer());
     module.addDeserializer(Partition.class, new PartitionDeserializer());
     module.addDeserializer(SystemStreamPartition.class, new SystemStreamPartitionDeserializer());
     module.addKeyDeserializer(SystemStreamPartition.class, new SystemStreamPartitionKeyDeserializer());
     module.addDeserializer(Config.class, new ConfigDeserializer());
+    module.addDeserializer(TaskMode.class, new TaskModeDeserializer());
 
     // Setup mixins for data models.
     mapper.getSerializationConfig().addMixInAnnotations(TaskModel.class, JsonTaskModelMixIn.class);
@@ -172,6 +176,27 @@ public class SamzaObjectMapper {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
       return new TaskName(node.getTextValue());
+    }
+  }
+
+  public static class TaskModeSerializer extends JsonSerializer<TaskMode> {
+    @Override
+    public void serialize(TaskMode taskMode, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException, JsonProcessingException {
+      jsonGenerator.writeObject(taskMode.toString());
+    }
+  }
+
+  public static class TaskModeDeserializer extends JsonDeserializer<TaskMode> {
+    @Override
+    public TaskMode deserialize(JsonParser jsonParser, DeserializationContext context)
+        throws IOException, JsonProcessingException {
+      ObjectCodec oc = jsonParser.getCodec();
+      JsonNode node = oc.readTree(jsonParser);
+      if (node == null || node.getTextValue().equals("")) {
+        return TaskMode.Active;
+      } else {
+        return TaskMode.valueOf(node.getTextValue());
+      }
     }
   }
 

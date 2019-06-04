@@ -32,7 +32,7 @@ git clone http://git-wip-us.apache.org/repos/asf/samza.git
 Next, grab hello-samza.
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git
 {% endhighlight %}
 
 ### Setup the Environment
@@ -47,7 +47,7 @@ cd samza
 Let's also release Samza to Maven's local repository, so hello-samza has access to the JARs that it needs.
 
 {% highlight bash %}
-./gradlew -PscalaVersion=2.10 clean publishToMavenLocal
+./gradlew -PscalaSuffix=2.11 clean publishToMavenLocal
 {% endhighlight %}
 
 Next, open Eclipse, and import the Samza source code into your workspace: "File" &gt; "Import" &gt; "Existing Projects into Workspace" &gt; "Browse". Select 'samza' folder, and hit 'finish'.
@@ -83,7 +83,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-0.14.1-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.1.0-dist.tar.gz -C deploy/samza
 deploy/samza/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 

@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
-import org.apache.samza.metrics.ListGauge;
+import org.apache.samza.diagnostics.BoundedList;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
@@ -40,17 +40,17 @@ public class TestMetricsSnapshotSerdeV2 {
         new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1", 1,
             1);
 
-    ListGauge listGauge = new ListGauge<DiagnosticsExceptionEvent>("exceptions");
+    BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
         new DiagnosticsExceptionEvent(1, new SamzaException("this is a samza exception", new RuntimeException("cause")),
             new HashMap());
 
-    listGauge.add(diagnosticsExceptionEvent1);
+    boundedList.add(diagnosticsExceptionEvent1);
 
     String samzaContainerMetricsGroupName = "org.apache.samza.container.SamzaContainerMetrics";
     Map<String, Map<String, Object>> metricMessage = new HashMap<>();
     metricMessage.put(samzaContainerMetricsGroupName, new HashMap<>());
-    metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", listGauge.getValues());
+    metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", boundedList.getValues());
     metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
 
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));

@@ -20,12 +20,14 @@
 package org.apache.samza.storage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
+import org.apache.samza.serializers.ByteSerdeFactory;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStreamPartition;
@@ -33,11 +35,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 public class TestStorageRecovery {
 
   public Config config = null;
+  String path = "/tmp/testing";
   private static final String SYSTEM_STREAM_NAME = "changelog";
   private static final String INPUT_STREAM = "input";
   private static final String STORE_NAME = "testStore";
@@ -59,7 +62,7 @@ public class TestStorageRecovery {
   public void testStorageEngineReceivedAllValues() {
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
 
-    String path = "/tmp/testing";
+
     StorageRecovery storageRecovery = new StorageRecovery(config, path);
     storageRecovery.run();
 
@@ -79,6 +82,9 @@ public class TestStorageRecovery {
     map.put("systems.mockSystem.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.factory", STORE_NAME), MockStorageEngineFactory.class.getCanonicalName());
     map.put(String.format("stores.%s.changelog", STORE_NAME), "mockSystem." + SYSTEM_STREAM_NAME);
+    map.put(String.format("stores.%s.key.serde", STORE_NAME), "byteserde");
+    map.put(String.format("stores.%s.msg.serde", STORE_NAME), "byteserde");
+    map.put("serializers.registry.byteserde.class", ByteSerdeFactory.class.getName());
     map.put("task.inputs", "mockSystem.input");
     map.put("job.coordinator.system", "coordinator");
     map.put("systems.coordinator.samza.factory", MockCoordinatorStreamSystemFactory.class.getCanonicalName());
@@ -87,8 +93,8 @@ public class TestStorageRecovery {
   }
 
   private void putMetadata() {
-    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(0)), new ArrayList<IncomingMessageEnvelope>() { { this.add(msg); } });
-    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(1)), new ArrayList<IncomingMessageEnvelope>() { { this.add(msg); } });
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(0)), Collections.singletonList(msg));
+    MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", SYSTEM_STREAM_NAME, new Partition(1)), Collections.singletonList(msg));
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", INPUT_STREAM, new Partition(0)), new ArrayList<>());
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("mockSystem", INPUT_STREAM, new Partition(1)), new ArrayList<>());
   }

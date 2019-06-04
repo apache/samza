@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
@@ -33,6 +34,7 @@ import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -48,38 +50,54 @@ import org.apache.samza.test.table.PageViewToProfileJoinFunction;
 import org.apache.samza.test.table.TestTableData;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.test.controlmessages.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTest.class);
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
   @Test
   public void testStatefulJoinWithLocalTable() {
-    List<TestTableData.PageView> pageViews = Arrays.asList(TestTableData.generatePageViews(10));
-    List<TestTableData.Profile> profiles = Arrays.asList(TestTableData.generateProfiles(10));
+    Random random = new Random();
+    List<KV<String, TestTableData.PageView>> pageViews = Arrays.asList(TestTableData.generatePageViews(10))
+        .stream()
+        .map(x -> KV.of(PAGEKEYS[random.nextInt(PAGEKEYS.length)], x))
+        .collect(Collectors.toList());
+    List<KV<String, TestTableData.Profile>> profiles = Arrays.asList(TestTableData.generateProfiles(10))
+        .stream()
+        .map(x -> KV.of(PAGEKEYS[random.nextInt(PAGEKEYS.length)], x))
+        .collect(Collectors.toList());
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
-    InMemoryInputDescriptor<TestTableData.PageView> pageViewStreamDesc = isd
-        .getInputDescriptor("PageView", new NoOpSerde<TestTableData.PageView>());
+    InMemoryInputDescriptor<KV<String, TestTableData.PageView>> pageViewStreamDesc = isd
+        .getInputDescriptor("PageView", new NoOpSerde<KV<String, TestTableData.PageView>>());
 
-    InMemoryInputDescriptor<TestTableData.Profile> profileStreamDesc = isd
-        .getInputDescriptor("Profile", new NoOpSerde<TestTableData.Profile>())
+    InMemoryInputDescriptor<KV<String, TestTableData.Profile>> profileStreamDesc = isd
+        .getInputDescriptor("Profile", new NoOpSerde<KV<String, TestTableData.Profile>>())
         .shouldBootstrap();
 
     InMemoryOutputDescriptor<TestTableData.EnrichedPageView> outputStreamDesc = isd
         .getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
+
+    InMemoryOutputDescriptor<String> joinKeysDescriptor = isd
+        .getOutputDescriptor("JoinPageKeys", new NoOpSerde<>());
 
     TestRunner
         .of(new PageViewProfileViewJoinApplication())
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
+        .addOutputStream(joinKeysDescriptor, 1)
         .run(Duration.ofSeconds(2));
 
+
     Assert.assertEquals(10, TestRunner.consumeStream(outputStreamDesc, Duration.ofSeconds(1)).get(0).size());
+    Assert.assertEquals(10, TestRunner.consumeStream(joinKeysDescriptor, Duration.ofSeconds(1)).get(0).size());
   }
 
   @Test
@@ -127,47 +145,62 @@ public class StreamApplicationIntegrationTest {
         .run(Duration.ofMillis(1000));
   }
 
+
   private static class PageViewProfileViewJoinApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
-      Table<KV<Integer, TestTableData.Profile>> table = appDesc.getTable(
+    public void describe(StreamApplicationDescriptor appDescriptor) {
+      Table<KV<Integer, TestTableData.Profile>> table = appDescriptor.getTable(
           new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
               KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
 
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
-      KafkaInputDescriptor<TestTableData.Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-      appDesc.getInputStream(profileISD).map(m -> new KV(m.getMemberId(), m)).sendTo(table);
 
-      KafkaInputDescriptor<TestTableData.PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      KafkaInputDescriptor<KV<String, TestTableData.Profile>> profileISD =
+          ksd.getInputDescriptor("Profile", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+
+      KafkaInputDescriptor<KV<String, TestTableData.PageView>> pageViewISD =
+          ksd.getInputDescriptor("PageView", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
       KafkaOutputDescriptor<TestTableData.EnrichedPageView> enrichedPageViewOSD =
-          ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
-      OutputStream<TestTableData.EnrichedPageView> outputStream = appDesc.getOutputStream(enrichedPageViewOSD);
-      appDesc.getInputStream(pageViewISD)
-          .partitionBy(TestTableData.PageView::getMemberId,  pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(
-              TestTableData.PageView.class)), "p1")
+          ksd.getOutputDescriptor("EnrichedPageView", new JsonSerdeV2<>());
+
+      appDescriptor.getInputStream(profileISD)
+          .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
+          .sendTo(table)
+          .sink((kv, collector, coordinator) -> {
+              LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
+            });
+
+      OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
+      appDescriptor.getInputStream(pageViewISD)
+          .partitionBy(pv -> pv.getValue().getMemberId(),  pv -> pv.getValue(), KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(TestTableData.PageView.class)), "p1")
           .join(table, new PageViewToProfileJoinFunction())
-          .sendTo(outputStream);
+          .sendTo(outputStream)
+          .map(TestTableData.EnrichedPageView::getPageKey)
+          .sink((joinPageKey, collector, coordinator) -> {
+              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
+            });
+
     }
   }
 
   private static class PageViewFilterApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
+    public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<KV<String, PageView>> isd =
-          ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-      MessageStream<KV<String, TestData.PageView>> inputStream = appDesc.getInputStream(isd);
+          ksd.getInputDescriptor("PageView", KVSerde.of(new StringSerde(), new JsonSerdeV2<>()));
+      MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
       inputStream.map(KV::getValue).filter(pv -> pv.getPageKey().equals("inbox"));
     }
   }
 
   private static class PageViewRepartitionApplication implements StreamApplication {
     @Override
-    public void describe(StreamApplicationDescriptor appDesc) {
+    public void describe(StreamApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
       KafkaInputDescriptor<KV<String, PageView>> isd =
           ksd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-      MessageStream<KV<String, TestData.PageView>> inputStream = appDesc.getInputStream(isd);
+      MessageStream<KV<String, TestData.PageView>> inputStream = appDescriptor.getInputStream(isd);
       inputStream
           .map(KV::getValue)
           .partitionBy(PageView::getMemberId, pv -> pv, KVSerde.of(new IntegerSerde(), new JsonSerdeV2<>(PageView.class)), "p1")

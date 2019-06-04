@@ -41,11 +41,13 @@ import static org.junit.Assert.assertTrue;
 
 public class TestContainerAllocator {
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
   private final Config config = getConfig();
   private final JobModelManager jobModelManager = JobModelManagerTestUtil.getJobModelManager(config, 1,
       new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
+
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
+  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
+
   private ContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
@@ -134,8 +136,41 @@ public class TestContainerAllocator {
     assertEquals(requestState.numPendingRequests(), 4);
 
     // If host-affinty is not enabled, it doesn't update the requestMap
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertEquals(requestState.getRequestsToCountMap().keySet().size(), 0);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
+  }
+
+  /**
+   * Test requestContainers with containerToHostMapping with host.affinity disabled
+   */
+  @Test
+  public void testRequestContainersWithExistingHosts() throws Exception {
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
+      {
+        put("0", "prev_host");
+        put("1", "prev_host");
+        put("2", "prev_host");
+        put("3", "prev_host");
+      }
+    };
+
+    allocatorThread.start();
+
+    containerAllocator.requestResources(containersToHostMapping);
+
+    assertEquals(4, manager.resourceRequests.size());
+
+    assertNotNull(requestState);
+
+    assertEquals(requestState.numPendingRequests(), 4);
+
+    // If host-affinty is not enabled, it doesn't update the requestMap
+    assertNotNull(requestState.getHostRequestCounts());
+    assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
+
+    assertNotNull(state);
+    assertEquals(state.anyHostRequests.get(), 4);
+    assertEquals(state.preferredHostRequests.get(), 0);
   }
 
   /**
@@ -157,8 +192,8 @@ public class TestContainerAllocator {
     assertTrue(requestState.numPendingRequests() == 4);
 
     // If host-affinty is not enabled, it doesn't update the requestMap
-    assertNotNull(requestState.getRequestsToCountMap());
-    assertTrue(requestState.getRequestsToCountMap().keySet().size() == 0);
+    assertNotNull(requestState.getHostRequestCounts());
+    assertTrue(requestState.getHostRequestCounts().keySet().size() == 0);
   }
 
   /**
@@ -183,7 +218,7 @@ public class TestContainerAllocator {
 
         // Test that state is cleaned up
         assertEquals(0, requestState.numPendingRequests());
-        assertEquals(0, requestState.getRequestsToCountMap().size());
+        assertEquals(0, requestState.getHostRequestCounts().size());
         assertNull(requestState.getResourcesOnAHost("abc"));
         assertNull(requestState.getResourcesOnAHost("def"));
       }

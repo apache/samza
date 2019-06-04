@@ -22,8 +22,6 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * The spec for operator that writes a stream to a table by extracting keys and values
@@ -33,23 +31,30 @@ import org.apache.samza.table.TableSpec;
  * @param <V> the type of the table record value
  */
 @InterfaceStability.Unstable
-public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> {
+public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, KV<K, V>> {
 
-  private final TableSpec tableSpec;
+  private final String tableId;
+  private final Object[] args;
 
   /**
    * Constructor for a {@link SendToTableOperatorSpec}.
    *
-   * @param tableSpec  the table spec of the table written to
+   * @param tableId  the Id of the table written to
    * @param opId  the unique ID for this operator
+   * @param args additional arguments passed to the table
    */
-  SendToTableOperatorSpec(TableSpec tableSpec, String opId) {
+  SendToTableOperatorSpec(String tableId, String opId, Object ... args) {
     super(OpCode.SEND_TO, opId);
-    this.tableSpec = tableSpec;
+    this.tableId = tableId;
+    this.args = args;
   }
 
-  public TableSpec getTableSpec() {
-    return tableSpec;
+  public String getTableId() {
+    return tableId;
+  }
+
+  public Object[] getArgs() {
+    return args;
   }
 
   @Override

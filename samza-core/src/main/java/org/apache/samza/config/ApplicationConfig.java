@@ -85,7 +85,6 @@ public class ApplicationConfig extends MapConfig {
     return String.format("app-%s-%s", getAppName(), getAppId());
   }
 
-  @Deprecated
   public String getProcessorId() {
     return get(PROCESSOR_ID, null);
   }

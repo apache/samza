@@ -20,22 +20,33 @@ package org.apache.samza.application;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.context.ApplicationContainerContext;
+import org.apache.samza.context.ApplicationTaskContext;
+import org.apache.samza.operators.MessageStream;
 
 
 /**
- * The base interface for all user-implemented applications in Samza.
+ * A {@link SamzaApplication} describes the inputs, outputs, state, configuration and the logic for processing data from
+ * one or more streaming sources.
  * <p>
- * The main processing logic of the user application should be implemented in {@link SamzaApplication#describe(ApplicationDescriptor)}
- * method. Sub-classes {@link StreamApplication} and {@link TaskApplication} are specific interfaces for applications
- * written in high-level DAG and low-level task APIs, respectively.
+ * This is the base {@link SamzaApplication}. Implement a {@link StreamApplication} to describe the processing logic
+ * using Samza's High Level API in terms of {@link MessageStream} operators, or a {@link TaskApplication} to describe it
+ * using Samza's Low Level API in terms of per-message processing logic.
+ * <p>
+ * A {@link SamzaApplication} implementation must have a no-argument constructor, which will be used by the framework to
+ * create new instances and call {@link SamzaApplication#describe(ApplicationDescriptor)}.
+ * <p>
+ * Per container context may be managed using {@link ApplicationContainerContext} and set using
+ * {@link ApplicationDescriptor#withApplicationContainerContextFactory}. Similarly, per task context may be managed
+ * using {@link ApplicationTaskContext} and set using {@link ApplicationDescriptor#withApplicationTaskContextFactory}.
  */
 @InterfaceStability.Evolving
 public interface SamzaApplication<S extends ApplicationDescriptor> {
 
   /**
-   * Describes the user processing logic via {@link ApplicationDescriptor}
+   * Describes the inputs, outputs, state, configuration and processing logic using the provided {@code appDescriptor}.
    *
-   * @param appDesc the {@link ApplicationDescriptor} object to describe user application logic
+   * @param appDescriptor the {@link ApplicationDescriptor} to use for describing the application.
    */
-  void describe(S appDesc);
+  void describe(S appDescriptor);
 }

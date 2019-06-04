@@ -40,13 +40,14 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfig$;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.system.descriptors.GenericSystemDescriptor;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
@@ -65,8 +66,9 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
+import org.apache.samza.table.descriptors.TestLocalTableDescriptor;
 import org.apache.samza.testUtils.StreamTestUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -264,7 +266,8 @@ public class TestExecutionPlanner {
         MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id");
+        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+            "table-id", new KVSerde(new StringSerde(), new StringSerde()));
         Table table = appDesc.getTable(tableDescriptor);
 
         messageStream2
@@ -352,7 +355,8 @@ public class TestExecutionPlanner {
         MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id");
+        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
         Table table = appDesc.getTable(tableDescriptor);
 
         messageStream1.sendTo(table);
@@ -378,8 +382,10 @@ public class TestExecutionPlanner {
         MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id", Arrays.asList("input1"),
-            (message, store) -> Collections.emptyList());
+        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()))
+            .withSideInputs(Arrays.asList("input1"))
+            .withSideInputsProcessor(mock(SideInputsProcessor.class));
         Table table = appDesc.getTable(tableDescriptor);
 
         messageStream2
@@ -404,13 +410,39 @@ public class TestExecutionPlanner {
         MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
         OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestTableDescriptor("table-id", Arrays.asList("input2"),
-            (message, store) -> Collections.emptyList());
+        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()))
+            .withSideInputs(Arrays.asList("input2"))
+            .withSideInputsProcessor(mock(SideInputsProcessor.class));
         Table table = appDesc.getTable(tableDescriptor);
 
         messageStream1
             .join(table, mock(StreamTableJoinFunction.class))
             .sendTo(output1);
+      }, config);
+  }
+
+  private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoinAndSendToSameTable() {
+    /**
+     * A special example of stream-table join where a stream is joined with a table, and the result is
+     * sent to the same table. This example is necessary to ensure {@link ExecutionPlanner} does not
+     * get stuck traversing the virtual cycle between stream-table-join and send-to-table operator specs
+     * indefinitely.
+     *
+     * The reason such virtual cycle is present is to support computing partitions of intermediate
+     * streams participating in stream-table joins. Please, refer to SAMZA SEP-16 for more details.
+     */
+    return new StreamApplicationDescriptorImpl(appDesc -> {
+        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+
+        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
+        Table table = appDesc.getTable(tableDescriptor);
+
+        messageStream1
+          .join(table, mock(StreamTableJoinFunction.class))
+          .sendTo(table);
+
       }, config);
   }
 
@@ -581,6 +613,15 @@ public class TestExecutionPlanner {
   }
 
   @Test
+  public void testHandlesVirtualStreamTableJoinCycles() {
+    ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createStreamGraphWithStreamTableJoinAndSendToSameTable();
+
+    // Just make sure planning terminates.
+    planner.plan(graphSpec);
+  }
+
+  @Test
   public void testDefaultPartitions() {
     Map<String, String> map = new HashMap<>(config);
     map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
@@ -594,6 +635,22 @@ public class TestExecutionPlanner {
     jobGraph.getIntermediateStreams().forEach(edge -> {
         assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
       });
+  }
+
+  @Test
+  public void testBroadcastConfig() {
+    Map<String, String> map = new HashMap<>(config);
+    map.put(String.format(StreamConfig$.MODULE$.BROADCAST_FOR_STREAM_ID(), "input1"), "true");
+    Config cfg = new MapConfig(map);
+
+    ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
+    StreamApplicationDescriptorImpl graphSpec = createSimpleGraph();
+    JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
+
+    StreamEdge edge = jobGraph.getStreamEdge("input1");
+    Assert.assertTrue(edge.isBroadcast());
+    Config jobConfig = jobGraph.getJobConfigs().get(0);
+    Assert.assertEquals("system1.input1#[0-63]", jobConfig.get("task.broadcast.inputs"));
   }
 
   @Test
@@ -783,8 +840,7 @@ public class TestExecutionPlanner {
           intermediateStreams.remove(edge.getStreamSpec().getId());
         }
       });
-    assertEquals(new HashSet<String>() { { this.add(intermediateStream1); this.add(intermediateBroadcast); } }.toArray(),
-        intermediateStreams.toArray());
+    assertEquals(new HashSet<>(Arrays.asList(intermediateStream1, intermediateBroadcast)), intermediateStreams);
   }
 
   @Test
@@ -818,30 +874,8 @@ public class TestExecutionPlanner {
   public static class MockTaskApplication implements SamzaApplication {
 
     @Override
-    public void describe(ApplicationDescriptor appDesc) {
+    public void describe(ApplicationDescriptor appDescriptor) {
 
-    }
-  }
-
-  private static class TestTableDescriptor extends BaseTableDescriptor implements TableDescriptor {
-    private final List<String> sideInputs;
-    private final SideInputsProcessor sideInputsProcessor;
-
-    public TestTableDescriptor(String tableId) {
-      this(tableId, Collections.emptyList(), null);
-    }
-
-    public TestTableDescriptor(String tableId, List<String> sideInputs, SideInputsProcessor sideInputsProcessor) {
-      super(tableId);
-      this.sideInputs = sideInputs;
-      this.sideInputsProcessor = sideInputsProcessor;
-    }
-
-    @Override
-    public TableSpec getTableSpec() {
-      validate();
-      return new TableSpec(tableId, serde, "dummyTableProviderFactoryClassName",
-          Collections.emptyMap(), sideInputs, sideInputsProcessor);
     }
   }
 }

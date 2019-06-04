@@ -97,6 +97,7 @@ public class TestOperatorImplGraph {
     when(taskModel.getTaskName()).thenReturn(new TaskName("task 0"));
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
   @After
@@ -149,11 +150,11 @@ public class TestOperatorImplGraph {
     InputOperatorImpl inputOpImpl = opImplGraph.getInputOperator(new SystemStream(inputSystem, inputPhysicalName));
     assertEquals(1, inputOpImpl.registeredOperators.size());
 
-    OperatorImpl filterOpImpl = (StreamOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
+    OperatorImpl filterOpImpl = (FlatmapOperatorImpl) inputOpImpl.registeredOperators.iterator().next();
     assertEquals(1, filterOpImpl.registeredOperators.size());
     assertEquals(OpCode.FILTER, filterOpImpl.getOperatorSpec().getOpCode());
 
-    OperatorImpl mapOpImpl = (StreamOperatorImpl) filterOpImpl.registeredOperators.iterator().next();
+    OperatorImpl mapOpImpl = (FlatmapOperatorImpl) filterOpImpl.registeredOperators.iterator().next();
     assertEquals(1, mapOpImpl.registeredOperators.size());
     assertEquals(OpCode.MAP, mapOpImpl.getOperatorSpec().getOpCode());
 
@@ -672,7 +673,7 @@ public class TestOperatorImplGraph {
       }
 
       if (perTaskCloseList.get(this.taskName) == null) {
-        perTaskCloseList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
+        perTaskCloseList.put(taskName, new ArrayList<>(Collections.singletonList(opId)));
       } else {
         perTaskCloseList.get(taskName).add(opId);
       }
@@ -684,7 +685,7 @@ public class TestOperatorImplGraph {
     public void init(Context context) {
       TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
       if (perTaskFunctionMap.get(taskName) == null) {
-        perTaskFunctionMap.put(taskName, new HashMap<String, BaseTestFunction>() { { this.put(opId, BaseTestFunction.this); } });
+        perTaskFunctionMap.put(taskName, new HashMap<>(Collections.singletonMap(opId, BaseTestFunction.this)));
       } else {
         if (perTaskFunctionMap.get(taskName).containsKey(opId)) {
           throw new IllegalStateException(String.format("Multiple init called for op %s in the same task instance %s", opId, this.taskName.getTaskName()));
@@ -692,7 +693,7 @@ public class TestOperatorImplGraph {
         perTaskFunctionMap.get(taskName).put(opId, this);
       }
       if (perTaskInitList.get(taskName) == null) {
-        perTaskInitList.put(taskName, new ArrayList<String>() { { this.add(opId); } });
+        perTaskInitList.put(taskName, new ArrayList<>(Collections.singletonList(opId)));
       } else {
         perTaskInitList.get(taskName).add(opId);
       }

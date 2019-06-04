@@ -18,8 +18,8 @@
  */
 package org.apache.samza.test.harness
 
-import kafka.utils.{ZkUtils, Logging, CoreUtils}
-import kafka.zk.{EmbeddedZookeeper, ZkFourLetterWords}
+import kafka.utils.{CoreUtils, Logging, ZkUtils}
+import kafka.zk.{EmbeddedZookeeper, KafkaZkClient, ZkFourLetterWords}
 import org.junit.{After, Before}
 import org.apache.kafka.common.security.JaasUtils
 import javax.security.auth.login.Configuration
@@ -55,9 +55,9 @@ abstract class AbstractZookeeperTestHarness extends Logging {
   @After
   def tearDown() {
     if (zkUtils != null)
-      CoreUtils.swallow(zkUtils.close())
+      CoreUtils.swallow(zkUtils.close(), null)
     if (zookeeper != null)
-      CoreUtils.swallow(zookeeper.shutdown())
+      CoreUtils.swallow(zookeeper.shutdown(), null)
 
     def isDown: Boolean = {
       try {

@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import org.apache.samza.startpoint.Startpoint;
 
 /**
  * Helper interface attached to an underlying system to fetch information about
@@ -144,4 +144,33 @@ public interface SystemAdmin {
 
   }
 
+  /**
+   * Get partitions counts only. Should be more efficient then getSystemStreamMetadata, but if not implemented
+   * revert to getSystemStreamMetadata.
+   * @param streamNames set of streams to query.
+   * @param cacheTTL cacheTTL to use if caching the values.
+   * @return A map from stream name to SystemStreamMetadata for each stream
+   *        requested in the parameter set.
+   */
+  default Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
+    return getSystemStreamMetadata(streamNames);
+  }
+
+  /**
+   * Fetch the set of all available streams
+   * @return The set of all available SystemStreams.
+   */
+  default Set<SystemStream> getAllSystemStreams() {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Resolves the startpoint to a system specific offset.
+   * @param startpoint represents the startpoint.
+   * @param systemStreamPartition represents the system stream partition.
+   * @return the resolved offset.
+   */
+  default String resolveStartpointToOffset(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
+    throw new UnsupportedOperationException();
+  }
 }

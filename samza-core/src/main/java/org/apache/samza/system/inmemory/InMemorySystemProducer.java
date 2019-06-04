@@ -19,8 +19,9 @@
 
 package org.apache.samza.system.inmemory;
 
-import java.util.Optional;
+import com.google.common.base.Preconditions;
 import org.apache.samza.Partition;
+import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -75,14 +76,38 @@ public class InMemorySystemProducer implements SystemProducer {
     Object key = envelope.getKey();
     Object message = envelope.getMessage();
 
-    // use the hashcode from partition key in the outgoing message envelope or default to message hashcode
-    int hashCode = Optional.ofNullable(envelope.getPartitionKey())
-        .map(Object::hashCode)
-        .orElse(message.hashCode());
-    int partition = Math.abs(hashCode) % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
+    Object partitionKey;
+    // We use the partition key from message if available, if not fallback to message key or use message as partition
+    // key as the final resort.
+    if (envelope.getPartitionKey() != null) {
+      partitionKey = envelope.getPartitionKey();
+    } else if (key != null) {
+      partitionKey = key;
+    } else {
+      partitionKey = message;
+    }
+
+    Preconditions.checkNotNull(partitionKey, "Failed to compute partition key for the message: " + envelope);
+
+    int partition =
+        Math.abs(partitionKey.hashCode()) % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
 
     SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(partition));
     memoryManager.put(ssp, key, message);
+  }
+
+  /**
+   * Populates the IME to the ssp configured, this gives user more control to set up Test environment partition.
+   * The offset in the envelope needs to adhere to a rule that for messages in the same system stream partition the
+   * offset needs to start at 0 for the first and be monotonically increasing for the following messages.
+   * If not the {@link InMemoryManager#put(SystemStreamPartition, IncomingMessageEnvelope)} will fail.
+   *
+   * Note: Please DO NOT use this in production use cases, this is only meant to set-up more flexible tests.
+   * This function is not thread safe.
+   * @param envelope incoming message envelope
+   */
+  public void send(IncomingMessageEnvelope envelope) {
+    memoryManager.put(envelope.getSystemStreamPartition(), envelope);
   }
 
   /**

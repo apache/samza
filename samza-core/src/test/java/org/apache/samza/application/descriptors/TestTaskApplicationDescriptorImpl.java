@@ -33,7 +33,6 @@ import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.runtime.ProcessorLifecycleListenerFactory;
-import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.task.TaskFactory;
 import org.junit.Before;
 import org.junit.Test;
@@ -73,8 +72,6 @@ public class TestTaskApplicationDescriptorImpl {
       BaseTableDescriptor mock2 = mock(BaseTableDescriptor.class);
       when(mock1.getTableId()).thenReturn("test-table1");
       when(mock2.getTableId()).thenReturn("test-table2");
-      when(mock1.getSerde()).thenReturn(mock(KVSerde.class));
-      when(mock2.getSerde()).thenReturn(mock(KVSerde.class));
       this.add(mock1);
       this.add(mock2);
     } };
@@ -97,7 +94,7 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddInputStreams() {
     TaskApplication testApp = appDesc -> {
-      mockInputs.forEach(appDesc::addInputStream);
+      mockInputs.forEach(appDesc::withInputStream);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockInputs.toArray(), appDesc.getInputDescriptors().values().toArray());
@@ -106,7 +103,7 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddOutputStreams() {
     TaskApplication testApp = appDesc -> {
-      mockOutputs.forEach(appDesc::addOutputStream);
+      mockOutputs.forEach(appDesc::withOutputStream);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockOutputs.toArray(), appDesc.getOutputDescriptors().values().toArray());
@@ -115,16 +112,16 @@ public class TestTaskApplicationDescriptorImpl {
   @Test
   public void testAddTables() {
     TaskApplication testApp = appDesc -> {
-      mockTables.forEach(appDesc::addTable);
+      mockTables.forEach(appDesc::withTable);
     };
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(mockTables, appDesc.getTableDescriptors());
   }
 
   @Test
-  public void testSetTaskFactory() {
+  public void testWithTaskFactory() {
     TaskFactory mockTf = mock(TaskFactory.class);
-    TaskApplication testApp = appDesc -> appDesc.setTaskFactory(mockTf);
+    TaskApplication testApp = appDesc -> appDesc.withTaskFactory(mockTf);
     TaskApplicationDescriptorImpl appDesc = new TaskApplicationDescriptorImpl(testApp, config);
     assertEquals(appDesc.getTaskFactory(), mockTf);
   }

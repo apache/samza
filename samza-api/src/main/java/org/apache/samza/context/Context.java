@@ -18,60 +18,73 @@
  */
 package org.apache.samza.context;
 
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.runtime.ApplicationRunner;
+
+
 /**
- * Container object for all context provided to instantiate an application at runtime.
+ * A holder for all framework and application defined contexts at runtime.
  */
 public interface Context {
   /**
-   * Returns the framework-provided context for the overall job that is being run.
-   * @return framework-provided job context
+   * Gets the framework-provided context for the job.
+   *
+   * @return the framework-provided job context
    */
   JobContext getJobContext();
 
   /**
-   * Returns the framework-provided context for the container that this is in.
+   * Gets the framework-provided context for the current container. This context is shared by all tasks within
+   * the container.
    * <p>
-   * Note that this is not the application-defined container context. Use
-   * {@link Context#getApplicationContainerContext()} to get the application-defined container context.
-   * @return framework-provided container context
+   * Use {@link #getApplicationContainerContext()} to get the application-defined container context.
+   *
+   * @return the framework-provided container context
    */
   ContainerContext getContainerContext();
 
   /**
-   * Returns the framework-provided context for the task that that this is in.
+   * Gets the framework-provided context for the current task.
    * <p>
-   * Note that this is not the application-defined task context. Use {@link Context#getApplicationTaskContext()}
-   * to get the application-defined task context.
-   * @return framework-provided task context
+   * Use {@link #getApplicationTaskContext()} to get the application-defined task context.
+   *
+   * @return the framework-provided task context
    */
   TaskContext getTaskContext();
 
   /**
-   * Returns the application-defined container context object specified by the
-   * {@link ApplicationContainerContextFactory}. This is shared across all tasks in the container, but not across
-   * containers.
+   * Gets the application-defined context for the current container. This context is shared by all tasks within
+   * the container.
    * <p>
-   * In order to use this in application code, it should be casted to the concrete type that corresponds to the
-   * {@link ApplicationContainerContextFactory}.
+   * Use {@link ApplicationDescriptor#withApplicationContainerContextFactory} to provide a factory for this context.
+   * Cast the returned context to the concrete implementation type to use it.
    * <p>
-   * Note that this is not the framework-provided container context. Use {@link Context#getContainerContext()} to get
-   * the framework-provided container context.
-   * @return application-defined container context
-   * @throws IllegalStateException if no context could be built (e.g. no factory provided)
+   * Use {@link #getContainerContext()} to get the framework-provided container context.
+   *
+   * @return the application-defined container context
+   * @throws IllegalStateException if no {@link ApplicationContainerContextFactory} was was provided for the application
    */
   ApplicationContainerContext getApplicationContainerContext();
 
   /**
-   * Returns the application-defined task context object specified by the {@link ApplicationTaskContextFactory}.
-   * Each task will have a separate instance of this.
+   * Gets the application-defined task context for the current task. This context is unique to this task.
    * <p>
-   * In order to use this in application code, it should be casted to the concrete type that corresponds to the
-   * {@link ApplicationTaskContextFactory}.
+   * Use {@link ApplicationDescriptor#withApplicationTaskContextFactory} to provide a factory for this context.
+   * Cast the returned context to the concrete implementation type to use it.
    * <p>
-   * Note that this is not the framework-provided task context. Use {@link Context#getTaskContext()} to get the
-   * framework-provided task context.
-   * @return application-defined task context
-   * @throws IllegalStateException if no context could be built (e.g. no factory provided)
+   * Use {@link Context#getTaskContext()} to get the framework-provided task context.
+   *
+   * @return the application-defined task context
+   * @throws IllegalStateException if no {@link ApplicationTaskContextFactory} was provided for the application
    */
   ApplicationTaskContext getApplicationTaskContext();
+
+  /**
+   * Gets the {@link ExternalContext} that was created outside of the application.
+   * <p>
+   * Use {@link ApplicationRunner#run(ExternalContext)} to provide this context.
+   *
+   * @return the external context provided for the application
+   */
+  ExternalContext getExternalContext();
 }

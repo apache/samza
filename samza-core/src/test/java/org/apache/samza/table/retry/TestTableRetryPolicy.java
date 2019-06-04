@@ -46,6 +46,9 @@ public class TestTableRetryPolicy {
     Assert.assertEquals(100, fsRetry.getJitter().toMillis());
     Assert.assertEquals(4, fsRetry.getMaxRetries());
     Assert.assertNotNull(retryPolicy.getRetryPredicate());
+    Assert.assertEquals("{\"sleepTime\":{\"seconds\":1,\"nanos\":0},\"exponentialFactor\":0.0,"
+        + "\"jitter\":{\"seconds\":0,\"nanos\":100000000},\"maxAttempts\":4,\"backoffType\":\"FIXED\","
+        + "\"retryPredicate\":{}}", retryPolicy.toConfig(null, null).get("TableRetryPolicy"));
   }
 
   @Test
@@ -57,6 +60,9 @@ public class TestTableRetryPolicy {
     RetryPolicy fsRetry = FailsafeAdapter.valueOf(retryPolicy);
     Assert.assertEquals(1000, fsRetry.getDelayMin().toMillis());
     Assert.assertEquals(2000, fsRetry.getDelayMax().toMillis());
+    Assert.assertEquals("{\"randomMin\":{\"seconds\":1,\"nanos\":0},\"randomMax\":{\"seconds\":2,\"nanos\":0},"
+            + "\"exponentialFactor\":0.0,\"backoffType\":\"RANDOM\",\"retryPredicate\":{}}",
+        retryPolicy.toConfig(null, null).get("TableRetryPolicy"));
   }
 
   @Test
@@ -70,6 +76,10 @@ public class TestTableRetryPolicy {
     Assert.assertEquals(2000, fsRetry.getMaxDelay().toMillis());
     Assert.assertEquals(1.5, fsRetry.getDelayFactor(), 0.001);
     Assert.assertEquals(100, fsRetry.getJitter().toMillis());
+    Assert.assertEquals("{\"sleepTime\":{\"seconds\":1,\"nanos\":0},\"exponentialFactor\":1.5,"
+            + "\"exponentialMaxSleep\":{\"seconds\":2,\"nanos\":0},\"jitter\":{\"seconds\":0,\"nanos\":100000000},"
+            + "\"backoffType\":\"EXPONENTIAL\",\"retryPredicate\":{}}",
+        retryPolicy.toConfig(null, null).get("TableRetryPolicy"));
   }
 
   @Test
@@ -78,5 +88,7 @@ public class TestTableRetryPolicy {
     retryPolicy.withRetryPredicate((e) -> e instanceof IllegalArgumentException);
     Assert.assertTrue(retryPolicy.getRetryPredicate().test(new IllegalArgumentException()));
     Assert.assertFalse(retryPolicy.getRetryPredicate().test(new NullPointerException()));
+    Assert.assertEquals("{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"retryPredicate\":{}}",
+        retryPolicy.toConfig(null, null).get("TableRetryPolicy"));
   }
 }

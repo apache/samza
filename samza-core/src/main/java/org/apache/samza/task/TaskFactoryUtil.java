@@ -48,7 +48,7 @@ public class TaskFactoryUtil {
     if (appDesc instanceof TaskApplicationDescriptorImpl) {
       return ((TaskApplicationDescriptorImpl) appDesc).getTaskFactory();
     } else if (appDesc instanceof StreamApplicationDescriptorImpl) {
-      return (StreamTaskFactory) () -> new StreamOperatorTask(
+      return (StreamOperatorTaskFactory) () -> new StreamOperatorTask(
           ((StreamApplicationDescriptorImpl) appDesc).getOperatorSpecGraph());
     }
     throw new IllegalArgumentException(String.format("ApplicationDescriptorImpl has to be either TaskApplicationDescriptorImpl or "
@@ -100,29 +100,39 @@ public class TaskFactoryUtil {
    * in multi-thread mode.
    *
    * @param factory  the task factory instance loaded according to the task class
-   * @param singleThreadMode  the flag indicating whether the job is running in single thread mode or not
    * @param taskThreadPool  the thread pool to run the {@link AsyncStreamTaskAdapter} tasks
    * @return  the finalized task factory object
    */
-  public static TaskFactory finalizeTaskFactory(TaskFactory factory, boolean singleThreadMode, ExecutorService taskThreadPool) {
-
+  public static TaskFactory finalizeTaskFactory(TaskFactory factory, ExecutorService taskThreadPool) {
     validateFactory(factory);
-
     boolean isAsyncTaskClass = factory instanceof AsyncStreamTaskFactory;
+
     if (isAsyncTaskClass) {
       log.info("Got an AsyncStreamTask implementation.");
+      return factory;
     }
 
-    if (singleThreadMode && isAsyncTaskClass) {
-      throw new SamzaException("AsyncStreamTask cannot run on single thread mode.");
+    boolean isStreamOperatorTaskClass = factory instanceof StreamOperatorTaskFactory;
+
+    /*
+     * Note: Even though StreamOperatorTask is an instanceof AsyncStreamTask, we still need to
+     * adapt it in order to inject the container thread pool. Long term, this will go away once we have the
+     * InternalTaskContext refactor, which would then become the entry point for exposing any of the runtime objects
+     * created in the container.
+     * Refer to SAMZA-2203 for more details.
+     */
+    if (isStreamOperatorTaskClass) {
+      log.info("Adapting StreamOperatorTaskFactory to inject container thread pool");
+      return (AsyncStreamTaskFactory) () -> {
+        StreamOperatorTask operatorTask = (StreamOperatorTask) factory.createInstance();
+        operatorTask.setTaskThreadPool(taskThreadPool);
+        return operatorTask;
+      };
     }
 
-    if (!singleThreadMode && !isAsyncTaskClass) {
-      log.info("Converting StreamTask to AsyncStreamTaskAdapter when running StreamTask with multiple threads");
-      return (AsyncStreamTaskFactory) () -> new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
-    }
-
-    return factory;
+    log.info("Converting StreamTask to AsyncStreamTaskAdapter");
+    return (AsyncStreamTaskFactory) () ->
+        new AsyncStreamTaskAdapter(((StreamTaskFactory) factory).createInstance(), taskThreadPool);
   }
 
   private static void validateFactory(TaskFactory factory) {
@@ -130,8 +140,12 @@ public class TaskFactoryUtil {
       throw new SamzaException("Either the task class name or the task factory instance is required.");
     }
 
-    if (!(factory instanceof StreamTaskFactory) && !(factory instanceof AsyncStreamTaskFactory)) {
-      throw new SamzaException(String.format("TaskFactory must be either StreamTaskFactory or AsyncStreamTaskFactory. %s is not supported",
+    boolean isValidFactory = factory instanceof StreamTaskFactory
+            || factory instanceof AsyncStreamTaskFactory
+            || factory instanceof StreamOperatorTaskFactory;
+
+    if (!isValidFactory) {
+      throw new SamzaException(String.format("TaskFactory must be either StreamTaskFactory or AsyncStreamTaskFactory or StreamOperatorTaskFactory. %s is not supported",
           factory.getClass()));
     }
   }

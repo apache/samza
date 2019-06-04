@@ -57,7 +57,7 @@ public class TestZkMetadataStore {
   public void beforeTest() {
     String testZkConnectionString = String.format("%s:%s", LOCALHOST, zkServer.getPort());
     Config zkConfig = new MapConfig(ImmutableMap.of(ZkConfig.ZK_CONNECT, testZkConnectionString));
-    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("/%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
+    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
   }
 
   @After
@@ -67,7 +67,7 @@ public class TestZkMetadataStore {
 
   @Test
   public void testReadAfterWrite() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
+    String key = "test-key1";
     byte[] value = "test-value1".getBytes("UTF-8");
     Assert.assertNull(zkMetadataStore.get(key));
     zkMetadataStore.put(key, value);
@@ -77,7 +77,7 @@ public class TestZkMetadataStore {
 
   @Test
   public void testReadAfterDelete() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
+    String key = "test-key1";
     byte[] value = "test-value1".getBytes("UTF-8");
     Assert.assertNull(zkMetadataStore.get(key));
     zkMetadataStore.put(key, value);
@@ -88,14 +88,14 @@ public class TestZkMetadataStore {
   }
 
   @Test
-  public void testReadOfNonExistentKey() throws Exception {
-    Assert.assertNull(zkMetadataStore.get("randomKey".getBytes("UTF-8")));
+  public void testReadOfNonExistentKey() {
+    Assert.assertNull(zkMetadataStore.get("randomKey"));
     Assert.assertEquals(0, zkMetadataStore.all().size());
   }
 
   @Test
   public void testMultipleUpdatesForSameKey() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
+    String key = "test-key1";
     byte[] value = "test-value1".getBytes("UTF-8");
     byte[] value1 = "test-value2".getBytes("UTF-8");
     zkMetadataStore.put(key, value);
@@ -106,16 +106,16 @@ public class TestZkMetadataStore {
 
   @Test
   public void testAllEntries() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
-    byte[] key1 = "test-key2".getBytes("UTF-8");
-    byte[] key2 = "test-key3".getBytes("UTF-8");
+    String key = "test-key1";
+    String key1 = "test-key2";
+    String key2 = "test-key3";
     byte[] value = "test-value1".getBytes("UTF-8");
     byte[] value1 = "test-value2".getBytes("UTF-8");
     byte[] value2 = "test-value3".getBytes("UTF-8");
     zkMetadataStore.put(key, value);
     zkMetadataStore.put(key1, value1);
     zkMetadataStore.put(key2, value2);
-    ImmutableMap<byte[], byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
+    ImmutableMap<String, byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
     Assert.assertEquals(expected.size(), zkMetadataStore.all().size());
   }
 }

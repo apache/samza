@@ -20,60 +20,46 @@
 package org.apache.samza.metrics
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.Config
-import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.config.{ClusterManagerConfig, Config}
 import org.apache.samza.util.Logging
-import org.apache.samza.util.MetricsReporterLoader
-
-import scala.collection.JavaConverters._
-
-object ContainerProcessManagerMetrics {
-  val sourceName = "ApplicationMaster"
-}
 
 /**
- * Responsible for wiring up Samza's metrics. Given that Samza has a metric
- * registry, we might as well use it. This class takes Samza's application
- * master state, and converts it to metrics.
- */
-class ContainerProcessManagerMetrics(
-                                      val config: Config,
-                                      val state: SamzaApplicationState,
-                                      val registry: ReadableMetricsRegistry) extends MetricsHelper  with Logging {
+  * Responsible for wiring up Samza's metrics. Given that Samza has a metric
+  * registry, we might as well use it. This class takes Samza's application
+  * master state, and converts it to metrics.
+  */
+class ContainerProcessManagerMetrics(val config: Config,
+  val state: SamzaApplicationState,
+  val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
+  val clusterManagerConfig = new ClusterManagerConfig(config)
 
-  val jvm = new JvmMetrics(registry)
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, ContainerProcessManagerMetrics.sourceName).asScala
-  reporters.values.foreach(_.register(ContainerProcessManagerMetrics.sourceName, registry))
+  val mRunningContainers = newGauge("running-containers", () => state.runningProcessors.size)
+  val mNeededContainers = newGauge("needed-containers", () => state.neededProcessors.get())
+  val mCompletedContainers = newGauge("completed-containers", () => state.completedProcessors.get())
+  val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
+  val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
+  val mContainers = newGauge("container-count", () => state.processorCount.get())
+  val mRedundantNotifications = newGauge("redundant-notifications", () => state.redundantNotifications.get())
+  val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
+  val mPreferredHostRequests = newGauge("preferred-host-requests", () => state.preferredHostRequests.get())
+  val mAnyHostRequests = newGauge("any-host-requests", () => state.anyHostRequests.get())
+  val mExpiredPreferredHostRequests = newGauge("expired-preferred-host-requests", () => state.expiredPreferredHostRequests.get())
+  val mExpiredAnyHostRequests = newGauge("expired-any-host-requests", () => state.expiredAnyHostRequests.get())
 
-   def start() {
-    val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
-    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers.get())
-    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers.get())
-    val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
-    val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
-    val mContainers = newGauge("container-count", () => state.containerCount)
-    val mRedundantNotifications = newGauge("redundant-notifications", () => state.redundantNotifications.get())
-    val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
-    val mPreferredHostRequests = newGauge("preferred-host-requests", () => state.preferredHostRequests.get())
-    val mAnyHostRequests = newGauge("any-host-requests", () => state.anyHostRequests.get())
-    val mExpiredPreferredHostRequests = newGauge("expired-preferred-host-requests", () => state.expiredPreferredHostRequests.get())
-    val mExpiredAnyHostRequests = newGauge("expired-any-host-requests", () => state.expiredAnyHostRequests.get())
+  val mHostAffinityMatchPct = newGauge("host-affinity-match-pct", () => {
+    val numPreferredHostRequests = state.preferredHostRequests.get()
+    val numExpiredPreferredHostRequests = state.expiredPreferredHostRequests.get()
+    if (numPreferredHostRequests != 0) {
+      100.00 * (numPreferredHostRequests - numExpiredPreferredHostRequests) / numPreferredHostRequests
+    } else {
+      0L
+    }
+  })
 
-    val mHostAffinityMatchPct = newGauge("host-affinity-match-pct", () => {
-      val numPreferredHostRequests = state.preferredHostRequests.get()
-      val numExpiredPreferredHostRequests = state.expiredPreferredHostRequests.get()
-      if (numPreferredHostRequests != 0) {
-            100.00 * (numPreferredHostRequests - numExpiredPreferredHostRequests) / numPreferredHostRequests
-          } else {
-            0L
-          }
-      })
+  val mFailedStandbyAllocations = newGauge("failed-standby-allocations", () => state.failedStandbyAllocations.get())
+  val mFailoversToAnyHost = newGauge("failovers-to-any-host", () => state.failoversToAnyHost.get())
+  val mFailoversToStandby = newGauge("failovers-to-standby", () => state.failoversToStandby.get())
 
-    jvm.start
-    reporters.values.foreach(_.start)
-  }
-
-   def stop() {
-    reporters.values.foreach(_.stop)
-  }
+  val mContainerMemoryMb = newGauge("container-memory-mb", () => clusterManagerConfig.getContainerMemoryMb)
+  val mContainerCpuCores = newGauge("container-cpu-cores", () => clusterManagerConfig.getNumCores)
 }

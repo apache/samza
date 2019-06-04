@@ -19,31 +19,66 @@
 package org.apache.samza.context;
 
 import java.io.Serializable;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
 
 
 /**
- * An application should implement this if it has a {@link ApplicationTaskContext} that is needed for
- * initialization. This will be used to create instance(s) of that {@link ApplicationTaskContext}.
+ * The factory for creating {@link ApplicationTaskContext} instances for a {@link SamzaApplication}during task
+ * initialization.
  * <p>
- * This will be called to create an instance of {@link ApplicationTaskContext} during the initialization stage of each
- * task. At that stage, the framework-provided job-level, container-level, and task-level contexts are available for
- * creating the {@link ApplicationTaskContext}. Also, the application-defined container-level context is available.
+ * Use {@link ApplicationDescriptor#withApplicationTaskContextFactory} to provide the
+ * {@link ApplicationTaskContextFactory}. Use {@link Context#getApplicationTaskContext()} to get the created
+ * {@link ApplicationTaskContext} instance for the current task.
  * <p>
- * This is {@link Serializable} because it is specified in the
- * {@link org.apache.samza.application.descriptors.ApplicationDescriptor}.
- * @param <T> concrete type of {@link ApplicationTaskContext} returned by this factory
+ * The {@link ApplicationTaskContextFactory} implementation must be {@link Serializable}.
+ *
+ * @param <T> concrete type of {@link ApplicationTaskContext} created by this factory
  */
+@InterfaceStability.Evolving
 public interface ApplicationTaskContextFactory<T extends ApplicationTaskContext> extends Serializable {
   /**
-   * Create an instance of the application-defined {@link ApplicationTaskContext}.
+   * Creates an instance of the application-defined {@link ApplicationTaskContext}.
+   * <p>
+   * Applications should implement this to provide a context for task initialization.
    *
-   * @param jobContext framework-provided job context used for building {@link ApplicationTaskContext}
-   * @param containerContext framework-provided container context used for building {@link ApplicationTaskContext}
-   * @param taskContext framework-provided task context used for building {@link ApplicationTaskContext}
-   * @param applicationContainerContext application-provided container context used for building
-   * {@link ApplicationTaskContext}
-   * @return new instance of the application-defined {@link ApplicationContainerContext}
+   * @param externalContext external context provided for the application; null if it was not provided
+   * @param jobContext framework-provided job context
+   * @param containerContext framework-provided container context
+   * @param taskContext framework-provided task context
+   * @param applicationContainerContext application-defined container context; null if it was not provided
+   * @return a new instance of the application-defined {@link ApplicationTaskContext}
    */
-  T create(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
-      ApplicationContainerContext applicationContainerContext);
+  default T create(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext,
+      TaskContext taskContext, ApplicationContainerContext applicationContainerContext) {
+    return create(jobContext, containerContext, taskContext, applicationContainerContext);
+  }
+
+  /**
+   * New implementations should not implement this directly. Implement
+   * {@link #create(ExternalContext, JobContext, ContainerContext, TaskContext, ApplicationContainerContext)} instead.
+   * <p>
+   * This is the same as
+   * {@link #create(ExternalContext, JobContext, ContainerContext, TaskContext, ApplicationContainerContext)}, except it
+   * does not provide access to external context.
+   * <p>
+   * This is being left here for backwards compatibility.
+   *
+   * @param jobContext framework-provided job context
+   * @param containerContext framework-provided container context
+   * @param taskContext framework-provided task context
+   * @param applicationContainerContext application-defined container context; null if it was not provided
+   * @return a new instance of the application-defined {@link ApplicationTaskContext}
+   *
+   * Deprecated: Applications should implement
+   * {@link #create(ExternalContext, JobContext, ContainerContext, TaskContext, ApplicationContainerContext)} directly.
+   * This is being left here for backwards compatibility.
+   */
+  @Deprecated
+  default T create(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
+      ApplicationContainerContext applicationContainerContext) {
+    // adding this here so that new apps do not need to implement this
+    throw new UnsupportedOperationException("Please implement a version of create for the factory implementation.");
+  }
 }

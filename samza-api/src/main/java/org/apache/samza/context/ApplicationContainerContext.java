@@ -18,34 +18,44 @@
  */
 package org.apache.samza.context;
 
+
+import java.io.Serializable;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+
 /**
- * An application should implement this to contain any runtime objects required by processing logic which can be shared
- * across all tasks in a container. A single instance of this will be created in each container. Note that if the
- * container moves or the container model changes (e.g. container failure/rebalancing), then this will be recreated.
+ * An {@link ApplicationContainerContext} instance can be used for holding per-container runtime state and objects and
+ * managing their lifecycle. This context is shared across all tasks in the container.
  * <p>
- * This needs to be created by an implementation of {@link ApplicationContainerContextFactory}. The factory should
- * create the runtime objects contained within this context.
+ * Use {@link ApplicationDescriptor#withApplicationContainerContextFactory} to provide the
+ * {@link ApplicationContainerContextFactory}. Use {@link Context#getApplicationContainerContext()} to get the created
+ * {@link ApplicationContainerContext} instance for the current container.
  * <p>
- * This is related to {@link ContainerContext} in that they are both associated with the container lifecycle. In order
- * to access this in application code, use {@link Context#getApplicationContainerContext()}. The
- * {@link ContainerContext} is accessible through {@link Context#getContainerContext()}.
+ * A unique instance of {@link ApplicationContainerContext} is created in each container. If the container moves or the
+ * container model changes (e.g. due to failure or re-balancing), a new instance is created.
  * <p>
- * If it is necessary to have a separate instance per task, then use {@link ApplicationTaskContext} instead.
+ * Use the {@link ApplicationContainerContextFactory} to create any runtime state and objects, and the
+ * {@link ApplicationContainerContext#start()} and {@link ApplicationContainerContext#stop()} methods to manage their
+ * lifecycle.
  * <p>
- * This class does not need to be {@link java.io.Serializable} and instances are not persisted across deployments.
+ * Use {@link ApplicationTaskContext} to hold unique runtime state and objects for each task within a container. Use
+ * {@link ContainerContext} to access framework-provided context for a container.
+ * <p>
+ * Unlike its {@link ApplicationContainerContextFactory}, an implementation does not need to be {@link Serializable}.
  */
 public interface ApplicationContainerContext {
   /**
-   * Lifecycle logic which will run after tasks in the container are initialized but before processing begins.
+   * Starts this {@link ApplicationContainerContext} before any tasks in the container are initialized and before
+   * processing begins.
    * <p>
-   * If this throws an exception, then the container will fail to start.
+   * If this throws an exception, the container will fail to start.
    */
   void start();
 
   /**
-   * Lifecycle logic which will run after processing ends but before tasks in the container are closed.
+   * Stops this {@link ApplicationContainerContext} after processing ends and after all tasks in the container
+   * are closed.
    * <p>
-   * If this throws an exception, then the container will fail to fully shut down.
+   * If this throws an exception, the container will fail to fully shut down.
    */
   void stop();
 }

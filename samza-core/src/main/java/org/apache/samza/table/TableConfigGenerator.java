@@ -19,20 +19,21 @@
 
 package org.apache.samza.table;
 
-import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.table.descriptors.TableProvider;
-import org.apache.samza.table.descriptors.TableProviderFactory;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.config.SerializerConfig;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.SerializableSerde;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
-import org.apache.samza.operators.TableImpl;
-import org.apache.samza.util.Util;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,60 +42,67 @@ import org.slf4j.LoggerFactory;
  * Helper class to generate table configs.
  */
 public class TableConfigGenerator {
+
   private static final Logger LOG = LoggerFactory.getLogger(TableConfigGenerator.class);
 
   /**
-   * Generate table configurations given a list of table descriptors
-   * @param config the job configuration
-   * @param tableDescriptors the list of tableDescriptors
-   * @return configuration for the tables
+   * Generate configuration for provided tables
+   *
+   * @param jobConfig existing job config
+   * @param tableDescriptors table descriptors, for which configuration to be generated
+   * @return table configuration
    */
-  static public Map<String, String> generateConfigsForTableDescs(Config config, List<TableDescriptor> tableDescriptors) {
-    return generateConfigsForTableSpecs(config, getTableSpecs(tableDescriptors));
+  public static Map<String, String> generate(Config jobConfig, List<TableDescriptor> tableDescriptors) {
+    Map<String, String> tableConfig = new HashMap<>();
+    tableDescriptors.forEach(tableDescriptor -> tableConfig.putAll(tableDescriptor.toConfig(jobConfig)));
+    LOG.info("TableConfigGenerator has generated configs {}", tableConfig);
+    return tableConfig;
   }
 
   /**
-   * Generate table configurations given a list of table specs
-   * @param config the job configuration
-   * @param tableSpecs the list of tableSpecs
-   * @return configuration for the tables
+   * Generate serde configuration for provided tables
+   *
+   * @param tableDescriptors table descriptors, for which serde configuration to be generated
+   * @return serde configuration for tables
    */
-  static public Map<String, String> generateConfigsForTableSpecs(Config config, List<TableSpec> tableSpecs) {
-    Map<String, String> tableConfigs = new HashMap<>();
+  public static Map<String, String> generateSerdeConfig(List<TableDescriptor> tableDescriptors) {
 
-    tableSpecs.forEach(tableSpec -> {
-        // Add table provider factory config
-        tableConfigs.put(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, tableSpec.getId()),
-            tableSpec.getTableProviderFactoryClassName());
+    Map<String, String> serdeConfigs = new HashMap<>();
 
-        // Generate additional configuration
-        TableProviderFactory tableProviderFactory =
-            Util.getObj(tableSpec.getTableProviderFactoryClassName(), TableProviderFactory.class);
-        TableProvider tableProvider = tableProviderFactory.getTableProvider(tableSpec);
-        tableConfigs.putAll(tableProvider.generateConfig(config, tableConfigs));
+    // Collect key and msg serde instances for all the tables
+    Map<String, Serde> tableKeySerdes = new HashMap<>();
+    Map<String, Serde> tableValueSerdes = new HashMap<>();
+    HashSet<Serde> serdes = new HashSet<>();
+    tableDescriptors.stream()
+        .filter(d -> d instanceof LocalTableDescriptor)
+        .forEach(d -> {
+            LocalTableDescriptor ld = (LocalTableDescriptor) d;
+            tableKeySerdes.put(ld.getTableId(), ld.getSerde().getKeySerde());
+            tableValueSerdes.put(ld.getTableId(), ld.getSerde().getValueSerde());
+          });
+    serdes.addAll(tableKeySerdes.values());
+    serdes.addAll(tableValueSerdes.values());
+
+    // Generate serde names
+    SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
+    Base64.Encoder base64Encoder = Base64.getEncoder();
+    Map<Serde, String> serdeUUIDs = new HashMap<>();
+    serdes.forEach(serde -> {
+        String serdeName = serdeUUIDs.computeIfAbsent(serde,
+            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+        serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 
-    LOG.info("TableConfigGenerator has generated configs {}", tableConfigs);
-    return tableConfigs;
-  }
-
-  /**
-   * Get list of table specs given a list of table descriptors.
-   * @param tableDescs the list of tableDescriptors
-   * @return list of tableSpecs
-   */
-  static public List<TableSpec> getTableSpecs(List<TableDescriptor> tableDescs) {
-    Map<TableSpec, TableImpl> tableSpecs = new LinkedHashMap<>();
-
-    tableDescs.forEach(tableDesc -> {
-        TableSpec tableSpec = ((BaseTableDescriptor) tableDesc).getTableSpec();
-
-        if (tableSpecs.containsKey(tableSpec)) {
-          throw new IllegalStateException(
-              String.format("getTable() invoked multiple times with the same tableId: %s", tableDesc.getTableId()));
-        }
-        tableSpecs.put(tableSpec, new TableImpl(tableSpec));
+    // Set key and msg serdes for tables to the serde names generated above
+    tableKeySerdes.forEach((tableId, serde) -> {
+        String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
+        serdeConfigs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
-    return new ArrayList<>(tableSpecs.keySet());
+    tableValueSerdes.forEach((tableId, serde) -> {
+        String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
+        serdeConfigs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+      });
+    return serdeConfigs;
   }
 }

@@ -25,12 +25,14 @@ import java.util.Collection;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.spec.AsyncFlatMapOperatorSpec;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -50,7 +52,6 @@ import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.TableSpec;
 
 
 /**
@@ -104,6 +105,14 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
+  public <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> flatMapFn) {
+    String opId = this.streamAppDesc.getNextOpId(OpCode.ASYNC_FLAT_MAP);
+    AsyncFlatMapOperatorSpec<M, OM> op = OperatorSpecs.createAsyncOperatorSpec(flatMapFn, opId);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
+  }
+
+  @Override
   public void sink(SinkFunction<? super M> sinkFn) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SINK);
     SinkOperatorSpec<M> op = OperatorSpecs.createSinkOperatorSpec(sinkFn, opId);
@@ -111,11 +120,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public void sendTo(OutputStream<M> outputStream) {
+  public MessageStream<M> sendTo(OutputStream<M> outputStream) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     OutputOperatorSpec<M> op = OperatorSpecs.createSendToOperatorSpec(
         (OutputStreamImpl<M>) outputStream, opId);
     this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
   }
 
   @Override
@@ -145,11 +155,10 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
 
   @Override
   public <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn) {
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn, Object ... args) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.JOIN);
-    TableSpec tableSpec = ((TableImpl) table).getTableSpec();
     StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec = OperatorSpecs.createStreamTableJoinOperatorSpec(
-        tableSpec, (StreamTableJoinFunction<K, M, R, JM>) joinFn, opId);
+        ((TableImpl) table).getTableId(), (StreamTableJoinFunction<K, M, R, JM>) joinFn, opId, args);
     this.operatorSpec.registerNextOperatorSpec(joinOpSpec);
     return new MessageStreamImpl<>(this.streamAppDesc, joinOpSpec);
   }
@@ -180,11 +189,12 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V> void sendTo(Table<KV<K, V>> table) {
+  public <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     SendToTableOperatorSpec<K, V> op =
-        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableSpec(), opId);
+        OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableId(), opId, args);
     this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
   }
 
   @Override

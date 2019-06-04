@@ -40,7 +40,7 @@ import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.operators.KV;
-import org.apache.samza.table.descriptors.BaseHybridTableDescriptor;
+import org.apache.samza.table.descriptors.HybridTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.SystemDescriptor;
 import org.apache.samza.operators.spec.InputOperatorSpec;
@@ -311,9 +311,12 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
             ". Values will not be (de)serialized");
       }
       streamSerdes.put(streamId, KV.of(keySerde, valueSerde));
-    } else if (!currentSerdePair.getKey().equals(keySerde) || !currentSerdePair.getValue().equals(valueSerde)) {
+    } else if (!currentSerdePair.getKey().getClass().equals(keySerde.getClass())
+        || !currentSerdePair.getValue().getClass().equals(valueSerde.getClass())) {
       throw new IllegalArgumentException(String.format("Serde for streamId: %s is already defined. Cannot change it to "
           + "different serdes.", streamId));
+    } else {
+      LOGGER.warn("Using previously defined serde for streamId: " + streamId + ".");
     }
     return streamSerdes.get(streamId);
   }
@@ -362,9 +365,9 @@ public abstract class ApplicationDescriptorImpl<S extends ApplicationDescriptor>
         || tableDescriptors.get(tableId) == tableDescriptor,
         String.format("Cannot add multiple table descriptors with the same tableId: %s", tableId));
 
-    if (tableDescriptor instanceof BaseHybridTableDescriptor) {
+    if (tableDescriptor instanceof HybridTableDescriptor) {
       List<? extends TableDescriptor> tableDescs =
-          ((BaseHybridTableDescriptor) tableDescriptor).getTableDescriptors();
+          ((HybridTableDescriptor) tableDescriptor).getTableDescriptors();
       tableDescs.forEach(td -> addTableDescriptor(td));
     }
 

@@ -1,25 +1,24 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.avro;
 
-import com.google.common.base.Joiner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -57,9 +56,13 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
+import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.planner.RelSchemaConverter;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,6 +96,7 @@ public class TestAvroRelConversion {
     put("key3", "val3");
   }};
   private List<String> arrayValue = Arrays.asList("val1", "val2", "val3");
+  RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
 
   public TestAvroRelConversion() {
     Map<String, String> props = new HashMap<>();
@@ -125,7 +129,8 @@ public class TestAvroRelConversion {
   public void testSimpleSchemaConversion() {
     String streamName = "stream";
 
-    RelDataType dataType = simpleRecordSchemaProvider.getRelationalSchema();
+    SqlSchema sqlSchema = simpleRecordSchemaProvider.getSqlSchema();
+    RelDataType dataType = relSchemaConverter.convertToRelSchema(sqlSchema);
     junit.framework.Assert.assertTrue(dataType instanceof RelRecordType);
     RelRecordType recordType = (RelRecordType) dataType;
 
@@ -140,14 +145,14 @@ public class TestAvroRelConversion {
 
   @Test
   public void testComplexSchemaConversion() {
-    RelDataType relSchema = complexRecordSchemaProvider.getRelationalSchema();
+    RelDataType relSchema = relSchemaConverter.convertToRelSchema(complexRecordSchemaProvider.getSqlSchema());
 
     LOG.info("Relational schema " + relSchema);
   }
 
   @Test
   public void testNestedSchemaConversion() {
-    RelDataType relSchema = nestedRecordSchemaProvider.getRelationalSchema();
+    RelDataType relSchema = relSchemaConverter.convertToRelSchema(nestedRecordSchemaProvider.getSqlSchema());
 
     LOG.info("Relational schema " + relSchema);
   }
@@ -160,8 +165,7 @@ public class TestAvroRelConversion {
     record.put("name", "name1");
 
     SamzaSqlRelMessage message = simpleRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(message.toString());
   }
 
   @Test
@@ -192,6 +196,7 @@ public class TestAvroRelConversion {
   @Test
   public void testComplexRecordConversion() throws IOException {
     GenericData.Record record = new GenericData.Record(ComplexRecord.SCHEMA$);
+
     record.put("id", id);
     record.put("bool_value", boolValue);
     record.put("double_value", doubleValue);
@@ -202,6 +207,7 @@ public class TestAvroRelConversion {
     record.put("long_value", longValue);
     record.put("array_values", arrayValue);
     record.put("map_values", mapValue);
+    record.put("union_value", testStrValue);
 
     ComplexRecord complexRecord = new ComplexRecord();
     complexRecord.id = id;
@@ -216,12 +222,14 @@ public class TestAvroRelConversion {
     complexRecord.array_values.addAll(arrayValue);
     complexRecord.map_values = new HashMap<>();
     complexRecord.map_values.putAll(mapValue);
+    complexRecord.union_value = testStrValue;
+
 
     byte[] serializedData = bytesFromGenericRecord(record);
-    validateAvroSerializedData(serializedData);
+    validateAvroSerializedData(serializedData, testStrValue);
 
     serializedData = encodeAvroSpecificRecord(ComplexRecord.class, complexRecord);
-    validateAvroSerializedData(serializedData);
+    validateAvroSerializedData(serializedData, testStrValue);
   }
 
   @Test
@@ -237,7 +245,6 @@ public class TestAvroRelConversion {
     addressRecord.put("streetnum", streetNumRecord);
     record.put("address", addressRecord);
     record.put("selfEmployed", "True");
-
 
     GenericData.Record phoneNumberRecordH = new GenericData.Record(PhoneNumber.SCHEMA$);
     phoneNumberRecordH.put("kind", Kind.Home);
@@ -263,8 +270,51 @@ public class TestAvroRelConversion {
 
     SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
 
-    LOG.info(Joiner.on(",").join(relMessage.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(relMessage.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    for (Schema.Field field : Profile.SCHEMA$.getFields()) {
+      // equals() on GenericRecord does the nested record equality check as well.
+      Assert.assertEquals(record.get(field.name()), recordPostConversion.get(field.name()));
+    }
+  }
+
+  // SAMZA-2110 We need to enable this when we have a true support for Null records
+  @Ignore
+  @Test
+  public void testRecordConversionWithNullPayload() throws IOException {
+    GenericData.Record record = null;
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
+
+    KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
+    GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
+
+    Assert.assertTrue(recordPostConversion == null);
+  }
+
+  @Test
+  public void testNestedRecordConversionWithSubRecordsBeingNull() throws IOException {
+    GenericData.Record record = new GenericData.Record(Profile.SCHEMA$);
+    record.put("id", 1);
+    record.put("name", "name1");
+    record.put("companyId", 0);
+    GenericData.Record addressRecord = null;
+    record.put("address", addressRecord);
+    record.put("selfEmployed", "True");
+
+    List<GenericData.Record> phoneNumbers = null;
+    record.put("phoneNumbers", phoneNumbers);
+
+    HashMap<String, IndexedRecord> mapValues = null;
+    record.put("mapValues", mapValues);
+
+    SamzaSqlRelMessage relMessage = nestedRecordAvroRelConverter.convertToRelMessage(new KV<>("key", record));
+
+    LOG.info(relMessage.toString());
 
     KV<Object, Object> samzaMessage = nestedRecordAvroRelConverter.convertToSamzaMessage(relMessage);
     GenericRecord recordPostConversion = (GenericRecord) samzaMessage.getValue();
@@ -292,23 +342,28 @@ public class TestAvroRelConversion {
     return outputStream.toByteArray();
   }
 
-  private void validateAvroSerializedData(byte[] serializedData) throws IOException {
+  private void validateAvroSerializedData(byte[] serializedData, Object unionValue) throws IOException {
     GenericRecord complexRecordValue = genericRecordFromBytes(serializedData, ComplexRecord.SCHEMA$);
 
     SamzaSqlRelMessage message = complexRecordAvroRelConverter.convertToRelMessage(new KV<>("key", complexRecordValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getFieldNames().size(), ComplexRecord.SCHEMA$.getFields().size() + 1);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getFieldNames().size(),
+        ComplexRecord.SCHEMA$.getFields().size() + 1);
 
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("id").get(), id);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), floatValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
-    Assert.assertTrue(
-        arrayValue.stream()
-            .map(Utf8::new)
-            .collect(Collectors.toList())
-            .equals(message.getSamzaSqlRelRecord().getField("array_values").get()));
+    if (unionValue instanceof String) {
+      Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), new Utf8((String) unionValue));
+    } else {
+      Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), unionValue);
+    }
+    Assert.assertTrue(arrayValue.stream()
+        .map(Utf8::new)
+        .collect(Collectors.toList())
+        .equals(message.getSamzaSqlRelRecord().getField("array_values").get()));
     Assert.assertTrue(mapValue.entrySet()
         .stream()
         .collect(Collectors.toMap(x -> new Utf8(x.getKey()), y -> new Utf8(y.getValue())))
@@ -321,8 +376,7 @@ public class TestAvroRelConversion {
         Arrays.equals(((ByteString) message.getSamzaSqlRelRecord().getField("fixed_value").get()).getBytes(),
             DEFAULT_TRACKING_ID_BYTES));
 
-    LOG.info(Joiner.on(",").useForNull("null").join(message.getSamzaSqlRelRecord().getFieldValues()));
-    LOG.info(Joiner.on(",").join(message.getSamzaSqlRelRecord().getFieldNames()));
+    LOG.info(message.toString());
 
     KV<Object, Object> samzaMessage = complexRecordAvroRelConverter.convertToSamzaMessage(message);
     GenericRecord record = (GenericRecord) samzaMessage.getValue();
@@ -331,7 +385,12 @@ public class TestAvroRelConversion {
       if (field.name().equals("array_values")) {
         Assert.assertTrue(record.get(field.name()).equals(complexRecordValue.get(field.name())));
       } else {
-        Assert.assertEquals(record.get(field.name()), complexRecordValue.get(field.name()));
+        Object expected = complexRecordValue.get(field.name());
+        if (expected instanceof Float) {
+          // AvroRelConverter converts float to double to be in sync with what Calcite does in JavaTypeFactoryImpl
+          expected = Double.parseDouble(Float.toString((Float) expected));
+        }
+        Assert.assertEquals(expected, record.get(field.name()));
       }
     }
   }

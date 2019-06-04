@@ -22,15 +22,12 @@ package org.apache.samza.container;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
-import org.apache.samza.task.AsyncRunLoop;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction1;
 import java.util.concurrent.ExecutorService;
-
-import static org.apache.samza.util.ScalaJavaUtil.toScalaFunction;
 
 /**
  * Factory class to create runloop for a Samza task, based on the type
@@ -67,50 +64,32 @@ public class RunLoopFactory {
       throw new SamzaException("Mixing StreamTask and AsyncStreamTask is not supported");
     }
 
-    if (asyncTaskCount == 0) {
-      log.info("Run loop in single thread mode.");
+    int taskMaxConcurrency = config.getMaxConcurrency();
+    log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
 
-      return new RunLoop(
-        taskInstances,
-        consumerMultiplexer,
-        containerMetrics,
-        maxThrottlingDelayMs,
-        taskWindowMs,
-        taskCommitMs,
-        toScalaFunction(() -> clock.nanoTime()));
-    } else {
-      Integer taskMaxConcurrency = config.getMaxConcurrency();
+    boolean isAsyncCommitEnabled = config.getAsyncCommit();
+    log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
 
-      log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
+    long callbackTimeout = config.getCallbackTimeoutMs();
+    log.info("Got callbackTimeout: {}.", callbackTimeout);
 
-      boolean isAsyncCommitEnabled = config.getAsyncCommit();
+    long maxIdleMs = config.getMaxIdleMs();
+    log.info("Got maxIdleMs: {}.", maxIdleMs);
 
-      log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
+    log.info("Run loop in asynchronous mode.");
 
-      Long callbackTimeout = config.getCallbackTimeoutMs();
-
-      log.info("Got callbackTimeout: {}.", callbackTimeout);
-
-      Long maxIdleMs = config.getMaxIdleMs();
-
-      log.info("Got maxIdleMs: {}.", maxIdleMs);
-
-      log.info("Run loop in asynchronous mode.");
-
-      return new AsyncRunLoop(
-        JavaConverters.mapAsJavaMapConverter(taskInstances).asJava(),
-        threadPool,
-        consumerMultiplexer,
-        taskMaxConcurrency,
-        taskWindowMs,
-        taskCommitMs,
-        callbackTimeout,
-        maxThrottlingDelayMs,
-        maxIdleMs,
-        containerMetrics,
-        clock,
-        isAsyncCommitEnabled);
-    }
+    return new RunLoop(
+      JavaConverters.mapAsJavaMapConverter(taskInstances).asJava(),
+      threadPool,
+      consumerMultiplexer,
+      taskMaxConcurrency,
+      taskWindowMs,
+      taskCommitMs,
+      callbackTimeout,
+      maxThrottlingDelayMs,
+      maxIdleMs,
+      containerMetrics,
+      clock,
+      isAsyncCommitEnabled);
   }
-
 }

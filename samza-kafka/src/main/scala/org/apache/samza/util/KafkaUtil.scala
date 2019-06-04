@@ -20,15 +20,18 @@
 package org.apache.samza.util
 
 import java.util.concurrent.atomic.AtomicLong
+
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import org.apache.kafka.common.PartitionInfo
-import org.apache.samza.config.{Config, ConfigException}
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.kafka.common.TopicPartition
+import org.apache.samza.config.Config
 import org.apache.samza.execution.StreamManager
 import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.system.SystemStreamPartition
 import org.apache.kafka.common.errors.ReplicaNotAvailableException
-import kafka.common.ErrorMapping
+import org.apache.kafka.common.protocol.Errors
+import org.apache.samza.Partition
 
 object KafkaUtil extends Logging {
   /**
@@ -48,6 +51,18 @@ object KafkaUtil extends Logging {
     val checkpointTopic = "__samza_checkpoint_ver_%d_for_%s_%s" format(CHECKPOINT_LOG_VERSION_NUMBER,
       jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"))
     StreamManager.createUniqueNameForBatch(checkpointTopic, config)
+  }
+
+  /**
+   * Converts the TopicPartition to SystemStreamPartition.
+   *
+   * @param topicPartition represents the TopicPartition.
+   * @return an instance of the SystemStreamPartition.
+   */
+  def toSystemStreamPartition(systemName: String, topicPartition: TopicPartition): SystemStreamPartition = {
+    val topic = topicPartition.topic()
+    val partition = new Partition(topicPartition.partition)
+    new SystemStreamPartition(systemName, topic, partition)
   }
 
   /**
@@ -72,7 +87,7 @@ object KafkaUtil extends Logging {
    * errorCode that's not NoError and also not ReplicaNotAvailableCode.
    */
   def isBadErrorCode(code: Short) = {
-    code != ErrorMapping.NoError && code != ErrorMapping.ReplicaNotAvailableCode
+    code != Errors.NONE.code() && code != Errors.REPLICA_NOT_AVAILABLE.code()
   }
 }
 

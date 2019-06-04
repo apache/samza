@@ -24,64 +24,72 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.table.Table;
+import org.apache.samza.table.ReadWriteTable;
 
 
 /**
- * Contains information at task granularity, provided by the Samza framework, to be used to instantiate an application
- * at runtime.
+ * The framework-provided context for the current task.
  * <p>
- * Note that application-defined task-level context is accessible through {@link ApplicationTaskContext}.
+ * Use {@link ApplicationTaskContext} for the application-defined context for the current task.
  */
 public interface TaskContext {
+
   /**
-   * Returns the {@link TaskModel} associated with this task. This contains information like the task name and
-   * associated {@link SystemStreamPartition}s.
-   * @return {@link TaskModel} associated with this task
+   * Gets the {@link TaskModel} for this task, which contains this task's name and its {@link SystemStreamPartition}s.
+   *
+   * @return the {@link TaskModel} for this task
    */
   TaskModel getTaskModel();
 
   /**
-   * Returns the {@link MetricsRegistry} for this task. Metrics built using this registry will be associated with the
-   * task.
-   * @return {@link MetricsRegistry} for this task
+   * Gets the {@link MetricsRegistry} for this task, which can be used to register metrics that are reported per task.
+   *
+   * @return the {@link MetricsRegistry} for this task
    */
   MetricsRegistry getTaskMetricsRegistry();
 
   /**
-   * Returns the {@link KeyValueStore} corresponding to the {@code storeName}. In application code, it is recommended to
-   * cast the resulting stores to {@link KeyValueStore}s with the correct concrete type parameters.
-   * @param storeName name of the {@link KeyValueStore} to get
-   * @return {@link KeyValueStore} corresponding to the {@code storeName}
+   * Gets the {@link KeyValueStore} associated with {@code storeName} for this task.
+   * <p>
+   * The returned store should be cast with the concrete type parameters based on the configured store serdes.
+   * E.g., if using string key and integer value serde, it should be cast to a {@code KeyValueStore<String, Integer>}.
+   *
+   * @param storeName name of the {@link KeyValueStore} to get for this task
+   * @return the {@link KeyValueStore} associated with {@code storeName} for this task
    * @throws IllegalArgumentException if there is no store associated with {@code storeName}
    */
   KeyValueStore<?, ?> getStore(String storeName);
 
   /**
-   * Returns the {@link Table} corresponding to the {@code tableId}. In application code, it is recommended to cast this
-   * to the resulting tables to {@link Table}s with the correct concrete type parameters.
-   * @param tableId id of the {@link Table} to get
-   * @return {@link Table} corresponding to the {@code tableId}
+   * Gets the {@link ReadWriteTable} corresponding to the {@code tableId} for this task.
+   *
+   * @param tableId id of the {@link ReadWriteTable} to get
+   * @param <K> the type of the key in this table
+   * @param <V> the type of the value in this table
+   * @return the {@link ReadWriteTable} associated with {@code tableId} for this task
    * @throws IllegalArgumentException if there is no table associated with {@code tableId}
    */
-  Table<?> getTable(String tableId);
+  <K, V> ReadWriteTable<K, V> getTable(String tableId);
 
   /**
-   * Returns a task-level {@link CallbackScheduler} which can be used to delay execution of some logic.
-   * @return {@link CallbackScheduler} for this task
+   * Gets the {@link CallbackScheduler} for this task, which can be used to schedule a callback to be executed
+   * at a future time.
+   *
+   * @return the {@link CallbackScheduler} for this task
    */
   CallbackScheduler getCallbackScheduler();
 
   /**
-   * Set the starting offset for the given {@link SystemStreamPartition}. Offsets can only be set for a
-   * {@link SystemStreamPartition} assigned to this task. The {@link SystemStreamPartition}s assigned to this task can
-   * be accessed through {@link TaskModel#getSystemStreamPartitions()} for the {@link TaskModel} obtained by calling
+   * Sets the starting offset for the given {@link SystemStreamPartition}.
+   * <p> Offsets can only be set for a {@link SystemStreamPartition} assigned to this task.
+   * The {@link SystemStreamPartition}s assigned to this task can be accessed through
+   * {@link TaskModel#getSystemStreamPartitions()} for the {@link TaskModel} obtained by calling
    * {@link #getTaskModel()}. Trying to set the offset for any other partition will have no effect.
    *
    * NOTE: this feature is experimental, and the API may change in a future release.
    *
-   * @param systemStreamPartition {@link org.apache.samza.system.SystemStreamPartition} whose offset should be set
-   * @param offset to set for the given {@link org.apache.samza.system.SystemStreamPartition}
+   * @param systemStreamPartition {@link SystemStreamPartition} whose offset should be set
+   * @param offset to set for the given {@link SystemStreamPartition}
    */
   @InterfaceStability.Evolving
   void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset);

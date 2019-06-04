@@ -18,20 +18,30 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Optional;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
+import org.apache.samza.metrics.JvmMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import scala.Option;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -40,21 +50,28 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * ContainerProcessManager is responsible for requesting containers, handling failures, and notifying the application master that the
  * job is done.
  *
- * The following main threads are involved in the execution of the ContainerProcessManager :
+ * The following threads are involved in the execution of the ContainerProcessManager :
  *  - The main thread (defined in SamzaAppMaster) that sends requests to the cluster manager.
  *  - The callback handler thread that receives the responses from cluster manager and handles:
  *      - Populating a buffer when a container is allocated by the cluster manager
  *        (allocatedContainers in {@link ResourceRequestState}
- *      - Identifying the cause of container failure and re-request containers from the cluster manager by adding request to the
+ *      - Identifying the cause of container failure and re-requesting containers from the cluster manager by adding request to the
  *        internal requestQueue in {@link ResourceRequestState}
- *  - The allocator thread defined here assigns the allocated containers to pending requests
+ *  - The allocator thread that assigns the allocated containers to pending requests
  *    (See {@link org.apache.samza.clustermanager.ContainerAllocator} or {@link org.apache.samza.clustermanager.HostAwareContainerAllocator})
  *
  */
-
 public class ContainerProcessManager implements ClusterResourceManager.Callback   {
 
   private static final Logger log = LoggerFactory.getLogger(ContainerProcessManager.class);
+
+  /**
+   * Metrics for the {@link ContainerProcessManager}
+   */
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
+  private final static String EXEC_ENV_CONTAINER_ID_SYS_PROPERTY = "CONTAINER_ID";
+
+
   /**
    * Does this Samza Job need hostAffinity when containers are allocated.
    */
@@ -77,6 +94,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final AbstractContainerAllocator containerAllocator;
   private final Thread allocatorThread;
 
+  // The StandbyContainerManager manages standby-aware allocation and failover of containers
+  private final Optional<StandbyContainerManager> standbyContainerManager;
+
+  private final Option<DiagnosticsManager> diagnosticsManager;
+
   /**
    * A standard interface to request resources.
    */
@@ -84,7 +106,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   /**
    * If there are too many failed container failures (configured by job.container.retry.count) for a
-   * container, the job exits.
+   * processor, the job exits.
    */
   private volatile boolean tooManyFailedContainers = false;
 
@@ -94,32 +116,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private volatile Throwable exceptionOccurred = null;
 
   /**
-   * A map that keeps track of how many times each container failed. The key is the container ID, and the
-   * value is the {@link ResourceFailure} object that has a count of failures.
-   *
+   * A map that keeps track of how many times each processor failed. The key is the processor ID, and the
+   * value is the {@link ProcessorFailure} object that has a count of failures.
    */
-  private final Map<String, ResourceFailure> containerFailures = new HashMap<>();
+  private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
+  private ContainerProcessManagerMetrics containerProcessManagerMetrics;
+  private JvmMetrics jvmMetrics;
+  private Map<String, MetricsReporter> metricsReporters;
 
-  /**
-   * Metrics for {@link ContainerProcessManager}
-   */
-  private final ContainerProcessManagerMetrics metrics;
-
-  //for testing
-  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry, AbstractContainerAllocator allocator, ClusterResourceManager manager) {
-    this.state = state;
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
-    this.jobConfig = new JobConfig(config);
-    this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
-    this.clusterResourceManager = manager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
-    this.containerAllocator = allocator;
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-  }
-
-  public ContainerProcessManager(Config config,
-                                 SamzaApplicationState state,
-                                 MetricsRegistryMap registry) {
+  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -128,24 +133,49 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+
+    // Initialize metrics
+    this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.jvmMetrics = new JvmMetrics(registry);
+    this.metricsReporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), METRICS_SOURCE_NAME);
+
+    // Creating diagnostics manager and reporter, and wiring it respectively
+    String jobName = new JobConfig(config).getName().get();
+    String jobId = new JobConfig(config).getJobId();
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(EXEC_ENV_CONTAINER_ID_SYS_PROPERTY));
+    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
+
+    if (diagnosticsManagerReporterPair.isPresent()) {
+      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
+      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+    } else {
+      diagnosticsManager = Option.empty();
+    }
+
+    // Wire all metrics to all reporters
+    this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
+
+    // Enable standby container manager if required
+    if (jobConfig.getStandbyTasksEnabled()) {
+      this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
+    } else {
+      this.standbyContainerManager = Optional.empty();
+    }
 
     if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, state);
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, standbyContainerManager, state);
     } else {
       this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
     }
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    log.info("finished initialization of samza task manager");
-
+    log.info("Finished container process manager initialization.");
   }
 
   //package private, used only in tests
-  ContainerProcessManager(Config config,
-                          SamzaApplicationState state,
-                          MetricsRegistryMap registry,
-                          ClusterResourceManager resourceManager) {
+  ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
+      ClusterResourceManager resourceManager, Optional<AbstractContainerAllocator> allocator) {
     JobModelManager jobModelManager = state.jobModelManager;
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
@@ -154,54 +184,65 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
-    this.metrics = new ContainerProcessManagerMetrics(config, state, registry);
+    this.standbyContainerManager = Optional.empty();
+    this.diagnosticsManager = Option.empty();
 
-
-    if (this.hostAffinityEnabled) {
-      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, state);
+    if (allocator.isPresent()) {
+      this.containerAllocator = allocator.get();
+    } else if (this.hostAffinityEnabled) {
+      this.containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(), config, this.standbyContainerManager, state);
     } else {
       this.containerAllocator = new ContainerAllocator(clusterResourceManager, config, state);
     }
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    log.info("finished initialization of samza task manager");
+    log.info("Finished container process manager initialization");
   }
 
   public boolean shouldShutdown() {
-    log.debug(" TaskManager state: Completed containers: {}, Configured containers: {}, Is there too many FailedContainers: {}, Is AllocatorThread alive: {} "
-      , new Object[]{state.completedContainers.get(), state.containerCount, tooManyFailedContainers ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no"});
+    log.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
+      state.completedProcessors.get(), state.processorCount, tooManyFailedContainers ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
-      log.error("Exception in ContainerProcessManager", exceptionOccurred);
+      log.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return tooManyFailedContainers || state.completedContainers.get() == state.containerCount.get() || !allocatorThread.isAlive();
+    return tooManyFailedContainers || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
   }
 
   public void start() {
-    metrics.start();
+    log.info("Starting the container process manager");
 
-    log.info("Starting Container Process Manager");
+    if (jvmMetrics != null) {
+      jvmMetrics.start();
+    }
+
+    if (this.metricsReporters != null) {
+      this.metricsReporters.values().forEach(reporter -> reporter.start());
+    }
+
+    if (this.diagnosticsManager.isDefined()) {
+      this.diagnosticsManager.get().start();
+    }
+
+    log.info("Starting the cluster resource manager");
     clusterResourceManager.start();
 
-    log.info("Starting the Samza task manager");
-    final int containerCount = jobConfig.getContainerCount();
-
-    state.containerCount.set(containerCount);
-    state.neededContainers.set(containerCount);
+    state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
+    state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
 
     // Request initial set of containers
-    Map<String, String> containerToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
-
-    containerAllocator.requestResources(containerToHostMapping);
+    Map<String, String> processorToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
+    containerAllocator.requestResources(processorToHostMapping);
 
     // Start container allocator thread
     log.info("Starting the container allocator thread");
     allocatorThread.start();
+    log.info("Starting the container process manager");
   }
 
   public void stop() {
-    log.info("Invoked stop of the Samza container process manager");
+    log.info("Stopping the container process manager");
 
     // Shutdown allocator thread
     containerAllocator.stop();
@@ -209,70 +250,83 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       allocatorThread.join();
       log.info("Stopped container allocator");
     } catch (InterruptedException ie) {
-      log.error("Allocator Thread join() threw an interrupted exception", ie);
+      log.error("Allocator thread join threw an interrupted exception", ie);
       Thread.currentThread().interrupt();
     }
 
-    if (metrics != null) {
+    if (this.diagnosticsManager.isDefined()) {
       try {
-        metrics.stop();
-        log.info("Stopped metrics reporters");
-      } catch (Throwable e) {
-        log.error("Exception while stopping metrics {}", e);
+        this.diagnosticsManager.get().stop();
+      } catch (InterruptedException e) {
+        log.error("InterruptedException while stopping diagnosticsManager", e);
       }
     }
 
     try {
-      clusterResourceManager.stop(state.status);
-      log.info("Stopped cluster resource manager");
+
+      if (this.metricsReporters != null) {
+        this.metricsReporters.values().forEach(reporter -> reporter.stop());
+      }
+
+      if (this.jvmMetrics != null) {
+        jvmMetrics.stop();
+      }
+
+      log.info("Stopped containerProcessManagerMetrics reporters");
     } catch (Throwable e) {
-      log.error("Exception while stopping cluster resource manager {}", e);
+      log.error("Exception while stopping containerProcessManagerMetrics", e);
     }
 
-    log.info("Finished stop of Container process manager");
+    try {
+      clusterResourceManager.stop(state.status);
+      log.info("Stopped the cluster resource manager");
+    } catch (Throwable e) {
+      log.error("Exception while stopping cluster resource manager", e);
+    }
 
+    log.info("Stopped the container process manager");
   }
 
-  public void onResourceAllocated(SamzaResource container) {
-    log.info("Container allocated from RM on " + container.getHost());
-    containerAllocator.addResource(container);
+  public void onResourceAllocated(SamzaResource resource) {
+    log.info("Container ID: {} allocated from RM on host: {}", resource.getContainerId(), resource.getHost());
+    containerAllocator.addResource(resource);
   }
 
   /**
    * This methods handles the onResourceCompleted callback from the RM. Based on the ContainerExitStatus, it decides
-   * whether a container that exited is marked as complete or failure.
-   * @param containerStatus of the resource that completed
+   * whether the container that exited is marked as complete or failure.
+   * @param resourceStatus status of the resource that completed
    */
-  public void onResourceCompleted(SamzaResourceStatus containerStatus) {
-    String containerIdStr = containerStatus.getResourceID();
-    String containerId = null;
-    for (Map.Entry<String, SamzaResource> entry: state.runningContainers.entrySet()) {
-      if (entry.getValue().getResourceID().equals(containerStatus.getResourceID())) {
-        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
+  public void onResourceCompleted(SamzaResourceStatus resourceStatus) {
+    String containerId = resourceStatus.getContainerId();
+    String processorId = null;
+    for (Map.Entry<String, SamzaResource> entry: state.runningProcessors.entrySet()) {
+      if (entry.getValue().getContainerId().equals(resourceStatus.getContainerId())) {
+        log.info("Container ID: {} matched running Processor ID: {} on host: {}", containerId, entry.getKey(), entry.getValue().getHost());
 
-        containerId = entry.getKey();
+        processorId = entry.getKey();
         break;
       }
     }
-    if (containerId == null) {
-      log.info("No matching container id found for " + containerStatus.toString());
+    if (processorId == null) {
+      log.info("No running Processor ID found for Container ID: {} with Status: {}. Ignoring redundant notification.", containerId, resourceStatus.toString());
       state.redundantNotifications.incrementAndGet();
       return;
     }
-    state.runningContainers.remove(containerId);
+    state.runningProcessors.remove(processorId);
 
-    int exitStatus = containerStatus.getExitCode();
+    int exitStatus = resourceStatus.getExitCode();
     switch (exitStatus) {
       case SamzaResourceStatus.SUCCESS:
-        log.info("Container {} completed successfully.", containerIdStr);
+        log.info("Container ID: {} for Processor ID: {} completed successfully.", containerId, processorId);
 
-        state.completedContainers.incrementAndGet();
+        state.completedProcessors.incrementAndGet();
 
-        state.finishedContainers.incrementAndGet();
-        containerFailures.remove(containerId);
+        state.finishedProcessors.incrementAndGet();
+        processorFailures.remove(processorId);
 
-        if (state.completedContainers.get() == state.containerCount.get()) {
-          log.info("Setting job status to SUCCEEDED, since all containers have been marked as completed.");
+        if (state.completedProcessors.get() == state.processorCount.get()) {
+          log.info("Setting job status to SUCCEEDED since all containers have been marked as completed.");
           state.status = SamzaApplicationState.SamzaAppStatus.SUCCEEDED;
         }
         break;
@@ -280,43 +334,39 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       case SamzaResourceStatus.DISK_FAIL:
       case SamzaResourceStatus.ABORTED:
       case SamzaResourceStatus.PREEMPTED:
-        log.info("Got an exit code of {}. This means that container {} was "
-                  + "killed by YARN, either due to being released by the application "
-                  + "master or being 'lost' due to node failures etc. or due to preemption by the RM",
-                exitStatus,
-                containerIdStr);
+        log.info("Container ID: {} for Processor ID: {} was released with an exit code: {}. This means that " +
+                "the container was killed by YARN, either due to being released by the application master " +
+                "or being 'lost' due to node failures etc. or due to preemption by the RM." +
+                "Requesting a new container for the processor.",
+                containerId, processorId, exitStatus);
 
         state.releasedContainers.incrementAndGet();
 
-        // If this container was assigned some partitions (a containerId), then
-        // clean up, and request a new container for the tasks. This only
+        // If this container was assigned some partitions (a processorId), then
+        // clean up, and request a new container for the processor. This only
         // should happen if the container was 'lost' due to node failure, not
         // if the AM released the container.
-        log.info("Released container {} was assigned task group ID {}. Requesting a new container for the task group.", containerIdStr, containerId);
-
-        state.neededContainers.incrementAndGet();
+        state.neededProcessors.incrementAndGet();
         state.jobHealthy.set(false);
 
-          // request a container on new host
-        containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
+        // handle container stop due to node fail
+        this.handleContainerStop(processorId, resourceStatus.getContainerId(), ResourceRequestState.ANY_HOST, exitStatus);
         break;
 
       default:
-        // TODO: Handle failure more intelligently. Should track NodeFailures!
-        log.info("Container failed for some reason. Let's start it again");
-        log.info("Container " + containerIdStr + " failed with exit code . " + exitStatus + " - " + containerStatus.getDiagnostics() + " containerID is " + containerId);
+        log.info("Container ID: {} for Processor ID: {} failed with exit code: {}.", containerId, processorId, exitStatus);
 
         state.failedContainers.incrementAndGet();
-        state.failedContainersStatus.put(containerIdStr, containerStatus);
+        state.failedContainersStatus.put(containerId, resourceStatus);
         state.jobHealthy.set(false);
 
-        state.neededContainers.incrementAndGet();
+        state.neededProcessors.incrementAndGet();
         // Find out previously running container location
-        String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
+        String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(processorId, SetContainerHostMapping.HOST_KEY);
         if (!hostAffinityEnabled || lastSeenOn == null) {
           lastSeenOn = ResourceRequestState.ANY_HOST;
         }
-        log.info("Container was last seen on " + lastSeenOn);
+        log.info("Container ID: {} for Processor ID: {} was last seen on host {}.", containerId, processorId, lastSeenOn);
         // A container failed for an unknown reason. Let's check to see if
         // we need to shutdown the whole app master if too many container
         // failures have happened. The rules for failing are that the
@@ -330,14 +380,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
 
         if (retryCount == 0) {
-          log.error("Container ID {} ({}) failed, and retry count is set to 0, so shutting down the application master, and marking the job as failed.", containerId, containerIdStr);
+          log.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
+              "so shutting down the application master and marking the job as failed.", processorId, containerId);
 
           tooManyFailedContainers = true;
         } else if (retryCount > 0) {
           int currentFailCount;
           long lastFailureTime;
-          if (containerFailures.containsKey(containerId)) {
-            ResourceFailure failure = containerFailures.get(containerId);
+          if (processorFailures.containsKey(processorId)) {
+            ProcessorFailure failure = processorFailures.get(processorId);
             currentFailCount = failure.getCount() + 1;
             lastFailureTime = failure.getLastFailure();
           } else {
@@ -348,32 +399,31 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
             long lastFailureMsDiff = System.currentTimeMillis() - lastFailureTime;
 
             if (lastFailureMsDiff < retryWindowMs) {
-              log.error("Container ID " + containerId + "(" + containerIdStr + ") has failed " + currentFailCount +
-                      " times, with last failure " + lastFailureMsDiff + "ms ago. This is greater than retry count of " +
-                      retryCount + " and window of " + retryWindowMs + "ms , so shutting down the application master, and marking the job as failed.");
+              log.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
+                  "This is greater than retry count of {} and window of {} ms, " +
+                  "so shutting down the application master and marking the job as failed.",
+                  processorId, containerId, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs);
 
               // We have too many failures, and we're within the window
               // boundary, so reset shut down the app master.
               tooManyFailedContainers = true;
               state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
             } else {
-              log.info("Resetting fail count for container ID {} back to 1, since last container failure ({}) for " +
-                      "this container ID was outside the bounds of the retry window.", containerId, containerIdStr);
+              log.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
+                  "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
 
               // Reset counter back to 1, since the last failure for this
               // container happened outside the window boundary.
-              containerFailures.put(containerId, new ResourceFailure(1, System.currentTimeMillis()));
+              processorFailures.put(processorId, new ProcessorFailure(1, System.currentTimeMillis()));
             }
           } else {
-            log.info("Current fail count for container ID {} is {}.", containerId, currentFailCount);
-            containerFailures.put(containerId, new ResourceFailure(currentFailCount, System.currentTimeMillis()));
+            log.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
+            processorFailures.put(processorId, new ProcessorFailure(currentFailCount, System.currentTimeMillis()));
           }
         }
 
         if (!tooManyFailedContainers) {
-          log.info("Requesting a new container ");
-          // Request a new container
-          containerAllocator.requestResource(containerId, lastSeenOn);
+          handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus);
         }
 
     }
@@ -384,7 +434,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     for (SamzaResource resource : resources) {
       onResourceAllocated(resource);
     }
-
   }
 
   @Override
@@ -396,45 +445,56 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   @Override
   public void onStreamProcessorLaunchSuccess(SamzaResource resource) {
+    String containerId = resource.getContainerId();
+    String containerHost = resource.getHost();
 
-    // 1. Obtain the Samza container Id for the pending container on this resource.
-    String containerId = getPendingContainerId(resource.getResourceID());
-    log.info("Successfully started container ID: {} on resource: {}", containerId, resource);
+    // 1. Obtain the processor ID for the pending container on this resource.
+    String processorId = getPendingProcessorId(containerId);
+    log.info("Successfully started Processor ID: {} on Container ID: {} on host: {}",
+        processorId, containerId, containerHost);
 
     // 2. Remove the container from the pending buffer and add it to the running buffer. Additionally, update the
     // job-health metric.
-    if (containerId != null) {
-      log.info("Moving containerID: {} on resource: {} from pending to running state", containerId, resource);
-      state.pendingContainers.remove(containerId);
-      state.runningContainers.put(containerId, resource);
+    if (processorId != null) {
+      log.info("Moving Processor ID: {} on Container ID: {} on host: {} from pending to running state.",
+          processorId, containerId, containerHost);
+      state.pendingProcessors.remove(processorId);
+      state.runningProcessors.put(processorId, resource);
 
-      if (state.neededContainers.decrementAndGet() == 0) {
+      if (state.neededProcessors.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }
     } else {
-      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that " +
-          "was not issued", resource);
+      log.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
+          "Ignoring invalid/redundant notification.", containerId, containerHost);
     }
   }
 
   @Override
   public void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t) {
-    log.error("Got a launch failure for SamzaResource {} with exception {}", resource, t);
-    // 1. Release resources for containers that failed back to YARN
-    log.info("Releasing unstartable container {}", resource.getResourceID());
+    String containerId = resource.getContainerId();
+    String containerHost = resource.getHost();
+
+    // 1. Obtain the pending Samza processor ID for this container ID.
+    String processorId = getPendingProcessorId(containerId);
+    log.error("Launch failed for pending Processor ID: {} on Container ID: {} on host: {} with exception: {}",
+        processorId, containerId, containerHost, t);
+
+    // 2. Release resources for containers that failed back to YARN
+    log.info("Releasing un-startable Container ID: {} for pending Processor ID: {}", containerId, processorId);
     clusterResourceManager.releaseResources(resource);
 
-    // 2. Obtain the Samza container Id for the pending container on this resource.
-    String containerId = getPendingContainerId(resource.getResourceID());
-    log.info("Failed container ID: {} for resourceId: {}", containerId, resource.getResourceID());
-
-    // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host.
-    if (containerId != null) {
-      log.info("Launch of container ID: {} failed on host: {}. Falling back to ANY_HOST", containerId, resource.getHost());
-      containerAllocator.requestResource(containerId, ResourceRequestState.ANY_HOST);
+    // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host, if standby are not enabled
+    // otherwise calling standbyContainerManager
+    if (processorId != null && standbyContainerManager.isPresent()) {
+      this.standbyContainerManager.get().handleContainerLaunchFail(processorId, containerId, containerAllocator);
+    } else if (processorId != null) {
+      log.info("Falling back to ANY_HOST for Processor ID: {} since launch failed for Container ID: {} on host: {}",
+          processorId, containerId, containerHost);
+      containerAllocator.requestResource(processorId, ResourceRequestState.ANY_HOST);
     } else {
-      log.warn("SamzaResource {} was not in pending state. Got an invalid callback for a launch request that was " +
-          "not issued", resource);
+      log.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
+          "Ignoring invalid/redundant notification.", containerId, containerHost);
     }
   }
 
@@ -444,7 +504,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   @Override
   public void onError(Throwable e) {
-    log.error("Exception occured in callbacks in the Container Manager : {}", e);
+    log.error("Exception occurred in callbacks in the Cluster Resource Manager", e);
     exceptionOccurred = e;
   }
 
@@ -462,27 +522,34 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     try {
       factory = Util.getObj(containerManagerFactoryClass, ResourceManagerFactory.class);
     } catch (Exception e) {
-      log.error("Exception when creating ContainerManager", e);
+      log.error("Error creating the cluster resource manager.", e);
       throw new SamzaException(e);
     }
     return factory;
   }
 
   /**
-   * Obtains the ID of the Samza container pending launch on the provided resource.
+   * Obtains the ID of the Samza processor pending launch on the provided resource (container).
    *
-   * @param resourceId the Id of the resource
-   * @return the Id of the Samza container on this resource
+   * @param resourceId the ID of the resource (container)
+   * @return the ID of the Samza processor on this resource
    */
-  private String getPendingContainerId(String resourceId) {
-    for (Map.Entry<String, SamzaResource> entry: state.pendingContainers.entrySet()) {
-      if (entry.getValue().getResourceID().equals(resourceId)) {
-        log.info("Matching container ID found " + entry.getKey() + " " + entry.getValue());
+  private String getPendingProcessorId(String resourceId) {
+    for (Map.Entry<String, SamzaResource> entry: state.pendingProcessors.entrySet()) {
+      if (entry.getValue().getContainerId().equals(resourceId)) {
+        log.info("Container ID: {} matched pending Processor ID: {} on host: {}", resourceId, entry.getKey(), entry.getValue().getHost());
         return entry.getKey();
       }
     }
     return null;
   }
 
-
+  private void handleContainerStop(String processorId, String resourceID, String preferredHost, int exitStatus) {
+    if (standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerStop(processorId, resourceID, preferredHost, exitStatus, containerAllocator);
+    } else {
+      // If StandbyTasks are not enabled, we simply make a request for the preferredHost
+      containerAllocator.requestResource(processorId, preferredHost);
+    }
+  }
 }

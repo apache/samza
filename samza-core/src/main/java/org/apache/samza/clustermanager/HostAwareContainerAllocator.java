@@ -18,95 +18,133 @@
  */
 package org.apache.samza.clustermanager;
 
+
+import java.util.Optional;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * This is the allocator thread that will be used by ContainerProcessManager when host-affinity is enabled for a job. It is similar
  * to {@link ContainerAllocator}, except that it considers locality for allocation.
  *
- * In case of host-affinity, each request ({@link SamzaResourceRequest} encapsulates the identifier of the container
+ * In case of host-affinity, each request ({@link SamzaResourceRequest} encapsulates the identifier of the processor
  * to be run and a "preferredHost". preferredHost is determined by the locality mappings in the coordinator stream.
- * This thread periodically wakes up and makes the best-effort to assign a container to the preferredHost. If the
- * preferredHost is not returned by the cluster manager before the corresponding container expires, the thread
- * assigns the container to any other host that is allocated next.
+ * This thread periodically wakes up and makes the best-effort to assign a processor to the preferredHost. If a
+ * resource on the preferredHost is not returned by the cluster manager before the corresponding request expires, it
+ * assigns the processor to any other host that is allocated next.
  *
- * The container expiry is determined by CONTAINER_REQUEST_TIMEOUT and is configurable on a per-job basis.
+ * The resource expiry timeout is determined by CONTAINER_REQUEST_TIMEOUT and is configurable on a per-job basis.
  *
- * If there aren't enough containers, it waits by sleeping for allocatorSleepIntervalMs milliseconds.
+ * If there aren't enough resources, it waits by sleeping for allocatorSleepIntervalMs milliseconds.
  */
 //This class is used in the refactored code path as called by run-jc.sh
-
 public class HostAwareContainerAllocator extends AbstractContainerAllocator {
   private static final Logger log = LoggerFactory.getLogger(HostAwareContainerAllocator.class);
   /**
    * Tracks the expiration of a request for resources.
    */
   private final int requestTimeout;
+  private final Optional<StandbyContainerManager> standbyContainerManager;
 
-  public HostAwareContainerAllocator(ClusterResourceManager manager ,
-                                     int timeout, Config config, SamzaApplicationState state) {
+  public HostAwareContainerAllocator(ClusterResourceManager manager,
+      int timeout, Config config, Optional<StandbyContainerManager> standbyContainerManager, SamzaApplicationState state) {
     super(manager, new ResourceRequestState(true, manager), config, state);
     this.requestTimeout = timeout;
+    this.standbyContainerManager = standbyContainerManager;
   }
 
   /**
    * Since host-affinity is enabled, all allocated resources are buffered in the list keyed by "preferredHost".
    *
    * If the requested host is not available, the thread checks to see if the request has expired.
-   * If it has expired, it runs the container with expectedContainerID on one of the available resources from the
+   * If it has expired, it runs the processor on one of the available resources from the
    * allocatedContainers buffer keyed by "ANY_HOST".
    */
   @Override
   public void assignResourceRequests()  {
     while (hasPendingRequest()) {
       SamzaResourceRequest request = peekPendingRequest();
-      log.info("Handling request: " + request.getContainerID() + " " + request.getRequestTimestampMs() + " " + request.getPreferredHost());
+      String processorId = request.getProcessorId();
       String preferredHost = request.getPreferredHost();
-      String containerID = request.getContainerID();
+      long requestCreationTime = request.getRequestTimestampMs();
+      log.info("Handling assignment request for Processor ID: {} on preferred host: {}.", processorId, preferredHost);
 
       if (hasAllocatedResource(preferredHost)) {
-        // Found allocated container at preferredHost
-        log.info("Found a matched-container {} on the preferred host. Running on {}", containerID, preferredHost);
-        runStreamProcessor(request, preferredHost);
+        // Found allocated container on preferredHost
+        log.info("Found an available container for Processor ID: {} on the preferred host: {}", processorId, preferredHost);
+        // Try to launch processor on this preferredHost if it all standby constraints are met
+        checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost, peekAllocatedResource(preferredHost));
         state.matchedResourceRequests.incrementAndGet();
       } else {
-        log.info("Did not find any allocated resources on preferred host {} for running container id {}",
-            preferredHost, containerID);
+        log.info("Did not find any allocated containers for running Processor ID: {} on the preferred host: {}.", processorId, preferredHost);
 
-        boolean expired = requestExpired(request);
+        boolean expired = isRequestExpired(request);
         boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
 
         if (expired) {
           updateExpiryMetrics(request);
-          if (resourceAvailableOnAnyHost) {
-            log.info("Request for container: {} on {} has expired. Running on ANY_HOST", request.getContainerID(), request.getPreferredHost());
+
+          if (standbyContainerManager.isPresent()) {
+            standbyContainerManager.get().handleExpiredResourceRequest(processorId, request,
+                Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
+
+          } else if (resourceAvailableOnAnyHost) {
+            log.info("Request for Processor ID: {} on host: {} has expired. Running on ANY_HOST", processorId, preferredHost);
             runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+
           } else {
-            log.info("Request for container: {} on {} has expired. Requesting additional resources on ANY_HOST.", request.getContainerID(), request.getPreferredHost());
+            log.info("Request for Processor ID: {} on host: {} has expired. Requesting additional resources on ANY_HOST.", processorId, preferredHost);
             resourceRequestState.cancelResourceRequest(request);
-            requestResource(containerID, ResourceRequestState.ANY_HOST);
+            requestResource(processorId, ResourceRequestState.ANY_HOST);
           }
+
         } else {
-          log.info("Request for container: {} on {} has not yet expired. Request creation time: {}. Request timeout: {}",
-              new Object[]{request.getContainerID(), request.getPreferredHost(), request.getRequestTimestampMs(), requestTimeout});
+          log.info("Request for Processor ID: {} on host: {} has not expired yet." +
+                  "Request creation time: {}. Current Time: {}. Request timeout: {} ms",
+              processorId, preferredHost, requestCreationTime, System.currentTimeMillis(), requestTimeout);
           break;
         }
       }
     }
   }
 
+
+  /**
+   * Since host-affinity is enabled, containers for all processors will be requested on their preferred host. If the job is
+   * run for the first time, it will get matched to any available host.
+   *
+   * @param processorToHostMapping A Map of [processorId, hostName] where processorId is the ID of the Samza processor
+   *                               to run on the resource. hostName is the host on which the resource must be allocated.
+   *                               The hostName value is null when host-affinity is enabled and job is run for the
+   *                               first time, or when the number of containers has been increased.
+   */
+  @Override
+  public void requestResources(Map<String, String> processorToHostMapping) {
+    for (Map.Entry<String, String> entry : processorToHostMapping.entrySet()) {
+      String processorId = entry.getKey();
+      String preferredHost = entry.getValue();
+      if (preferredHost == null) {
+        log.info("No preferred host mapping found for Processor ID: {}. Requesting resource on ANY_HOST", processorId);
+        preferredHost = ResourceRequestState.ANY_HOST;
+      }
+      requestResource(processorId, preferredHost);
+    }
+  }
+
   /**
    * Checks if a request has expired.
-   * @param request
-   * @return
+   * @param request the request to check
+   * @return true if request has expired
    */
-  private boolean requestExpired(SamzaResourceRequest request) {
+  private boolean isRequestExpired(SamzaResourceRequest request) {
     long currTime = System.currentTimeMillis();
     boolean requestExpired =  currTime - request.getRequestTimestampMs() > requestTimeout;
     if (requestExpired) {
-      log.info("Request {} with currTime {} has expired", request, currTime);
+      log.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
+          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestampMs(), currTime, requestTimeout);
     }
     return requestExpired;
   }
@@ -118,5 +156,16 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
     } else {
       state.expiredPreferredHostRequests.incrementAndGet();
     }
+  }
+
+  private void checkStandbyConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost, SamzaResource samzaResource) {
+    // If standby tasks are not enabled run streamprocessor on the given host
+    if (!this.standbyContainerManager.isPresent()) {
+      runStreamProcessor(request, preferredHost);
+      return;
+    }
+
+    this.standbyContainerManager.get().checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost,
+        samzaResource, this, resourceRequestState);
   }
 }

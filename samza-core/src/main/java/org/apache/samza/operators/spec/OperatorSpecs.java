@@ -20,6 +20,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.system.descriptors.InputTransformer;
@@ -29,8 +30,6 @@ import org.apache.samza.operators.functions.SinkFunction;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.windows.internal.WindowInternal;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.TableSpec;
-
 
 /**
  * Factory methods for creating {@link OperatorSpec} instances.
@@ -96,6 +95,21 @@ public class OperatorSpecs {
       FlatMapFunction<? super M, ? extends OM> flatMapFn, String opId) {
     return new FlatMapOperatorSpec<>((FlatMapFunction<M, OM>) flatMapFn, opId);
   }
+
+  /**
+   * Creates a {@link AsyncFlatMapOperatorSpec} for {@link AsyncFlatMapFunction}.
+   *
+   * @param asyncFlatMapFn  the transformation function
+   * @param opId  the unique ID of the operator
+   * @param <M>  type of input message
+   * @param <OM>  type of output message
+   * @return  the {@link AsyncFlatMapOperatorSpec}
+   */
+  public static <M, OM> AsyncFlatMapOperatorSpec<M, OM> createAsyncOperatorSpec(
+      AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn, String opId) {
+    return new AsyncFlatMapOperatorSpec<>((AsyncFlatMapFunction<M, OM>) asyncFlatMapFn, opId);
+  }
+
 
   /**
    * Creates a {@link SinkOperatorSpec} for the sink operator.
@@ -192,33 +206,35 @@ public class OperatorSpecs {
   /**
    * Creates a {@link StreamTableJoinOperatorSpec} with a join function.
    *
-   * @param tableSpec the table spec for the table on the right side of the join
+   * @param tableId the table Id for the table on the right side of the join
    * @param joinFn the user-defined join function to get join keys and results
    * @param opId the unique ID of the operator
    * @param <K> the type of join key
    * @param <M> the type of input messages
    * @param <R> the type of table record
    * @param <JM> the type of the join result
+   * @param args additional arguments passed to the table
    * @return the {@link StreamTableJoinOperatorSpec}
    */
   public static <K, M, R, JM> StreamTableJoinOperatorSpec<K, M, R, JM> createStreamTableJoinOperatorSpec(
-      TableSpec tableSpec, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
-    return new StreamTableJoinOperatorSpec(tableSpec, joinFn, opId);
+      String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId, Object ... args) {
+    return new StreamTableJoinOperatorSpec(tableId, joinFn, opId, args);
   }
 
   /**
    * Creates a {@link SendToTableOperatorSpec} with a key extractor and a value extractor function,
    * the type of incoming message is expected to be KV&#60;K, V&#62;.
    *
-   * @param tableSpec the table spec for the underlying table
+   * @param tableId the table Id for the underlying table
    * @param opId the unique ID of the operator
+   * @param args additional arguments passed to the table
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
   public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
-     TableSpec tableSpec, String opId) {
-    return new SendToTableOperatorSpec(tableSpec, opId);
+     String tableId, String opId, Object ... args) {
+    return new SendToTableOperatorSpec(tableId, opId, args);
   }
 
   /**

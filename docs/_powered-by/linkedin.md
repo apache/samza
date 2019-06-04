@@ -1,11 +1,7 @@
 ---
 name: LinkedIn
 domain: linkedin.com
-<<<<<<< Updated upstream
 priority: 0
-=======
-priority: D
->>>>>>> Stashed changes
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

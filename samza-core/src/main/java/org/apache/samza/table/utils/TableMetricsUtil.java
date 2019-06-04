@@ -20,6 +20,8 @@
 package org.apache.samza.table.utils;
 
 import com.google.common.base.Preconditions;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
@@ -29,6 +31,7 @@ import org.apache.samza.table.Table;
 import org.apache.samza.table.caching.SupplierGauge;
 
 import java.util.function.Supplier;
+import org.apache.samza.util.HighResolutionClock;
 
 
 /**
@@ -53,7 +56,7 @@ public class TableMetricsUtil {
     Preconditions.checkNotNull(table);
     Preconditions.checkNotNull(tableId);
 
-    this.metricsRegistry = context.getTaskContext().getTaskMetricsRegistry();
+    this.metricsRegistry = context.getContainerContext().getContainerMetricsRegistry();
     this.groupName = table.getClass().getSimpleName();
     this.tableId = tableId;
   }
@@ -87,8 +90,24 @@ public class TableMetricsUtil {
     return metricsRegistry.newGauge(groupName, new SupplierGauge(getMetricFullName(name), supplier));
   }
 
+  public static void incCounter(Counter counter) {
+    if (counter != null) {
+      counter.inc();
+    }
+  }
+
+  public static void updateTimer(Timer timer, long duration) {
+    if (timer != null) {
+      timer.update(duration);
+    }
+  }
+
   private String getMetricFullName(String name) {
     return String.format("%s-%s", tableId, name);
   }
 
+  public static HighResolutionClock mayCreateHighResolutionClock(Config config) {
+    final MetricsConfig metricsConfig = new MetricsConfig(config);
+    return metricsConfig.getMetricsTimerEnabled() ? System::nanoTime : () -> 0;
+  }
 }

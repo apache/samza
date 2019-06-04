@@ -19,10 +19,29 @@
 package org.apache.samza.table;
 
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.context.TaskContext;
+import org.apache.samza.operators.MessageStream;
+import org.apache.samza.operators.functions.InitableFunction;
+import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.task.InitableTask;
+
 
 /**
- *
- * Marker interface for a table.
+ * A {@link Table} is an abstraction for data sources that support random access by key. It is an evolution of the
+ * existing {@link KeyValueStore} API. It offers support for both local and remote data sources and composition through
+ * hybrid tables. For remote data sources, a {@code RemoteTable} provides optimized access with caching, rate-limiting,
+ * batching, and retry support.
+ * <p>
+ * Use a {@link TableDescriptor} to specify the properties of a {@link Table}. For High Level API
+ * {@link StreamApplication}s, use {@link StreamApplicationDescriptor#getTable} to obtain the {@link Table} instance for
+ * the descriptor that can be used with the {@link MessageStream} operators like {@link MessageStream#sendTo(Table, Object[])}.
+ * Alternatively, use {@link TaskContext#getTable(String)} in {@link InitableFunction#init} to get the table instance
+ * for use within operator functions. For Low Level API {@link TaskApplication}s, use {@link TaskContext#getTable}
+ * in {@link InitableTask#init} to get the table instance for use within the Task.
  *
  * @param <R> the type of records in the table
  */

@@ -35,11 +35,31 @@ public class TaskModel implements Comparable<TaskModel> {
   private final TaskName taskName;
   private final Set<SystemStreamPartition> systemStreamPartitions;
   private final Partition changelogPartition;
+  private final TaskMode taskMode;
 
-  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
+  /**
+   *  Create a TaskModel for an active task with the given taskName, SSPs, and changelogPartition.
+   * @param taskName The desired taskName
+   * @param systemStreamPartitions SSPs assigned to this task.
+   * @param changelogPartition The changelog SSP for this task.
+   * @param taskMode The mode of the task
+   */
+  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition, TaskMode taskMode) {
     this.taskName = taskName;
     this.systemStreamPartitions = Collections.unmodifiableSet(systemStreamPartitions);
     this.changelogPartition = changelogPartition;
+    this.taskMode = taskMode;
+  }
+
+
+  /**
+   *  Create a TaskModel for an active task with the given taskName, SSPs, and changelogPartition.
+   * @param taskName The desired taskName
+   * @param systemStreamPartitions SSPs assigned to this task.
+   * @param changelogPartition The changelog SSP for this task.
+   */
+  public TaskModel(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions, Partition changelogPartition) {
+    this(taskName, systemStreamPartitions, changelogPartition, TaskMode.Active);
   }
 
   /**
@@ -66,6 +86,10 @@ public class TaskModel implements Comparable<TaskModel> {
     return changelogPartition;
   }
 
+  public TaskMode getTaskMode() {
+    return this.taskMode;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -87,6 +111,10 @@ public class TaskModel implements Comparable<TaskModel> {
       return false;
     }
 
+    if (!taskMode.equals(taskModel.taskMode)) {
+      return false;
+    }
+
     return true;
   }
 
@@ -95,13 +123,14 @@ public class TaskModel implements Comparable<TaskModel> {
     int result = taskName.hashCode();
     result = 31 * result + systemStreamPartitions.hashCode();
     result = 31 * result + changelogPartition.hashCode();
+    result = 31 * result + taskMode.hashCode();
     return result;
   }
 
   @Override
-
   public String toString() {
-    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions + ", changeLogPartition=" + changelogPartition + "]";
+    return "TaskModel [taskName=" + taskName + ", systemStreamPartitions=" + systemStreamPartitions
+        + ", changeLogPartition=" + changelogPartition + ", taskMode=" + this.taskMode + "]";
   }
 
   public int compareTo(TaskModel other) {

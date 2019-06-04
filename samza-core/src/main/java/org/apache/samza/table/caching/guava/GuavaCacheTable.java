@@ -23,6 +23,7 @@ import com.google.common.cache.Cache;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
+import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
@@ -39,27 +40,26 @@ import java.util.concurrent.CompletableFuture;
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
-  private final String tableId;
+public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
+    implements ReadWriteTable<K, V> {
+
   private final Cache<K, V> cache;
 
   public GuavaCacheTable(String tableId, Cache<K, V> cache) {
-    this.tableId = tableId;
+    super(tableId);
     this.cache = cache;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void init(Context context) {
+    super.init(context);
     TableMetricsUtil tableMetricsUtil = new TableMetricsUtil(context, this, tableId);
     // hit- and miss-rate are provided by CachingTable.
     tableMetricsUtil.newGauge("evict-count", () -> cache.stats().evictionCount());
   }
 
   @Override
-  public V get(K key) {
+  public V get(K key, Object ... args) {
     try {
       return getAsync(key).get();
     } catch (Exception e) {
@@ -68,7 +68,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<V> getAsync(K key) {
+  public CompletableFuture<V> getAsync(K key, Object ... args) {
     CompletableFuture<V> future = new CompletableFuture<>();
     try {
       future.complete(cache.getIfPresent(key));
@@ -79,7 +79,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public Map<K, V> getAll(List<K> keys) {
+  public Map<K, V> getAll(List<K> keys, Object ... args) {
     try {
       return getAllAsync(keys).get();
     } catch (Exception e) {
@@ -88,7 +88,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys) {
+  public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
     CompletableFuture<Map<K, V>> future = new CompletableFuture<>();
     try {
       future.complete(cache.getAllPresent(keys));
@@ -99,7 +99,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void put(K key, V value) {
+  public void put(K key, V value, Object ... args) {
     try {
       putAsync(key, value).get();
     } catch (Exception e) {
@@ -108,7 +108,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<Void> putAsync(K key, V value) {
+  public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
     if (key == null) {
       return deleteAsync(key);
     }
@@ -124,7 +124,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void putAll(List<Entry<K, V>> entries) {
+  public void putAll(List<Entry<K, V>> entries, Object ... args) {
     try {
       putAllAsync(entries).get();
     } catch (Exception e) {
@@ -133,7 +133,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries) {
+  public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       // Separate out put vs delete records
@@ -157,7 +157,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void delete(K key) {
+  public void delete(K key, Object ... args) {
     try {
       deleteAsync(key).get();
     } catch (Exception e) {
@@ -166,7 +166,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<Void> deleteAsync(K key) {
+  public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       cache.invalidate(key);
@@ -178,7 +178,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public void deleteAll(List<K> keys) {
+  public void deleteAll(List<K> keys, Object ... args) {
     try {
       deleteAllAsync(keys).get();
     } catch (Exception e) {
@@ -187,7 +187,7 @@ public class GuavaCacheTable<K, V> implements ReadWriteTable<K, V> {
   }
 
   @Override
-  public CompletableFuture<Void> deleteAllAsync(List<K> keys) {
+  public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
     CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       cache.invalidateAll(keys);

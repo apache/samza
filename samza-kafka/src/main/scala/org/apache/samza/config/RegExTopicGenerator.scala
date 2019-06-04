@@ -21,7 +21,8 @@ package org.apache.samza.config
 
 import org.I0Itec.zkclient.ZkClient
 import kafka.utils.ZkUtils
-import org.apache.samza.config.KafkaConfig.{Config2Kafka, REGEX_RESOLVED_STREAMS}
+import org.apache.samza.config.KafkaConfig.{Config2Kafka}
+import org.apache.samza.config.JobConfig.{REGEX_RESOLVED_STREAMS}
 import org.apache.samza.SamzaException
 import org.apache.samza.util.{Logging, StreamUtil}
 
@@ -100,8 +101,8 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     val systemName = config
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
-    val consumerConfig = config.getKafkaSystemConsumerConfig(systemName, "")
-    val zkConnect = Option(consumerConfig.zkConnect)
+    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "")
+    val zkConnect = Option(consumerConfig.getZkConnect)
       .getOrElse(throw new SamzaException("No zookeeper.connect for system %s defined in config." format systemName))
     val zkClient = new ZkClient(zkConnect, 6000, 6000)
 

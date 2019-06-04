@@ -20,6 +20,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -48,8 +49,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestContainerProcessManager {
-  private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback);
 
   private static volatile boolean isRunning = false;
 
@@ -85,7 +84,6 @@ public class TestContainerProcessManager {
 
   private HttpServer server = null;
 
-  private SamzaApplicationState state = null;
 
   private JobModelManager getJobModelManagerWithHostAffinity(Map<String, String> containerIdToHost) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
@@ -122,13 +120,15 @@ public class TestContainerProcessManager {
     conf.put("cluster-manager.container.memory.mb", "500");
     conf.put("cluster-manager.container.cpu.cores", "5");
 
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     AbstractContainerAllocator allocator =
         (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
@@ -143,12 +143,13 @@ public class TestContainerProcessManager {
     conf.put("cluster-manager.container.cpu.cores", "5");
 
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1")));
+    callback = new MockClusterResourceManagerCallback();
+    clusterResourceManager = new MockClusterResourceManager(callback, state);
     taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     allocator =
         (AbstractContainerAllocator) getPrivateFieldFromTaskManager("containerAllocator", taskManager).get(taskManager);
@@ -161,14 +162,14 @@ public class TestContainerProcessManager {
   @Test
   public void testOnInit() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
-
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    ClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -194,7 +195,7 @@ public class TestContainerProcessManager {
     assertTrue(isRunning);
 
     // Verify the remaining state
-    assertEquals(1, state.neededContainers.get());
+    assertEquals(1, state.neededProcessors.get());
     assertEquals(1, allocator.requestedContainers);
 
     taskManager.stop();
@@ -203,14 +204,15 @@ public class TestContainerProcessManager {
   @Test
   public void testOnShutdown() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager.start();
 
     Thread allocatorThread = (Thread) getPrivateFieldFromTaskManager("allocatorThread", taskManager).get(taskManager);
@@ -227,14 +229,15 @@ public class TestContainerProcessManager {
   @Test
   public void testTaskManagerShouldStopWhenContainersFinish() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -275,14 +278,15 @@ public class TestContainerProcessManager {
   @Test
   public void testNewContainerRequestedOnFailureWithUnknownCode() throws Exception {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -310,7 +314,7 @@ public class TestContainerProcessManager {
     }
     taskManager.onStreamProcessorLaunchSuccess(container);
     // Create first container failure
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -332,7 +336,7 @@ public class TestContainerProcessManager {
     assertTrue(state.jobHealthy.get());
 
     // Create a second failure
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getResourceID(), "diagnostics", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
 
 
     // The above failure should trigger a job shutdown because our retry count is set to 1
@@ -352,14 +356,15 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -393,21 +398,22 @@ public class TestContainerProcessManager {
 
   @Test
   public void testRerequestOnAnyHostIfContainerStartFails() throws Exception {
-    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("1", "host1")));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("1", "host1")));
     Map<String, String> configMap = new HashMap<>();
     configMap.putAll(getConfig());
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
         new MapConfig(config),
         state);
 
-    ContainerProcessManager manager = new ContainerProcessManager(config, state, new MetricsRegistryMap(), allocator,
-        clusterResourceManager);
+    ContainerProcessManager manager = new ContainerProcessManager(config, state, new MetricsRegistryMap(), clusterResourceManager, Optional.of(allocator));
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
-    state.pendingContainers.put("1", resource);
+    state.pendingProcessors.put("1", resource);
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 1);
     manager.onStreamProcessorLaunchFailure(resource, new Exception("cannot launch container!"));
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 2);
@@ -418,18 +424,19 @@ public class TestContainerProcessManager {
   public void testAllBufferedResourcesAreUtilized() throws Exception {
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfigWithHostAffinity());
-    config.put("cluster-manager.container.count", "2");
+    config.put("job.container.count", "2");
     Config cfg = new MapConfig(config);
     // 1. Request two containers on hosts - host1 and host2
-    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
         "1", "host2")));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         cfg,
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockHostAwareContainerAllocator allocator = new MockHostAwareContainerAllocator(
         clusterResourceManager,
@@ -459,7 +466,7 @@ public class TestContainerProcessManager {
     assertEquals("host2", allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
 
-    taskManager.onResourceCompleted(new SamzaResourceStatus(resource1.getResourceID(), "App Error", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(resource1.getContainerId(), "App Error", 1));
     assertEquals(2, allocator.getContainerRequestState().numPendingRequests());
 
     assertFalse(taskManager.shouldShutdown());
@@ -475,6 +482,7 @@ public class TestContainerProcessManager {
     if (!allocator.awaitContainersStart(2, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
+    taskManager.onStreamProcessorLaunchSuccess(resource2);
     taskManager.onStreamProcessorLaunchSuccess(resource3);
 
     assertTrue(state.jobHealthy.get());
@@ -486,14 +494,15 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -520,7 +529,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
 
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "Disk failure", SamzaResourceStatus.DISK_FAIL));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -542,7 +551,7 @@ public class TestContainerProcessManager {
     assertTrue(state.jobHealthy.get());
 
     // Simulate a duplicate notification for container 1 with a different exit code
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "Disk failure", SamzaResourceStatus.PREEMPTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "Disk failure", SamzaResourceStatus.PREEMPTED));
     // assert that a duplicate notification does not change metrics (including job health)
     assertEquals(state.redundantNotifications.get(), 1);
     assertEquals(2, clusterResourceManager.resourceRequests.size());
@@ -560,14 +569,15 @@ public class TestContainerProcessManager {
 
     Map<String, String> config = new HashMap<>();
     config.putAll(getConfig());
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
 
     MockContainerAllocator allocator = new MockContainerAllocator(
         clusterResourceManager,
@@ -593,7 +603,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     taskManager.onStreamProcessorLaunchSuccess(container1);
     // Create container failure - with ContainerExitStatus.DISKS_FAILED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getResourceID(), "App error", 1));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container1.getContainerId(), "App error", 1));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -613,7 +623,7 @@ public class TestContainerProcessManager {
     taskManager.onStreamProcessorLaunchSuccess(container2);
 
     // Create container failure - with ContainerExitStatus.PREEMPTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getResourceID(), "Preemption", SamzaResourceStatus.PREEMPTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container2.getContainerId(), "Preemption", SamzaResourceStatus.PREEMPTED));
     assertEquals(3, clusterResourceManager.resourceRequests.size());
 
     // The above failure should trigger a container request
@@ -631,7 +641,7 @@ public class TestContainerProcessManager {
     taskManager.onStreamProcessorLaunchSuccess(container3);
 
     // Create container failure - with ContainerExitStatus.ABORTED
-    taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getResourceID(), "Aborted", SamzaResourceStatus.ABORTED));
+    taskManager.onResourceCompleted(new SamzaResourceStatus(container3.getContainerId(), "Aborted", SamzaResourceStatus.ABORTED));
 
     // The above failure should trigger a container request
     assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
@@ -647,14 +657,15 @@ public class TestContainerProcessManager {
   @Test
   public void testAppMasterWithFwk() {
     Config conf = getConfig();
-    state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
     ContainerProcessManager taskManager = new ContainerProcessManager(
         new MapConfig(conf),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager.start();
     SamzaResource container2 = new SamzaResource(1, 1024, "", "id0");
     assertFalse(taskManager.shouldShutdown());
@@ -667,8 +678,7 @@ public class TestContainerProcessManager {
         new MapConfig(config),
         state,
         new MetricsRegistryMap(),
-        clusterResourceManager
-    );
+        clusterResourceManager, Optional.empty());
     taskManager1.start();
     taskManager1.onResourceAllocated(container2);
   }

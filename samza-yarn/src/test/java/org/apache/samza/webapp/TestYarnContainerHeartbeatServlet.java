@@ -75,7 +75,7 @@ public class TestYarnContainerHeartbeatServlet {
       throws IOException {
     String VALID_CONTAINER_ID = "container_1350670447861_0003_01_000002";
     when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
-    yarnAppState.runningYarnContainers.put(VALID_CONTAINER_ID, container);
+    yarnAppState.runningProcessors.put(VALID_CONTAINER_ID, container);
     URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + VALID_CONTAINER_ID);
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
@@ -88,7 +88,7 @@ public class TestYarnContainerHeartbeatServlet {
     String VALID_CONTAINER_ID = "container_1350670447861_0003_01_000003";
     String INVALID_CONTAINER_ID = "container_1350670447861_0003_01_000002";
     when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
-    yarnAppState.runningYarnContainers.put(VALID_CONTAINER_ID, container);
+    yarnAppState.runningProcessors.put(VALID_CONTAINER_ID, container);
     URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + INVALID_CONTAINER_ID);
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);

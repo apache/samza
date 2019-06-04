@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.processor;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,8 +35,10 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.protocol.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -46,8 +49,8 @@ import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.AsyncStreamTaskFactory;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.junit.Assert;
 import org.junit.Test;
 import scala.Option$;
@@ -58,7 +61,10 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 
 
-public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
+public class TestStreamProcessor extends IntegrationTestHarness {
+
+  public static final String PROCESSOR_ID = "1";
+
   /**
    * Testing a basic identity stream task - reads data from a topic and writes it to another topic
    * (without any modifications)
@@ -136,7 +142,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     final String outputTopic = "output4";
     final int messageCount = 20;
 
-    final Map<String, String> configMap = createConfigs("1", testSystem, inputTopic, outputTopic, messageCount);
+    final Map<String, String> configMap = createConfigs(PROCESSOR_ID, testSystem, inputTopic, outputTopic, messageCount);
     configMap.remove("task.class");
     final Config configs = new MapConfig(configMap);
     final TestStubs stubs = new TestStubs(configs, (StreamTaskFactory) null, bootstrapServers());
@@ -145,8 +151,8 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
   }
 
   private void createTopics(String inputTopic, String outputTopic) {
-    TestUtils.createTopic(zkUtils(), inputTopic, 1, 1, servers(), new Properties());
-    TestUtils.createTopic(zkUtils(), outputTopic, 1, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), inputTopic, 1, 1, servers(), new Properties());
+    TestUtils.createTopic(kafkaZkClient(), outputTopic, 1, 1, servers(), new Properties());
   }
 
   private Map<String, String> createConfigs(String processorId, String testSystem, String inputTopic, String outputTopic, int messageCount) {
@@ -243,16 +249,16 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
 
     TestStubs(Config config, StreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor("1", config, new HashMap<>(), taskFactory, listener);
     }
 
     TestStubs(Config config, AsyncStreamTaskFactory taskFactory, String bootstrapServer) {
       this(bootstrapServer);
-      processor = new StreamProcessor(config, new HashMap<>(), taskFactory, listener);
+      processor = new StreamProcessor("1", config, new HashMap<>(), taskFactory, listener);
     }
 
     private void initConsumer(String bootstrapServer) {
-      consumer = TestUtils.createNewConsumer(
+      consumer = TestUtils.createConsumer(
           bootstrapServer,
           "group",
           "earliest",
@@ -260,9 +266,11 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
           "org.apache.kafka.clients.consumer.RangeAssignor",
           30000,
           SecurityProtocol.PLAINTEXT,
-          Option$.MODULE$.empty(),
-          Option$.MODULE$.empty(),
-          Option$.MODULE$.empty());
+          Option$.MODULE$.<File>empty(),
+          Option$.MODULE$.<Properties>empty(),
+          new StringDeserializer(),
+          new ByteArrayDeserializer(),
+          Option$.MODULE$.<Properties>empty());
     }
 
     private void initProcessorListener() {
@@ -277,7 +285,7 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
     }
 
     private void initProducer(String bootstrapServer) {
-      producer = TestUtils.createNewProducer(
+      producer = TestUtils.createProducer(
           bootstrapServer,
           1,
           60 * 1000L,
@@ -287,10 +295,10 @@ public class TestStreamProcessor extends StandaloneIntegrationTestHarness {
           5 * 1000L,
           SecurityProtocol.PLAINTEXT,
           null,
-          Option$.MODULE$.apply(new Properties()),
+          Option$.MODULE$.<Properties>apply(new Properties()),
           new StringSerializer(),
           new ByteArraySerializer(),
-          Option$.MODULE$.apply(new Properties()));
+          Option$.MODULE$.<Properties>apply(new Properties()));
     }
   }
 }

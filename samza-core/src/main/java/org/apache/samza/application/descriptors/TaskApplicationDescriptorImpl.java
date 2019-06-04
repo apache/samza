@@ -22,7 +22,7 @@ import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.Config;
 import org.apache.samza.system.descriptors.InputDescriptor;
 import org.apache.samza.system.descriptors.OutputDescriptor;
-import org.apache.samza.table.descriptors.BaseTableDescriptor;
+import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.task.TaskFactory;
 
@@ -44,28 +44,34 @@ public class TaskApplicationDescriptorImpl extends ApplicationDescriptorImpl<Tas
   }
 
   @Override
-  public void setTaskFactory(TaskFactory factory) {
+  public TaskApplicationDescriptor withTaskFactory(TaskFactory factory) {
     this.taskFactory = factory;
+    return this;
   }
 
   @Override
-  public void addInputStream(InputDescriptor inputDescriptor) {
+  public TaskApplicationDescriptor withInputStream(InputDescriptor inputDescriptor) {
     // TODO: SAMZA-1841: need to add to the broadcast streams if inputDescriptor is for a broadcast stream
     addInputDescriptor(inputDescriptor);
     getOrCreateStreamSerdes(inputDescriptor.getStreamId(), inputDescriptor.getSerde());
+    return this;
   }
 
   @Override
-  public void addOutputStream(OutputDescriptor outputDescriptor) {
+  public TaskApplicationDescriptor withOutputStream(OutputDescriptor outputDescriptor) {
     addOutputDescriptor(outputDescriptor);
     getOrCreateStreamSerdes(outputDescriptor.getStreamId(), outputDescriptor.getSerde());
+    return this;
   }
 
   @Override
-  public void addTable(TableDescriptor tableDescriptor) {
+  public TaskApplicationDescriptor withTable(TableDescriptor tableDescriptor) {
     addTableDescriptor(tableDescriptor);
-    BaseTableDescriptor baseTableDescriptor = (BaseTableDescriptor) tableDescriptor;
-    getOrCreateTableSerdes(baseTableDescriptor.getTableId(), baseTableDescriptor.getSerde());
+    if (tableDescriptor instanceof LocalTableDescriptor) {
+      LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+      getOrCreateTableSerdes(localTableDescriptor.getTableId(), localTableDescriptor.getSerde());
+    }
+    return this;
   }
 
   /**

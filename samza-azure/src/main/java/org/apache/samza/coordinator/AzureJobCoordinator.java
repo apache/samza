@@ -19,17 +19,16 @@
 
 package org.apache.samza.coordinator;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.AzureClient;
-import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouper;
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.data.BarrierState;
 import org.apache.samza.coordinator.data.ProcessorEntity;
 import org.apache.samza.coordinator.scheduler.HeartbeatScheduler;
@@ -40,7 +39,7 @@ import org.apache.samza.coordinator.scheduler.LivenessCheckScheduler;
 import org.apache.samza.coordinator.scheduler.RenewLeaseScheduler;
 import org.apache.samza.coordinator.scheduler.SchedulerStateChangeListener;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.runtime.ProcessorIdGenerator;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
@@ -54,7 +53,6 @@ import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -100,10 +98,10 @@ public class AzureJobCoordinator implements JobCoordinator {
    * Creates an instance of Azure job coordinator, along with references to Azure leader elector, Azure Blob and Azure Table.
    * @param config User defined config
    */
-  public AzureJobCoordinator(Config config) {
+  public AzureJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     //TODO: Cleanup previous values in the table when barrier times out.
+    this.processorId = processorId;
     this.config = config;
-    processorId = createProcessorId(config);
     currentJMVersion = new AtomicReference<>(INITIAL_STATE);
     AzureConfig azureConfig = new AzureConfig(config);
     AzureClient client = new AzureClient(azureConfig.getAzureConnectionString());
@@ -365,8 +363,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     }
 
     // Generate the new JobModel
-    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(),
-        null, streamMetadataCache, currentProcessorIds);
+    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
@@ -469,22 +467,6 @@ public class AzureJobCoordinator implements JobCoordinator {
     //Start the container with the new model
     if (coordinatorListener != null) {
       coordinatorListener.onNewJobModel(processorId, jobModel);
-    }
-  }
-
-  private String createProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
-      ProcessorIdGenerator idGenerator =
-          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
     }
   }
 

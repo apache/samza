@@ -22,6 +22,8 @@ package org.apache.samza.context;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 
+import java.util.Collections;
+
 import static org.mockito.Mockito.*;
 
 
@@ -34,9 +36,12 @@ public class MockContext implements Context {
   private final TaskContextImpl taskContext = mock(TaskContextImpl.class);
   private final ApplicationContainerContext applicationContainerContext = mock(ApplicationContainerContext.class);
   private final ApplicationTaskContext applicationTaskContext = mock(ApplicationTaskContext.class);
+  private final ExternalContext externalContext = mock(ExternalContext.class);
 
   public MockContext() {
-    this(new MapConfig());
+    this(new MapConfig(
+        Collections.singletonMap("metrics.timer.debug.enabled", "true")
+    ));
   }
 
   /**
@@ -48,26 +53,31 @@ public class MockContext implements Context {
 
   @Override
   public JobContext getJobContext() {
-    return jobContext;
+    return this.jobContext;
   }
 
   @Override
   public ContainerContext getContainerContext() {
-    return containerContext;
+    return this.containerContext;
   }
 
   @Override
   public TaskContext getTaskContext() {
-    return taskContext;
+    return this.taskContext;
   }
 
   @Override
   public ApplicationContainerContext getApplicationContainerContext() {
-    return applicationContainerContext;
+    return this.applicationContainerContext;
   }
 
   @Override
   public ApplicationTaskContext getApplicationTaskContext() {
-    return applicationTaskContext;
+    return this.applicationTaskContext;
+  }
+
+  @Override
+  public ExternalContext getExternalContext() {
+    return this.externalContext;
   }
 }

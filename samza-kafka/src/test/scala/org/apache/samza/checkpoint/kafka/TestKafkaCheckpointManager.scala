@@ -21,14 +21,9 @@ package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
 
-import kafka.admin.AdminUtils
 import kafka.integration.KafkaServerTestHarness
-import kafka.server.ConfigType
-import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import kafka.utils.{CoreUtils, TestUtils}
 import com.google.common.collect.ImmutableMap
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.security.JaasUtils
-import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
@@ -37,6 +32,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
@@ -64,28 +60,58 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   override def generateConfigs() = {
-    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, true)
+    val props = TestUtils.createBrokerConfigs(numBrokers, zkConnect, enableControlledShutdown = true)
     // do not use relative imports
     props.map(_root_.kafka.server.KafkaConfig.fromProps)
   }
 
+  def testWriteCheckpointShouldRecreateSystemProducerOnFailure(): Unit = {
+    val checkpointTopic = "checkpoint-topic-2"
+    val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
+
+    class MockSystemFactory extends KafkaSystemFactory {
+      override def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
+        mockKafkaProducer
+      }
+    }
+
+    Mockito.doThrow(new RuntimeException()).when(mockKafkaProducer).flush(taskName.getTaskName)
+
+    val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
+    val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
+    val checkPointManager = Mockito.spy(new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry))
+    val newKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
+    checkPointManager.MaxRetryDurationInMillis = 1
+
+    Mockito.doReturn(newKafkaProducer).when(checkPointManager).getSystemProducer()
+
+    checkPointManager.register(taskName)
+    checkPointManager.start
+    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    checkPointManager.stop()
+
+    // Verifications after the test
+
+    Mockito.verify(mockKafkaProducer).stop()
+    Mockito.verify(newKafkaProducer).register(taskName.getTaskName)
+    Mockito.verify(newKafkaProducer).start()
+  }
+
   @Test
-  def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite {
+  def testCheckpointShouldBeNullIfCheckpointTopicDoesNotExistShouldBeCreatedOnWriteAndShouldBeReadableAfterWrite(): Unit = {
     val checkpointTopic = "checkpoint-topic-1"
     val kcm1 = createKafkaCheckpointManager(checkpointTopic)
     kcm1.register(taskName)
     kcm1.createResources
     kcm1.start
     kcm1.stop
+
     // check that start actually creates the topic with log compaction enabled
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    val topicConfig = AdminUtils.fetchEntityConfig(zkClient, ConfigType.Topic, checkpointTopic)
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
 
     assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
     assertEquals("compact", topicConfig.get("cleanup.policy"))
     assertEquals("26214400", topicConfig.get("segment.bytes"))
-
-    zkClient.close
 
     // read before topic exists should result in a null checkpoint
     val readCp = readCheckpoint(checkpointTopic, taskName)
@@ -99,8 +125,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
   }
 
-  @Test(expected = classOf[SamzaException])
-  def testWriteCheckpointShouldRetryFiniteTimesOnFailure: Unit = {
+  @Test
+  def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
 
@@ -115,15 +141,22 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
     val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
-    checkPointManager.MaxRetryDurationMs = 1
+    checkPointManager.MaxRetryDurationInMillis = 1
 
-    checkPointManager.register(taskName)
-    checkPointManager.start
-    checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    try {
+      checkPointManager.register(taskName)
+      checkPointManager.start
+      checkPointManager.writeCheckpoint(taskName, new Checkpoint(ImmutableMap.of()))
+    } catch {
+      case _: SamzaException => info("Got SamzaException as expected.")
+      case unexpectedException: Throwable => fail("Expected SamzaException but got %s" format unexpectedException)
+    } finally {
+      checkPointManager.stop()
+    }
   }
 
   @Test
-  def testFailOnTopicValidation {
+  def testFailOnTopicValidation(): Unit = {
     // By default, should fail if there is a topic validation error
     val checkpointTopic = "eight-partition-topic";
     val kcm1 = createKafkaCheckpointManager(checkpointTopic)
@@ -152,7 +185,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   @After
-  override def tearDown() {
+  override def tearDown(): Unit = {
     if (servers != null) {
       servers.foreach(_.shutdown())
       servers.foreach(server => CoreUtils.delete(server.config.logDirs))
@@ -160,17 +193,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     super.tearDown
   }
 
-  private def getCheckpointProducerProperties() : Properties = {
-    val defaultSerializer = classOf[ByteArraySerializer].getCanonicalName
-    val props = new Properties()
-    props.putAll(ImmutableMap.of(
-      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList,
-      ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, defaultSerializer,
-      ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, defaultSerializer))
-    props
-  }
-
-  private def getConfig() : Config = {
+  private def getConfig(): Config = {
     new MapConfig(new ImmutableMap.Builder[String, String]()
       .put(JobConfig.JOB_NAME, "some-job-name")
       .put(JobConfig.JOB_ID, "i001")
@@ -187,9 +210,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemFactoryClassName = new SystemConfig(config)
-      .getSystemFactory(systemName)
-      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY format systemName))
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
+      .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
 
@@ -206,27 +229,16 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     checkpoint
   }
 
-  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint) = {
+  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint): Unit = {
     val kcm = createKafkaCheckpointManager(checkpointTopic)
     kcm.register(taskName)
     kcm.start
     kcm.writeCheckpoint(taskName, checkpoint)
+    kcm.stop
   }
 
-  private def createTopic(cpTopic: String, partNum: Int, props: Properties) = {
-    val zkClient = ZkUtils(zkConnect, 6000, 6000, JaasUtils.isZkSecurityEnabled())
-    try {
-      AdminUtils.createTopic(
-        zkClient,
-        cpTopic,
-        partNum,
-        1,
-        props)
-    } catch {
-      case e: Exception => println(e.getMessage)
-    } finally {
-      zkClient.close
-    }
+  private def createTopic(cpTopic: String, partNum: Int, props: Properties) {
+    adminZkClient.createTopic(cpTopic, partNum, 1, props)
   }
 
 }

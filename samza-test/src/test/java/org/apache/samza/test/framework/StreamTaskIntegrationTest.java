@@ -26,18 +26,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.context.Context;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
+import org.apache.samza.context.ExternalContext;
 import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
@@ -58,7 +62,6 @@ import org.junit.Test;
 import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import static org.apache.samza.test.table.TestTableData.PageView;
 import static org.apache.samza.test.table.TestTableData.Profile;
-
 
 public class StreamTaskIntegrationTest {
 
@@ -106,6 +109,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     Assert.assertThat(TestRunner.consumeStream(imod, Duration.ofMillis(1000)).get(0),
@@ -132,6 +136,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
   }
 
@@ -153,6 +158,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputList)
         .addOutputStream(imod, 1)
         .addConfig("job.container.thread.pool.size", "4")
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(1));
 
     StreamAssert.containsInOrder(outputList, imod, Duration.ofMillis(1000));
@@ -176,6 +182,7 @@ public class StreamTaskIntegrationTest {
         .of(MyStreamTestTask.class)
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -186,6 +193,32 @@ public class StreamTaskIntegrationTest {
     Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
     Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
     genData(inputPartitionData, expectedOutputPartitionData);
+    syncTaskWithMultiplePartitionMultithreadedHelper(inputPartitionData, expectedOutputPartitionData);
+  }
+
+  @Test
+  public void testSyncTaskWithMultiplePartitionMultithreadedWithCustomIME() throws Exception {
+    Map<Integer, List<KV>> inputPartitionData = new HashMap<>();
+    Map<Integer, List<KV>> inputPartitionIME = new HashMap<>();
+    Map<Integer, List<Integer>> expectedOutputPartitionData = new HashMap<>();
+    genData(inputPartitionData, expectedOutputPartitionData);
+
+    for (Map.Entry<Integer, List<KV>> entry: inputPartitionData.entrySet()) {
+      Integer partitionId = entry.getKey();
+      List<KV> messages = entry.getValue();
+      SystemStreamPartition ssp = new SystemStreamPartition("test", "input", new Partition(partitionId));
+      inputPartitionIME.put(partitionId, new ArrayList<>());
+      int offset = 0;
+      for (KV message: messages) {
+        IncomingMessageEnvelope ime = new IncomingMessageEnvelope(ssp, String.valueOf(offset++), message.key, message.getValue());
+        inputPartitionIME.get(partitionId).add(KV.of(message.key, ime));
+      }
+    }
+    syncTaskWithMultiplePartitionMultithreadedHelper(inputPartitionData, expectedOutputPartitionData);
+  }
+
+  void syncTaskWithMultiplePartitionMultithreadedHelper(Map<Integer, List<KV>> inputPartitionData,
+      Map<Integer, List<Integer>> expectedOutputPartitionData) throws Exception {
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
 
@@ -200,6 +233,7 @@ public class StreamTaskIntegrationTest {
         .addInputStream(imid, inputPartitionData)
         .addOutputStream(imod, 5)
         .addConfig("job.container.thread.pool.size", "4")
+        .addExternalContext(new TestContext(10))
         .run(Duration.ofSeconds(2));
 
     StreamAssert.containsInOrder(expectedOutputPartitionData, imod, Duration.ofMillis(1000));
@@ -207,18 +241,19 @@ public class StreamTaskIntegrationTest {
 
   static public class JoinTaskApplication implements TaskApplication {
     @Override
-    public void describe(TaskApplicationDescriptor appDesc) {
-      appDesc.setTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
-      appDesc.addTable(new InMemoryTableDescriptor("profile-view-store",
-          KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
+    public void describe(TaskApplicationDescriptor appDescriptor) {
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
-      KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new NoOpSerde<>());
-      appDesc.addInputStream(profileISD);
-      KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
-      appDesc.addInputStream(pageViewISD);
+      KafkaInputDescriptor<Profile> profileISD = ksd.getInputDescriptor("Profile", new JsonSerdeV2<>());
+      KafkaInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new JsonSerdeV2<>());
       KafkaOutputDescriptor<EnrichedPageView> enrichedPageViewOSD =
           ksd.getOutputDescriptor("EnrichedPageView", new NoOpSerde<>());
-      appDesc.addOutputStream(enrichedPageViewOSD);
+      appDescriptor
+          .withInputStream(profileISD)
+          .withInputStream(pageViewISD)
+          .withOutputStream(enrichedPageViewOSD)
+          .withTable(new InMemoryTableDescriptor("profile-view-store",
+              KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())))
+          .withTaskFactory((StreamTaskFactory) () -> new StatefulStreamTask());
     }
   }
 
@@ -227,7 +262,7 @@ public class StreamTaskIntegrationTest {
 
     @Override
     public void init(Context context) throws Exception {
-      profileViewTable = (ReadWriteTable<Integer, Profile>) context.getTaskContext().getTable("profile-view-store");
+      profileViewTable = context.getTaskContext().getTable("profile-view-store");
     }
 
     @Override
@@ -261,4 +296,16 @@ public class StreamTaskIntegrationTest {
     }
   }
 
+}
+
+class TestContext implements ExternalContext {
+  final private int multiplier;
+
+  public TestContext(int multiplier) {
+    this.multiplier = multiplier;
+  }
+
+  public int getMultiplier() {
+    return this.multiplier;
+  }
 }

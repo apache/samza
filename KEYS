@@ -690,3 +690,40 @@ l3mENVdj5rhkcgRBTnt/ZmY+R1BoNzJVj1WcwZCvRI3zt4G0ZnuHsny5AQq5LZ+T
 g2aH
 =ukLA
 -----END PGP PUBLIC KEY BLOCK-----
+pub   2048R/5B5EB041 2019-05-17
+uid                  Boris Shkolnik (Key for release signing) <boryas@apache.org>
+sig 3        5B5EB041 2019-05-17  Boris Shkolnik (Key for release signing) <boryas@apache.org>
+sub   2048R/F77F01B7 2019-05-17
+sig          5B5EB041 2019-05-17  Boris Shkolnik (Key for release signing) <boryas@apache.org>
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+mQENBFze7MEBCADJGw76F2EkwUUjEzxBgBLpg5zbNNTnlwgYJ5C/FVPFILK14H+6
+vjN2ID66ZQJCg30w3FltFILgfJhLHjrAabcFbptghqzT0kFCIcrVwiHm7eu7z5C1
+faTkBhKc2xiQjjVRp1Jkr/iNcKct9p6wuhABAiiEOI5iKxzN00Nkf2SaPydP8mUa
+ftEmpHaVLmVwgW5Jh/tCJIoJn0T06uNMZ7C25DI9TJP9UwXkzzw++b7Drd4hp310
+bjrhGb61VU2SbZum4sVi6gNZlXFE0gzfQRLLiTpESPsEaouRmymOG81LaWNbH9+w
+xD5Mc+dRSmuLpYpCTUDcbm18bquN846grToFABEBAAG0PEJvcmlzIFNoa29sbmlr
+IChLZXkgZm9yIHJlbGVhc2Ugc2lnbmluZykgPGJvcnlhc0BhcGFjaGUub3JnPokB
+OQQTAQIAIwUCXN7swQIbAwcLCQgHAwIBBhUIAgkKCwQWAgMBAh4BAheAAAoJEH10
+0M1bXrBBgScIAINYtGoMSPl3UgNaa1bv124milnaa/E9Mu1dkD3nXCcsn2bRtdM7
+oSOxRJ35wHwEEQMWzmEVG+wyxSNdUBaoIAzMV/Ok+yCmKVaPlKINmoUQ2k5RjAle
+kyqz0lcaYluSL5GTqlm2Hw+v5uZ78c2O36PwuhydNedfO1aI7msS89zoeyyVtJQz
+3M+i/fpZ9mbkbcQWU4Bn1HgcsKYCiyDJ6RCoEvQJheIUNKTswj78IgcppvYHtkDF
+NOtUQgw6GozQ0zIVRw7+82qNGkgbPPYjJjfgNuFkgD1GY3Fp4UDs9yX2Qlr0swoP
+f0WOqiDbHPln5EHVtVXwK0994NAPSXzS1tu5AQ0EXN7swQEIANZFy99a86nlddQg
+sldEmg2fhFJDIk8+SXDm2NF5TeTMQ96KZpaFcyOEy1DytA5EzryIynGgV9rt9jhH
+a8HtfH2uiHf3QTIqgnrUimxs2uhxc+Kfx9yfEKaEUBKrnSdrStqxu0DQefbr84KW
+VmhEvKSmzejHoqeV4H7Q+/tmCrMbeVDyOKEQLKYm9Dm3TNJxNRqxNrKzdsjYgqt7
+B1heSXiKzzREsZSWoXLkFX2H6qJpKn6/Mbdu5qD7RIenYZ1BJDPkAkTTCA1rpr1o
+iW2qY7KFzJkFGBnej+G58GcOFwAzIPzzjQsip5XjMedbYpz2V7sdij6K9AO1avDu
+1Fb8iEEAEQEAAYkBHwQYAQIACQUCXN7swQIbDAAKCRB9dNDNW16wQY/0CAC7t4c3
+cSgsWbEIkdY4A/cNAeQQxWmi08x0UMl1xYGfcIOtAwePdQOJJ2TuhBEJKMLmKO64
+IpGzaKwcRaEPBB9lFwJBAJeCizzY76h64LFnus35aA3UJeG3TlyfcggVI5uJG//M
+90TVkxv84Z406Wf2B1RLca3YmsxGdchk6JLD9e2bPXGAFgr+z5sTsHAe6XP8CcoH
+PlhUDyZhNuP6OnvS0r0qkIy4eWZzsuUk3OuJQAkhvqNb/r5eahXtgpasJyIYofeR
+bN7+AsTZ8FGMrkfwrs9a1RFtypldStL70bAl61/yTqngdwFGb0zJi3IxqNzq8Fun
+AE4y9/JMEbF0vpC4
+=lijy
+-----END PGP PUBLIC KEY BLOCK-----

@@ -34,7 +34,7 @@ import java.util.List;
  * {@code
  * class MyCallbackHandler implements ClusterResourceManager.CallbackHandler {
  *   public void onResourcesAvailable(List<SamzaResource> resources) {
- *     [launch a streamprocessor on the resources]
+ *     [launch a processor on the resources]
  *   }
  *
  *   public void onResourcesCompleted(List<SamzaResourceStatus> resourceStatus) {
@@ -66,8 +66,8 @@ import java.util.List;
 
 /***
  * TODO:
- * 1.Investigate what it means to kill a StreamProcessor, and add it as an API here.
- * 2.Consider an API for Container Process liveness - ie, to be notified when a StreamProcessor
+ * 1.Investigate what it means to kill a processor, and add it as an API here.
+ * 2.Consider an API for processor liveness - ie, to be notified when a processor
  * joins or leaves the group. Will evolve more as we implement standalone and mesos.
  */
 
@@ -82,7 +82,7 @@ public abstract class ClusterResourceManager {
   public abstract void start();
 
   /***
-   * Request resources for running container processes
+   * Request resources for running processors
    * @param resourceRequest the resourceRequest being made
    */
   public abstract void requestResources(SamzaResourceRequest resourceRequest);
@@ -105,7 +105,7 @@ public abstract class ClusterResourceManager {
   public abstract void releaseResources(SamzaResource resource);
 
   /***
-   * Requests the launch of a StreamProcessor with the specified context on the resource asynchronously.
+   * Requests the launch of a processor with the specified context on the resource asynchronously.
    *
    * <p>
    *   Either {@link Callback#onStreamProcessorLaunchSuccess(SamzaResource)} or
@@ -115,18 +115,26 @@ public abstract class ClusterResourceManager {
    *
    * @param resource the specified resource
    * @param builder A builder implementation that encapsulates the context for the
-   *                StreamProcessor. A builder encapsulates the ID for the processor, the
+   *                processor. A builder encapsulates the ID for the processor, the
    *                build environment, the command to execute etc.
    *
    */
   public abstract void launchStreamProcessor(SamzaResource resource, CommandBuilder builder);
+
+  /**
+   * Requests the stopping of a processor, identified by the given resource.
+   * {@link Callback#onResourcesCompleted(List)} will be invoked to indicate the completion of this operation.
+   *
+   * @param resource the resource being used for the processor.
+   */
+  public abstract void stopStreamProcessor(SamzaResource resource);
 
 
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
 
 
   /***
-   *Defines a callback interface for interacting with notifications from a ClusterResourceManager
+   * Defines a callback interface for interacting with notifications from a ClusterResourceManager
    */
   public interface Callback {
 
@@ -141,8 +149,8 @@ public abstract class ClusterResourceManager {
     /***
      * This callback is invoked when resources are no longer available to the application. A
      * resource could be marked 'completed' in scenarios like - failure of disk on the host,
-     * pre-emption of the resource to run another StreamProcessor, exit or termination of the
-     * StreamProcessor running in the resource.
+     * pre-emption of the resource to run another processor, exit or termination of the
+     * processor running in the resource.
      *
      * The SamzaResourceStatus contains diagnostics on why the failure occured
      * @param resources statuses for the resources that were completed.
@@ -151,15 +159,15 @@ public abstract class ClusterResourceManager {
 
 
     /**
-     * Callback invoked when the launch request for a StreamProcessor on the {@link SamzaResource} is successful.
-     * @param resource the resource on which the StreamProcessor is launched
+     * Callback invoked when the launch request for a processor on the {@link SamzaResource} is successful.
+     * @param resource the resource on which the processor is launched
      */
     void onStreamProcessorLaunchSuccess(SamzaResource resource);
 
     /**
-     * Callback invoked when there is a failure in launching a StreamProcessor on the provided {@link SamzaResource}.
-     * @param resource the resource on which the StreamProcessor was submitted for launching
-     * @param t the error in launching the StreamProcessor
+     * Callback invoked when there is a failure in launching a processor on the provided {@link SamzaResource}.
+     * @param resource the resource on which the processor was submitted for launching
+     * @param t the error in launching the processor
      */
     void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
 

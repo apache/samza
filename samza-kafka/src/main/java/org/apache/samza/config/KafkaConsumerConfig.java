@@ -30,6 +30,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.RangeAssignor;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.samza.SamzaException;
+import org.apache.samza.execution.JobPlanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -43,6 +44,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   public static final Logger LOG = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
   public static final String ZOOKEEPER_CONNECT = "zookeeper.connect";
+  private static final int FETCH_MAX_BYTES = 1024 * 1024;
 
   private final String systemName;
   /*
@@ -69,8 +71,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
     final String groupId = createConsumerGroupId(config);
 
-    Map<String, Object> consumerProps = new HashMap<>();
-    consumerProps.putAll(subConf);
+    Map<String, Object> consumerProps = new HashMap<>(subConf);
 
     consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
@@ -80,9 +81,13 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     // Disable consumer auto-commit because Samza controls commits
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
+    // check if samza default offset value is defined
+    String systemOffsetDefault = new SystemConfig(config).getSystemOffsetDefault(systemName);
+
     // Translate samza config value to kafka config value
-    consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-        getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG)));
+    String autoOffsetReset = getAutoOffsetResetValue((String) consumerProps.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), systemOffsetDefault);
+    LOG.info("setting auto.offset.reset for system {} to {}", systemName, autoOffsetReset);
+    consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
 
     // if consumer bootstrap servers are not configured, get them from the producer configs
     if (!subConf.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
@@ -109,8 +114,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
 
     // Override default max poll config if there is no value
-    consumerProps.computeIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
-        (k) -> DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
+    consumerProps.putIfAbsent(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, DEFAULT_KAFKA_CONSUMER_MAX_POLL_RECORDS);
 
     return new KafkaConsumerConfig(consumerProps, systemName);
   }
@@ -121,6 +125,19 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
       throw new SamzaException("client Id is not set for consumer for system=" + systemName);
     }
     return clientId;
+  }
+
+  public int fetchMessageMaxBytes() {
+    String fetchSize = (String)get("fetch.message.max.bytes");
+    if (StringUtils.isBlank(fetchSize)) {
+      return FETCH_MAX_BYTES;
+    } else  {
+      return Integer.valueOf(fetchSize);
+    }
+  }
+
+  public String getZkConnect() {
+    return (String) get(ZOOKEEPER_CONNECT);
   }
 
   // group id should be unique per job
@@ -141,7 +158,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public static Pair<String, String> getJobNameAndId(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
     Option jobNameOption = jobConfig.getName();
     if (jobNameOption.isEmpty()) {
       throw new ConfigException("Missing job name");
@@ -151,44 +168,64 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   /**
-   * If settings for auto.reset in samza are different from settings in Kafka (auto.offset.reset),
-   * then need to convert them (see kafka.apache.org/documentation):
+   * If settings for Kafka Consumer auto.offset.reset is set - use it.
+   * If this setting is using the old (deprecated values) - translate them:
    * "largest" -> "latest"
    * "smallest" -> "earliest"
    *
-   * If no setting specified we return "latest" (same as Kafka).
-   * @param autoOffsetReset value from the app provided config
+   * If no setting specified - match it to the Samza default offset setting.
+   * If none defined - return "latest"
+   * @param autoOffsetReset consumer.auto.offset.reset config
+   * @param samzaOffsetDefault  samza system default
    * @return String representing the config value for "auto.offset.reset" property
    */
-  static String getAutoOffsetResetValue(final String autoOffsetReset) {
-    final String SAMZA_OFFSET_LARGEST = "largest";
-    final String SAMZA_OFFSET_SMALLEST = "smallest";
+  static String getAutoOffsetResetValue(final String autoOffsetReset, final String samzaOffsetDefault) {
+    // valid kafka consumer values
     final String KAFKA_OFFSET_LATEST = "latest";
     final String KAFKA_OFFSET_EARLIEST = "earliest";
     final String KAFKA_OFFSET_NONE = "none";
 
-    if (autoOffsetReset == null) {
-      return KAFKA_OFFSET_LATEST; // return default
+    // if the value for KafkaConsumer is set - use it.
+    if (!StringUtils.isBlank(autoOffsetReset)) {
+      if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) || autoOffsetReset.equals(KAFKA_OFFSET_LATEST)
+          || autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
+        return autoOffsetReset;
+      }
+      // translate old kafka consumer values into new ones (SAMZA-1987 top remove it)
+      String newAutoOffsetReset;
+      switch (autoOffsetReset) {
+        case "largest":
+          newAutoOffsetReset = KAFKA_OFFSET_LATEST;
+          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, KAFKA_OFFSET_LATEST);
+          break;
+        case "smallest":
+          newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
+          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, KAFKA_OFFSET_EARLIEST);
+          break;
+        default:
+          throw new SamzaException("Using invalid value for kafka consumer config auto.offset.reset " + autoOffsetReset + ". See KafkaConsumer config for the correct values.");
+      }
+
+      LOG.info("Auto offset reset value converted from {} to {}", autoOffsetReset, newAutoOffsetReset);
+      return newAutoOffsetReset;
     }
 
-    // accept kafka values directly
-    if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) || autoOffsetReset.equals(KAFKA_OFFSET_LATEST)
-        || autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
-      return autoOffsetReset;
+    // in case kafka consumer configs are not provided we should match them to Samza's ones.
+    String newAutoOffsetReset = KAFKA_OFFSET_LATEST;
+    if (!StringUtils.isBlank(samzaOffsetDefault)) {
+      switch (samzaOffsetDefault) {
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
+          newAutoOffsetReset = KAFKA_OFFSET_LATEST;
+          break;
+        case SystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
+          newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
+          break;
+        default:
+          throw new SamzaException("Using invalid value for samza default offset config " + autoOffsetReset + ". See samza config for the correct values");
+      }
+      LOG.info("Auto offset reset value for KafkaConsumer for system {} converted from {}(samza) to {}", samzaOffsetDefault, newAutoOffsetReset);
     }
 
-    String newAutoOffsetReset;
-    switch (autoOffsetReset) {
-      case SAMZA_OFFSET_LARGEST:
-        newAutoOffsetReset = KAFKA_OFFSET_LATEST;
-        break;
-      case SAMZA_OFFSET_SMALLEST:
-        newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
-        break;
-      default:
-        newAutoOffsetReset = KAFKA_OFFSET_LATEST;
-    }
-    LOG.info("AutoOffsetReset value converted from {} to {}", autoOffsetReset, newAutoOffsetReset);
     return newAutoOffsetReset;
   }
 }

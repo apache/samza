@@ -81,8 +81,10 @@ public class TestStreamConfig {
     StreamConfig config = buildConfig("key1", "value1",
         buildProp(STREAM1_STREAM_ID, "samza.key2"), "value2",
         buildProp(STREAM1_STREAM_ID, StreamConfig.SYSTEM()), STREAM1_SYSTEM,
+        buildProp(STREAM1_STREAM_ID, StreamConfig.BROADCAST()), "true",
         buildProp(STREAM1_STREAM_ID, StreamConfig.PHYSICAL_NAME()), STREAM1_PHYSICAL_NAME);
     assertEquals("value2", config.getSamzaProperty(SYSTEM_STREAM_1, "samza.key2"));
+    assertEquals("true", config.getSamzaProperty(SYSTEM_STREAM_1, "samza.broadcast"));
   }
 
   // 11
@@ -228,6 +230,8 @@ public class TestStreamConfig {
 
     // Property set via systems.x.default.stream.* and system.x.streams.z.*
     assertEquals("5", config.getStreamProperties(STREAM3_STREAM_ID).get(nonSamzaProperty));
+
+    assertEquals(false, config.getBroadcastEnabled(SYSTEM_STREAM_1));
   }
 
 

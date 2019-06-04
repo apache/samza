@@ -19,28 +19,29 @@
 package org.apache.samza.context;
 
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 
 
 /**
- * Contains information at container granularity, provided by the Samza framework, to be used to instantiate an
- * application at runtime.
+ * The framework-provided context for the current container.
  * <p>
- * Note that application-defined container-level context is accessible through
- * {@link ApplicationContainerContext}.
+ * Use {@link ApplicationContainerContext} for the application-defined context for the current container.
  */
 public interface ContainerContext {
+
   /**
-   * Returns the {@link ContainerModel} associated with this container. This contains information like the id and the
-   * associated {@link org.apache.samza.job.model.TaskModel}s.
-   * @return {@link ContainerModel} associated with this container
+   * Gets the {@link ContainerModel} for this container, which contains this container's id and its {@link TaskModel}.
+   *
+   * @return the {@link ContainerModel} for this container
    */
   ContainerModel getContainerModel();
 
   /**
-   * Returns the {@link MetricsRegistry} for this container. Metrics built using this registry will be associated with
-   * the container.
-   * @return {@link MetricsRegistry} for this container
+   * Gets the {@link MetricsRegistry} for this container, which can be used to register metrics that are
+   * reported per container.
+   *
+   * @return the {@link MetricsRegistry} for this container
    */
   MetricsRegistry getContainerMetricsRegistry();
 }

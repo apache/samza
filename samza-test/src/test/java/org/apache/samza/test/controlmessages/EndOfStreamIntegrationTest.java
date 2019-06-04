@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
@@ -41,7 +42,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Test;
@@ -52,7 +53,7 @@ import static org.junit.Assert.assertEquals;
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
  * It verifies the pipeline will stop and the number of output messages should equal to the input.
  */
-public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
+public class EndOfStreamIntegrationTest extends IntegrationTestHarness {
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
@@ -96,11 +97,11 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     class PipelineApplication implements StreamApplication {
 
       @Override
-      public void describe(StreamApplicationDescriptor appDesc) {
+      public void describe(StreamApplicationDescriptor appDescriptor) {
         DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor("test");
         GenericInputDescriptor<KV<String, PageView>> isd =
             sd.getInputDescriptor("PageView", KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
-        appDesc.getInputStream(isd)
+        appDescriptor.getInputStream(isd)
             .map(KV::getValue)
             .partitionBy(pv -> pv.getMemberId(), pv -> pv, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
             .sink((m, collector, coordinator) -> {
@@ -109,9 +110,11 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
       }
     }
 
-    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(), new MapConfig(configs));
+    Config config = new MapConfig(configs);
+    final ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new PipelineApplication(),
+        config);
 
-    runner.run();
+    executeRun(runner, config);
     runner.waitForFinish();
 
     assertEquals(received.size(), count * partitionCount);

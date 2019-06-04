@@ -30,19 +30,21 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.eventhub.EventHubConfig;
 
+
 /**
- * A descriptor for an Event Hubs output stream
+ * A {@link EventHubsOutputDescriptor} can be used for specifying Samza and EventHubs-specific properties of EventHubs
+ * output streams.
  * <p>
- * An instance of this descriptor may be obtained from and {@link EventHubsSystemDescriptor}
+ * Use {@link EventHubsSystemDescriptor#getOutputDescriptor} to obtain an instance of this descriptor.
  * <p>
- * Stream properties provided in configuration override corresponding properties configured using a descriptor.
+ * Stream properties provided in configuration override corresponding properties specified using a descriptor.
  *
  * @param <StreamMessageType> type of messages in this stream
  */
 public class EventHubsOutputDescriptor<StreamMessageType>
     extends OutputDescriptor<StreamMessageType, EventHubsOutputDescriptor<StreamMessageType>> {
-  private String namespace;
-  private String entityPath;
+  private final String namespace;
+  private final String entityPath;
   private Optional<String> sasKeyName = Optional.empty();
   private Optional<String> sasToken = Optional.empty();
 
@@ -61,7 +63,7 @@ public class EventHubsOutputDescriptor<StreamMessageType>
     this.namespace = StringUtils.stripToNull(namespace);
     this.entityPath = StringUtils.stripToNull(entityPath);
     if (this.namespace == null || this.entityPath == null) {
-      throw new ConfigException(String.format("Missing namespace and entity path Event Hubs output descriptor in " //
+      throw new ConfigException(String.format("Missing namespace and entity path Event Hubs output descriptor in "
           + "system: {%s}, stream: {%s}", getSystemName(), streamId));
     }
   }
@@ -73,7 +75,7 @@ public class EventHubsOutputDescriptor<StreamMessageType>
    * @return this output descriptor
    */
   public EventHubsOutputDescriptor<StreamMessageType> withSasKeyName(String sasKeyName) {
-    this.sasKeyName = Optional.of(StringUtils.stripToNull(sasKeyName));
+    this.sasKeyName = Optional.ofNullable(StringUtils.stripToNull(sasKeyName));
     return this;
   }
 
@@ -84,13 +86,13 @@ public class EventHubsOutputDescriptor<StreamMessageType>
    * @return this output descriptor
    */
   public EventHubsOutputDescriptor<StreamMessageType> withSasKey(String sasToken) {
-    this.sasToken = Optional.of(StringUtils.stripToNull(sasToken));
+    this.sasToken = Optional.ofNullable(StringUtils.stripToNull(sasToken));
     return this;
   }
 
   @Override
   public Map<String, String> toConfig() {
-    HashMap<String, String> ehConfigs = new HashMap<>(super.toConfig());
+    Map<String, String> ehConfigs = new HashMap<>(super.toConfig());
 
     String streamId = getStreamId();
 
