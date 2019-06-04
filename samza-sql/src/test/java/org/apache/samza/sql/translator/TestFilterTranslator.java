@@ -128,24 +128,23 @@ public class TestFilterTranslator extends TranslatorTestBase {
         new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
-    Context context = mock(Context.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
     Object[] result = new Object[1];
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(true);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertTrue(filterFn.apply(mockInputMsg));
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(false);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 

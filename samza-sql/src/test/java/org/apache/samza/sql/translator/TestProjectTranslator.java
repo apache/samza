@@ -52,6 +52,7 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.internal.matchers.Any;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -73,6 +74,7 @@ import static org.mockito.Mockito.when;
 @PrepareForTest(LogicalProject.class)
 public class TestProjectTranslator extends TranslatorTestBase {
   final private String LOGICAL_OP_ID = "sql0_project_0";
+
   @Test
   public void testTranslate() throws IOException, ClassNotFoundException {
     // setup mock values to the constructor of FilterTranslator
@@ -143,7 +145,6 @@ public class TestProjectTranslator extends TranslatorTestBase {
     SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
         new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
-    Context context = mock(Context.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
@@ -151,10 +152,10 @@ public class TestProjectTranslator extends TranslatorTestBase {
     final Object mockFieldObj = new Object();
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
     assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
@@ -170,6 +171,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
   }
+
 
   @Test
   public void testTranslateWithFlatten() throws IOException, ClassNotFoundException {
@@ -303,17 +305,16 @@ public class TestProjectTranslator extends TranslatorTestBase {
         new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
-    Context context = mock(Context.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
     Object[] result = new Object[1];
     final Object mockFieldObj = new Object();
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(context), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
     assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
