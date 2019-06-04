@@ -47,7 +47,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{Logging, ReflectionUtil, StreamUtil, Util}
 
 import scala.collection.JavaConverters
 import scala.collection.JavaConversions._
@@ -262,14 +262,12 @@ object JobModelManager extends Logging {
   }
 
   /**
-    * Computes the input system stream partitions of a samza job using the provided {@param config}
-    * and {@param streamMetadataCache}.
+    * Gets all the input SSPs for the job, including those for side inputs and topic regex matches.
     * @param config the configuration of the job.
     * @param streamMetadataCache to query the partition metadata of the input streams.
-    * @return the input {@see SystemStreamPartition} of the samza job.
+    * @return the input [[SystemStreamPartition]] for the job.
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-
     def invokeRegexTopicRewriter(config: Config): Config = {
       config.getConfigRewriters match {
         case Some(rewriters) => rewriters.split(",").
@@ -281,11 +279,18 @@ object JobModelManager extends Logging {
       }
     }
 
+    // Expand regex topics if a regex-rewriter is defined in config
     val configAfterRegexTopicRewrite = invokeRegexTopicRewriter(config)
     val taskConfigAfterRegexTopicRewrite = new TaskConfig(configAfterRegexTopicRewrite)
-    // Expand regex input, if a regex-rewriter is defined in config
-    val inputSystemStreams =
-      JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
+    val rewrittenTaskInputs = JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
+
+    val storageConfig = new StorageConfig(configAfterRegexTopicRewrite)
+    val sideInputs = storageConfig.getStoreNames.asScala
+      .flatMap(storeName => storageConfig.getSideInputs(storeName).asScala)
+      .map(sideInput => StreamUtil.getSystemStreamFromNameOrId(configAfterRegexTopicRewrite, sideInput))
+      .toList
+
+    val inputSystemStreams = rewrittenTaskInputs ++ sideInputs
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache

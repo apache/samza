@@ -250,7 +250,6 @@ import org.slf4j.LoggerFactory;
             sideInputs.stream()
                 .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
                 .forEach(systemStream -> {
-                    inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
                     generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
                         systemStream.getSystem(), systemStream.getStream()), "true");
                   });
