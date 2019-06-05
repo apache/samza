@@ -55,6 +55,7 @@ public class LocalTableProvider extends BaseTableProvider {
   public ReadWriteTable getTable() {
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
     Preconditions.checkNotNull(kvStore, "Store not initialized for table " + tableId);
+    @SuppressWarnings("unchecked")
     ReadWriteTable table = new LocalTable(tableId, kvStore);
     table.init(this.context);
     return table;

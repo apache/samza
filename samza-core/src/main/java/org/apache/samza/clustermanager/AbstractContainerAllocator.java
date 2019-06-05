@@ -24,7 +24,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.job.ShellCommandBuilder;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +51,12 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * Config and derived config objects
    */
   private final TaskConfig taskConfig;
-
   private final Config config;
+
+  /**
+   * Classloader for creating objects from config
+   */
+  private final ClassLoader pluginClassLoader;
 
   /**
    * A ClusterResourceManager for the allocator to request for resources.
@@ -79,9 +83,10 @@ public abstract class AbstractContainerAllocator implements Runnable {
   protected final ResourceRequestState resourceRequestState;
 
   public AbstractContainerAllocator(ClusterResourceManager containerProcessManager,
-                                    ResourceRequestState resourceRequestState,
-                                    Config config,
-                                    SamzaApplicationState state) {
+      ResourceRequestState resourceRequestState,
+      Config config,
+      SamzaApplicationState state,
+      ClassLoader pluginClassLoader) {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.clusterResourceManager = containerProcessManager;
     this.allocatorSleepIntervalMs = clusterManagerConfig.getAllocatorSleepTime();
@@ -91,6 +96,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.taskConfig = new TaskConfig(config);
     this.state = state;
     this.config = config;
+    this.pluginClassLoader = pluginClassLoader;
   }
 
   /**
@@ -236,7 +242,8 @@ public abstract class AbstractContainerAllocator implements Runnable {
    */
   private CommandBuilder getCommandBuilder(String processorId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
-    CommandBuilder cmdBuilder = Util.getObj(cmdBuilderClassName, CommandBuilder.class);
+    CommandBuilder cmdBuilder =
+        ReflectionUtil.getObj(this.pluginClassLoader, cmdBuilderClassName, CommandBuilder.class);
 
     cmdBuilder.setConfig(config).setId(processorId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;

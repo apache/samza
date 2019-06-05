@@ -118,7 +118,7 @@ public class TestGroupByPartition {
                                                               new SystemStreamPartition("kafka", "PVE", new Partition(6))))
             .build();
 
-    SSPGrouperProxy groupByPartition = new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
+    SSPGrouperProxy groupByPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithSingleStream, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -165,7 +165,7 @@ public class TestGroupByPartition {
             .put(new TaskName("Partition 6"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
             .build();
 
-    SSPGrouperProxy groupByPartition = new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
+    SSPGrouperProxy groupByPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -196,7 +196,7 @@ public class TestGroupByPartition {
             .put(new TaskName("Partition 3"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(3))))
             .build();
 
-    SSPGrouperProxy groupByPartition = new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
+    SSPGrouperProxy groupByPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -239,7 +239,7 @@ public class TestGroupByPartition {
             .put(new TaskName("Partition 6"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
             .build();
 
-    SSPGrouperProxy groupByPartition = new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
+    SSPGrouperProxy groupByPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -290,9 +290,13 @@ public class TestGroupByPartition {
             .build();
 
 
-    SSPGrouperProxy groupByPartition = new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
+    SSPGrouperProxy groupByPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupByPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+  private SSPGrouperProxy buildSspGrouperProxy() {
+    return new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()), getClass().getClassLoader());
   }
 }

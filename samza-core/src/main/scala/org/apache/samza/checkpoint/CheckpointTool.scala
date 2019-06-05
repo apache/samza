@@ -31,7 +31,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.info
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{CommandLine, CoordinatorStreamUtil, Logging, Util}
+import org.apache.samza.util.{CommandLine, CoordinatorStreamUtil, Logging, ReflectionUtil, Util}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
@@ -131,28 +131,12 @@ object CheckpointTool {
     new CheckpointTool(offsets, metadataStore, config)
   }
 
-  def rewriteConfig(config: JobConfig): Config = {
-    def rewrite(c: JobConfig, rewriterName: String): Config = {
-      val rewriterClassName = config
-              .getConfigRewriterClass(rewriterName)
-              .getOrElse(throw new SamzaException("Config rewriter class: %s not found." format rewriterName))
-      val rewriter = Util.getObj(rewriterClassName, classOf[ConfigRewriter])
-      info("Re-writing config for CheckpointTool with " + rewriter)
-      rewriter.rewrite(rewriterName, c)
-    }
-
-    config.getConfigRewriters match {
-      case Some(rewriters) => rewriters.split(",").foldLeft(config)(rewrite)
-      case _ => config
-    }
-  }
-
   def main(args: Array[String]) {
     val cmdline = new CheckpointToolCommandLine
     val options = cmdline.parser.parse(args: _*)
     val userConfig = cmdline.loadConfig(options)
     val jobConfig = JobPlanner.generateSingleJobConfig(userConfig)
-    val rewrittenConfig = rewriteConfig(new JobConfig(jobConfig))
+    val rewrittenConfig = Util.rewriteConfig(jobConfig)
     info(s"Using the rewritten config: $rewrittenConfig")
     val tool = CheckpointTool(rewrittenConfig, cmdline.newOffsets)
     tool.run()
@@ -162,6 +146,7 @@ object CheckpointTool {
 class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore: CoordinatorStreamStore, userDefinedConfig: Config) extends Logging {
 
   def run() {
+    val classLoader = getClass.getClassLoader
     val configFromCoordinatorStream: Config = getConfigFromCoordinatorStream(coordinatorStreamStore)
 
     println("Configuration read from the coordinator stream")
@@ -174,12 +159,13 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
 
     val taskConfig = new TaskConfig(combinedConfig)
     // Instantiate the checkpoint manager with coordinator stream configuration.
-    val checkpointManager: CheckpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap)
+    val checkpointManager: CheckpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap, classLoader)
       .orElseThrow(() => new SamzaException("Configuration: task.checkpoint.factory is not defined."))
     try {
       // Find all the TaskNames that would be generated for this job config
       val changelogManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
-      val jobModelManager = JobModelManager(combinedConfig, changelogManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+      val jobModelManager = JobModelManager(combinedConfig, changelogManager.readPartitionMapping(),
+        coordinatorStreamStore, classLoader, new MetricsRegistryMap())
       val taskNames = jobModelManager
         .jobModel
         .getContainers

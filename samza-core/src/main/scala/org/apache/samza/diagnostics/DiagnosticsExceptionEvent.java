@@ -26,8 +26,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * This class encapsulates information related to an exception event that is useful for diagnostics.
- * It used to define container, task, and other metrics as
- * {@link org.apache.samza.metrics.ListGauge} of type {@link DiagnosticsExceptionEvent}.
  */
 public class DiagnosticsExceptionEvent {
 

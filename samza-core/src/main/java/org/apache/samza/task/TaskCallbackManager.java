@@ -41,7 +41,7 @@ import org.apache.samza.util.ThreadUtil;
  * for the callbacks based on the sequence number, and updates the offsets for checkpointing
  * by always moving forward to the latest contiguous callback (uses the high watermark).
  */
-class TaskCallbackManager {
+public class TaskCallbackManager {
 
   private static final class TaskCallbacks {
     private final Queue<TaskCallbackImpl> callbacks = new PriorityQueue<>();

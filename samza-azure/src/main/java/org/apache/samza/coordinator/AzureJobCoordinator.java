@@ -47,9 +47,9 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlobUtils;
 import org.apache.samza.util.LeaseBlobManager;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.util.TableUtils;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -299,8 +299,9 @@ public class AzureJobCoordinator implements JobCoordinator {
   private SystemStreamPartitionGrouper getSystemStreamPartitionGrouper() {
     JobConfig jobConfig = new JobConfig(config);
     String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
-    SystemStreamPartitionGrouper grouper = Util.getObj(factoryString, SystemStreamPartitionGrouperFactory.class)
-        .getSystemStreamPartitionGrouper(jobConfig);
+    SystemStreamPartitionGrouper grouper =
+        ReflectionUtil.getObj(getClass().getClassLoader(), factoryString, SystemStreamPartitionGrouperFactory.class)
+            .getSystemStreamPartitionGrouper(jobConfig);
     return grouper;
   }
 
@@ -365,7 +366,9 @@ public class AzureJobCoordinator implements JobCoordinator {
 
     // Generate the new JobModel
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
-    JobModel newJobModel = JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
+    JobModel newJobModel =
+        JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata,
+            getClass().getClassLoader());
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model

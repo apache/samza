@@ -48,7 +48,7 @@ import org.apache.samza.table.AsyncReadWriteTable;
  */
 abstract public class BaseTableFunction implements TableFunction {
 
-  protected AsyncReadWriteTable table;
+  protected transient AsyncReadWriteTable table;
 
   @Override
   public void init(Context context, AsyncReadWriteTable table) {

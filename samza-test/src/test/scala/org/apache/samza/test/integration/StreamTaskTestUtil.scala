@@ -275,7 +275,8 @@ class StreamTaskTestUtil {
     jobModel.maxChangeLogStreamPartitions = 1
 
     val taskConfig = new TaskConfig(jobModel.getConfig)
-    JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap())).toOption match {
+    JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap(), getClass.getClassLoader))
+      .toOption match {
       case Some(checkpointManager) =>
         checkpointManager.createResources()
         checkpointManager.stop()

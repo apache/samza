@@ -25,7 +25,7 @@ title: Samza Code Examples
 The [hello-samza](https://github.com/apache/samza-hello-samza) project contains several examples to help you create your Samza applications. To checkout the hello-samza project:
 
 {% highlight bash %}
-> git clone https://git.apache.org/samza-hello-samza.git hello-samza
+> git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 {% endhighlight %}
 
 #### High-level API examples

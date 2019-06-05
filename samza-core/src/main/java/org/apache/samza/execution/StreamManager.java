@@ -105,7 +105,7 @@ public class StreamManager {
    * For batch processing, we always clean up the previous internal streams and create a new set for each run.
    * @param prevConfig config of the previous run
    */
-  public void clearStreamsFromPreviousRun(Config prevConfig) {
+  public void clearStreamsFromPreviousRun(Config prevConfig, ClassLoader classLoader) {
     try {
       ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
       LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
@@ -124,7 +124,8 @@ public class StreamManager {
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);
-      taskConfig.getCheckpointManager(new MetricsRegistryMap()).ifPresent(CheckpointManager::clearCheckpoints);
+      taskConfig.getCheckpointManager(new MetricsRegistryMap(), classLoader)
+          .ifPresent(CheckpointManager::clearCheckpoints);
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);

@@ -21,6 +21,7 @@ package org.apache.samza.zk;
 import com.google.common.base.Strings;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.CoordinationUtils;
@@ -34,7 +35,8 @@ import org.slf4j.LoggerFactory;
 public class ZkCoordinationUtilsFactory implements CoordinationUtilsFactory {
   private static final Logger LOG = LoggerFactory.getLogger(ZkCoordinationUtilsFactory.class);
 
-  public CoordinationUtils getCoordinationUtils(String groupId, String participantId, Config config) {
+  public CoordinationUtils getCoordinationUtils(String coordinationId, String participantId, Config config) {
+    String groupId = new ApplicationConfig(config).getGlobalAppId() + "/" + coordinationId;
     ZkConfig zkConfig = new ZkConfig(config);
 
     ZkClient zkClient =

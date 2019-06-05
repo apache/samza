@@ -39,10 +39,10 @@ public class MetadataResourceUtil {
    * @param jobModel the loaded {@link JobModel}
    * @param metricsRegistry the registry for reporting metrics.
    */
-  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry) {
+  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry, ClassLoader classLoader) {
     this.jobModel = jobModel;
     TaskConfig taskConfig = new TaskConfig(jobModel.getConfig());
-    this.checkpointManager = taskConfig.getCheckpointManager(metricsRegistry).orElse(null);
+    this.checkpointManager = taskConfig.getCheckpointManager(metricsRegistry, classLoader).orElse(null);
   }
 
   @VisibleForTesting

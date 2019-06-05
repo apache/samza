@@ -46,15 +46,18 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +91,7 @@ import scala.collection.JavaConverters;
 public class ClusterBasedJobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
+  private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   private final Config config;
   private final ClusterManagerConfig clusterManagerConfig;
@@ -179,27 +183,31 @@ public class ClusterBasedJobCoordinator {
 
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
-    jobModelManager = JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(),
-                                            coordinatorStreamStore, metrics);
+    ClassLoader classLoader = getClass().getClassLoader();
+    jobModelManager =
+        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore,
+            classLoader, metrics);
 
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins);
+
+    Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
+    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
+
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
 
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = new ContainerProcessManager(config, state, metrics);
+    containerProcessManager = createContainerProcessManager(classLoader);
   }
 
   /**
    * Starts the JobCoordinator.
-   *
    */
   public void run() {
     if (!isStarted.compareAndSet(false, true)) {
@@ -216,14 +224,29 @@ public class ClusterBasedJobCoordinator {
     }
 
     try {
-      //initialize JobCoordinator state
+      // initialize JobCoordinator state
       LOG.info("Starting cluster based job coordinator");
+
+      // write the diagnostics metadata file
+      String jobName = new JobConfig(config).getName().get();
+      String jobId = new JobConfig(config).getJobId();
+      Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv("CONTAINER_ID"));
+      DiagnosticsUtil.writeMetadataFile(jobName, jobId, METRICS_SOURCE_NAME, execEnvContainerId, config);
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, metrics);
+          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader());
       metadataResourceUtil.createResources();
+
+      // fan out the startpoints
+      StartpointManager startpointManager = createStartpointManager();
+      startpointManager.start();
+      try {
+        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+      } finally {
+        startpointManager.stop();
+      }
 
       // Remap changelog partitions to tasks
       Map<TaskName, Integer> prevPartitionMappings = changelogStreamManager.readPartitionMapping();
@@ -314,7 +337,7 @@ public class ClusterBasedJobCoordinator {
       }));
   }
 
-  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
 
     // if input regex monitor is not enabled return empty
     if (new JobConfig(config).getMonitorRegexEnabled()) {
@@ -323,7 +346,6 @@ public class ClusterBasedJobCoordinator {
     }
 
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
@@ -374,6 +396,16 @@ public class ClusterBasedJobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionMonitor() {
     return partitionMonitor.get();
+  }
+
+  @VisibleForTesting
+  StartpointManager createStartpointManager() {
+    return new StartpointManager(coordinatorStreamStore);
+  }
+
+  @VisibleForTesting
+  ContainerProcessManager createContainerProcessManager(ClassLoader classLoader) {
+    return new ContainerProcessManager(config, state, metrics, classLoader);
   }
 
   /**

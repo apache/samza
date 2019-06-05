@@ -38,12 +38,13 @@ object SamzaAppMasterMetrics {
  * registry, we might as well use it. This class takes Samza's application
  * master state, and converts it to metrics.
  */
-class SamzaAppMasterMetrics(
-                             val config: Config,
-                             val state: SamzaApplicationState,
-                             val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
+class SamzaAppMasterMetrics(val config: Config,
+  val state: SamzaApplicationState,
+  val registry: ReadableMetricsRegistry,
+  val classLoader: ClassLoader) extends MetricsHelper with Logging {
 
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  val reporters =
+    MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName, classLoader).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {
@@ -52,7 +53,7 @@ class SamzaAppMasterMetrics(
     val mCompletedContainers = newGauge("completed-containers", () => state.completedProcessors.get())
     val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
-    val mContainers = newGauge("container-count", () => state.processorCount)
+    val mContainers = newGauge("container-count", () => state.processorCount.get())
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
 
     reporters.values.foreach(_.start)

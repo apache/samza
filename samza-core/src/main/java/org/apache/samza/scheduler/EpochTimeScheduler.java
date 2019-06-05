@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.task;
+package org.apache.samza.scheduler;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.scheduler.ScheduledCallback;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -81,7 +80,7 @@ public class EpochTimeScheduler {
     }
   }
 
-  void registerListener(TimerListener listener) {
+  public void registerListener(TimerListener listener) {
     timerListener = listener;
 
     if (!readyTimers.isEmpty()) {

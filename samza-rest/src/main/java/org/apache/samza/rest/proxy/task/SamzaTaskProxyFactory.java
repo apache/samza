@@ -25,7 +25,7 @@ import org.apache.samza.config.ConfigFactory;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;
 import org.apache.samza.rest.proxy.installation.SimpleInstallationFinder;
 import org.apache.samza.rest.resources.BaseResourceConfig;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +44,8 @@ public class SamzaTaskProxyFactory implements TaskProxyFactory {
                                 String.format("Config param %s is not defined.", BaseResourceConfig.CONFIG_JOB_INSTALLATIONS_PATH));
     String configFactoryClass = config.getJobConfigFactory();
     try {
-      ConfigFactory configFactory = Util.getObj(configFactoryClass, ConfigFactory.class);
+      ConfigFactory configFactory =
+          ReflectionUtil.getObj(getClass().getClassLoader(), configFactoryClass, ConfigFactory.class);
       InstallationFinder installFinder = new SimpleInstallationFinder(installationsPath, configFactory);
       return new SamzaTaskProxy(config, installFinder);
     } catch (Exception e) {

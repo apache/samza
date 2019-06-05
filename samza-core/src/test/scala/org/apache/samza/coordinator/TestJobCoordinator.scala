@@ -282,7 +282,8 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val namespaceAwareCoordinatorStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE)
     try {
       val changelogPartitionManager = new ChangelogStreamManager(namespaceAwareCoordinatorStore)
-      val jobModelManager = JobModelManager(config, changelogPartitionManager.readPartitionMapping(), coordinatorStreamStore, new MetricsRegistryMap())
+      val jobModelManager = JobModelManager(config, changelogPartitionManager.readPartitionMapping(),
+        coordinatorStreamStore, getClass.getClassLoader, new MetricsRegistryMap())
       jobModelManager
     } finally {
       coordinatorStreamStore.close()

@@ -207,13 +207,14 @@ public interface MessageStream<M> {
    *
    * @param table the table being joined
    * @param joinFn the join function
+   * @param args additional arguments passed to the table
    * @param <K> the type of join key
    * @param <R> the type of table record
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
   <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn, Object ... args);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -290,11 +291,12 @@ public interface MessageStream<M> {
    * scheme when propogated to next operator.
    *
    * @param table the table to write messages to
+   * @param args additional arguments passed to the table
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
    * @return this {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table);
+  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
 
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..

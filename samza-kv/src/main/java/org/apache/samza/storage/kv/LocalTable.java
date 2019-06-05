@@ -48,7 +48,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
    * @param tableId the table Id
    * @param kvStore the backing store
    */
-  public LocalTable(String tableId, KeyValueStore kvStore) {
+  public LocalTable(String tableId, KeyValueStore<K, V> kvStore) {
     super(tableId);
     Preconditions.checkNotNull(kvStore, "null KeyValueStore");
     this.kvStore = kvStore;
@@ -65,7 +65,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<V> getAsync(K key, Object ... args) {
-    CompletableFuture<V> future = new CompletableFuture();
+    CompletableFuture<V> future = new CompletableFuture<>();
     try {
       future.complete(get(key, args));
     } catch (Exception e) {
@@ -83,7 +83,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
-    CompletableFuture<Map<K, V>> future = new CompletableFuture();
+    CompletableFuture<Map<K, V>> future = new CompletableFuture<>();
     try {
       future.complete(getAll(keys, args));
     } catch (Exception e) {
@@ -103,7 +103,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
-    CompletableFuture<Void> future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       put(key, value, args);
       future.complete(null);
@@ -136,7 +136,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
-    CompletableFuture<Void> future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       putAll(entries, args);
       future.complete(null);
@@ -153,7 +153,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
-    CompletableFuture<Void> future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       delete(key, args);
       future.complete(null);
@@ -170,7 +170,7 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
-    CompletableFuture<Void> future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     try {
       deleteAll(keys, args);
       future.complete(null);

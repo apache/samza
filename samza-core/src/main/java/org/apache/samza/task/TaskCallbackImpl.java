@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * callback is called multiple times, it will throw IllegalStateException
  * to the listener.
  */
-class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
+public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
   private static final Logger log = LoggerFactory.getLogger(TaskCallbackImpl.class);
 
   final TaskName taskName;
@@ -58,6 +58,22 @@ class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackImpl> {
     this.coordinator = coordinator;
     this.seqNum = seqNum;
     this.timeCreatedNs = timeCreatedNs;
+  }
+
+  public TaskName getTaskName() {
+    return taskName;
+  }
+
+  public IncomingMessageEnvelope getEnvelope() {
+    return envelope;
+  }
+
+  public ReadableCoordinator getCoordinator() {
+    return coordinator;
+  }
+
+  public long getTimeCreatedNs() {
+    return timeCreatedNs;
   }
 
   @Override

@@ -44,26 +44,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val jobId = config
       .getJobId
 
-    val version =
-      try {
-        val taskConfig = new TaskConfig(config)
-        val taskClass = Option(new ApplicationConfig(config).getAppClass)
-          .orElse(JavaOptionals.toRichOptional(taskConfig.getTaskClass).toOption)
-          .get
-        Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
-      } catch {
-        case e: Exception => {
-          warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
-          "0.0.1"
-        }
-      }
-
-    val samzaVersion = Option(classOf[MetricsSnapshotReporterFactory].getPackage.getImplementationVersion)
-      .getOrElse({
-        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
-      })
-
     val metricsSystemStreamName = config
       .getMetricsSnapshotReporterStream(name)
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
@@ -105,7 +85,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val pollingInterval: Int = config
       .getMetricsSnapshotReporterInterval(name)
-      .getOrElse("60").toInt
 
     info("Setting polling interval to %d" format pollingInterval)
 
@@ -119,8 +98,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       jobName,
       jobId,
       containerName,
-      version,
-      samzaVersion,
+      Util.getTaskClassVersion(config),
+      Util.getSamzaVersion(),
       Util.getLocalHost.getHostName,
       serde, blacklist)
 
