@@ -103,7 +103,7 @@ public class ContainerLaunchUtil {
       Option<DiagnosticsManager> diagnosticsManager = Option.empty();
       if (diagnosticsManagerReporterPair.isPresent()) {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
-        metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+        metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
       }
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(

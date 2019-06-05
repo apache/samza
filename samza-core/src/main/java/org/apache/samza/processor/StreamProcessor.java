@@ -345,7 +345,7 @@ public class StreamProcessor {
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
-      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
     }
 
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),

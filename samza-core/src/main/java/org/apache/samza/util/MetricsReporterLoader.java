@@ -26,7 +26,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsReporterFactory;
-import scala.collection.JavaConverters;
 
 
 /**

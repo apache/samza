@@ -61,7 +61,7 @@ public class TestMetricsConfig {
     String value = "10";
     Config config = new MapConfig(
         ImmutableMap.of(String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_INTERVAL, metricsReporterName), value));
-    assertEquals(value, new MetricsConfig(config).getMetricsSnapshotReporterInterval(metricsReporterName));
+    assertEquals(10, new MetricsConfig(config).getMetricsSnapshotReporterInterval(metricsReporterName));
 
     assertEquals(MetricsConfig.DEFAULT_METRICS_SNAPSHOT_REPORTER_INTERVAL,
         new MetricsConfig(new MapConfig()).getMetricsSnapshotReporterInterval("someName"));
