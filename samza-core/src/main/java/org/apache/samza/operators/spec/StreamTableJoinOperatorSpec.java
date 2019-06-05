@@ -36,6 +36,7 @@ public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM
 
   private final String tableId;
   private final StreamTableJoinFunction<K, M, R, JM> joinFn;
+  private final Object[] args;
 
   /**
    * Constructor for {@link StreamTableJoinOperatorSpec}.
@@ -43,11 +44,13 @@ public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM
    * @param tableId  the Id of the table on the right side of the join
    * @param joinFn  the user-defined join function to get join keys and results
    * @param opId  the unique ID for this operator
+   * @param args additional arguments passed to the table
    */
-  StreamTableJoinOperatorSpec(String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId) {
+  StreamTableJoinOperatorSpec(String tableId, StreamTableJoinFunction<K, M, R, JM> joinFn, String opId, Object ... args) {
     super(OpCode.JOIN, opId);
     this.tableId = tableId;
     this.joinFn = joinFn;
+    this.args = args;
   }
 
   public String getTableId() {
@@ -56,6 +59,10 @@ public class StreamTableJoinOperatorSpec<K, M, R, JM> extends OperatorSpec<M, JM
 
   public StreamTableJoinFunction<K, M, R, JM> getJoinFn() {
     return this.joinFn;
+  }
+
+  public Object[] getArgs() {
+    return args;
   }
 
   @Override

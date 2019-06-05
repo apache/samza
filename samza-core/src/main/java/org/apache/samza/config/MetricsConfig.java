@@ -40,7 +40,9 @@ public class MetricsConfig extends MapConfig {
   // The following configs are applicable only to {@link MetricsSnapshotReporter}
   // added here only to maintain backwards compatibility of config
   public static final String METRICS_SNAPSHOT_REPORTER_STREAM = "metrics.reporter.%s.stream";
+  // unit for this config is seconds
   public static final String METRICS_SNAPSHOT_REPORTER_INTERVAL = "metrics.reporter.%s.interval";
+  static final int DEFAULT_METRICS_SNAPSHOT_REPORTER_INTERVAL = 60;
   public static final String METRICS_SNAPSHOT_REPORTER_BLACKLIST = "metrics.reporter.%s.blacklist";
   public static final String METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS = "diagnosticsreporter";
 
@@ -56,8 +58,8 @@ public class MetricsConfig extends MapConfig {
     return Optional.ofNullable(get(String.format(METRICS_SNAPSHOT_REPORTER_STREAM, name)));
   }
 
-  public Optional<String> getMetricsSnapshotReporterInterval(String name) {
-    return Optional.ofNullable(get(String.format(METRICS_SNAPSHOT_REPORTER_INTERVAL, name)));
+  public int getMetricsSnapshotReporterInterval(String name) {
+    return getInt(String.format(METRICS_SNAPSHOT_REPORTER_INTERVAL, name), DEFAULT_METRICS_SNAPSHOT_REPORTER_INTERVAL);
   }
 
   public Optional<String> getMetricsSnapshotReporterBlacklist(String name) {

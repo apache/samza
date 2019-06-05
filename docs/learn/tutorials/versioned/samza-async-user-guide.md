@@ -107,16 +107,96 @@ task.callback.timeout.ms=5000
 
 **NOTE:** Samza also guarantees the in-order process of the messages within an AsyncStreamTask by default, meaning the next processAsync() of a task won't be called until the previous processAsync() callback has been triggered.
 
+### Asynchronous Process in High Level API
+
+If your processing logic is asynchronous, e.g. it makes non-blocking remote calls, you can implement it using the [AsyncFlatMapFunction](/learn/documentation/{{site.version}}/api/javadocs/org/apache/samza/operators/functions/AsyncFlatMapFunction.html). The following example illustrates an application that processes Wikipedia feed updates and invokes a remote service to standardize the updates and sends the standardized events to Wikipedia.
+
+{% highlight java %}
+
+public class WikipediaAsyncStandardizer implements StreamApplication {
+
+  @Override
+  public void describe(StreamApplicationDescriptor appDescriptor) {
+    // Define a SystemDescriptor for Wikipedia data
+    WikipediaSystemDescriptor wikipediaSystemDescriptor = new WikipediaSystemDescriptor("irc.wikimedia.org", 6667);
+    // Define InputDescriptors for consuming wikipedia data
+    WikipediaInputDescriptor wikipediaInputDescriptor = wikipediaSystemDescriptor
+        .getInputDescriptor("en-wikipedia")
+        .withChannel("#en.wikipedia");
+    // Define OutputDescriptor for producing wikipedia data
+    WikipediaOutputDescriptor wikipediaOutputDescriptor = wikipediaSystemDescriptor
+        .getOutputDescriptor("en-wikipedia-standardized")
+        .withChannel("#en.wikipedia.standardized");
+
+    appDescriptor.getInputStream(wikipediaInputDescriptor)
+        .filter(WikipediaFeedEvent::isUpdate)
+        .flatMapAsync(new AsyncStandardizerFunction())
+        .sendTo(wikipediaOutputDescriptor);
+  }
+
+  static class AsyncStandardizerFunction implements AsyncFlatMapFunction<WikipediaFeedEvent, StandardizedWikipediaFeedEvent> {
+    private transient Client client;
+
+    @Override
+    public void init(Context context) {
+      client = ClientBuilder.newClient(context.getJobContext().getConfig().get("standardizer.uri"));
+    }
+
+    @Override
+    public CompletionStage<Collection<StandardizedWikipediaFeedEvent>> apply(WikipediaFeedEvent wikipediaFeedEvent) {
+      Request<StandardizerRequest> standardizerRequest = buildStandardizedRequest(wikipediaFeedEvent);
+      CompletableFuture<StandardizerResponse> standardizerResponse = client.sendRequest(standardizerRequest);
+
+      return standardizerResponse
+          .thenApply(response -> extractStandardizedWikipediaFeedEvent(response));
+    }
+
+    @Override
+    public void close() {
+      client.close();
+    }
+  }
+}
+{% endhighlight %}
+
+In the above example, the results from the `AsyncStandardizerFunction` are propagated to downstream operator once the future is complete. There is an overall timeout for each to message to be processed and you can tune it using:
+
+{% highlight jproperties %}
+# Timeout for the message to processed. When the timeout elapses, the container shuts down.
+task.callback.timeout.ms
+{% endhighlight %}
+
+If IO library accepts callbacks instead of returning a Future, the callback can be adapted to a Future in the following way:
+
+{% highlight java %}
+
+  public CompletionStage<Collection<StandardizedWikipediaFeedEvent>> apply(WikipediaFeedEvent wikipediaFeedEvent) {
+    Request<StandardizerRequest> standardizationRequest = buildStandardizedRequest(wikipediaFeedEvent);
+    CompletableFuture<Collection<StandardizedWikipediaFeedEvent>> standardizedFuture = new CompletableFuture<>();
+    client.async().get(standardizationRequest, new InvocationCallback<Response>() {
+          @Override
+          public void completed(StandardizerResponse response) {
+            standardizedFuture.complete(extractStandardizedWikipediaFeedEvent(response));
+          }
+
+          @Override
+          public void failed(Throwable throwable) {
+            standardizedFuture.completeExceptionally(throwable);
+          }
+        });
+  }
+{% endhighlight %}
+
 ### Out-of-order Process
 
-In both cases above, Samza supports in-order process by default. Further parallelism is also supported by allowing a task to process multiple outstanding messages in parallel. The following config allows one task to process at most 4 outstanding messages in parallel at a time: 
+In all cases above, Samza supports in-order process by default. Further parallelism is also supported by allowing a task to process multiple outstanding messages in parallel. The following config allows one task to process at most 4 outstanding messages in parallel at a time:
 
 {% highlight jproperties %}
 # Max number of outstanding messages being processed per task at a time, applicable to both StreamTask and AsyncStreamTask.
 task.max.concurrency=4
 {% endhighlight %}
 
-**NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can go out of order. In case of StreamTask with multithreading, process() can run out-of-order since they are dispatched to a thread pool. This option should **NOT** be used when strict ordering of the output is required.
+**NOTE:** In case of AsyncStreamTask, processAsync() is still invoked in the order of the message arrivals, but the completion can happen out of order. In case of StreamTask and High level API applications with task.max.concurrency &gt; 1, delivery can be out-of-order. This option should **NOT** be used when strict ordering of the output is required.
 
 ### Guaranteed Semantics
 

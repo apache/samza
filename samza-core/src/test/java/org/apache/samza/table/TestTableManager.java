@@ -81,14 +81,14 @@ public class TestTableManager {
 
   @Test(expected = IllegalStateException.class)
   public void testInitFailsWithoutInitializingLocalStores() {
-    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()));
+    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()), getClass().getClassLoader());
     tableManager.getTable("dummy");
   }
 
   private void doTestInit(Map<String, String> map) {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
     storageEngines.put(TABLE_ID, mock(StorageEngine.class));
-    TableManager tableManager = new TableManager(new MapConfig(map));
+    TableManager tableManager = new TableManager(new MapConfig(map), getClass().getClassLoader());
     tableManager.init(new MockContext());
 
     for (int i = 0; i < 2; i++) {

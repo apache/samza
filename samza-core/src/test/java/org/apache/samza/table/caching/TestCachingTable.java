@@ -286,6 +286,7 @@ public class TestCachingTable {
         tableId + "-remote", readFn, writeFn,
         rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
+        null, null,
         Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
@@ -407,6 +408,7 @@ public class TestCachingTable {
         tableId, readFn, writeFn,
         rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
+        null, null,
         Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(

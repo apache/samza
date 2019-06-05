@@ -21,11 +21,10 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config, MetricsConfig, SystemConfig}
+import org.apache.samza.config.{Config, MetricsConfig, SystemConfig}
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -43,24 +42,6 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val jobId = config
       .getJobId
-
-    val version =
-      try {
-        val taskClass = Option(new ApplicationConfig(config).getAppClass())
-          .orElse(config.getTaskClass).get
-        Option(Class.forName(taskClass).getPackage.getImplementationVersion).get
-      } catch {
-        case e: Exception => {
-          warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
-          "0.0.1"
-        }
-      }
-
-    val samzaVersion = Option(classOf[MetricsSnapshotReporterFactory].getPackage.getImplementationVersion)
-      .getOrElse({
-        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
-      })
 
     val metricsConfig = new MetricsConfig(config)
     val metricsSystemStreamName = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterStream(name))
@@ -102,9 +83,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     info("Got serde %s." format serde)
 
-    val pollingInterval: Int = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterInterval(name))
-      .toOption
-      .getOrElse("60").toInt
+    val pollingInterval: Int = metricsConfig.getMetricsSnapshotReporterInterval(name)
 
     info("Setting polling interval to %d" format pollingInterval)
 
@@ -118,8 +97,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       jobName,
       jobId,
       containerName,
-      version,
-      samzaVersion,
+      Util.getTaskClassVersion(config),
+      Util.getSamzaVersion(),
       Util.getLocalHost.getHostName,
       serde, blacklist)
 

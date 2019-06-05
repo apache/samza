@@ -16,24 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.table.remote;
 
-package org.apache.samza.coordinator;
+import java.util.concurrent.CompletableFuture;
+import org.apache.samza.SamzaException;
 
-import java.util.concurrent.TimeUnit;
 
+/**
+ * A no-op table read function
+ */
+public class NoOpTableReadFunction<K, V> extends BaseTableFunction implements TableReadFunction<K, V> {
 
-public interface DistributedLock {
+  @Override
+  public CompletableFuture<V> getAsync(K key) {
+    throw new SamzaException("Not supported");
+  }
 
-  /**
-   * Tries to acquire the lock
-   * @param timeout Duration of lock acquiring timeout.
-   * @param unit Time Unit of the timeout defined above.
-   * @return true if lock is acquired successfully, false if it times out.
-   */
-  boolean lock(long timeout, TimeUnit unit);
+  @Override
+  public boolean isRetriable(Throwable exception) {
+    return false;
+  }
 
-  /**
-   * Releases the lock
-   */
-  void unlock();
 }

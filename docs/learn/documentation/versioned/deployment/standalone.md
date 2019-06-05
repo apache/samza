@@ -42,7 +42,7 @@ This mode allows you to bring any cluster-manager or hosting-environment of your
 The [Hello-samza](https://github.com/apache/samza-hello-samza/) project includes multiple examples of Samza standalone applications. Let us first check out the repository.
 
 ```bash
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza 
 ```
 

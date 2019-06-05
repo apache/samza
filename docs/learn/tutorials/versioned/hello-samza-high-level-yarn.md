@@ -27,7 +27,7 @@ This tutorial demonstrates a simple wikipedia application created with the High 
 Check out the hello-samza project:
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
 git checkout latest
 {% endhighlight %}

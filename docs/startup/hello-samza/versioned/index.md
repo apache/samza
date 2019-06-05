@@ -25,7 +25,7 @@ The [hello-samza](https://github.com/apache/samza-hello-samza) project is an exa
 Check out the hello-samza project:
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
 git checkout latest
 {% endhighlight %}

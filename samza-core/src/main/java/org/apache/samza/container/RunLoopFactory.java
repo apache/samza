@@ -22,7 +22,6 @@ package org.apache.samza.container;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
-import org.apache.samza.task.RunLoop;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -19,8 +19,8 @@
 
 package org.apache.samza.coordinator;
 
+import java.time.Duration;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.samza.AzureException;
@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Distributed lock primitive for Azure.
  */
-public class AzureLock implements DistributedLockWithState {
+public class AzureLock implements DistributedLock {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureLock.class);
   private static final int LEASE_TIME_IN_SEC = 60;
@@ -51,14 +51,13 @@ public class AzureLock implements DistributedLockWithState {
    * Tries to acquire a lock in order to create intermediate streams. On failure to acquire lock, it keeps trying until the lock times out.
    * The lock is acquired when the blob is leased successfully.
    * @param timeout Duration after which timeout occurs.
-   * @param unit Time Unit of the timeout defined above.
    * @return true if the lock was acquired successfully, false if lock acquire operation is unsuccessful even after subsequent tries within the timeout range.
    */
   @Override
-  public boolean lockIfNotSet(long timeout, TimeUnit unit) {
+  public boolean lock(Duration timeout) {
     //Start timer for timeout
     long startTime = System.currentTimeMillis();
-    long lockTimeout = TimeUnit.MILLISECONDS.convert(timeout, unit);
+    long lockTimeout = timeout.toMillis();
     Random random = new Random();
 
     while ((System.currentTimeMillis() - startTime) < lockTimeout) {
@@ -87,7 +86,7 @@ public class AzureLock implements DistributedLockWithState {
    * Unlocks, by releasing the lease on the blob.
    */
   @Override
-  public void unlockAndSet() {
+  public void unlock() {
     boolean status = leaseBlobManager.releaseLease(leaseId.get());
     if (status) {
       LOG.info("Unlocked successfully.");

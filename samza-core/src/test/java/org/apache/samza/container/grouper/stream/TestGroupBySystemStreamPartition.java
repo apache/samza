@@ -102,7 +102,7 @@ public class TestGroupBySystemStreamPartition {
                     new SystemStreamPartition("kafka", "PVE", new Partition(6))))
             .build();
 
-    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
+    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithSingleStream, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -150,7 +150,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
             .build();
 
-    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
+    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -184,7 +184,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
             .build();
 
-    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
+    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -228,7 +228,7 @@ public class TestGroupBySystemStreamPartition {
             .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
             .build();
 
-    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
+    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
@@ -280,9 +280,14 @@ public class TestGroupBySystemStreamPartition {
                                                                                         new SystemStreamPartition("kafka", "URE", new Partition(4))))
             .build();
 
-    SSPGrouperProxy groupBySystemStreamPartition = new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
+    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
     Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
     Assert.assertEquals(expectedGrouping, finalGrouping);
+  }
+
+  private static SSPGrouperProxy buildSspGrouperProxy() {
+    return new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()),
+        TestGroupBySystemStreamPartition.class.getClassLoader());
   }
 }
