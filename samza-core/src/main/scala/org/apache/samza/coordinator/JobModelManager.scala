@@ -48,7 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.{Logging, ReflectionUtil}
+import org.apache.samza.util.{Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -308,12 +308,13 @@ object JobModelManager extends Logging {
     classLoader: ClassLoader): Set[SystemStreamPartition] = {
     val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
     config.getSSPMatcherClass match {
-      case Some(s) =>
+      case Some(sspMatcherClassName) =>
         val jfr = config.getSSPMatcherConfigJobFactoryRegex.r
         config.getStreamJobFactoryClass match {
           case Some(jfr(_*)) =>
             info("before match: allSystemStreamPartitions.size = %s" format allSystemStreamPartitions.size)
-            val sspMatcher = ReflectionUtil.getObj(classLoader, s, classOf[SystemStreamPartitionMatcher])
+            val sspMatcher =
+              ReflectionUtil.getObj(classLoader, sspMatcherClassName, classOf[SystemStreamPartitionMatcher])
             val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions.asJava, config).asScala.toSet
             // Usually a small set hence ok to log at info level
             info("after match: matchedPartitions = %s" format matchedPartitions)

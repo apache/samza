@@ -38,8 +38,8 @@ public class ContainerAllocator extends AbstractContainerAllocator {
   public ContainerAllocator(ClusterResourceManager manager,
       Config config,
       SamzaApplicationState state,
-      ClassLoader classLoaderForConfigObjects) {
-    super(manager, new ResourceRequestState(false, manager), config, state, classLoaderForConfigObjects);
+      ClassLoader pluginClassloader) {
+    super(manager, new ResourceRequestState(false, manager), config, state, pluginClassloader);
   }
 
   /**

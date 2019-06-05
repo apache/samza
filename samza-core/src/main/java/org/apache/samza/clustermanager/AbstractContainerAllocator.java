@@ -56,7 +56,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   /**
    * Classloader for creating objects from config
    */
-  private final ClassLoader classLoaderForConfigObjects;
+  private final ClassLoader pluginClassLoader;
 
   /**
    * A ClusterResourceManager for the allocator to request for resources.
@@ -86,7 +86,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
       ResourceRequestState resourceRequestState,
       Config config,
       SamzaApplicationState state,
-      ClassLoader classLoaderForConfigObjects) {
+      ClassLoader pluginClassLoader) {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.clusterResourceManager = containerProcessManager;
     this.allocatorSleepIntervalMs = clusterManagerConfig.getAllocatorSleepTime();
@@ -96,7 +96,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
     this.taskConfig = new TaskConfig(config);
     this.state = state;
     this.config = config;
-    this.classLoaderForConfigObjects = classLoaderForConfigObjects;
+    this.pluginClassLoader = pluginClassLoader;
   }
 
   /**
@@ -243,7 +243,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   private CommandBuilder getCommandBuilder(String processorId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
     CommandBuilder cmdBuilder =
-        ReflectionUtil.getObj(this.classLoaderForConfigObjects, cmdBuilderClassName, CommandBuilder.class);
+        ReflectionUtil.getObj(this.pluginClassLoader, cmdBuilderClassName, CommandBuilder.class);
 
     cmdBuilder.setConfig(config).setId(processorId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;
