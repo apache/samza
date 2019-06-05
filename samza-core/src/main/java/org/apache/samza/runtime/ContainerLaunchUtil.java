@@ -113,7 +113,11 @@ public class ContainerLaunchUtil {
           JobContextImpl.fromConfigWithDefaults(config),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
-          Option.apply(externalContextOptional.orElse(null)), localityManager, startpointManager, diagnosticsManager);
+          Option.apply(externalContextOptional.orElse(null)),
+          ContainerLaunchUtil.class.getClassLoader(),
+          localityManager,
+          startpointManager,
+          diagnosticsManager);
 
       ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);

@@ -84,8 +84,8 @@ import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.ScalaJavaUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
@@ -161,15 +161,26 @@ public class ContainerStorageManager {
 
   private final Config config;
 
-  public ContainerStorageManager(ContainerModel containerModel, StreamMetadataCache streamMetadataCache,
-      SystemAdmins systemAdmins, Map<String, SystemStream> changelogSystemStreams,
+  public ContainerStorageManager(ContainerModel containerModel,
+      StreamMetadataCache streamMetadataCache,
+      SystemAdmins systemAdmins,
+      Map<String, SystemStream> changelogSystemStreams,
       Map<String, Set<SystemStream>> sideInputSystemStreams,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
-      Map<String, SystemFactory> systemFactories, Map<String, Serde<Object>> serdes, Config config,
-      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, SamzaContainerMetrics samzaContainerMetrics,
-      JobContext jobContext, ContainerContext containerContext,
-      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors, File loggedStoreBaseDirectory,
-      File nonLoggedStoreBaseDirectory, int maxChangeLogStreamPartitions, SerdeManager serdeManager, Clock clock) {
+      Map<String, SystemFactory> systemFactories,
+      Map<String, Serde<Object>> serdes,
+      Config config,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
+      SamzaContainerMetrics samzaContainerMetrics,
+      JobContext jobContext,
+      ContainerContext containerContext,
+      Map<TaskName, TaskInstanceCollector> taskInstanceCollectors,
+      File loggedStoreBaseDirectory,
+      File nonLoggedStoreBaseDirectory,
+      int maxChangeLogStreamPartitions,
+      SerdeManager serdeManager,
+      Clock clock,
+      ClassLoader classLoader) {
 
     this.containerModel = containerModel;
     this.sideInputSystemStreams = new HashMap<>(sideInputSystemStreams);
@@ -219,7 +230,7 @@ public class ContainerStorageManager {
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
 
     // create side input storage managers
-    sideInputStorageManagers = createSideInputStorageManagers(clock);
+    sideInputStorageManagers = createSideInputStorageManagers(clock, classLoader);
 
     // create side Input consumers indexed by systemName
     this.sideInputConsumers = createConsumers(this.sideInputSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
@@ -490,7 +501,7 @@ public class ContainerStorageManager {
   // Create side input store processors, one per store per task
   private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
       ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
-      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ClassLoader classLoader) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
@@ -506,9 +517,12 @@ public class ContainerStorageManager {
             String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName)
                 .orElseThrow(() -> new SamzaException(
                     String.format("Could not find side inputs processor factory for store: %s", storeName)));
-            sideInputStoresToProcessors.get(taskName)
-                .put(storeName, Util.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class)
-                    .getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry()));
+            SideInputsProcessorFactory sideInputsProcessorFactory =
+                ReflectionUtil.getObj(classLoader, sideInputsProcessorFactoryClassName,
+                    SideInputsProcessorFactory.class);
+            SideInputsProcessor sideInputsProcessor =
+                sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
+            sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
           }
         }
       });
@@ -536,12 +550,12 @@ public class ContainerStorageManager {
   }
 
   // Create task side input storage managers, one per task, index by the SSP they are responsible for consuming
-  private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
-
+  private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock,
+      ClassLoader classLoader) {
     // creating side input store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
         createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
-            this.taskInstanceMetrics);
+            this.taskInstanceMetrics, classLoader);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 

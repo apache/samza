@@ -304,7 +304,8 @@ public class TestApplicationMasterRestClient {
   }
 
   private void assignMetricValues(SamzaApplicationState samzaAppState, MetricsRegistryMap registry) {
-    SamzaAppMasterMetrics metrics = new SamzaAppMasterMetrics(new MapConfig(), samzaAppState, registry);
+    SamzaAppMasterMetrics metrics =
+        new SamzaAppMasterMetrics(new MapConfig(), samzaAppState, registry, getClass().getClassLoader());
     metrics.start();
     samzaAppState.runningProcessors.put("dummyContainer",
         new SamzaResource(1, 2, AM_HOST_NAME, "dummyResourceId")); // 1 container

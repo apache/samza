@@ -38,12 +38,13 @@ object SamzaAppMasterMetrics {
  * registry, we might as well use it. This class takes Samza's application
  * master state, and converts it to metrics.
  */
-class SamzaAppMasterMetrics(
-                             val config: Config,
-                             val state: SamzaApplicationState,
-                             val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
+class SamzaAppMasterMetrics(val config: Config,
+  val state: SamzaApplicationState,
+  val registry: ReadableMetricsRegistry,
+  val classLoader: ClassLoader) extends MetricsHelper with Logging {
 
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  val reporters =
+    MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName, classLoader).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {

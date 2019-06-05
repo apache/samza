@@ -59,11 +59,13 @@ public class LocalJobPlanner extends JobPlanner {
   private final CoordinationUtils coordinationUtils;
   private final String runId;
 
-  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, String processorId) {
+  public LocalJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor, String processorId,
+      ClassLoader classLoader) {
     super(descriptor);
     this.processorId = processorId;
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(userConfig);
-    this.coordinationUtils = jcConfig.getCoordinationUtilsFactory().getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, processorId, userConfig);
+    this.coordinationUtils = jcConfig.getCoordinationUtilsFactory(classLoader)
+        .getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, processorId, userConfig);
     this.runId = null;
   }
 

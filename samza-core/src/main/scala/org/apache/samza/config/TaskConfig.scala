@@ -104,10 +104,6 @@ class TaskConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getCheckpointManagerFactory() = Option(javaTaskConfig.getCheckpointManagerFactoryName)
 
-  def getCheckpointManager(metricsRegistry: MetricsRegistry): Option[CheckpointManager] = {
-    Option(javaTaskConfig.getCheckpointManager(metricsRegistry))
-  }
-
   def getMessageChooserClass = getOption(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME)
 
   def getDropDeserializationErrors = getBoolean(TaskConfig.DROP_DESERIALIZATION_ERRORS, false)

@@ -64,8 +64,8 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkUtils.ProcessorNode;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
@@ -143,7 +143,9 @@ public class ZkJobCoordinator implements JobCoordinator {
     this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
-    LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
+    LocationIdProviderFactory locationIdProviderFactory =
+        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
+            LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
   }
@@ -297,7 +299,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       coordinatorStreamStore = createCoordinatorStreamStore();
       coordinatorStreamStore.init();
 
-      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel);
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader());
       metadataResourceUtil.createResources();
 
       CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
@@ -327,8 +329,8 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   @VisibleForTesting
-  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel) {
-    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry());
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader);
   }
 
   /**
@@ -358,7 +360,8 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
 
     GrouperMetadata grouperMetadata = getGrouperMetadata(zkJobModelVersion, processorNodes);
-    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata);
+    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata,
+        getClass().getClassLoader());
     return new JobModel(new MapConfig(), model.getContainers());
   }
 

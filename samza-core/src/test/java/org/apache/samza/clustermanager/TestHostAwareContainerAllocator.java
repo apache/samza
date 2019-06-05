@@ -75,7 +75,9 @@ public class TestHostAwareContainerAllocator {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, Optional.empty(), state);
+    containerAllocator =
+        new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, Optional.empty(), state,
+            getClass().getClassLoader());
     requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
