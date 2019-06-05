@@ -400,7 +400,7 @@ object SamzaContainer extends Logging {
     info("Setting up message chooser.")
 
     val taskConfig = new TaskConfig(config)
-    val chooserFactoryClassName = taskConfig.getMessageChooserClass.orElse(classOf[RoundRobinChooserFactory].getName)
+    val chooserFactoryClassName = taskConfig.getMessageChooserClass
 
     val chooserFactory = Util.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
 
@@ -421,8 +421,7 @@ object SamzaContainer extends Logging {
     }
     info("Got security manager: %s" format securityManager)
 
-    val checkpointManager =
-      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(samzaContainerMetrics.registry)).toOption.orNull
+    val checkpointManager = taskConfig.getCheckpointManager(samzaContainerMetrics.registry).orElse(null)
     info("Got checkpoint manager: %s" format checkpointManager)
 
     // create a map of consumers with callbacks to pass to the OffsetManager
@@ -436,7 +435,7 @@ object SamzaContainer extends Logging {
     val dropDeserializationError = taskConfig.getDropDeserializationErrors
     val dropSerializationError = taskConfig.getDropSerializationErrors
 
-    val pollIntervalMs = taskConfig.getPollIntervalMs.orElse(SystemConsumers.DEFAULT_POLL_INTERVAL_MS)
+    val pollIntervalMs = taskConfig.getPollIntervalMs
 
     val consumerMultiplexer = new SystemConsumers(
       chooser = chooser,

@@ -52,7 +52,6 @@ import org.apache.samza.util.TableUtils;
 import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 import scala.collection.JavaConverters;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -273,7 +272,7 @@ public class AzureJobCoordinator implements JobCoordinator {
   private Set<SystemStreamPartition> getInputStreamPartitions() {
     TaskConfig taskConfig = new TaskConfig(config);
     scala.collection.immutable.Set<SystemStream> inputSystemStreams =
-        JavaConversions.asScalaSet(taskConfig.getInputStreams()).toSet();
+        JavaConverters.asScalaSetConverter(taskConfig.getInputStreams()).asScala().toSet();
 
     // Get the set of partitions for each SystemStream from the stream metadata
     Set<SystemStreamPartition>

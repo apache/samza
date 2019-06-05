@@ -38,6 +38,7 @@ import org.apache.samza.container.grouper.task.GroupByContainerCountFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.chooser.RoundRobinChooserFactory;
 import org.junit.Test;
 
 
@@ -109,10 +110,10 @@ public class TestTaskConfig {
   public void testGetMessageChooserClass() {
     String messageChooserClassValue = "some.message.chooser.class";
     Config config = new MapConfig(ImmutableMap.of(TaskConfig.MESSAGE_CHOOSER_CLASS_NAME, messageChooserClassValue));
-    assertEquals(Optional.of(messageChooserClassValue), new TaskConfig(config).getMessageChooserClass());
+    assertEquals(messageChooserClassValue, new TaskConfig(config).getMessageChooserClass());
 
     // config not specified
-    assertFalse(new TaskConfig(new MapConfig()).getMessageChooserClass().isPresent());
+    assertEquals(RoundRobinChooserFactory.class.getName(), new TaskConfig(config).getMessageChooserClass());
   }
 
   @Test
@@ -154,10 +155,10 @@ public class TestTaskConfig {
   @Test
   public void testGetPollIntervalMs() {
     Config config = new MapConfig(ImmutableMap.of(TaskConfig.POLL_INTERVAL_MS, "10"));
-    assertEquals(Optional.of(10), new TaskConfig(config).getPollIntervalMs());
+    assertEquals(10, new TaskConfig(config).getPollIntervalMs());
 
     // config not specified
-    assertFalse(new TaskConfig(new MapConfig()).getPollIntervalMs().isPresent());
+    assertEquals(TaskConfig.DEFAULT_POLL_INTERVAL_MS, new TaskConfig(config).getPollIntervalMs());
   }
 
   @Test
