@@ -32,7 +32,7 @@ git clone http://git-wip-us.apache.org/repos/asf/samza.git
 Next, grab hello-samza.
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git
 {% endhighlight %}
 
 ### Setup the Environment

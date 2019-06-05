@@ -175,7 +175,7 @@ If IO library accepts callbacks instead of returning a Future, the callback can 
     CompletableFuture<Collection<StandardizedWikipediaFeedEvent>> standardizedFuture = new CompletableFuture<>();
     client.async().get(standardizationRequest, new InvocationCallback<Response>() {
           @Override
-          public void completed(ResStandardizerResponseponse response) {
+          public void completed(StandardizerResponse response) {
             standardizedFuture.complete(extractStandardizedWikipediaFeedEvent(response));
           }
 

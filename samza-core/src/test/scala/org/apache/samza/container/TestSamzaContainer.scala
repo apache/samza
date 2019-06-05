@@ -31,7 +31,7 @@ import org.apache.samza.metrics.{Gauge, MetricsReporter, Timer}
 import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
 import org.apache.samza.system._
 import org.apache.samza.task.{StreamTaskFactory, TaskFactory}
-import org.apache.samza.{Partition, SamzaContainerStatus}
+import org.apache.samza.Partition
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}

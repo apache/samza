@@ -18,7 +18,6 @@
  */
 package org.apache.samza.scheduler;
 
-import org.apache.samza.task.EpochTimeScheduler;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;

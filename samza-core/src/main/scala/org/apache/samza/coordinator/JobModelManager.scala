@@ -22,7 +22,7 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.Partition
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -269,7 +269,21 @@ object JobModelManager extends Logging {
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-    val inputSystemStreams = config.getInputStreams
+
+
+    def invokeRegexTopicRewriter(config: Config): Config = {
+      config.getConfigRewriters match {
+        case Some(rewriters) => rewriters.split(",").
+          filter(rewriterName => config.getConfigRewriterClass(rewriterName)
+            .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+            .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
+          foldLeft(config)(Util.applyRewriter(_, _))
+        case _ => config
+      }
+    }
+
+    // Expand regex input, if a regex-rewriter is defined in config
+    val inputSystemStreams = invokeRegexTopicRewriter(config).getInputStreams
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache

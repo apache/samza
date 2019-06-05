@@ -17,12 +17,14 @@
  * under the License.
  */
 
-package org.apache.samza.task;
+package org.apache.samza.scheduler;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

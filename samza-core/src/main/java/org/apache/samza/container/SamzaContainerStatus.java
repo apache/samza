@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza;
+package org.apache.samza.container;
 
 
 /**
@@ -44,12 +44,12 @@ public enum  SamzaContainerStatus {
 
   /**
    * Indicates that the container is starting all the components required by the
-   * {@link org.apache.samza.task.RunLoop} for processing
+   * {@link RunLoop} for processing
    */
   STARTING,
 
   /**
-   * Indicates that the container started the {@link org.apache.samza.task.RunLoop}
+   * Indicates that the container started the {@link RunLoop}
    */
   STARTED,
 
