@@ -65,9 +65,10 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
     }
 
     K key = joinOpSpec.getJoinFn().getMessageKey(message);
+    Object[] args = joinOpSpec.getArgs();
 
     return Optional.ofNullable(key)
-        .map(joinKey -> table.getAsync(joinKey)
+        .map(joinKey -> table.getAsync(joinKey, args)
             .thenApply(val -> getJoinOutput(joinKey, val, message)))
         .orElseGet(() -> CompletableFuture.completedFuture(getJoinOutput(key, null, message)));
   }

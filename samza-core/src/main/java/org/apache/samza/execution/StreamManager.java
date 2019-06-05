@@ -38,8 +38,8 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
@@ -108,7 +108,7 @@ public class StreamManager {
    * For batch processing, we always clean up the previous internal streams and create a new set for each run.
    * @param prevConfig config of the previous run
    */
-  public void clearStreamsFromPreviousRun(Config prevConfig) {
+  public void clearStreamsFromPreviousRun(Config prevConfig, ClassLoader classLoader) {
     try {
       ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
       LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
@@ -131,7 +131,7 @@ public class StreamManager {
           .getOrElse(defaultValue(null));
       if (checkpointManagerFactoryClassName != null) {
         CheckpointManager checkpointManager =
-            Util.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
+            ReflectionUtil.getObj(classLoader, checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
                 .getCheckpointManager(prevConfig, new MetricsRegistryMap());
         checkpointManager.clearCheckpoints();
       }

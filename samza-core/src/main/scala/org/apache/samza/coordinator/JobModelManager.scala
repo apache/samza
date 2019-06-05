@@ -22,7 +22,7 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.Partition
+import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config._
 import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.TaskConfig.Config2Task
@@ -48,8 +48,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
-import org.apache.samza.util.Logging
-import org.apache.samza.util.Util
+import org.apache.samza.util.{Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -76,11 +75,13 @@ object JobModelManager extends Logging {
    * c) Builds JobModelManager using the jobModel read from coordinator stream.
    * @param config config from the coordinator stream.
    * @param changelogPartitionMapping changelog partition-to-task mapping of the samza job.
+   * @param classLoader classloader to use for loading pluggable classes
    * @param metricsRegistry the registry for reporting metrics.
    * @return the instantiated {@see JobModelManager}.
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
             coordinatorStreamStore: CoordinatorStreamStore,
+            classLoader: ClassLoader,
             metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
@@ -94,7 +95,8 @@ object JobModelManager extends Logging {
       val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
 
-      val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
+      val jobModel: JobModel =
+        readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata, classLoader)
       jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
 
       updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
@@ -267,7 +269,21 @@ object JobModelManager extends Logging {
     * @return the input {@see SystemStreamPartition} of the samza job.
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
-    val inputSystemStreams = config.getInputStreams
+
+
+    def invokeRegexTopicRewriter(config: Config): Config = {
+      config.getConfigRewriters match {
+        case Some(rewriters) => rewriters.split(",").
+          filter(rewriterName => config.getConfigRewriterClass(rewriterName)
+            .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+            .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
+          foldLeft(config)(Util.applyRewriter(_, _))
+        case _ => config
+      }
+    }
+
+    // Expand regex input, if a regex-rewriter is defined in config
+    val inputSystemStreams = invokeRegexTopicRewriter(config).getInputStreams
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
@@ -288,15 +304,17 @@ object JobModelManager extends Logging {
     * @param streamMetadataCache required to query the partition metadata of the input streams.
     * @return the input SystemStreamPartitions of the job.
     */
-  private def getMatchedInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
+  private def getMatchedInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache,
+    classLoader: ClassLoader): Set[SystemStreamPartition] = {
     val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
     config.getSSPMatcherClass match {
-      case Some(s) =>
+      case Some(sspMatcherClassName) =>
         val jfr = config.getSSPMatcherConfigJobFactoryRegex.r
         config.getStreamJobFactoryClass match {
           case Some(jfr(_*)) =>
             info("before match: allSystemStreamPartitions.size = %s" format allSystemStreamPartitions.size)
-            val sspMatcher = Util.getObj(s, classOf[SystemStreamPartitionMatcher])
+            val sspMatcher =
+              ReflectionUtil.getObj(classLoader, sspMatcherClassName, classOf[SystemStreamPartitionMatcher])
             val matchedPartitions = sspMatcher.filter(allSystemStreamPartitions.asJava, config).asScala.toSet
             // Usually a small set hence ok to log at info level
             info("after match: matchedPartitions = %s" format matchedPartitions)
@@ -313,9 +331,9 @@ object JobModelManager extends Logging {
     * @param config the configuration of the samza job.
     * @return the instantiated {@see SystemStreamPartitionGrouper}.
     */
-  private def getSystemStreamPartitionGrouper(config: Config) = {
+  private def getSystemStreamPartitionGrouper(config: Config, classLoader: ClassLoader) = {
     val factoryString = config.getSystemStreamPartitionGrouperFactory
-    val factory = Util.getObj(factoryString, classOf[SystemStreamPartitionGrouperFactory])
+    val factory = ReflectionUtil.getObj(classLoader, factoryString, classOf[SystemStreamPartitionGrouperFactory])
     factory.getSystemStreamPartitionGrouper(config)
   }
 
@@ -333,20 +351,21 @@ object JobModelManager extends Logging {
   def readJobModel(config: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
-                   grouperMetadata: GrouperMetadata): JobModel = {
+                   grouperMetadata: GrouperMetadata,
+                   classLoader: ClassLoader): JobModel = {
     // Do grouping to fetch TaskName to SSP mapping
-    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
+    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache, classLoader)
 
     // processor list is required by some of the groupers. So, let's pass them as part of the config.
     // Copy the config and add the processor list to the config copy.
     val configMap = new util.HashMap[String, String](config)
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
-    val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
+    val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap), classLoader)
 
     val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
 
     val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (isHostAffinityEnabled) {
-      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
+      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper, classLoader)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
       grouper.group(allSystemStreamPartitions)
@@ -377,7 +396,8 @@ object JobModelManager extends Logging {
 
     // Here is where we should put in a pluggable option for the
     // SSPTaskNameGrouper for locality, load-balancing, etc.
-    val containerGrouperFactory = Util.getObj(config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
+    val containerGrouperFactory =
+      ReflectionUtil.getObj(classLoader, config.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
     val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
     val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
     val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)

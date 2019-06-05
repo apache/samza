@@ -23,15 +23,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.util.ReflectionUtils;
 import org.apache.samza.sql.udfs.ScalarUdf;
+import org.apache.samza.util.ReflectionUtil;
 
 
 public class SamzaSqlExecutionContext implements Cloneable {
@@ -69,14 +67,9 @@ public class SamzaSqlExecutionContext implements Cloneable {
   }
 
   public ScalarUdf createInstance(String clazz, String udfName) {
-
     // Configs should be same for all the UDF methods within a UDF. Hence taking the first one.
     Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
-    ScalarUdf scalarUdf = ReflectionUtils.createInstance(clazz);
-    if (scalarUdf == null) {
-      String msg = String.format("Couldn't create udf %s of class %s", udfName, clazz);
-      throw new SamzaException(msg);
-    }
+    ScalarUdf scalarUdf = ReflectionUtil.getObj(getClass().getClassLoader(), clazz, ScalarUdf.class);
     scalarUdf.init(udfConfig);
     return scalarUdf;
   }

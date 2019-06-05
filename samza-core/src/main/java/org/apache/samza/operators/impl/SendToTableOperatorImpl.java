@@ -19,7 +19,6 @@
 package org.apache.samza.operators.impl;
 
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
@@ -55,14 +54,8 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   @Override
   protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    K key = message.getKey();
-    V val = message.getValue();
-    if (val == null) {
-      table.delete(key);
-    } else {
-      table.put(key, val);
-    }
-    return CompletableFuture.completedFuture(Collections.singleton(message));
+    return table.putAsync(message.getKey(), message.getValue(), sendToTableOpSpec.getArgs())
+        .thenApply(result -> Collections.singleton(message));
   }
 
   @Override

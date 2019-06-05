@@ -21,7 +21,6 @@ package org.apache.samza.job.local
 
 import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
-import org.apache.samza.clustermanager.ClusterBasedJobCoordinator
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
 import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
@@ -30,9 +29,11 @@ import org.apache.samza.context.{ExternalContext, JobContextImpl}
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
+import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.{TaskFactory, TaskFactoryUtil}
 import org.apache.samza.util.{CoordinatorStreamUtil, Logging}
@@ -55,7 +56,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val classLoader = getClass.getClassLoader
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+      coordinatorStreamStore, classLoader, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -68,8 +71,17 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
     metadataResourceUtil.createResources()
+
+    // fan out the startpoints
+    val startpointManager = new StartpointManager(coordinatorStreamStore)
+    startpointManager.start()
+    try {
+      startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel))
+    } finally {
+      startpointManager.stop()
+    }
 
     val containerId = "0"
     var jmxServer: JmxServer = null
@@ -120,7 +132,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         JobContextImpl.fromConfigWithDefaults(config),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
         Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
-        buildExternalContext(config)
+        buildExternalContext(config),
+        classLoader
       )
       container.setContainerListener(containerListener)
 

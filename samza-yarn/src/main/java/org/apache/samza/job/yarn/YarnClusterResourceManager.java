@@ -144,7 +144,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    * @param callback the callback to receive events from Yarn.
    * @param samzaAppState samza app state for display in the UI
    */
-  public YarnClusterResourceManager(Config config, JobModelManager jobModelManager, ClusterResourceManager.Callback callback, SamzaApplicationState samzaAppState ) {
+  public YarnClusterResourceManager(Config config, JobModelManager jobModelManager,
+      ClusterResourceManager.Callback callback, SamzaApplicationState samzaAppState) {
     super(callback);
     yarnConfiguration = new YarnConfiguration();
     yarnConfiguration.set("fs.http.impl", HttpFileSystem.class.getName());
@@ -160,7 +161,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     );
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
-    metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);
+    metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry, getClass().getClassLoader());
 
     // parse configs from the Yarn environment
     String containerIdStr = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.toString());

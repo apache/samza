@@ -18,7 +18,9 @@
  */
 package org.apache.samza.zk;
 
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -31,6 +33,8 @@ public class ZkMetadataStoreFactory implements MetadataStoreFactory {
 
   @Override
   public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new ZkMetadataStore(namespace, config, metricsRegistry);
+    String globalAppId = new ApplicationConfig(config).getGlobalAppId();
+    String metadataStoreBaseDir = "/" + globalAppId + "/" + CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX + "/" + namespace;
+    return new ZkMetadataStore(metadataStoreBaseDir, config, metricsRegistry);
   }
 }

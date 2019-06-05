@@ -19,7 +19,9 @@
 package org.apache.samza.util;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.MetricsReporter;
@@ -34,15 +36,24 @@ public class MetricsReporterLoader {
   private MetricsReporterLoader() {
   }
 
-  public static Map<String, MetricsReporter> getMetricsReporters(MetricsConfig config, String containerName) {
+  public static Map<String, MetricsReporter> getMetricsReporters(MetricsConfig config, String containerName,
+      ClassLoader classLoader) {
     Map<String, MetricsReporter> metricsReporters = new HashMap<>();
 
-    for (String metricsReporterName : JavaConverters.seqAsJavaListConverter(config.getMetricReporterNames()).asJava()) {
+    String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
+
+    // Exclude creation of diagnostics-reporter, because it is created manually in SamzaContainer (to allow sharing of
+    // sysProducer between reporter and diagnosticsManager
+    List<String> metricsReporterNames = JavaConverters.seqAsJavaListConverter(config.getMetricReporterNames()).asJava().
+        stream().filter(reporterName -> !reporterName.equals(diagnosticsReporterName)).collect(Collectors.toList());
+
+    for (String metricsReporterName : metricsReporterNames) {
       String metricsFactoryClassName = config.getMetricsFactoryClass(metricsReporterName).get();
       if (metricsFactoryClassName == null) {
         throw new SamzaException(String.format("Metrics reporter %s missing .class config", metricsReporterName));
       }
-      MetricsReporterFactory metricsReporterFactory = Util.getObj(metricsFactoryClassName, MetricsReporterFactory.class);
+      MetricsReporterFactory metricsReporterFactory =
+          ReflectionUtil.getObj(classLoader, metricsFactoryClassName, MetricsReporterFactory.class);
       metricsReporters.put(metricsReporterName,
                            metricsReporterFactory.getMetricsReporter(metricsReporterName,
                                                                      containerName,

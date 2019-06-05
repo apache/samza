@@ -72,7 +72,9 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   public PassthroughJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     this.processorId = processorId;
     this.config = config;
-    LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
+    LocationIdProviderFactory locationIdProviderFactory =
+        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
+            LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
   }
@@ -83,7 +85,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null);
+      // TODO metrics registry has been null here for a while; is it safe?
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader());
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
@@ -124,7 +127,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     try {
       String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
       GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
-      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
+      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata,
+          getClass().getClassLoader());
     } finally {
       systemAdmins.stop();
     }

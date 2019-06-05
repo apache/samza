@@ -27,7 +27,7 @@ In this tutorial, we will learn how to run a Samza application using ZooKeeper d
 Let's get started by cloning the hello-samza project
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
 git checkout latest
 {% endhighlight %}

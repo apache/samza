@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.task;
+package org.apache.samza.container;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,11 +31,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.OffsetManager;
-import org.apache.samza.container.SamzaContainerMetrics;
-import org.apache.samza.container.TaskInstance;
-import org.apache.samza.container.TaskInstanceExceptionHandler;
-import org.apache.samza.container.TaskInstanceMetrics;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.TaskModel;
@@ -47,6 +42,14 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.TestSystemConsumers;
+import org.apache.samza.task.AsyncStreamTask;
+import org.apache.samza.task.EndOfStreamListenerTask;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.TaskCallback;
+import org.apache.samza.task.TaskCallbackImpl;
+import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.task.TaskInstanceCollector;
+import org.apache.samza.task.WindowableTask;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
@@ -294,7 +297,7 @@ public class TestRunLoop {
     return new TestCode() {
       @Override
       public void run(TaskCallback callback) {
-        IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).envelope;
+        IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).getEnvelope();
         if (envelope.equals(envelope0)) {
           // process first message will wait till the second one is processed
           try {
@@ -694,7 +697,7 @@ public class TestRunLoop {
     final CountDownLatch firstMsgCompletionLatch = new CountDownLatch(1);
     final CountDownLatch secondMsgCompletionLatch = new CountDownLatch(1);
     task0.callbackHandler = callback -> {
-      IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).envelope;
+      IncomingMessageEnvelope envelope = ((TaskCallbackImpl) callback).getEnvelope();
       try {
         if (envelope.equals(firstMsg)) {
           firstMsgCompletionLatch.await();
@@ -745,7 +748,7 @@ public class TestRunLoop {
     CountDownLatch commitLatch = new CountDownLatch(1);
     task0.commitHandler = callback -> {
       TaskCallbackImpl taskCallback = (TaskCallbackImpl) callback;
-      if (taskCallback.envelope.equals(envelope3)) {
+      if (taskCallback.getEnvelope().equals(envelope3)) {
         try {
           commitLatch.await();
         } catch (InterruptedException e) {
@@ -756,7 +759,7 @@ public class TestRunLoop {
 
     task0.callbackHandler = callback -> {
       TaskCallbackImpl taskCallback = (TaskCallbackImpl) callback;
-      if (taskCallback.envelope.equals(envelope0)) {
+      if (taskCallback.getEnvelope().equals(envelope0)) {
         // Both the process call has gone through when the first commit is in progress.
         assertEquals(2, containerMetrics.processes().getCount());
         assertEquals(0, containerMetrics.commits().getCount());

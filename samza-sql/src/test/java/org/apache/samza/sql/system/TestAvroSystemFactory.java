@@ -328,6 +328,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       MyFixed myFixedVar = new MyFixed();
       myFixedVar.bytes(DEFAULT_TRACKING_ID_BYTES);
       record.put("fixed_value", myFixedVar);
+      record.put("bool_value", index % 2 == 0);
       GenericData.Array<String> arrayValues =
           new GenericData.Array<>(index, ComplexRecord.SCHEMA$.getField("array_values").schema().getTypes().get(1));
       arrayValues.addAll(IntStream.range(0, index).mapToObj(String::valueOf).collect(Collectors.toList()));

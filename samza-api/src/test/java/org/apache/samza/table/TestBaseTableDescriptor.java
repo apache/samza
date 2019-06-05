@@ -66,7 +66,7 @@ public class TestBaseTableDescriptor {
     };
   }
 
-  private void assertEquals(String expectedValue, String key, String tableId, Map<String, String> config) {
+  private void assertEquals(String expectedValue, String key, String tableId, Map config) {
     String realKey = JavaTableConfig.buildKey(tableId, key);
     Assert.assertEquals(expectedValue, config.get(realKey));
   }

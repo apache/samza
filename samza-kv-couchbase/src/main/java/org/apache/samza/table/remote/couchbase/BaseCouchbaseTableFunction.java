@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import java.time.Duration;
 import java.util.List;
 
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.context.Context;
@@ -92,11 +93,13 @@ public abstract class BaseCouchbaseTableFunction<V> extends BaseTableFunction {
    * Check whether the exception is caused by one of the temporary failure exceptions, which are
    * likely to be retriable.
    * @param exception exception thrown by the table provider
-   * @return a boolean
+   * @return true if we should retry, otherwise false
    */
   public boolean isRetriable(Throwable exception) {
-    while (exception != null && !(exception instanceof TemporaryFailureException)
-        && !(exception instanceof TemporaryLockFailureException)) {
+    while (exception != null
+        && !(exception instanceof TemporaryFailureException)
+        && !(exception instanceof TemporaryLockFailureException)
+        && !(exception instanceof TimeoutException)) {
       exception = exception.getCause();
     }
     return exception != null;

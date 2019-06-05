@@ -32,8 +32,8 @@ import org.apache.samza.checkpoint.CheckpointManagerFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -73,13 +73,12 @@ public class TaskConfigJava extends MapConfig {
    * @param metricsRegistry Registry of metrics to use. Can be null if not using metrics.
    * @return CheckpointManager object if checkpoint manager factory is configured, otherwise null.
    */
-  public CheckpointManager getCheckpointManager(MetricsRegistry metricsRegistry) {
+  public CheckpointManager getCheckpointManager(MetricsRegistry metricsRegistry, ClassLoader classLoader) {
     // Initialize checkpoint streams during job coordination
     String checkpointManagerFactoryName = getCheckpointManagerFactoryName();
     if (StringUtils.isNotBlank(checkpointManagerFactoryName)) {
-      CheckpointManager checkpointManager =
-          Util.getObj(checkpointManagerFactoryName, CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry);
-      return checkpointManager;
+      return ReflectionUtil.getObj(classLoader, checkpointManagerFactoryName, CheckpointManagerFactory.class)
+          .getCheckpointManager(this, metricsRegistry);
     }
     return null;
   }

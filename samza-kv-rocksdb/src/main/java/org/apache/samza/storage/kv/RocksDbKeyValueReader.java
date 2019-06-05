@@ -27,7 +27,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.storage.StorageEngineFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -57,8 +57,10 @@ public class RocksDbKeyValueReader {
     StorageConfig storageConfig = new StorageConfig(config);
     SerializerConfig serializerConfig = new SerializerConfig(config);
 
-    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig);
-    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig);
+    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig,
+        getClass().getClassLoader());
+    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig,
+        getClass().getClassLoader());
 
     // get db options
     Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);
@@ -115,9 +117,9 @@ public class RocksDbKeyValueReader {
    * @param serializerConfig serializer config
    * @return a Serde of this serde name
    */
-  private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig) {
+  private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig, ClassLoader classLoader) {
     String serdeClassName =
         serializerConfig.getSerdeFactoryClass(name).orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(name));
-    return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
+    return ReflectionUtil.getObj(classLoader, serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
 }

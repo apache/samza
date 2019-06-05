@@ -30,7 +30,7 @@ import org.apache.samza.config.Config
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
-import org.apache.samza.scheduler.{CallbackSchedulerImpl, ScheduledCallback}
+import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.TaskStorageManager
@@ -153,26 +153,7 @@ class TaskInstance(
   def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
-      var startingOffset: String = getStartingOffset(systemStreamPartition)
-      val startpointOption: Option[Startpoint] = offsetManager.getStartpoint(taskName, systemStreamPartition)
-      startpointOption match {
-        case Some(startpoint) => {
-          try {
-            val systemAdmin: SystemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-            val resolvedOffset: String = systemAdmin.resolveStartpointToOffset(systemStreamPartition, startpoint)
-            if (StringUtils.isNotBlank(resolvedOffset)) {
-              startingOffset = resolvedOffset
-              info("Resolved the startpoint: %s of system stream partition: %s to offset: %s." format(startpoint,  systemStreamPartition, startingOffset))
-            }
-          } catch {
-            case e: Exception =>
-              error("Exception occurred when resolving startpoint: %s of system stream partition: %s to offset." format(startpoint, systemStreamPartition), e)
-          }
-        }
-        case None => {
-          debug("Startpoint does not exist for system stream partition: %s. Using the checkpointed offset: %s" format(systemStreamPartition, startingOffset))
-        }
-      }
+      val startingOffset: String = getStartingOffset(systemStreamPartition)
       consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull)
     })

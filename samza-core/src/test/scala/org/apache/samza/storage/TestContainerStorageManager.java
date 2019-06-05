@@ -202,12 +202,26 @@ public class TestContainerStorageManager {
     this.storeRestoreCallCount = 0;
 
     // Create the container storage manager
-    this.containerStorageManager =
-        new ContainerStorageManager(new ContainerModel("samza-container-test", tasks), mockStreamMetadataCache,
-            mockSystemAdmins, changelogSystemStreams, new HashMap<>(), storageEngineFactories, systemFactories, serdes, config,
-            taskInstanceMetrics, samzaContainerMetrics, Mockito.mock(JobContext.class),
-            Mockito.mock(ContainerContext.class), Mockito.mock(Map.class), DEFAULT_LOGGED_STORE_BASE_DIR,
-            DEFAULT_STORE_BASE_DIR, 2, null, new SystemClock());
+    this.containerStorageManager = new ContainerStorageManager(new ContainerModel("samza-container-test", tasks),
+        mockStreamMetadataCache,
+        mockSystemAdmins,
+        changelogSystemStreams,
+        new HashMap<>(),
+        storageEngineFactories,
+        systemFactories,
+        serdes,
+        config,
+        taskInstanceMetrics,
+        samzaContainerMetrics,
+        Mockito.mock(JobContext.class),
+        Mockito.mock(ContainerContext.class),
+        Mockito.mock(Map.class),
+        DEFAULT_LOGGED_STORE_BASE_DIR,
+        DEFAULT_STORE_BASE_DIR,
+        2,
+        null,
+        new SystemClock(),
+        getClass().getClassLoader());
   }
 
   @Test
