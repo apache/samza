@@ -228,10 +228,13 @@ public class TestTaskConfig {
   public void testGetCheckpointManager() {
     Config config =
         new MapConfig(ImmutableMap.of(TaskConfig.CHECKPOINT_MANAGER_FACTORY, MockCheckpointManagerFactory.class.getName()));
-    assertTrue(new TaskConfig(config).getCheckpointManager(null).get() instanceof MockCheckpointManager);
+    assertTrue(new TaskConfig(config).getCheckpointManager(null, getClass().getClassLoader())
+        .get() instanceof MockCheckpointManager);
+
     Config configEmptyString = new MapConfig(ImmutableMap.of(TaskConfig.CHECKPOINT_MANAGER_FACTORY, ""));
-    assertFalse(new TaskConfig(configEmptyString).getCheckpointManager(null).isPresent());
-    assertFalse(new TaskConfig(new MapConfig()).getCheckpointManager(null).isPresent());
+    assertFalse(new TaskConfig(configEmptyString).getCheckpointManager(null, getClass().getClassLoader()).isPresent());
+
+    assertFalse(new TaskConfig(new MapConfig()).getCheckpointManager(null, getClass().getClassLoader()).isPresent());
   }
 
   @Test

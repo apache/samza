@@ -30,6 +30,7 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
 
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
 
@@ -80,7 +81,7 @@ object Util extends Logging {
   def getTaskClassVersion(config: Config): String = {
     try {
       val taskClass = Option(new ApplicationConfig(config).getAppClass())
-        .orElse(new TaskConfig(config).getTaskClass).get
+        .orElse(JavaOptionals.toRichOptional(new TaskConfig(config).getTaskClass).toOption).get
       Class.forName(taskClass).getPackage.getImplementationVersion
     } catch {
       case e: Exception => {
