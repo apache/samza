@@ -40,31 +40,30 @@ public class TestSerializerConfig {
   private static final String SERDE_NAME = "mySerdeName";
 
   @Test
-  public void testGetSerdeFactoryName() {
-    assertEquals(ByteSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("byte"));
-    assertEquals(ByteBufferSerdeFactory.class.getCanonicalName(),
-        SerializerConfig.getSerdeFactoryName("bytebuffer"));
-    assertEquals(IntegerSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("integer"));
-    assertEquals(JsonSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("json"));
-    assertEquals(LongSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("long"));
-    assertEquals(SerializableSerdeFactory.class.getCanonicalName(),
-        SerializerConfig.getSerdeFactoryName("serializable"));
-    assertEquals(StringSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("string"));
-    assertEquals(DoubleSerdeFactory.class.getCanonicalName(), SerializerConfig.getSerdeFactoryName("double"));
+  public void testGetPredefinedSerdeFactoryName() {
+    assertEquals(ByteSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("byte"));
+    assertEquals(ByteBufferSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("bytebuffer"));
+    assertEquals(IntegerSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("integer"));
+    assertEquals(JsonSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("json"));
+    assertEquals(LongSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("long"));
+    assertEquals(SerializableSerdeFactory.class.getName(),
+        SerializerConfig.getPredefinedSerdeFactoryName("serializable"));
+    assertEquals(StringSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("string"));
+    assertEquals(DoubleSerdeFactory.class.getName(), SerializerConfig.getPredefinedSerdeFactoryName("double"));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetSerdeFactoryNameUnknown() {
-    SerializerConfig.getSerdeFactoryName("otherName");
+    SerializerConfig.getPredefinedSerdeFactoryName("otherName");
   }
 
   @Test
-  public void testGetSerdeClass() {
+  public void testGetSerdeFactoryClass() {
     String serdeClassName = "my.class.serde.name";
     Config config = new MapConfig(
         ImmutableMap.of(String.format(SerializerConfig.SERDE_FACTORY_CLASS, SERDE_NAME), serdeClassName));
-    assertEquals(serdeClassName, new SerializerConfig(config).getSerdeClass(SERDE_NAME).get());
-    assertFalse(new SerializerConfig(config).getSerdeClass("otherSerdeName").isPresent());
+    assertEquals(serdeClassName, new SerializerConfig(config).getSerdeFactoryClass(SERDE_NAME).get());
+    assertFalse(new SerializerConfig(config).getSerdeFactoryClass("otherSerdeName").isPresent());
   }
 
   @Test

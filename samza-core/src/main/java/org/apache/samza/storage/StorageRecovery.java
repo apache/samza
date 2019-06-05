@@ -188,8 +188,8 @@ public class StorageRecovery extends CommandLine {
     serializerConfig.getSerdeNames()
         .stream()
         .forEach(serdeName -> {
-            String serdeClassName = serializerConfig.getSerdeClass(serdeName)
-              .orElseGet(() -> SerializerConfig.getSerdeFactoryName(serdeName));
+            String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
+              .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
             Serde serde = Util.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });

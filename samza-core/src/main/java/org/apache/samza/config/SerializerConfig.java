@@ -54,23 +54,24 @@ public class SerializerConfig extends MapConfig {
    * Returns the pre-defined serde factory class name for the provided serde name. If no pre-defined factory exists,
    * throws an exception.
    */
-  public static String getSerdeFactoryName(String serdeName) {
-    String serdeFactoryName = doGetSerdeFactoryName(serdeName);
-    LOGGER.info(String.format("Using default serde %s for serde name %s", serdeFactoryName, serdeName));
+  public static String getPredefinedSerdeFactoryName(String serdeName) {
+    String serdeFactoryName = doGetPredefinedSerdeFactoryName(serdeName);
+    LOGGER.info("Using default serde {} for serde name {}", serdeFactoryName, serdeName);
     return serdeFactoryName;
   }
 
   /**
+   * Get the name of the serde factory class for {@code name}.
    * @param name name of the serde in the config
    * @return serde factory class name for {@code name}; empty if no class was found in the config
    */
-  public Optional<String> getSerdeClass(String name) {
+  public Optional<String> getSerdeFactoryClass(String name) {
     return Optional.ofNullable(get(String.format(SERDE_FACTORY_CLASS, name), null));
   }
 
   /**
-   * Useful for getting individual serializers.
-   * @return a list of all serializer names from the config file
+   * Gets all serializer names defined in configuration.
+   * @return a list of all serializer names from the config
    */
   public List<String> getSerdeNames() {
     List<String> results = new ArrayList<String>();
@@ -83,24 +84,24 @@ public class SerializerConfig extends MapConfig {
     return results;
   }
 
-  private static String doGetSerdeFactoryName(String serdeName) {
+  private static String doGetPredefinedSerdeFactoryName(String serdeName) {
     switch (serdeName) {
       case "byte":
-        return ByteSerdeFactory.class.getCanonicalName();
+        return ByteSerdeFactory.class.getName();
       case "bytebuffer":
-        return ByteBufferSerdeFactory.class.getCanonicalName();
+        return ByteBufferSerdeFactory.class.getName();
       case "integer":
-        return IntegerSerdeFactory.class.getCanonicalName();
+        return IntegerSerdeFactory.class.getName();
       case "json":
-        return JsonSerdeFactory.class.getCanonicalName();
+        return JsonSerdeFactory.class.getName();
       case "long":
-        return LongSerdeFactory.class.getCanonicalName();
+        return LongSerdeFactory.class.getName();
       case "serializable":
-        return SerializableSerdeFactory.class.getCanonicalName();
+        return SerializableSerdeFactory.class.getName();
       case "string":
-        return StringSerdeFactory.class.getCanonicalName();
+        return StringSerdeFactory.class.getName();
       case "double":
-        return DoubleSerdeFactory.class.getCanonicalName();
+        return DoubleSerdeFactory.class.getName();
       default:
         throw new SamzaException(String.format("No pre-defined factory class name for serde name %s", serdeName));
     }

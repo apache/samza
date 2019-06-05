@@ -117,7 +117,7 @@ public class RocksDbKeyValueReader {
    */
   private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig) {
     String serdeClassName =
-        serializerConfig.getSerdeClass(name).orElseGet(() -> SerializerConfig.getSerdeFactoryName(name));
+        serializerConfig.getSerdeFactoryClass(name).orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(name));
     return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
 }

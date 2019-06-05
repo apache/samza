@@ -91,7 +91,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
     val serializerConfig = new SerializerConfig(config)
     val serde = if (serdeName != null) {
-      JavaOptionals.toRichOptional(serializerConfig.getSerdeClass(serdeName)).toOption match {
+      JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption match {
         case Some(serdeClassName) =>
           Util.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
         case _ => null

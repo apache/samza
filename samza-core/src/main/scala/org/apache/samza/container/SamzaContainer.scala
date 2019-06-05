@@ -248,8 +248,8 @@ object SamzaContainer extends Logging {
 
     val serializerConfig = new SerializerConfig(config)
     val serdesFromFactories = serializerConfig.getSerdeNames.asScala.map(serdeName => {
-      val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeClass(serdeName)).toOption
-        .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
+      val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption
+        .getOrElse(SerializerConfig.getPredefinedSerdeFactoryName(serdeName))
 
       val serde = Util.getObj(serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
