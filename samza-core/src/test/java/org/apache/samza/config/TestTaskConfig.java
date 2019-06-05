@@ -113,7 +113,7 @@ public class TestTaskConfig {
     assertEquals(messageChooserClassValue, new TaskConfig(config).getMessageChooserClass());
 
     // config not specified
-    assertEquals(RoundRobinChooserFactory.class.getName(), new TaskConfig(config).getMessageChooserClass());
+    assertEquals(RoundRobinChooserFactory.class.getName(), new TaskConfig(new MapConfig()).getMessageChooserClass());
   }
 
   @Test
@@ -158,7 +158,7 @@ public class TestTaskConfig {
     assertEquals(10, new TaskConfig(config).getPollIntervalMs());
 
     // config not specified
-    assertEquals(TaskConfig.DEFAULT_POLL_INTERVAL_MS, new TaskConfig(config).getPollIntervalMs());
+    assertEquals(TaskConfig.DEFAULT_POLL_INTERVAL_MS, new TaskConfig(new MapConfig()).getPollIntervalMs());
   }
 
   @Test

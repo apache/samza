@@ -38,7 +38,6 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.chooser.RoundRobinChooserFactory;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
