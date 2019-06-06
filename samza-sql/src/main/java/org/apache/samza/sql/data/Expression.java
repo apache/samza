@@ -30,8 +30,9 @@ import org.apache.samza.context.Context;
 public interface Expression {
   /**
    * This method is used to implement the expressions that takes in columns as input and returns multiple values.
-   * @param context SamzaSqlExecution context
-   * @param root the root
+   * @param sqlContext SamzaSqlExecution context
+   * @param context Samza context that contains both framework and application specific context.
+   * @param root Calcite DataContext
    * @param inputValues All the relational columns for the particular row
    * @param results the results Result values after executing the java code corresponding to the relational expression.
    */
