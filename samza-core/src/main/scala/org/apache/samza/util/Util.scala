@@ -81,11 +81,11 @@ object Util extends Logging {
     try {
       val appClass = Option(new ApplicationConfig(config).getAppClass)
       if (appClass.isDefined) {
-        Option.apply(Class.forName(appClass.get).getPackage.getImplementationVersion).getOrElse("0.0.1")
+        Option.apply(Class.forName(appClass.get).getPackage.getImplementationVersion).getOrElse(FALLBACK_VERSION)
       } else {
         val taskClass = new TaskConfig(config).getTaskClass
         if (taskClass.isPresent) {
-          Option.apply(Class.forName(taskClass.get()).getPackage.getImplementationVersion).getOrElse("0.0.1")
+          Option.apply(Class.forName(taskClass.get()).getPackage.getImplementationVersion).getOrElse(FALLBACK_VERSION)
         } else {
           warn("Unable to find app class or task class. Defaulting to %s" format FALLBACK_VERSION)
           FALLBACK_VERSION
