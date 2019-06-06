@@ -37,6 +37,7 @@ import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.LocalContainerRunner;
+import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
@@ -49,26 +50,33 @@ import scala.Option;
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
 
+  public static class MetadataFileContents {
+    public final String version;
+    public final String metricsSnapshot;
+
+    public MetadataFileContents(String version, String metricsSnapshot) {
+      this.version = version;
+      this.metricsSnapshot = metricsSnapshot;
+    }
+  }
+
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
+  // The file contents are serialized using {@link JsonSerde}.
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) {
 
     Option<File> metadataFile = JobConfig.getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
 
     if (metadataFile.isDefined()) {
-
-      StringBuilder metadata = new StringBuilder("Version: 1");
-      metadata.append(System.lineSeparator());
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
               Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
               System.currentTimeMillis(), System.currentTimeMillis());
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
-      metadata.append("ContainerMetadata: ");
-      metadata.append(new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
-      FileUtil.writeToTextFile(metadataFile.get(), metadata.toString(), false);
+      MetadataFileContents metadataFileContents = new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
+      FileUtil.writeToTextFile(metadataFile.get(), new String(new JsonSerde<>().toBytes(metadataFileContents)), false);
     } else {
       log.info("Skipping writing metadata file.");
     }
