@@ -262,7 +262,7 @@ object JobModelManager extends Logging {
   }
 
   /**
-    * Computes the input system stream partitions of a samza job using the provided {@param taskConfig}
+    * Computes the input system stream partitions of a samza job using the provided {@param config}
     * and {@param streamMetadataCache}.
     * @param config the configuration of the job.
     * @param streamMetadataCache to query the partition metadata of the input streams.

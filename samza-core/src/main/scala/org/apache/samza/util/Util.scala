@@ -30,12 +30,11 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
 
-import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-
 import scala.collection.JavaConverters._
 
 
 object Util extends Logging {
+  private val FALLBACK_VERSION = "0.0.1"
   val Random = new Random
 
   /**
@@ -73,20 +72,29 @@ object Util extends Logging {
   def getSamzaVersion(): String = {
     Option(this.getClass.getPackage.getImplementationVersion)
       .getOrElse({
-        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
+        warn("Unable to find implementation samza version in jar's meta info. Defaulting to %s" format FALLBACK_VERSION)
+        FALLBACK_VERSION
       })
   }
 
   def getTaskClassVersion(config: Config): String = {
     try {
-      val taskClass = Option(new ApplicationConfig(config).getAppClass())
-        .orElse(JavaOptionals.toRichOptional(new TaskConfig(config).getTaskClass).toOption).get
-      Class.forName(taskClass).getPackage.getImplementationVersion
+      val appClass = Option(new ApplicationConfig(config).getAppClass)
+      if (appClass.isDefined) {
+        Class.forName(appClass.get).getPackage.getImplementationVersion
+      } else {
+        val taskClass = new TaskConfig(config).getTaskClass
+        if (taskClass.isPresent) {
+          Class.forName(taskClass.get()).getPackage.getImplementationVersion
+        } else {
+          warn("Unable to find app class or task class. Defaulting to %s" format FALLBACK_VERSION)
+          FALLBACK_VERSION
+        }
+      }
     } catch {
       case e: Exception => {
-        warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
+        warn("Unable to find implementation version in jar's meta info. Defaulting to %s" format FALLBACK_VERSION)
+        FALLBACK_VERSION
       }
     }
   }
