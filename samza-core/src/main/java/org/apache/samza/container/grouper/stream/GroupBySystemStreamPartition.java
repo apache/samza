@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -37,7 +37,7 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
   private final Set<SystemStreamPartition> broadcastStreams;
 
   public GroupBySystemStreamPartition(Config config) {
-    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    TaskConfig taskConfig = new TaskConfig(config);
     broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
   }
 
