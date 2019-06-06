@@ -49,6 +49,7 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
@@ -111,7 +112,8 @@ public class RexToJavaCompiler {
     final RexProgram program = programBuilder.getProgram();
 
     final BlockBuilder builder = new BlockBuilder();
-    final ParameterExpression executionContext = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
+    final ParameterExpression sqlContext = Expressions.parameter(SamzaSqlExecutionContext.class, "sqlContext");
+    final ParameterExpression context = Expressions.parameter(Context.class, "context");
     final ParameterExpression root = DataContext.ROOT;
     final ParameterExpression inputValues = Expressions.parameter(Object[].class, "inputValues");
     final ParameterExpression outputValues = Expressions.parameter(Object[].class, "outputValues");
@@ -130,7 +132,7 @@ public class RexToJavaCompiler {
       builder.add(Expressions.statement(
           Expressions.assign(Expressions.arrayIndex(outputValues, Expressions.constant(i)), list.get(i))));
     }
-    return createSamzaExpressionFromCalcite(executionContext, root, inputValues, outputValues, builder.toBlock());
+    return createSamzaExpressionFromCalcite(sqlContext, context, root, inputValues, outputValues, builder.toBlock());
   }
 
   /**
@@ -159,14 +161,14 @@ public class RexToJavaCompiler {
    *
    */
   static org.apache.samza.sql.data.Expression createSamzaExpressionFromCalcite(ParameterExpression executionContext,
-      ParameterExpression dataContext, ParameterExpression inputValues, ParameterExpression outputValues,
-      BlockStatement block) {
+      ParameterExpression context, ParameterExpression dataContext, ParameterExpression inputValues,
+      ParameterExpression outputValues, BlockStatement block) {
     final List<MemberDeclaration> declarations = Lists.newArrayList();
 
     // public void execute(Object[] inputValues, Object[] outputValues)
     declarations.add(
         Expressions.methodDecl(Modifier.PUBLIC, void.class, SamzaBuiltInMethod.EXPR_EXECUTE2.method.getName(),
-            ImmutableList.of(executionContext, dataContext, inputValues, outputValues), block));
+            ImmutableList.of(executionContext, context, dataContext, inputValues, outputValues), block));
 
     final ClassDeclaration classDeclaration = Expressions.classDecl(Modifier.PUBLIC, "SqlExpression", null,
         ImmutableList.<Type>of(org.apache.samza.sql.data.Expression.class), declarations);
@@ -210,7 +212,7 @@ public class RexToJavaCompiler {
    */
   public enum SamzaBuiltInMethod {
     EXPR_EXECUTE2(org.apache.samza.sql.data.Expression.class, "execute", SamzaSqlExecutionContext.class,
-        DataContext.class, Object[].class, Object[].class);
+        Context.class, DataContext.class, Object[].class, Object[].class);
 
     public final Method method;
 
