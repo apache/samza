@@ -50,15 +50,6 @@ import scala.Option;
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
 
-  public static class MetadataFileContents {
-    public final String version;
-    public final String metricsSnapshot;
-
-    public MetadataFileContents(String version, String metricsSnapshot) {
-      this.version = version;
-      this.metricsSnapshot = metricsSnapshot;
-    }
-  }
 
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
@@ -73,6 +64,16 @@ public class DiagnosticsUtil {
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
               Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
               System.currentTimeMillis(), System.currentTimeMillis());
+
+      class MetadataFileContents {
+        public final String version;
+        public final String metricsSnapshot;
+
+        public MetadataFileContents(String version, String metricsSnapshot) {
+          this.version = version;
+          this.metricsSnapshot = metricsSnapshot;
+        }
+      }
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
       MetadataFileContents metadataFileContents = new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
