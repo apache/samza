@@ -241,7 +241,8 @@ import org.slf4j.LoggerFactory;
         TableConfigGenerator.generate(
             new MapConfig(generatedConfig), new ArrayList<>(tables.values())));
 
-    // Add side inputs to the inputs and mark the stream as bootstrap
+    // marks the side input streams as bootstrap. should be moved to localTableDescriptor#toConfig
+    // once StreamUtil/StreamConfig is moved to samza-api.
     tables.values().forEach(tableDescriptor -> {
         if (tableDescriptor instanceof LocalTableDescriptor) {
           LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
