@@ -46,11 +46,11 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_STREAM = STORE_PREFIX + "%s" + CHANGELOG_SUFFIX;
   public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
   public static final String CHANGELOG_REPLICATION_FACTOR = STORE_PREFIX + "%s.changelog.replication.factor";
-  public static final String CHANGELOG_MAX_MSG_SIZE_BYTES = "stores.%s.changelog.max.message.size.bytes";
-  public static final int DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 5000000; // slightly less than 5 MB
-  public static final String EXPECT_LARGE_MESSAGES = "stores.%s.expect.large.messages";
+  public static final String CHANGELOG_MAX_MSG_SIZE_BYTES = STORE_PREFIX + "%s.changelog.max.message.size.bytes";
+  public static final int DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1000000; // slightly less than 1 MB
+  public static final String EXPECT_LARGE_MESSAGES = STORE_PREFIX + "%s.expect.large.messages";
   public static final boolean DEFAULT_EXPECT_LARGE_MESSAGES = false;
-  public static final String DROP_LARGE_MESSAGES = "stores.%s.drop.large.messages";
+  public static final String DROP_LARGE_MESSAGES = STORE_PREFIX + "%s.drop.large.messages";
   public static final boolean DEFAULT_DROP_LARGE_MESSAGES = false;
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
@@ -191,6 +191,18 @@ public class StorageConfig extends MapConfig {
 
   public long getChangeLogDeleteRetentionInMs(String storeName) {
     return getLong(String.format(CHANGELOG_DELETE_RETENTION_MS, storeName), DEFAULT_CHANGELOG_DELETE_RETENTION_MS);
+  }
+
+  public int getChangelogMaxMsgSizeBytes(String storeName) {
+    return getInt(String.format(CHANGELOG_MAX_MSG_SIZE_BYTES, storeName), DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES);
+  }
+
+  public boolean getExpectLargeMessages(String storeName) {
+    return getBoolean(String.format(EXPECT_LARGE_MESSAGES, storeName), DEFAULT_EXPECT_LARGE_MESSAGES);
+  }
+
+  public boolean getDropLargeMessages(String storeName) {
+    return getBoolean(String.format(DROP_LARGE_MESSAGES, storeName), DEFAULT_DROP_LARGE_MESSAGES);
   }
 
   /**

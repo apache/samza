@@ -32,7 +32,7 @@ import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StorePrope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
+import org.apache.samza.util.{HighResolutionClock, Logging}
 
 /**
   * A key value storage engine factory implementation
@@ -40,7 +40,7 @@ import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
   * This trait encapsulates all the steps needed to create a key value storage engine. It is meant to be extended
   * by the specific key value store factory implementations which will in turn override the getKVStore method.
   */
-trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
+trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] with Logging {
 
   private val INMEMORY_KV_STORAGE_ENGINE_FACTORY =
     "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"
@@ -90,9 +90,15 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getAccessLogEnabled(storeName)
 
-    val maxMessageSize = storageConfigSubset.getInt(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES)
-    val largeMessagesExpected = storageConfigSubset.getBoolean(StorageConfig.EXPECT_LARGE_MESSAGES, StorageConfig.DEFAULT_EXPECT_LARGE_MESSAGES)
-    val dropLargeMessage = storageConfigSubset.getBoolean(StorageConfig.DROP_LARGE_MESSAGES, StorageConfig.DEFAULT_DROP_LARGE_MESSAGES)
+    var maxMessageSize = storageConfig.getChangelogMaxMsgSizeBytes(storeName)
+    if (maxMessageSize > StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES) {
+      warn("Defined " + String.format(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, storeName) + " value: " + maxMessageSize
+        + " bytes is greater than maximum allowed value of " + StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES
+        + " bytes. Defaulting this value to " + StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES + " bytes instead.")
+      maxMessageSize = StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES
+    }
+    val largeMessagesExpected = storageConfig.getExpectLargeMessages(storeName)
+    val dropLargeMessage = storageConfig.getDropLargeMessages(storeName)
 
     if (storeFactory.isEmpty) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
