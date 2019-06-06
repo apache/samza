@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
@@ -69,7 +69,7 @@ public class KinesisSystemFactory implements SystemFactory {
     }
 
     // Kinesis streams cannot be configured as broadcast streams
-    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    TaskConfig taskConfig = new TaskConfig(config);
     if (taskConfig.getBroadcastSystemStreams().stream().anyMatch(ss -> system.equals(ss.getSystem()))) {
       throw new ConfigException("Kinesis streams cannot be configured as broadcast streams.");
     }

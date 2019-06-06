@@ -121,7 +121,7 @@ class TestTaskInstanceExceptionHandler extends AssertionsForJUnit with MockitoSu
   }
 
   private def build(config: Config): TaskInstanceExceptionHandler = {
-    TaskInstanceExceptionHandler.apply(this.metrics, config)
+    TaskInstanceExceptionHandler.apply(this.metrics, new TaskConfig(config))
   }
 
   /**
