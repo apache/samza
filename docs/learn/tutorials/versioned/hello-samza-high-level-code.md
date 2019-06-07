@@ -32,7 +32,6 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone https://git.apache.org/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 This project already contains implementations of the wikipedia application using both the Low Level Task API and the High Level Streams API. The Low Level Task API implementations are in the `samza.examples.wikipedia.task` package. The High Level Streams API implementation is in the `samza.examples.wikipedia.application` package.
@@ -81,7 +80,7 @@ job.default.system=kafka
 yarn.package.path=file://${basedir}/target/${project.artifactId}-${pom.version}-dist.tar.gz
 {% endhighlight %}
 
-Be sure to include the Apache header. The project will not compile without it. 
+Be sure to include the Apache header. The project will not compile without it.
 
 Here's a brief summary of what we configured so far.
 
@@ -94,7 +93,7 @@ Here's a brief summary of what we configured so far.
 
 These basic configurations are enough to launch the application on YARN but we haven’t defined any streaming systems for Samza to use, so the application would not process anything.
 
-Next, let's define the streaming systems with which the application will interact. 
+Next, let's define the streaming systems with which the application will interact.
 
 #### Define Systems
 This Wikipedia application will consume events from Wikipedia and produce stats to a Kafka topic. We need to define those systems in config before Samza can use them. Add the following lines to the config:
@@ -140,7 +139,7 @@ streams.en-wikinews.samza.system=wikipedia
 streams.en-wikinews.samza.physical.name=#en.wikinews
 {% endhighlight %}
 
-The above configurations declare 3 streams with IDs, _en-wikipedia_, _en-wiktionary_, and _en-wikinews_. It associates each stream with the _wikipedia_ system we defined earlier and set the physical name to the corresponding Wikipedia channel. 
+The above configurations declare 3 streams with IDs, _en-wikipedia_, _en-wiktionary_, and _en-wikinews_. It associates each stream with the _wikipedia_ system we defined earlier and set the physical name to the corresponding Wikipedia channel.
 
 Since all the Kafka streams for cases 2-3 are on the default system and do not include special characters in their names, we do not need to configure them explicitly.
 
@@ -181,7 +180,7 @@ import org.apache.samza.operators.StreamGraph;
 public class MyWikipediaApplication implements StreamApplication{
   @Override
   public void init(StreamGraph streamGraph, Config config) {
-    
+
   }
 }
 {% endhighlight %}
