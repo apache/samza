@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.Partition;
@@ -57,6 +58,7 @@ import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -70,6 +72,7 @@ import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
@@ -119,12 +122,14 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private ApplicationConfig applicationConfig3;
   private String testStreamAppName;
   private String testStreamAppId;
+  private MetadataStore zkMetadataStore;
 
   @Rule
   public Timeout testTimeOutInMillis = new Timeout(150000);
 
   @Rule
   public final ExpectedException expectedException = ExpectedException.none();
+
 
   @Override
   public void setUp() {
@@ -166,6 +171,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
             .collect(Collectors.toList());
 
     assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
+    zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getJobModelPathPrefix(), new MapConfig(configMap), new NoOpMetricsRegistry());
   }
 
   @Override
@@ -275,7 +281,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     TestStreamApplication.StreamApplicationCallback callback = m -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
-        previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
+        previousJobModel[0] = JobModelUtil.readJobModel(previousJobModelVersion[0], zkMetadataStore);
         executeRun(appRunner2, localTestConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
@@ -297,7 +303,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     kafkaEventsConsumedLatch.await();
 
     String currentJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel updatedJobModel = zkUtils.getJobModel(currentJobModelVersion);
+    JobModel updatedJobModel = JobModelUtil.readJobModel(currentJobModelVersion, zkMetadataStore);
 
     // Job model before and after the addition of second stream processor should be the same.
     assertEquals(previousJobModel[0], updatedJobModel);
@@ -357,7 +363,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     TestStreamApplication.StreamApplicationCallback streamApplicationCallback = message -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
-        previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
+        previousJobModel[0] = JobModelUtil.readJobModel(previousJobModelVersion[0], zkMetadataStore);
         executeRun(appRunner2, testAppConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
@@ -381,7 +387,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     kafkaEventsConsumedLatch.await();
 
     String currentJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel updatedJobModel = zkUtils.getJobModel(currentJobModelVersion);
+    JobModel updatedJobModel = JobModelUtil.readJobModel(currentJobModelVersion, zkMetadataStore);
 
     // JobModelVersion check to verify that leader publishes new jobModel.
     assertTrue(Integer.parseInt(previousJobModelVersion[0]) < Integer.parseInt(currentJobModelVersion));
@@ -404,7 +410,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     TaskModel taskModel1 = updatedTaskModelMap1.values().stream().findFirst().get();
     TaskModel taskModel2 = updatedTaskModelMap2.values().stream().findFirst().get();
     assertEquals(taskModel1.getSystemStreamPartitions(), taskModel2.getSystemStreamPartitions());
-    assertTrue(!taskModel1.getTaskName().getTaskName().equals(taskModel2.getTaskName().getTaskName()));
+    assertFalse(taskModel1.getTaskName().getTaskName().equals(taskModel2.getTaskName().getTaskName()));
 
     processedMessagesLatch.await();
 
@@ -446,7 +452,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Verifications before killing the leader.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
     assertEquals(2, jobModel.getContainers().size());
     assertEquals(Sets.newHashSet("0000000000", "0000000001"), jobModel.getContainers().keySet());
     assertEquals("1", jobModelVersion);
@@ -472,7 +478,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     assertEquals(2, processorIdsFromZK.size());
     assertEquals(PROCESSOR_IDS[1], processorIdsFromZK.get(0));
     jobModelVersion = zkUtils.getJobModelVersion();
-    jobModel = zkUtils.getJobModel(jobModelVersion);
+    jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
     assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals(2, jobModel.getContainers().size());
 
@@ -566,7 +572,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Read job model before rolling upgrade.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
 
     appRunner1.kill();
     appRunner1.waitForFinish();
@@ -590,7 +596,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Read new job model after rolling upgrade.
     String newJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
+    JobModel newJobModel = JobModelUtil.readJobModel(newJobModelVersion, zkMetadataStore);
 
     assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
@@ -691,8 +697,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     processedMessagesLatch1.await();
 
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
-    Set<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
 
     // Validate that the input partition count is 5 in the JobModel.
     Assert.assertEquals(5, ssps.size());
@@ -708,7 +714,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     }
 
     String newJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
+    JobModel newJobModel = JobModelUtil.readJobModel(newJobModelVersion, zkMetadataStore);
     ssps = getSystemStreamPartitions(newJobModel);
 
     // Validate that the input partition count is 100 in the new JobModel.
@@ -783,8 +789,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Read the latest JobModel for validation.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
-    Set<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
 
     // Validate that the input partition count is 32 in the JobModel.
     Assert.assertEquals(32, ssps.size());
@@ -801,7 +807,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     while (true) {
       LOGGER.info("Waiting for new jobModel to be published");
       jobModelVersion = zkUtils.getJobModelVersion();
-      jobModel = zkUtils.getJobModel(jobModelVersion);
+      jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
       ssps = getSystemStreamPartitions(jobModel);
 
       if (ssps.size() == 64) {
@@ -888,8 +894,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Read the latest JobModel for validation.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
-    Set<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
 
     // Validate that the input 64 partitions are present in JobModel.
     Assert.assertEquals(64, ssps.size());
@@ -909,7 +915,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     while (true) {
       LOGGER.info("Waiting for new jobModel to be published");
       jobModelVersion = zkUtils.getJobModelVersion();
-      jobModel = zkUtils.getJobModel(jobModelVersion);
+      jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
       ssps = getSystemStreamPartitions(jobModel);
 
       if (ssps.size() == 128) {
@@ -970,25 +976,41 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     Assert.assertEquals(ApplicationStatus.SuccessfulFinish, appRunner.status());
   }
 
-  /**
-   * Computes the task to partition assignment of the {@param JobModel}.
-   * @param jobModel the jobModel to compute task to partition assignment for.
-   * @return the computed task to partition assignments of the {@param JobModel}.
-   */
-  private static Map<TaskName, Set<SystemStreamPartition>> getTaskAssignments(JobModel jobModel) {
-    Map<TaskName, Set<SystemStreamPartition>> taskAssignments = new HashMap<>();
-    for (Map.Entry<String, ContainerModel> entry : jobModel.getContainers().entrySet()) {
-      Map<TaskName, TaskModel> tasks = entry.getValue().getTasks();
-      for (TaskModel taskModel : tasks.values()) {
-        if (!taskAssignments.containsKey(taskModel.getTaskName())) {
-          taskAssignments.put(taskModel.getTaskName(), new HashSet<>());
-        }
-        if (taskModel.getTaskMode() == TaskMode.Active) {
-          taskAssignments.get(taskModel.getTaskName()).addAll(taskModel.getSystemStreamPartitions());
-        }
-      }
+  @Test
+  public void testStreamApplicationShouldAllowReadingWritingLargeJobModels() throws InterruptedException {
+    List<String> inputTopics = new ArrayList<>();
+
+    String inputTopicName = null;
+    for (int i = 0; i < 20; ++i) {
+      String topicName = String.format("test-input-topic-%s", RandomStringUtils.randomAlphabetic(5));
+      boolean topic = createTopic(topicName, 200, 1);
+      LOGGER.info("Status of creating topic: " + topicName + " = " + topic);
+      inputTopics.add(topicName);
+      inputTopicName = topicName;
     }
-    return taskAssignments;
+
+    publishKafkaEvents(inputTopicName, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+    Map<String, String> configMap = buildStreamApplicationConfigMap(inputTopics, testStreamAppName, testStreamAppId, true);
+    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    ApplicationConfig applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, inputTopics, outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+
+    executeRun(appRunner1, applicationConfig1);
+    processedMessagesLatch1.await();
+
+    JobModel jobModel = JobModelUtil.readJobModel(zkUtils.getJobModelVersion(), zkMetadataStore);
+    assertEquals(1, jobModel.getContainers().size());
+    List<SystemStreamPartition> systemStreamPartitions = getSystemStreamPartitions(jobModel);
+    assertEquals(20 * 200, systemStreamPartitions.size());
+
+    appRunner1.kill();
+    appRunner1.waitForFinish();
   }
 
   /**
@@ -1254,10 +1276,29 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     appRunner3.waitForFinish();
   }
 
+  /**
+   * Computes the task to partition assignment of the {@param JobModel}.
+   * @param jobModel the jobModel to compute task to partition assignment for.
+   * @return the computed task to partition assignments of the {@param JobModel}.
+   */
+  private static Map<TaskName, Set<SystemStreamPartition>> getTaskAssignments(JobModel jobModel) {
+    Map<TaskName, Set<SystemStreamPartition>> taskAssignments = new HashMap<>();
+    for (Map.Entry<String, ContainerModel> entry : jobModel.getContainers().entrySet()) {
+      Map<TaskName, TaskModel> tasks = entry.getValue().getTasks();
+      for (TaskModel taskModel : tasks.values()) {
+        if (!taskAssignments.containsKey(taskModel.getTaskName())) {
+          taskAssignments.put(taskModel.getTaskName(), new HashSet<>());
+        }
+        if (taskModel.getTaskMode() == TaskMode.Active) {
+          taskAssignments.get(taskModel.getTaskName()).addAll(taskModel.getSystemStreamPartitions());
+        }
+      }
+    }
+    return taskAssignments;
+  }
 
-  private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
-    System.out.println(jobModel);
-    Set<SystemStreamPartition> ssps = new HashSet<>();
+  private static List<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
+    List<SystemStreamPartition> ssps = new ArrayList<>();
     jobModel.getContainers().forEach((containerName, containerModel) -> {
         containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));
       });

@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,12 +37,18 @@ import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkInterruptedException;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.reflect.FieldUtils;
+import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
+import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.runtime.LocationId;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
@@ -561,5 +568,34 @@ public class TestZkUtils {
     threadToInterrupt.join();
 
     Assert.assertTrue(field.getBoolean(zkClient));
+  }
+
+  @Test
+  public void testShouldSupportReadingAndWritingLargeJobModels() {
+    JobModel testJobModel = generateTestJobModel(1000, 100);
+    String testJobModelVersion = "1.0";
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(ZkConfig.ZK_CONNECT, "127.0.0.1:" + zkServer.getPort());
+    MetadataStore jobModelMetaStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getJobModelPathPrefix(), new MapConfig(configMap), new NoOpMetricsRegistry());
+    JobModelUtil.writeJobModel(testJobModel, testJobModelVersion, jobModelMetaStore);
+    JobModel actualJobModel = JobModelUtil.readJobModel(testJobModelVersion, jobModelMetaStore);
+    Assert.assertEquals(testJobModel, actualJobModel);
+  }
+
+  private static JobModel generateTestJobModel(int partitionPerContainer, int containerCount) {
+    Map<String, ContainerModel> containerModelMap = new HashMap<>();
+    int globalPartitionCounter = 0;
+    for (int container = 1; container <= containerCount; ++container) {
+      Map<TaskName, TaskModel> taskModelMap = new HashMap<>();
+      for (int partition = 1; partition <= partitionPerContainer; ++partition) {
+        TaskName taskName = new TaskName("Task " + (partition + globalPartitionCounter));
+        SystemStreamPartition
+            systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(partition + globalPartitionCounter));
+        taskModelMap.put(taskName, new TaskModel(taskName, ImmutableSet.of(systemStreamPartition), new Partition(partition + globalPartitionCounter)));
+      }
+      globalPartitionCounter += partitionPerContainer;
+      containerModelMap.put(String.valueOf(container), new ContainerModel(String.valueOf(container), taskModelMap));
+    }
+    return new JobModel(new MapConfig(), containerModelMap);
   }
 }
