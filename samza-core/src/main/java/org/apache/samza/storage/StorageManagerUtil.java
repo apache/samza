@@ -146,11 +146,11 @@ public class StorageManagerUtil {
     if (storeDir.exists()) {
       Map<SystemStreamPartition, String> offsetContents = readOffsetFile(storeDir, storeSSPs, isSideInput);
       if (offsetContents == null) {
-        LOG.info("Offset file is not valid for store: {}.", storeDir.toPath() + "; the file does not exist.");
+        LOG.info("Offset file does not exist. Store directory: {}", storeDir.toPath());
       } else if (offsetContents.isEmpty()) {
-        LOG.info("Offset file is not valid for store: {}.", storeDir.toPath() + "; the file is empty.");
+        LOG.info("Offset file is empty. Store directory: {}", storeDir.toPath());
       } else if (!offsetContents.keySet().equals(storeSSPs)) {
-        LOG.info("Offset file is not valid for store: {}.", storeDir.toPath() + "; the file does not match store SSPs: " + storeSSPs.toString() + ".");
+        LOG.info("Offset file is invalid since change-log SSPs don't match. Store directory: {}. SSPs from offset-file: {} SSPs expected: {} ", storeDir.toPath(), offsetContents.keySet(), storeSSPs);
       } else {
         hasValidOffsetFile = true;
       }
