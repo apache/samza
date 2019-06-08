@@ -150,7 +150,9 @@ public class StorageManagerUtil {
       } else if (offsetContents.isEmpty()) {
         LOG.info("Offset file is empty. Store directory: {}", storeDir.toPath());
       } else if (!offsetContents.keySet().equals(storeSSPs)) {
-        LOG.info("Offset file is invalid since change-log SSPs don't match. Store directory: {}. SSPs from offset-file: {} SSPs expected: {} ", storeDir.toPath(), offsetContents.keySet(), storeSSPs);
+        LOG.info("Offset file is invalid since change-log SSPs don't match. "
+            + "Store directory: {}. SSPs from offset-file: {} SSPs expected: {} ",
+            storeDir.toPath(), offsetContents.keySet(), storeSSPs);
       } else {
         hasValidOffsetFile = true;
       }
