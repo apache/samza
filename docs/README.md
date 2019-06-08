@@ -87,12 +87,16 @@ Following can be done when updating the gradle.properties file
 
     * update the download page (docs/startup/download/index.md) to use x.x.x release
       * Add an entry to the Sources releases and Samza Tools section to use the new x.x.x release
+        (samza/docs/_releases/x.x.x.md)
 
     * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in each of the tutorials (and search for other uses of version x.x.x which may need to be replaced with y.y.y)
       * docs/startup/hello-samza/versioned/index.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-yarn.md
       * docs/learn/tutorials/versioned/hello-samza-high-level-zk.md
       * docs/learn/tutorials/versioned/samza-rest-getting-started.md
+
+    * Write a blog post on the open source blog.
+       Update versioning (samza/docs/_blog/date-title.md). Usually the same info as in samza/docs/_releases/x.x.x.md.
 
 After apache mirrors pick up the new release,
 
