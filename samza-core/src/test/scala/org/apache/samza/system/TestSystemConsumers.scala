@@ -25,8 +25,8 @@ import java.util.Collections
 import org.junit.Assert._
 import org.junit.Test
 import org.apache.samza.Partition
+import org.apache.samza.config.TaskConfig
 import org.apache.samza.serializers._
-import org.apache.samza.startpoint._
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MockMessageChooser
@@ -51,7 +51,7 @@ class TestSystemConsumers {
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
-                                        SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
+                                        TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
     consumers.register(systemStreamPartition0, "0")
     consumers.register(systemStreamPartition1, "1234")
@@ -75,7 +75,7 @@ class TestSystemConsumers {
 
     // Advance the clock to trigger a new poll even though there are still
     // messages.
-    now = SystemConsumers.DEFAULT_POLL_INTERVAL_MS
+    now = TaskConfig.DEFAULT_POLL_INTERVAL_MS
 
     assertEquals(envelope, consumers.choose())
 
@@ -116,7 +116,7 @@ class TestSystemConsumers {
                                         new SerdeManager, new SystemConsumersMetrics,
                                         SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
                                         SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
-                                        SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
+                                        TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => now)
 
     consumers.register(systemStreamPartition, "0")
     consumers.start
@@ -145,7 +145,7 @@ class TestSystemConsumers {
     assertNull(consumers.choose())
 
     // Increase clock interval.
-    now = SystemConsumers.DEFAULT_POLL_INTERVAL_MS
+    now = TaskConfig.DEFAULT_POLL_INTERVAL_MS
 
     // We get two messages now.
     assertEquals(envelope, consumers.choose())
@@ -316,7 +316,7 @@ class TestSystemConsumers {
       systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
-      SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
+      TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
     consumers.register(systemStreamPartition1, "0")
     consumers.register(systemStreamPartition2, "0")
@@ -369,7 +369,7 @@ class TestSystemConsumers {
       systemAdmins, new SerdeManager, new SystemConsumersMetrics,
       SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
       SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
-      SystemConsumers.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
+      TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
     consumers.register(systemStreamPartition1, "0")
   }

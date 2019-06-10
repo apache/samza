@@ -20,7 +20,7 @@
 package org.apache.samza.system.chooser
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfigJava}
+import org.apache.samza.config.{Config, DefaultChooserConfig, TaskConfig}
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
@@ -40,7 +40,7 @@ object DefaultChooser extends Logging {
     debug("Got batch size: %s" format batchSize)
 
     // Normal streams default to priority 0.
-    val defaultPrioritizedStreams = new TaskConfigJava(config)
+    val defaultPrioritizedStreams = new TaskConfig(config)
       .getAllInputStreams.asScala
       .map((_, 0))
       .toMap

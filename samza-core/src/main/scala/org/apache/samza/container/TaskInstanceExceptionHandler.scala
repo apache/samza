@@ -19,11 +19,11 @@
 
 package org.apache.samza.container
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.TaskConfig.Config2Task
+import org.apache.samza.config.TaskConfig
 import org.apache.samza.metrics.Counter
 import org.apache.samza.metrics.MetricsHelper
 import org.apache.samza.util.Logging
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 /**
  * Handles exceptions thrown in a {@link TaskInstance}'s process or window
@@ -88,16 +88,15 @@ object TaskInstanceExceptionHandler {
    * Creates a new TaskInstanceExceptionHandler using the provided
    * configuration.
    *
-   * @param metrics The {@link TaskInstanceMetrics} used to track exception
-   *        counts.
-   * @param config The configuration to read the list of ignored exceptions
-   *        from.
+   * @param metrics The {@link TaskInstanceMetrics} used to track exception counts.
+   * @param taskConfig The configuration to read the list of ignored exceptions from.
    */
-  def apply(metrics: MetricsHelper, config: Config) =
+  def apply(metrics: MetricsHelper, taskConfig: TaskConfig) = {
     new TaskInstanceExceptionHandler(
       metrics = metrics,
-      ignoredExceptions = config.getIgnoredExceptions match {
+      ignoredExceptions = JavaOptionals.toRichOptional(taskConfig.getIgnoredExceptions).toOption match {
         case Some(exceptions) => exceptions.split(",").toSet
         case _ => Set[String]()
       })
+  }
 }

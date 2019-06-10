@@ -93,7 +93,7 @@ def _create_kafka_topic(zookeeper_servers, topic_name, partition_count, replicat
 
     ### Using command line utility to create kafka topic since kafka python API doesn't support configuring partitionCount during topic creation.
     base_dir = os.getcwd()
-    create_topic_command = 'sh {0}/deploy/kafka/kafka_2.10-0.10.1.1/bin/kafka-topics.sh --create --zookeeper {1} --replication-factor {2} --partitions {3} --topic {4}'.format(base_dir, zookeeper_servers, replication_factor, partition_count, topic_name)
+    create_topic_command = 'sh {0}/deploy/kafka/kafka_2.11-0.11.0.3/bin/kafka-topics.sh --create --zookeeper {1} --replication-factor {2} --partitions {3} --topic {4}'.format(base_dir, zookeeper_servers, replication_factor, partition_count, topic_name)
     p = Popen(create_topic_command.split(' '), stdin=PIPE, stdout=PIPE, stderr=PIPE)
     output, err = p.communicate()
     logger.info("Output from create kafka topic: {0}\nstdout: {1}\nstderr: {2}".format(topic_name, output, err))
@@ -107,7 +107,7 @@ def _delete_kafka_topic(zookeeper_servers, topic_name):
     """
 
     base_dir = os.getcwd()
-    delete_topic_command = 'sh {0}/deploy/kafka/kafka_2.10-0.10.1.1/bin/kafka-topics.sh --delete --zookeeper {1} --topic {2}'.format(base_dir, zookeeper_servers, topic_name)
+    delete_topic_command = 'sh {0}/deploy/kafka/kafka_2.11-0.11.0.3/bin/kafka-topics.sh --delete --zookeeper {1} --topic {2}'.format(base_dir, zookeeper_servers, topic_name)
     logger.info("Deleting topic: {0}.".format(topic_name))
     p = Popen(delete_topic_command.split(' '), stdin=PIPE, stdout=PIPE, stderr=PIPE)
     output, err = p.communicate()
