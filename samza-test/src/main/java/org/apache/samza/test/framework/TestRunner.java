@@ -375,7 +375,7 @@ public class TestRunner {
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
     if (this.app instanceof LegacyTaskApplication) {
       // task.inputs is generated using descriptors for Task/StreamApplication, but needs to be generated here
-      // for legacy applications that only specify task.class
+      // for legacy applications that only specify task.class.
       if (configs.containsKey(TaskConfig.INPUT_STREAMS)) {
         configs.put(TaskConfig.INPUT_STREAMS,
             configs.get(TaskConfig.INPUT_STREAMS).concat("," + systemName + "." + streamName));
