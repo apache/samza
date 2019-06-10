@@ -21,6 +21,7 @@ package org.apache.samza.sql.fn;
 
 import java.util.regex.Pattern;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -33,7 +34,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 @SamzaSqlUdf(name="RegexMatch", description = "Function to perform the regex match.")
 public class RegexMatchUdf implements ScalarUdf {
   @Override
-  public void init(Config config) {
+  public void init(Config config, Context context) {
 
   }
 

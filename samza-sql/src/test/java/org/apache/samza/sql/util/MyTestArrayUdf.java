@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -32,7 +33,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 @SamzaSqlUdf(name = "MyTestArray", description = "Test udf that returns an array")
 public class MyTestArrayUdf implements ScalarUdf {
   @Override
-  public void init(Config udfConfig) {
+  public void init(Config udfConfig, Context context) {
   }
 
   @SamzaSqlUdfMethod(params = SamzaSqlFieldType.INT32)

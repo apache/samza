@@ -19,6 +19,7 @@
 package org.apache.samza.sql.util;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -46,7 +47,7 @@ public class MyTestPolyUdf implements ScalarUdf {
 
 
   @Override
-  public void init(Config udfConfig) {
+  public void init(Config udfConfig, Context context) {
     LOG.info("Init called with {}", udfConfig);
   }
 }

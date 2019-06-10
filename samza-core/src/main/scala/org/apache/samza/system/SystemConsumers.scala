@@ -28,14 +28,15 @@ import java.util.HashMap
 import java.util.HashSet
 import java.util.Queue
 import java.util.Set
+
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
+import org.apache.samza.config.TaskConfig
 
 object SystemConsumers {
-  val DEFAULT_POLL_INTERVAL_MS = 50
   val DEFAULT_NO_NEW_MESSAGES_TIMEOUT = 10
   val DEFAULT_DROP_SERIALIZATION_ERROR = false
 }
@@ -105,7 +106,7 @@ class SystemConsumers (
    * with no remaining unprocessed messages, the SystemConsumers will poll for
    * it within 50ms of its availability in the stream system.</p>
    */
-  val pollIntervalMs: Int = SystemConsumers.DEFAULT_POLL_INTERVAL_MS,
+  val pollIntervalMs: Int = TaskConfig.DEFAULT_POLL_INTERVAL_MS,
 
   /**
    * Clock can be used to inject a custom clock when mocking this class in
