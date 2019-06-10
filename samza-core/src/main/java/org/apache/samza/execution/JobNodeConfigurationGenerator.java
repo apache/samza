@@ -308,7 +308,7 @@ import org.slf4j.LoggerFactory;
     serdes.forEach(serde -> {
         String serdeName = serdeUUIDs.computeIfAbsent(serde,
             s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
             base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 
