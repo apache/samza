@@ -22,8 +22,7 @@ package org.apache.samza.job.local
 import java.util
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.TaskConfig._
-import org.apache.samza.config.{Config, JobConfig}
+import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
@@ -88,8 +87,9 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
     info("Process job. using fwkPath = " + fwkPath)
 
-    val commandBuilderClass = config.getCommandClass(classOf[ShellCommandBuilder].getName)
-    info("Using command builder class " + commandBuilderClass)
+    val taskConfig = new TaskConfig(config)
+    val commandBuilderClass = taskConfig.getCommandClass(classOf[ShellCommandBuilder].getName)
+    info("Using command builder class %s" format commandBuilderClass)
     val commandBuilder = ReflectionUtil.getObj(classLoader, commandBuilderClass, classOf[CommandBuilder])
 
     // JobCoordinator is stopped by ProcessJob when it exits

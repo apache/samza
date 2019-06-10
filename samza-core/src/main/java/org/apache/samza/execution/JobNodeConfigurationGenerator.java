@@ -41,7 +41,6 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -165,7 +164,7 @@ class JobNodeConfigurationGenerator {
     configureTables(generatedConfig, originalConfig, reachableTables, inputs);
 
     // generate the task.inputs configuration
-    generatedConfig.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    generatedConfig.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
@@ -183,11 +182,11 @@ class JobNodeConfigurationGenerator {
     if (broadcastStreams.isEmpty()) {
       return;
     }
-    String broadcastInputs = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
+    String broadcastInputs = config.get(TaskConfig.BROADCAST_INPUT_STREAMS);
     if (StringUtils.isNotBlank(broadcastInputs)) {
       broadcastStreams.add(broadcastInputs);
     }
-    configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
+    configs.put(TaskConfig.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
   }
 
   private void configureWindowInterval(Map<String, String> configs, Config config,
@@ -201,7 +200,7 @@ class JobNodeConfigurationGenerator {
     long triggerInterval = computeTriggerInterval(reachableOperators);
     LOG.info("Using triggering interval: {}", triggerInterval);
 
-    configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
+    configs.put(TaskConfig.WINDOW_MS, String.valueOf(triggerInterval));
   }
 
   /**

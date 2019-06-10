@@ -250,7 +250,7 @@ public class ContainerStorageManager {
       sideInputSystemConsumers =
           new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(this.sideInputConsumers), systemAdmins, serdeManager,
               sideInputSystemConsumersMetrics, SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT(), SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR(),
-              SystemConsumers.DEFAULT_POLL_INTERVAL_MS(), ScalaJavaUtil.toScalaFunction(() -> System.nanoTime()));
+              TaskConfig.DEFAULT_POLL_INTERVAL_MS, ScalaJavaUtil.toScalaFunction(() -> System.nanoTime()));
     }
 
   }
@@ -661,6 +661,7 @@ public class ContainerStorageManager {
     getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.init());
 
     // start the checkpointing thread at the commit-ms frequency
+    TaskConfig taskConfig = new TaskConfig(config);
     sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
@@ -671,7 +672,7 @@ public class ContainerStorageManager {
           sideInputException = Optional.of(e);
         }
       }
-    }, 0, new TaskConfig(config).getCommitMs(), TimeUnit.MILLISECONDS);
+    }, 0, taskConfig.getCommitMs(), TimeUnit.MILLISECONDS);
 
     // set the latch to the number of sideInput SSPs
     this.sideInputsCaughtUp = new CountDownLatch(this.sideInputStorageManagers.keySet().size());

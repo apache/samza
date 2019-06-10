@@ -18,12 +18,12 @@
  */
 package org.apache.samza.application;
 
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.TaskConfig;
-import scala.Option;
 
 
 /**
@@ -52,8 +52,9 @@ public class ApplicationUtil {
       }
     }
     // no app.class defined. It has to be a legacy application with task.class configuration
-    Option<String> taskClassOption = new TaskConfig(config).getTaskClass();
-    if (!taskClassOption.isDefined() || !StringUtils.isNotBlank(taskClassOption.getOrElse(null))) {
+    TaskConfig taskConfig = new TaskConfig(config);
+    Optional<String> taskClassOption = taskConfig.getTaskClass();
+    if (!taskClassOption.isPresent() || StringUtils.isBlank(taskClassOption.get())) {
       // no task.class defined either. This is wrong.
       throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
     }
