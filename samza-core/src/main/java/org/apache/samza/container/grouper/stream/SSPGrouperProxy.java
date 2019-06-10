@@ -29,7 +29,7 @@ import java.util.HashSet;
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -55,7 +55,7 @@ public class SSPGrouperProxy {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(grouper);
     this.grouper = grouper;
-    this.broadcastSystemStreamPartitions = new TaskConfigJava(config).getBroadcastSystemStreamPartitions();
+    this.broadcastSystemStreamPartitions = new TaskConfig(config).getBroadcastSystemStreamPartitions();
     this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config, classLoader);
   }
 

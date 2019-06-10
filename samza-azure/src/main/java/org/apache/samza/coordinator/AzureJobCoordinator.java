@@ -271,7 +271,8 @@ public class AzureJobCoordinator implements JobCoordinator {
    */
   private Set<SystemStreamPartition> getInputStreamPartitions() {
     TaskConfig taskConfig = new TaskConfig(config);
-    scala.collection.immutable.Set<SystemStream> inputSystemStreams = taskConfig.getInputStreams();
+    scala.collection.immutable.Set<SystemStream> inputSystemStreams =
+        JavaConverters.asScalaSetConverter(taskConfig.getInputStreams()).asScala().toSet();
 
     // Get the set of partitions for each SystemStream from the stream metadata
     Set<SystemStreamPartition>

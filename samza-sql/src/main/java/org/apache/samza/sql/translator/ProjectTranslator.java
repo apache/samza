@@ -77,6 +77,7 @@ class ProjectTranslator {
     private final int queryId;
     private final int projectId;
     private final String logicalOpId;
+    private Context context;
 
     ProjectMapFunction(int projectId, int queryId, String logicalOpId) {
       this.projectId = projectId;
@@ -90,6 +91,7 @@ class ProjectTranslator {
      */
     @Override
     public void init(Context context) {
+      this.context = context;
       this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.project = (Project) this.translatorContext.getRelNode(projectId);
       this.expr = this.translatorContext.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
@@ -112,7 +114,7 @@ class ProjectTranslator {
       Instant arrivalTime = Instant.now();
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(translatorContext.getExecutionContext(), translatorContext.getDataContext(),
+      expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
           message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {

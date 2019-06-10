@@ -32,12 +32,12 @@ import org.apache.samza.system.SystemStream;
 public class DefaultChooserConfig extends MapConfig {
   private static final String BATCH_SIZE = "task.consumer.batch.size";
 
-  private final TaskConfigJava taskConfigJava;
+  private final TaskConfig taskConfig;
   private final StreamConfig streamConfig;
 
   public DefaultChooserConfig(Config config) {
     super(config);
-    taskConfigJava = new TaskConfigJava(config);
+    taskConfig = new TaskConfig(config);
     streamConfig = new StreamConfig(config);
   }
 
@@ -53,7 +53,7 @@ public class DefaultChooserConfig extends MapConfig {
    */
   public Set<SystemStream> getBootstrapStreams() {
     Set<SystemStream> bootstrapInputs = new HashSet<>();
-    Set<SystemStream> allInputs = taskConfigJava.getAllInputStreams();
+    Set<SystemStream> allInputs = taskConfig.getAllInputStreams();
     for (SystemStream systemStream : allInputs) {
       if (streamConfig.getBootstrapEnabled(systemStream)) {
         bootstrapInputs.add(systemStream);
@@ -71,7 +71,7 @@ public class DefaultChooserConfig extends MapConfig {
    *          were not explicitly configured with a priority are not returned.
    */
   public Map<SystemStream, Integer> getPriorityStreams() {
-    Set<SystemStream> allInputs = taskConfigJava.getAllInputStreams();
+    Set<SystemStream> allInputs = taskConfig.getAllInputStreams();
 
     Map<SystemStream, Integer> priorityStreams = new HashMap<>();
     for (SystemStream systemStream : allInputs) {
