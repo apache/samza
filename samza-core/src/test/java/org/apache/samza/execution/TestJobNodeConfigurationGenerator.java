@@ -289,7 +289,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     assertEquals(numSerdes, serializers.size());
     return serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
+        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX, ""),
         e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
     ));
   }

@@ -32,7 +32,6 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.SerializerConfig.Config2Serializer
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -249,10 +248,10 @@ object SamzaContainer extends Logging {
 
     info("Got system producers: %s" format producers.keys)
 
-    val serdesFromFactories = config.getSerdeNames.map(serdeName => {
-      val serdeClassName = config
-        .getSerdeClass(serdeName)
-        .getOrElse(SerializerConfig.getSerdeFactoryName(serdeName))
+    val serializerConfig = new SerializerConfig(config)
+    val serdesFromFactories = serializerConfig.getSerdeNames.asScala.map(serdeName => {
+      val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption
+        .getOrElse(SerializerConfig.getPredefinedSerdeFactoryName(serdeName))
       val serde = ReflectionUtil.getObj(classLoader, serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
       (serdeName, serde)

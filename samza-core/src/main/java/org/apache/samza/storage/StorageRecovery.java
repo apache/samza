@@ -49,12 +49,10 @@ import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
-import org.apache.samza.util.ScalaJavaUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
 
 
 /**
@@ -189,16 +187,11 @@ public class StorageRecovery extends CommandLine {
     SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
 
     // Adding all serdes from factories
-    ScalaJavaUtil.toJavaCollection(serializerConfig.getSerdeNames())
-        .stream()
+    serializerConfig.getSerdeNames()
         .forEach(serdeName -> {
-            Option<String> serdeClassName = serializerConfig.getSerdeClass(serdeName);
-
-            if (serdeClassName.isEmpty()) {
-              serdeClassName = Option.apply(SerializerConfig.getSerdeFactoryName(serdeName));
-            }
-
-            Serde serde = ReflectionUtil.getObj(getClass().getClassLoader(), serdeClassName.get(), SerdeFactory.class)
+            String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
+              .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
+            Serde serde = ReflectionUtil.getObj(getClass().getClassLoader(), serdeClassName, SerdeFactory.class)
                 .getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
