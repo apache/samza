@@ -83,7 +83,7 @@ Following can be done when updating the gradle.properties file
 
     * if this is a major release, modify the docs/_config.yml to make the "latest-release" to x.x.x
 
-    * if this is a major release, add the x.x.x release to Archive category in docs/_layouts/default.html and x.x.x release part in docs/archive/index.html
+    * if this is a major release, add the x.x.x release part in docs/archive/index.html
 
     * update the download page (docs/startup/download/index.md) to use x.x.x release
       * Add an entry to the Sources releases and Samza Tools section to use the new x.x.x release
