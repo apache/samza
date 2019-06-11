@@ -150,7 +150,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
-      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+      metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
     } else {
       diagnosticsManager = Option.empty();
     }

@@ -32,7 +32,6 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.MetricsConfig.Config2Metrics
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -157,7 +156,8 @@ object SamzaContainer extends Logging {
     val systemProducersMetrics = new SystemProducersMetrics(registry)
     val systemConsumersMetrics = new SystemConsumersMetrics(registry)
     val offsetManagerMetrics = new OffsetManagerMetrics(registry)
-    val clock = if (config.getMetricsTimerEnabled) {
+    val metricsConfig = new MetricsConfig(config)
+    val clock = if (metricsConfig.getMetricsTimerEnabled) {
       new HighResolutionClock {
         override def nanoTime(): Long = System.nanoTime()
       }
@@ -410,7 +410,7 @@ object SamzaContainer extends Logging {
     info("Setting up metrics reporters.")
 
     val reporters =
-      MetricsReporterLoader.getMetricsReporters(config, containerName, classLoader).asScala.toMap ++ customReporters
+      MetricsReporterLoader.getMetricsReporters(metricsConfig, containerName, classLoader).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
 
