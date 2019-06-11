@@ -260,6 +260,14 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
+   * Releases a single resource based on containerId.
+   * @param containerId container ID
+   */
+  public final void releaseResource(String containerId) {
+    resourceRequestState.releaseResource(containerId);
+  }
+
+  /**
    * Stops the Allocator. Setting this flag to false exits the allocator loop.
    */
   public void stop() {
