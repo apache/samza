@@ -460,7 +460,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
   @Override
   public boolean createStream(StreamSpec streamSpec) {
-    LOG.info("Creating Kafka topic: {} on system: {} with rf: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName(), toKafkaSpec(streamSpec).getReplicationFactor());
+    LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
     final String REPL_FACTOR = "replication.factor";
 
     KafkaStreamSpec kSpec = toKafkaSpec(streamSpec);
