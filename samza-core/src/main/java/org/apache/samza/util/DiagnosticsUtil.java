@@ -24,6 +24,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
@@ -96,6 +97,10 @@ public class DiagnosticsUtil {
 
     if (new JobConfig(config).getDiagnosticsEnabled()) {
 
+      int containerCount = new JobConfig(config).getContainerCount();
+      int containerMemoryMb = new ClusterManagerConfig(config).getContainerMemoryMb();
+      int containerNumCores = new ClusterManagerConfig(config).getNumCores();
+
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS();
       Integer publishInterval = new MetricsConfig(config).getMetricsSnapshotReporterInterval(diagnosticsReporterName);
@@ -119,7 +124,7 @@ public class DiagnosticsUtil {
       // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
       SystemFactory systemFactory = Util.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer = systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
-      DiagnosticsManager diagnosticsManager = new DiagnosticsManager(jobName, jobId, containerId, execEnvContainerId.orElse(""), taskClassVersion,
+      DiagnosticsManager diagnosticsManager = new DiagnosticsManager(jobName, jobId, containerCount, containerMemoryMb, containerNumCores, containerId, execEnvContainerId.orElse(""), taskClassVersion,
           samzaVersion, hostName, diagnosticsSystemStream, systemProducer, Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
 
       MetricsSnapshotReporter diagnosticsReporter =

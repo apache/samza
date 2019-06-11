@@ -60,9 +60,12 @@ public class DiagnosticsManager {
   private static final String SAMZACONTAINER_METRICS_GROUP_NAME = "org.apache.samza.container.SamzaContainerMetrics";
   // Using SamzaContainerMetrics as the group name for exceptions to maintain compatibility with existing diagnostics
 
-  private static final String GROUP_NAME_FOR_PROCESSOR_STOP_EVENTS = DiagnosticsManager.class.getName();
+  private static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
   // Using DiagnosticsManager as the group name for processor-stop-events
   private static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
+  private static final String CONTAINER_COUNT_METRIC_NAME = "containerCount";
+  private static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
+  private static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
 
   // Parameters used for populating the MetricHeader when sending diagnostic-stream messages
   private final String jobName;
@@ -74,6 +77,12 @@ public class DiagnosticsManager {
   private final String hostname;
   private final Instant resetTime;
 
+  // Job-related params
+  private final int containerCount;
+  private final int containerMemoryMb;
+  private final int containerNumCores;
+  private boolean jobParamsEmitted = false;
+
   private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
   private final BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
   private final ConcurrentLinkedQueue<ProcessorStopEvent> containerStops;
@@ -82,8 +91,10 @@ public class DiagnosticsManager {
   private final Duration terminationDuration; // duration to wait when terminating the scheduler
   private final SystemStream diagnosticSystemStream;
 
-  public DiagnosticsManager(String jobName, String jobId, String containerId, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, SystemStream diagnosticSystemStream,
+  public DiagnosticsManager(String jobName, String jobId,
+      int containerCount, int containerMemoryMb, int containerNumCores,
+      String containerId, String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
+      SystemStream diagnosticSystemStream,
       SystemProducer systemProducer, Duration terminationDuration) {
     this.jobName = jobName;
     this.jobId = jobId;
@@ -93,6 +104,10 @@ public class DiagnosticsManager {
     this.samzaVersion = samzaVersion;
     this.hostname = hostname;
     resetTime = Instant.now();
+
+    this.containerCount = containerCount;
+    this.containerNumCores = containerNumCores;
+    this.containerMemoryMb = containerMemoryMb;
 
     this.systemProducer = systemProducer;
     this.diagnosticSystemStream = diagnosticSystemStream;
@@ -163,11 +178,19 @@ public class DiagnosticsManager {
 
       Map<String, Map<String, Object>> metricsMessage = new HashMap<>();
 
+      // Publish job-related params (if not already published)
+      if (!jobParamsEmitted) {
+        metricsMessage.putIfAbsent(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, new HashMap<>());
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_COUNT_METRIC_NAME, containerCount);
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MB_METRIC_NAME, containerMemoryMb);
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_CORES_METRIC_NAME, containerNumCores);
+      }
+
       // Publish processor stop-events if there are any
       List<ProcessorStopEvent> stopEventList = new ArrayList(containerStops);
       if (!stopEventList.isEmpty()) {
-        metricsMessage.putIfAbsent(GROUP_NAME_FOR_PROCESSOR_STOP_EVENTS, new HashMap<>());
-        metricsMessage.get(GROUP_NAME_FOR_PROCESSOR_STOP_EVENTS).put(STOP_EVENT_LIST_METRIC_NAME, stopEventList);
+        metricsMessage.putIfAbsent(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, new HashMap<>());
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(STOP_EVENT_LIST_METRIC_NAME, stopEventList);
       }
 
       // Publish exception events if there are any
@@ -196,6 +219,9 @@ public class DiagnosticsManager {
 
           // Remove exceptions from list after successful publish to diagnostics stream
           exceptions.remove(exceptionList);
+
+          // Emit jobParams once
+          jobParamsEmitted = true;
         } catch (Exception e) {
           LOG.error("Exception when flushing exceptions", e);
         }
