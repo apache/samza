@@ -308,11 +308,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   public void onResourceCompleted(SamzaResourceStatus resourceStatus) {
     String containerId = resourceStatus.getContainerId();
     String processorId = null;
+    String hostName = null;
     for (Map.Entry<String, SamzaResource> entry: state.runningProcessors.entrySet()) {
       if (entry.getValue().getContainerId().equals(resourceStatus.getContainerId())) {
         log.info("Container ID: {} matched running Processor ID: {} on host: {}", containerId, entry.getKey(), entry.getValue().getHost());
 
         processorId = entry.getKey();
+        hostName = entry.getValue().getHost();
         break;
       }
     }
@@ -434,6 +436,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus);
         }
 
+    }
+
+    if (this.diagnosticsManager.isDefined()) {
+      this.diagnosticsManager.get().addProcessorStopEvent(processorId, resourceStatus.getContainerId(), hostName, exitStatus);
     }
   }
 
