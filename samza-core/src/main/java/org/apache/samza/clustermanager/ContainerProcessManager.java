@@ -321,7 +321,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       state.redundantNotifications.incrementAndGet();
 
       if (resourceStatus.getExitCode() != SamzaResourceStatus.SUCCESS) {
-        // the requested container failed before allocating the request to it.
+        // the requested container failed before assigning the request to it.
         // Remove from the buffer if it is there
         containerAllocator.releaseResource(containerId);
       }
