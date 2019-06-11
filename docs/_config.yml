@@ -23,7 +23,7 @@ redcarpet:
   extensions: ['with_toc_data', 'smart', 'strikethrough', 'tables']
 exclude: [_docs]
 baseurl: http://samza.apache.org
-version: '1.2.0'
+version: latest
 # this is the version you will go if you click 'switch version' in "latest" pages.
 latest-release: '1.2.0'
 collections:
