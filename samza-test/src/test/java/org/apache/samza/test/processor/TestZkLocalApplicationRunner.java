@@ -140,7 +140,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     // Set up stream application config map with the given testStreamAppName, testStreamAppId and test kafka system
     // TODO: processorId should typically come up from a processorID generator as processor.id will be deprecated in 0.14.0+
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
@@ -189,14 +189,10 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     }
   }
 
-  private Map<String, String> buildStreamApplicationConfigMap(List<String> inputTopics, String appName, String appId, boolean isBatch) {
-    List<String> inputSystemStreams = inputTopics.stream()
-                                                 .map(topic -> String.format("%s.%s", TestZkLocalApplicationRunner.TEST_SYSTEM, topic))
-                                                 .collect(Collectors.toList());
+  private Map<String, String> buildStreamApplicationConfigMap(String appName, String appId, boolean isBatch) {
     String coordinatorSystemName = "coordinatorSystem";
     Map<String, String> config = new HashMap<>();
     config.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS);
-    config.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputSystemStreams));
     config.put(JobConfig.JOB_DEFAULT_SYSTEM(), TestZkLocalApplicationRunner.TEST_SYSTEM);
     config.put(TaskConfig.IGNORED_EXCEPTIONS, "*");
     config.put(ZkConfig.ZK_CONNECT, zkConnect());
@@ -227,8 +223,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     return applicationConfig;
   }
 
-  private Map<String, String> buildStreamApplicationConfigMap(List<String> inputTopics, String appName, String appId) {
-    return buildStreamApplicationConfigMap(inputTopics, appName, appId, false);
+  private Map<String, String> buildStreamApplicationConfigMap(String appName, String appId) {
+    return buildStreamApplicationConfigMap(appName, appId, false);
   }
 
   /**
@@ -533,8 +529,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     // Set up kafka topics.
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    Map<String, String> configMap = buildStreamApplicationConfigMap(
-            ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId);
+    Map<String, String> configMap = buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId);
 
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     Config applicationConfig1 = new MapConfig(configMap);
@@ -607,7 +602,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   public void testShouldStopStreamApplicationWhenShutdownTimeOutIsLessThanContainerShutdownTime() throws Exception {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId);
+    Map<String, String> configMap = buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId);
     configMap.put(TaskConfig.TASK_SHUTDOWN_MS, "0");
 
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
@@ -756,7 +751,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     createTopic(statefulInputKafkaTopic, 32, 1);
 
     // Generate configuration for the test.
-    Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic), testStreamAppName, testStreamAppId);
+    Map<String, String> configMap = buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     Config applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
 
@@ -856,8 +851,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     createTopic(statefulInputKafkaTopic2, 32, 1);
 
     // Generate configuration for the test.
-    Map<String, String> configMap = buildStreamApplicationConfigMap(ImmutableList.of(statefulInputKafkaTopic1, statefulInputKafkaTopic2),
-                                  testStreamAppName, testStreamAppId);
+    Map<String, String> configMap = buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     Config applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
 
@@ -1002,7 +996,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
@@ -1054,7 +1048,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
@@ -1124,7 +1118,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
@@ -1198,7 +1192,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(ImmutableList.of(inputKafkaTopic), testStreamAppName, testStreamAppId, true);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true);
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
     configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
