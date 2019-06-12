@@ -33,6 +33,7 @@ To compile the website in the \_site directory, execute:
 To test the site, run:
 
     bundle exec jekyll serve --watch --baseurl ""
+(add --host 0.0.0.0 if you want it to be visible from other hosts)
 
 ## Versioning
 
