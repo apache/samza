@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
@@ -60,12 +61,14 @@ public class DiagnosticsManager {
   private static final String SAMZACONTAINER_METRICS_GROUP_NAME = "org.apache.samza.container.SamzaContainerMetrics";
   // Using SamzaContainerMetrics as the group name for exceptions to maintain compatibility with existing diagnostics
 
-  private static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
+  public static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
   // Using DiagnosticsManager as the group name for processor-stop-events
-  private static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
-  private static final String CONTAINER_COUNT_METRIC_NAME = "containerCount";
-  private static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
-  private static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
+  public static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
+  public static final String CONTAINER_COUNT_METRIC_NAME = "containerCount";
+  public static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
+  public static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
+  public static final String CONTAINER_NUM_STORES_METRIC_NAME = "numStores";
+  public static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
 
   // Parameters used for populating the MetricHeader when sending diagnostic-stream messages
   private final String jobName;
@@ -81,6 +84,8 @@ public class DiagnosticsManager {
   private final int containerCount;
   private final int containerMemoryMb;
   private final int containerNumCores;
+  private final int numStores;
+  private final Map<String, ContainerModel> containerModels;
   private boolean jobParamsEmitted = false;
 
   private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
@@ -91,13 +96,13 @@ public class DiagnosticsManager {
   private final Duration terminationDuration; // duration to wait when terminating the scheduler
   private final SystemStream diagnosticSystemStream;
 
-  public DiagnosticsManager(String jobName, String jobId,
-      int containerCount, int containerMemoryMb, int containerNumCores,
-      String containerId, String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
-      SystemStream diagnosticSystemStream,
-      SystemProducer systemProducer, Duration terminationDuration) {
+  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels, int containerCount, int containerMemoryMb,
+      int containerNumCores, int numStores, String containerId, String executionEnvContainerId, String taskClassVersion,
+      String samzaVersion, String hostname, SystemStream diagnosticSystemStream, SystemProducer systemProducer,
+      Duration terminationDuration) {
     this.jobName = jobName;
     this.jobId = jobId;
+    this.containerModels = containerModels;
     this.containerId = containerId;
     this.executionEnvContainerId = executionEnvContainerId;
     this.taskClassVersion = taskClassVersion;
@@ -108,6 +113,7 @@ public class DiagnosticsManager {
     this.containerCount = containerCount;
     this.containerNumCores = containerNumCores;
     this.containerMemoryMb = containerMemoryMb;
+    this.numStores = numStores;
 
     this.systemProducer = systemProducer;
     this.diagnosticSystemStream = diagnosticSystemStream;
@@ -184,6 +190,8 @@ public class DiagnosticsManager {
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_COUNT_METRIC_NAME, containerCount);
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MB_METRIC_NAME, containerMemoryMb);
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_CORES_METRIC_NAME, containerNumCores);
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_STORES_METRIC_NAME, numStores);
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MODELS_METRIC_NAME, containerModels);
       }
 
       // Publish processor stop-events if there are any
@@ -205,8 +213,8 @@ public class DiagnosticsManager {
         // Create the metricHeader
         MetricsHeader metricsHeader =
             new MetricsHeader(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                DiagnosticsManager.class.getName(), taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(),
-                resetTime.toEpochMilli());
+                DiagnosticsManager.class.getName(), taskClassVersion, samzaVersion, hostname,
+                System.currentTimeMillis(), resetTime.toEpochMilli());
 
         MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricsMessage));
         try {
