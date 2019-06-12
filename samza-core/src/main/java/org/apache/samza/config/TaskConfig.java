@@ -111,8 +111,30 @@ public class TaskConfig extends MapConfig {
   }
 
   /**
-   * Get the input streams, not including the broadcast streams. Use {@link #getAllInputStreams()} to also get the
-   * broadcast streams.
+   * Get the input streams for the job, including those configured using {@code task.inputs}, broadcast streams,
+   * and store side input streams.
+   */
+  public Set<SystemStream> getAllInputStreams() {
+    Set<SystemStream> allInputSS = new HashSet<>();
+
+    allInputSS.addAll(getInputStreams());
+    allInputSS.addAll(getBroadcastSystemStreams());
+
+    StorageConfig storageConfig = new StorageConfig(this);
+    List<SystemStream> sideInputs = storageConfig.getStoreNames().stream()
+        .flatMap(storeName -> storageConfig.getSideInputs(storeName).stream())
+        .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(this, sideInput))
+        .collect(Collectors.toList());
+    allInputSS.addAll(sideInputs);
+
+    return Collections.unmodifiableSet(allInputSS);
+  }
+
+  /**
+   * Get only the streams configured using {@code task.inputs} for this job.
+   *
+   * NOTE: This method should be used sparingly. Use {@link #getAllInputStreams()} instead to get all input streams
+   * for the job, including the broadcast and store side input streams.
    */
   public Set<SystemStream> getInputStreams() {
     Optional<String> inputStreams = Optional.ofNullable(get(INPUT_STREAMS));
@@ -260,20 +282,6 @@ public class TaskConfig extends MapConfig {
       broadcastSS.add(bssp.getSystemStream());
     }
     return Collections.unmodifiableSet(broadcastSS);
-  }
-
-  /**
-   * Get the SystemStreams for the configured input and broadcast streams.
-   *
-   * @return the set of SystemStreams for both standard inputs and broadcast stream inputs.
-   */
-  public Set<SystemStream> getAllInputStreams() {
-    Set<SystemStream> allInputSS = new HashSet<>();
-
-    allInputSS.addAll(getInputStreams());
-    allInputSS.addAll(getBroadcastSystemStreams());
-
-    return Collections.unmodifiableSet(allInputSS);
   }
 
   /**

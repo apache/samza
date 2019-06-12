@@ -262,7 +262,7 @@ object JobModelManager extends Logging {
   }
 
   /**
-    * Gets all the input SSPs for the job, including those for side inputs and topic regex matches.
+    * Gets all the input SSPs for the job, including those for side inputs, broadcast, and topic regex matches.
     * @param config the configuration of the job.
     * @param streamMetadataCache to query the partition metadata of the input streams.
     * @return the input [[SystemStreamPartition]] for the job.
@@ -279,18 +279,10 @@ object JobModelManager extends Logging {
       }
     }
 
-    // Expand regex topics if a regex-rewriter is defined in config
-    val configAfterRegexTopicRewrite = invokeRegexTopicRewriter(config)
-    val taskConfigAfterRegexTopicRewrite = new TaskConfig(configAfterRegexTopicRewrite)
-    val rewrittenTaskInputs = JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
-
-    val storageConfig = new StorageConfig(configAfterRegexTopicRewrite)
-    val sideInputs = storageConfig.getStoreNames.asScala
-      .flatMap(storeName => storageConfig.getSideInputs(storeName).asScala)
-      .map(sideInput => StreamUtil.getSystemStreamFromNameOrId(configAfterRegexTopicRewrite, sideInput))
-      .toList
-
-    val inputSystemStreams = rewrittenTaskInputs ++ sideInputs
+    // Expand regex topics if a regex rewriter is defined in config
+    val rewrittenConfig = invokeRegexTopicRewriter(config)
+    val rewrittenTaskConfig = new TaskConfig(rewrittenConfig)
+    val inputSystemStreams = JavaConverters.asScalaSetConverter(rewrittenTaskConfig.getAllInputStreams).asScala.toSet
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
