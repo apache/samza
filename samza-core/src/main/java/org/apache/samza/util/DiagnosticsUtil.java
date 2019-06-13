@@ -132,7 +132,7 @@ public class DiagnosticsUtil {
               new StorageConfig(config).getNumDurableStores(), containerId, execEnvContainerId.orElse(""),
               taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
-
+      
       Option<String> blacklist = ScalaJavaUtil.JavaOptionals$.MODULE$.toRichOptional(
           metricsConfig.getMetricsSnapshotReporterBlacklist(diagnosticsReporterName)).toOption();
       MetricsSnapshotReporter diagnosticsReporter =
