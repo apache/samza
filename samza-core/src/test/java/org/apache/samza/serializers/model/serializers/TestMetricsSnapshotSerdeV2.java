@@ -119,11 +119,7 @@ public class TestMetricsSnapshotSerdeV2 {
 
     MetricsSnapshot deserializedMetricsSnapshot = metricsSnapshotSerde.fromBytes(serializedBytes);
 
-    Assert.assertTrue("Headers map should be equal",
-        metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
-
-    Assert.assertTrue("Metrics map should be equal",
-        metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
+    Assert.assertTrue(metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
   }
 
   HashMap convertMap(Map<String, Object> map) {
