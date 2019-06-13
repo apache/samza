@@ -22,8 +22,15 @@ package org.apache.samza.serializers;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.Version;
+import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.map.SerializerProvider;
+import org.codehaus.jackson.map.module.SimpleModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +43,18 @@ public class MetricsSnapshotSerdeV2 implements Serde<MetricsSnapshot> {
   public MetricsSnapshotSerdeV2() {
     objectMapper = new ObjectMapper();
     objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
+    SimpleModule module = new SimpleModule("SamzaModule", new Version(1, 0, 0, ""));
+    module.addSerializer(ContainerModel.class, new ContainerModelSerializer());
+    objectMapper.registerModule(module);
+  }
+
+  public static class ContainerModelSerializer extends JsonSerializer<ContainerModel> {
+    private ObjectMapper samzaObjectMapper = SamzaObjectMapper.getObjectMapper();
+
+    @Override
+    public void serialize(ContainerModel value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+      jgen.writeString(samzaObjectMapper.writeValueAsString(value));
+    }
   }
 
   @Override
