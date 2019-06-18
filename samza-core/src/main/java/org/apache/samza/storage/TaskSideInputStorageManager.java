@@ -215,10 +215,10 @@ public class TaskSideInputStorageManager {
       // Iterate over the list to be written.
       // TODO: SAMZA-2255: Optimize value writes in TaskSideInputStorageManager
       for (Entry entry : entriesToBeWritten) {
-        // If the value is null, we issue a delete, else we issue a put
-          if (entry.getValue() == null) {
+        // If the key is null we ignore, if the value is null, we issue a delete, else we issue a put
+        if (entry.getKey() != null && entry.getValue() == null) {
           keyValueStore.delete(entry.getKey());
-        } else {
+        } else if (entry.getKey() != null) {
           keyValueStore.put(entry.getKey(), entry.getValue());
         }
       }
