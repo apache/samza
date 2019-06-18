@@ -112,6 +112,7 @@ import scala.collection.JavaConverters;
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
+  private static final String SIDEINPUTS_READ_THREAD_NAME = "SideInputs Read Thread";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for side-inputs from the ones in SamzaContainer
@@ -156,7 +157,8 @@ public class ContainerStorageManager {
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
   private ScheduledFuture sideInputsFlushFuture;
-  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1);
+  private static final Duration SIDE_INPUT_READ_THREAD_TIMEOUT = Duration.ofSeconds(10); // Timeout with which sideinput read thread checks for exceptions
+  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1); // Period with which sideinputs are flushed
   private volatile Optional<Throwable> sideInputException = Optional.empty();
 
   private final Config config;
@@ -540,7 +542,14 @@ public class ContainerStorageManager {
           sideInputStoresToProcessors.get(taskName).put(storeName, new SideInputsProcessor() {
             @Override
             public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
-              return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()), msgSerde.fromBytes((byte[]) message.getMessage())));
+              // Ignore message if the key is null
+              if (message.getKey() == null) {
+                return ImmutableList.of();
+              } else {
+                // Skip serde if the message is null
+                return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()),
+                    message.getMessage() == null ? null : msgSerde.fromBytes((byte[]) message.getMessage())));
+              }
             }
           });
         }
@@ -705,43 +714,42 @@ public class ContainerStorageManager {
     this.sideInputSystemConsumers.start();
 
     // create a thread for sideInput reads
-    Thread readSideInputs = new Thread(() -> {
-        while (!shutDownSideInputRead) {
-          IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
-          if (envelope != null) {
+    Thread readSideInputsThread = new Thread(() -> {
+        try {
+          while (!shutDownSideInputRead) {
+            IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
+            if (envelope != null) {
 
-            if (!envelope.isEndOfStream())
-              sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
+              if (!envelope.isEndOfStream())
+                sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
 
-            checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
-
-          } else {
-            LOG.trace("No incoming message was available");
+              checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
+                  SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
+            } else {
+              LOG.trace("No incoming message was available");
+            }
           }
+        } catch (Exception e) {
+          LOG.error("Exception in reading side inputs", e);
+          sideInputException = Optional.of(e);
         }
       });
-
-    readSideInputs.setDaemon(true);
-    readSideInputs.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-      @Override
-      public void uncaughtException(Thread t, Throwable e) {
-        sideInputException = Optional.of(e);
-        sideInputsCaughtUp.countDown();
-      }
-    });
+    readSideInputsThread.setName(SIDEINPUTS_READ_THREAD_NAME);
+    readSideInputsThread.setDaemon(true);
 
     try {
-      readSideInputs.start();
-      // Make the main thread wait until all sideInputs have been caughtup or thrown an exception
-      this.sideInputsCaughtUp.await();
+      readSideInputsThread.start();
+
+      // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
+      while (!sideInputException.isPresent() && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT.getSeconds(), TimeUnit.SECONDS)) {
+        LOG.debug("Checking for any side-input-exception occurrence");
+      }
 
       if (sideInputException.isPresent()) { // Throw exception if there was an exception in catching-up sideInputs
         // TODO: SAMZA-2113 relay exception to main thread
         throw new SamzaException("Exception in restoring side inputs", sideInputException.get());
       }
     } catch (InterruptedException e) {
-      sideInputException = Optional.of(e);
       throw new SamzaException("Side inputs read was interrupted", e);
     }
 

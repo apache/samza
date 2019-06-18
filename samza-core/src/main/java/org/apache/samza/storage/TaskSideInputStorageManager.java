@@ -20,8 +20,6 @@
 package org.apache.samza.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
@@ -34,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -50,7 +47,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -215,7 +211,17 @@ public class TaskSideInputStorageManager {
 
       KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
       Collection<Entry<?, ?>> entriesToBeWritten = sideInputsProcessor.process(message, keyValueStore);
-      keyValueStore.putAll(ImmutableList.copyOf(entriesToBeWritten));
+
+      // Iterate over the list to be written.
+      // TODO: SAMZA-2255: Optimize value writes in TaskSideInputStorageManager
+      for (Entry entry : entriesToBeWritten) {
+        // If the value is null, we issue a delete, else we issue a put
+          if (entry.getValue() == null) {
+          keyValueStore.delete(entry.getKey());
+        } else {
+          keyValueStore.put(entry.getKey(), entry.getValue());
+        }
+      }
     }
 
     // update the last processed offset
