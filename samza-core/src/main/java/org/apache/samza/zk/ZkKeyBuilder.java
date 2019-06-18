@@ -89,7 +89,7 @@ public class ZkKeyBuilder {
     return String.format("%s/%s/jobModelVersion", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
-  public String getJobModelPathPrefix() {
+  String getJobModelPathPrefix() {
     return String.format("%s/%s/jobModels", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 

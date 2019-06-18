@@ -19,11 +19,14 @@
 package org.apache.samza.zk;
 
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.CRC32;
 import org.I0Itec.zkclient.serialize.BytesPushThroughSerializer;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.samza.config.Config;
@@ -69,22 +72,27 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public byte[] get(String key) {
-    byte[] combinedValue = null;
+    byte[] aggregatedZNodeValues = new byte[0];
     try {
       for (int segmentIndex = 0;; ++segmentIndex) {
-        String zkPath = getZkPathForKey(key, segmentIndex);
-        byte[] valueSegment = zkClient.readData(zkPath, true);
-        if (valueSegment == null) {
+        String zkPath = getZkPath(key, segmentIndex);
+        byte[] zNodeValue = zkClient.readData(zkPath, true);
+        if (zNodeValue == null) {
           break;
         } else {
-          if (combinedValue == null) {
-            combinedValue = valueSegment;
-          } else {
-            combinedValue = Bytes.concat(combinedValue, valueSegment);
-          }
+          aggregatedZNodeValues = Bytes.concat(aggregatedZNodeValues, zNodeValue);
         }
       }
-      return combinedValue;
+      if (aggregatedZNodeValues.length > 0) {
+        byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - 8);
+        byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - 8, aggregatedZNodeValues.length);
+        byte[] expectedCheckSum = getCRC(value);
+        if (!Arrays.equals(checkSum, expectedCheckSum)) {
+          throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
+        }
+        return value;
+      }
+      return null;
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception occurred when reading the key: %s from zookeeper.", key), e);
     }
@@ -98,7 +106,7 @@ public class ZkMetadataStore implements MetadataStore {
     try {
       List<byte[]> valueSegments = chunkMetadataStoreValue(value);
       for (int segmentIndex = 0; segmentIndex < valueSegments.size(); segmentIndex++) {
-        String zkPath = getZkPathForKey(key, segmentIndex);
+        String zkPath = getZkPath(key, segmentIndex);
         zkClient.createPersistent(zkPath, true);
         zkClient.writeData(zkPath, valueSegments.get(segmentIndex));
       }
@@ -155,26 +163,40 @@ public class ZkMetadataStore implements MetadataStore {
     zkClient.close();
   }
 
-  private String getZkPathForKey(String key, int valueSegmentIndex) {
-    return String.format("%s/%s/%d", zkBaseDir, key, valueSegmentIndex);
+  private String getZkPath(String key, int segmentIndex) {
+    return String.format("%s/%s/%d", zkBaseDir, key, segmentIndex);
   }
 
   /**
-   * Splits the input byte array into independent byte array segments of 1 MB size.
-   * @param valueAsBytes the byteArray to split.
-   * @return the job model splitted into independent byte array chunks.
+   * Computes and returns the crc32 checksum of the input byte array.
+   * @param value the input byte array.
+   * @return the crc32 checksum of the byte array.
    */
-  private static List<byte[]> chunkMetadataStoreValue(byte[] valueAsBytes) {
+  private static byte[] getCRC(byte[] value) {
+    CRC32 crc32 = new CRC32();
+    crc32.update(value);
+    long checksum = crc32.getValue();
+    return Longs.toByteArray(checksum);
+  }
+
+  /**
+   * Splits the input byte array value into independent byte array segments of 1 MB size.
+   * @param value the input byte array to split.
+   * @return the byte array splitted into independent byte array chunks.
+   */
+  private static List<byte[]> chunkMetadataStoreValue(byte[] value) {
     try {
+      byte[] valueCrcAsBytes = getCRC(value);
+      value = ArrayUtils.addAll(value, valueCrcAsBytes);
       List<byte[]> valueSegments = new ArrayList<>();
-      int valueLength = valueAsBytes.length;
+      int valueLength = value.length;
       for (int index = 0; index < valueLength; index += VALUE_SEGMENT_SIZE_IN_BYTES) {
-        byte[] valueSegment = ArrayUtils.subarray(valueAsBytes, index, Math.min(index + VALUE_SEGMENT_SIZE_IN_BYTES, valueLength));
+        byte[] valueSegment = ArrayUtils.subarray(value, index, Math.min(index + VALUE_SEGMENT_SIZE_IN_BYTES, valueLength));
         valueSegments.add(valueSegment);
       }
       return valueSegments;
     } catch (Exception e) {
-      throw new SamzaException(String.format("Exception occurred when splitting the value: %s to small chunks.", valueAsBytes), e);
+      throw new SamzaException(String.format("Exception occurred when splitting the value: %s to small chunks.", value), e);
     }
   }
 }
