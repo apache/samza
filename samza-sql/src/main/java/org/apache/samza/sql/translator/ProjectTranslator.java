@@ -25,10 +25,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.SamzaException;
@@ -170,7 +171,7 @@ class ProjectTranslator {
     return rexNode instanceof RexCall && ((RexCall) rexNode).op instanceof SqlUserDefinedFunction
         && ((RexCall) rexNode).op.getName().equalsIgnoreCase("flatten");
   }
-  
+
   void translate(final Project project, final String logicalOpId, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
 
@@ -179,13 +180,11 @@ class ProjectTranslator {
     MessageStream<SamzaSqlRelMessage> outputStream =
         messageStream.map(new ProjectMapFunction(projectId, queryId, logicalOpId));
 
-    List<Integer> flattenProjects = new ArrayList<>();
     List<RexNode> projects = project.getProjects();
-    for (int index = 0; index < projects.size(); index++) {
-      if (isFlatten(projects.get(index))) {
-        flattenProjects.add(index);
-      }
-    }
+    List<Integer> flattenProjects = IntStream.range(0, projects.size())
+        .filter(i -> this.isFlatten(projects.get(i)))
+        .boxed()
+        .collect(Collectors.toList());
 
     if (flattenProjects.size() > 0) {
       if (flattenProjects.size() > 1) {
