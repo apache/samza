@@ -576,7 +576,7 @@ public class TestZkUtils {
     String testJobModelVersion = "1.0";
     Map<String, String> configMap = new HashMap<>();
     configMap.put(ZkConfig.ZK_CONNECT, "127.0.0.1:" + zkServer.getPort());
-    MetadataStore jobModelMetaStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getJobModelPathPrefix(), new MapConfig(configMap), new NoOpMetricsRegistry());
+    MetadataStore jobModelMetaStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), new MapConfig(configMap), new NoOpMetricsRegistry());
     JobModelUtil.writeJobModel(testJobModel, testJobModelVersion, jobModelMetaStore);
     JobModel actualJobModel = JobModelUtil.readJobModel(testJobModelVersion, jobModelMetaStore);
     Assert.assertEquals(testJobModel, actualJobModel);

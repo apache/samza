@@ -18,11 +18,14 @@
  */
 package org.apache.samza.zk;
 
+import com.google.common.primitives.Bytes;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.I0Itec.zkclient.serialize.BytesPushThroughSerializer;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -37,6 +40,8 @@ import org.slf4j.LoggerFactory;
  * metadata of the Samza job is stored in zookeeper.
  */
 public class ZkMetadataStore implements MetadataStore {
+
+  private static final int VALUE_SEGMENT_SIZE_IN_BYTES = 1020 * 1020;
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkMetadataStore.class);
 
@@ -64,7 +69,25 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public byte[] get(String key) {
-    return zkClient.readData(getZkPathForKey(key), true);
+    byte[] combinedValue = null;
+    try {
+      for (int segmentIndex = 0;; ++segmentIndex) {
+        String zkPath = getZkPathForKey(key, segmentIndex);
+        byte[] valueSegment = zkClient.readData(zkPath, true);
+        if (valueSegment == null) {
+          break;
+        } else {
+          if (combinedValue == null) {
+            combinedValue = valueSegment;
+          } else {
+            combinedValue = Bytes.concat(combinedValue, valueSegment);
+          }
+        }
+      }
+      return combinedValue;
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Exception occurred when reading the key: %s from zookeeper.", key), e);
+    }
   }
 
   /**
@@ -72,9 +95,16 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public void put(String key, byte[] value) {
-    String zkPath = getZkPathForKey(key);
-    zkClient.createPersistent(zkPath, true);
-    zkClient.writeData(zkPath, value);
+    try {
+      List<byte[]> valueSegments = chunkMetadataStoreValue(value);
+      for (int segmentIndex = 0; segmentIndex < valueSegments.size(); segmentIndex++) {
+        String zkPath = getZkPathForKey(key, segmentIndex);
+        zkClient.createPersistent(zkPath, true);
+        zkClient.writeData(zkPath, valueSegments.get(segmentIndex));
+      }
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Exception occurred when storing the key: %s, value: %s from zookeeper.", key, value), e);
+    }
   }
 
   /**
@@ -82,7 +112,8 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public void delete(String key) {
-    zkClient.delete(getZkPathForKey(key));
+    String zkPath = String.format("%s/%s", zkBaseDir, key);
+    zkClient.deleteRecursive(zkPath);
   }
 
   /**
@@ -95,8 +126,7 @@ public class ZkMetadataStore implements MetadataStore {
       List<String> zkSubDirectories = zkClient.getChildren(zkBaseDir);
       Map<String, byte[]> result = new HashMap<>();
       for (String zkSubDir : zkSubDirectories) {
-        String completeZkPath = String.format("%s/%s", zkBaseDir, zkSubDir);
-        byte[] value = zkClient.readData(completeZkPath, true);
+        byte[] value = get(zkSubDir);
         if (value != null) {
           result.put(zkSubDir, value);
         }
@@ -125,7 +155,26 @@ public class ZkMetadataStore implements MetadataStore {
     zkClient.close();
   }
 
-  private String getZkPathForKey(String key) {
-    return String.format("%s/%s", zkBaseDir, key);
+  private String getZkPathForKey(String key, int valueSegmentIndex) {
+    return String.format("%s/%s/%d", zkBaseDir, key, valueSegmentIndex);
+  }
+
+  /**
+   * Splits the input byte array into independent byte array segments of 1 MB size.
+   * @param valueAsBytes the byteArray to split.
+   * @return the job model splitted into independent byte array chunks.
+   */
+  private static List<byte[]> chunkMetadataStoreValue(byte[] valueAsBytes) {
+    try {
+      List<byte[]> valueSegments = new ArrayList<>();
+      int valueLength = valueAsBytes.length;
+      for (int index = 0; index < valueLength; index += VALUE_SEGMENT_SIZE_IN_BYTES) {
+        byte[] valueSegment = ArrayUtils.subarray(valueAsBytes, index, Math.min(index + VALUE_SEGMENT_SIZE_IN_BYTES, valueLength));
+        valueSegments.add(valueSegment);
+      }
+      return valueSegments;
+    } catch (Exception e) {
+      throw new SamzaException(String.format("Exception occurred when splitting the value: %s to small chunks.", valueAsBytes), e);
+    }
   }
 }

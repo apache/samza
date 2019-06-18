@@ -38,7 +38,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.I0Itec.zkclient.ZkClient;
-import org.apache.commons.lang.RandomStringUtils;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.Partition;
@@ -130,7 +129,6 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   @Rule
   public final ExpectedException expectedException = ExpectedException.none();
 
-
   @Override
   public void setUp() {
     super.setUp();
@@ -171,7 +169,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
             .collect(Collectors.toList());
 
     assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
-    zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getJobModelPathPrefix(), new MapConfig(configMap), new NoOpMetricsRegistry());
+    zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), new MapConfig(configMap), new NoOpMetricsRegistry());
   }
 
   @Override
@@ -974,43 +972,6 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
     // Assert that the shutdown was successful.
     Assert.assertEquals(ApplicationStatus.SuccessfulFinish, appRunner.status());
-  }
-
-  @Test
-  public void testStreamApplicationShouldAllowReadingWritingLargeJobModels() throws InterruptedException {
-    List<String> inputTopics = new ArrayList<>();
-
-    String inputTopicName = null;
-    for (int i = 0; i < 20; ++i) {
-      String topicName = String.format("test-input-topic-%s", RandomStringUtils.randomAlphabetic(5));
-      boolean topic = createTopic(topicName, 200, 1);
-      LOGGER.info("Status of creating topic: " + topicName + " = " + topic);
-      inputTopics.add(topicName);
-      inputTopicName = topicName;
-    }
-
-    publishKafkaEvents(inputTopicName, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
-    Map<String, String> configMap = buildStreamApplicationConfigMap(inputTopics, testStreamAppName, testStreamAppId, true);
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
-    ApplicationConfig applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
-
-    // Create StreamApplication from configuration.
-    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
-
-    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputTopics, outputKafkaTopic, processedMessagesLatch1, null, null,
-        applicationConfig1), applicationConfig1);
-
-    executeRun(appRunner1, applicationConfig1);
-    processedMessagesLatch1.await();
-
-    JobModel jobModel = JobModelUtil.readJobModel(zkUtils.getJobModelVersion(), zkMetadataStore);
-    assertEquals(1, jobModel.getContainers().size());
-    List<SystemStreamPartition> systemStreamPartitions = getSystemStreamPartitions(jobModel);
-    assertEquals(20 * 200, systemStreamPartitions.size());
-
-    appRunner1.kill();
-    appRunner1.waitForFinish();
   }
 
   /**

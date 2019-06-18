@@ -49,7 +49,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
-    ZkMetadataStore metadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getJobModelPathPrefix(), config, metricsRegistry);
+    ZkMetadataStore metadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), config, metricsRegistry);
     return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils, metadataStore);
   }
 

@@ -62,7 +62,7 @@ public class ZkKeyBuilder {
     }
   }
 
-  String getRootPath() {
+  public String getRootPath() {
     return "/" + pathPrefix;
   }
 
