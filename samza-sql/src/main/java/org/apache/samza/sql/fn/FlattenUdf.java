@@ -36,6 +36,6 @@ public class FlattenUdf implements ScalarUdf {
 
   @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ARRAY)
   public Object execute(List value) {
-    return value != null && !value.isEmpty() ? value.get(0) : value;
+    return value;
   }
 }
