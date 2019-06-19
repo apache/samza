@@ -107,7 +107,7 @@ import scala.collection.JavaConverters;
  *  It provides bootstrap semantics for sideinputs -- the main thread is blocked until
  *  all sideInputSSPs have not caught up. Side input store flushes are not in sync with task-commit, although
  *  they happen at the same frequency.
- *  In case, where a user explicitly requests a task-commit, it will not include committing side inputs.
+ *  In case, where a user explicitly requests a task-commit, it will not include committing sideInputs.
  */
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
@@ -115,7 +115,7 @@ public class ContainerStorageManager {
   private static final String SIDEINPUTS_READ_THREAD_NAME = "SideInputs Read Thread";
   private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
-  // We use a prefix to differentiate the SystemConsumersMetrics for side-inputs from the ones in SamzaContainer
+  // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
   private static final int SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS = 10; // Timeout with which sideinput read thread checks for exceptions
   private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1); // Period with which sideinputs are flushed
@@ -149,7 +149,7 @@ public class ContainerStorageManager {
   private final int maxChangeLogStreamPartitions; // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
 
   /* Sideinput related parameters */
-  private final Map<String, Set<SystemStream>> sideInputSystemStreams; // Map of side input system-streams indexed by store name
+  private final Map<String, Set<SystemStream>> sideInputSystemStreams; // Map of sideInput system-streams indexed by store name
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs;
   private final Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers; // Map of sideInput storageManagers indexed by ssp, for simpler lookup for process()
   private final Map<String, SystemConsumer> sideInputConsumers; // Mapping from storeSystemNames to SystemConsumers
@@ -157,10 +157,11 @@ public class ContainerStorageManager {
   private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
       = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
   private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
-  private volatile boolean shouldShutdown = false;
+  private volatile boolean shouldShutdownSideInputRead = false;
 
   private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
+
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
   private ScheduledFuture sideInputsFlushFuture;
@@ -236,10 +237,10 @@ public class ContainerStorageManager {
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
 
-    // create side input storage managers
+    // create sideInput storage managers
     sideInputStorageManagers = createSideInputStorageManagers(clock, classLoader);
 
-    // create side Input consumers indexed by systemName
+    // create sideInput consumers indexed by systemName
     this.sideInputConsumers = createConsumers(this.sideInputSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // create SystemConsumers for consuming from taskSideInputSSPs, if sideInputs are being used
@@ -263,10 +264,10 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Add all side inputs to a map of maps, indexed first by taskName, then by sideInput store name.
+   * Add all sideInputs to a map of maps, indexed first by taskName, then by sideInput store name.
    *
    * @param containerModel the containerModel to use
-   * @param sideInputSystemStreams the map of store to side input system stream
+   * @param sideInputSystemStreams the map of store to sideInput system stream
    * @return taskSideInputSSPs map
    */
   private Map<TaskName, Map<String, Set<SystemStreamPartition>>> getTaskSideInputSSPs(ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams) {
@@ -311,7 +312,7 @@ public class ContainerStorageManager {
           });
       });
 
-    // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to side inputs above)
+    // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs above)
     return MapUtils.invertMap(changelogSSPToStore).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
   }
 
@@ -373,7 +374,7 @@ public class ContainerStorageManager {
 
   /**
    * Create taskStores for all stores in storageEngineFactories.
-   * The store mode is chosen as bulk-load if its a non-sideinput store, and readWrite if its a side input store
+   * The store mode is chosen as bulk-load if its a non-sideinput store, and readWrite if its a sideInput store
    */
   private Map<TaskName, Map<String, StorageEngine>> createTaskStores(ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories, Map<String, Serde<Object>> serdes,
@@ -460,7 +461,7 @@ public class ContainerStorageManager {
         (changelogSystemStreams.containsKey(storeName)) ? new SystemStreamPartition(
             changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
 
-    // Use the logged-store-base-directory for change logged stores and side input stores, and non-logged-store-base-dir
+    // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
     // for non logged stores
     File storeDirectory;
     if (changeLogSystemStreamPartition != null || sideInputSystemStreams.containsKey(storeName)) {
@@ -505,7 +506,7 @@ public class ContainerStorageManager {
   }
 
 
-  // Create side input store processors, one per store per task
+  // Create sideInput store processors, one per store per task
   private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
       ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ClassLoader classLoader) {
@@ -523,7 +524,7 @@ public class ContainerStorageManager {
           } else {
             String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName)
                 .orElseThrow(() -> new SamzaException(
-                    String.format("Could not find side inputs processor factory for store: %s", storeName)));
+                    String.format("Could not find sideInputs processor factory for store: %s", storeName)));
             SideInputsProcessorFactory sideInputsProcessorFactory =
                 ReflectionUtil.getObj(classLoader, sideInputsProcessorFactoryClassName,
                     SideInputsProcessorFactory.class);
@@ -563,10 +564,10 @@ public class ContainerStorageManager {
     return sideInputStoresToProcessors;
   }
 
-  // Create task side input storage managers, one per task, index by the SSP they are responsible for consuming
+  // Create task sideInput storage managers, one per task, index by the SSP they are responsible for consuming
   private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock,
       ClassLoader classLoader) {
-    // creating side input store processors, one per store per task
+    // creating sideInput store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
         createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
             this.taskInstanceMetrics, classLoader);
@@ -682,7 +683,7 @@ public class ContainerStorageManager {
         try {
           getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.flush());
         } catch (Exception e) {
-          LOG.error("Exception during flushing side inputs", e);
+          LOG.error("Exception during flushing sideInputs", e);
           sideInputException = e;
         }
       }
@@ -691,7 +692,7 @@ public class ContainerStorageManager {
     // set the latch to the number of sideInput SSPs
     this.sideInputsCaughtUp = new CountDownLatch(this.sideInputStorageManagers.keySet().size());
 
-    // register all side input SSPs with the consumers
+    // register all sideInput SSPs with the consumers
     for (SystemStreamPartition ssp : sideInputStorageManagers.keySet()) {
       String startingOffset = sideInputStorageManagers.get(ssp).getStartingOffset(ssp);
 
@@ -721,10 +722,10 @@ public class ContainerStorageManager {
 
     try {
 
-    // submit the side input read runnable
+    // submit the sideInput read runnable
       sideInputsReadExecutor.submit(() -> {
           try {
-            while (!shouldShutdown) {
+            while (!shouldShutdownSideInputRead) {
               IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
 
               if (envelope != null) {
@@ -739,19 +740,19 @@ public class ContainerStorageManager {
               }
             }
           } catch (Exception e) {
-            LOG.error("Exception in reading side inputs", e);
+            LOG.error("Exception in reading sideInputs", e);
             sideInputException = e;
           }
         });
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
-      while (sideInputException == null && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS,
-          TimeUnit.SECONDS)) {
-        LOG.debug("Checking for any side-input-exception occurrence");
+      while (!shouldShutdownSideInputRead && sideInputException == null &&
+          !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        LOG.debug("Waiting for SideInput bootstrap to complete");
       }
 
-      if (sideInputException != null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
-        throw new SamzaException("Exception in restoring side inputs", sideInputException);
+      if (sideInputException != null) { // Throw exception if there was an exception in catching-up sideInputs
+        throw new SamzaException("Exception in restoring sideInputs", sideInputException);
       }
 
     } catch (InterruptedException e) {
@@ -841,8 +842,8 @@ public class ContainerStorageManager {
     // stop all sideinput consumers and stores
     if (sideInputsPresent()) {
       // stop reading sideInputs
-      this.shouldShutdown = true;
-      sideInputsReadExecutor.shutdown();
+      this.shouldShutdownSideInputRead = true;
+      sideInputsReadExecutor.shutdownNow();
 
       this.sideInputSystemConsumers.stop();
 
@@ -852,7 +853,7 @@ public class ContainerStorageManager {
       try {
         sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
-        throw new SamzaException("Exception while shutting down side inputs", e);
+        throw new SamzaException("Exception while shutting down sideInputs", e);
       }
 
       // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
