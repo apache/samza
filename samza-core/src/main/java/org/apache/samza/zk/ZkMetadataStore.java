@@ -35,8 +35,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.SamzaException;
 import org.I0Itec.zkclient.ZkClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of the {@link MetadataStore} interface where the
@@ -45,8 +43,6 @@ import org.slf4j.LoggerFactory;
 public class ZkMetadataStore implements MetadataStore {
 
   private static final int VALUE_SEGMENT_SIZE_IN_BYTES = 1020 * 1020;
-
-  private static final Logger LOG = LoggerFactory.getLogger(ZkMetadataStore.class);
 
   private final ZkClient zkClient;
   private final ZkConfig zkConfig;
