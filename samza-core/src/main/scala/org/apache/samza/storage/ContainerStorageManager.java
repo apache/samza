@@ -722,42 +722,41 @@ public class ContainerStorageManager {
     try {
 
     // submit the side input read runnable
-    sideInputsReadExecutor.submit(() -> {
-        try {
-          while (!shouldShutdown) {
-            IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
+      sideInputsReadExecutor.submit(() -> {
+          try {
+            while (!shouldShutdown) {
+              IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
 
-            if (envelope != null ) {
-              if (!envelope.isEndOfStream()) {
-                sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
+              if (envelope != null) {
+                if (!envelope.isEndOfStream()) {
+                  sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
+                }
+
+                checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
+                    SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
+              } else {
+                LOG.trace("No incoming message was available");
               }
-
-              checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                  SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
-            } else {
-              LOG.trace("No incoming message was available");
             }
+          } catch (Exception e) {
+            LOG.error("Exception in reading side inputs", e);
+            sideInputException = e;
           }
-        } catch (Exception e) {
-          LOG.error("Exception in reading side inputs", e);
-          sideInputException = e;
-        }
-      });
+        });
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
-      while (sideInputException==null && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+      while (sideInputException == null && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS,
+          TimeUnit.SECONDS)) {
         LOG.debug("Checking for any side-input-exception occurrence");
       }
 
-      if (sideInputException!=null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
+      if (sideInputException
+          != null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
         throw new SamzaException("Exception in restoring side inputs", sideInputException);
       }
 
     } catch (InterruptedException e) {
       throw new SamzaException("Side inputs read was interrupted", e);
-
-    } finally {
-      sideInputsReadExecutor.shutdownNow();
     }
 
     LOG.info("SideInput Restore complete");
@@ -844,6 +843,7 @@ public class ContainerStorageManager {
     if (sideInputsPresent()) {
       // stop reading sideInputs
       this.shouldShutdown = true;
+      sideInputsReadExecutor.shutdown();
 
       this.sideInputSystemConsumers.stop();
 
