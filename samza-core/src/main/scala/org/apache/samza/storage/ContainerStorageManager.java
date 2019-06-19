@@ -750,8 +750,7 @@ public class ContainerStorageManager {
         LOG.debug("Checking for any side-input-exception occurrence");
       }
 
-      if (sideInputException
-          != null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
+      if (sideInputException != null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
         throw new SamzaException("Exception in restoring side inputs", sideInputException);
       }
 
