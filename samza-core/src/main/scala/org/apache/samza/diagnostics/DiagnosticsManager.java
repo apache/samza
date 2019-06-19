@@ -64,10 +64,9 @@ public class DiagnosticsManager {
   public static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
   // Using DiagnosticsManager as the group name for processor-stop-events
   public static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
-  public static final String CONTAINER_COUNT_METRIC_NAME = "containerCount";
   public static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
   public static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
-  public static final String CONTAINER_NUM_STORES_METRIC_NAME = "numStores";
+  public static final String CONTAINER_NUM_STORES_METRIC_NAME = "numStoresWithChangelog";
   public static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
 
   // Parameters used for populating the MetricHeader when sending diagnostic-stream messages
@@ -81,10 +80,9 @@ public class DiagnosticsManager {
   private final Instant resetTime;
 
   // Job-related params
-  private final int containerCount;
   private final int containerMemoryMb;
   private final int containerNumCores;
-  private final int numStores;
+  private final int numStoresWithChangelog;
   private final Map<String, ContainerModel> containerModels;
   private boolean jobParamsEmitted = false;
 
@@ -96,33 +94,31 @@ public class DiagnosticsManager {
   private final Duration terminationDuration; // duration to wait when terminating the scheduler
   private final SystemStream diagnosticSystemStream;
 
-  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels, int containerCount, int containerMemoryMb,
-      int containerNumCores, int numStores, String containerId, String executionEnvContainerId, String taskClassVersion,
+  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels, int containerMemoryMb,
+      int containerNumCores, int numStoresWithChangelog, String containerId, String executionEnvContainerId, String taskClassVersion,
       String samzaVersion, String hostname, SystemStream diagnosticSystemStream, SystemProducer systemProducer,
       Duration terminationDuration) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
+    this.containerMemoryMb = containerMemoryMb;
+    this.containerNumCores = containerNumCores;
+    this.numStoresWithChangelog = numStoresWithChangelog;
     this.containerId = containerId;
     this.executionEnvContainerId = executionEnvContainerId;
     this.taskClassVersion = taskClassVersion;
     this.samzaVersion = samzaVersion;
     this.hostname = hostname;
-    resetTime = Instant.now();
-
-    this.containerCount = containerCount;
-    this.containerNumCores = containerNumCores;
-    this.containerMemoryMb = containerMemoryMb;
-    this.numStores = numStores;
-
-    this.systemProducer = systemProducer;
     this.diagnosticSystemStream = diagnosticSystemStream;
+    this.systemProducer = systemProducer;
+    this.terminationDuration = terminationDuration;
 
     this.containerStops = new ConcurrentLinkedQueue<>();
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build());
-    this.terminationDuration = terminationDuration;
+
+    resetTime = Instant.now();
 
     try {
 
@@ -187,10 +183,10 @@ public class DiagnosticsManager {
       // Publish job-related params (if not already published)
       if (!jobParamsEmitted) {
         metricsMessage.putIfAbsent(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, new HashMap<>());
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_COUNT_METRIC_NAME, containerCount);
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MB_METRIC_NAME, containerMemoryMb);
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_CORES_METRIC_NAME, containerNumCores);
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_STORES_METRIC_NAME, numStores);
+        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_STORES_METRIC_NAME,
+            numStoresWithChangelog);
         metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MODELS_METRIC_NAME, containerModels);
       }
 

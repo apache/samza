@@ -98,9 +98,9 @@ public class DiagnosticsUtil {
 
     if (new JobConfig(config).getDiagnosticsEnabled()) {
 
-      int containerCount = new JobConfig(config).getContainerCount();
-      int containerMemoryMb = new ClusterManagerConfig(config).getContainerMemoryMb();
-      int containerNumCores = new ClusterManagerConfig(config).getNumCores();
+      ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+      int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
+      int containerNumCores = clusterManagerConfig.getNumCores();
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
@@ -128,8 +128,8 @@ public class DiagnosticsUtil {
       SystemProducer systemProducer =
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager =
-          new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerCount, containerMemoryMb, containerNumCores,
-              new StorageConfig(config).getNumDurableStores(), containerId, execEnvContainerId.orElse(""),
+          new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
+              new StorageConfig(config).getNumStoresWithChangelog(), containerId, execEnvContainerId.orElse(""),
               taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
 

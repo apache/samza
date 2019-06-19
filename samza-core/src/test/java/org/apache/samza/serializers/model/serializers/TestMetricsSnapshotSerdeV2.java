@@ -43,8 +43,13 @@ import org.junit.Test;
 
 public class TestMetricsSnapshotSerdeV2 {
 
+  /**
+   * This test is used for testing compatibility of MetricsSnapshotSerdeV2 with implementations in previous versions of
+   * Samza (<=1.2.0).
+   * @throws IOException
+   */
   @Test
-  public void testSerdeOfMessagesWithoutContainerModel() throws IOException {
+  public void testDeserializationForBackwardCompatibility() throws IOException {
     MetricsHeader metricsHeader =
         new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
             System.currentTimeMillis(), System.currentTimeMillis());
@@ -63,9 +68,13 @@ public class TestMetricsSnapshotSerdeV2 {
     metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
 
-    ObjectMapper test = new ObjectMapper();
-    test.enableDefaultTyping(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
-    byte[] testBytes = test.writeValueAsString(convertMap(metricsSnapshot.getAsMap())).getBytes("UTF-8");
+    // This serialization emulates serialization logic of MetricsSnapshotSerdeV2 in Samza <=1.2.0.
+    // So we retain and apply this logic here
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
+    byte[] testBytes = objectMapper.writeValueAsString(convertMap(metricsSnapshot.getAsMap())).getBytes("UTF-8");
+
+    // Deserialization using serde
     MetricsSnapshot testSnapshot = new MetricsSnapshotSerdeV2().fromBytes(testBytes);
 
     Assert.assertTrue(testSnapshot.getHeader().getAsMap().equals(metricsSnapshot.getHeader().getAsMap()));
@@ -73,7 +82,7 @@ public class TestMetricsSnapshotSerdeV2 {
   }
 
   @Test
-  public void testSerde() {
+  public void testSerdeWithContainerModel() {
     MetricsHeader metricsHeader =
         new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
             System.currentTimeMillis(), System.currentTimeMillis());
@@ -122,7 +131,36 @@ public class TestMetricsSnapshotSerdeV2 {
     Assert.assertTrue(metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
   }
 
-  HashMap convertMap(Map<String, Object> map) {
+  @Test
+  public void testSerdeWithoutContainerModel() {
+    MetricsHeader metricsHeader =
+        new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
+            System.currentTimeMillis(), System.currentTimeMillis());
+
+    BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
+    DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
+        new DiagnosticsExceptionEvent(1, new SamzaException("this is a samza exception", new RuntimeException("cause")),
+            new HashMap());
+
+    boundedList.add(diagnosticsExceptionEvent1);
+
+    String samzaContainerMetricsGroupName = "org.apache.samza.container.SamzaContainerMetrics";
+    Map<String, Map<String, Object>> metricMessage = new HashMap<>();
+    metricMessage.put(samzaContainerMetricsGroupName, new HashMap<>());
+    metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", boundedList.getValues());
+    metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
+
+    MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
+    MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
+    byte[] serializedBytes = metricsSnapshotSerde.toBytes(metricsSnapshot);
+
+    MetricsSnapshot deserializedMetricsSnapshot = metricsSnapshotSerde.fromBytes(serializedBytes);
+
+    Assert.assertTrue(metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
+    Assert.assertTrue(metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
+  }
+
+  private static HashMap convertMap(Map<String, Object> map) {
     HashMap retVal = new HashMap(map);
     for (Map.Entry<String, Object> entry : map.entrySet()) {
       if (entry.getValue() instanceof Map) {
