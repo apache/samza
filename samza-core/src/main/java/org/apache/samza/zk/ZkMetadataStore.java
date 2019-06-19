@@ -73,29 +73,25 @@ public class ZkMetadataStore implements MetadataStore {
   @Override
   public byte[] get(String key) {
     byte[] aggregatedZNodeValues = new byte[0];
-    try {
-      for (int segmentIndex = 0;; ++segmentIndex) {
-        String zkPath = getZkPath(key, segmentIndex);
-        byte[] zNodeValue = zkClient.readData(zkPath, true);
-        if (zNodeValue == null) {
-          break;
-        } else {
-          aggregatedZNodeValues = Bytes.concat(aggregatedZNodeValues, zNodeValue);
-        }
+    for (int segmentIndex = 0;; ++segmentIndex) {
+      String zkPath = getZkPath(key, segmentIndex);
+      byte[] zNodeValue = zkClient.readData(zkPath, true);
+      if (zNodeValue == null) {
+        break;
+      } else {
+        aggregatedZNodeValues = Bytes.concat(aggregatedZNodeValues, zNodeValue);
       }
-      if (aggregatedZNodeValues.length > 0) {
-        byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - 8);
-        byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - 8, aggregatedZNodeValues.length);
-        byte[] expectedCheckSum = getCRC(value);
-        if (!Arrays.equals(checkSum, expectedCheckSum)) {
-          throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
-        }
-        return value;
-      }
-      return null;
-    } catch (Exception e) {
-      throw new SamzaException(String.format("Exception occurred when reading the key: %s from zookeeper.", key), e);
     }
+    if (aggregatedZNodeValues.length > 0) {
+      byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - 8);
+      byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - 8, aggregatedZNodeValues.length);
+      byte[] expectedCheckSum = getCRCChecksum(value);
+      if (!Arrays.equals(checkSum, expectedCheckSum)) {
+        throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
+      }
+      return value;
+    }
+    return null;
   }
 
   /**
@@ -103,15 +99,11 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public void put(String key, byte[] value) {
-    try {
-      List<byte[]> valueSegments = chunkMetadataStoreValue(value);
-      for (int segmentIndex = 0; segmentIndex < valueSegments.size(); segmentIndex++) {
-        String zkPath = getZkPath(key, segmentIndex);
-        zkClient.createPersistent(zkPath, true);
-        zkClient.writeData(zkPath, valueSegments.get(segmentIndex));
-      }
-    } catch (Exception e) {
-      throw new SamzaException(String.format("Exception occurred when storing the key: %s, value: %s from zookeeper.", key, value), e);
+    List<byte[]> valueSegments = chunkMetadataStoreValue(value);
+    for (int segmentIndex = 0; segmentIndex < valueSegments.size(); segmentIndex++) {
+      String zkPath = getZkPath(key, segmentIndex);
+      zkClient.createPersistent(zkPath, true);
+      zkClient.writeData(zkPath, valueSegments.get(segmentIndex));
     }
   }
 
@@ -130,21 +122,15 @@ public class ZkMetadataStore implements MetadataStore {
    */
   @Override
   public Map<String, byte[]> all() {
-    try {
-      List<String> zkSubDirectories = zkClient.getChildren(zkBaseDir);
-      Map<String, byte[]> result = new HashMap<>();
-      for (String zkSubDir : zkSubDirectories) {
-        byte[] value = get(zkSubDir);
-        if (value != null) {
-          result.put(zkSubDir, value);
-        }
+    List<String> zkSubDirectories = zkClient.getChildren(zkBaseDir);
+    Map<String, byte[]> result = new HashMap<>();
+    for (String zkSubDir : zkSubDirectories) {
+      byte[] value = get(zkSubDir);
+      if (value != null) {
+        result.put(zkSubDir, value);
       }
-      return result;
-    } catch (Exception e) {
-      String errorMsg = String.format("Error reading path: %s from zookeeper.", zkBaseDir);
-      LOG.error(errorMsg, e);
-      throw new SamzaException(errorMsg, e);
     }
+    return result;
   }
 
   /**
@@ -172,7 +158,7 @@ public class ZkMetadataStore implements MetadataStore {
    * @param value the input byte array.
    * @return the crc32 checksum of the byte array.
    */
-  private static byte[] getCRC(byte[] value) {
+  private static byte[] getCRCChecksum(byte[] value) {
     CRC32 crc32 = new CRC32();
     crc32.update(value);
     long checksum = crc32.getValue();
@@ -186,7 +172,7 @@ public class ZkMetadataStore implements MetadataStore {
    */
   private static List<byte[]> chunkMetadataStoreValue(byte[] value) {
     try {
-      byte[] valueCrcAsBytes = getCRC(value);
+      byte[] valueCrcAsBytes = getCRCChecksum(value);
       value = ArrayUtils.addAll(value, valueCrcAsBytes);
       List<byte[]> valueSegments = new ArrayList<>();
       int valueLength = value.length;
