@@ -43,6 +43,7 @@ import org.I0Itec.zkclient.ZkClient;
 public class ZkMetadataStore implements MetadataStore {
 
   private static final int VALUE_SEGMENT_SIZE_IN_BYTES = 1020 * 1020;
+  private static final int CHECKSUM_SIZE_IN_BYTES = 8;
 
   private final ZkClient zkClient;
   private final ZkConfig zkConfig;
@@ -74,13 +75,12 @@ public class ZkMetadataStore implements MetadataStore {
       byte[] zNodeValue = zkClient.readData(zkPath, true);
       if (zNodeValue == null) {
         break;
-      } else {
-        aggregatedZNodeValues = Bytes.concat(aggregatedZNodeValues, zNodeValue);
       }
+      aggregatedZNodeValues = Bytes.concat(aggregatedZNodeValues, zNodeValue);
     }
     if (aggregatedZNodeValues.length > 0) {
-      byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - 8);
-      byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - 8, aggregatedZNodeValues.length);
+      byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES);
+      byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES, aggregatedZNodeValues.length);
       byte[] expectedCheckSum = getCRCChecksum(value);
       if (!Arrays.equals(checkSum, expectedCheckSum)) {
         throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
