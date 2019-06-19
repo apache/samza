@@ -157,7 +157,7 @@ public class ContainerStorageManager {
   private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
       = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
   private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
-  private volatile boolean shouldShutdownSideInputRead = false;
+  private volatile boolean shouldShutdown = false;
 
   private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
@@ -725,7 +725,7 @@ public class ContainerStorageManager {
     // submit the sideInput read runnable
       sideInputsReadExecutor.submit(() -> {
           try {
-            while (!shouldShutdownSideInputRead) {
+            while (!shouldShutdown) {
               IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
 
               if (envelope != null) {
@@ -746,7 +746,7 @@ public class ContainerStorageManager {
         });
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
-      while (!shouldShutdownSideInputRead && sideInputException == null &&
+      while (!shouldShutdown && sideInputException == null &&
           !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
         LOG.debug("Waiting for SideInput bootstrap to complete");
       }
@@ -839,10 +839,10 @@ public class ContainerStorageManager {
         getNonSideInputStores(taskName).forEach((storeName, store) -> store.stop())
     );
 
+    this.shouldShutdown = true;
+
     // stop all sideinput consumers and stores
     if (sideInputsPresent()) {
-      // stop reading sideInputs
-      this.shouldShutdownSideInputRead = true;
       sideInputsReadExecutor.shutdownNow();
 
       this.sideInputSystemConsumers.stop();
