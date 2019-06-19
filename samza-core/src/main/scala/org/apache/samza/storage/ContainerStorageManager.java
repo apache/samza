@@ -117,6 +117,10 @@ public class ContainerStorageManager {
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for side-inputs from the ones in SamzaContainer
 
+  private static final int SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS = 10; // Timeout with which sideinput read thread checks for exceptions
+  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1); // Period with which sideinputs are flushed
+
+
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
   private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
@@ -153,13 +157,14 @@ public class ContainerStorageManager {
   private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
       = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
   private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
-  private volatile boolean shutDownSideInputRead = false;
+  private volatile boolean shouldShutdown = false;
+
+  private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
   private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
   private ScheduledFuture sideInputsFlushFuture;
-  private static final Duration SIDE_INPUT_READ_THREAD_TIMEOUT = Duration.ofSeconds(10); // Timeout with which sideinput read thread checks for exceptions
-  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1); // Period with which sideinputs are flushed
-  private volatile Optional<Throwable> sideInputException = Optional.empty();
+  private volatile Throwable sideInputException = null;
 
   private final Config config;
 
@@ -678,7 +683,7 @@ public class ContainerStorageManager {
           getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.flush());
         } catch (Exception e) {
           LOG.error("Exception during flushing side inputs", e);
-          sideInputException = Optional.of(e);
+          sideInputException = e;
         }
       }
     }, 0, taskConfig.getCommitMs(), TimeUnit.MILLISECONDS);
@@ -713,15 +718,19 @@ public class ContainerStorageManager {
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();
 
-    // create a thread for sideInput reads
-    Thread readSideInputsThread = new Thread(() -> {
-        try {
-          while (!shutDownSideInputRead) {
-            IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
-            if (envelope != null) {
 
-              if (!envelope.isEndOfStream())
+    try {
+
+    // submit the side input read runnable
+    sideInputsReadExecutor.submit(() -> {
+        try {
+          while (!shouldShutdown) {
+            IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
+
+            if (envelope != null ) {
+              if (!envelope.isEndOfStream()) {
                 sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
+              }
 
               checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
                   SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
@@ -731,26 +740,24 @@ public class ContainerStorageManager {
           }
         } catch (Exception e) {
           LOG.error("Exception in reading side inputs", e);
-          sideInputException = Optional.of(e);
+          sideInputException = e;
         }
       });
-    readSideInputsThread.setName(SIDEINPUTS_READ_THREAD_NAME);
-    readSideInputsThread.setDaemon(true);
-
-    try {
-      readSideInputsThread.start();
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
-      while (!sideInputException.isPresent() && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT.getSeconds(), TimeUnit.SECONDS)) {
+      while (sideInputException==null && !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
         LOG.debug("Checking for any side-input-exception occurrence");
       }
 
-      if (sideInputException.isPresent()) { // Throw exception if there was an exception in catching-up sideInputs
-        // TODO: SAMZA-2113 relay exception to main thread
-        throw new SamzaException("Exception in restoring side inputs", sideInputException.get());
+      if (sideInputException!=null) { // Throw exception if there was an exception in catching-up sideInputs TODO: SAMZA-2113 relay exception to main thread
+        throw new SamzaException("Exception in restoring side inputs", sideInputException);
       }
+
     } catch (InterruptedException e) {
       throw new SamzaException("Side inputs read was interrupted", e);
+
+    } finally {
+      sideInputsReadExecutor.shutdownNow();
     }
 
     LOG.info("SideInput Restore complete");
@@ -836,7 +843,7 @@ public class ContainerStorageManager {
     // stop all sideinput consumers and stores
     if (sideInputsPresent()) {
       // stop reading sideInputs
-      this.shutDownSideInputRead = true;
+      this.shouldShutdown = true;
 
       this.sideInputSystemConsumers.stop();
 
