@@ -19,73 +19,26 @@
 
 package org.apache.samza.serializers.model.serializers;
 
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.container.TaskName;
-import org.apache.samza.diagnostics.BoundedList;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.diagnostics.BoundedList;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
-import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
 
 public class TestMetricsSnapshotSerdeV2 {
 
-  /**
-   * This test is used for testing compatibility of MetricsSnapshotSerdeV2 with implementations in previous versions of
-   * Samza (<=1.2.0).
-   * @throws IOException
-   */
   @Test
-  public void testDeserializationForBackwardCompatibility() throws IOException {
+  public void testSerde() {
     MetricsHeader metricsHeader =
-        new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
-            System.currentTimeMillis(), System.currentTimeMillis());
-
-    BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
-    DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
-        new DiagnosticsExceptionEvent(1, new SamzaException("this is a samza exception", new RuntimeException("cause")),
-            new HashMap());
-
-    boundedList.add(diagnosticsExceptionEvent1);
-
-    String samzaContainerMetricsGroupName = "org.apache.samza.container.SamzaContainerMetrics";
-    Map<String, Map<String, Object>> metricMessage = new HashMap<>();
-    metricMessage.put(samzaContainerMetricsGroupName, new HashMap<>());
-    metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", boundedList.getValues());
-    metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
-    MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
-
-    // This serialization emulates serialization logic of MetricsSnapshotSerdeV2 in Samza <=1.2.0.
-    // So we retain and apply this logic here
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
-    byte[] testBytes = objectMapper.writeValueAsString(convertMap(metricsSnapshot.getAsMap())).getBytes("UTF-8");
-
-    // Deserialization using serde
-    MetricsSnapshot testSnapshot = new MetricsSnapshotSerdeV2().fromBytes(testBytes);
-
-    Assert.assertTrue(testSnapshot.getHeader().getAsMap().equals(metricsSnapshot.getHeader().getAsMap()));
-    Assert.assertTrue(testSnapshot.getMetrics().getAsMap().equals(metricsSnapshot.getMetrics().getAsMap()));
-  }
-
-  @Test
-  public void testSerdeWithContainerModel() {
-    MetricsHeader metricsHeader =
-        new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
-            System.currentTimeMillis(), System.currentTimeMillis());
+        new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1", 1,
+            1);
 
     BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
@@ -100,73 +53,17 @@ public class TestMetricsSnapshotSerdeV2 {
     metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", boundedList.getValues());
     metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
 
-    String diagnosticsManagerGroupName = "org.apache.samza.diagnostics.DiagnosticsManager";
-    metricMessage.put(diagnosticsManagerGroupName, new HashMap<>());
-    metricMessage.get(diagnosticsManagerGroupName).put("containerCount", 1);
-    metricMessage.get(diagnosticsManagerGroupName).put("containerMemoryMb", 1024);
-    metricMessage.get(diagnosticsManagerGroupName).put("containerNumCores", 2);
-    metricMessage.get(diagnosticsManagerGroupName).put("numStores", 5);
-
-    Map<String, ContainerModel> containerModels = new HashMap<>();
-    Map<TaskName, TaskModel> tasks = new HashMap<>();
-
-    Set<SystemStreamPartition> sspsForTask1 = new HashSet<>();
-    sspsForTask1.add(new SystemStreamPartition("kafka", "test-stream", new Partition(0)));
-    tasks.put(new TaskName("Partition 0"), new TaskModel(new TaskName("Partition 0"), sspsForTask1, new Partition(0)));
-
-    Set<SystemStreamPartition> sspsForTask2 = new HashSet<>();
-    sspsForTask2.add(new SystemStreamPartition("kafka", "test-stream", new Partition(1)));
-    tasks.put(new TaskName("Partition 1"), new TaskModel(new TaskName("Partition 1"), sspsForTask2, new Partition(1)));
-
-    containerModels.put("0", new ContainerModel("0", tasks));
-
-    metricMessage.get(diagnosticsManagerGroupName).put("containerModels", containerModels);
-
     MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
+
     MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
     byte[] serializedBytes = metricsSnapshotSerde.toBytes(metricsSnapshot);
 
     MetricsSnapshot deserializedMetricsSnapshot = metricsSnapshotSerde.fromBytes(serializedBytes);
 
-    Assert.assertTrue(metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
-  }
+    Assert.assertTrue("Headers map should be equal",
+        metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
 
-  @Test
-  public void testSerdeWithoutContainerModel() {
-    MetricsHeader metricsHeader =
-        new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1",
-            System.currentTimeMillis(), System.currentTimeMillis());
-
-    BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
-    DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =
-        new DiagnosticsExceptionEvent(1, new SamzaException("this is a samza exception", new RuntimeException("cause")),
-            new HashMap());
-
-    boundedList.add(diagnosticsExceptionEvent1);
-
-    String samzaContainerMetricsGroupName = "org.apache.samza.container.SamzaContainerMetrics";
-    Map<String, Map<String, Object>> metricMessage = new HashMap<>();
-    metricMessage.put(samzaContainerMetricsGroupName, new HashMap<>());
-    metricMessage.get(samzaContainerMetricsGroupName).put("exceptions", boundedList.getValues());
-    metricMessage.get(samzaContainerMetricsGroupName).put("commit-calls", 0);
-
-    MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricMessage));
-    MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
-    byte[] serializedBytes = metricsSnapshotSerde.toBytes(metricsSnapshot);
-
-    MetricsSnapshot deserializedMetricsSnapshot = metricsSnapshotSerde.fromBytes(serializedBytes);
-
-    Assert.assertTrue(metricsSnapshot.getHeader().getAsMap().equals(deserializedMetricsSnapshot.getHeader().getAsMap()));
-    Assert.assertTrue(metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
-  }
-
-  private static HashMap convertMap(Map<String, Object> map) {
-    HashMap retVal = new HashMap(map);
-    for (Map.Entry<String, Object> entry : map.entrySet()) {
-      if (entry.getValue() instanceof Map) {
-        retVal.put(entry.getKey(), convertMap((Map<String, Object>) entry.getValue()));
-      }
-    }
-    return retVal;
+    Assert.assertTrue("Metrics map should be equal",
+        metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
   }
 }
