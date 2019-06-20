@@ -42,7 +42,13 @@ import org.I0Itec.zkclient.ZkClient;
  */
 public class ZkMetadataStore implements MetadataStore {
 
+  /**
+   * By default, the maximum data node size supported by zookeeper server is 1 MB.
+   * ZkClient prepends any value with serialization bytes before storing to zookeeper server.
+   * Maximum segment size constant is initialized after factoring in size of serialization bytes.
+   */
   private static final int VALUE_SEGMENT_SIZE_IN_BYTES = 1020 * 1020;
+
   private static final int CHECKSUM_SIZE_IN_BYTES = 8;
 
   private final ZkClient zkClient;
@@ -81,8 +87,8 @@ public class ZkMetadataStore implements MetadataStore {
     if (aggregatedZNodeValues.length > 0) {
       byte[] value = ArrayUtils.subarray(aggregatedZNodeValues, 0, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES);
       byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES, aggregatedZNodeValues.length);
-      byte[] expectedCheckSum = getCRCChecksum(value);
-      if (!Arrays.equals(checkSum, expectedCheckSum)) {
+      byte[] expectedChecksum = getCRCChecksum(value);
+      if (!Arrays.equals(checkSum, expectedChecksum)) {
         throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
       }
       return value;
@@ -168,12 +174,12 @@ public class ZkMetadataStore implements MetadataStore {
    */
   private static List<byte[]> chunkMetadataStoreValue(byte[] value) {
     try {
-      byte[] valueCrcAsBytes = getCRCChecksum(value);
-      value = ArrayUtils.addAll(value, valueCrcAsBytes);
+      byte[] checksum = getCRCChecksum(value);
+      byte[] valueWithChecksum = ArrayUtils.addAll(value, checksum);
       List<byte[]> valueSegments = new ArrayList<>();
-      int valueLength = value.length;
-      for (int index = 0; index < valueLength; index += VALUE_SEGMENT_SIZE_IN_BYTES) {
-        byte[] valueSegment = ArrayUtils.subarray(value, index, Math.min(index + VALUE_SEGMENT_SIZE_IN_BYTES, valueLength));
+      int length = valueWithChecksum.length;
+      for (int index = 0; index < length; index += VALUE_SEGMENT_SIZE_IN_BYTES) {
+        byte[] valueSegment = ArrayUtils.subarray(valueWithChecksum, index, Math.min(index + VALUE_SEGMENT_SIZE_IN_BYTES, length));
         valueSegments.add(valueSegment);
       }
       return valueSegments;

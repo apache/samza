@@ -108,7 +108,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final int debounceTimeMs;
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
   private final LocationId locationId;
-  private final MetadataStore jobModelMetaStore;
+  private final MetadataStore jobModelMetadataStore;
 
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
@@ -124,7 +124,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor streamPartitionCountMonitor = null;
 
-  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils, MetadataStore jobModelMetaStore) {
+  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils, MetadataStore jobModelMetadataStore) {
     this.config = config;
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
     this.zkSessionMetrics = new ZkSessionMetrics(metricsRegistry);
@@ -150,7 +150,7 @@ public class ZkJobCoordinator implements JobCoordinator {
             LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
-    this.jobModelMetaStore = jobModelMetaStore;
+    this.jobModelMetadataStore = jobModelMetadataStore;
   }
 
   @Override
@@ -206,7 +206,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           coordinatorListener.onCoordinatorStop();
         }
 
-        jobModelMetaStore.close();
+        jobModelMetadataStore.close();
         shutdownSuccessful = true;
       } catch (Throwable t) {
         LOG.error("Encountered errors during job coordinator stop.", t);
@@ -279,7 +279,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Generated new JobModel with version: " + nextJMVersion + " and processors: " + currentProcessorIds);
 
     // Publish the new job model
-    JobModelUtil.writeJobModel(jobModel, nextJMVersion, jobModelMetaStore);
+    JobModelUtil.writeJobModel(jobModel, nextJMVersion, jobModelMetadataStore);
 
     // Start the barrier for the job model update
     barrier.create(nextJMVersion, currentProcessorIds);
@@ -356,7 +356,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     String zkJobModelVersion = zkUtils.getJobModelVersion();
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
-      JobModel jobModel = JobModelUtil.readJobModel(zkJobModelVersion, jobModelMetaStore);
+      JobModel jobModel = JobModelUtil.readJobModel(zkJobModelVersion, jobModelMetadataStore);
       for (ContainerModel containerModel : jobModel.getContainers().values()) {
         containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
       }
@@ -402,7 +402,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     Map<TaskName, String> taskToProcessorId = new HashMap<>();
     Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
     if (jobModelVersion != null) {
-      JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetaStore);
+      JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetadataStore);
       for (ContainerModel containerModel : jobModel.getContainers().values()) {
         for (TaskModel taskModel : containerModel.getTasks().values()) {
           taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
@@ -542,7 +542,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
           LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
 
-          newJobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetaStore);
+          newJobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetadataStore);
           LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
 
           if (!newJobModel.getContainers().containsKey(processorId)) {
