@@ -24,19 +24,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.metrics.reporter.Metrics;
-import org.apache.samza.metrics.reporter.MetricsHeader;
-import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
@@ -58,16 +52,6 @@ public class DiagnosticsManager {
   // Period size for pushing data to the diagnostic stream
 
   private static final String PUBLISH_THREAD_NAME = "DiagnosticsManager Thread-%d";
-  private static final String SAMZACONTAINER_METRICS_GROUP_NAME = "org.apache.samza.container.SamzaContainerMetrics";
-  // Using SamzaContainerMetrics as the group name for exceptions to maintain compatibility with existing diagnostics
-
-  public static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
-  // Using DiagnosticsManager as the group name for processor-stop-events
-  public static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
-  public static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
-  public static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
-  public static final String CONTAINER_NUM_STORES_METRIC_NAME = "numStoresWithChangelog";
-  public static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
 
   // Parameters used for populating the MetricHeader when sending diagnostic-stream messages
   private final String jobName;
@@ -88,16 +72,16 @@ public class DiagnosticsManager {
 
   private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
   private final BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
-  private final ConcurrentLinkedQueue<ProcessorStopEvent> containerStops;
+  private final ConcurrentLinkedQueue<ProcessorStopEvent> processorStopEvents;
   // A BoundedList for storing DiagnosticExceptionEvent
   private final ScheduledExecutorService scheduler; // Scheduler for pushing data to the diagnostic stream
   private final Duration terminationDuration; // duration to wait when terminating the scheduler
   private final SystemStream diagnosticSystemStream;
 
-  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels, int containerMemoryMb,
-      int containerNumCores, int numStoresWithChangelog, String containerId, String executionEnvContainerId, String taskClassVersion,
-      String samzaVersion, String hostname, SystemStream diagnosticSystemStream, SystemProducer systemProducer,
-      Duration terminationDuration) {
+  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
+      int containerMemoryMb, int containerNumCores, int numStoresWithChangelog, String containerId,
+      String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
+      SystemStream diagnosticSystemStream, SystemProducer systemProducer, Duration terminationDuration) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
@@ -113,7 +97,7 @@ public class DiagnosticsManager {
     this.systemProducer = systemProducer;
     this.terminationDuration = terminationDuration;
 
-    this.containerStops = new ConcurrentLinkedQueue<>();
+    this.processorStopEvents = new ConcurrentLinkedQueue<>();
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build());
@@ -168,7 +152,7 @@ public class DiagnosticsManager {
   }
 
   public void addProcessorStopEvent(String processorId, String resourceId, String host, int exitStatus) {
-    this.containerStops.add(new ProcessorStopEvent(processorId, resourceId, host, exitStatus));
+    this.processorStopEvents.add(new ProcessorStopEvent(processorId, resourceId, host, exitStatus));
     LOG.info("Added stop event for Container Id: {}, resource Id: {}, host: {}, exitStatus: {}", processorId,
         resourceId, host, exitStatus);
   }
@@ -177,58 +161,42 @@ public class DiagnosticsManager {
 
     @Override
     public void run() {
+      try {
+        DiagnosticsStreamMessage diagnosticsStreamMessage =
+            new DiagnosticsStreamMessage(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
+                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli());
 
-      Map<String, Map<String, Object>> metricsMessage = new HashMap<>();
+        // Add job-related params to the message (if not already published)
+        if (!jobParamsEmitted) {
+          diagnosticsStreamMessage.addContainerMb(containerMemoryMb);
+          diagnosticsStreamMessage.addContainerNumCores(containerNumCores);
+          diagnosticsStreamMessage.addNumStoresWithChangelog(numStoresWithChangelog);
+          diagnosticsStreamMessage.addContainerModels(containerModels);
+        }
 
-      // Publish job-related params (if not already published)
-      if (!jobParamsEmitted) {
-        metricsMessage.putIfAbsent(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, new HashMap<>());
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MB_METRIC_NAME, containerMemoryMb);
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_CORES_METRIC_NAME, containerNumCores);
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_NUM_STORES_METRIC_NAME,
-            numStoresWithChangelog);
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(CONTAINER_MODELS_METRIC_NAME, containerModels);
-      }
+        // Add stop event list to the message
+        diagnosticsStreamMessage.addProcessorStopEvents(new ArrayList(processorStopEvents));
 
-      // Publish processor stop-events if there are any
-      List<ProcessorStopEvent> stopEventList = new ArrayList(containerStops);
-      if (!stopEventList.isEmpty()) {
-        metricsMessage.putIfAbsent(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, new HashMap<>());
-        metricsMessage.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER).put(STOP_EVENT_LIST_METRIC_NAME, stopEventList);
-      }
+        // Add exception events to the message
+        diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptions.getValues());
 
-      // Publish exception events if there are any
-      Collection<DiagnosticsExceptionEvent> exceptionList = exceptions.getValues();
-      if (!exceptionList.isEmpty()) {
-        metricsMessage.putIfAbsent(SAMZACONTAINER_METRICS_GROUP_NAME, new HashMap<>());
-        metricsMessage.get(SAMZACONTAINER_METRICS_GROUP_NAME).put(exceptions.getName(), exceptionList);
-      }
+        if (!diagnosticsStreamMessage.isEmpty()) {
 
-      if (!metricsMessage.isEmpty()) {
-
-        // Create the metricHeader
-        MetricsHeader metricsHeader =
-            new MetricsHeader(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                DiagnosticsManager.class.getName(), taskClassVersion, samzaVersion, hostname,
-                System.currentTimeMillis(), resetTime.toEpochMilli());
-
-        MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics(metricsMessage));
-        try {
           systemProducer.send(DiagnosticsManager.class.getName(),
-              new OutgoingMessageEnvelope(diagnosticSystemStream, metricsHeader.getHost(), null,
-                  new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
+              new OutgoingMessageEnvelope(diagnosticSystemStream, hostname, null,
+                  new MetricsSnapshotSerdeV2().toBytes(diagnosticsStreamMessage.convertToMetricsSnapshot())));
 
           // Remove stop events from list after successful publish
-          containerStops.removeAll(stopEventList);
+          processorStopEvents.removeAll(diagnosticsStreamMessage.getProcessorStopEvents());
 
           // Remove exceptions from list after successful publish to diagnostics stream
-          exceptions.remove(exceptionList);
+          exceptions.remove(diagnosticsStreamMessage.getExceptionEvents());
 
           // Emit jobParams once
           jobParamsEmitted = true;
-        } catch (Exception e) {
-          LOG.error("Exception when flushing exceptions", e);
         }
+      } catch (Exception e) {
+        LOG.error("Exception when flushing diagnosticsStreamMessage", e);
       }
     }
   }
@@ -238,6 +206,10 @@ public class DiagnosticsManager {
     public final String resourceId;
     public final String host;
     public final int exitStatus;
+
+    private ProcessorStopEvent() {
+      this("", "", "", -1);
+    }
 
     public ProcessorStopEvent(String processorId, String resourceId, String host, int exitStatus) {
       this.processorId = processorId;
