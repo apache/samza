@@ -215,7 +215,7 @@ public class MockCoordinatorStreamSystemFactory implements SystemFactory {
     }
   }
 
-  protected static class MockSystemProducer implements SystemProducer {
+  public static class MockSystemProducer implements SystemProducer {
     private final String expectedSource;
     private final List<OutgoingMessageEnvelope> envelopes;
     private boolean started = false;
