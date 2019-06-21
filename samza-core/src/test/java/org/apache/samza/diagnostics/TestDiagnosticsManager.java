@@ -33,7 +33,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 
 
@@ -61,20 +60,11 @@ public class TestDiagnosticsManager {
 
     // Mocked scheduled executor service which does a synchronous run() on scheduling
     ScheduledExecutorService mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
-    Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.argThat(new ArgumentMatcher<Runnable>() {
-      @Override
-      public boolean matches(Object argument) {
-        Runnable runnable = (Runnable) argument;
-        try {
-          runnable.run();
-        } catch (Exception e) {
-          e.printStackTrace();
-          Assert.fail();
-        }
-        return true;
-      }
-    }), Mockito.anyLong(), Mockito.anyLong(), Mockito.eq(TimeUnit.SECONDS)))
-        .thenReturn(Mockito.mock(ScheduledFuture.class));
+    Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
+        Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
+      ((Runnable) invocation.getArguments()[0]).run();
+      return Mockito.mock(ScheduledFuture.class);
+    });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numStoresWithChangelog,
