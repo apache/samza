@@ -271,29 +271,29 @@ public class TestStreamProcessor {
         Duration.of(1, ChronoUnit.SECONDS));
 
     Thread jcThread = new Thread(() -> {
-      // gets processor into rebalance mode so onNewJobModel creates a new container
-      processor.jobCoordinatorListener.onJobModelExpired();
-      processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
-      try {
-        // wait for the run loop to be ready before triggering rebalance
-        processor.runLoopStartForMain.await();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-      processor.jobCoordinatorListener.onJobModelExpired();
-    });
+        // gets processor into rebalance mode so onNewJobModel creates a new container
+        processor.jobCoordinatorListener.onJobModelExpired();
+        processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+        try {
+          // wait for the run loop to be ready before triggering rebalance
+          processor.runLoopStartForMain.await();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        processor.jobCoordinatorListener.onJobModelExpired();
+      });
     doAnswer(invocation -> {
-      jcThread.start();
-      return null;
-    }).when(mockJobCoordinator).start();
+        jcThread.start();
+        return null;
+      }).when(mockJobCoordinator).start();
 
     // ensure that the coordinator stop occurred before checking the exception being thrown
     CountDownLatch coordinatorStop = new CountDownLatch(1);
     doAnswer(invocation -> {
-      processor.jobCoordinatorListener.onCoordinatorStop();
-      coordinatorStop.countDown();
-      return null;
-    }).when(mockJobCoordinator).stop();
+        processor.jobCoordinatorListener.onCoordinatorStop();
+        coordinatorStop.countDown();
+        return null;
+      }).when(mockJobCoordinator).stop();
 
     processor.start();
 
