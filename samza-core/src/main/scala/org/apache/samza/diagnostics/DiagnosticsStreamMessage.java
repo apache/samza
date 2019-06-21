@@ -155,7 +155,7 @@ public class DiagnosticsStreamMessage {
     DiagnosticsStreamMessage that = (DiagnosticsStreamMessage) o;
     return metricsHeader.getAsMap().equals(that.metricsHeader.getAsMap()) && metricsMessage.equals(that.metricsMessage);
   }
-  
+
   @Override
   public int hashCode() {
     return Objects.hash(metricsHeader, metricsMessage);

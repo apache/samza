@@ -54,7 +54,7 @@ public class TestDiagnosticsManager {
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
 
     // Mocked system producer for publishing to diagnostics stream
     mockSystemProducer = new MockCoordinatorStreamSystemFactory.MockSystemProducer("source");
@@ -103,7 +103,7 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
     Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
 
-    // validate the diagnostics stream message
+    // Validate the diagnostics stream message
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
