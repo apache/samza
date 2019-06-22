@@ -35,7 +35,7 @@ import org.junit.Test;
 public class TestMetricsSnapshotSerdeV2 {
 
   @Test
-  public void testSerdeWithoutContainerModel() {
+  public void testSerde() {
     MetricsHeader metricsHeader =
         new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1", 1,
             1);
@@ -66,5 +66,4 @@ public class TestMetricsSnapshotSerdeV2 {
     Assert.assertTrue("Metrics map should be equal",
         metricsSnapshot.getMetrics().getAsMap().equals(deserializedMetricsSnapshot.getMetrics().getAsMap()));
   }
-
 }
