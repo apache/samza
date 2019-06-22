@@ -201,7 +201,9 @@ public class DiagnosticsManager {
           systemProducer.flush(DiagnosticsManager.class.getName());
 
           // Remove stop events from list after successful publish
-          processorStopEvents.removeAll(diagnosticsStreamMessage.getProcessorStopEvents());
+          if (diagnosticsStreamMessage.getProcessorStopEvents() != null) {
+            processorStopEvents.removeAll(diagnosticsStreamMessage.getProcessorStopEvents());
+          }
 
           // Remove exceptions from list after successful publish to diagnostics stream
           exceptions.remove(diagnosticsStreamMessage.getExceptionEvents());
