@@ -284,7 +284,7 @@ public class DiagnosticsStreamMessage {
   }
 
   private Object getFromMetricsMessage(String groupName, String metricName) {
-    if (metricsMessage.containsKey(groupName)) {
+    if (metricsMessage.containsKey(groupName) && metricsMessage.get(groupName) != null) {
       return metricsMessage.get(groupName).get(metricName);
     } else {
       return null;
