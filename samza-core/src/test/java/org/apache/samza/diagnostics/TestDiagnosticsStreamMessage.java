@@ -30,7 +30,6 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
 import org.junit.Test;
@@ -61,7 +60,7 @@ public class TestDiagnosticsStreamMessage {
     return diagnosticsStreamMessage;
   }
 
-  private Collection<DiagnosticsExceptionEvent> getExceptionList() {
+  public static Collection<DiagnosticsExceptionEvent> getExceptionList() {
     BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent =
         new DiagnosticsExceptionEvent(1, new Exception("this is a samza exception", new Exception("cause")),
@@ -71,9 +70,9 @@ public class TestDiagnosticsStreamMessage {
     return boundedList.getValues();
   }
 
-  private List<DiagnosticsManager.ProcessorStopEvent> getProcessorStopEventList() {
-    List<DiagnosticsManager.ProcessorStopEvent> stopEventList = new ArrayList<>();
-    stopEventList.add(new DiagnosticsManager.ProcessorStopEvent("0", executionEnvContainerId, hostname, 101));
+  public List<ProcessorStopEvent> getProcessorStopEventList() {
+    List<ProcessorStopEvent> stopEventList = new ArrayList<>();
+    stopEventList.add(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101));
     return stopEventList;
   }
 
@@ -93,10 +92,11 @@ public class TestDiagnosticsStreamMessage {
     return containerModels;
   }
 
-  @Test
   /**
    * Tests basic operations on {@link DiagnosticsStreamMessage}.
-   */ public void basicTest() {
+   */
+  @Test
+  public void basicTest() {
 
     DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage();
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
@@ -112,22 +112,37 @@ public class TestDiagnosticsStreamMessage {
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());
   }
 
-  @Test
   /**
-   * Tests serialization and deserialization of a {@link DiagnosticsStreamMessage} using {@link MetricsSnapshotSerdeV2}.
-   * This serde is currently used by {@link DiagnosticsManager} to serde messages to the diagnostics stream.
-   */ public void serdeTest() {
+   * Tests serialization and deserialization of a {@link DiagnosticsStreamMessage}
+   */
+  @Test
+  public void serdeTest() {
     DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage();
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
     diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptionEventList);
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     diagnosticsStreamMessage.addContainerModels(getSampleContainerModels());
 
-    byte[] serializedBytes = new MetricsSnapshotSerdeV2().toBytes(diagnosticsStreamMessage.convertToMetricsSnapshot());
-    MetricsSnapshot metricsSnapshot = new MetricsSnapshotSerdeV2().fromBytes(serializedBytes);
-    DiagnosticsStreamMessage deserializedDiagnosticsStreamMessage =
-        DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+    MetricsSnapshot metricsSnapshot = diagnosticsStreamMessage.convertToMetricsSnapshot();
+    Assert.assertEquals(metricsSnapshot.getHeader().getJobName(), jobName);
+    Assert.assertEquals(metricsSnapshot.getHeader().getJobId(), jobId);
+    Assert.assertEquals(metricsSnapshot.getHeader().getExecEnvironmentContainerId(), executionEnvContainerId);
+    Assert.assertEquals(metricsSnapshot.getHeader().getVersion(), taskClassVersion);
+    Assert.assertEquals(metricsSnapshot.getHeader().getSamzaVersion(), samzaVersion);
+    Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
+    Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
 
-    Assert.assertEquals(diagnosticsStreamMessage, deserializedDiagnosticsStreamMessage);
+    Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
+    Assert.assertTrue(metricsMap.get("org.apache.samza.container.SamzaContainerMetrics").containsKey("exceptions"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerModels"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("numStoresWithChangelog"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerNumCores"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerMemoryMb"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("stopEvents"));
+
+    DiagnosticsStreamMessage convertedDiagnosticsStreamMessage = DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+
+    Assert.assertTrue(convertedDiagnosticsStreamMessage.equals(diagnosticsStreamMessage));
+
   }
 }

@@ -19,6 +19,8 @@
 package org.apache.samza.diagnostics;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -51,6 +53,7 @@ public class TestDiagnosticsManager {
   private int numStoresWithChangelog = 2;
   private int containerNumCores = 2;
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
+  private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
   @Before
   public void setup() {
@@ -61,15 +64,20 @@ public class TestDiagnosticsManager {
     // Mocked scheduled executor service which does a synchronous run() on scheduling
     ScheduledExecutorService mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
-        Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
-      ((Runnable) invocation.getArguments()[0]).run();
-      return Mockito.mock(ScheduledFuture.class);
-    });
+             Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
+                 ((Runnable) invocation.getArguments()[0]).run();
+                 return Mockito.mock(ScheduledFuture.class);
+               });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numStoresWithChangelog,
             "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService);
+
+    exceptionEventList.forEach(
+        diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
+
+    this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 101);
   }
 
   @Test
@@ -98,8 +106,9 @@ public class TestDiagnosticsManager {
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
     Assert.assertEquals(containerMb, diagnosticsStreamMessage.getContainerMb());
-    Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents() == null);
-    Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents() == null);
+    Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents().equals(exceptionEventList));
+    Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents()
+        .equals(Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101))));
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores());
     Assert.assertEquals(numStoresWithChangelog, diagnosticsStreamMessage.getNumStoresWithChangelog());

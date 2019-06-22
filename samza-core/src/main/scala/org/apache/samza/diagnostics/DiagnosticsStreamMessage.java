@@ -118,10 +118,10 @@ public class DiagnosticsStreamMessage {
   }
 
   /**
-   * Add a list of {@link org.apache.samza.diagnostics.DiagnosticsManager.ProcessorStopEvent}s to add to the list.
+   * Add a list of {@link org.apache.samza.diagnostics.ProcessorStopEvent}s to add to the list.
    * @param stopEventList the list to add.
    */
-  public void addProcessorStopEvents(List<DiagnosticsManager.ProcessorStopEvent> stopEventList) {
+  public void addProcessorStopEvents(List<ProcessorStopEvent> stopEventList) {
     if (stopEventList != null && !stopEventList.isEmpty()) {
       addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, STOP_EVENT_LIST_METRIC_NAME, stopEventList);
     }
@@ -161,8 +161,8 @@ public class DiagnosticsStreamMessage {
     return Objects.hash(metricsHeader, metricsMessage);
   }
 
-  public Collection<DiagnosticsManager.ProcessorStopEvent> getProcessorStopEvents() {
-    return (Collection<DiagnosticsManager.ProcessorStopEvent>) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
+  public Collection<ProcessorStopEvent> getProcessorStopEvents() {
+    return (Collection<ProcessorStopEvent>) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
         STOP_EVENT_LIST_METRIC_NAME);
   }
 
@@ -200,40 +200,28 @@ public class DiagnosticsStreamMessage {
             metricsSnapshot.getHeader().getHost(), metricsSnapshot.getHeader().getTime(),
             metricsSnapshot.getHeader().getResetTime());
 
-    if (metricsSnapshot.getMetrics().getAsMap().containsKey(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)) {
-      diagnosticsStreamMessage.addContainerNumCores((int) metricsSnapshot.getMetrics()
-          .getAsMap()
-          .get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)
-          .get(CONTAINER_NUM_CORES_METRIC_NAME));
+    Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
+    Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);
 
-      diagnosticsStreamMessage.addContainerMb((int) metricsSnapshot.getMetrics()
-          .getAsMap()
-          .get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)
-          .get(CONTAINER_MB_METRIC_NAME));
+    if (diagnosticsManagerGroupMap != null) {
+      diagnosticsStreamMessage.addContainerNumCores(
+          (int) diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
 
-      diagnosticsStreamMessage.addNumStoresWithChangelog((int) metricsSnapshot.getMetrics()
-          .getAsMap()
-          .get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)
-          .get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
+      diagnosticsStreamMessage.addContainerMb((int) diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
+
+      diagnosticsStreamMessage.addNumStoresWithChangelog(
+          (int) diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
 
       diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap(
-          (Map<String, Object>) metricsSnapshot.getMetrics()
-              .getAsMap()
-              .get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)
-              .get(CONTAINER_MODELS_METRIC_NAME)));
+          (Map<String, Object>) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
 
       diagnosticsStreamMessage.addProcessorStopEvents(
-          (List<DiagnosticsManager.ProcessorStopEvent>) metricsSnapshot.getMetrics()
-              .getAsMap()
-              .get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER)
-              .get(STOP_EVENT_LIST_METRIC_NAME));
+          (List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
     }
 
-    if (metricsSnapshot.getMetrics().getAsMap().containsKey(SAMZACONTAINER_METRICS_GROUP_NAME)) {
+    if (metricsMap.containsKey(SAMZACONTAINER_METRICS_GROUP_NAME)) {
       diagnosticsStreamMessage.addDiagnosticsExceptionEvents(
-          (Collection<DiagnosticsExceptionEvent>) metricsSnapshot.getMetrics()
-              .getAsMap()
-              .get(SAMZACONTAINER_METRICS_GROUP_NAME)
+          (Collection<DiagnosticsExceptionEvent>) metricsMap.get(SAMZACONTAINER_METRICS_GROUP_NAME)
               .get(EXCEPTION_LIST_METRIC_NAME));
     }
 

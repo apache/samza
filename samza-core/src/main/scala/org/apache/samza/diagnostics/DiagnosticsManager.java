@@ -19,6 +19,7 @@
 
 package org.apache.samza.diagnostics;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
@@ -26,7 +27,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,7 +71,7 @@ public class DiagnosticsManager {
   private final Map<String, ContainerModel> containerModels;
   private boolean jobParamsEmitted = false;
 
-  private SystemProducer systemProducer; // SystemProducer for writing diagnostics data
+  private final SystemProducer systemProducer; // SystemProducer for writing diagnostics data
   private final BoundedList<DiagnosticsExceptionEvent> exceptions; // A BoundedList for storing DiagnosticExceptionEvent
   private final ConcurrentLinkedQueue<ProcessorStopEvent> processorStopEvents;
   // A BoundedList for storing DiagnosticExceptionEvent
@@ -90,7 +90,8 @@ public class DiagnosticsManager {
             new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()));
   }
 
-  public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
+  @VisibleForTesting
+  DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
       int containerMemoryMb, int containerNumCores, int numStoresWithChangelog, String containerId,
       String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
       SystemStream diagnosticSystemStream, SystemProducer systemProducer, Duration terminationDuration,
@@ -213,39 +214,4 @@ public class DiagnosticsManager {
     }
   }
 
-  public static class ProcessorStopEvent {
-    public final String processorId;
-    public final String resourceId;
-    public final String host;
-    public final int exitStatus;
-
-    private ProcessorStopEvent() {
-      this("", "", "", -1);
-    }
-
-    public ProcessorStopEvent(String processorId, String resourceId, String host, int exitStatus) {
-      this.processorId = processorId;
-      this.resourceId = resourceId;
-      this.host = host;
-      this.exitStatus = exitStatus;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      ProcessorStopEvent that = (ProcessorStopEvent) o;
-      return exitStatus == that.exitStatus && Objects.equals(processorId, that.processorId) && Objects.equals(
-          resourceId, that.resourceId) && Objects.equals(host, that.host);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(processorId, resourceId, host, exitStatus);
-    }
-  }
 }
