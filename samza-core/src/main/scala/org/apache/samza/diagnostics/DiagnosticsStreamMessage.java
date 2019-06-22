@@ -171,16 +171,16 @@ public class DiagnosticsStreamMessage {
         EXCEPTION_LIST_METRIC_NAME);
   }
 
-  public int getContainerMb() {
-    return (int) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MB_METRIC_NAME);
+  public Integer getContainerMb() {
+    return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MB_METRIC_NAME);
   }
 
-  public int getContainerNumCores() {
-    return (int) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME);
+  public Integer getContainerNumCores() {
+    return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME);
   }
 
-  public int getNumStoresWithChangelog() {
-    return (int) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
+  public Integer getNumStoresWithChangelog() {
+    return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
         CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME);
   }
 
@@ -202,27 +202,29 @@ public class DiagnosticsStreamMessage {
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);
+    Map<String, Object> containerMetricsGroupMap = metricsMap.get(SAMZACONTAINER_METRICS_GROUP_NAME);
 
     if (diagnosticsManagerGroupMap != null) {
-      diagnosticsStreamMessage.addContainerNumCores(
-          (int) diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
+      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME,
+          diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
 
-      diagnosticsStreamMessage.addContainerMb((int) diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
+      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MB_METRIC_NAME,
+          diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
 
-      diagnosticsStreamMessage.addNumStoresWithChangelog(
-          (int) diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
+      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
+          CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME,
+          diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
 
       diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap(
           (Map<String, Object>) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
 
-      diagnosticsStreamMessage.addProcessorStopEvents(
-          (List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
+      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, STOP_EVENT_LIST_METRIC_NAME,
+          diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
     }
 
-    if (metricsMap.containsKey(SAMZACONTAINER_METRICS_GROUP_NAME)) {
+    if (containerMetricsGroupMap != null && containerMetricsGroupMap.containsKey(EXCEPTION_LIST_METRIC_NAME)) {
       diagnosticsStreamMessage.addDiagnosticsExceptionEvents(
-          (Collection<DiagnosticsExceptionEvent>) metricsMap.get(SAMZACONTAINER_METRICS_GROUP_NAME)
-              .get(EXCEPTION_LIST_METRIC_NAME));
+          (Collection<DiagnosticsExceptionEvent>) containerMetricsGroupMap.get(EXCEPTION_LIST_METRIC_NAME));
     }
 
     return diagnosticsStreamMessage;
@@ -260,10 +262,11 @@ public class DiagnosticsStreamMessage {
    */
   private static Map<String, ContainerModel> deserializeContainerModelMap(
       Map<String, Object> serializedContainerModel) {
-    Map<String, ContainerModel> containerModelMap = new HashMap<>();
+    Map<String, ContainerModel> containerModelMap = null;
     ObjectMapper samzaObjectMapper = SamzaObjectMapper.getObjectMapper();
 
     if (serializedContainerModel != null) {
+      containerModelMap = new HashMap<>();
       for (Map.Entry<String, Object> containerModelEntry : serializedContainerModel.entrySet()) {
         try {
           ContainerModel containerModel =
@@ -279,8 +282,10 @@ public class DiagnosticsStreamMessage {
   }
 
   private void addToMetricsMessage(String groupName, String metricName, Object value) {
-    metricsMessage.putIfAbsent(groupName, new HashMap<>());
-    metricsMessage.get(groupName).put(metricName, value);
+    if (value != null) {
+      metricsMessage.putIfAbsent(groupName, new HashMap<>());
+      metricsMessage.get(groupName).put(metricName, value);
+    }
   }
 
   private Object getFromMetricsMessage(String groupName, String metricName) {

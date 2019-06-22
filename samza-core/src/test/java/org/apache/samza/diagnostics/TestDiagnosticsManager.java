@@ -19,17 +19,19 @@
 package org.apache.samza.diagnostics;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.junit.After;
 import org.junit.Assert;
@@ -40,7 +42,7 @@ import org.mockito.Mockito;
 
 public class TestDiagnosticsManager {
   private DiagnosticsManager diagnosticsManager;
-  private MockCoordinatorStreamSystemFactory.MockSystemProducer mockSystemProducer;
+  private MockSystemProducer mockSystemProducer;
   private SystemStream diagnosticsSystemStream = new SystemStream("kafka", "test stream");
 
   private String jobName = "Testjob";
@@ -59,15 +61,15 @@ public class TestDiagnosticsManager {
   public void setup() {
 
     // Mocked system producer for publishing to diagnostics stream
-    mockSystemProducer = new MockCoordinatorStreamSystemFactory.MockSystemProducer("source");
+    mockSystemProducer = new MockSystemProducer();
 
     // Mocked scheduled executor service which does a synchronous run() on scheduling
     ScheduledExecutorService mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
-             Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
-                 ((Runnable) invocation.getArguments()[0]).run();
-                 return Mockito.mock(ScheduledFuture.class);
-               });
+        Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
+            ((Runnable) invocation.getArguments()[0]).run();
+            return Mockito.mock(ScheduledFuture.class);
+          });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numStoresWithChangelog,
@@ -81,13 +83,68 @@ public class TestDiagnosticsManager {
   }
 
   @Test
-  public void testDiagnosticsStreamPublish() {
+  public void testDiagnosticsStreamFirstMessagePublish() {
     // invoking start will do a syncrhonous publish to the stream because of our mocked scheduled exec service
     this.diagnosticsManager.start();
-    Assert.assertEquals("One message should have been published", 1, mockSystemProducer.getEnvelopes().size());
+    Assert.assertEquals("One message should have been published", 1, mockSystemProducer.getEnvelopeList().size());
+    OutgoingMessageEnvelope outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(0);
+    validateOutgoingMessageEnvelope(outgoingMessageEnvelope);
+  }
 
+  @Test
+  public void testNoDualPublish() {
+    // Across two successive run() invocations only a single message should be published
+    this.diagnosticsManager.start();
+    this.diagnosticsManager.start();
+
+    Assert.assertEquals("One message should have been published", 1, mockSystemProducer.getEnvelopeList().size());
+    OutgoingMessageEnvelope outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(0);
+    validateMetricsHeader(outgoingMessageEnvelope);
+    validateOutgoingMessageEnvelope(outgoingMessageEnvelope);
+  }
+
+  @Test
+  public void testSecondPublish() {
+    // Across two successive run() invocations two messages should be published if stop events are added
+    this.diagnosticsManager.start();
+    this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 102);
+    this.diagnosticsManager.start();
+
+    Assert.assertEquals("Two messages should have been published", 2, mockSystemProducer.getEnvelopeList().size());
+
+    // Validate the first message
+    OutgoingMessageEnvelope outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(0);
+    validateMetricsHeader(outgoingMessageEnvelope);
+    validateOutgoingMessageEnvelope(outgoingMessageEnvelope);
+
+    // Validate the second message's header
+    outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(1);
+    validateMetricsHeader(outgoingMessageEnvelope);
+
+    // Validate the second message's body (should be all empty except for the processor-stop-event)
+    MetricsSnapshot metricsSnapshot =
+        new MetricsSnapshotSerdeV2().fromBytes((byte[]) outgoingMessageEnvelope.getMessage());
+    DiagnosticsStreamMessage diagnosticsStreamMessage =
+        DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb() == null);
+    Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents() == null);
+    Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents()
+        .equals(Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 102))));
+    Assert.assertEquals(diagnosticsStreamMessage.getContainerModels(), null);
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores() == null);
+    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog() == null);
+
+  }
+
+  @After
+  public void teardown() throws Exception {
+    this.diagnosticsManager.stop();
+  }
+
+  private void validateMetricsHeader(OutgoingMessageEnvelope outgoingMessageEnvelope) {
     // Validate the outgoing message
-    OutgoingMessageEnvelope outgoingMessageEnvelope = mockSystemProducer.getEnvelopes().get(0);
+
     Assert.assertTrue(outgoingMessageEnvelope.getSystemStream().equals(diagnosticsSystemStream));
     MetricsSnapshot metricsSnapshot =
         new MetricsSnapshotSerdeV2().fromBytes((byte[]) outgoingMessageEnvelope.getMessage());
@@ -101,21 +158,56 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
     Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
 
+  }
+
+  private void validateOutgoingMessageEnvelope(OutgoingMessageEnvelope outgoingMessageEnvelope) {
+    MetricsSnapshot metricsSnapshot =
+        new MetricsSnapshotSerdeV2().fromBytes((byte[]) outgoingMessageEnvelope.getMessage());
+
     // Validate the diagnostics stream message
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
-    Assert.assertEquals(containerMb, diagnosticsStreamMessage.getContainerMb());
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb().equals(containerMb));
     Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents().equals(exceptionEventList));
     Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents()
         .equals(Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101))));
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());
-    Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores());
-    Assert.assertEquals(numStoresWithChangelog, diagnosticsStreamMessage.getNumStoresWithChangelog());
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores().equals(containerNumCores));
+    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog().equals(numStoresWithChangelog));
   }
 
-  @After
-  public void teardown() throws Exception {
-    this.diagnosticsManager.stop();
+  private class MockSystemProducer implements SystemProducer {
+
+    private final List<OutgoingMessageEnvelope> envelopeList = new ArrayList<>();
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void stop() {
+
+    }
+
+    @Override
+    public void register(String source) {
+
+    }
+
+    @Override
+    public void send(String source, OutgoingMessageEnvelope envelope) {
+      envelopeList.add(envelope);
+    }
+
+    @Override
+    public void flush(String source) {
+
+    }
+
+    public List<OutgoingMessageEnvelope> getEnvelopeList() {
+      return this.envelopeList;
+    }
   }
 }

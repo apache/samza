@@ -198,6 +198,7 @@ public class DiagnosticsManager {
           systemProducer.send(DiagnosticsManager.class.getName(),
               new OutgoingMessageEnvelope(diagnosticSystemStream, hostname, null,
                   new MetricsSnapshotSerdeV2().toBytes(diagnosticsStreamMessage.convertToMetricsSnapshot())));
+          systemProducer.flush(DiagnosticsManager.class.getName());
 
           // Remove stop events from list after successful publish
           processorStopEvents.removeAll(diagnosticsStreamMessage.getProcessorStopEvents());

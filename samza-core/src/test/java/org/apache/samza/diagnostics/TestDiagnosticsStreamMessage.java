@@ -104,9 +104,9 @@ public class TestDiagnosticsStreamMessage {
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     diagnosticsStreamMessage.addContainerModels(getSampleContainerModels());
 
-    Assert.assertEquals(1024, diagnosticsStreamMessage.getContainerMb());
-    Assert.assertEquals(2, diagnosticsStreamMessage.getContainerNumCores());
-    Assert.assertEquals(3, diagnosticsStreamMessage.getNumStoresWithChangelog());
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb().equals(1024));
+    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores().equals(2));
+    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog().equals(3));
     Assert.assertTrue(exceptionEventList.equals(diagnosticsStreamMessage.getExceptionEvents()));
     Assert.assertEquals(getSampleContainerModels(), diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());
@@ -140,9 +140,9 @@ public class TestDiagnosticsStreamMessage {
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerMemoryMb"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("stopEvents"));
 
-    DiagnosticsStreamMessage convertedDiagnosticsStreamMessage = DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+    DiagnosticsStreamMessage convertedDiagnosticsStreamMessage =
+        DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
     Assert.assertTrue(convertedDiagnosticsStreamMessage.equals(diagnosticsStreamMessage));
-
   }
 }
