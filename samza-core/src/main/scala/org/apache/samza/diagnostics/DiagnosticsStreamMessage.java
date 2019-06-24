@@ -224,6 +224,12 @@ public class DiagnosticsStreamMessage {
 
   /**
    * Helper method to use {@link SamzaObjectMapper} to serialize {@link ContainerModel}s.
+   * We use SamzaObjectMapper for ContainerModels, rather than using ObjectMapper (in MetricsSnapshotSerdeV2)
+   * because MetricsSnapshotSerdeV2 enables default typing, which writes type information for all containerModel (and
+   * underlying) classes, deserializing which requires a large number of jackson related changes to those classes
+   * (annotations and/or mixins). We cannot disable default typing to avoid backward incompatibility. This is why
+   * we serde-deserde ContainerModel explicitly using SamzaObjectMapper (which is also used for reads-writes to coordinator
+   * stream).
    * {@link SamzaObjectMapper} provides several conventions and optimizations for serializing containerModels.
    * @param containerModelMap map of container models to serialize.
    * @return
