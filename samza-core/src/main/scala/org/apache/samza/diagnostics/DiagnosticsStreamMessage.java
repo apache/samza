@@ -30,6 +30,7 @@ import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -185,8 +186,7 @@ public class DiagnosticsStreamMessage {
   }
 
   public Map<String, ContainerModel> getContainerModels() {
-    return deserializeContainerModelMap(
-        (Map<String, Object>) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MODELS_METRIC_NAME));
+    return deserializeContainerModelMap((String) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MODELS_METRIC_NAME));
   }
 
   // Helper method to get a {@link DiagnosticsStreamMessage} from a {@link MetricsSnapshot}.
@@ -209,8 +209,7 @@ public class DiagnosticsStreamMessage {
       diagnosticsStreamMessage.addContainerNumCores((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
       diagnosticsStreamMessage.addContainerMb((Integer) diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
       diagnosticsStreamMessage.addNumStoresWithChangelog((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
-      diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap(
-          (Map<String, Object>) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
+      diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap((String) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
 
       diagnosticsStreamMessage.addProcessorStopEvents((List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
     }
@@ -229,23 +228,15 @@ public class DiagnosticsStreamMessage {
    * @param containerModelMap map of container models to serialize.
    * @return
    */
-  private static Map<String, String> serializeContainerModelMap(Map<String, ContainerModel> containerModelMap) {
-    Map<String, String> serializedContainerModelMap = new HashMap<>();
+  private static String serializeContainerModelMap(Map<String, ContainerModel> containerModelMap) {
     ObjectMapper samzaObjectMapper = SamzaObjectMapper.getObjectMapper();
-    String serializedContainerModel;
-
-    for (Map.Entry<String, ContainerModel> containerModelEntry : containerModelMap.entrySet()) {
-      serializedContainerModel = "";
-      try {
-        serializedContainerModel = samzaObjectMapper.writeValueAsString(containerModelEntry.getValue());
-      } catch (IOException e) {
-        LOG.error("Exception in serializing container model ", e);
-      } finally {
-        serializedContainerModelMap.put(containerModelEntry.getKey(), serializedContainerModel);
-      }
+    try {
+      return samzaObjectMapper.writeValueAsString(containerModelMap);
+    } catch (IOException e) {
+      LOG.error("Exception in serializing container model ", e);
     }
 
-    return serializedContainerModelMap;
+    return null;
   }
 
   /**
@@ -254,21 +245,17 @@ public class DiagnosticsStreamMessage {
    * @return
    */
   private static Map<String, ContainerModel> deserializeContainerModelMap(
-      Map<String, Object> serializedContainerModel) {
+      String serializedContainerModel) {
     Map<String, ContainerModel> containerModelMap = null;
     ObjectMapper samzaObjectMapper = SamzaObjectMapper.getObjectMapper();
 
-    if (serializedContainerModel != null) {
-      containerModelMap = new HashMap<>();
-      for (Map.Entry<String, Object> containerModelEntry : serializedContainerModel.entrySet()) {
-        try {
-          ContainerModel containerModel =
-              samzaObjectMapper.readValue(containerModelEntry.getValue().toString(), ContainerModel.class);
-          containerModelMap.put(containerModelEntry.getKey(), containerModel);
-        } catch (IOException e) {
-          LOG.error("Exception in deserializing container model ", e);
-        }
+    try {
+      if (serializedContainerModel != null) {
+        containerModelMap = samzaObjectMapper.readValue(serializedContainerModel, new TypeReference<Map<String, ContainerModel>>() {
+        });
       }
+    } catch (IOException e) {
+      LOG.error("Exception in deserializing container model ", e);
     }
 
     return containerModelMap;
