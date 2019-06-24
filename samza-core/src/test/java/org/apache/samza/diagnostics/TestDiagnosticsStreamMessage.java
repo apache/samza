@@ -106,7 +106,7 @@ public class TestDiagnosticsStreamMessage {
 
     Assert.assertEquals(1024, (int) diagnosticsStreamMessage.getContainerMb());
     Assert.assertEquals(2, (int) diagnosticsStreamMessage.getContainerNumCores());
-    Assert.assertEquals(3,(int) diagnosticsStreamMessage.getNumStoresWithChangelog());
+    Assert.assertEquals(3, (int) diagnosticsStreamMessage.getNumStoresWithChangelog());
     Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
     Assert.assertEquals(getSampleContainerModels(), diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());

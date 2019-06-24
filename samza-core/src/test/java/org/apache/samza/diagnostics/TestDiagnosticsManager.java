@@ -130,8 +130,8 @@ public class TestDiagnosticsManager {
 
     Assert.assertNull(diagnosticsStreamMessage.getContainerMb());
     Assert.assertNull(diagnosticsStreamMessage.getExceptionEvents());
-    Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents()
-        ,Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 102)));
+    Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(),
+        Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 102)));
     Assert.assertNull(diagnosticsStreamMessage.getContainerModels());
     Assert.assertNull(diagnosticsStreamMessage.getContainerNumCores());
     Assert.assertNull(diagnosticsStreamMessage.getNumStoresWithChangelog());
