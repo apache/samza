@@ -259,7 +259,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     }
 
     public void initMetrics(SystemStreamPartition systemStreamPartition) {
-      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.<Integer>newGauge(group, "no-more-messages-" + systemStreamPartition, 0));
+      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.newGauge(group, "no-more-messages-" + systemStreamPartition, 0));
       this.blockingPollCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-count-" + systemStreamPartition));
       this.blockingPollTimeoutCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-timeout-count-" + systemStreamPartition));
 
