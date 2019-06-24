@@ -76,7 +76,7 @@ public class JobModelUtil {
    */
   public static void writeJobModel(JobModel jobModel, String jobModelVersion, MetadataStore metadataStore) {
     try {
-      String jobModelSerializedAsString = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(jobModel);
+      String jobModelSerializedAsString = MAPPER.writeValueAsString(jobModel);
       byte[] jobModelSerializedAsBytes = jobModelSerializedAsString.getBytes(UTF_8);
       String metadataStoreKey = getJobModelKey(jobModelVersion);
       metadataStore.put(metadataStoreKey, jobModelSerializedAsBytes);

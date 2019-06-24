@@ -37,7 +37,6 @@ import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -48,13 +47,9 @@ import org.apache.samza.zk.ZkJobCoordinator.ZkSessionStateChangedListener;
 import org.apache.zookeeper.Watcher;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import static junit.framework.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
@@ -68,8 +63,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(JobModelUtil.class)
 public class TestZkJobCoordinator {
   private static final String TEST_BARRIER_ROOT = "/testBarrierRoot";
   private static final String TEST_JOB_MODEL_VERSION = "1";
@@ -105,10 +98,9 @@ public class TestZkJobCoordinator {
     ZkUtils zkUtils = Mockito.mock(ZkUtils.class);
     when(zkUtils.getKeyBuilder()).thenReturn(keyBuilder);
     when(zkUtils.getZkClient()).thenReturn(mockZkClient);
-    PowerMockito.mockStatic(JobModelUtil.class);
-    PowerMockito.when(JobModelUtil.readJobModel(TEST_JOB_MODEL_VERSION, metadataStore)).thenReturn(new JobModel(new MapConfig(), new HashMap<>()));
 
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator("TEST_PROCESSOR_ID", new MapConfig(), new NoOpMetricsRegistry(), zkUtils, metadataStore));
+    doReturn(new JobModel(new MapConfig(), new HashMap<>())).when(zkJobCoordinator).readJobModelFromMetadataStore(TEST_JOB_MODEL_VERSION);
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         jcShutdownLatch.countDown();

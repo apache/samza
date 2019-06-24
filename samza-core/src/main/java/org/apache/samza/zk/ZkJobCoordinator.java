@@ -159,6 +159,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     zkUtils.validateZkVersion();
     zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix(), keyBuilder.getTaskLocalityPath()});
 
+    this.jobModelMetadataStore.init();
     systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
@@ -279,7 +280,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Generated new JobModel with version: " + nextJMVersion + " and processors: " + currentProcessorIds);
 
     // Publish the new job model
-    JobModelUtil.writeJobModel(jobModel, nextJMVersion, jobModelMetadataStore);
+    publishJobModelToMetadataStore(jobModel, nextJMVersion);
 
     // Start the barrier for the job model update
     barrier.create(nextJMVersion, currentProcessorIds);
@@ -290,6 +291,16 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Published new Job Model. Version = " + nextJMVersion);
 
     debounceTimer.scheduleAfterDebounceTime(ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
+  }
+
+  @VisibleForTesting
+  void publishJobModelToMetadataStore(JobModel jobModel, String nextJMVersion) {
+    JobModelUtil.writeJobModel(jobModel, nextJMVersion, jobModelMetadataStore);
+  }
+
+  @VisibleForTesting
+  JobModel readJobModelFromMetadataStore(String zkJobModelVersion) {
+    return JobModelUtil.readJobModel(zkJobModelVersion, jobModelMetadataStore);
   }
 
   /**
@@ -356,7 +367,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     String zkJobModelVersion = zkUtils.getJobModelVersion();
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
-      JobModel jobModel = JobModelUtil.readJobModel(zkJobModelVersion, jobModelMetadataStore);
+      JobModel jobModel = readJobModelFromMetadataStore(zkJobModelVersion);
       for (ContainerModel containerModel : jobModel.getContainers().values()) {
         containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
       }
@@ -402,7 +413,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     Map<TaskName, String> taskToProcessorId = new HashMap<>();
     Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
     if (jobModelVersion != null) {
-      JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetadataStore);
+      JobModel jobModel = readJobModelFromMetadataStore(jobModelVersion);
       for (ContainerModel containerModel : jobModel.getContainers().values()) {
         for (TaskModel taskModel : containerModel.getTasks().values()) {
           taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
@@ -542,7 +553,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
           LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
 
-          newJobModel = JobModelUtil.readJobModel(jobModelVersion, jobModelMetadataStore);
+          newJobModel = readJobModelFromMetadataStore(jobModelVersion);
           LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
 
           if (!newJobModel.getContainers().containsKey(processorId)) {

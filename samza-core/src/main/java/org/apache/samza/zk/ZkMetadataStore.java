@@ -35,6 +35,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.SamzaException;
 import org.I0Itec.zkclient.ZkClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of the {@link MetadataStore} interface where the
@@ -42,14 +44,16 @@ import org.I0Itec.zkclient.ZkClient;
  */
 public class ZkMetadataStore implements MetadataStore {
 
+  private static final Logger LOG = LoggerFactory.getLogger(ZkMetadataStore.class);
+
+  private static final int CHECKSUM_SIZE_IN_BYTES = 8;
+
   /**
    * By default, the maximum data node size supported by zookeeper server is 1 MB.
    * ZkClient prepends any value with serialization bytes before storing to zookeeper server.
    * Maximum segment size constant is initialized after factoring in size of serialization bytes.
    */
   private static final int VALUE_SEGMENT_SIZE_IN_BYTES = 1020 * 1020;
-
-  private static final int CHECKSUM_SIZE_IN_BYTES = 8;
 
   private final ZkClient zkClient;
   private final ZkConfig zkConfig;
@@ -89,7 +93,10 @@ public class ZkMetadataStore implements MetadataStore {
       byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES, aggregatedZNodeValues.length);
       byte[] expectedChecksum = getCRCChecksum(value);
       if (!Arrays.equals(checkSum, expectedChecksum)) {
-        throw new IllegalStateException("Expected checksum of value did not match the actual checksum");
+        String exceptionMessage = String.format("Expected checksum: %s of value: %s did not match the actual checksum: %s",
+            Arrays.toString(expectedChecksum), Arrays.toString(value), Arrays.toString(checkSum));
+        LOG.error(exceptionMessage);
+        throw new IllegalStateException(exceptionMessage);
       }
       return value;
     }
