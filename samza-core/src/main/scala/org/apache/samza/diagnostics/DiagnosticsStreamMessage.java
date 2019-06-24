@@ -75,7 +75,7 @@ public class DiagnosticsStreamMessage {
    * Add the container memory mb parameter to the message.
    * @param containerMemoryMb the memory mb parameter value.
    */
-  public void addContainerMb(int containerMemoryMb) {
+  public void addContainerMb(Integer containerMemoryMb) {
     addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MB_METRIC_NAME, containerMemoryMb);
   }
 
@@ -83,7 +83,7 @@ public class DiagnosticsStreamMessage {
    * Add the container num cores parameter to the message.
    * @param containerNumCores the num core parameter value.
    */
-  public void addContainerNumCores(int containerNumCores) {
+  public void addContainerNumCores(Integer containerNumCores) {
     addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME, containerNumCores);
   }
 
@@ -91,7 +91,7 @@ public class DiagnosticsStreamMessage {
    * Add the num stores with changelog parameter to the message.
    * @param numStoresWithChangelog the parameter value.
    */
-  public void addNumStoresWithChangelog(int numStoresWithChangelog) {
+  public void addNumStoresWithChangelog(Integer numStoresWithChangelog) {
     addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME,
         numStoresWithChangelog);
   }
@@ -205,21 +205,14 @@ public class DiagnosticsStreamMessage {
     Map<String, Object> containerMetricsGroupMap = metricsMap.get(SAMZACONTAINER_METRICS_GROUP_NAME);
 
     if (diagnosticsManagerGroupMap != null) {
-      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME,
-          diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
 
-      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MB_METRIC_NAME,
-          diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
-
-      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
-          CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME,
-          diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
-
+      diagnosticsStreamMessage.addContainerNumCores((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
+      diagnosticsStreamMessage.addContainerMb((Integer) diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
+      diagnosticsStreamMessage.addNumStoresWithChangelog((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
       diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap(
           (Map<String, Object>) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
 
-      diagnosticsStreamMessage.addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, STOP_EVENT_LIST_METRIC_NAME,
-          diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
+      diagnosticsStreamMessage.addProcessorStopEvents((List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
     }
 
     if (containerMetricsGroupMap != null && containerMetricsGroupMap.containsKey(EXCEPTION_LIST_METRIC_NAME)) {

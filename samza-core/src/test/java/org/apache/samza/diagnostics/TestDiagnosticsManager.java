@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -104,7 +105,7 @@ public class TestDiagnosticsManager {
   }
 
   @Test
-  public void testSecondPublish() {
+  public void testSecondPublishWithProcessorStopInSecondMessage() {
     // Across two successive run() invocations two messages should be published if stop events are added
     this.diagnosticsManager.start();
     this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 102);
@@ -127,14 +128,46 @@ public class TestDiagnosticsManager {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb() == null);
-    Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents() == null);
-    Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents()
-        .equals(Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 102))));
-    Assert.assertEquals(diagnosticsStreamMessage.getContainerModels(), null);
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores() == null);
-    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog() == null);
+    Assert.assertNull(diagnosticsStreamMessage.getContainerMb());
+    Assert.assertNull(diagnosticsStreamMessage.getExceptionEvents());
+    Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents()
+        ,Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 102)));
+    Assert.assertNull(diagnosticsStreamMessage.getContainerModels());
+    Assert.assertNull(diagnosticsStreamMessage.getContainerNumCores());
+    Assert.assertNull(diagnosticsStreamMessage.getNumStoresWithChangelog());
+  }
 
+  @Test
+  public void testSecondPublishWithExceptionInSecondMessage() {
+    // Across two successive run() invocations two messages should be published if stop events are added
+    this.diagnosticsManager.start();
+    DiagnosticsExceptionEvent diagnosticsExceptionEvent = new DiagnosticsExceptionEvent(System.currentTimeMillis(), new RuntimeException("exception"), new HashMap());
+    this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent);
+    this.diagnosticsManager.start();
+
+    Assert.assertEquals("Two messages should have been published", 2, mockSystemProducer.getEnvelopeList().size());
+
+    // Validate the first message
+    OutgoingMessageEnvelope outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(0);
+    validateMetricsHeader(outgoingMessageEnvelope);
+    validateOutgoingMessageEnvelope(outgoingMessageEnvelope);
+
+    // Validate the second message's header
+    outgoingMessageEnvelope = mockSystemProducer.getEnvelopeList().get(1);
+    validateMetricsHeader(outgoingMessageEnvelope);
+
+    // Validate the second message's body (should be all empty except for the processor-stop-event)
+    MetricsSnapshot metricsSnapshot =
+        new MetricsSnapshotSerdeV2().fromBytes((byte[]) outgoingMessageEnvelope.getMessage());
+    DiagnosticsStreamMessage diagnosticsStreamMessage =
+        DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+
+    Assert.assertNull(diagnosticsStreamMessage.getContainerMb());
+    Assert.assertEquals(Arrays.asList(diagnosticsExceptionEvent), diagnosticsStreamMessage.getExceptionEvents());
+    Assert.assertNull(diagnosticsStreamMessage.getProcessorStopEvents());
+    Assert.assertNull(diagnosticsStreamMessage.getContainerModels());
+    Assert.assertNull(diagnosticsStreamMessage.getContainerNumCores());
+    Assert.assertNull(diagnosticsStreamMessage.getNumStoresWithChangelog());
   }
 
   @After
@@ -168,13 +201,12 @@ public class TestDiagnosticsManager {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb().equals(containerMb));
-    Assert.assertTrue(diagnosticsStreamMessage.getExceptionEvents().equals(exceptionEventList));
-    Assert.assertTrue(diagnosticsStreamMessage.getProcessorStopEvents()
-        .equals(Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101))));
+    Assert.assertEquals(containerMb, diagnosticsStreamMessage.getContainerMb().intValue());
+    Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
+    Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101)));
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores().equals(containerNumCores));
-    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog().equals(numStoresWithChangelog));
+    Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores().intValue());
+    Assert.assertEquals(numStoresWithChangelog, diagnosticsStreamMessage.getNumStoresWithChangelog().intValue());
   }
 
   private class MockSystemProducer implements SystemProducer {

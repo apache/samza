@@ -104,10 +104,10 @@ public class TestDiagnosticsStreamMessage {
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     diagnosticsStreamMessage.addContainerModels(getSampleContainerModels());
 
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerMb().equals(1024));
-    Assert.assertTrue(diagnosticsStreamMessage.getContainerNumCores().equals(2));
-    Assert.assertTrue(diagnosticsStreamMessage.getNumStoresWithChangelog().equals(3));
-    Assert.assertTrue(exceptionEventList.equals(diagnosticsStreamMessage.getExceptionEvents()));
+    Assert.assertEquals(1024, (int) diagnosticsStreamMessage.getContainerMb());
+    Assert.assertEquals(2, (int) diagnosticsStreamMessage.getContainerNumCores());
+    Assert.assertEquals(3,(int) diagnosticsStreamMessage.getNumStoresWithChangelog());
+    Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
     Assert.assertEquals(getSampleContainerModels(), diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());
   }

@@ -65,9 +65,9 @@ public class DiagnosticsManager {
   private final Instant resetTime;
 
   // Job-related params
-  private final int containerMemoryMb;
-  private final int containerNumCores;
-  private final int numStoresWithChangelog;
+  private final Integer containerMemoryMb;
+  private final Integer containerNumCores;
+  private final Integer numStoresWithChangelog;
   private final Map<String, ContainerModel> containerModels;
   private boolean jobParamsEmitted = false;
 
@@ -80,7 +80,7 @@ public class DiagnosticsManager {
   private final SystemStream diagnosticSystemStream;
 
   public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
-      int containerMemoryMb, int containerNumCores, int numStoresWithChangelog, String containerId,
+      Integer containerMemoryMb, Integer containerNumCores, Integer numStoresWithChangelog, String containerId,
       String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
       SystemStream diagnosticSystemStream, SystemProducer systemProducer, Duration terminationDuration) {
 
@@ -206,7 +206,9 @@ public class DiagnosticsManager {
           }
 
           // Remove exceptions from list after successful publish to diagnostics stream
-          exceptions.remove(diagnosticsStreamMessage.getExceptionEvents());
+          if (diagnosticsStreamMessage.getExceptionEvents() != null) {
+            exceptions.remove(diagnosticsStreamMessage.getExceptionEvents());
+          }
 
           // Emit jobParams once
           jobParamsEmitted = true;
