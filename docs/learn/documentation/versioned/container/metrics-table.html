@@ -555,7 +555,7 @@
     </tr>
     <tr>
         <td>no-more-messages-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
-        <td>Indicates if kafka consumer is at head for particular partition</td>
+        <td>Indicates if kafka consumer is at head for particular partition. 1 if it is caught up, 0 otherwise.</td>
     </tr>
     <tr>
         <td>blocking-poll-count-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
@@ -938,7 +938,7 @@
     </tr>
     <tr>
         <td>is-leader</td>
-        <td>Denotes if the processor is a leader or not</td>
+        <td>Denotes if the processor is a leader or not. 1 if it is a leader, 0 otherwise.</td>
     </tr>
     <tr>
         <td>barrier-creation</td>

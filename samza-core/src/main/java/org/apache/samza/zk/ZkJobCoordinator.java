@@ -171,7 +171,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
       // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
       // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
-      metrics.isLeader.set(false);
+      metrics.isLeader.set(0);
 
       try {
         // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
@@ -424,7 +424,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader");
-      metrics.isLeader.set(true);
+      metrics.isLeader.set(1);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
       if (!new StorageConfig(config).hasDurableStores()) {
         // 1. Stop if there's a existing StreamPartitionCountMonitor running.
