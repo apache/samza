@@ -93,7 +93,7 @@ public class ZkMetadataStore implements MetadataStore {
       byte[] checkSum = ArrayUtils.subarray(aggregatedZNodeValues, aggregatedZNodeValues.length - CHECKSUM_SIZE_IN_BYTES, aggregatedZNodeValues.length);
       byte[] expectedChecksum = getCRCChecksum(value);
       if (!Arrays.equals(checkSum, expectedChecksum)) {
-        String exceptionMessage = String.format("Expected checksum: %s of value: %s did not match the actual checksum: %s",
+        String exceptionMessage = String.format("Expected checksum: %s did not match the actual checksum: %s for value: %s",
             Arrays.toString(expectedChecksum), Arrays.toString(value), Arrays.toString(checkSum));
         LOG.error(exceptionMessage);
         throw new IllegalStateException(exceptionMessage);
