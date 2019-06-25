@@ -20,6 +20,7 @@ package org.apache.samza.coordinator;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 
 @InterfaceStability.Evolving
@@ -29,7 +30,9 @@ public interface JobCoordinatorFactory {
    * @param processorId a unique logical identifier assigned to the {@link org.apache.samza.processor.StreamProcessor}.
    * @param config the configuration of the samza application.
    * @param metricsRegistry  used to publish the coordination specific metrics.
+   * @param metadataStore used to read and write metadata for the samza application.
    * @return the {@link JobCoordinator} instance.
    */
-  JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry);
+  JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry,
+      MetadataStore metadataStore);
 }

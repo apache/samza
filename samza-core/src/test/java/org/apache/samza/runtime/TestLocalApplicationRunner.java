@@ -25,12 +25,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.samza.application.descriptors.ApplicationDescriptor;
-import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
-import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
@@ -41,9 +42,10 @@ import org.apache.samza.coordinator.ClusterMembership;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLock;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
-import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
@@ -60,8 +62,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @RunWith(PowerMockRunner.class)
@@ -94,6 +105,7 @@ public class TestLocalApplicationRunner {
     prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
+    CoordinatorStreamStore metadataStore = mock(CoordinatorStreamStore.class);
 
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
@@ -107,11 +119,16 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(sp).when(runner)
-        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
+    doReturn(ImmutablePair.of(sp, metadataStore)).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(
+            CoordinatorStreamStore.class));
+    doReturn(metadataStore).when(runner).createCoordinatorStreamStore(any(Config.class));
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).status();
 
     runner.run(externalContext);
+
+    verify(metadataStore).init();
+    verify(metadataStore, never()).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -127,6 +144,7 @@ public class TestLocalApplicationRunner {
     prepareTest();
 
     StreamProcessor sp = mock(StreamProcessor.class);
+    CoordinatorStreamStore metadataStore = mock(CoordinatorStreamStore.class);
 
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
@@ -139,10 +157,15 @@ public class TestLocalApplicationRunner {
         return null;
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.empty()));
+    doReturn(ImmutablePair.of(sp, metadataStore)).when(runner).createStreamProcessor(anyObject(), anyObject(),
+        captor.capture(), eq(Optional.empty()), any(CoordinatorStreamStore.class));
+    doReturn(metadataStore).when(runner).createCoordinatorStreamStore(any(Config.class));
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).status();
 
     runner.run();
+
+    verify(metadataStore).init();
+    verify(metadataStore, never()).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -162,6 +185,7 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
+    CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
@@ -174,11 +198,15 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(sp).when(runner)
-        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
+    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(CoordinatorStreamStore.class));
+    doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
 
     runner.run(externalContext);
     runner.waitForFinish();
+
+    verify(coordinatorStreamStore).init();
+    verify(coordinatorStreamStore, never()).close();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -198,6 +226,7 @@ public class TestLocalApplicationRunner {
     doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
 
     StreamProcessor sp = mock(StreamProcessor.class);
+    CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
@@ -207,8 +236,10 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(sp).when(runner)
-        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
+    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(
+            CoordinatorStreamStore.class));
+    doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
 
     try {
       runner.run(externalContext);
@@ -217,7 +248,57 @@ public class TestLocalApplicationRunner {
       assertNotNull(th);
     }
 
+    verify(coordinatorStreamStore).init();
+    verify(coordinatorStreamStore, never()).close();
+
     assertEquals(runner.status(), ApplicationStatus.UnsuccessfulFinish);
+  }
+
+  @Test
+  public void testKill() throws Exception {
+    Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    config = new MapConfig(cfgs);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    mockApp = (StreamApplication) appDesc -> {
+      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
+    };
+    prepareTest();
+
+    // return the jobConfigs from the planner
+    doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+    CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
+
+    doAnswer(i ->
+      {
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+        listener.afterStart();
+        return null;
+      }).when(sp).start();
+
+    doAnswer(i ->
+      {
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+        listener.afterStop();
+        return null;
+      }).when(sp).stop();
+
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(CoordinatorStreamStore.class));
+    doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
+
+    runner.run(externalContext);
+    runner.kill();
+
+    verify(coordinatorStreamStore).init();
+    verify(coordinatorStreamStore).close();
+
+    assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
 
   @Test
@@ -351,7 +432,10 @@ public class TestLocalApplicationRunner {
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
     StreamProcessor sp = mock(StreamProcessor.class);
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject());
+    CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
+    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject(), any(
+        CoordinatorStreamStore.class));
+    doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
   }
 
 }
