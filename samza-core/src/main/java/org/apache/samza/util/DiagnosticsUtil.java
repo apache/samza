@@ -24,13 +24,16 @@ import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
@@ -50,7 +53,6 @@ import scala.Option;
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
 
-
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
   // The file contents are serialized using {@link JsonSerde}.
@@ -61,9 +63,9 @@ public class DiagnosticsUtil {
 
     if (metadataFile.isDefined()) {
       MetricsHeader metricsHeader =
-          new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""), LocalContainerRunner.class.getName(),
-              Util.getTaskClassVersion(config), Util.getSamzaVersion(), Util.getLocalHost().getHostName(),
-              System.currentTimeMillis(), System.currentTimeMillis());
+          new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
+              LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),
+              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis());
 
       class MetadataFileContents {
         public final String version;
@@ -76,25 +78,29 @@ public class DiagnosticsUtil {
       }
 
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
-      MetadataFileContents metadataFileContents = new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
+      MetadataFileContents metadataFileContents =
+          new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
       FileUtil.writeToTextFile(metadataFile.get(), new String(new JsonSerde<>().toBytes(metadataFileContents)), false);
     } else {
       log.info("Skipping writing metadata file.");
     }
   }
 
-
   /**
    * Create a pair of DiagnosticsManager and Reporter for the given jobName, jobId, containerId, and execEnvContainerId,
    * if diagnostics is enabled.
    * execEnvContainerId is the ID assigned to the container by the cluster manager (e.g., YARN).
    */
-  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName, String jobId,
-      String containerId, Optional<String> execEnvContainerId, Config config) {
+  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
+      String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
 
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
     if (new JobConfig(config).getDiagnosticsEnabled()) {
+
+      ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+      int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
+      int containerNumCores = clusterManagerConfig.getNumCores();
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
@@ -111,16 +117,21 @@ public class DiagnosticsUtil {
 
       SystemStream diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsReporterStreamName.get());
 
-      Optional<String> diagnosticsSystemFactoryName = new SystemConfig(config).getSystemFactory(diagnosticsSystemStream.getSystem());
+      Optional<String> diagnosticsSystemFactoryName =
+          new SystemConfig(config).getSystemFactory(diagnosticsSystemStream.getSystem());
       if (!diagnosticsSystemFactoryName.isPresent()) {
         throw new SamzaException("Missing factory in config for system " + diagnosticsSystemStream.getSystem());
       }
 
       // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
       SystemFactory systemFactory = Util.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
-      SystemProducer systemProducer = systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
-      DiagnosticsManager diagnosticsManager = new DiagnosticsManager(jobName, jobId, containerId, execEnvContainerId.orElse(""), taskClassVersion,
-          samzaVersion, hostName, diagnosticsSystemStream, systemProducer, Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
+      SystemProducer systemProducer =
+          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
+      DiagnosticsManager diagnosticsManager =
+          new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
+              new StorageConfig(config).getNumStoresWithChangelog(), containerId, execEnvContainerId.orElse(""),
+              taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
 
       Option<String> blacklist = ScalaJavaUtil.JavaOptionals$.MODULE$.toRichOptional(
           metricsConfig.getMetricsSnapshotReporterBlacklist(diagnosticsReporterName)).toOption();

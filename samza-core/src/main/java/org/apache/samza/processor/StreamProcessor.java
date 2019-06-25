@@ -341,7 +341,7 @@ public class StreamProcessor {
     String jobName = new JobConfig(config).getName().get();
     String jobId = new JobConfig(config).getJobId();
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
-        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, processorId, Optional.empty(), config);
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, processorId, Optional.empty(), config);
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
