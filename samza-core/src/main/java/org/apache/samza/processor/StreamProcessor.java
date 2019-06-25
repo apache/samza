@@ -59,6 +59,7 @@ import org.apache.samza.task.TaskFactory;
 import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -388,8 +389,11 @@ public class StreamProcessor {
     // we propagate to the application runner maybe overwritten by container failure cause in case of interleaved execution.
     // It is acceptable since container exception is much more useful compared to timeout exception.
     // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
-    if (!hasContainerShutdown && containerException == null) {
-      containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+    if (!hasContainerShutdown) {
+      ThreadUtil.logThreadDump("Thread dump at failure for stopping container in stream processor");
+      if (containerException == null) {
+        containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+      }
     }
 
     return hasContainerShutdown;
