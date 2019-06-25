@@ -91,12 +91,6 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     val accessLog = storageConfig.getAccessLogEnabled(storeName)
 
     var maxMessageSize = storageConfig.getChangelogMaxMsgSizeBytes(storeName)
-    if (maxMessageSize > StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES) {
-      warn("Defined " + String.format(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, storeName) + " value: " + maxMessageSize
-        + " bytes is greater than maximum allowed value of " + StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES
-        + " bytes. Defaulting this value to " + StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES + " bytes instead.")
-      maxMessageSize = StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES
-    }
     val largeMessagesExpected = storageConfig.getExpectLargeMessages(storeName)
     val dropLargeMessage = storageConfig.getDropLargeMessages(storeName)
 
