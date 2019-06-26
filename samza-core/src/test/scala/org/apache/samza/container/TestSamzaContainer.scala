@@ -80,7 +80,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   def setup(): Unit = {
     MockitoAnnotations.initMocks(this)
     setupSamzaContainer(Some(this.applicationContainerContext))
-    when(this.metrics.containerStartupTime).thenReturn(mock[Gauge[Float]])
+    when(this.metrics.containerStartupTime).thenReturn(mock[Gauge[Long]])
   }
 
   @Test
