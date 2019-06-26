@@ -758,7 +758,7 @@ class SamzaContainer(
       if (containerListener != null) {
         containerListener.afterStart()
       }
-      metrics.containerStartupTime.update(System.nanoTime() - startTime)
+      metrics.containerStartupTime.set(System.nanoTime() - startTime)
       if (taskInstances.size > 0)
         runLoop.run
       else
