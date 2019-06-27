@@ -45,7 +45,7 @@ public class YarnConfig extends MapConfig {
   /**
    * (Optional) JVM options to include in the command line when executing the AM
    */
-  public static final String AM_JVM_OPTIONS = "yClusterBasedJobCoordinator.javaarn.am.opts";
+  public static final String AM_JVM_OPTIONS = "yarn.am.opts";
 
   /**
    * Determines whether a JMX server should be started on the AM
