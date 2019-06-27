@@ -629,8 +629,8 @@ public class ContainerStorageManager {
     // initialize each TaskStorageManager
     this.taskRestoreManagers.values().forEach(taskStorageManager -> taskStorageManager.initialize());
 
-    // Start store consumers
-    this.storeConsumers.values().forEach(systemConsumer -> systemConsumer.start());
+    // Start each store consumer once
+    this.storeConsumers.values().stream().distinct().forEach(systemConsumer -> systemConsumer.start());
 
     // Create a thread pool for parallel restores (and stopping of persistent stores)
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
@@ -657,8 +657,8 @@ public class ContainerStorageManager {
 
     executorService.shutdown();
 
-    // Stop store consumers
-    this.storeConsumers.values().forEach(systemConsumer -> systemConsumer.stop());
+    // Stop each store consumer once
+    this.storeConsumers.values().stream().distinct().forEach(systemConsumer -> systemConsumer.stop());
 
     // Now re-create persistent stores in read-write mode, leave non-persistent stores as-is
     recreatePersistentTaskStoresInReadWriteMode(this.containerModel, jobContext, containerContext,
