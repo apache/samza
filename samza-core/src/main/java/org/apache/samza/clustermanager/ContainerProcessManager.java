@@ -321,6 +321,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     if (processorId == null) {
       log.info("No running Processor ID found for Container ID: {} with Status: {}. Ignoring redundant notification.", containerId, resourceStatus.toString());
       state.redundantNotifications.incrementAndGet();
+
+      if (resourceStatus.getExitCode() != SamzaResourceStatus.SUCCESS) {
+        // the requested container failed before assigning the request to it.
+        // Remove from the buffer if it is there
+        containerAllocator.releaseResource(containerId);
+      }
       return;
     }
     state.runningProcessors.remove(processorId);
