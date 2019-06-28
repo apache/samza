@@ -78,9 +78,10 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
   S withDefaultSystem(SystemDescriptor<?> defaultSystemDescriptor);
 
   /**
-   * Sets the {@link ApplicationContainerContextFactory} for this application. Each task will be given access to a
-   * different instance of the {@link ApplicationContainerContext} that this creates. The context can be accessed
-   * through the {@link Context}.
+   * Sets the {@link ApplicationContainerContextFactory} for this application. This will be used to create one instance
+   * of an {@link ApplicationContainerContext} for each container. All tasks in the same container will share the same
+   * {@link ApplicationContainerContext} instance. The {@link ApplicationContainerContext} can be accessed through the
+   * {@link Context}.
    * <p>
    * Setting this is optional.
    * <p>
@@ -93,8 +94,8 @@ public interface ApplicationDescriptor<S extends ApplicationDescriptor> {
 
   /**
    * Sets the {@link ApplicationTaskContextFactory} for this application. Each task will be given access to a different
-   * instance of the {@link ApplicationTaskContext} that this creates. The context can be accessed through the
-   * {@link Context}.
+   * instance of the {@link ApplicationTaskContext} that this creates. The {@link ApplicationTaskContext} can be
+   * accessed through the {@link Context}.
    * <p>
    * Setting this is optional.
    * <p>
