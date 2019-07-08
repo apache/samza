@@ -20,6 +20,7 @@
 
 package org.apache.samza.config;
 
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,7 +88,10 @@ public class ClusterManagerConfig extends MapConfig {
    */
   public static final String CONTAINER_RETRY_COUNT = "yarn.container.retry.count";
   public static final String CLUSTER_MANAGER_CONTAINER_RETRY_COUNT = "cluster-manager.container.retry.count";
-  private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
+  public static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
+
+  public static final String CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS = "cluster-manager.container.host-affinity-retry.max.delay.ms";
+  public static final long DEFAULT_CONTAINER_RETRY_MAX_DELAY_MS = Duration.ofSeconds(120).toMillis();
 
   /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
@@ -178,6 +182,14 @@ public class ClusterManagerConfig extends MapConfig {
       return getInt(CONTAINER_RETRY_COUNT);
     } else {
       return DEFAULT_CONTAINER_RETRY_COUNT;
+    }
+  }
+
+  public long getContainerRetryMaxDelayMs() {
+    if (containsKey(CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS)) {
+      return getLong(CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS);
+    } else {
+      return DEFAULT_CONTAINER_RETRY_MAX_DELAY_MS;
     }
   }
 

@@ -18,10 +18,6 @@
  */
 package org.apache.samza.clustermanager;
 
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ResourceRequestState} maintains the state variables for all the resource requests and the allocated resources returned
@@ -49,7 +48,8 @@ public class ResourceRequestState {
   /**
    * Represents the queue of resource requests made by the {@link ContainerProcessManager}
    */
-  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<SamzaResourceRequest>();
+  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<>();
+
   /**
    * Maintain a map of hostname to the number of requests made for resources on this host
    * This state variable is used to look-up whether an allocated resource on a host was ever requested in the past.
@@ -359,7 +359,7 @@ public class ResourceRequestState {
    */
   public SamzaResourceRequest peekPendingRequest() {
     synchronized (lock) {
-      return this.requestsQueue.peek();
+      return requestsQueue.peek();
     }
   }
 
@@ -369,7 +369,7 @@ public class ResourceRequestState {
    */
   public int numPendingRequests() {
     synchronized (lock) {
-      return this.requestsQueue.size();
+      return requestsQueue.size();
     }
   }
 

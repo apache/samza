@@ -69,8 +69,8 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   @Override
   public void assignResourceRequests()  {
-    while (hasPendingRequest()) {
-      SamzaResourceRequest request = peekPendingRequest();
+    while (hasReadyPendingRequest()) {
+      SamzaResourceRequest request = peekReadyPendingRequest();
       String processorId = request.getProcessorId();
       String preferredHost = request.getPreferredHost();
       long requestCreationTime = request.getRequestTimestampMs();

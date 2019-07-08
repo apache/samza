@@ -19,6 +19,15 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableList;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Random;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -215,6 +224,46 @@ public class TestContainerRequestState {
     state.releaseResource("id1");
     assertEquals(0, state.getResourcesOnAHost("abc").size());
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
+  }
 
+  @Test
+  public void testPriorityQueueOrdering() {
+    PriorityQueue<SamzaResourceRequest> pq = new PriorityQueue<>();
+    Instant now = Instant.now().minusSeconds(1);
+
+    ImmutableList<SamzaResourceRequest> expectedOrder = ImmutableList.of(
+        createRequestForActive(now.minusSeconds(120)),
+        createRequestForActive(now),
+        createRequestForStandby(now.minusSeconds(120)),
+        createRequestForStandby(now),
+        createRequestForActive(now.plusSeconds(120)),
+        createRequestForActive(now.plusSeconds(240)),
+        createRequestForStandby(now.plusSeconds(120)),
+        createRequestForStandby(now.plusSeconds(240)));
+
+    SamzaResourceRequest[] copyExpectedOrder = new SamzaResourceRequest[expectedOrder.size()];
+    copyExpectedOrder = expectedOrder.toArray(copyExpectedOrder);
+    List<SamzaResourceRequest> shuffled = Arrays.asList(copyExpectedOrder);
+
+    Collections.shuffle(shuffled, new Random(Instant.now().toEpochMilli()));
+    pq.addAll(shuffled);
+
+    ArrayList priorityQueueOrder = new ArrayList();
+    for (int i = 0; i < expectedOrder.size(); ++i) {
+      priorityQueueOrder.add(pq.poll());
+    }
+    assertEquals(expectedOrder, priorityQueueOrder);
+  }
+
+  SamzaResourceRequest createRequestForActive(Instant requestTime) {
+    String randomHost = RandomStringUtils.randomAlphanumeric(4);
+    String randomId = RandomStringUtils.randomAlphanumeric(8);
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
+  }
+
+  SamzaResourceRequest createRequestForStandby(Instant requestTime) {
+    String randomHost = RandomStringUtils.randomAlphanumeric(4);
+    String randomId = RandomStringUtils.randomAlphanumeric(8) + "-standby"; // hyphen in ID denotes a standby processor
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
   }
 }

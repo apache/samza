@@ -19,10 +19,10 @@
 
 package org.apache.samza.clustermanager;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 /**
  * Specification of a Request for resources from a ClusterResourceManager. A
@@ -63,12 +63,16 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   private final long requestTimestampMs;
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now());
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
-    this.requestTimestampMs = System.currentTimeMillis();
+    this.requestTimestampMs = requestTimestamp.toEpochMilli();
     log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestampMs, this.requestId);
   }
 
@@ -96,6 +100,10 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     return memoryMB;
   }
 
+  public boolean isInFuture() {
+    return Instant.ofEpochMilli(requestTimestampMs).isAfter(Instant.now());
+  }
+
   @Override
   public String toString() {
     return "SamzaResourceRequest{" +
@@ -110,22 +118,31 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
 
   /**
    * Requests are ordered by the processor type and the time at which they were created.
-   * Active processors take precedence over standby processors, regardless of timestamp.
+   * Requests with timestamps in the future for retries take less precedence than timestamps in the past or current.
+   * Otherwise, active processors take precedence over standby processors, regardless of timestamp.
    * @param o the other
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
-    if (!StandbyTaskUtil.isStandbyContainer(this.processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
+    if (!isInFuture() && o.isInFuture()) {
       return -1;
     }
 
-    if (StandbyTaskUtil.isStandbyContainer(this.processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
+    if (isInFuture() && !o.isInFuture()) {
       return 1;
     }
 
-    if (this.requestTimestampMs < o.requestTimestampMs)
+    if (!StandbyTaskUtil.isStandbyContainer(processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return -1;
-    if (this.requestTimestampMs > o.requestTimestampMs)
+    }
+
+    if (StandbyTaskUtil.isStandbyContainer(processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
+      return 1;
+    }
+
+    if (requestTimestampMs < o.requestTimestampMs)
+      return -1;
+    if (requestTimestampMs > o.requestTimestampMs)
       return 1;
     return 0;
   }

@@ -18,6 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -27,8 +30,6 @@ import org.apache.samza.job.ShellCommandBuilder;
 import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 
 /**
@@ -175,11 +176,13 @@ public abstract class AbstractContainerAllocator implements Runnable {
   public abstract void requestResources(Map<String, String> processorToHostMapping);
 
   /**
-   * Checks if this allocator has a pending resource request.
+   * Checks if this allocator has a pending resource request with a request timestamp equal to or earlier than the current
+   * timestamp.
    * @return {@code true} if there is a pending request, {@code false} otherwise.
    */
-  protected final boolean hasPendingRequest() {
-    return peekPendingRequest() != null;
+  protected final boolean hasReadyPendingRequest() {
+    SamzaResourceRequest pending = peekReadyPendingRequest();
+    return pending != null;
   }
 
   /**
@@ -187,8 +190,9 @@ public abstract class AbstractContainerAllocator implements Runnable {
    *
    * @return  the pending request or {@code null} if there is no pending request.
    */
-  protected final SamzaResourceRequest peekPendingRequest() {
-    return resourceRequestState.peekPendingRequest();
+  protected final SamzaResourceRequest peekReadyPendingRequest() {
+    SamzaResourceRequest pendingRequest = resourceRequestState.peekPendingRequest();
+    return (pendingRequest == null || pendingRequest.isInFuture()) ? null : pendingRequest;
   }
 
   /**
@@ -198,12 +202,20 @@ public abstract class AbstractContainerAllocator implements Runnable {
    * @param preferredHost name of the host that you prefer to run the processor on
    */
   public final void requestResource(String processorId, String preferredHost) {
-    SamzaResourceRequest request = getResourceRequest(processorId, preferredHost);
+    requestResourceWithDelay(processorId, preferredHost, Duration.ZERO);
+  }
+
+  public final void requestResourceWithDelay(String processorId, String preferredHost, Duration delay) {
+    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, delay);
     issueResourceRequest(request);
   }
 
   public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost) {
-    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId);
+    return getResourceRequestWithDelay(processorId, preferredHost, Duration.ZERO);
+  }
+
+  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, Duration delay) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay));
   }
 
   public final void issueResourceRequest(SamzaResourceRequest request) {
