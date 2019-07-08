@@ -48,15 +48,15 @@ public class DiagnosticsStreamMessage {
   public static final String GROUP_NAME_FOR_DIAGNOSTICS_MANAGER = DiagnosticsManager.class.getName();
   // Using DiagnosticsManager as the group name for processor-stop-events, job-related params, and container model
 
-  private static final String SAMZACONTAINER_METRICS_GROUP_NAME = "org.apache.samza.container.SamzaContainerMetrics";
+  public static final String SAMZACONTAINER_METRICS_GROUP_NAME = "org.apache.samza.container.SamzaContainerMetrics";
   // Using SamzaContainerMetrics as the group name for exceptions to maintain compatibility with existing diagnostics
-  private static final String EXCEPTION_LIST_METRIC_NAME = "exceptions";
+  public static final String EXCEPTION_LIST_METRIC_NAME = "exceptions";
 
-  private static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
-  private static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
-  private static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
+  public static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
+  public static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
+  public static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
   public static final String CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME = "numStoresWithChangelog";
-  private static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
+  public static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
 
   private final MetricsHeader metricsHeader;
   private final Map<String, Map<String, Object>> metricsMessage;
