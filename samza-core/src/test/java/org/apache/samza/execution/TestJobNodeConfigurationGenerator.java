@@ -24,6 +24,7 @@ import java.util.Arrays;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
@@ -329,7 +330,6 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals("true", intStreamConfig.get("samza.delete.committed.messages"));
     assertEquals(physicalName, intStreamConfig.get("samza.physical.name"));
     assertEquals("true", intStreamConfig.get("samza.intermediate"));
-    assertEquals("oldest", intStreamConfig.get("samza.offset.default"));
   }
 
   private void validateStreamConfigures(Config config, Map<String, Serde> deserializedSerdes) {
