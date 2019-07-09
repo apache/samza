@@ -84,7 +84,6 @@ public class TestStreamEdge {
     config = edge.generateConfig();
     streamConfig = new StreamConfig(config);
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), true);
-    assertEquals(streamConfig.getDefaultStreamOffset(spec.toSystemStream()).get(), "oldest");
     assertEquals(streamConfig.getPriority(spec.toSystemStream()), Integer.MAX_VALUE);
   }
 }

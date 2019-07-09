@@ -121,21 +121,22 @@ public class StreamEdge {
   Config generateConfig() {
     Map<String, String> streamConfig = new HashMap<>();
     StreamSpec spec = getStreamSpec();
-    streamConfig.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), spec.getId()), spec.getSystemName());
-    streamConfig.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), spec.getId()), spec.getPhysicalName());
+    String streamId = spec.getId();
+    streamConfig.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), streamId), spec.getSystemName());
+    streamConfig.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), spec.getPhysicalName());
     if (isIntermediate()) {
-      streamConfig.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), spec.getId()), "true");
-      streamConfig.put(String.format(StreamConfig.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), spec.getId()), "true");
+      streamConfig.put(String.format(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID(), streamId), "true");
+      streamConfig.put(String.format(StreamConfig.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), streamId), "true");
 
       // Setting offset.default to oldest only if the job is running in batch mode
-      if (new ApplicationConfig(config).getAppMode().equals(ApplicationConfig.ApplicationMode.BATCH)) {
-        streamConfig.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), spec.getId()), "oldest");
+      if (ApplicationConfig.ApplicationMode.BATCH.equals(new ApplicationConfig(config).getAppMode())) {
+        streamConfig.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
       }
 
-      streamConfig.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), spec.getId()), String.valueOf(Integer.MAX_VALUE));
+      streamConfig.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID(), streamId), String.valueOf(Integer.MAX_VALUE));
     }
     spec.getConfig().forEach((property, value) -> {
-        streamConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX(), spec.getId()) + property, value);
+        streamConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX(), streamId) + property, value);
       });
 
     return new MapConfig(streamConfig);
