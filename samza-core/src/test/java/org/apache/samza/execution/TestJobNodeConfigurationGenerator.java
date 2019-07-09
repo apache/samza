@@ -329,7 +329,6 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals("true", intStreamConfig.get("samza.delete.committed.messages"));
     assertEquals(physicalName, intStreamConfig.get("samza.physical.name"));
     assertEquals("true", intStreamConfig.get("samza.intermediate"));
-    assertEquals("oldest", intStreamConfig.get("samza.offset.default"));
   }
 
   private void validateStreamConfigures(Config config, Map<String, Serde> deserializedSerdes) {
