@@ -62,7 +62,6 @@ class CliEnvironment {
    * -2: invalid value
    */
   int setEnvironmentVariable(String name, String value) throws ExecutorException{
-    name = name.toLowerCase();
     if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
       createShellExecutor(value);
       activeExecutorClassName = value;
