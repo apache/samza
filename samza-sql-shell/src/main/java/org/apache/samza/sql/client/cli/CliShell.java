@@ -19,9 +19,12 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.util.stream.Collectors;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -736,7 +739,7 @@ class CliShell {
     for (int i = 0; i < rowCount; ++i) {
       SqlSchema.SqlField sqlField = schema.getFields().get(i);
       String field = sqlField.getFieldName();
-      String type = sqlField.getFieldSchema().getFieldType().toString();
+      String type = getFieldDisplayValue(sqlField.getFieldSchema());
       int fieldLen = field.length();
       int typeLen = type.length();
       int fieldStartIdx = 0, typeStartIdx = 0;
@@ -775,6 +778,34 @@ class CliShell {
     CliUtil.appendTo(line, longestLineCharNum - 1, LINE_SEP);
     lines.add(line.toString());
     return lines;
+  }
+
+  private String getFieldDisplayValue(SqlFieldSchema fieldSchema) {
+    if (!isComplexField(fieldSchema.getFieldType())) {
+      return fieldSchema.getFieldType().toString();
+    }
+    SamzaSqlFieldType fieldType = fieldSchema.getFieldType();
+    switch (fieldType) {
+      case ARRAY:
+        return String.format("ARRAY(%s)", getFieldDisplayValue(fieldSchema.getElementSchema()));
+      case MAP:
+        return String.format("MAP(%s, %s)", SamzaSqlFieldType.STRING.toString(),
+            getFieldDisplayValue(fieldSchema.getValueScehma()));
+      case ROW:
+        String rowDisplayValue = fieldSchema.getRowSchema()
+            .getFields()
+            .stream()
+            .map(f -> getFieldDisplayValue(f.getFieldSchema()))
+            .collect(Collectors.joining(","));
+        return String.format("ROW(%s)", rowDisplayValue);
+      default:
+        throw new UnsupportedOperationException("Unknown field type " + fieldType);
+    }
+  }
+
+  private boolean isComplexField(SamzaSqlFieldType fieldtype) {
+    return fieldtype == SamzaSqlFieldType.ARRAY || fieldtype == SamzaSqlFieldType.MAP
+        || fieldtype == SamzaSqlFieldType.ROW;
   }
 
   // Trims: leading spaces; trailing spaces and ";"s
