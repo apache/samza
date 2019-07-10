@@ -274,8 +274,8 @@ These properties define Samza's storage mechanism for efficient [stateful stream
 |stores.**_store-name_**.<br>rocksdb.max.log.file.size.bytes|67108864|The maximum size in bytes of the RocksDB LOG file before it is rotated.|
 |stores.**_store-name_**.<br>rocksdb.keep.log.file.num|2|The number of RocksDB LOG files (including rotated LOG.old.* files) to keep.|
 |stores.**_store-name_**.<br>rocksdb.metrics.list|(none)|A list of [RocksDB properties](https://github.com/facebook/rocksdb/blob/master/include/rocksdb/db.h#L409) to expose as metrics (gauges).|
-|stores.**_store-name_**.<br>rocksdb.delete.obsolete.files.period.micros|21600000000|This property specifies the period in microseconds to delete obsolete files regardless of files removed during compaction. Allowed range is up to 9223372036854775807.
-|stores.**_store-name_**.<br>rocksdb.max.manifest.file.size|18446744073709551615|This property specifies the maximum size of the MANIFEST data file, after which it is rotated. Default value is also the maximum, making it practically unlimited: only one manifest file is used.
+|stores.**_store-name_**.<br>rocksdb.delete.obsolete.files.period.micros|21600000000|This property specifies the period in microseconds to delete obsolete files regardless of files removed during compaction. Allowed range is up to 9223372036854775807.|
+|stores.**_store-name_**.<br>rocksdb.max.manifest.file.size|18446744073709551615|This property specifies the maximum size of the MANIFEST data file, after which it is rotated. Default value is also the maximum, making it practically unlimited: only one manifest file is used.|
 
 ### <a name="deployment"></a>[5. Deployment](#deployment)
 Samza supports both standalone and clustered ([YARN](yarn-jobs.html)) [deployment models](../deployment/deployment-model.html). Below are the configurations options for both models.
