@@ -32,14 +32,17 @@ import org.apache.samza.sql.schema.SamzaSqlFieldType;
 public class UdfMetadata {
 
   private final String name;
+
+  private final String description;
   private final Method udfMethod;
   private final Config udfConfig;
   private final boolean disableArgCheck;
   private final List<SamzaSqlFieldType> arguments;
 
-  public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
+  public UdfMetadata(String name, String description, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
       boolean disableArgCheck) {
     this.name = name;
+    this.description = description;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
     this.arguments = arguments;
@@ -62,6 +65,13 @@ public class UdfMetadata {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * @return Returns the description of the udf.
+   */
+  public String getDescription() {
+    return description;
   }
 
   /**
