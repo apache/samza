@@ -39,14 +39,24 @@ public class UdfMetadata {
   private final boolean disableArgCheck;
   private final List<SamzaSqlFieldType> arguments;
 
+  private final SamzaSqlFieldType returnType;
+
   public UdfMetadata(String name, String description, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
-      boolean disableArgCheck) {
+      SamzaSqlFieldType returnType, boolean disableArgCheck) {
     this.name = name;
     this.description = description;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
     this.arguments = arguments;
+    this.returnType = returnType;
     this.disableArgCheck = disableArgCheck;
+  }
+
+  /**
+   * @return returns the returnType of the Samza SQL UDF.
+   */
+  public SamzaSqlFieldType getReturnType() {
+    return returnType;
   }
 
   public Config getUdfConfig() {
