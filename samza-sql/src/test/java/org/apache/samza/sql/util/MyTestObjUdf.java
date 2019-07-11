@@ -16,10 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.sql.util;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.context.Context;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -29,24 +29,20 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * UDF to test polymorphism.
+ * Test UDF used by unit and integration tests.
  */
-@SamzaSqlUdf(name = "MyTestPoly", description = "Test Polymorphism UDF.")
-public class MyTestPolyUdf implements ScalarUdf {
-  private static final Logger LOG = LoggerFactory.getLogger(MyTestPolyUdf.class);
+@SamzaSqlUdf(name = "MyTestObj", description = "Test UDF.")
+public class MyTestObjUdf implements ScalarUdf {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MyTestObjUdf.class);
 
   @SamzaSqlUdfMethod(params = SamzaSqlFieldType.INT32)
-  public Integer execute(Integer value) {
-    return value * 2;
-  }
-
-  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.STRING)
-  public Integer execute(String value) {
-    return value.length() * 2;
+  public Object execute(Integer value) {
+    return value;
   }
 
   @Override
-  public void init(Config udfConfig, Context context) {
+  public void init(Config udfConfig) {
     LOG.info("Init called with {}", udfConfig);
   }
 }

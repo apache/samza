@@ -42,12 +42,6 @@ public class MyTestUdf implements ScalarUdf {
     return value * 2;
   }
 
-  @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY)
-  public Integer execute(Object value) {
-    return ((Integer) value) * 2;
-  }
-
-
   @Override
   public void init(Config udfConfig, Context context) {
     LOG.info("Init called with {}", udfConfig);
