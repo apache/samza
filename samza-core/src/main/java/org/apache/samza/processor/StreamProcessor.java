@@ -37,7 +37,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ApplicationContainerContext;
@@ -57,8 +57,9 @@ import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.ScalaJavaUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -247,7 +248,7 @@ public class StreamProcessor {
     this.applicationDefinedContainerContextFactoryOptional = applicationDefinedContainerContextFactoryOptional;
     this.applicationDefinedTaskContextFactoryOptional = applicationDefinedTaskContextFactoryOptional;
     this.externalContextOptional = externalContextOptional;
-    this.taskShutdownMs = new TaskConfigJava(config).getShutdownMs();
+    this.taskShutdownMs = new TaskConfig(config).getShutdownMs();
     this.jobCoordinator = (jobCoordinator != null) ? jobCoordinator : createJobCoordinator();
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
@@ -341,23 +342,26 @@ public class StreamProcessor {
     String jobName = new JobConfig(config).getName().get();
     String jobId = new JobConfig(config).getJobId();
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
-        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, processorId, Optional.empty(), config);
+        DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, processorId, Optional.empty(), config);
     Option<DiagnosticsManager> diagnosticsManager = Option.empty();
     if (diagnosticsManagerReporterPair.isPresent()) {
       diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
-      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS(), diagnosticsManagerReporterPair.get().getValue());
+      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
     }
 
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), null, null, diagnosticsManager);
+        Option.apply(this.externalContextOptional.orElse(null)), getClass().getClassLoader(), null, null,
+        diagnosticsManager);
   }
 
   private JobCoordinator createJobCoordinator() {
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
-    return Util.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class).getJobCoordinator(processorId, config, metricsRegistry);
+    JobCoordinatorFactory jobCoordinatorFactory =
+        ReflectionUtil.getObj(getClass().getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class);
+    return jobCoordinatorFactory.getJobCoordinator(processorId, config, metricsRegistry);
   }
 
   /**
@@ -385,8 +389,11 @@ public class StreamProcessor {
     // we propagate to the application runner maybe overwritten by container failure cause in case of interleaved execution.
     // It is acceptable since container exception is much more useful compared to timeout exception.
     // We can infer from the logs about the fact that container shutdown timed out or not for additional inference.
-    if (!hasContainerShutdown && containerException == null) {
-      containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+    if (!hasContainerShutdown) {
+      ThreadUtil.logThreadDump("Thread dump at failure for stopping container in stream processor");
+      if (containerException == null) {
+        containerException = new TimeoutException("Container shutdown timed out after " + taskShutdownMs + " ms.");
+      }
     }
 
     return hasContainerShutdown;

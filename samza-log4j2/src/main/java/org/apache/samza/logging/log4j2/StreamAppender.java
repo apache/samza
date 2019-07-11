@@ -67,7 +67,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.apache.samza.util.HttpUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 @Plugin(name = "Stream", category = "Core", elementType = "appender", printObject = true)
 public class StreamAppender extends AbstractAppender {
@@ -300,7 +300,7 @@ public class StreamAppender extends AbstractAppender {
       throw new SamzaException("can not read the config", e);
     }
     // Make system producer drop producer errors for StreamAppender
-    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS(), "true"));
+    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS, "true"));
 
     return config;
   }
@@ -321,7 +321,8 @@ public class StreamAppender extends AbstractAppender {
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
         .orElseThrow(() -> new SamzaException(
             "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
-    SystemFactory systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
+    SystemFactory systemFactory =
+        ReflectionUtil.getObj(getClass().getClassLoader(), systemFactoryName, SystemFactory.class);
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
@@ -413,10 +414,11 @@ public class StreamAppender extends AbstractAppender {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LogEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
+      SerdeFactory<LogEvent> serdeFactory =
+          ReflectionUtil.getObj(getClass().getClassLoader(), serdeClass, SerdeFactory.class);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
-      String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);
+      String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS, serdeName);
       throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " +
           serdeKey + " property");
     }

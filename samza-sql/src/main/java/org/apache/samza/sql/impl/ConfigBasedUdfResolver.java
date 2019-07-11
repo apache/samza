@@ -105,8 +105,8 @@ public class ConfigBasedUdfResolver implements UdfResolver {
         String udfName = sqlUdf.name();
         for (Map.Entry<SamzaSqlUdfMethod, Method> udfMethod : udfMethods.entrySet()) {
           List<SamzaSqlFieldType> params = Arrays.asList(udfMethod.getKey().params());
-          udfs.add(new UdfMetadata(udfName, udfMethod.getValue(), udfConfig.subset(udfName + "."), params,
-              udfMethod.getKey().disableArgumentCheck()));
+          udfs.add(new UdfMetadata(udfName, sqlUdf.description(), udfMethod.getValue(), udfConfig.subset(udfName + "."), params,
+              udfMethod.getKey().returns(), udfMethod.getKey().disableArgumentCheck()));
         }
       }
     }

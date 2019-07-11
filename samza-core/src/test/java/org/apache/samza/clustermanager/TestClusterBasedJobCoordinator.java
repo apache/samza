@@ -80,7 +80,8 @@ public class TestClusterBasedJobCoordinator {
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "__samza_coordinator_test-job_1", new Partition(0)), new ArrayList<>());
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache();
     PowerMockito.mockStatic(CoordinatorStreamUtil.class);
-    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(new MockCoordinatorStreamSystemFactory());
+    when(CoordinatorStreamUtil.getCoordinatorSystemFactory(anyObject())).thenReturn(
+        new MockCoordinatorStreamSystemFactory());
     when(CoordinatorStreamUtil.getCoordinatorSystemStream(anyObject())).thenReturn(new SystemStream("kafka", "test"));
     when(CoordinatorStreamUtil.getCoordinatorStreamName(anyObject(), anyObject())).thenReturn("test");
   }
@@ -148,7 +149,8 @@ public class TestClusterBasedJobCoordinator {
     // ClusterBasedJobCoordinator will need to be refactored for better mock support.
     doThrow(stopException).when(mockStartpointManager).stop();
 
-    doReturn(mockContainerProcessManager).when(clusterCoordinator).createContainerProcessManager();
+    doReturn(mockContainerProcessManager).when(clusterCoordinator)
+        .createContainerProcessManager(getClass().getClassLoader());
     doReturn(mockStartpointManager).when(clusterCoordinator).createStartpointManager();
     try {
       clusterCoordinator.run();

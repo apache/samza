@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.udfs.ScalarUdf;
@@ -62,15 +63,15 @@ public class SamzaSqlExecutionContext implements Cloneable {
     }
   }
 
-  public ScalarUdf getOrCreateUdf(String clazz, String udfName) {
-    return udfInstances.computeIfAbsent(udfName, s -> createInstance(clazz, udfName));
+  public ScalarUdf getOrCreateUdf(String clazz, String udfName, Context context) {
+    return udfInstances.computeIfAbsent(udfName, s -> createInstance(clazz, udfName, context));
   }
 
-  public ScalarUdf createInstance(String clazz, String udfName) {
+  public ScalarUdf createInstance(String clazz, String udfName, Context context) {
     // Configs should be same for all the UDF methods within a UDF. Hence taking the first one.
     Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
     ScalarUdf scalarUdf = ReflectionUtil.getObj(getClass().getClassLoader(), clazz, ScalarUdf.class);
-    scalarUdf.init(udfConfig);
+    scalarUdf.init(udfConfig, context);
     return scalarUdf;
   }
 

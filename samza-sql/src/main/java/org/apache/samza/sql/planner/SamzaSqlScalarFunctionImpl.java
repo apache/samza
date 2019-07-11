@@ -20,6 +20,7 @@
 package org.apache.samza.sql.planner;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -77,11 +78,24 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
   @Override
   public CallImplementor getImplementor() {
     return RexImpTable.createImplementor((translator, call, translatedOperands) -> {
-      final Expression context = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
-      final Expression getUdfInstance = Expressions.call(ScalarUdf.class, context, getUdfMethod,
-          Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName));
+      final Expression sqlContext = Expressions.parameter(SamzaSqlExecutionContext.class, "sqlContext");
+      final Expression samzaContext = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
+      final Expression getUdfInstance = Expressions.call(ScalarUdf.class, sqlContext, getUdfMethod,
+          Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName), samzaContext);
+
+      List<Expression> convertedOperands = new ArrayList<>();
+      // SAMZA: 2230 To allow UDFS to accept Untyped arguments.
+      // We explicitly Convert the untyped arguments to type that the UDf expects.
+      for(int index = 0; index < translatedOperands.size(); index++) {
+        if (translatedOperands.get(index).type == Object.class && udfMethod.getParameters()[index].getType() != Object.class) {
+          convertedOperands.add(Expressions.convert_(translatedOperands.get(index), udfMethod.getParameters()[index].getType()));
+        } else {
+          convertedOperands.add(translatedOperands.get(index));
+        }
+      }
+
       final Expression callExpression = Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
-          translatedOperands);
+          convertedOperands);
       return callExpression;
     }, NullPolicy.NONE, false);
   }

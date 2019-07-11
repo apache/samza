@@ -193,4 +193,28 @@ public class TestContainerRequestState {
 
   }
 
+  @Test
+  public void testReleaseResource() {
+    // Host-affinity is enabled
+    ResourceRequestState state = new ResourceRequestState(true, manager);
+
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
+    state.addResourceRequest(request);
+    state.addResourceRequest(request1);
+
+    SamzaResource container = new SamzaResource(1, 1024, "abc", "id0");
+    SamzaResource container1 = new SamzaResource(1, 1024, ANY_HOST, "id1");
+    state.addResource(container);
+    state.addResource(container1);
+
+    state.releaseResource("id0");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
+
+    state.releaseResource("id1");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
+
+  }
 }

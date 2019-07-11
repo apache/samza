@@ -82,7 +82,7 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
   @Test(expected = SamzaException.class)
   public void testProcessingFutureCompletesAfterTaskTimeout() {
     Map<String, String> configs = new HashMap<>();
-    configs.put(TaskConfig.CALLBACK_TIMEOUT_MS(), "100");
+    configs.put(TaskConfig.CALLBACK_TIMEOUT_MS, "100");
     configs.put(PROCESS_JITTER, "200");
 
     runTest(PAGE_VIEWS, configs);

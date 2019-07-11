@@ -23,7 +23,7 @@ This tutorial depends on [hello-samza](../../../startup/hello-samza/{{site.versi
 
 Lets get started.
 
-### Run Hello Samza Jobs Locally 
+### Run Hello Samza Jobs Locally
 
 Follow the [hello-samza](../../../startup/hello-samza/{{site.version}}/) tutorial to setup a local grid and run the wikipedia jobs. Skip the [shutdown step](../../../startup/hello-samza/{{site.version}}/#shutdown) because you need the grid to still be running to query the REST service for jobs. You can optionally skip all the ```kafka-console-consumer.sh``` commands if you don't want to verify the output of the jobs.
 
@@ -48,7 +48,7 @@ Run the following commands:
 {% highlight bash %}
 cd samza-rest/build/distributions/
 mkdir -p deploy/samza-rest
-tar -xvf ./samza-rest-1.1.1-SNAPSHOT.tgz -C deploy/samza-rest
+tar -xvf ./samza-rest-1.3.0-SNAPSHOT.tgz -C deploy/samza-rest
 {% endhighlight %}
 
 #### Configure the Installations Path

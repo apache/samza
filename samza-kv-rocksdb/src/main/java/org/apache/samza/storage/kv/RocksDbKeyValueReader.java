@@ -22,13 +22,12 @@ package org.apache.samza.storage.kv;
 import java.io.File;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaSerializerConfig;
-import org.apache.samza.config.SerializerConfig$;
+import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.storage.StorageEngineFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -56,10 +55,12 @@ public class RocksDbKeyValueReader {
   public RocksDbKeyValueReader(String storeName, String dbPath, Config config) {
     // get the key serde and value serde from the config
     StorageConfig storageConfig = new StorageConfig(config);
-    JavaSerializerConfig serializerConfig = new JavaSerializerConfig(config);
+    SerializerConfig serializerConfig = new SerializerConfig(config);
 
-    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig);
-    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig);
+    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig,
+        getClass().getClassLoader());
+    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig,
+        getClass().getClassLoader());
 
     // get db options
     Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);
@@ -116,11 +117,9 @@ public class RocksDbKeyValueReader {
    * @param serializerConfig serializer config
    * @return a Serde of this serde name
    */
-  private Serde<Object> getSerdeFromName(String name, JavaSerializerConfig serializerConfig) {
-    String serdeClassName = serializerConfig.getSerdeClass(name);
-    if (serdeClassName == null) {
-      serdeClassName = SerializerConfig$.MODULE$.getSerdeFactoryName(name);
-    }
-    return Util.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
+  private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig, ClassLoader classLoader) {
+    String serdeClassName =
+        serializerConfig.getSerdeFactoryClass(name).orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(name));
+    return ReflectionUtil.getObj(classLoader, serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
 }

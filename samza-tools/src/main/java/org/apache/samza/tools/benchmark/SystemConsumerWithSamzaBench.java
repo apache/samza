@@ -70,7 +70,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     props.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     props.put(String.format(ConfigBasedSspGrouperFactory.CONFIG_STREAM_PARTITIONS, streamId),
         Joiner.on(",").join(partitions));
-    props.put(TaskConfig.GROUPER_FACTORY(), ConfigBasedSspGrouperFactory.class.getName());
+    props.put(TaskConfig.GROUPER_FACTORY, ConfigBasedSspGrouperFactory.class.getName());
   }
 
   public void start() throws IOException, InterruptedException {

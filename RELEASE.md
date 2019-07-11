@@ -26,7 +26,7 @@ And before you proceed, do the following steps:
    * Checkout the $VERSION branch.
    * Update the gradle.properties s.t. the following property is $VERSION w/o the suffix '-SNAPSHOT':
       version=$VERSION
-   * Change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'. 
+   * Change the samza_executable variable in samza-test/src/main/python/configs/tests.json to $VERSION w/o the suffix '-SNAPSHOT'.
    * Change the samza-test versions in samza-test/src/main/config/join/README to $VERSION w/o the suffix '-SNAPSHOT'.
    * Change the executable version in samza-test/src/main/python/stream_processor.py to $VERSION w/o the suffix '-SNAPSHOT'.
    * Push the changes to the $VERSION branch
@@ -149,6 +149,7 @@ The instructions above publish the Samza artifacts for scala 2.11. To publish fo
 
 If the VOTE has successfully passed on the release candidate, you can log in to the  [repository web interface](https://repository.apache.org) (same as above) and "release"  the org.apache.samza repository listed under "Staging Repositories". This may take a minute or so.
 This will publish the samza release artifacts to the open source [maven repository](https://repo1.maven.org/maven2).
+Update gradle.properties with the next master version (1.0.0 -> 1.1.0 for example).
 
 ## Steps to Upload Source Tarball to Apache SVN
 
@@ -158,7 +159,7 @@ Check out the following Apache dist SVN to local:
    svn checkout https://dist.apache.org/repos/dist/release/samza samza-dist
 ```
 
-Create the new version's sub-directory and add the source tarball, MD5, and asc files from the 
+Create the new version's sub-directory and add the source tarball, MD5, and asc files from the
 previous step to the new directory:
 
    ```bash
@@ -177,11 +178,11 @@ Commit to Apache release SVN
 ```
 
 Check the download link [here](http://www-us.apache.org/dist/samza/) to make sure that the mirror
-site has picked up the new release. The third-party mirrors may take upto 24 hours to pick-up the release. 
-In order to ensure that the release is available in public mirrors, wait for the release jars 
+site has picked up the new release. The third-party mirrors may take upto 24 hours to pick-up the release.
+In order to ensure that the release is available in public mirrors, wait for the release jars
 to show up in [maven central](http://search.maven.org/#search%7Cga%7C1%7Csamza). A full list of mirrors can be found [here](http://www.apache.org/dyn/closer.cgi).
 Do not publish the website or any public document until the release jars are available for download.
 
 ## Steps to Update Public Documentation
 
-Please refer to docs/README.md, specifically "Release-new-version Website Checklist" section. 
+Please refer to docs/README.md, specifically "Release-new-version Website Checklist" section.

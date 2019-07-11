@@ -19,17 +19,13 @@
 
 package org.apache.samza.config
 
-import org.I0Itec.zkclient.ZkClient
-import kafka.utils.ZkUtils
-import org.apache.samza.config.KafkaConfig.{Config2Kafka}
-import org.apache.samza.config.JobConfig.{REGEX_RESOLVED_STREAMS}
 import org.apache.samza.SamzaException
+import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
+import org.apache.samza.system.SystemStream
 import org.apache.samza.util.{Logging, StreamUtil}
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 import scala.collection._
-import org.apache.samza.config.TaskConfig.Config2Task
-import org.apache.samza.system.SystemStream
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -45,20 +41,22 @@ import org.apache.samza.system.SystemStream
  * task.inputs=kafka.somestream
  * systems.kafka.streams.somestream.foo=bar
  *
- * @see samza.config.KafkaConfig.getRegexResolvedStreams
+ * @see samza.config.JobConfig.getRegexResolvedStreams
  *
  */
 class RegExTopicGenerator extends ConfigRewriter with Logging {
 
   def rewrite(rewriterName: String, config: Config): Config = {
-    val regex = config
+    val jobConfig = new JobConfig(config)
+    val regex = jobConfig
       .getRegexResolvedStreams(rewriterName)
       .getOrElse(throw new SamzaException("No %s defined in config" format REGEX_RESOLVED_STREAMS))
-    val systemName = config
+    val systemName = jobConfig
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
-    val topics = getTopicsFromZK(rewriterName, config)
-    val existingInputStreams = config.getInputStreams
+    val topics = getTopicsFromSystemAdmin(rewriterName, config)
+    val taskConfig = new TaskConfig(config)
+    val existingInputStreams = JavaConverters.asScalaSetConverter(taskConfig.getInputStreams).asScala.toSet
     val newInputStreams = new mutable.HashSet[SystemStream]
     val keysAndValsToAdd = new mutable.HashMap[String, String]
 
@@ -79,7 +77,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       newInputStreams.add(m)
 
       // For each topic that matched, generate all the specified configs
-      config
+      jobConfig
         .getRegexResolvedInheritedConfig(rewriterName)
         .asScala
         .foreach(kv => keysAndValsToAdd.put("systems." + m.getSystem + ".streams." + m.getStream + "." + kv._1, kv._2))
@@ -97,19 +95,20 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     new MapConfig(((keysAndValsToAdd ++ config.asScala) += inputStreams).asJava)
   }
 
-  def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = {
-    val systemName = config
+  def getTopicsFromSystemAdmin(rewriterName: String, config: Config): Seq[String] = {
+    val systemName = new JobConfig(config)
       .getRegexResolvedSystem(rewriterName)
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
-    val consumerConfig = KafkaConsumerConfig.getKafkaSystemConsumerConfig(config, systemName, "")
-    val zkConnect = Option(consumerConfig.getZkConnect)
-      .getOrElse(throw new SamzaException("No zookeeper.connect for system %s defined in config." format systemName))
-    val zkClient = new ZkClient(zkConnect, 6000, 6000)
 
+    var systemStreams = Seq.empty[String]
+    val systemAdmin = new SystemConfig(config).getSystemAdmin(systemName)
     try {
-      ZkUtils(zkClient, isZkSecurityEnabled = false).getAllTopics()
+      systemAdmin.start()
+      systemStreams =
+        systemStreams ++ systemAdmin.getAllSystemStreams.asScala.map(systemStream => systemStream.getStream).toSeq
     } finally {
-      zkClient.close()
+      systemAdmin.stop();
     }
+    systemStreams
   }
 }

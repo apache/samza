@@ -137,7 +137,7 @@ public class TestLocalTableRead {
   private LocalTable createTable(boolean isTimerDisabled) {
     Map<String, String> config = new HashMap<>();
     if (isTimerDisabled) {
-      config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
+      config.put(MetricsConfig.METRICS_TIMER_ENABLED, "false");
     }
     Context context = mock(Context.class);
     JobContext jobContext = mock(JobContext.class);
