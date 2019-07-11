@@ -205,4 +205,12 @@ public class StorageConfig extends MapConfig {
     Config subConfig = subset(STORE_PREFIX, true);
     return subConfig.keySet().stream().anyMatch(key -> key.endsWith(CHANGELOG_SUFFIX));
   }
+
+  /**
+   * Helper method to get the number of stores configured with a changelog.
+   */
+  public int getNumStoresWithChangelog() {
+    Config subConfig = subset(STORE_PREFIX, true);
+    return new Long(subConfig.keySet().stream().filter(key -> key.endsWith(CHANGELOG_SUFFIX)).count()).intValue();
+  }
 }

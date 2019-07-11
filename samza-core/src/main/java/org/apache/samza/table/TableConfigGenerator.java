@@ -90,7 +90,7 @@ public class TableConfigGenerator {
     serdes.forEach(serde -> {
         String serdeName = serdeUUIDs.computeIfAbsent(serde,
             s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+        serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
             base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 

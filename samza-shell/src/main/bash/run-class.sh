@@ -81,7 +81,8 @@ else
   echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
 fi
 
-if [ -z "$JAVA_HOME" ]; then
+# In some cases (AWS) $JAVA_HOME/bin doesn't contain jar.
+if [ -z "$JAVA_HOME" ] || [ ! -e "$JAVA_HOME/bin/jar" ]; then
   JAR="jar"
 else
   JAR="$JAVA_HOME/bin/jar"

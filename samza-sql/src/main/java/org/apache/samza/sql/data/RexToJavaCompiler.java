@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.data;
 
@@ -29,7 +29,6 @@ import java.lang.reflect.Type;
 import java.util.List;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.JavaRowFormat;
-import org.apache.calcite.adapter.enumerable.PhysType;
 import org.apache.calcite.adapter.enumerable.PhysTypeImpl;
 import org.apache.calcite.adapter.enumerable.RexToLixTranslator;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -47,8 +46,11 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
+import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.codehaus.commons.compiler.CompileException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
@@ -111,26 +113,27 @@ public class RexToJavaCompiler {
     final RexProgram program = programBuilder.getProgram();
 
     final BlockBuilder builder = new BlockBuilder();
-    final ParameterExpression executionContext = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
+    final ParameterExpression sqlContext = Expressions.parameter(SamzaSqlExecutionContext.class, "sqlContext");
+    final ParameterExpression context = Expressions.parameter(Context.class, "context");
     final ParameterExpression root = DataContext.ROOT;
     final ParameterExpression inputValues = Expressions.parameter(Object[].class, "inputValues");
     final ParameterExpression outputValues = Expressions.parameter(Object[].class, "outputValues");
-    final JavaTypeFactoryImpl javaTypeFactory = new SamzaSqlJavaTypeFactoryImpl(rexBuilder.getTypeFactory().getTypeSystem());
+    final JavaTypeFactoryImpl javaTypeFactory =
+        new SamzaSqlJavaTypeFactoryImpl(rexBuilder.getTypeFactory().getTypeSystem());
 
     // public void execute(Object[] inputValues, Object[] outputValues)
     final RexToLixTranslator.InputGetter inputGetter = new RexToLixTranslator.InputGetterImpl(ImmutableList.of(
-        Pair.of(
-            Expressions.variable(Object[].class, "inputValues"),
+        Pair.of(Expressions.variable(Object[].class, "inputValues"),
             PhysTypeImpl.of(javaTypeFactory, inputRowType, JavaRowFormat.ARRAY, false))));
 
     final List<org.apache.calcite.linq4j.tree.Expression> list =
-        RexToLixTranslator.translateProjects(program, javaTypeFactory, builder, null, DataContext.ROOT, inputGetter,
-            null);
+        RexToLixTranslator.translateProjects(program, javaTypeFactory, SqlConformanceEnum.DEFAULT, builder, null,
+            DataContext.ROOT, inputGetter, null);
     for (int i = 0; i < list.size(); i++) {
       builder.add(Expressions.statement(
           Expressions.assign(Expressions.arrayIndex(outputValues, Expressions.constant(i)), list.get(i))));
     }
-    return createSamzaExpressionFromCalcite(executionContext, root, inputValues, outputValues, builder.toBlock());
+    return createSamzaExpressionFromCalcite(sqlContext, context, root, inputValues, outputValues, builder.toBlock());
   }
 
   /**
@@ -159,14 +162,14 @@ public class RexToJavaCompiler {
    *
    */
   static org.apache.samza.sql.data.Expression createSamzaExpressionFromCalcite(ParameterExpression executionContext,
-      ParameterExpression dataContext, ParameterExpression inputValues, ParameterExpression outputValues,
-      BlockStatement block) {
+      ParameterExpression context, ParameterExpression dataContext, ParameterExpression inputValues,
+      ParameterExpression outputValues, BlockStatement block) {
     final List<MemberDeclaration> declarations = Lists.newArrayList();
 
     // public void execute(Object[] inputValues, Object[] outputValues)
     declarations.add(
         Expressions.methodDecl(Modifier.PUBLIC, void.class, SamzaBuiltInMethod.EXPR_EXECUTE2.method.getName(),
-            ImmutableList.of(executionContext, dataContext, inputValues, outputValues), block));
+            ImmutableList.of(executionContext, context, dataContext, inputValues, outputValues), block));
 
     final ClassDeclaration classDeclaration = Expressions.classDecl(Modifier.PUBLIC, "SqlExpression", null,
         ImmutableList.<Type>of(org.apache.samza.sql.data.Expression.class), declarations);
@@ -209,7 +212,7 @@ public class RexToJavaCompiler {
    * Represents the methods in the class {@link Expression}
    */
   public enum SamzaBuiltInMethod {
-    EXPR_EXECUTE2(org.apache.samza.sql.data.Expression.class, "execute", SamzaSqlExecutionContext.class,
+    EXPR_EXECUTE2(org.apache.samza.sql.data.Expression.class, "execute", SamzaSqlExecutionContext.class, Context.class,
         DataContext.class, Object[].class, Object[].class);
 
     public final Method method;

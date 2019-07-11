@@ -22,8 +22,7 @@ package org.apache.samza.job.local
 import java.util
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.TaskConfig._
-import org.apache.samza.config.{Config, JobConfig}
+import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
@@ -33,7 +32,7 @@ import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, Str
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, ReflectionUtil}
 
 import scala.collection.JavaConversions._
 
@@ -56,7 +55,9 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val classLoader = getClass.getClassLoader
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+      coordinatorStreamStore, classLoader, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
@@ -69,7 +70,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
     metadataResourceUtil.createResources()
 
     // fan out the startpoints
@@ -86,19 +87,11 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val fwkPath = JobConfig.getFwkPath(config) // see if split deployment is configured
     info("Process job. using fwkPath = " + fwkPath)
 
-    val commandBuilder = {
-      config.getCommandClass match {
-        case Some(cmdBuilderClassName) => {
-          // A command class was specified, so we need to use a process job to
-          // execute the command in its own process.
-          Util.getObj(cmdBuilderClassName, classOf[CommandBuilder])
-        }
-        case _ => {
-          info("Defaulting to ShellCommandBuilder")
-          new ShellCommandBuilder
-        }
-      }
-    }
+    val taskConfig = new TaskConfig(config)
+    val commandBuilderClass = taskConfig.getCommandClass(classOf[ShellCommandBuilder].getName)
+    info("Using command builder class %s" format commandBuilderClass)
+    val commandBuilder = ReflectionUtil.getObj(classLoader, commandBuilderClass, classOf[CommandBuilder])
+
     // JobCoordinator is stopped by ProcessJob when it exits
     coordinator.start
 

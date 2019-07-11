@@ -73,7 +73,7 @@ public class TestRemoteJobPlanner {
 
     remotePlanner.prepareJobs();
 
-    verify(streamManager, times(0)).clearStreamsFromPreviousRun(any());
+    verify(streamManager, times(0)).clearStreamsFromPreviousRun(any(), any());
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
     verify(streamManager).createStreams(captor.capture());
     List<StreamSpec> streamSpecs = captor.getValue();

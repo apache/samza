@@ -35,7 +35,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
   private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-%s-coordinationData";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
-  private static final String PROTOCOL_VERSION = "1.0";
+  private static final String PROTOCOL_VERSION = "2.0";
 
   /**
    * Instantiates an {@link ZkJobCoordinator} using the {@link Config}.
@@ -49,7 +49,8 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
-    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils);
+    ZkMetadataStore metadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), config, metricsRegistry);
+    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils, metadataStore);
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -226,6 +227,25 @@ public class ResourceRequestState {
         clearState();
       }
       return numReleasedResources;
+    }
+  }
+
+  /**
+   * Releases a single resource based on containerId.
+   * @param containerId Yarn container ID
+   */
+  public void releaseResource(String containerId) {
+    if (StringUtils.isEmpty(containerId)) {
+      log.warn("ContainerId is not specified");
+      return;
+    }
+
+    synchronized (lock) {
+      allocatedResources.values().forEach(resources -> {
+          if (resources != null) {
+            resources.removeIf(r -> containerId.equals(r.getContainerId()));
+          }
+        });
     }
   }
 

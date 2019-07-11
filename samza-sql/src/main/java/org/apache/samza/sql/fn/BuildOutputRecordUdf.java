@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -64,7 +65,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 @SamzaSqlUdf(name = "BuildOutputRecord", description = "Creates an Output record.")
 public class BuildOutputRecordUdf implements ScalarUdf {
   @Override
-  public void init(Config udfConfig) {
+  public void init(Config udfConfig, Context context) {
   }
 
   @SamzaSqlUdfMethod(disableArgumentCheck = true)

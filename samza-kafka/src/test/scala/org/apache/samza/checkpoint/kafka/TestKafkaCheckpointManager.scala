@@ -33,7 +33,7 @@ import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, Util}
+import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, ReflectionUtil}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
@@ -214,7 +214,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
-    val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
+    val systemFactory = ReflectionUtil.getObj(getClass.getClassLoader, systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
     new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)

@@ -21,7 +21,7 @@ package org.apache.samza.coordinator;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.ChangelogStreamManager;
@@ -39,9 +39,10 @@ public class MetadataResourceUtil {
    * @param jobModel the loaded {@link JobModel}
    * @param metricsRegistry the registry for reporting metrics.
    */
-  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry) {
+  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry, ClassLoader classLoader) {
     this.jobModel = jobModel;
-    this.checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(metricsRegistry);
+    TaskConfig taskConfig = new TaskConfig(jobModel.getConfig());
+    this.checkpointManager = taskConfig.getCheckpointManager(metricsRegistry, classLoader).orElse(null);
   }
 
   @VisibleForTesting

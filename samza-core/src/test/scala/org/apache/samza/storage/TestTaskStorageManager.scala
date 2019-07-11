@@ -886,11 +886,27 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     var mockSerdes: Map[String, Serde[AnyRef]] = HashMap[String, Serde[AnyRef]]((classOf[StringSerdeFactory].getCanonicalName, Mockito.mock(classOf[Serde[AnyRef]])))
 
 
-    containerStorageManager = new ContainerStorageManager(containerModel, streamMetadataCache, mockSystemAdmins,
-      changeLogSystemStreams.asJava, Map[String, util.Set[SystemStream]]().asJava, storageEngineFactories.asJava, systemFactories.asJava, mockSerdes.asJava, config,
-      new HashMap[TaskName, TaskInstanceMetrics]().asJava, Mockito.mock(classOf[SamzaContainerMetrics]), Mockito.mock(classOf[JobContext]),
-      Mockito.mock(classOf[ContainerContext]), new HashMap[TaskName, TaskInstanceCollector].asJava, loggedStoreBaseDir, TaskStorageManagerBuilder.defaultStoreBaseDir, 1,
-      null, new SystemClock)
+    containerStorageManager = new ContainerStorageManager(
+      containerModel,
+      streamMetadataCache,
+      mockSystemAdmins,
+      changeLogSystemStreams.asJava,
+      Map[String, util.Set[SystemStream]]().asJava,
+      storageEngineFactories.asJava,
+      systemFactories.asJava,
+      mockSerdes.asJava,
+      config,
+      new HashMap[TaskName, TaskInstanceMetrics]().asJava,
+      Mockito.mock(classOf[SamzaContainerMetrics]),
+      Mockito.mock(classOf[JobContext]),
+      Mockito.mock(classOf[ContainerContext]),
+      new HashMap[TaskName, TaskInstanceCollector].asJava,
+      loggedStoreBaseDir,
+      TaskStorageManagerBuilder.defaultStoreBaseDir,
+      1,
+      null,
+      new SystemClock,
+      getClass.getClassLoader)
     this
   }
 

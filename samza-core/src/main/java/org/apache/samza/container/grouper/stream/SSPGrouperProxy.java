@@ -29,13 +29,13 @@ import java.util.HashSet;
 import com.google.common.base.Preconditions;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,12 +51,12 @@ public class SSPGrouperProxy {
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
   private final SystemStreamPartitionGrouper grouper;
 
-  public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper) {
+  public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper, ClassLoader classLoader) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(grouper);
     this.grouper = grouper;
-    this.broadcastSystemStreamPartitions = new TaskConfigJava(config).getBroadcastSystemStreamPartitions();
-    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config);
+    this.broadcastSystemStreamPartitions = new TaskConfig(config).getBroadcastSystemStreamPartitions();
+    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config, classLoader);
   }
 
   /**
@@ -171,10 +171,11 @@ public class SSPGrouperProxy {
    * @param config the configuration of the samza job.
    * @return the instantiated {@link SystemStreamPartitionMapper} object.
    */
-  private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config) {
+  private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config, ClassLoader classLoader) {
     JobConfig jobConfig = new JobConfig(config);
     String systemStreamPartitionMapperClass = jobConfig.getSystemStreamPartitionMapperFactoryName();
-    SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory = Util.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
+    SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory =
+        ReflectionUtil.getObj(classLoader, systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
     return systemStreamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 

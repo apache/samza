@@ -34,7 +34,7 @@ public class ZkJobCoordinatorMetrics extends MetricsBase {
   /**
    * Denotes if the processor is a leader or not
    */
-  public final Gauge<Boolean> isLeader;
+  public final Gauge<Integer> isLeader;
 
   /**
    * Number of times a barrier was created by the leader
@@ -60,7 +60,7 @@ public class ZkJobCoordinatorMetrics extends MetricsBase {
   public ZkJobCoordinatorMetrics(MetricsRegistry metricsRegistry) {
     super(metricsRegistry);
     this.metricsRegistry = metricsRegistry;
-    this.isLeader = newGauge("is-leader", false);
+    this.isLeader = newGauge("is-leader", 0);
     this.barrierCreation = newCounter("barrier-creation");
     this.barrierStateChange = newCounter("barrier-state-change");
     this.barrierError = newCounter("barrier-error");

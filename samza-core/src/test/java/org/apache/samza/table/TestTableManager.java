@@ -81,14 +81,14 @@ public class TestTableManager {
 
   @Test(expected = IllegalStateException.class)
   public void testInitFailsWithoutInitializingLocalStores() {
-    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()));
+    TableManager tableManager = new TableManager(new MapConfig(new HashMap<>()), getClass().getClassLoader());
     tableManager.getTable("dummy");
   }
 
   private void doTestInit(Map<String, String> map) {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
     storageEngines.put(TABLE_ID, mock(StorageEngine.class));
-    TableManager tableManager = new TableManager(new MapConfig(map));
+    TableManager tableManager = new TableManager(new MapConfig(map), getClass().getClassLoader());
     tableManager.init(new MockContext());
 
     for (int i = 0; i < 2; i++) {
@@ -108,14 +108,14 @@ public class TestTableManager {
 
   private void addKeySerde(Map<String, String> map) {
     String serdeId = "key-serde";
-    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
+    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeId),
         serializeSerde(new IntegerSerde()));
     map.put(String.format(JavaTableConfig.STORE_KEY_SERDE, TABLE_ID), serdeId);
   }
 
   private void addValueSerde(Map<String, String> map) {
     String serdeId = "value-serde";
-    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeId),
+    map.put(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeId),
             serializeSerde(new StringSerde("UTF-8")));
     map.put(String.format(JavaTableConfig.STORE_MSG_SERDE, TABLE_ID), serdeId);
   }

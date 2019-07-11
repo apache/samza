@@ -78,6 +78,11 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
   @Override
   public CallImplementor getImplementor() {
     return RexImpTable.createImplementor((translator, call, translatedOperands) -> {
+      final Expression sqlContext = Expressions.parameter(SamzaSqlExecutionContext.class, "sqlContext");
+      final Expression samzaContext = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
+      final Expression getUdfInstance = Expressions.call(ScalarUdf.class, sqlContext, getUdfMethod,
+          Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName), samzaContext);
+
       List<Expression> convertedOperands = new ArrayList<>();
       // SAMZA: 2230 To allow UDFS to accept Untyped arguments.
       // We explicitly Convert the untyped arguments to type that the UDf expects.
@@ -88,9 +93,7 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
           convertedOperands.add(translatedOperands.get(index));
         }
       }
-      final Expression context = Expressions.parameter(SamzaSqlExecutionContext.class, "context");
-      final Expression getUdfInstance = Expressions.call(ScalarUdf.class, context, getUdfMethod,
-          Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName));
+
       final Expression callExpression = Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
           convertedOperands);
       return callExpression;

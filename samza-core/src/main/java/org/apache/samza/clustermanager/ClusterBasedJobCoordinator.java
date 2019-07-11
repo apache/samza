@@ -33,7 +33,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
 import org.apache.samza.coordinator.JobModelManager;
@@ -183,27 +183,31 @@ public class ClusterBasedJobCoordinator {
 
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
-    jobModelManager = JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(),
-                                            coordinatorStreamStore, metrics);
+    ClassLoader classLoader = getClass().getClassLoader();
+    jobModelManager =
+        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore,
+            classLoader, metrics);
 
     hasDurableStores = new StorageConfig(config).hasDurableStores();
     state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
     systemAdmins = new SystemAdmins(config);
     partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins);
+
+    Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
+    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
+
     clusterManagerConfig = new ClusterManagerConfig(config);
     isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
 
     jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = createContainerProcessManager();
+    containerProcessManager = createContainerProcessManager(classLoader);
   }
 
   /**
    * Starts the JobCoordinator.
-   *
    */
   public void run() {
     if (!isStarted.compareAndSet(false, true)) {
@@ -232,7 +236,7 @@ public class ClusterBasedJobCoordinator {
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, metrics);
+          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader());
       metadataResourceUtil.createResources();
 
       // fan out the startpoints
@@ -316,7 +320,7 @@ public class ClusterBasedJobCoordinator {
 
   private Optional<StreamPartitionCountMonitor> getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
+    Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
@@ -333,7 +337,7 @@ public class ClusterBasedJobCoordinator {
       }));
   }
 
-  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins) {
+  private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
 
     // if input regex monitor is not enabled return empty
     if (new JobConfig(config).getMonitorRegexEnabled()) {
@@ -342,7 +346,6 @@ public class ClusterBasedJobCoordinator {
     }
 
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");
     }
@@ -401,8 +404,8 @@ public class ClusterBasedJobCoordinator {
   }
 
   @VisibleForTesting
-  ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics);
+  ContainerProcessManager createContainerProcessManager(ClassLoader classLoader) {
+    return new ContainerProcessManager(config, state, metrics, classLoader);
   }
 
   /**

@@ -20,7 +20,7 @@
 package org.apache.samza.metrics
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.{ClusterManagerConfig, Config}
+import org.apache.samza.config.{ClusterManagerConfig, Config, MetricsConfig}
 import org.apache.samza.util.Logging
 
 /**

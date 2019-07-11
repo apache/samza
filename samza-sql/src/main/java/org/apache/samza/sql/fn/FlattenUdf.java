@@ -21,6 +21,7 @@ package org.apache.samza.sql.fn;
 
 import java.util.List;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
@@ -30,11 +31,11 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 @SamzaSqlUdf(name = "Flatten", description = "Flattens the array.")
 public class FlattenUdf implements ScalarUdf {
   @Override
-  public void init(Config udfConfig) {
+  public void init(Config udfConfig, Context context) {
   }
 
   @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ARRAY)
   public Object execute(List value) {
-    return value != null && !value.isEmpty() ? value.get(0) : value;
+    return value;
   }
 }

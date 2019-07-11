@@ -309,8 +309,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     runApplication(new MapConfig(staticConfigs));
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
-    // BUG Compound boolean checks dont work in calcite
-    Assert.assertEquals(0, outMessages.size());
+    Assert.assertEquals(numMessages / 2, outMessages.size());
   }
 
   @Test
@@ -339,7 +338,27 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
-        + " select id, NOT(id = 5) as bool_value, CASE WHEN id IN (5, 6, 7) THEN 2 WHEN id < 5 THEN 0 ELSE NULL END as long_value, 'test' || 'foo' as string_value from testavro.SIMPLE1";
+        + " select id, NOT(id = 5) as bool_value, CASE WHEN id IN (5, 6, 7) THEN CAST('foo' AS VARCHAR) WHEN id < 5 THEN CAST('bars' AS VARCHAR) ELSE NULL END as string_value from testavro.SIMPLE1";
+    List<String> sqlStmts = Arrays.asList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("id").toString()))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    Assert.assertTrue(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()).equals(outMessages));
+  }
+
+  @Test
+  public void testEndToEndWithLike() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 = "Insert into testavro.outputTopic(id, long_value) "
+        + " select id, name as string_value from testavro.SIMPLE1 where name like 'Name%'";
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     runApplication(new MapConfig(staticConfigs));
@@ -415,6 +434,27 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
     Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+  @Test
+  public void testEndToEndFlattenWithUdf() throws Exception {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    String sql1 =
+        "Insert into testavro.outputTopic(id) select Flatten(MyTestArray(id)) as id from testavro.SIMPLE1";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+    runApplication(new MapConfig(staticConfigs));
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+
+    int expectedMessages = 0;
+    // Flatten de-normalizes the data. So there is separate record for each entry in the array.
+    for (int index = 1; index < numMessages; index++) {
+      expectedMessages = expectedMessages + Math.max(1, index);
+    }
+    Assert.assertEquals(expectedMessages, outMessages.size());
   }
 
   @Test

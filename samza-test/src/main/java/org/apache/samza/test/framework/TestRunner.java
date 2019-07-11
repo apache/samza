@@ -110,7 +110,7 @@ public class TestRunner {
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
-    configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
@@ -131,7 +131,7 @@ public class TestRunner {
   private TestRunner(Class taskClass) {
     this();
     Preconditions.checkNotNull(taskClass);
-    configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
+    configs.put(TaskConfig.TASK_CLASS, taskClass.getName());
     this.app = new LegacyTaskApplication(taskClass.getName());
   }
 
@@ -373,11 +373,15 @@ public class TestRunner {
       Map<Integer, Iterable<StreamMessageType>> partitionData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
-      configs.put(TaskConfig.INPUT_STREAMS(),
-          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + systemName + "." + streamName));
-    } else {
-      configs.put(TaskConfig.INPUT_STREAMS(), systemName + "." + streamName);
+    if (this.app instanceof LegacyTaskApplication) {
+      // task.inputs is generated using descriptors for Task/StreamApplication, but needs to be generated here
+      // for legacy applications that only specify task.class.
+      if (configs.containsKey(TaskConfig.INPUT_STREAMS)) {
+        configs.put(TaskConfig.INPUT_STREAMS,
+            configs.get(TaskConfig.INPUT_STREAMS).concat("," + systemName + "." + streamName));
+      } else {
+        configs.put(TaskConfig.INPUT_STREAMS, systemName + "." + streamName);
+      }
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
