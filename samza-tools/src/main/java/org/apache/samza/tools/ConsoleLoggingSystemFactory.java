@@ -97,7 +97,7 @@ public class ConsoleLoggingSystemFactory implements SystemFactory {
     }
 
     private String getFormattedValue(OutgoingMessageEnvelope envelope) {
-      String value = new String((byte[]) envelope.getMessage());
+      String value = envelope.getMessage() != null ? new String((byte[]) envelope.getMessage()) : null;
       String formattedValue;
 
       try {
