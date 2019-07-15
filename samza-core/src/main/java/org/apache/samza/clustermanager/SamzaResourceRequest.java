@@ -60,7 +60,7 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * The timestamp in millis when the request was created.
    */
-  private final long requestTimestampMs;
+  private final Instant requestTimestamp;
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
     this(numCores, memoryMB, preferredHost, processorId, Instant.now());
@@ -72,16 +72,16 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     this.preferredHost = preferredHost;
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
-    this.requestTimestampMs = requestTimestamp.toEpochMilli();
-    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestampMs, this.requestId);
+    this.requestTimestamp = requestTimestamp;
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
   }
 
   public String getProcessorId() {
     return processorId;
   }
 
-  public long getRequestTimestampMs() {
-    return requestTimestampMs;
+  public Instant getRequestTimestamp() {
+    return requestTimestamp;
   }
 
   public String getRequestId() {
@@ -100,10 +100,6 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     return memoryMB;
   }
 
-  public boolean isInFuture() {
-    return Instant.ofEpochMilli(requestTimestampMs).isAfter(Instant.now());
-  }
-
   @Override
   public String toString() {
     return "SamzaResourceRequest{" +
@@ -112,7 +108,7 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             ", preferredHost='" + preferredHost + '\'' +
             ", requestId='" + requestId + '\'' +
             ", processorId=" + processorId +
-            ", requestTimestampMs=" + requestTimestampMs +
+            ", requestTimestampMs=" + requestTimestamp +
             '}';
   }
 
@@ -124,14 +120,6 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
-    if (!isInFuture() && o.isInFuture()) {
-      return -1;
-    }
-
-    if (isInFuture() && !o.isInFuture()) {
-      return 1;
-    }
-
     if (!StandbyTaskUtil.isStandbyContainer(processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return -1;
     }
@@ -140,10 +128,14 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
       return 1;
     }
 
-    if (requestTimestampMs < o.requestTimestampMs)
+    if (requestTimestamp.isBefore(o.requestTimestamp)) {
       return -1;
-    if (requestTimestampMs > o.requestTimestampMs)
+    }
+
+    if (requestTimestamp.isAfter(o.requestTimestamp)) {
       return 1;
+    }
+
     return 0;
   }
 }

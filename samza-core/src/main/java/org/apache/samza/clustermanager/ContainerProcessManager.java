@@ -473,8 +473,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   /**
-   * Called within {@link #onResourceCompleted(SamzaResourceStatus)} for unknown exit statuses. Usually these type of
-   * exit statuses are due to application errors causing the container resource to fail or for other unknown reasons.
+   * Called within {@link #onResourceCompleted(SamzaResourceStatus)} for unknown exit statuses. These exit statuses
+   * correspond to container completion other than container run-to-completion, abort or preemption, or disk failure
+   * (e.g., detected by YARN's NM healthchecks).
    * @param resourceStatus reported resource status.
    * @param containerId container ID
    * @param processorId processor ID (aka. logical container ID)
@@ -528,7 +529,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         Duration retryDelay = getHostRetryDelay(lastSeenOn, currentFailCount - 1);
         long currentRetryWindowMs = Instant.now().toEpochMilli() - lastFailureTime.plus(retryDelay).toEpochMilli();
 
-        if (currentRetryWindowMs < maxRetryWindowMs) {
+        if (currentRetryWindowMs <= maxRetryWindowMs) {
           LOG.error("Processor ID: {} (current Container ID: {}) has failed with {} retries, within a window of {} ms " +
                   "after a retry delay of {} ms. " +
                   "This is greater than max retry count of {} and max retry window of {} ms, " +
@@ -571,6 +572,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   @VisibleForTesting
   Duration getHostRetryDelay(String host, int failCount) {
+    // TODO: Use a util to calculate the exponential back-off like org.apache.commons.math3.distribution.ExponentialDistribution
+    //   Currently org.apache.commons.math3 is not a provided dependency.
+
     // Only add a retry delay when host is a preferred host or if the request failed more than once.
     if (failCount < 2 || StringUtils.isBlank(host) || host.equals(ResourceRequestState.ANY_HOST)) {
       return Duration.ZERO;
