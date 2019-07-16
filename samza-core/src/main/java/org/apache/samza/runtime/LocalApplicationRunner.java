@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.SamzaApplication;
@@ -84,7 +83,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final AtomicReference<Throwable> failure = new AtomicReference<>();
   private final boolean isAppModeBatch;
   private final Optional<CoordinationUtils> coordinationUtils;
-  private final MetadataStoreFactory coordinatorMetadataStoreFactory;
+  private final MetadataStoreFactory metadataStoreFactory;
   private Optional<String> runId = Optional.empty();
   private Optional<RunIdGenerator> runIdGenerator = Optional.empty();
 
@@ -111,8 +110,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
     this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     this.isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = getCoordinationUtils(config, getClass().getClassLoader());
-    this.coordinatorMetadataStoreFactory = metadataStoreFactory;
+    this.metadataStoreFactory = metadataStoreFactory;
   }
+
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
@@ -121,7 +121,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     this.appDesc = appDesc;
     this.isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = coordinationUtils;
-    this.coordinatorMetadataStoreFactory = new CoordinatorStreamMetadataStoreFactory();
+    this.metadataStoreFactory = new CoordinatorStreamMetadataStoreFactory();
   }
 
   private Optional<CoordinationUtils> getCoordinationUtils(Config config, ClassLoader classLoader) {
@@ -190,9 +190,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
           coordinatorStreamStore.init();
-          Pair<StreamProcessor, MetadataStore> processor = createStreamProcessor(jobConfig, appDesc,
+          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
               sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
-          processors.add(processor);
+          processors.add(Pair.of(processor, coordinatorStreamStore));
         });
       numProcessorsToStart.set(processors.size());
 
@@ -263,12 +263,12 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @VisibleForTesting
   MetadataStore createCoordinatorStreamStore(Config jobConfig) {
     MetadataStore coordinatorStreamStore =
-        coordinatorMetadataStoreFactory.getMetadataStore("NoOp", jobConfig, new MetricsRegistryMap());
+        metadataStoreFactory.getMetadataStore("NoOp", jobConfig, new MetricsRegistryMap());
     return coordinatorStreamStore;
   }
 
   @VisibleForTesting
-  Pair<StreamProcessor, MetadataStore> createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
+  StreamProcessor createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       StreamProcessor.StreamProcessorLifecycleListenerFactory listenerFactory,
       Optional<ExternalContext> externalContextOptional, MetadataStore coordinatorStreamStore) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
@@ -280,7 +280,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     StreamProcessor streamProcessor = new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
           appDesc.getApplicationTaskContextFactory(), externalContextOptional, listenerFactory, null, coordinatorStreamStore);
 
-    return ImmutablePair.of(streamProcessor, coordinatorStreamStore);
+    return streamProcessor;
   }
 
   /**
@@ -314,7 +314,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   /**
-   * This is not to be confused with the metadata store created from the member coordinatorMetadataStoreFactory.
+   * This is not to be confused with the metadata store created from the member {@link #metadataStoreFactory}.
    * The reason for the two Metadata store types (ZK and coordinator stream) is that the job model needs to be stored in
    * ZK because of the versioning requirements. Configs and startpoints are stored in the coordinator stream. This
    * disparity will be resolved with the next gen metadata store abstraction.

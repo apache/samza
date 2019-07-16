@@ -46,7 +46,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
 
-    // TODO: This should be merged with coordinatorStreamStore
+    // TODO: This should be merged with coordinatorStreamStore - SAMZA-2272
     ZkMetadataStore zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), config, metricsRegistry);
 
     return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils, zkMetadataStore, coordinatorStreamStore);

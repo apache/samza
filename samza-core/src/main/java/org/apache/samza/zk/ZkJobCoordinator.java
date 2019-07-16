@@ -317,6 +317,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       metadataResourceUtil.createResources();
 
       if (coordinatorStreamStore != null) {
+        // TODO: SAMZA-2273 - publish configs async
         CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
         NamespaceAwareCoordinatorStreamStore configStore =
             new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);

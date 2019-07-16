@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
@@ -119,7 +118,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(ImmutablePair.of(sp, metadataStore)).when(runner)
+    doReturn(sp).when(runner)
         .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(
             CoordinatorStreamStore.class));
     doReturn(metadataStore).when(runner).createCoordinatorStreamStore(any(Config.class));
@@ -157,7 +156,7 @@ public class TestLocalApplicationRunner {
         return null;
       }).when(sp).start();
 
-    doReturn(ImmutablePair.of(sp, metadataStore)).when(runner).createStreamProcessor(anyObject(), anyObject(),
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(),
         captor.capture(), eq(Optional.empty()), any(CoordinatorStreamStore.class));
     doReturn(metadataStore).when(runner).createCoordinatorStreamStore(any(Config.class));
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).status();
@@ -198,7 +197,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+    doReturn(sp).when(runner)
         .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(CoordinatorStreamStore.class));
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
 
@@ -236,7 +235,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+    doReturn(sp).when(runner)
         .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(
             CoordinatorStreamStore.class));
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
@@ -288,7 +287,7 @@ public class TestLocalApplicationRunner {
       }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
-    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner)
+    doReturn(sp).when(runner)
         .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(CoordinatorStreamStore.class));
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
 
@@ -433,7 +432,7 @@ public class TestLocalApplicationRunner {
     doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
     StreamProcessor sp = mock(StreamProcessor.class);
     CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
-    doReturn(ImmutablePair.of(sp, coordinatorStreamStore)).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject(), any(
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject(), any(
         CoordinatorStreamStore.class));
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
   }
