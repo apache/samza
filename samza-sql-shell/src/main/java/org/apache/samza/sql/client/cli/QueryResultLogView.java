@@ -20,7 +20,7 @@
 package org.apache.samza.sql.client.cli;
 
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
-import org.apache.samza.sql.client.interfaces.ExecutorException;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
 import org.apache.samza.sql.client.interfaces.QueryResult;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
 import org.jline.keymap.BindingReader;

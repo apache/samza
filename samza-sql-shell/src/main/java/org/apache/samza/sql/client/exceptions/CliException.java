@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.util;
+package org.apache.samza.sql.client.exceptions;
 
 /**
  * The exception used by the shell for unrecoverable errors.

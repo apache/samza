@@ -19,6 +19,9 @@
 
 package org.apache.samza.sql.client.util;
 
+import java.io.PrintWriter;
+import org.apache.samza.sql.client.cli.CliCommand;
+
 /**
  * Convenient utility class with static methods.
  */
@@ -39,5 +42,28 @@ public class CliUtil {
       builder.append(c);
     }
     return builder;
+  }
+
+  // Trims: leading spaces; trailing spaces and ";"s
+  public static String trimCommand(String command) {
+    if (CliUtil.isNullOrEmpty(command))
+      return command;
+
+    int len = command.length();
+    int st = 0;
+
+    while ((st < len) && (command.charAt(st) <= ' ')) {
+      st++;
+    }
+    while ((st < len) && ((command.charAt(len - 1) <= ' ')
+        || command.charAt(len - 1) == ';')) {
+      len--;
+    }
+    return ((st > 0) || (len < command.length())) ? command.substring(st, len) : command;
+  }
+
+  public static void printCommandUsage(CliCommand command, PrintWriter writer) {
+    writer.println(command.getCommandType().getUsage());
+    writer.flush();
   }
 }

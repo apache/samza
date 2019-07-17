@@ -17,14 +17,20 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.cli;
+package org.apache.samza.sql.client.interfaces;
 
-import org.apache.samza.sql.client.exceptions.ExecutorException;
-import org.apache.samza.sql.client.interfaces.QueryResult;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * For displaying the streaming result of a SELECT statement.
- */
-public interface CliView {
-  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException;
+public interface CommandType {
+
+  static List<String> getAllCommands() { return new ArrayList<>(); }
+
+  String getCommandName();
+
+  String getDescription();
+
+  String getUsage();
+
+  boolean argsAreOptional();
 }

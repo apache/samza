@@ -17,14 +17,18 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.cli;
+package org.apache.samza.sql.client.interfaces;
 
-import org.apache.samza.sql.client.exceptions.ExecutorException;
-import org.apache.samza.sql.client.interfaces.QueryResult;
+import org.apache.samza.sql.client.cli.CliCommand;
+import org.apache.samza.sql.client.cli.CliEnvironment;
+import org.apache.samza.sql.client.cli.CliShell;
+import org.apache.samza.sql.client.exceptions.CommandHandlerException;
+import org.jline.terminal.Terminal;
 
-/**
- * For displaying the streaming result of a SELECT statement.
- */
-public interface CliView {
-  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException;
+
+public interface CommandHandler {
+  void init(CliShell shell, CliEnvironment env, Terminal terminal, ExecutionContext exeContext);
+  CliCommand parseLine(String line);
+  boolean handleCommand(CliCommand command) throws CommandHandlerException;
+  void printHelpMessage();
 }
