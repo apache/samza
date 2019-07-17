@@ -19,23 +19,25 @@
 
 package org.apache.samza.sql.client.cli;
 
+import org.apache.samza.sql.client.interfaces.CommandType;
+
 /**
  * A shell command containing command name and parameters.
  */
-class CliCommand {
-  private CliCommandType commandType;
+public class CliCommand {
+  private CommandType commandType;
   private String parameters;
 
-  public CliCommand(CliCommandType cmdType) {
+  public CliCommand(CommandType cmdType) {
     this.commandType = cmdType;
   }
 
-  public CliCommand(CliCommandType cmdType, String parameters) {
+  public CliCommand(CommandType cmdType, String parameters) {
     this(cmdType);
     this.parameters = parameters;
   }
 
-  public CliCommandType getCommandType() {
+  public CommandType getCommandType() {
     return commandType;
   }
 

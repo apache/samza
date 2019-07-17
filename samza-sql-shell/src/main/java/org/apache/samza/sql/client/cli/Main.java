@@ -71,6 +71,7 @@ public class Main {
             String key = strs[0].trim().toLowerCase();
             String value = strs[1].trim();
             try {
+              LOG.info("Configuration: setting {} = {}", key, value);
               int result = environment.setEnvironmentVariable(key, value);
               if (result == -1) { // CliEnvironment doesn't recognize the key.
                 LOG.warn("Unknowing shell environment variable: {}", key);

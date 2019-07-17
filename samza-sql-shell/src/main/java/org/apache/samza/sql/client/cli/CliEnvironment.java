@@ -19,6 +19,8 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.util.ArrayList;
+import org.apache.samza.sql.client.interfaces.CommandHandler;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableSpecs;
 import org.apache.samza.sql.client.interfaces.ExecutorException;
@@ -39,10 +41,11 @@ import java.util.Map;
 /**
  * CliEnvironment handles "environment variables" that configures the shell behavior.
  */
-class CliEnvironment {
+public class CliEnvironment {
   private EnvironmentVariableHandler shellEnvHandler;
   private EnvironmentVariableHandler executorEnvHandler;
   private SqlExecutor executor;
+  private List<CommandHandler> commandHandlers;
   private Map<String, String> delayedExecutorVars;
 
   // shell.executor is special and is specifically handled by CliEnvironment
@@ -51,6 +54,7 @@ class CliEnvironment {
 
   CliEnvironment() {
     shellEnvHandler = new CliShellEnvironmentVariableHandler();
+    commandHandlers = new ArrayList<>();
   }
 
   /** Sets the value of an environment variable.
@@ -61,11 +65,17 @@ class CliEnvironment {
    * -1: invalid name
    * -2: invalid value
    */
-  int setEnvironmentVariable(String name, String value) throws ExecutorException{
+  public int setEnvironmentVariable(String name, String value) throws ExecutorException {
+    name = name.toLowerCase();
     if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
       createShellExecutor(value);
       activeExecutorClassName = value;
       executorEnvHandler = executor.getEnvironmentVariableHandler();
+      return 0;
+    }
+
+    if (name.equals(CliConstants.CONFIG_COMMAND_HANDLER)) {
+      createCommandHandler(value);
       return 0;
     }
 
@@ -173,11 +183,21 @@ class CliEnvironment {
     return executor;
   }
 
+  public List<CommandHandler> getCommandHandlers() { return commandHandlers; }
+
   private void createShellExecutor(String executorClassName) throws ExecutorException {
+    executor = (SqlExecutor) createInstance(executorClassName);
+  }
+
+  private void createCommandHandler(String handlerClassName) throws ExecutorException {
+    commandHandlers.add((CommandHandler) createInstance(handlerClassName));
+  }
+
+  private Object createInstance(String className) throws ExecutorException {
     try {
-      Class<?> clazz = Class.forName(executorClassName);
+      Class<?> clazz = Class.forName(className);
       Constructor<?> ctor = clazz.getConstructor();
-      executor = (SqlExecutor) ctor.newInstance();
+      return ctor.newInstance();
     } catch (ClassNotFoundException | NoSuchMethodException
             | IllegalAccessException | InstantiationException | InvocationTargetException e) {
       throw new ExecutorException(e);
